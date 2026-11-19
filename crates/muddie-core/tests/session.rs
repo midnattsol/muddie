@@ -16,6 +16,7 @@ async fn start() -> (Session, TcpStream) {
         host: "127.0.0.1".into(),
         port: listener.local_addr().unwrap().port(),
         tls: false,
+        verify_certificate: true,
     };
     let session = connect(target, Config::default());
     let (server, _) = timeout(WAIT, listener.accept()).await.unwrap().unwrap();
@@ -91,9 +92,72 @@ async fn connection_failure_is_reported() {
         host: "127.0.0.1".into(),
         port,
         tls: false,
+        verify_certificate: true,
     };
     let mut session = connect(target, Config::default());
     let Event::Disconnected(Some(_)) = next(&mut session).await else {
         panic!("expected a connection error");
     };
+}
+
+/// Connects over TLS to a server with a self-signed certificate.
+async fn connect_to_self_signed(
+    verify_certificate: bool,
+) -> (Session, tokio::task::JoinHandle<()>) {
+    use std::sync::Arc;
+    use tokio_rustls::TlsAcceptor;
+    use tokio_rustls::rustls::ServerConfig;
+    use tokio_rustls::rustls::crypto::ring::default_provider;
+    use tokio_rustls::rustls::pki_types::{PrivateKeyDer, PrivatePkcs8KeyDer};
+
+    let certified = rcgen::generate_simple_self_signed(["localhost".to_owned()]).unwrap();
+    let key = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(
+        certified.signing_key.serialize_der(),
+    ));
+    let config = ServerConfig::builder_with_provider(Arc::new(default_provider()))
+        .with_safe_default_protocol_versions()
+        .unwrap()
+        .with_no_client_auth()
+        .with_single_cert(vec![certified.cert.der().clone()], key)
+        .unwrap();
+    let acceptor = TlsAcceptor::from(Arc::new(config));
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let target = Target {
+        host: "localhost".into(),
+        port: listener.local_addr().unwrap().port(),
+        tls: true,
+        verify_certificate,
+    };
+    let server = tokio::spawn(async move {
+        let (tcp, _) = listener.accept().await.unwrap();
+        // A client that rejects the certificate aborts the handshake.
+        if let Ok(mut stream) = acceptor.accept(tcp).await {
+            stream.write_all(b"secure hello\r\n").await.unwrap();
+            let mut buf = [0; 4];
+            stream.read_exact(&mut buf).await.unwrap();
+            assert_eq!(&buf, b"hi\r\n");
+        }
+    });
+    (connect(target, Config::default()), server)
+}
+
+#[tokio::test]
+async fn tls_works_when_the_certificate_is_not_verified() {
+    let (mut session, server) = connect_to_self_signed(false).await;
+    assert_eq!(next(&mut session).await, Event::Connected);
+    let Event::Line(line) = next(&mut session).await else {
+        panic!("expected a line");
+    };
+    assert_eq!(line.text(), "secure hello");
+    session.commands.send(Command::Send("hi".into())).unwrap();
+    timeout(WAIT, server).await.unwrap().unwrap();
+}
+
+#[tokio::test]
+async fn tls_rejects_a_self_signed_certificate_by_default() {
+    let (mut session, _server) = connect_to_self_signed(true).await;
+    let Event::Disconnected(Some(error)) = next(&mut session).await else {
+        panic!("expected the connection to be refused");
+    };
+    assert!(error.contains("certificate"), "unexpected error: {error}");
 }

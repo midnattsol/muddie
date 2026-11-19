@@ -8,8 +8,14 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::sync::mpsc;
 use tokio_rustls::TlsConnector;
-use tokio_rustls::rustls::pki_types::ServerName;
-use tokio_rustls::rustls::{self, ClientConfig, RootCertStore};
+use tokio_rustls::rustls::client::danger::{
+    HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier,
+};
+use tokio_rustls::rustls::crypto::CryptoProvider;
+use tokio_rustls::rustls::pki_types::{CertificateDer, ServerName, UnixTime};
+use tokio_rustls::rustls::{
+    self, ClientConfig, DigitallySignedStruct, RootCertStore, SignatureScheme,
+};
 
 use crate::negotiate::Config;
 use crate::pipeline::{Event, Pipeline};
@@ -19,6 +25,10 @@ pub struct Target {
     pub host: String,
     pub port: u16,
     pub tls: bool,
+    /// Whether the server's TLS certificate must be valid. Turning this
+    /// off allows the self-signed certificates many MUDs use, at the cost
+    /// of not knowing who is on the other end.
+    pub verify_certificate: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -63,20 +73,68 @@ pub fn connect(target: Target, mut config: Config) -> Session {
 trait Stream: AsyncRead + AsyncWrite + Unpin + Send {}
 impl<T: AsyncRead + AsyncWrite + Unpin + Send> Stream for T {}
 
+/// Accepts whatever certificate the server presents, while still checking
+/// that the server holds its private key.
+#[derive(Debug)]
+struct AnyCertificate(Arc<CryptoProvider>);
+
+impl ServerCertVerifier for AnyCertificate {
+    fn verify_server_cert(
+        &self,
+        _end_entity: &CertificateDer<'_>,
+        _intermediates: &[CertificateDer<'_>],
+        _server_name: &ServerName<'_>,
+        _ocsp_response: &[u8],
+        _now: UnixTime,
+    ) -> Result<ServerCertVerified, rustls::Error> {
+        Ok(ServerCertVerified::assertion())
+    }
+
+    fn verify_tls12_signature(
+        &self,
+        message: &[u8],
+        cert: &CertificateDer<'_>,
+        dss: &DigitallySignedStruct,
+    ) -> Result<HandshakeSignatureValid, rustls::Error> {
+        let algorithms = &self.0.signature_verification_algorithms;
+        rustls::crypto::verify_tls12_signature(message, cert, dss, algorithms)
+    }
+
+    fn verify_tls13_signature(
+        &self,
+        message: &[u8],
+        cert: &CertificateDer<'_>,
+        dss: &DigitallySignedStruct,
+    ) -> Result<HandshakeSignatureValid, rustls::Error> {
+        let algorithms = &self.0.signature_verification_algorithms;
+        rustls::crypto::verify_tls13_signature(message, cert, dss, algorithms)
+    }
+
+    fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
+        self.0.signature_verification_algorithms.supported_schemes()
+    }
+}
+
 async fn open(target: &Target) -> io::Result<Box<dyn Stream>> {
     let tcp = TcpStream::connect((target.host.as_str(), target.port)).await?;
     tcp.set_nodelay(true)?;
     if !target.tls {
         return Ok(Box::new(tcp));
     }
-    let mut roots = RootCertStore::empty();
-    roots.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
     let provider = Arc::new(rustls::crypto::ring::default_provider());
-    let tls_config = ClientConfig::builder_with_provider(provider)
+    let builder = ClientConfig::builder_with_provider(Arc::clone(&provider))
         .with_safe_default_protocol_versions()
-        .map_err(io::Error::other)?
-        .with_root_certificates(roots)
-        .with_no_client_auth();
+        .map_err(io::Error::other)?;
+    let tls_config = if target.verify_certificate {
+        let mut roots = RootCertStore::empty();
+        roots.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+        builder.with_root_certificates(roots).with_no_client_auth()
+    } else {
+        builder
+            .dangerous()
+            .with_custom_certificate_verifier(Arc::new(AnyCertificate(provider)))
+            .with_no_client_auth()
+    };
     let name = ServerName::try_from(target.host.clone()).map_err(io::Error::other)?;
     let stream = TlsConnector::from(Arc::new(tls_config))
         .connect(name, tcp)

@@ -4,51 +4,47 @@ mod mapview;
 mod output;
 mod palette;
 mod panels;
+mod profile;
 mod voice;
-
-use std::path::PathBuf;
 
 use eframe::egui;
 use muddie_core::Target;
 
 use crate::app::Startup;
+use crate::profile::Profiles;
 
-const USAGE: &str = "usage: muddie [--speech] [--script FILE]... [HOST PORT [--tls]]";
-
-/// The user's startup script, run before any `--script` file if it exists.
-fn init_script() -> Option<PathBuf> {
-    let config_dir = std::env::var_os("XDG_CONFIG_HOME")
-        .or_else(|| std::env::var_os("APPDATA"))
-        .map(PathBuf::from)
-        .or_else(|| Some(PathBuf::from(std::env::var_os("HOME")?).join(".config")))?;
-    let path = config_dir.join("muddie").join("init.luau");
-    path.is_file().then_some(path)
-}
+const USAGE: &str =
+    "usage: muddie [--speech] [--script FILE]... [--profile NAME | HOST PORT [--tls] [--insecure]]";
 
 fn parse_args(args: &[String]) -> Result<Startup, String> {
     let mut startup = Startup {
+        profiles: Profiles::in_config_dir(),
+        profile: None,
         target: None,
         speech: false,
-        scripts: init_script().into_iter().collect(),
+        scripts: Vec::new(),
     };
-    let mut tls = false;
+    let (mut tls, mut insecure) = (false, false);
     let mut positional = Vec::new();
     let mut args = args.iter();
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--tls" => tls = true,
+            "--insecure" => insecure = true,
             "--speech" => startup.speech = true,
             "--script" => startup.scripts.push(args.next().ok_or(USAGE)?.into()),
+            "--profile" => startup.profile = Some(args.next().ok_or(USAGE)?.clone()),
             flag if flag.starts_with("--") => return Err(USAGE.to_owned()),
             _ => positional.push(arg.as_str()),
         }
     }
     startup.target = match positional.as_slice() {
-        [] if !tls => None,
-        [host, port] => Some(Target {
+        [] if !tls && !insecure => None,
+        [host, port] if startup.profile.is_none() => Some(Target {
             host: (*host).to_owned(),
             port: port.parse().map_err(|_| format!("invalid port: {port}"))?,
             tls,
+            verify_certificate: !insecure,
         }),
         _ => return Err(USAGE.to_owned()),
     };

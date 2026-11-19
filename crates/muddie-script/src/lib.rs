@@ -8,12 +8,25 @@
 //! - `send(text)`: send a command to the MUD (aliases are not applied).
 //! - `echo(text)`: show a line in the output.
 //! - `speak(text, {interrupt = true})`: say something through speech.
-//! - `trigger(pattern, fn)`: call `fn(m, line)` for each output line matching
-//!   the regular expression. `m[0]` is the whole match, `m[1]`... the groups,
-//!   and named groups are also available as `m.name`.
+//! - `trigger(pattern, fn, options)`: call `fn(m, line)` for each output
+//!   line matching the regular expression. `m[0]` is the whole match,
+//!   `m[1]`... the groups, and named groups are also available as `m.name`.
+//!   The optional `options` table takes `group` (a name to switch several
+//!   on and off together) and `once` (remove it after it fires).
 //! - `gag()`: inside a trigger, hide the line that fired it.
-//! - `alias(pattern, fn)`: call `fn(m, input)` instead of sending typed input
-//!   that matches.
+//! - `line_spans()`: inside a trigger, the line as a list of runs of text
+//!   with their style: `text`, `fg` and `bg` (a palette number, an
+//!   `"#rrggbb"` string, or `nil` for the default), `bold`, `italic`,
+//!   `underline` and `inverse`.
+//! - `alias(pattern, fn, options)`: call `fn(m, input)` instead of sending
+//!   typed input that matches; same options as `trigger`.
+//! - `enable(group, enabled)`: switch a group of triggers and aliases on
+//!   or off.
+//! - `separator(text)`: the text that separates several commands typed on
+//!   one line (`;` by default, doubled to type it literally); `nil` turns
+//!   splitting off.
+//! - `require(name)`: load `name.luau` (or `name/init.luau`) from a folder
+//!   scripts were loaded from, once, and return what it returns.
 //! - `after(seconds, fn)` and `every(seconds, fn)`: timers.
 //! - `on_gmcp(package, fn)`: call `fn(data, package)` when a GMCP message
 //!   for that package or one under it arrives (`"Char"` covers
@@ -73,13 +86,14 @@
 //!   id that the functions above returned.
 
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
 use mlua::serde::SerializeOptions;
 use mlua::{Function, Lua, LuaOptions, LuaSerdeExt, StdLib, Table, Value, Variadic, VmState};
+use muddie_core::{Color, Line};
 use muddie_mapper::{Exit, Map, Pos, Room, RoomId, RoomInfo, room_id};
 use regex::Regex;
 
@@ -132,6 +146,10 @@ struct Matcher {
     id: u64,
     regex: Regex,
     callback: Function,
+    /// Group it is switched on and off with, if any.
+    group: Option<String>,
+    /// Removed after firing once.
+    once: bool,
 }
 
 struct Timer {
@@ -185,6 +203,18 @@ struct State {
     map_memory_only: bool,
     /// Set by `gag()` while a line's triggers run.
     gag: bool,
+    /// The line whose triggers are running, with its styles.
+    current_line: Option<Line>,
+    /// Groups switched off with `enable(group, false)`.
+    disabled_groups: HashSet<String>,
+    /// Set by `separator()`: `Some(None)` turns command splitting off.
+    separator: Option<Option<String>>,
+    /// Folders `require` looks in: those scripts were loaded from.
+    module_dirs: Vec<PathBuf>,
+    /// What each required module returned.
+    modules: HashMap<String, Value>,
+    /// Modules being loaded, to refuse circular requires.
+    loading: Vec<String>,
     /// When the script currently running must be stopped.
     deadline: Option<Instant>,
 }
@@ -200,6 +230,7 @@ impl State {
 /// or remove triggers while a line is being dispatched.
 struct Hit {
     id: u64,
+    once: bool,
     callback: Function,
     groups: Vec<Option<String>>,
     named: Vec<(String, String)>,
@@ -264,6 +295,12 @@ impl Engine {
         if !self.files.iter().any(|loaded| loaded == path) {
             self.files.push(path.to_owned());
         }
+        if let Some(dir) = path.parent() {
+            let dirs = &mut self.state.borrow_mut().module_dirs;
+            if !dirs.iter().any(|known| known == dir) {
+                dirs.push(dir.to_owned());
+            }
+        }
         match std::fs::read_to_string(path) {
             Ok(code) => {
                 let name = path.file_name().unwrap_or(path.as_os_str());
@@ -283,27 +320,50 @@ impl Engine {
     /// Offers a completed output line to the triggers. Returns false if a
     /// trigger gagged it, meaning it must not be shown or spoken.
     pub fn on_line(&mut self, line: &str) -> bool {
-        self.state.borrow_mut().gag = false;
-        for hit in self.hits(line, |state| &state.triggers, usize::MAX) {
-            let still_there = (self.state.borrow().triggers.iter()).any(|t| t.id == hit.id);
-            if still_there {
-                self.fire(&hit, line);
-            }
-        }
-        !std::mem::take(&mut self.state.borrow_mut().gag)
+        self.dispatch_line(line, None)
     }
 
-    /// Handles a line typed by the user: a client command, an alias, or
-    /// otherwise a command to send as it is.
+    /// Like [`Self::on_line`], with the line's colours available to the
+    /// triggers through `line_spans()`.
+    pub fn on_styled_line(&mut self, line: &Line) -> bool {
+        self.dispatch_line(&line.text(), Some(line.clone()))
+    }
+
+    fn dispatch_line(&mut self, text: &str, styled: Option<Line>) -> bool {
+        {
+            let mut state = self.state.borrow_mut();
+            state.gag = false;
+            state.current_line = styled;
+        }
+        for hit in self.hits(text, |state| &state.triggers, usize::MAX) {
+            let still_there = (self.state.borrow().triggers.iter()).any(|t| t.id == hit.id);
+            if still_there {
+                self.fire(&hit, text);
+            }
+        }
+        let mut state = self.state.borrow_mut();
+        state.current_line = None;
+        !std::mem::take(&mut state.gag)
+    }
+
+    /// Handles a line typed by the user: a client command, or one or more
+    /// commands, each of them an alias or sent as it is.
     pub fn on_input(&mut self, input: &str) {
         if let Some(code) = input.strip_prefix("/lua ") {
-            self.exec("input", code);
-        } else if input == "/reload" {
-            self.reload();
-        } else if let Some(hit) = self.hits(input, |state| &state.aliases, 1).pop() {
-            self.fire(&hit, input);
-        } else {
-            self.push(Action::Send(input.to_owned()));
+            return self.exec("input", code);
+        }
+        if input == "/reload" {
+            return self.reload();
+        }
+        let separator = match &self.state.borrow().separator {
+            Some(chosen) => chosen.clone(),
+            None => Some(";".to_owned()),
+        };
+        for command in split_commands(input, separator.as_deref()) {
+            match self.hits(&command, |state| &state.aliases, 1).pop() {
+                Some(hit) => self.fire(&hit, &command),
+                None => self.push(Action::Send(command)),
+            }
         }
     }
 
@@ -422,11 +482,15 @@ impl Engine {
 
     fn hits(&self, text: &str, list: impl Fn(&State) -> &Vec<Matcher>, limit: usize) -> Vec<Hit> {
         let state = self.state.borrow();
-        let matches = list(&state).iter().filter_map(|matcher| {
+        let enabled = |matcher: &&Matcher| {
+            (matcher.group.as_ref()).is_none_or(|group| !state.disabled_groups.contains(group))
+        };
+        let matches = list(&state).iter().filter(enabled).filter_map(|matcher| {
             let captures = matcher.regex.captures(text)?;
             let group = |m: regex::Match| m.as_str().to_owned();
             Some(Hit {
                 id: matcher.id,
+                once: matcher.once,
                 callback: matcher.callback.clone(),
                 groups: captures.iter().map(|m| m.map(group)).collect(),
                 named: (matcher.regex.capture_names().flatten())
@@ -438,6 +502,11 @@ impl Engine {
     }
 
     fn fire(&mut self, hit: &Hit, text: &str) {
+        if hit.once {
+            let mut state = self.state.borrow_mut();
+            state.triggers.retain(|trigger| trigger.id != hit.id);
+            state.aliases.retain(|alias| alias.id != hit.id);
+        }
         self.guarded(|| {
             let m = self.lua.create_table()?;
             for (index, group) in hit.groups.iter().enumerate() {
@@ -475,6 +544,56 @@ impl Engine {
 
     fn push_all(&self, actions: Vec<Action>) {
         self.state.borrow_mut().actions.extend(actions);
+    }
+}
+
+/// Splits typed input into commands at `separator`; a doubled separator
+/// stands for the separator itself. Without a separator the input is one
+/// command.
+fn split_commands(input: &str, separator: Option<&str>) -> Vec<String> {
+    let Some(separator) = separator.filter(|separator| !separator.is_empty()) else {
+        return vec![input.to_owned()];
+    };
+    let mut commands = vec![String::new()];
+    let mut rest = input;
+    while let Some(at) = rest.find(separator) {
+        let current = commands.last_mut().expect("never empty");
+        current.push_str(&rest[..at]);
+        rest = &rest[at + separator.len()..];
+        if let Some(after) = rest.strip_prefix(separator) {
+            current.push_str(separator);
+            rest = after;
+        } else {
+            commands.push(String::new());
+        }
+    }
+    commands.last_mut().expect("never empty").push_str(rest);
+    commands
+        .iter()
+        .map(|command| command.trim().to_owned())
+        .collect()
+}
+
+/// Whether `name` is safe to look up as a module: a relative path of plain
+/// names, so it cannot reach outside the script folders.
+fn valid_module_name(name: &str) -> bool {
+    let plain = |part: &str| {
+        !part.is_empty()
+            && part
+                .chars()
+                .all(|ch| ch.is_ascii_alphanumeric() || ch == '_' || ch == '-')
+    };
+    name.split('/').all(plain)
+}
+
+/// A colour as scripts see it: a palette number, `"#rrggbb"`, or nil.
+fn color_value(lua: &Lua, color: Color) -> mlua::Result<Value> {
+    match color {
+        Color::Default => Ok(Value::Nil),
+        Color::Indexed(index) => Ok(Value::Integer(index.into())),
+        Color::Rgb(r, g, b) => Ok(Value::String(
+            lua.create_string(format!("#{r:02x}{g:02x}{b:02x}"))?,
+        )),
     }
 }
 
@@ -898,24 +1017,118 @@ fn install_api(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
         let shared = Rc::clone(state);
         add(
             name,
-            lua.create_function(move |_, (pattern, callback): (String, Function)| {
-                let regex = Regex::new(&pattern).map_err(mlua::Error::runtime)?;
-                let mut state = shared.borrow_mut();
-                let id = state.next_id();
-                let list = if is_alias {
-                    &mut state.aliases
-                } else {
-                    &mut state.triggers
-                };
-                list.push(Matcher {
-                    id,
-                    regex,
-                    callback,
-                });
-                Ok(id)
-            })?,
+            lua.create_function(
+                move |_, (pattern, callback, options): (String, Function, Option<Table>)| {
+                    let regex = Regex::new(&pattern).map_err(mlua::Error::runtime)?;
+                    let (group, once) = match options {
+                        Some(options) => (
+                            options.get::<Option<String>>("group")?,
+                            options.get::<Option<bool>>("once")?.unwrap_or(false),
+                        ),
+                        None => (None, false),
+                    };
+                    let mut state = shared.borrow_mut();
+                    let id = state.next_id();
+                    let list = if is_alias {
+                        &mut state.aliases
+                    } else {
+                        &mut state.triggers
+                    };
+                    list.push(Matcher {
+                        id,
+                        regex,
+                        callback,
+                        group,
+                        once,
+                    });
+                    Ok(id)
+                },
+            )?,
         )?;
     }
+
+    let shared = Rc::clone(state);
+    add(
+        "enable",
+        lua.create_function(move |_, (group, enabled): (String, bool)| {
+            let groups = &mut shared.borrow_mut().disabled_groups;
+            if enabled {
+                groups.remove(&group);
+            } else {
+                groups.insert(group);
+            }
+            Ok(())
+        })?,
+    )?;
+
+    let shared = Rc::clone(state);
+    add(
+        "separator",
+        lua.create_function(move |_, separator: Option<String>| {
+            shared.borrow_mut().separator = Some(separator);
+            Ok(())
+        })?,
+    )?;
+
+    let shared = Rc::clone(state);
+    add(
+        "line_spans",
+        lua.create_function(move |lua, ()| {
+            let spans = lua.create_table()?;
+            let state = shared.borrow();
+            for span in state.current_line.iter().flat_map(|line| &line.spans) {
+                let entry = lua.create_table()?;
+                entry.set("text", span.text.as_str())?;
+                entry.set("fg", color_value(lua, span.style.fg)?)?;
+                entry.set("bg", color_value(lua, span.style.bg)?)?;
+                entry.set("bold", span.style.bold)?;
+                entry.set("italic", span.style.italic)?;
+                entry.set("underline", span.style.underline)?;
+                entry.set("inverse", span.style.inverse)?;
+                spans.push(entry)?;
+            }
+            Ok(spans)
+        })?,
+    )?;
+
+    let shared = Rc::clone(state);
+    add(
+        "require",
+        lua.create_function(move |lua, name: String| {
+            if !valid_module_name(&name) {
+                return Err(mlua::Error::runtime(format!("invalid module name: {name}")));
+            }
+            let (cached, dirs) = {
+                let state = shared.borrow();
+                if state.loading.contains(&name) {
+                    return Err(mlua::Error::runtime(format!("circular require of {name}")));
+                }
+                (state.modules.get(&name).cloned(), state.module_dirs.clone())
+            };
+            if let Some(module) = cached {
+                return Ok(module);
+            }
+            let candidates = dirs.iter().flat_map(|dir| {
+                [
+                    dir.join(format!("{name}.luau")),
+                    dir.join(&name).join("init.luau"),
+                ]
+            });
+            let Some(code) = candidates
+                .into_iter()
+                .find_map(|path| std::fs::read_to_string(path).ok())
+            else {
+                return Err(mlua::Error::runtime(format!("module not found: {name}")));
+            };
+            shared.borrow_mut().loading.push(name.clone());
+            let loaded = lua.load(code).set_name(format!("@{name}")).eval::<Value>();
+            let mut state = shared.borrow_mut();
+            state.loading.retain(|loading| *loading != name);
+            let module = loaded?;
+            state.modules.insert(name, module.clone());
+            Ok(module)
+        })?,
+    )?;
 
     for (name, repeats) in [("after", false), ("every", true)] {
         let shared = Rc::clone(state);
@@ -1160,11 +1373,11 @@ mod tests {
         let mut engine = engine("");
         engine.exec(
             "probe",
-            r#"echo(`{io} {package} {require} {debug} {os.execute} {os.remove} {loadfile} {dofile}`)"#,
+            r#"echo(`{io} {package} {debug} {os.execute} {os.remove} {loadfile} {dofile}`)"#,
         );
         assert_eq!(
             engine.take_actions(),
-            [Action::Echo("nil nil nil nil nil nil nil nil".into())]
+            [Action::Echo("nil nil nil nil nil nil nil".into())]
         );
         engine.exec("probe", "send = nil; string.rep = nil");
         assert!(error_text(&engine.take_actions()).contains("readonly"));
@@ -1448,6 +1661,129 @@ mod tests {
             ]
         );
         assert!(error_text(&actions[13..]).contains("a room id must be"));
+    }
+
+    #[test]
+    fn several_commands_on_one_line_each_go_through_aliases() {
+        let mut engine = engine(r#"alias("^k (.+)$", function(m) send("kill " .. m[1]) end)"#);
+        engine.on_input("n; k orc ;say hi;; bye;");
+        assert_eq!(
+            engine.take_actions(),
+            [send("n"), send("kill orc"), send("say hi; bye"), send("")]
+        );
+        engine.on_input("");
+        assert_eq!(engine.take_actions(), [send("")]);
+        engine.on_input("/lua separator('|')");
+        engine.on_input("n|s;e");
+        assert_eq!(engine.take_actions(), [send("n"), send("s;e")]);
+        engine.on_input("/lua separator(nil)");
+        engine.on_input("n|s;e");
+        assert_eq!(engine.take_actions(), [send("n|s;e")]);
+    }
+
+    #[test]
+    fn groups_switch_triggers_off_and_once_fires_a_single_time() {
+        let mut engine = engine(
+            r#"trigger("hit", function() send("flee") end, {group = "combat"})
+            trigger("hit", function() send("first blood") end, {once = true})
+            alias("^x$", function() send("special") end, {group = "combat"})"#,
+        );
+        engine.on_line("you are hit");
+        assert_eq!(engine.take_actions(), [send("flee"), send("first blood")]);
+        engine.on_input("/lua enable('combat', false)");
+        engine.on_line("you are hit");
+        engine.on_input("x");
+        assert_eq!(engine.take_actions(), [send("x")]);
+        engine.on_input("/lua enable('combat', true)");
+        engine.on_line("you are hit");
+        engine.on_input("x");
+        assert_eq!(engine.take_actions(), [send("flee"), send("special")]);
+    }
+
+    #[test]
+    fn trigger_can_read_the_colours_of_its_line() {
+        use muddie_core::{Span, Style};
+        let mut engine = engine(
+            r#"trigger("orc", function()
+                local parts = {}
+                for _, span in line_spans() do
+                    table.insert(parts, `{span.text}:{span.fg}:{span.bold}`)
+                end
+                echo(table.concat(parts, "|") .. " " .. #line_spans())
+            end)"#,
+        );
+        let span = |text: &str, style: Style| Span {
+            text: text.into(),
+            style,
+        };
+        let line = Line {
+            spans: vec![
+                span("An ", Style::default()),
+                span(
+                    "orc",
+                    Style {
+                        fg: Color::Indexed(1),
+                        bold: true,
+                        ..Style::default()
+                    },
+                ),
+                span(
+                    "!",
+                    Style {
+                        fg: Color::Rgb(255, 128, 0),
+                        ..Style::default()
+                    },
+                ),
+            ],
+        };
+        assert!(engine.on_styled_line(&line));
+        assert_eq!(
+            engine.take_actions(),
+            [Action::Echo(
+                "An :nil:false|orc:1:true|!:#ff8000:false 3".into()
+            )]
+        );
+        // Outside a trigger there is no line to describe.
+        engine.on_input("/lua echo(tostring(#line_spans()))");
+        assert_eq!(engine.take_actions(), [Action::Echo("0".into())]);
+    }
+
+    #[test]
+    fn require_loads_modules_once_from_the_script_folder_only() {
+        let dir = std::env::temp_dir().join(format!("muddie-require-test-{}", std::process::id()));
+        std::fs::create_dir_all(dir.join("combat")).unwrap();
+        std::fs::write(
+            dir.join("util.luau"),
+            "loads = (loads or 0) + 1\nreturn {double = function(n) return n * 2 end}",
+        )
+        .unwrap();
+        std::fs::write(
+            dir.join("combat/init.luau"),
+            "return require('util').double(21)",
+        )
+        .unwrap();
+        std::fs::write(dir.join("loop.luau"), "return require('loop')").unwrap();
+        std::fs::write(
+            dir.join("main.luau"),
+            "echo(`{require('util').double(4)} {require('combat')} {require('util') == require('util')} {loads}`)",
+        )
+        .unwrap();
+        let mut engine = Engine::new(Rc::default()).unwrap();
+        engine.load_file(&dir.join("main.luau"));
+        assert_eq!(engine.take_actions(), [Action::Echo("8 42 true 1".into())]);
+        for (name, problem) in [
+            ("../util", "invalid module name"),
+            ("/etc/passwd", "invalid module name"),
+            ("missing", "module not found"),
+            ("loop", "circular require"),
+        ] {
+            engine.on_input(&format!("/lua require('{name}')"));
+            assert!(
+                error_text(&engine.take_actions()).contains(problem),
+                "{name}"
+            );
+        }
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]

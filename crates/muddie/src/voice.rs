@@ -26,8 +26,8 @@ pub struct Voice {
     /// `Some` while speech is turned on.
     speech: Option<Speech>,
     narrator: Narrator,
-    /// Output row last read with the review keys.
-    review: Option<usize>,
+    /// Rows last read with the review keys: in the output, and in the chat.
+    review: [Option<usize>; 2],
     ctrl_was_down: bool,
 }
 
@@ -65,6 +65,12 @@ impl Voice {
         }
     }
 
+    /// The unterminated text was hidden by a script, so it is not spoken.
+    pub fn skip_partial(&mut self, text: &str) {
+        self.narrator.partial(text, Instant::now());
+        self.narrator.line(text);
+    }
+
     /// A line was completed but hidden by a script, so it is not spoken.
     pub fn skip_line(&mut self, text: &str) {
         self.narrator.line(text);
@@ -76,7 +82,7 @@ impl Voice {
     }
 
     /// Runs once per frame: speaks settled text and handles the speech keys.
-    pub fn update(&mut self, ui: &mut Ui, output: &Output) {
+    pub fn update(&mut self, ui: &mut Ui, output: &Output, chat: &Output) {
         if !self.enabled() {
             return;
         }
@@ -96,18 +102,20 @@ impl Voice {
         }
         self.ctrl_was_down = ctrl_down;
 
-        self.review_keys(ui, output);
+        self.review_keys(ui, output, 0, Modifiers::ALT);
+        self.review_keys(ui, chat, 1, Modifiers::ALT | Modifiers::SHIFT);
     }
 
-    /// Alt+Up/Down/Home/End move through the output reading each line;
-    /// Alt+1..9 read the most recent lines without moving.
-    fn review_keys(&mut self, ui: &mut Ui, output: &Output) {
+    /// With `modifiers` held, Up/Down/Home/End move through `output`
+    /// reading each line, and 1..9 read the most recent lines without
+    /// moving. Alt reviews the main output and Alt+Shift the chat.
+    fn review_keys(&mut self, ui: &mut Ui, output: &Output, which: usize, modifiers: Modifiers) {
         let Some(last) = output.len().checked_sub(1) else {
             return;
         };
-        let current = self.review.map(|row| row.min(last));
+        let current = self.review[which].map(|row| row.min(last));
         let (moved, recent) = ui.input_mut(|input| {
-            let mut pressed = |key| input.consume_key(Modifiers::ALT, key);
+            let mut pressed = |key| input.consume_key(modifiers, key);
             let moved = if pressed(Key::ArrowUp) {
                 Some(current.map_or(last, |row| row.saturating_sub(1)))
             } else if pressed(Key::ArrowDown) {
@@ -123,7 +131,7 @@ impl Voice {
             (moved, recent)
         });
         if moved.is_some() {
-            self.review = moved;
+            self.review[which] = moved;
         }
         let row = moved.or_else(|| recent.and_then(|back| last.checked_sub(back)));
         if let Some(row) = row {

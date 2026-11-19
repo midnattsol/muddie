@@ -6,7 +6,9 @@ use std::rc::Rc;
 use std::sync::mpsc::{Receiver, channel};
 use std::time::{Duration, Instant};
 
-use eframe::egui::{self, CentralPanel, Key, Label, Modifiers, Panel, RichText, TextEdit};
+use eframe::egui::{
+    self, CentralPanel, ComboBox, Key, Label, Modifiers, Panel, RichText, TextEdit,
+};
 use muddie_core::Line;
 use muddie_core::{Command, Config, Event, Session, Target, connect};
 use muddie_mapper::{Map, Progress, RoomId, RoomInfo, Walk};
@@ -18,6 +20,7 @@ use crate::mapview::{MapAction, MapView};
 use crate::output::{Output, server_job};
 use crate::palette;
 use crate::panels::{self, Gauges, MsdpVitals};
+use crate::profile::{Profile, Profiles};
 use crate::voice::Voice;
 
 struct Connection {
@@ -29,6 +32,21 @@ pub struct App {
     host: String,
     port: String,
     tls: bool,
+    verify_certificate: bool,
+    profiles: Option<Profiles>,
+    /// The profile in use, if any.
+    profile: Option<String>,
+    /// Its packages, kept so that saving the profile does not lose them.
+    packages: Vec<String>,
+    /// Name typed in the profile bar, to save the profile under.
+    profile_name: String,
+    /// Scripts given on the command line, run after the profile's.
+    extra_scripts: Vec<PathBuf>,
+    /// Unterminated text waiting to settle before its triggers run.
+    pending_partial: Option<(Line, Instant)>,
+    /// Unterminated text whose triggers already ran, and whether they let
+    /// it show.
+    settled_partial: Option<(String, bool)>,
     connection: Option<Connection>,
     output: Output,
     input: String,
@@ -51,6 +69,10 @@ pub struct App {
     /// made progress.
     walk: Option<(Walk, Instant)>,
 }
+
+/// How long unterminated text must stay unchanged before triggers see it
+/// as a line. Servers that do not mark their prompts leave them like that.
+const PARTIAL_SETTLE: Duration = Duration::from_millis(400);
 
 /// How long a walk waits for a move to take effect before giving up, as
 /// happens at a closed door.
@@ -81,10 +103,14 @@ fn map_path(host: &str, port: u16) -> Option<PathBuf> {
 
 /// What to do when the window opens.
 pub struct Startup {
-    /// Where to connect right away, if anywhere.
+    /// The configuration folder, if the system has one.
+    pub profiles: Option<Profiles>,
+    /// Profile to load and connect to right away.
+    pub profile: Option<String>,
+    /// Where to connect right away when no profile is given.
     pub target: Option<Target>,
     pub speech: bool,
-    /// Script files to run, in order.
+    /// Extra script files to run after the profile's, in order.
     pub scripts: Vec<PathBuf>,
 }
 
@@ -99,6 +125,14 @@ impl App {
             host: String::new(),
             port: "23".into(),
             tls: false,
+            verify_certificate: true,
+            profiles: startup.profiles,
+            profile: None,
+            packages: Vec::new(),
+            profile_name: String::new(),
+            extra_scripts: startup.scripts,
+            pending_partial: None,
+            settled_partial: None,
             connection: None,
             output: Output::default(),
             input: String::new(),
@@ -117,17 +151,113 @@ impl App {
             walk: None,
         };
         app.voice.set_enabled(startup.speech);
-        for script in &startup.scripts {
-            app.scripts.load_file(script);
+        match startup.profile {
+            Some(name) => {
+                if app.select_profile(Some(name)) {
+                    app.connect(&cc.egui_ctx);
+                }
+            }
+            None => app.load_scripts(),
         }
-        app.run_actions();
         if let Some(target) = startup.target {
             app.host = target.host;
             app.port = target.port.to_string();
             app.tls = target.tls;
+            app.verify_certificate = target.verify_certificate;
             app.connect(&cc.egui_ctx);
         }
         app
+    }
+
+    /// Starts the script runtime afresh and runs the user's scripts: the
+    /// general one, the profile's packages and scripts, and those given on
+    /// the command line.
+    fn load_scripts(&mut self) {
+        self.scripts =
+            Engine::new(Rc::clone(&self.map)).expect("failed to start the script runtime");
+        let mut files = Vec::new();
+        if let Some(profiles) = &self.profiles {
+            files.extend(profiles.init_script());
+            if let Some(name) = &self.profile {
+                let profile = Profile {
+                    packages: self.packages.clone(),
+                    ..Profile::default()
+                };
+                files.extend(profiles.scripts(name, &profile));
+            }
+        }
+        files.extend(self.extra_scripts.iter().cloned());
+        for file in &files {
+            self.scripts.load_file(file);
+        }
+        self.run_actions();
+    }
+
+    /// Switches to a saved profile, or to none. Returns false if the
+    /// profile could not be loaded.
+    fn select_profile(&mut self, name: Option<String>) -> bool {
+        let loaded = match (&name, &self.profiles) {
+            (Some(name), Some(profiles)) => profiles.load(name).map(Some),
+            (Some(_), None) => Err("no configuration folder was found".to_owned()),
+            (None, _) => Ok(None),
+        };
+        let profile = match loaded {
+            Ok(profile) => profile,
+            Err(error) => {
+                self.note(&format!("Could not load the profile: {error}"));
+                return false;
+            }
+        };
+        if let Some(profile) = profile {
+            self.host = profile.host;
+            self.port = profile.port.to_string();
+            self.tls = profile.tls;
+            self.verify_certificate = profile.verify_certificate;
+            self.packages = profile.packages;
+            self.voice.set_enabled(profile.speech);
+        } else {
+            self.packages.clear();
+        }
+        self.profile_name = name.clone().unwrap_or_default();
+        self.profile = name;
+        self.load_scripts();
+        true
+    }
+
+    /// Saves the connection settings as the profile named in the bar.
+    fn save_profile(&mut self) {
+        let name = self.profile_name.trim().to_owned();
+        let Some(profiles) = &self.profiles else {
+            return self.note("Profiles cannot be saved: no configuration folder was found.");
+        };
+        let Ok(port) = self.port.trim().parse::<u16>() else {
+            return self.note("The port must be a number from 1 to 65535.");
+        };
+        let profile = Profile {
+            host: self.host.trim().to_owned(),
+            port,
+            tls: self.tls,
+            verify_certificate: self.verify_certificate,
+            speech: self.voice.enabled(),
+            // A profile saved under a new name starts without packages.
+            packages: if self.profile.as_deref() == Some(&name) {
+                self.packages.clone()
+            } else {
+                Vec::new()
+            },
+        };
+        match profiles.save(&name, &profile) {
+            Ok(()) => {
+                let renamed = self.profile.as_deref() != Some(&name);
+                self.packages = profile.packages;
+                self.profile = Some(name.clone());
+                if renamed {
+                    self.load_scripts();
+                }
+                self.note(&format!("Profile {name} saved."));
+            }
+            Err(error) => self.note(&format!("Could not save the profile: {error}")),
+        }
     }
 
     fn connect(&mut self, ctx: &egui::Context) {
@@ -144,7 +274,12 @@ impl App {
         self.walk = None;
         // A script may have chosen to keep the map in memory only.
         let stored = if self.scripts.persist_map() {
-            map_path(&host, port).map(|path| Map::open(&path))
+            // A profile keeps its map in its own folder.
+            let path = match (&self.profiles, &self.profile) {
+                (Some(profiles), Some(name)) => Some(profiles.map_path(name)),
+                _ => map_path(&host, port),
+            };
+            path.map(|path| Map::open(&path))
         } else {
             Some(Ok(Map::in_memory()))
         };
@@ -164,6 +299,7 @@ impl App {
             host,
             port,
             tls: self.tls,
+            verify_certificate: self.verify_certificate,
         };
         let Session {
             commands,
@@ -215,7 +351,18 @@ impl App {
                 Event::Connected => self.note("Connected."),
                 Event::Line(line) | Event::Prompt(line) => {
                     let text = line.text();
-                    if self.scripts.on_line(&text) {
+                    self.pending_partial = None;
+                    // Text whose triggers already ran while it was
+                    // unterminated keeps that verdict instead of firing twice.
+                    let settled = self
+                        .settled_partial
+                        .take()
+                        .filter(|(fired, _)| *fired == text);
+                    let show = match settled {
+                        Some((_, show)) => show,
+                        None => self.scripts.on_styled_line(&line),
+                    };
+                    if show {
                         self.output.push(&line);
                         self.voice.line(&text);
                     } else {
@@ -225,8 +372,23 @@ impl App {
                     self.run_actions();
                 }
                 Event::Partial(line) => {
+                    let text = line.text();
+                    let settled =
+                        (self.settled_partial.as_ref()).filter(|(fired, _)| *fired == text);
+                    match settled {
+                        Some((_, false)) => continue,
+                        Some((_, true)) => {}
+                        None => {
+                            self.settled_partial = None;
+                            let waiting = (self.pending_partial.as_ref())
+                                .is_some_and(|(pending, _)| pending.text() == text);
+                            if !waiting {
+                                self.pending_partial = Some((line.clone(), Instant::now()));
+                            }
+                        }
+                    }
                     self.output.set_partial(&line);
-                    self.voice.partial(&line.text());
+                    self.voice.partial(&text);
                 }
                 Event::InputHidden(hidden) => self.input_hidden = hidden,
                 // Not spoken: the user has just typed it.
@@ -261,6 +423,8 @@ impl App {
                 Event::Mssp(status) => self.scripts.on_mssp(&status),
                 Event::Disconnected(error) => {
                     self.walk = None;
+                    self.pending_partial = None;
+                    self.settled_partial = None;
                     self.gauges.clear();
                     self.msdp_vitals.clear();
                     self.note(&match error {
@@ -401,6 +565,29 @@ impl App {
         }
     }
 
+    /// Runs the triggers on unterminated text that has stopped changing,
+    /// which is how a prompt looks when the server does not mark it.
+    fn check_partial(&mut self, ctx: &egui::Context) {
+        let Some((_, since)) = &self.pending_partial else {
+            return;
+        };
+        let waited = since.elapsed();
+        if waited < PARTIAL_SETTLE {
+            return ctx.request_repaint_after(PARTIAL_SETTLE - waited);
+        }
+        let Some((line, _)) = self.pending_partial.take() else {
+            return;
+        };
+        let text = line.text();
+        let show = self.scripts.on_styled_line(&line);
+        if !show {
+            self.output.clear_partial();
+            self.voice.skip_partial(&text);
+        }
+        self.settled_partial = Some((text, show));
+        self.run_actions();
+    }
+
     /// Gives up a walk whose last move had no effect for too long.
     fn check_walk(&mut self, ctx: &egui::Context) {
         let Some((_, moved_at)) = &self.walk else {
@@ -516,6 +703,24 @@ impl App {
                     None => self.note("The map does not know where you are yet."),
                 }
             }
+            "/packages" => {
+                let installed = self
+                    .profiles
+                    .as_ref()
+                    .map(Profiles::packages)
+                    .unwrap_or_default();
+                if installed.is_empty() {
+                    self.note("No script packages are installed.");
+                }
+                for package in installed {
+                    let state = if self.packages.contains(&package) {
+                        "enabled in this profile"
+                    } else {
+                        "not enabled"
+                    };
+                    self.note(&format!("{package}: {state}"));
+                }
+            }
             "/stop" => {
                 let stopped = self.walk.take().is_some();
                 self.note(if stopped {
@@ -579,30 +784,73 @@ impl App {
         }
     }
 
+    /// The top bar. Its first row is always there: profile, connect and
+    /// the panel switches. The connection's details take a second row only
+    /// while disconnected, which is when they can be changed.
     fn connection_bar(&mut self, ui: &mut egui::Ui) {
+        let connected = self.connection.is_some();
         ui.horizontal(|ui| {
-            let connected = self.connection.is_some();
             ui.add_enabled_ui(!connected, |ui| {
-                let label = ui.label("Host");
-                ui.add(TextEdit::singleline(&mut self.host).desired_width(220.0))
+                let names = self
+                    .profiles
+                    .as_ref()
+                    .map(Profiles::names)
+                    .unwrap_or_default();
+                let mut chosen = self.profile.clone();
+                let label = ui.label("Profile");
+                ComboBox::from_id_salt("profile")
+                    .selected_text(chosen.as_deref().unwrap_or("(none)"))
+                    .show_ui(ui, |ui| {
+                        ui.selectable_value(&mut chosen, None, "(none)");
+                        for name in names {
+                            ui.selectable_value(&mut chosen, Some(name.clone()), name);
+                        }
+                    })
+                    .response
                     .labelled_by(label.id);
-                let label = ui.label("Port");
-                ui.add(TextEdit::singleline(&mut self.port).desired_width(60.0))
-                    .labelled_by(label.id);
-                ui.checkbox(&mut self.tls, "TLS");
+                if chosen != self.profile {
+                    self.select_profile(chosen);
+                }
             });
             if connected {
                 if ui.button("Disconnect").clicked() {
                     self.disconnect();
                 }
+                ui.label(
+                    RichText::new(format!("{}:{}", self.host.trim(), self.port.trim())).weak(),
+                );
             } else if ui.button("Connect").clicked() {
                 self.connect(ui.ctx());
             }
-            ui.checkbox(&mut self.show_chat, "Chat");
-            ui.checkbox(&mut self.show_map, "Map");
-            let mut speech = self.voice.enabled();
-            if ui.checkbox(&mut speech, "Speech").changed() {
-                self.voice.set_enabled(speech);
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                let mut speech = self.voice.enabled();
+                if ui.checkbox(&mut speech, "Speech").changed() {
+                    self.voice.set_enabled(speech);
+                }
+                ui.checkbox(&mut self.show_map, "Map");
+                ui.checkbox(&mut self.show_chat, "Chat");
+            });
+        });
+        if connected {
+            return;
+        }
+        ui.horizontal_wrapped(|ui| {
+            let label = ui.label("Host");
+            ui.add(TextEdit::singleline(&mut self.host).desired_width(220.0))
+                .labelled_by(label.id);
+            let label = ui.label("Port");
+            ui.add(TextEdit::singleline(&mut self.port).desired_width(52.0))
+                .labelled_by(label.id);
+            ui.checkbox(&mut self.tls, "TLS");
+            if self.tls {
+                ui.checkbox(&mut self.verify_certificate, "Verify certificate");
+            }
+            ui.separator();
+            let label = ui.label("Save as");
+            ui.add(TextEdit::singleline(&mut self.profile_name).desired_width(120.0))
+                .labelled_by(label.id);
+            if ui.button("Save profile").clicked() {
+                self.save_profile();
             }
         });
     }
@@ -649,6 +897,7 @@ impl eframe::App for App {
         self.scripts.tick(now);
         self.run_actions();
         self.check_walk(ui.ctx());
+        self.check_partial(ui.ctx());
         if let Some(deadline) = self.scripts.next_deadline() {
             ui.ctx()
                 .request_repaint_after(deadline.saturating_duration_since(now));
@@ -663,7 +912,7 @@ impl eframe::App for App {
                 &summary
             });
         }
-        self.voice.update(ui, &self.output);
+        self.voice.update(ui, &self.output, &self.chat);
         Panel::top("connection").show(ui, |ui| self.connection_bar(ui));
         if self.show_chat && self.chat.len() > 0 {
             Panel::top("chat")
@@ -716,6 +965,127 @@ mod tests {
 
     use super::*;
 
+    /// A window that is not drawn, using `profiles` as its configuration.
+    fn window<'a>(profiles: Option<Profiles>) -> Harness<'a, App> {
+        Harness::builder().build_eframe(|cc| {
+            let startup = Startup {
+                profiles,
+                profile: None,
+                target: None,
+                speech: false,
+                scripts: Vec::new(),
+            };
+            App::new(cc, startup)
+        })
+    }
+
+    fn output_lines(app: &App) -> Vec<String> {
+        (0..app.output.len())
+            .map(|row| app.output.text(row).to_owned())
+            .collect()
+    }
+
+    /// Puts the window in the state of having a live connection, and
+    /// returns the two ends a real session would hold.
+    fn fake_connection(
+        app: &mut App,
+    ) -> (
+        std::sync::mpsc::Sender<Event>,
+        tokio::sync::mpsc::UnboundedReceiver<Command>,
+    ) {
+        let (events, receiver) = channel();
+        let (commands, sent) = tokio::sync::mpsc::unbounded_channel();
+        app.connection = Some(Connection {
+            commands,
+            events: receiver,
+        });
+        (events, sent)
+    }
+
+    #[test]
+    fn profile_is_saved_from_the_bar_and_brings_its_scripts() {
+        let dir = std::env::temp_dir().join(format!("muddie-app-profile-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let mut harness = window(Some(Profiles::at(dir.clone())));
+        let app = harness.state_mut();
+        app.host = "mud.example.org".into();
+        app.port = "4000".into();
+        app.tls = true;
+        app.verify_certificate = false;
+        app.profile_name = "Reinos".into();
+        harness.run_steps(2);
+        harness.get_by_label("Save profile").click();
+        harness.run_steps(2);
+        let saved = Profiles::at(dir.clone()).load("Reinos").unwrap();
+        assert_eq!((saved.host.as_str(), saved.port), ("mud.example.org", 4000));
+        assert!(saved.tls && !saved.verify_certificate);
+        assert_eq!(harness.state().profile.as_deref(), Some("Reinos"));
+
+        // Scripts dropped in the profile's folder run when it is selected.
+        std::fs::write(
+            dir.join("profiles/Reinos/scripts/hello.luau"),
+            "echo('hola desde el perfil')",
+        )
+        .unwrap();
+        let app = harness.state_mut();
+        assert!(app.select_profile(None));
+        app.host.clear();
+        assert!(app.select_profile(Some("Reinos".into())));
+        assert_eq!(app.host, "mud.example.org");
+        assert!(output_lines(app).contains(&"hola desde el perfil".to_owned()));
+        assert!(!app.select_profile(Some("Missing".into())));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn typed_commands_are_split_and_reach_the_server() {
+        let mut harness = window(None);
+        let app = harness.state_mut();
+        let (_events, mut sent) = fake_connection(app);
+        app.input = "n;n;look".into();
+        app.submit();
+        let commands: Vec<Command> = std::iter::from_fn(|| sent.try_recv().ok()).collect();
+        let expected = ["n", "n", "look"].map(|command| Command::Send(command.into()));
+        assert_eq!(commands, expected);
+    }
+
+    #[test]
+    fn unmarked_prompt_fires_triggers_once_it_settles() {
+        let mut harness = window(None);
+        let app = harness.state_mut();
+        app.scripts.exec(
+            "test",
+            r#"trigger("^Name: $", function() send("gandalf") end)
+            trigger("^Spam> $", function() gag() end)"#,
+        );
+        let (events, mut sent) = fake_connection(app);
+        let partial = |text: &str| Event::Partial(panels::styled_lines(text).remove(0));
+        events.send(partial("Name: ")).unwrap();
+        harness.run_steps(2);
+        assert!(sent.try_recv().is_err(), "must wait for the text to settle");
+        std::thread::sleep(PARTIAL_SETTLE + Duration::from_millis(50));
+        harness.run_steps(2);
+        assert_eq!(sent.try_recv().unwrap(), Command::Send("gandalf".into()));
+        // The server then closes the same text as a line: no second firing.
+        events
+            .send(Event::Prompt(panels::styled_lines("Name: ").remove(0)))
+            .unwrap();
+        harness.run_steps(2);
+        assert!(sent.try_recv().is_err());
+        assert_eq!(output_lines(harness.state()), ["Name: "]);
+
+        // A gagged prompt disappears and stays hidden when completed.
+        events.send(partial("Spam> ")).unwrap();
+        harness.run_steps(2);
+        std::thread::sleep(PARTIAL_SETTLE + Duration::from_millis(50));
+        harness.run_steps(2);
+        events
+            .send(Event::Prompt(panels::styled_lines("Spam> ").remove(0)))
+            .unwrap();
+        harness.run_steps(2);
+        assert_eq!(output_lines(harness.state()), ["Name: "]);
+    }
+
     /// A window with every panel in use, as after some minutes of play.
     fn demo_window<'a>() -> Harness<'a, App> {
         let mut harness = Harness::builder()
@@ -723,6 +1093,8 @@ mod tests {
             .wgpu()
             .build_eframe(|cc| {
                 let startup = Startup {
+                    profiles: None,
+                    profile: None,
                     target: None,
                     speech: false,
                     scripts: Vec::new(),
@@ -732,6 +1104,8 @@ mod tests {
         let app = harness.state_mut();
         app.host = "mud.example.org".into();
         app.port = "4000".into();
+        app.tls = true;
+        app.profile_name = "Reinos".into();
         app.note("Connected.");
         let text = "\x1b[1;32mPlaza Mayor\x1b[0m\n\
             Una plaza amplia con una fuente en el centro. Al norte se alza la \x1b[33mtorre\x1b[0m \
@@ -799,6 +1173,15 @@ mod tests {
         harness
     }
 
+    /// The same window as it looks during play, with the connection open.
+    fn connected_demo_window<'a>() -> Harness<'a, App> {
+        let mut harness = demo_window();
+        // Dropping the far ends is fine: nothing is sent or received here.
+        fake_connection(harness.state_mut());
+        harness.run_steps(3);
+        harness
+    }
+
     /// Renders the demo window to the PNG named by `MUDDIE_SCREENSHOT`, to
     /// look at the result. Needs a GPU or software Vulkan, so it is not
     /// part of the normal test run:
@@ -806,10 +1189,17 @@ mod tests {
     #[test]
     #[ignore = "needs a graphics adapter; writes an image for visual review"]
     fn screenshot() {
-        let mut harness = demo_window();
+        let path = std::env::var_os("MUDDIE_SCREENSHOT").map(PathBuf::from);
+        // Before connecting, the bar also shows the connection's details.
+        let image = demo_window().render().expect("rendering failed");
+        if let Some(path) = &path {
+            let path = path.with_extension("disconnected.png");
+            image.save(path).expect("could not write the screenshot");
+        }
+        let mut harness = connected_demo_window();
+        assert!(harness.query_by_label("Save profile").is_none());
         let image = harness.render().expect("rendering failed");
         assert_eq!((image.width(), image.height()), (1100, 700));
-        let path = std::env::var_os("MUDDIE_SCREENSHOT").map(PathBuf::from);
         if let Some(path) = &path {
             image.save(path).expect("could not write the screenshot");
         }
