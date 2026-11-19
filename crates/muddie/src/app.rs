@@ -668,7 +668,7 @@ impl eframe::App for App {
         if self.show_chat && self.chat.len() > 0 {
             Panel::top("chat")
                 .resizable(true)
-                .default_size(130.0)
+                .default_size(84.0)
                 .min_size(48.0)
                 .show(ui, |ui| self.chat.show(ui));
         }
@@ -705,5 +705,139 @@ impl eframe::App for App {
             }
         }
         CentralPanel::default().show(ui, |ui| self.output.show(ui));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use egui_kittest::Harness;
+    use egui_kittest::kittest::Queryable;
+    use muddie_mapper::Pos;
+
+    use super::*;
+
+    /// A window with every panel in use, as after some minutes of play.
+    fn demo_window<'a>() -> Harness<'a, App> {
+        let mut harness = Harness::builder()
+            .with_size(egui::vec2(1100.0, 700.0))
+            .wgpu()
+            .build_eframe(|cc| {
+                let startup = Startup {
+                    target: None,
+                    speech: false,
+                    scripts: Vec::new(),
+                };
+                App::new(cc, startup)
+            });
+        let app = harness.state_mut();
+        app.host = "mud.example.org".into();
+        app.port = "4000".into();
+        app.note("Connected.");
+        let text = "\x1b[1;32mPlaza Mayor\x1b[0m\n\
+            Una plaza amplia con una fuente en el centro. Al norte se alza la \x1b[33mtorre\x1b[0m \
+            del reloj y al este se abre un callejón estrecho que huele a pan recién hecho.\n\
+            \x1b[36mSalidas: norte, este, sur\x1b[0m\n\
+            \x1b[31mUn orco te ataca\x1b[0m con su \x1b[1;35mhacha rúnica\x1b[0m.\n\
+            \x1b[38;5;208mAna te dice: ¿vienes a la torre?\x1b[0m";
+        for line in panels::styled_lines(text) {
+            app.output.push(&line);
+        }
+        app.output.push_local("> matar orco");
+        app.output
+            .set_partial(&panels::styled_lines("HP:80 MP:20> ")[0]);
+        app.gauges.set("HP", Some((80.0, 100.0)));
+        app.gauges.set("MP", Some((20.0, 50.0)));
+        app.gauges.set("MV", Some((140.0, 150.0)));
+        for line in
+            panels::styled_lines("\x1b[33m[ooc] Ana: hola a todos\x1b[0m\n[ooc] Luis: buenas")
+        {
+            app.chat.push(&line);
+        }
+        app.text_panels.push((
+            "Minimapa".into(),
+            panels::styled_lines("  #\n#-\x1b[1;33m@\x1b[0m-#\n  #"),
+        ));
+        app.input = "matar orco".into();
+        {
+            let mut map = app.map.borrow_mut();
+            let room = |id, name: &str, area: &str, exits: &[(&str, RoomId)]| RoomInfo {
+                id,
+                name: name.into(),
+                area: area.into(),
+                exits: (exits.iter())
+                    .map(|(direction, to)| ((*direction).to_owned(), *to))
+                    .collect(),
+                pos: None,
+            };
+            for info in [
+                room(1, "Puerta", "ciudad", &[("n", 2)]),
+                room(
+                    2,
+                    "Plaza Mayor",
+                    "ciudad",
+                    &[("s", 1), ("n", 3), ("e", 4), ("w", 9)],
+                ),
+                room(3, "Torre", "ciudad", &[("s", 2), ("u", 5), ("portal", 20)]),
+                room(4, "Callejón", "ciudad", &[("w", 2), ("e", 6), ("ne", 7)]),
+                room(6, "Panadería", "ciudad", &[("w", 4)]),
+                room(7, "Patio", "ciudad", &[("sw", 4), ("n", 8)]),
+                room(8, "Camino", "afueras", &[("s", 7)]),
+                room(4, "Callejón", "ciudad", &[("w", 2), ("e", 6), ("ne", 7)]),
+                room(
+                    2,
+                    "Plaza Mayor",
+                    "ciudad",
+                    &[("s", 1), ("n", 3), ("e", 4), ("w", 9)],
+                ),
+            ] {
+                map.visit(info).unwrap();
+            }
+            map.set_avoid(6, true).unwrap();
+            map.edit_exit(4, "ne", |exit| exit.locked = true).unwrap();
+        }
+        harness.run_steps(3);
+        harness
+    }
+
+    /// Renders the demo window to the PNG named by `MUDDIE_SCREENSHOT`, to
+    /// look at the result. Needs a GPU or software Vulkan, so it is not
+    /// part of the normal test run:
+    /// `MUDDIE_SCREENSHOT=/tmp/muddie.png cargo test -p muddie -- --ignored`
+    #[test]
+    #[ignore = "needs a graphics adapter; writes an image for visual review"]
+    fn screenshot() {
+        let mut harness = demo_window();
+        let image = harness.render().expect("rendering failed");
+        assert_eq!((image.width(), image.height()), (1100, 700));
+        let path = std::env::var_os("MUDDIE_SCREENSHOT").map(PathBuf::from);
+        if let Some(path) = &path {
+            image.save(path).expect("could not write the screenshot");
+        }
+        // A second view: every area on the level.
+        harness.get_by_label("All areas").click();
+        harness.run_steps(3);
+        let image = harness.render().expect("rendering failed");
+        if let Some(path) = &path {
+            (image.save(path.with_extension("all-areas.png")))
+                .expect("could not write the screenshot");
+        }
+        // A third: the menu of the room under the pointer. The map is
+        // centred on the player's room, so that is the room it opens on.
+        harness.get_by_label("Map view").click_secondary();
+        harness.run_steps(3);
+        assert!(harness.query_by_label("Avoid in routes").is_some());
+        let image = harness.render().expect("rendering failed");
+        if let Some(path) = &path {
+            let path = path.with_extension("menu.png");
+            image.save(path).expect("could not write the screenshot");
+        }
+        // Choosing to avoid the room marks it on the map.
+        harness.get_by_label("Avoid in routes").click();
+        harness.run_steps(3);
+        assert!(harness.state().map.borrow().room(2).unwrap().avoid);
+        // The map placed the rooms as walked: the patio is north-east of
+        // the alley, one cell east of the square.
+        let map = harness.state().map.borrow();
+        assert_eq!(map.room(7).unwrap().pos, Pos { x: 2, y: 2, z: 0 });
     }
 }

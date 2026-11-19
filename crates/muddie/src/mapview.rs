@@ -2,7 +2,8 @@
 //! mark or move rooms.
 
 use eframe::egui::{
-    Align2, Color32, ComboBox, FontId, Pos2, Rect, Sense, Stroke, StrokeKind, Ui, Vec2, vec2,
+    Align2, Color32, ComboBox, FontId, Pos2, Rect, RichText, Sense, Stroke, StrokeKind, Ui, Vec2,
+    vec2,
 };
 use muddie_mapper::{Map, Pos, Room, RoomId, direction_offset};
 
@@ -14,7 +15,7 @@ const LOCKED_LINE: Color32 = Color32::from_rgb(0xc0, 0x4a, 0x55);
 const MARK: Color32 = Color32::from_rgb(0xc8, 0xcc, 0xd4);
 
 /// Distance between neighbouring rooms, in points, at the default zoom.
-const DEFAULT_CELL: f32 = 28.0;
+const DEFAULT_CELL: f32 = 36.0;
 const CELL_RANGE: std::ops::RangeInclusive<f32> = 10.0..=72.0;
 
 /// Something the user did on the map that the caller must carry out.
@@ -84,13 +85,16 @@ impl MapView {
         }
         let (mut area, mut level) = self.browsing.clone().unwrap_or_else(|| home.clone());
         ui.horizontal_wrapped(|ui| {
-            ComboBox::from_label("Area")
+            let label = ui.label("Area");
+            ComboBox::from_id_salt("map area")
                 .selected_text(area.as_str())
                 .show_ui(ui, |ui| {
                     for name in map.areas() {
                         ui.selectable_value(&mut area, name.to_owned(), name);
                     }
-                });
+                })
+                .response
+                .labelled_by(label.id);
             if ui.button("Down").clicked() {
                 level -= 1;
             }
@@ -110,9 +114,11 @@ impl MapView {
         self.browsing = (shown != home).then(|| shown.clone());
         let (area, level) = shown;
 
+        let hint = "Click a room to walk there, right-click for more, Shift+drag to move it.";
+        ui.label(RichText::new(hint).weak().small());
         let (response, painter) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
         ui.ctx().accesskit_node_builder(response.id, |node| {
-            node.set_label("Map");
+            node.set_label("Map view");
         });
         if response.hovered() {
             let scroll = ui.input(|input| input.smooth_scroll_delta.y);
