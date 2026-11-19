@@ -116,7 +116,7 @@ pub struct Tab {
     /// screen; `None` until read, and again after one is saved.
     welcome_profiles: Option<Vec<(String, String)>>,
     /// The rule selected in each section of the automation window.
-    rules_selected: [usize; 5],
+    rules_selected: [usize; 6],
     /// The script files that can be edited, and the one being edited:
     /// its file, its name as typed, its text, and that text as saved.
     script_files: Vec<PathBuf>,
@@ -282,7 +282,7 @@ impl Tab {
             connection_open: false,
             started: false,
             welcome_profiles: None,
-            rules_selected: [0; 5],
+            rules_selected: [0; 6],
             script_files: Vec::new(),
             script_loaded: None,
             script_name: String::new(),
@@ -2720,9 +2720,19 @@ mod tests {
             segments: true,
             low: 30,
         });
-        app.rules_section = 3;
+        app.rules_section = 4;
         rules.run_steps(3);
         save(&mut rules, "gauges");
+        let app = rules.state_mut().tab_mut();
+        app.rules_draft.timers.push(crate::rules::Timer {
+            name: "Guardar".into(),
+            tenths: 3000,
+            send: "save".into(),
+            ..crate::rules::Timer::default()
+        });
+        app.rules_section = 3;
+        rules.run_steps(3);
+        save(&mut rules, "timers");
         // The menus, as someone using Spanish sees them.
         for menu in ["Sesión", "Ver", "Mapa"] {
             let mut menus = connected_demo_window();

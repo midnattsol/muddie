@@ -91,7 +91,7 @@ impl Tab {
             match action {
                 Some(MapAction::Walk(room)) => self.walk_to(room),
                 Some(MapAction::Tidy(area)) => self.tidy(&area),
-                Some(MapAction::Scripts) => self.open_automation(4),
+                Some(MapAction::Scripts) => self.open_automation(automation::SCRIPTS),
                 Some(MapAction::Command(command)) => {
                     self.map_command(command);
                 }

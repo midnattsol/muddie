@@ -609,4 +609,28 @@ pub const SPANISH: &[(&str, &str)] = &[
     ("Module", "Módulo"),
     ("Commands", "Comandos"),
     ("Lua script", "Script Lua"),
+    ("Timers", "Temporizadores"),
+    ("every", "cada"),
+    ("after", "tras"),
+    (
+        "A timer does something after a while,\nonce or again and again.",
+        "Un temporizador hace algo pasado un tiempo,\nuna vez o una y otra vez.",
+    ),
+    ("Name this timer", "Ponle nombre a este temporizador"),
+    ("Every", "Cada"),
+    ("Once, after", "Una vez, tras"),
+    ("seconds", "segundos"),
+    (
+        "Counted from when the session starts or the rules are run again.",
+        "Se cuenta desde que empieza la sesión o se vuelven a ejecutar las reglas.",
+    ),
+    (
+        "Goes off once, that long after the session starts or the rules are run again.",
+        "Salta una vez, ese tiempo después de empezar la sesión o de volver a ejecutar las reglas.",
+    ),
+    ("One command per line.", "Un comando por línea."),
+    (
+        "Run each time the timer goes off.",
+        "Se ejecuta cada vez que salta el temporizador.",
+    ),
 ];

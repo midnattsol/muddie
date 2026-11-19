@@ -2,7 +2,7 @@
 //! script, in a list on the left with the selected one's details beside it.
 
 use super::*;
-use crate::rules::{Gauge, fill};
+use crate::rules::{Gauge, Timer, fill};
 use crate::theme::Weight;
 use crate::widgets;
 
@@ -13,8 +13,9 @@ const SAVE_AFTER: Duration = Duration::from_millis(900);
 const TRIGGERS: usize = 0;
 const ALIASES: usize = 1;
 const MACROS: usize = 2;
-const GAUGES: usize = 3;
-const SCRIPTS: usize = 4;
+const TIMERS: usize = 3;
+const GAUGES: usize = 4;
+pub(super) const SCRIPTS: usize = 5;
 
 /// Scripts to start from: what each is for, its file name, its text.
 const EXAMPLES: [(&str, &str, &str); 5] = [
@@ -229,6 +230,7 @@ impl Tab {
             self.rules_draft.triggers.len(),
             self.rules_draft.aliases.len(),
             self.rules_draft.keys.len(),
+            self.rules_draft.timers.len(),
             self.rules_draft.gauges.len(),
             self.script_files.len(),
         ];
@@ -236,6 +238,7 @@ impl Tab {
             tr("Triggers"),
             tr("Aliases"),
             tr("Macros"),
+            tr("Timers"),
             tr("Gauges"),
             tr("Modules"),
         ];
@@ -328,6 +331,28 @@ impl Tab {
                                 .collect::<Vec<_>>()
                                 .join("; ")
                         ),
+                        rule.enabled,
+                    )
+                })
+                .collect(),
+            TIMERS => (draft.timers.iter())
+                .map(|rule| {
+                    let how = if rule.repeat {
+                        tr("every")
+                    } else {
+                        tr("after")
+                    };
+                    let does = if rule.lua {
+                        "Luau".to_owned()
+                    } else {
+                        crate::rules::commands(&rule.send)
+                            .collect::<Vec<_>>()
+                            .join("; ")
+                    };
+                    let detail = format!("{how} {}  →  {does}", rule.interval());
+                    (
+                        untitled(&rule.name, &rule.send, "New timer"),
+                        detail,
                         rule.enabled,
                     )
                 })
@@ -497,6 +522,10 @@ impl Tab {
                 });
                 draft.keys.len() - 1
             }
+            TIMERS => {
+                draft.timers.push(Timer::default());
+                draft.timers.len() - 1
+            }
             GAUGES => {
                 draft.gauges.push(Gauge {
                     enabled: true,
@@ -567,6 +596,7 @@ impl Tab {
                     tr("An alias turns a short command you type\ninto the commands you mean.")
                 }
                 MACROS => tr("A macro sends commands at the press of a key."),
+                TIMERS => tr("A timer does something after a while,\nonce or again and again."),
                 GAUGES => tr(
                     "A gauge is a bar that follows a number the MUD reports,\nsuch as your health.",
                 ),
@@ -584,6 +614,7 @@ impl Tab {
             TRIGGERS => self.trigger_detail(ui, index),
             ALIASES => self.alias_detail(ui, index),
             MACROS => self.macro_detail(ui, index),
+            TIMERS => self.timer_detail(ui, index),
             GAUGES => self.gauge_detail(ui, index),
             _ => self.script_detail(ui, index),
         };
@@ -593,6 +624,7 @@ impl Tab {
                 TRIGGERS => drop(draft.triggers.remove(index)),
                 ALIASES => drop(draft.aliases.remove(index)),
                 MACROS => drop(draft.keys.remove(index)),
+                TIMERS => drop(draft.timers.remove(index)),
                 GAUGES => {
                     // Take the bar off the screen too.
                     let gone = draft.gauges.remove(index);
@@ -831,6 +863,71 @@ impl Tab {
         if toggle {
             self.recording_key = !recording;
         }
+        delete
+    }
+
+    fn timer_detail(&mut self, ui: &mut egui::Ui, index: usize) -> bool {
+        let theme = theme::current();
+        let height = self.detail_height;
+        let rule = &mut self.rules_draft.timers[index];
+        let delete = rule_header(ui, &mut rule.name, &mut rule.enabled, tr("Name this timer"));
+        widgets::caption(ui, tr("When"));
+        ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing.x = 10.0;
+            let current = usize::from(!rule.repeat);
+            if let Some(chosen) = widgets::segmented(ui, &[tr("Every"), tr("Once, after")], current)
+            {
+                rule.repeat = chosen == 0;
+            }
+            let mut seconds = f64::from(rule.tenths) / 10.0;
+            let field = ui.add(
+                egui::DragValue::new(&mut seconds)
+                    .range(0.1..=86_400.0)
+                    .speed(0.5)
+                    .max_decimals(1),
+            );
+            ui.ctx().accesskit_node_builder(field.id, |node| {
+                node.set_label(tr("seconds"));
+            });
+            rule.tenths = (seconds * 10.0).round().clamp(1.0, 864_000.0) as u32;
+            ui.label(RichText::new(tr("seconds")).color(theme.text_dim));
+            // Said back in minutes when that is how one thinks of it.
+            if rule.tenths >= 600 {
+                let said = format!("= {}", rule.interval());
+                ui.label(RichText::new(said).color(theme.text_faint));
+            }
+        });
+        let counted = if rule.repeat {
+            tr("Counted from when the session starts or the rules are run again.")
+        } else {
+            tr("Goes off once, that long after the session starts or the rules are run again.")
+        };
+        ui.label(
+            RichText::new(counted)
+                .font(theme::font(Weight::Regular, 11.5))
+                .color(theme.text_faint),
+        );
+        ui.add_space(6.0);
+        let mistake = if rule.lua {
+            self.scripts.check(&rule.script)
+        } else {
+            None
+        };
+        action_block(
+            ui,
+            Action {
+                lua: &mut rule.lua,
+                commands: &mut rule.send,
+                script: &mut rule.script,
+                matched: false,
+                commands_hint: "save",
+                script_hint: "if gmcp(\"Char.Vitals\").hp < 50 then\n\tsend(\"rest\")\nend",
+                about_commands: tr("One command per line."),
+                about_script: tr("Run each time the timer goes off."),
+            },
+            script_rows(height, 300.0),
+            mistake.as_ref(),
+        );
         delete
     }
 

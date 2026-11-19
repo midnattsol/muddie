@@ -53,12 +53,12 @@ const fn rgb(hex: u32) -> Color32 {
 /// colour on screen is the MUD's own.
 const DARK: Theme = Theme {
     dark: true,
-    background: rgb(0x0d0d0e),
-    surface: rgb(0x1a1a1c),
-    field: rgb(0x131314),
-    raised: rgb(0x29292c),
-    hover: rgb(0x36363a),
-    border: rgb(0x2b2b2e),
+    background: rgb(0x141415),
+    surface: rgb(0x1f1f21),
+    field: rgb(0x19191b),
+    raised: rgb(0x2d2d30),
+    hover: rgb(0x3a3a3e),
+    border: rgb(0x2f2f32),
     text: rgb(0xe8e8e8),
     text_dim: rgb(0xa1a1a4),
     text_faint: rgb(0x6c6c70),

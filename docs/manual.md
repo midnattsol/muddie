@@ -79,8 +79,8 @@ keeps running meanwhile. The sections are on the left, then the list of the
 current one and the selected item's details; drag the gap between those two
 to trade their widths. Changes are saved by themselves.
 
-A trigger, an alias and a macro differ in what sets them off; what they then
-do is the same choice for all three:
+A trigger, an alias, a macro and a timer differ in what sets them off; what
+they then do is the same choice for all four:
 
 - **Commands**: what to send, one command per line.
 - **Lua script**: a few lines of Luau instead, in an editor that numbers the
@@ -97,6 +97,7 @@ The three, and what else there is:
 - A **macro** goes off when a key is pressed. Press **Record a key** and then
   the key: function keys, combinations with Ctrl or Alt, and the keys of the
   numeric keypad can be used.
+- A **timer** goes off after a while: every so many seconds, or once.
 - A **gauge** is a bar that follows a number the MUD reports, such as your
   health. Say where the value and its maximum are: a GMCP package and the
   fields inside it (`Char.Vitals.health.current`), or the name of a MSDP

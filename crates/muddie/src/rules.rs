@@ -74,6 +74,54 @@ pub struct KeyBinding {
     pub lua: bool,
 }
 
+/// Does something after a while, once or again and again.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Timer {
+    pub name: String,
+    pub enabled: bool,
+    /// How long it waits, in tenths of a second.
+    pub tenths: u32,
+    /// Goes off every so long, instead of only once after starting.
+    pub repeat: bool,
+    pub send: String,
+    pub script: String,
+    /// What it does is the script, not the commands.
+    pub lua: bool,
+}
+
+impl Default for Timer {
+    fn default() -> Self {
+        Self {
+            name: String::new(),
+            enabled: true,
+            tenths: 600,
+            repeat: true,
+            send: String::new(),
+            script: String::new(),
+            lua: false,
+        }
+    }
+}
+
+impl Timer {
+    /// How long it waits, as people say it: `1.5 s`, `2 min`.
+    pub fn interval(&self) -> String {
+        let seconds = f64::from(self.tenths) / 10.0;
+        if self.tenths >= 600 && self.tenths.is_multiple_of(600) {
+            format!("{} min", self.tenths / 600)
+        } else if self.tenths >= 600 {
+            format!(
+                "{} min {} s",
+                self.tenths / 600,
+                f64::from(self.tenths % 600) / 10.0
+            )
+        } else {
+            format!("{seconds} s")
+        }
+    }
+}
+
 /// A bar that follows a value the server reports.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(default)]
@@ -169,6 +217,8 @@ pub struct Rules {
     pub aliases: Vec<Alias>,
     #[serde(rename = "key")]
     pub keys: Vec<KeyBinding>,
+    #[serde(rename = "timer")]
+    pub timers: Vec<Timer>,
     #[serde(rename = "gauge")]
     pub gauges: Vec<Gauge>,
 }
@@ -369,6 +419,19 @@ impl Rules {
                 format!("bind({name}, {})\n", quoted(&typed))
             };
             chunks.push((titled("macro", &key.name, &key.key), code));
+        }
+        for timer in (self.timers.iter()).filter(|rule| rule.enabled && rule.tenths > 0) {
+            let action = if timer.lua {
+                script(&timer.script)
+            } else {
+                commands(&timer.send)
+                    .map(|command| format!("\tsend({})\n", quoted(command)))
+                    .collect()
+            };
+            let how = if timer.repeat { "every" } else { "after" };
+            let seconds = f64::from(timer.tenths) / 10.0;
+            let code = format!("{how}({seconds}, function()\n{action}end)\n");
+            chunks.push((titled("timer", &timer.name, &timer.interval()), code));
         }
         for gauge in
             (self.gauges.iter()).filter(|rule| rule.enabled && !rule.value.trim().is_empty())
@@ -722,6 +785,50 @@ mod tests {
     }
 
     #[test]
+    fn timers_go_off_once_or_again_and_again() {
+        use std::time::{Duration, Instant};
+        let rules = Rules {
+            timers: vec![
+                Timer {
+                    tenths: 20,
+                    send: "save\nscore".into(),
+                    ..Timer::default()
+                },
+                Timer {
+                    tenths: 30,
+                    repeat: false,
+                    lua: true,
+                    script: "send(\"once\")".into(),
+                    ..Timer::default()
+                },
+                Timer {
+                    enabled: false,
+                    send: "never".into(),
+                    ..Timer::default()
+                },
+            ],
+            ..Rules::default()
+        };
+        let mut engine = run(&rules);
+        let start = Instant::now();
+        engine.tick(start + Duration::from_millis(2100));
+        assert_eq!(engine.take_actions(), ["save", "score"].map(send));
+        engine.tick(start + Duration::from_millis(4200));
+        let mut sent = engine.take_actions();
+        sent.sort_by_key(|action| format!("{action:?}"));
+        assert_eq!(sent, ["once", "save", "score"].map(send));
+        engine.tick(start + Duration::from_millis(6300));
+        assert_eq!(engine.take_actions(), ["save", "score"].map(send));
+        assert_eq!(rules.timers[0].interval(), "2 s");
+        assert_eq!(Timer::default().interval(), "1 min");
+        let long = Timer {
+            tenths: 905,
+            ..Timer::default()
+        };
+        assert_eq!(long.interval(), "1 min 30.5 s");
+    }
+
+    #[test]
     fn rules_round_trip_through_their_file() {
         let path =
             std::env::temp_dir().join(format!("muddie-rules-{}/rules.toml", std::process::id()));
@@ -745,6 +852,13 @@ mod tests {
                 key: "ctrl+k".into(),
                 send: "kick".into(),
                 ..KeyBinding::default()
+            }],
+            timers: vec![Timer {
+                name: "Save".into(),
+                tenths: 3000,
+                repeat: false,
+                send: "save".into(),
+                ..Timer::default()
             }],
             gauges: vec![Gauge {
                 name: "Salud".into(),
