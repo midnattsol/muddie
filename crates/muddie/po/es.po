@@ -1300,3 +1300,14 @@ msgstr "Lo que envía el MUD está en Depuración: allí se puede crear un indic
 msgid "Looking for them…"
 msgstr "Buscándolas…"
 
+msgid "Side panels reach the top and the bottom"
+msgstr "Los paneles laterales llegan arriba y abajo"
+
+msgid "Tall sides"
+msgstr "Laterales altos"
+
+msgid "Share the place of the one before, as tabs"
+msgstr "Compartir el hueco del anterior, en pestañas"
+
+msgid "Take out of the tabs"
+msgstr "Sacar de las pestañas"

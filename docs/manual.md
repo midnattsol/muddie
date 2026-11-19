@@ -127,14 +127,6 @@ reads and changes it as `vars.name`. They belong to the session: with a saved
 profile they are kept with it, and without one they last until the session
 is closed, going into the profile if it is then saved.
 
-**MUD data**, the last section of the editor, shows what the MUD sends
-besides text, with GMCP or MSDP, as it comes: each package or variable with
-its values one by one, the message as it came, and those before it. It is
-where to look before writing a gauge or a script. **Copy the path** takes
-what leads to a value, such as `Char.Vitals.health.current`, and **Make a
-gauge** makes one that follows a number, with the maximum that goes with it
-if there is one beside it.
-
 A mistake in one rule or script is reported with its name and does not stop
 the others. Triggers and aliases have a box to try them out: paste a line
 from the MUD, or type a command, and it says whether it matches and what it
@@ -162,6 +154,12 @@ itself:
   another (the left or right half, above and below the output) to put it
   before or after it, and drag the edge between two to give one more room.
   The dots beside the name move it too, for those who would rather not drag.
+- Panels can share one place as **tabs**, with their names along its top to
+  choose between them: drop a panel on the middle of another, or use the
+  dots. A tab that gets something while another is on show has a dot.
+- **Tall sides** decides who gets the corners: with it, the panels beside
+  the output reach the top and the bottom of the window, and those above
+  and below fit between them.
 - Its name can be changed there, and the cross removes it.
 - **Done**, or Escape, leaves the layout mode. The layout is kept with the
   profile.
@@ -181,6 +179,16 @@ value and its maximum are: a GMCP package and the fields inside it
 (`Char.Vitals.health.current`), or the name of a MSDP variable. Choose its
 colour, whether it is drawn as a row of cells, and the level under which its
 numbers turn red. Alt+0 reads the gauges aloud.
+
+## Debugging: what the MUD sends
+
+**Debug**, beside Game and Editor at the right of the top bar (Ctrl+D),
+shows what the MUD sends besides text, with GMCP or MSDP, as it comes: each
+package or variable with its values one by one, the message as it came, and
+those before it. It is where to look before making a gauge or writing a
+script. **Copy the path** takes what leads to a value, such as
+`Char.Vitals.health.current`, and **Make a gauge** makes one that follows a
+number, with the maximum that goes with it if there is one beside it.
 
 ## The map
 
@@ -234,8 +242,10 @@ folder and then in `sounds` in the configuration folder.
 
 - **General**: the language, and the size the interface is drawn at.
 - **Appearance**: the theme (Dark, Graphite, Mocha, Dusk, Tokyo Night, Nord,
-  Light, High contrast), and for the text of the MUD its font, chosen among
-  the monospaced fonts installed, its size and its line spacing, with a sample.
+  Light, High contrast), and for the text of the MUD its colours, its font
+  (MesloLGS NF unless another is chosen: JetBrains Mono, which also comes
+  with the program, or any monospaced font installed), its size and its line
+  spacing, with a sample.
 - **Output**: lines kept, timestamps.
 - **Sessions**: whether a sent command stays in the command line, logging,
   reconnection, keep-alive.

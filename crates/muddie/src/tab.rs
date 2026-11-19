@@ -83,6 +83,10 @@ pub struct Tab {
     dragged_panel: Option<u32>,
     /// Where each panel was drawn, to drop another before or after it.
     panel_rects: Vec<(u32, egui::Rect)>,
+    /// Of the panels that share a place as tabs, by the place: which is
+    /// on show; and those that got something while they were not.
+    shown_tabs: Vec<(u32, u32)>,
+    unread_tabs: Vec<u32>,
     removed_panel: Option<usize>,
     /// The dialog of the gauges, and the one chosen in it.
     gauges_open: bool,
@@ -306,6 +310,8 @@ impl Tab {
             editing_layout: false,
             dragged_panel: None,
             panel_rects: Vec::new(),
+            shown_tabs: Vec::new(),
+            unread_tabs: Vec::new(),
             removed_panel: None,
             gauges_open: false,
             gauges_panel: 0,
@@ -2749,6 +2755,43 @@ mod tests {
             (above.height() - below.height()).abs() < 2.0,
             "equal weights, equal parts"
         );
+        // Joined as tabs they share one place, and the one out of sight
+        // says so when something comes for it.
+        let app = harness.state_mut().tab_mut();
+        app.layout.panels[index].stack = 1;
+        app.layout.panels[map].stack = 1;
+        harness.run_steps(3);
+        let app = harness.state_mut().tab_mut();
+        let rect = |app: &Tab, id| {
+            app.panel_rects
+                .iter()
+                .find(|(known, _)| *known == id)
+                .unwrap()
+                .1
+        };
+        assert_eq!(rect(app, app.layout.panels[map].id), rect(app, tells.id));
+        let first = app.layout.panels[map.min(index)].id;
+        let hidden = if first == tells.id {
+            app.layout.panels[map].id
+        } else {
+            tells.id
+        };
+        assert!(app.shown_tabs.contains(&(1, first)));
+        if hidden == tells.id {
+            app.add_to_panel(
+                "Tells",
+                &panels::styled_lines("Luis tells you: eh").remove(0),
+            );
+            assert_eq!(app.unread_tabs, [tells.id]);
+            harness.get_by_label("Tells").click();
+            harness.run_steps(3);
+            let app = harness.state().tab();
+            assert!(app.shown_tabs.contains(&(1, tells.id)) && app.unread_tabs.is_empty());
+        }
+        let app = harness.state_mut().tab_mut();
+        app.layout.panels[index].stack = 0;
+        app.layout.panels[map].stack = 0;
+        harness.run_steps(3);
         // Its size is as it was drawn, not a little more each time.
         let before = harness.state().tab().layout.panels[index].size;
         harness.run_steps(5);
@@ -3402,6 +3445,21 @@ mod tests {
         let mut chat = app.layout.panels.remove(0);
         chat.side = layout::Side::Right;
         app.layout.panels.push(chat);
+        // And two panels of text under it in one place, as tabs.
+        app.add_to_panel(
+            "Combate",
+            &panels::styled_lines("\x1b[31mUn orco te ataca\x1b[0m con su hacha.").remove(0),
+        );
+        app.add_to_panel(
+            "Tells",
+            &panels::styled_lines("\x1b[33mAna te dice: ¿vienes?\x1b[0m").remove(0),
+        );
+        for panel in &mut app.layout.panels {
+            if panel.kind == layout::Kind::Text {
+                panel.side = layout::Side::Right;
+                panel.stack = 1;
+            }
+        }
         app.layout.panels.retain(|panel| panel.name != "Minimapa");
         layout.run_steps(4);
         save(&mut layout, "layout");

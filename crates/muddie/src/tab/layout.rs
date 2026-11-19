@@ -54,6 +54,9 @@ pub struct PanelSpec {
     pub channels: bool,
     /// Its share of the side it is on, among the panels there.
     pub weight: f32,
+    /// The panels of a side with the same number here, other than none,
+    /// share one place as tabs.
+    pub stack: u32,
 }
 
 impl Default for PanelSpec {
@@ -67,6 +70,7 @@ impl Default for PanelSpec {
             visible: true,
             channels: false,
             weight: 1.0,
+            stack: 0,
         }
     }
 }
@@ -74,6 +78,11 @@ impl Default for PanelSpec {
 /// The panels of a profile.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Layout {
+    /// The panels beside the output reach the top and the bottom of the
+    /// window, and those above and below it fit between them, instead of
+    /// the other way round.
+    #[serde(default)]
+    pub columns_full: bool,
     #[serde(rename = "panel", default)]
     pub panels: Vec<PanelSpec>,
 }
@@ -91,8 +100,10 @@ impl Default for Layout {
             visible: true,
             channels,
             weight: 1.0,
+            stack: 0,
         };
         Self {
+            columns_full: false,
             panels: vec![
                 panel(1, tr("Chat"), Kind::Text, Side::Top, 120.0, true),
                 panel(2, tr("Map"), Kind::Map, Side::Right, 330.0, false),
@@ -127,9 +138,27 @@ impl Layout {
         self.panels.iter().map(|panel| panel.id).max().unwrap_or(0) + 1
     }
 
+    fn next_stack(&self) -> u32 {
+        self.panels
+            .iter()
+            .map(|panel| panel.stack)
+            .max()
+            .unwrap_or(0)
+            + 1
+    }
+
     fn has(&self, kind: Kind) -> bool {
         self.panels.iter().any(|panel| panel.kind == kind)
     }
+}
+
+/// Where a panel dragged over another is put.
+#[derive(Clone, Copy, PartialEq)]
+enum Drop {
+    Before,
+    After,
+    /// In its place, as a tab beside it.
+    Into,
 }
 
 /// What a panel has been given to show.
@@ -255,6 +284,26 @@ impl Tab {
     pub(super) fn add_to_panel(&mut self, name: &str, line: &Line) {
         let id = self.panel_called(name);
         self.text_of(id).log.push(line);
+        self.note_unread(id);
+    }
+
+    /// Marks a panel that got something while another tab of its place
+    /// was the one on show.
+    fn note_unread(&mut self, id: u32) {
+        let stack = self
+            .layout
+            .panels
+            .iter()
+            .find(|panel| panel.id == id)
+            .map_or(0, |panel| panel.stack);
+        let shown = self
+            .shown_tabs
+            .iter()
+            .find(|(known, _)| *known == stack)
+            .map(|(_, id)| *id);
+        if stack != 0 && shown.is_some_and(|shown| shown != id) && !self.unread_tabs.contains(&id) {
+            self.unread_tabs.push(id);
+        }
     }
 
     /// Adds what was said on a channel to the panels that show them.
@@ -265,6 +314,7 @@ impl Tab {
             .collect();
         for id in ids {
             self.text_of(id).log.push(line);
+            self.note_unread(id);
         }
     }
 
@@ -353,6 +403,15 @@ impl Tab {
                         if widgets::primary_button(ui, tr("Done")).clicked() {
                             self.editing_layout = false;
                         }
+                        // Who gets the corners of the window.
+                        let corners = tr("Side panels reach the top and the bottom");
+                        widgets::switch(ui, &mut self.layout.columns_full, corners)
+                            .on_hover_text(corners);
+                        let label = RichText::new(tr("Tall sides"))
+                            .font(theme::font(Weight::Regular, 12.5))
+                            .color(theme.text_dim);
+                        ui.add(Label::new(label).selectable(false))
+                            .on_hover_text(corners);
                         let add = ui.button(tr("Add a panel"));
                         egui::Popup::menu(&add).show(|ui| {
                             widgets::menu_width(ui);
@@ -422,7 +481,13 @@ impl Tab {
         let mut asked = None;
         self.panel_rects.clear();
         // Those above and below first, so that they span the window.
-        for side in [Side::Top, Side::Bottom, Side::Left, Side::Right] {
+        // Whichever goes first spans the window; the others fit between.
+        let order = if self.layout.columns_full {
+            [Side::Left, Side::Right, Side::Top, Side::Bottom]
+        } else {
+            [Side::Top, Side::Bottom, Side::Left, Side::Right]
+        };
+        for side in order {
             let members: Vec<usize> = (0..self.layout.panels.len())
                 .filter(|&index| {
                     self.layout.panels[index].visible && self.layout.panels[index].side == side
@@ -480,23 +545,33 @@ impl Tab {
     }
 
     /// The panels of one side, sharing its length by their weights, with
-    /// an edge to drag between each two.
+    /// an edge to drag between each two. Panels joined as tabs share one
+    /// place, with their names along its top to choose between them.
     fn strip(&mut self, ui: &mut egui::Ui, side: Side, members: &[usize]) -> Option<MapAction> {
         const GAP: f32 = 8.0;
         let theme = theme::current();
         let full = ui.max_rect();
         let stacked = side.is_beside();
+        // The places: each a panel alone, or those of one set of tabs.
+        let mut places: Vec<Vec<usize>> = Vec::new();
+        for &index in members {
+            let stack = self.layout.panels[index].stack;
+            let joined = places
+                .iter_mut()
+                .find(|place| stack != 0 && self.layout.panels[place[0]].stack == stack);
+            match joined {
+                Some(place) => place.push(index),
+                None => places.push(vec![index]),
+            }
+        }
         let along = |rect: egui::Rect| if stacked { rect.height() } else { rect.width() };
-        let length = (along(full) - GAP * (members.len() - 1) as f32).max(1.0);
-        let total: f32 = members
-            .iter()
-            .map(|&index| self.layout.panels[index].weight.max(0.05))
-            .sum();
+        let length = (along(full) - GAP * (places.len() - 1) as f32).max(1.0);
+        let weight = |tab: &Self, place: &[usize]| tab.layout.panels[place[0]].weight.max(0.05);
+        let total: f32 = places.iter().map(|place| weight(self, place)).sum();
         let mut asked = None;
         let mut at = if stacked { full.top() } else { full.left() };
-        for (place, &index) in members.iter().enumerate() {
-            let spec = self.layout.panels[index].clone();
-            let share = length * spec.weight.max(0.05) / total;
+        for (number, place) in places.iter().enumerate() {
+            let share = length * weight(self, place) / total;
             let rect = if stacked {
                 egui::Rect::from_min_max(
                     egui::pos2(full.left(), at),
@@ -508,24 +583,34 @@ impl Tab {
                     egui::pos2(at + share, full.bottom()),
                 )
             };
-            self.panel_rects.push((spec.id, rect));
+            for &index in place {
+                self.panel_rects.push((self.layout.panels[index].id, rect));
+            }
             ui.painter()
                 .rect_filled(rect, egui::CornerRadius::same(12), theme.background);
             let inner = rect.shrink2(egui::vec2(14.0, 10.0));
             let builder = egui::UiBuilder::new()
-                .id_salt(("panel", spec.id))
+                .id_salt(("place", self.layout.panels[place[0]].id))
                 .max_rect(inner)
                 .layout(egui::Layout::top_down(egui::Align::Min));
             let got = ui.scope_builder(builder, |ui| {
                 ui.set_clip_rect(inner.intersect(ui.clip_rect()));
-                self.panel_body(ui, index, &spec)
+                let tabbed = place.len() > 1;
+                let index = if tabbed {
+                    self.tab_bar(ui, place)
+                } else {
+                    place[0]
+                };
+                let spec = self.layout.panels[index].clone();
+                self.panel_body(ui, index, &spec, tabbed)
             });
             asked = asked.or(got.inner);
             at += share;
-            let Some(&next) = members.get(place + 1) else {
+            let Some(next) = places.get(number + 1).map(|next| next[0]) else {
                 continue;
             };
-            // The edge between this panel and the next, to trade room.
+            let lead = place[0];
+            // The edge between this place and the next, to trade room.
             let edge = if stacked {
                 egui::Rect::from_min_max(
                     egui::pos2(full.left(), at),
@@ -542,12 +627,9 @@ impl Tab {
             } else {
                 egui::CursorIcon::ResizeHorizontal
             };
+            let id = ui.make_persistent_id(("panel edge", self.layout.panels[lead].id));
             let handle = ui
-                .interact(
-                    edge,
-                    ui.make_persistent_id(("panel edge", spec.id)),
-                    egui::Sense::drag(),
-                )
+                .interact(edge, id, egui::Sense::drag())
                 .on_hover_cursor(cursor);
             handle.widget_info(|| {
                 egui::WidgetInfo::labeled(egui::Role::Splitter, true, tr("Resize"))
@@ -562,8 +644,8 @@ impl Tab {
                 let least = total * 48.0 / length;
                 let give = (moved * total / length)
                     .min(self.layout.panels[next].weight - least)
-                    .max(least - self.layout.panels[index].weight);
-                self.layout.panels[index].weight += give;
+                    .max(least - self.layout.panels[lead].weight);
+                self.layout.panels[lead].weight += give;
                 self.layout.panels[next].weight -= give;
                 ui.ctx().set_cursor_icon(cursor);
             }
@@ -583,6 +665,81 @@ impl Tab {
         asked
     }
 
+    /// The names of the panels that share a place, to choose which is on
+    /// show. One that got something while out of sight has a dot. Returns
+    /// the one on show.
+    fn tab_bar(&mut self, ui: &mut egui::Ui, place: &[usize]) -> usize {
+        let theme = theme::current();
+        let stack = self.layout.panels[place[0]].stack;
+        let ids: Vec<u32> = place
+            .iter()
+            .map(|&index| self.layout.panels[index].id)
+            .collect();
+        let kept = self
+            .shown_tabs
+            .iter()
+            .find(|(known, _)| *known == stack)
+            .map(|(_, id)| *id);
+        let mut shown = kept.filter(|id| ids.contains(id)).unwrap_or(ids[0]);
+        ui.horizontal_wrapped(|ui| {
+            ui.spacing_mut().item_spacing.x = 4.0;
+            for &index in place {
+                let panel = &self.layout.panels[index];
+                let on = panel.id == shown;
+                let unread = self.unread_tabs.contains(&panel.id);
+                let font = theme::font(if on { Weight::Medium } else { Weight::Regular }, 12.5);
+                let wide = ui
+                    .painter()
+                    .layout_no_wrap(panel.name.clone(), font.clone(), theme.text)
+                    .size()
+                    .x;
+                let size = egui::vec2(wide + if unread { 30.0 } else { 20.0 }, 24.0);
+                let (rect, tab) = ui.allocate_exact_size(size, egui::Sense::click());
+                tab.widget_info(|| {
+                    egui::WidgetInfo::selected(egui::Role::Tab, true, on, panel.name.as_str())
+                });
+                let hovered = tab.hovered() || tab.has_focus();
+                if on {
+                    ui.painter()
+                        .rect_filled(rect, egui::CornerRadius::same(7), theme.raised);
+                } else if hovered {
+                    ui.painter().rect_filled(
+                        rect,
+                        egui::CornerRadius::same(7),
+                        theme.raised.gamma_multiply(0.6),
+                    );
+                }
+                let colour = if on || hovered {
+                    theme.text
+                } else {
+                    theme.text_dim
+                };
+                ui.painter().text(
+                    rect.left_center() + egui::vec2(10.0, 0.0),
+                    egui::Align2::LEFT_CENTER,
+                    &panel.name,
+                    font,
+                    colour,
+                );
+                if unread {
+                    ui.painter().circle_filled(
+                        rect.right_center() - egui::vec2(10.0, 0.0),
+                        3.0,
+                        theme.accent,
+                    );
+                }
+                if tab.clicked() {
+                    shown = panel.id;
+                }
+            }
+        });
+        ui.add_space(2.0);
+        self.shown_tabs.retain(|(known, _)| *known != stack);
+        self.shown_tabs.push((stack, shown));
+        self.unread_tabs.retain(|id| *id != shown);
+        place[ids.iter().position(|id| *id == shown).unwrap_or(0)]
+    }
+
     /// While a panel is dragged by its handle, shows where it would go;
     /// once it is let go, puts it there: before or after the panel it is
     /// over, or at the end of the side it is nearest to.
@@ -595,7 +752,8 @@ impl Tab {
             self.dragged_panel = None;
             return;
         };
-        // Over another panel: its side, before or after it.
+        // Over another panel: its side, and by where on it, before it,
+        // after it, or in its place as a tab.
         let over = (self.panel_rects.iter())
             .find(|(other, rect)| *other != id && rect.contains(pointer))
             .copied();
@@ -606,18 +764,29 @@ impl Tab {
                 .iter()
                 .find(|panel| panel.id == other)?
                 .side;
-            let before = if side.is_beside() {
-                pointer.y < rect.center().y
+            let (start, length, at) = if side.is_beside() {
+                (rect.top(), rect.height(), pointer.y)
             } else {
-                pointer.x < rect.center().x
+                (rect.left(), rect.width(), pointer.x)
             };
-            let half = match (side.is_beside(), before) {
-                (true, true) => rect.with_max_y(rect.center().y),
-                (true, false) => rect.with_min_y(rect.center().y),
-                (false, true) => rect.with_max_x(rect.center().x),
-                (false, false) => rect.with_min_x(rect.center().x),
+            let part = (at - start) / length.max(1.0);
+            let (drop, from, to) = match part {
+                part if part < 0.3 => (Drop::Before, 0.0, 0.3),
+                part if part > 0.7 => (Drop::After, 0.7, 1.0),
+                _ => (Drop::Into, 0.3, 0.7),
             };
-            Some((other, side, before, half))
+            let band = if side.is_beside() {
+                egui::Rect::from_min_max(
+                    egui::pos2(rect.left(), start + length * from),
+                    egui::pos2(rect.right(), start + length * to),
+                )
+            } else {
+                egui::Rect::from_min_max(
+                    egui::pos2(start + length * from, rect.top()),
+                    egui::pos2(start + length * to, rect.bottom()),
+                )
+            };
+            Some((other, side, drop, band))
         });
         // Over nothing: the side the pointer is nearest to, each way in
         // its own measure.
@@ -679,19 +848,60 @@ impl Tab {
         };
         moved.side = side;
         moved.weight = 1.0;
-        let to = match onto {
-            Some((other, _, before, _)) => {
-                let place = self
-                    .layout
-                    .panels
-                    .iter()
-                    .position(|panel| panel.id == other)
-                    .unwrap_or(0);
-                if before { place } else { place + 1 }
-            }
-            None => self.layout.panels.len(),
+        moved.stack = 0;
+        let Some((other, _, drop, _)) = onto else {
+            return self.layout.panels.push(moved);
         };
-        self.layout.panels.insert(to, moved);
+        let Some(place) = self
+            .layout
+            .panels
+            .iter()
+            .position(|panel| panel.id == other)
+        else {
+            return self.layout.panels.push(moved);
+        };
+        // The panels the one dropped on shares its place with, if any.
+        let stack = self.layout.panels[place].stack;
+        let shares = |panel: &PanelSpec| stack != 0 && panel.stack == stack && panel.side == side;
+        let first = self.layout.panels.iter().position(&shares).unwrap_or(place);
+        let last = self.layout.panels.iter().rposition(shares).unwrap_or(place);
+        match drop {
+            Drop::Before => self.layout.panels.insert(first, moved),
+            Drop::After => self.layout.panels.insert(last + 1, moved),
+            Drop::Into => {
+                // Joined as a tab, and shown, so that it is seen to be there.
+                let joined = if stack == 0 {
+                    self.layout.next_stack()
+                } else {
+                    stack
+                };
+                self.layout.panels[place].stack = joined;
+                moved.stack = joined;
+                moved.weight = self.layout.panels[place].weight;
+                self.shown_tabs.retain(|(known, _)| *known != joined);
+                self.shown_tabs.push((joined, moved.id));
+                self.layout.panels.insert(last + 1, moved);
+            }
+        }
+    }
+
+    /// Makes a panel share the place of the one before it on its side.
+    fn join_before(&mut self, index: usize) {
+        let side = self.layout.panels[index].side;
+        let Some(before) = (0..index).rev().find(|&other| {
+            self.layout.panels[other].visible && self.layout.panels[other].side == side
+        }) else {
+            return;
+        };
+        let stack = match self.layout.panels[before].stack {
+            0 => self.layout.next_stack(),
+            stack => stack,
+        };
+        self.layout.panels[before].stack = stack;
+        self.layout.panels[index].stack = stack;
+        let id = self.layout.panels[index].id;
+        self.shown_tabs.retain(|(known, _)| *known != stack);
+        self.shown_tabs.push((stack, id));
     }
 
     /// Moves a panel one place among those of its side: `-1` earlier,
@@ -717,6 +927,7 @@ impl Tab {
         ui: &mut egui::Ui,
         index: usize,
         spec: &PanelSpec,
+        tabbed: bool,
     ) -> Option<MapAction> {
         if self.editing_layout {
             self.panel_handle(ui, index);
@@ -728,7 +939,8 @@ impl Tab {
                 None
             }
             Kind::Text => {
-                if !self.editing_layout {
+                // Its name is already there in the layout mode and on a tab.
+                if !self.editing_layout && !tabbed {
                     widgets::caption(ui, &spec.name);
                 }
                 self.text_body(ui, spec.id, false);
@@ -801,7 +1013,7 @@ impl Tab {
                     panel.side = side;
                 }
             }
-            let (mut earlier, mut later) = (false, false);
+            let (mut earlier, mut later, mut join) = (false, false, false);
             let more = widgets::icon_button(ui, widgets::Icon::More, tr("More"), false);
             egui::Popup::menu(&more).show(|ui| {
                 widgets::menu_width(ui);
@@ -819,6 +1031,19 @@ impl Tab {
                     later = true;
                     ui.close();
                 }
+                // Tabs: with the panel before it, or out of them.
+                widgets::menu_separator(ui);
+                if spec.stack == 0 {
+                    if widgets::menu_item(ui, tr("Share the place of the one before, as tabs"), "")
+                        .clicked()
+                    {
+                        join = true;
+                        ui.close();
+                    }
+                } else if widgets::menu_item(ui, tr("Take out of the tabs"), "").clicked() {
+                    panel.stack = 0;
+                    ui.close();
+                }
                 if spec.kind == Kind::Text {
                     widgets::menu_separator(ui);
                     widgets::menu_check(
@@ -833,6 +1058,9 @@ impl Tab {
             }
             if earlier || later {
                 self.shift_panel(index, if earlier { -1 } else { 1 });
+            }
+            if join {
+                self.join_before(index);
             }
             // Beside the rest, not at the far end: a narrow panel has
             // no far end to spare.
