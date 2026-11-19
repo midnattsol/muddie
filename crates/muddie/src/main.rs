@@ -9,6 +9,8 @@ mod output;
 mod palette;
 mod panels;
 mod profile;
+mod rules;
+mod secrets;
 mod settings;
 mod sound;
 mod tab;

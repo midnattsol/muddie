@@ -24,8 +24,11 @@ use crate::output::{Output, server_job};
 use crate::palette;
 use crate::panels::{self, Gauges, MsdpVitals};
 use crate::profile::{Profile, Profiles};
+use crate::rules::{Alias, KeyBinding, Rules, Trigger};
+use crate::secrets;
 use crate::settings::{LogFormat, Settings};
 use crate::sound::Player;
+use crate::sound::{self, Msp};
 use crate::theme;
 use crate::voice::Voice;
 
@@ -95,7 +98,32 @@ pub struct Tab {
     reconnect_attempts: u32,
     /// When something was last sent or received, for keep-alives.
     last_activity: Instant,
+    /// The triggers, aliases and keys made in the interface, as saved.
+    rules: Rules,
+    /// The copy being edited in the rules window.
+    rules_draft: Rules,
+    rules_open: bool,
+    /// Which of triggers, aliases and keys the rules window shows.
+    rules_section: usize,
+    /// Character to log in as, from the profile.
+    character: String,
+    /// A new password typed in the bar, saved with the profile.
+    new_password: String,
+    login: Login,
 }
+
+/// How far an automatic login has got.
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Login {
+    Idle,
+    /// Waiting for the first prompt, to answer it with the name.
+    Name(Instant),
+    /// Waiting for the server to hide input, to answer with the password.
+    Password(Instant),
+}
+
+/// How long an automatic login waits for the prompt it expects.
+const LOGIN_TIMEOUT: Duration = Duration::from_secs(60);
 
 /// How long unterminated text must stay unchanged before triggers see it
 /// as a line. Servers that do not mark their prompts leave them like that.
@@ -184,6 +212,13 @@ impl Tab {
             reconnect_at: None,
             reconnect_attempts: 0,
             last_activity: Instant::now(),
+            rules: Rules::default(),
+            rules_draft: Rules::default(),
+            rules_open: false,
+            rules_section: 0,
+            character: String::new(),
+            new_password: String::new(),
+            login: Login::Idle,
         };
         app.voice.set_enabled(startup.speech);
         match startup.profile {
@@ -318,7 +353,34 @@ impl Tab {
         for file in &files {
             self.scripts.load_file(file);
         }
+        // The rules made in the interface run last, as one more script.
+        if let Some(profiles) = &self.profiles {
+            match Rules::load(&profiles.rules_path(self.profile.as_deref())) {
+                Ok(rules) => self.rules = rules,
+                Err(error) => self.note(&trf("Could not load the rules: {0}", &[&error])),
+            }
+        }
+        self.scripts.exec("rules", &self.rules.to_luau());
         self.run_actions();
+    }
+
+    /// Saves the rules edited in the rules window and puts them to work.
+    fn save_rules(&mut self) {
+        let Some(profiles) = &self.profiles else {
+            return self.note(tr(
+                "The rules cannot be saved: no configuration folder was found.",
+            ));
+        };
+        match self
+            .rules_draft
+            .save(&profiles.rules_path(self.profile.as_deref()))
+        {
+            Ok(()) => {
+                self.load_scripts();
+                self.note(tr("Rules saved."));
+            }
+            Err(error) => self.note(&trf("Could not save the rules: {0}", &[&error])),
+        }
     }
 
     /// Switches to a saved profile, or to none. Returns false if the
@@ -342,6 +404,7 @@ impl Tab {
             self.tls = profile.tls;
             self.verify_certificate = profile.verify_certificate;
             self.packages = profile.packages;
+            self.character = profile.character;
             self.voice.set_enabled(profile.speech);
         } else {
             self.packages.clear();
@@ -367,6 +430,7 @@ impl Tab {
             tls: self.tls,
             verify_certificate: self.verify_certificate,
             speech: self.voice.enabled(),
+            character: self.character.trim().to_owned(),
             // A profile saved under a new name starts without packages.
             packages: if self.profile.as_deref() == Some(&name) {
                 self.packages.clone()
@@ -382,7 +446,16 @@ impl Tab {
                 if renamed {
                     self.load_scripts();
                 }
-                self.note(&format!("Profile {name} saved."));
+                self.note(&trf("Profile {0} saved.", &[&name]));
+                let password = std::mem::take(&mut self.new_password);
+                if !password.is_empty()
+                    && let Err(error) = secrets::set_password(&name, Some(&password))
+                {
+                    self.note(&trf(
+                        "The password could not be saved in the keyring: {0}",
+                        &[&error],
+                    ));
+                }
             }
             Err(error) => self.note(&format!("Could not save the profile: {error}")),
         }
@@ -531,9 +604,32 @@ impl Tab {
                         self.start_log();
                     }
                     self.note(tr("Connected."));
+                    self.login = if self.character.trim().is_empty() {
+                        Login::Idle
+                    } else {
+                        Login::Name(Instant::now())
+                    };
                 }
                 Event::Line(line) | Event::Prompt(line) => {
                     let text = line.text();
+                    // A sound request is carried out, not shown.
+                    if let Some(request) = sound::parse_msp(&text) {
+                        self.output.clear_partial();
+                        self.pending_partial = None;
+                        match request {
+                            Msp::Stop => self.sound.stop_all(),
+                            Msp::Play {
+                                file,
+                                volume,
+                                looped,
+                            } => {
+                                let path = self.sound_file(&file);
+                                // A sound the user does not have is no error.
+                                let _ = self.sound.play(&path, volume, looped);
+                            }
+                        }
+                        continue;
+                    }
                     self.pending_partial = None;
                     // Text whose triggers already ran while it was
                     // unterminated keeps that verdict instead of firing twice.
@@ -557,6 +653,7 @@ impl Tab {
                     }
                     self.last_activity = Instant::now();
                     self.run_actions();
+                    self.login_name();
                 }
                 Event::Partial(line) => {
                     let text = line.text();
@@ -577,7 +674,12 @@ impl Tab {
                     self.output.set_partial(&line);
                     self.voice.partial(&text);
                 }
-                Event::InputHidden(hidden) => self.input_hidden = hidden,
+                Event::InputHidden(hidden) => {
+                    self.input_hidden = hidden;
+                    if hidden {
+                        self.login_password();
+                    }
+                }
                 // Not spoken: the user has just typed it.
                 Event::Sent(text) => self.show_local(&format!("> {text}")),
                 Event::Gmcp { package, data } => {
@@ -804,6 +906,69 @@ impl Tab {
         }
     }
 
+    /// The window for editing triggers, aliases and keys without a script.
+    fn rules_window(&mut self, ctx: &egui::Context) {
+        if !self.rules_open {
+            return;
+        }
+        let theme = theme::current();
+        let (mut open, mut save) = (true, false);
+        egui::Window::new(tr("Triggers, aliases and keys"))
+            .open(&mut open)
+            .collapsible(false)
+            .default_size([780.0, 460.0])
+            .show(ctx, |ui| {
+                ui.horizontal(|ui| {
+                    for (section, name) in [tr("Triggers"), tr("Aliases"), tr("Keys")]
+                        .into_iter()
+                        .enumerate()
+                    {
+                        ui.selectable_value(&mut self.rules_section, section, name);
+                    }
+                });
+                ui.separator();
+                let draft = &mut self.rules_draft;
+                egui::ScrollArea::vertical()
+                    .max_height(340.0)
+                    .auto_shrink(false)
+                    .show(ui, |ui| match self.rules_section {
+                        0 => edit_rules(ui, &mut draft.triggers, trigger_editor),
+                        1 => edit_rules(ui, &mut draft.aliases, alias_editor),
+                        _ => edit_rules(ui, &mut draft.keys, key_editor),
+                    });
+                ui.separator();
+                ui.horizontal(|ui| {
+                    if ui.button(tr("Add")).clicked() {
+                        match self.rules_section {
+                            0 => draft.triggers.push(Trigger {
+                                enabled: true,
+                                ..Trigger::default()
+                            }),
+                            1 => draft.aliases.push(Alias {
+                                enabled: true,
+                                ..Alias::default()
+                            }),
+                            _ => draft.keys.push(KeyBinding {
+                                enabled: true,
+                                ..KeyBinding::default()
+                            }),
+                        }
+                    }
+                    let changed = *draft != self.rules;
+                    save = ui
+                        .add_enabled(changed, egui::Button::new(tr("Save")))
+                        .clicked();
+                    if changed {
+                        ui.label(RichText::new(tr("Unsaved changes")).color(theme.text_dim));
+                    }
+                });
+            });
+        self.rules_open = open;
+        if save {
+            self.save_rules();
+        }
+    }
+
     /// The bar for searching the scrollback, shown above the input line.
     fn find_bar(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
@@ -926,6 +1091,45 @@ impl Tab {
         }
         self.settled_partial = Some((text, shown));
         self.run_actions();
+        self.login_name();
+    }
+
+    /// Answers the first prompt after connecting with the profile's
+    /// character name, if it has one.
+    fn login_name(&mut self) {
+        let Login::Name(since) = self.login else {
+            return;
+        };
+        if since.elapsed() > LOGIN_TIMEOUT {
+            self.login = Login::Idle;
+            return;
+        }
+        // Only a prompt counts: text the server left unterminated.
+        if self.settled_partial.is_none() {
+            return;
+        }
+        self.login = Login::Password(Instant::now());
+        self.send(self.character.trim().to_owned());
+    }
+
+    /// Answers a hidden prompt after the name with the password kept in
+    /// the keyring for the profile.
+    fn login_password(&mut self) {
+        let Login::Password(since) = self.login else {
+            return;
+        };
+        self.login = Login::Idle;
+        let (true, Some(profile)) = (since.elapsed() <= LOGIN_TIMEOUT, self.profile.clone()) else {
+            return;
+        };
+        match secrets::password(&profile) {
+            Ok(Some(password)) => self.send(password),
+            Ok(None) => {}
+            Err(error) => self.note(&trf(
+                "The password could not be read from the keyring: {0}",
+                &[&error],
+            )),
+        }
     }
 
     /// Gives up a walk whose last move had no effect for too long.
@@ -1061,6 +1265,10 @@ impl Tab {
                     self.note(&format!("{package}: {state}"));
                 }
             }
+            "/reload" => {
+                self.load_scripts();
+                self.note(tr("Scripts reloaded."));
+            }
             // Starts or stops logging the session.
             "/log" => match self.log.take() {
                 Some(log) => self.note(&trf(
@@ -1175,8 +1383,12 @@ impl Tab {
                 if ui.checkbox(&mut speech, "Speech").changed() {
                     self.voice.set_enabled(speech);
                 }
-                ui.checkbox(&mut self.show_map, "Map");
-                ui.checkbox(&mut self.show_chat, "Chat");
+                ui.checkbox(&mut self.show_map, tr("Map"));
+                ui.checkbox(&mut self.show_chat, tr("Chat"));
+                if ui.button(tr("Triggers")).clicked() {
+                    self.rules_draft = self.rules.clone();
+                    self.rules_open = true;
+                }
             });
         });
         if connected {
@@ -1193,6 +1405,21 @@ impl Tab {
             if self.tls {
                 ui.checkbox(&mut self.verify_certificate, "Verify certificate");
             }
+            ui.separator();
+            let label = ui.label(tr("Character"));
+            ui.add(TextEdit::singleline(&mut self.character).desired_width(100.0))
+                .labelled_by(label.id);
+            let label = ui.label(tr("Password"));
+            ui.add(
+                TextEdit::singleline(&mut self.new_password)
+                    .password(true)
+                    .hint_text(tr("unchanged"))
+                    .desired_width(100.0),
+            )
+            .on_hover_text(tr(
+                "Kept in the system's keyring when the profile is saved.",
+            ))
+            .labelled_by(label.id);
             ui.separator();
             let label = ui.label("Save as");
             ui.add(TextEdit::singleline(&mut self.profile_name).desired_width(120.0))
@@ -1304,6 +1531,7 @@ impl Tab {
     /// Draws the session in `ui`.
     pub fn show(&mut self, ui: &mut egui::Ui, _settings: &Settings) {
         self.bound_keys(ui);
+        self.rules_window(ui.ctx());
         // Alt+0 reads the gauges aloud.
         if ui.input_mut(|input| input.consume_key(Modifiers::ALT, Key::Num0)) {
             self.voice.stop();
@@ -1366,6 +1594,70 @@ impl Tab {
             .frame(frame)
             .show(ui, |ui| self.output.show(ui, "output"));
     }
+}
+
+/// A labelled text field for the rules window.
+fn rule_field(ui: &mut egui::Ui, label: &'static str, value: &mut String, width: f32) {
+    let label = ui.label(RichText::new(tr(label)).color(theme::current().text_dim));
+    ui.add(TextEdit::singleline(value).desired_width(width))
+        .labelled_by(label.id);
+}
+
+/// Lists `rules` for editing, each in its own frame with a delete button.
+fn edit_rules<T>(ui: &mut egui::Ui, rules: &mut Vec<T>, editor: fn(&mut egui::Ui, &mut T)) {
+    if rules.is_empty() {
+        ui.label(
+            RichText::new(tr("Nothing here yet. Use Add to make one."))
+                .color(theme::current().text_dim),
+        );
+    }
+    let mut delete = None;
+    for (index, rule) in rules.iter_mut().enumerate() {
+        ui.push_id(index, |ui| {
+            egui::Frame::group(ui.style()).show(ui, |ui| {
+                ui.horizontal_wrapped(|ui| {
+                    editor(ui, rule);
+                    if ui.button(tr("Delete")).clicked() {
+                        delete = Some(index);
+                    }
+                });
+            });
+        });
+    }
+    if let Some(index) = delete {
+        rules.remove(index);
+    }
+}
+
+fn trigger_editor(ui: &mut egui::Ui, trigger: &mut Trigger) {
+    ui.checkbox(&mut trigger.enabled, tr("On"));
+    rule_field(ui, "When a line has", &mut trigger.pattern, 250.0);
+    ui.checkbox(&mut trigger.regex, tr("Regular expression"));
+    ui.end_row();
+    rule_field(ui, "Send", &mut trigger.send, 170.0);
+    rule_field(ui, "Say", &mut trigger.speak, 130.0);
+    rule_field(ui, "Play", &mut trigger.sound, 100.0);
+    rule_field(ui, "Colour", &mut trigger.highlight, 70.0);
+    ui.checkbox(&mut trigger.gag, tr("Hide the line"));
+}
+
+fn alias_editor(ui: &mut egui::Ui, alias: &mut Alias) {
+    ui.checkbox(&mut alias.enabled, tr("On"));
+    rule_field(ui, "Typing", &mut alias.pattern, 150.0);
+    ui.checkbox(&mut alias.regex, tr("Regular expression"));
+    rule_field(ui, "Sends", &mut alias.send, 300.0);
+}
+
+fn key_editor(ui: &mut egui::Ui, key: &mut KeyBinding) {
+    ui.checkbox(&mut key.enabled, tr("On"));
+    let label = ui.label(RichText::new(tr("Key")).color(theme::current().text_dim));
+    ui.add(
+        TextEdit::singleline(&mut key.key)
+            .hint_text("f5, ctrl+k")
+            .desired_width(110.0),
+    )
+    .labelled_by(label.id);
+    rule_field(ui, "Sends", &mut key.send, 300.0);
 }
 
 #[cfg(test)]
@@ -1608,6 +1900,96 @@ mod tests {
         let log = std::fs::read_to_string(path).unwrap();
         assert!(log.contains("An orc arrives"), "{log}");
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn rules_made_in_the_window_are_saved_and_take_effect() {
+        let dir = std::env::temp_dir().join(format!("muddie-app-rules-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let mut harness = window(Some(Profiles::at(dir.clone())));
+        harness.get_by_label("Triggers").click();
+        harness.run_steps(4);
+        assert!(harness.state().tab().rules_open, "the button opens the window");
+        harness.get_by_label("Add").click();
+        harness.run_steps(2);
+        let app = harness.state_mut().tab_mut();
+        app.rules_draft.triggers[0].pattern = "you are hungry".into();
+        app.rules_draft.triggers[0].send = "eat bread".into();
+        harness.run_steps(2);
+        harness.get_by_label("Save").click();
+        harness.run_steps(2);
+        assert_eq!(
+            Rules::load(&dir.join("rules.toml")).unwrap().triggers.len(),
+            1
+        );
+
+        let app = harness.state_mut().tab_mut();
+        let (events, mut sent) = fake_connection(app);
+        events
+            .send(Event::Line(
+                panels::styled_lines("Suddenly you are hungry.").remove(0),
+            ))
+            .unwrap();
+        harness.run_steps(2);
+        assert_eq!(sent.try_recv().unwrap(), Command::Send("eat bread".into()));
+        // Reloading scripts keeps the rules working.
+        assert!(harness.state_mut().tab_mut().map_command("/reload"));
+        events
+            .send(Event::Line(
+                panels::styled_lines("Again you are hungry.").remove(0),
+            ))
+            .unwrap();
+        harness.run_steps(2);
+        assert_eq!(sent.try_recv().unwrap(), Command::Send("eat bread".into()));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn sound_requests_from_the_server_are_not_shown() {
+        let mut harness = window(None);
+        let app = harness.state_mut().tab_mut();
+        let (events, _sent) = fake_connection(app);
+        for text in [
+            "before",
+            "!!SOUND(missing.wav V=50)",
+            "!!MUSIC(Off)",
+            "after",
+        ] {
+            events
+                .send(Event::Line(panels::styled_lines(text).remove(0)))
+                .unwrap();
+        }
+        harness.run_steps(2);
+        assert_eq!(output_lines(harness.state().tab()), ["before", "after"]);
+    }
+
+    #[test]
+    fn character_name_answers_the_first_prompt() {
+        let mut harness = window(None);
+        let app = harness.state_mut().tab_mut();
+        app.character = "Gandalf".into();
+        let (events, mut sent) = fake_connection(app);
+        events.send(Event::Connected).unwrap();
+        events
+            .send(Event::Line(
+                panels::styled_lines("Welcome to the realm").remove(0),
+            ))
+            .unwrap();
+        events
+            .send(Event::Partial(
+                panels::styled_lines("By what name are you known? ").remove(0),
+            ))
+            .unwrap();
+        harness.run_steps(2);
+        assert!(sent.try_recv().is_err(), "a banner line is not a prompt");
+        std::thread::sleep(PARTIAL_SETTLE + Duration::from_millis(50));
+        harness.run_steps(2);
+        assert_eq!(sent.try_recv().unwrap(), Command::Send("Gandalf".into()));
+        // Without a profile there is no password to send.
+        events.send(Event::InputHidden(true)).unwrap();
+        harness.run_steps(2);
+        assert!(sent.try_recv().is_err());
+        assert_eq!(harness.state().tab().login, Login::Idle);
     }
 
     /// A window with every panel in use, as after some minutes of play.

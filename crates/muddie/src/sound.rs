@@ -102,9 +102,81 @@ fn spawn(file: &Path, volume: f32) -> Result<Child, String> {
     Err("no sound player found (tried pw-play, paplay, ffplay and aplay)".to_owned())
 }
 
+/// A request in a line of the MUD Sound Protocol, such as
+/// `!!SOUND(sword.wav V=80 L=2)`.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Msp {
+    Play {
+        file: String,
+        volume: f32,
+        looped: bool,
+    },
+    /// `Off` as the file name stops what is playing.
+    Stop,
+}
+
+/// Reads an MSP trigger if `line` is one. Only the volume and the repeat
+/// count are honoured; a count other than 1 loops until stopped.
+pub fn parse_msp(line: &str) -> Option<Msp> {
+    let line = line.trim();
+    let body = (line.strip_prefix("!!SOUND(")).or_else(|| line.strip_prefix("!!MUSIC("))?;
+    let mut parts = body.strip_suffix(')')?.split_whitespace();
+    let file = parts.next()?;
+    if file.eq_ignore_ascii_case("off") {
+        return Some(Msp::Stop);
+    }
+    let (mut volume, mut looped) = (1.0, false);
+    for part in parts {
+        match part.split_once('=') {
+            Some(("V" | "v", value)) => {
+                volume = value.parse::<f32>().ok()?.clamp(0.0, 100.0) / 100.0
+            }
+            Some(("L" | "l", value)) => looped = value.parse::<i32>().ok()? != 1,
+            _ => {}
+        }
+    }
+    Some(Msp::Play {
+        file: file.to_owned(),
+        volume,
+        looped,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn msp_triggers_are_read() {
+        let play = |file: &str, volume, looped| {
+            Some(Msp::Play {
+                file: file.into(),
+                volume,
+                looped,
+            })
+        };
+        assert_eq!(
+            parse_msp("!!SOUND(sword.wav)"),
+            play("sword.wav", 1.0, false)
+        );
+        assert_eq!(
+            parse_msp(" !!MUSIC(tavern.ogg V=40 L=-1 T=ambience) "),
+            play("tavern.ogg", 0.4, true)
+        );
+        assert_eq!(
+            parse_msp("!!SOUND(hit.wav L=1 P=50)"),
+            play("hit.wav", 1.0, false)
+        );
+        assert_eq!(parse_msp("!!SOUND(Off)"), Some(Msp::Stop));
+        for not_msp in [
+            "!!SOUND(",
+            "!!SOUND()",
+            "say !!SOUND(x.wav)",
+            "!!SOUND(x.wav V=loud)",
+        ] {
+            assert_eq!(parse_msp(not_msp), None, "{not_msp}");
+        }
+    }
 
     #[test]
     fn missing_file_is_reported() {

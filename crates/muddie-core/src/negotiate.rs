@@ -123,6 +123,7 @@ impl Negotiator {
                         | opt::MCCP2
                         | opt::MSDP
                         | opt::MSSP
+                        | opt::MSP
                 );
                 if !accept {
                     send(reply, Verb::Dont, option);

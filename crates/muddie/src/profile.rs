@@ -25,6 +25,9 @@ pub struct Profile {
     /// Turn off for servers with a self-signed certificate.
     pub verify_certificate: bool,
     pub speech: bool,
+    /// Character name to log in with; its password is in the system's
+    /// keyring, never in this file.
+    pub character: String,
     /// Script packages to load before the profile's own scripts.
     pub packages: Vec<String>,
 }
@@ -37,6 +40,7 @@ impl Default for Profile {
             tls: false,
             verify_certificate: true,
             speech: false,
+            character: String::new(),
             packages: Vec::new(),
         }
     }
@@ -156,6 +160,14 @@ impl Profiles {
         }
     }
 
+    /// Where the triggers, aliases and keys made in the interface are kept.
+    pub fn rules_path(&self, name: Option<&str>) -> PathBuf {
+        match name {
+            Some(name) => self.profile_dir(name).join("rules.toml"),
+            None => self.dir.join("rules.toml"),
+        }
+    }
+
     /// Where sound files are looked for by name: the profile's `sounds`
     /// folder, then the general one.
     pub fn sound_dirs(&self, name: Option<&str>) -> Vec<PathBuf> {
@@ -195,6 +207,7 @@ mod tests {
             tls: true,
             verify_certificate: false,
             speech: true,
+            character: "Gandalf".into(),
             packages: vec!["combat".into()],
         };
         profiles.save("Reinos", &profile).unwrap();
