@@ -28,10 +28,9 @@ use crate::profile::{Profile, Profiles};
 use crate::rules::{Alias, KeyBinding, Rules, Trigger};
 use crate::secrets;
 use crate::settings::{LogFormat, Settings};
-use crate::sound::Player;
-use crate::sound::{self, Msp};
 use crate::theme;
 use crate::voice::Voice;
+use muddie_sound::{self as sound, Msp, Player};
 
 struct Connection {
     commands: UnboundedSender<Command>,

@@ -1,8 +1,8 @@
 //! Speech output. [`Speech`] talks to the platform's speech service from a
 //! background thread; [`Narrator`] decides what incoming text to speak.
 //!
-//! Only Linux (speech-dispatcher) is implemented. On other platforms
-//! [`Speech`] accepts requests and stays silent.
+//! On Linux this talks to speech-dispatcher directly. On Windows and
+//! macOS it uses the system's own speech through the `tts` crate.
 
 mod narrator;
 #[cfg(target_os = "linux")]
@@ -78,5 +78,38 @@ fn worker(requests: Receiver<Request>) {
 
 #[cfg(not(target_os = "linux"))]
 fn worker(requests: Receiver<Request>) {
-    for _ in requests {}
+    // The voice is opened on first use and reopened after a failure.
+    let mut voice: Option<tts::Tts> = None;
+    for request in requests {
+        if voice.is_none() {
+            match tts::Tts::default() {
+                Ok(opened) => voice = Some(opened),
+                Err(error) => eprintln!("muddie: speech unavailable: {error}"),
+            }
+        }
+        let Some(tts) = &mut voice else {
+            continue;
+        };
+        let result = match request {
+            Request::Say(text) => tts.speak(text, false).map(drop),
+            Request::Stop => tts.stop().map(drop),
+            Request::Rate(rate) => {
+                // Each system has its own scale: map ours onto it, with 0
+                // at the voice's normal rate.
+                let (slowest, normal, fastest) =
+                    (tts.min_rate(), tts.normal_rate(), tts.max_rate());
+                let share = rate as f32 / 100.0;
+                let span = if share >= 0.0 {
+                    fastest - normal
+                } else {
+                    normal - slowest
+                };
+                tts.set_rate(normal + span * share).map(drop)
+            }
+        };
+        if let Err(error) = result {
+            eprintln!("muddie: speech unavailable: {error}");
+            voice = None;
+        }
+    }
 }

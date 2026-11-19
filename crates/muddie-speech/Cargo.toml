@@ -5,3 +5,6 @@ edition.workspace = true
 description = "Speech output for the muddie MUD client."
 
 [dependencies]
+
+[target.'cfg(not(target_os = "linux"))'.dependencies]
+tts = "0.26.3"

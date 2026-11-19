@@ -13,7 +13,6 @@ mod profile;
 mod rules;
 mod secrets;
 mod settings;
-mod sound;
 mod tab;
 mod theme;
 mod voice;

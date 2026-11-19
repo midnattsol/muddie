@@ -11,6 +11,7 @@ keyring = "4.2.0"
 muddie-core = { path = "../muddie-core" }
 muddie-mapper = { version = "0.1.0", path = "../muddie-mapper" }
 muddie-script = { version = "0.1.0", path = "../muddie-script" }
+muddie-sound = { version = "0.1.0", path = "../muddie-sound" }
 muddie-speech = { version = "0.1.0", path = "../muddie-speech" }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
