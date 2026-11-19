@@ -590,6 +590,8 @@ impl Tab {
                         .color(theme::current().text_faint);
                     ui.vertical_centered(|ui| ui.label(hint));
                 }
+                // Where each gauge's row is, to drop a dragged one among them.
+                let mut places: Vec<(usize, egui::Rect)> = Vec::new();
                 // Under the name of their group, those that have one last.
                 let groups = self.row_groups();
                 let group_of = |index: usize| groups.get(index).cloned().unwrap_or_default();
@@ -691,15 +693,67 @@ impl Tab {
                     for index in members {
                         let (title, detail, enabled) = &rows[index];
                         let selected = self.rules_selected[section] == index;
-                        if widgets::list_row(ui, selected, title, detail, *enabled && on).clicked()
-                        {
+                        let row = widgets::list_row(ui, selected, title, detail, *enabled && on);
+                        if row.clicked() {
                             self.rules_selected[section] = index;
                             self.rules_sample.clear();
                             self.recording_key = false;
                         }
+                        // The gauges are shown in the order of this list,
+                        // so its rows can be dragged to another place.
+                        if section == GAUGES && filter.is_empty() {
+                            places.push((index, row.rect));
+                            let row = row.interact(egui::Sense::drag());
+                            if row.drag_started() {
+                                self.gauge_dragged = Some(index);
+                            }
+                            if self.gauge_dragged == Some(index) {
+                                ui.ctx().set_cursor_icon(egui::CursorIcon::Grabbing);
+                            } else if row.hovered() {
+                                ui.ctx().set_cursor_icon(egui::CursorIcon::Grab);
+                            }
+                        }
                     }
                 }
+                self.drag_gauge(ui, &places);
             });
+    }
+
+    /// While a gauge is dragged in the list, marks where it would go, and
+    /// puts it there once let go.
+    fn drag_gauge(&mut self, ui: &egui::Ui, places: &[(usize, egui::Rect)]) {
+        let Some(from) = self.gauge_dragged else {
+            return;
+        };
+        let pointer = ui.ctx().pointer_latest_pos();
+        // Before the first row whose middle is under the pointer, or last.
+        let before = pointer
+            .and_then(|pointer| (places.iter()).find(|(_, rect)| pointer.y < rect.center().y));
+        let to = before.map_or(self.rules_draft.gauges.len(), |(index, _)| *index);
+        let y = match (before, places.last()) {
+            (Some((_, rect)), _) => rect.top(),
+            (None, Some((_, rect))) => rect.bottom(),
+            (None, None) => return self.gauge_dragged = None,
+        };
+        let across = places[0].1.x_range();
+        ui.painter()
+            .hline(across, y, egui::Stroke::new(2.0, theme::current().accent));
+        if !ui.input(|input| input.pointer.any_down()) {
+            self.gauge_dragged = None;
+            self.move_gauge(from, to);
+        }
+    }
+
+    /// Moves a gauge to before the one now at `to`, keeping it chosen.
+    pub(super) fn move_gauge(&mut self, from: usize, to: usize) {
+        let gauges = &mut self.rules_draft.gauges;
+        if from >= gauges.len() || to == from || to == from + 1 {
+            return;
+        }
+        let gauge = gauges.remove(from);
+        let at = if to > from { to - 1 } else { to }.min(gauges.len());
+        gauges.insert(at, gauge);
+        self.rules_selected[GAUGES] = at;
     }
 
     /// Adds an empty rule to the current section and selects it.
@@ -1533,6 +1587,21 @@ impl Tab {
     fn gauge_detail(&mut self, ui: &mut egui::Ui, index: usize) -> bool {
         use crate::rules::{GaugeKind, Step};
         let theme = theme::current();
+        // Alt and an arrow move it in the list, for those who do not drag.
+        let (up, down) = ui.input_mut(|input| {
+            (
+                input.consume_key(egui::Modifiers::ALT, egui::Key::ArrowUp),
+                input.consume_key(egui::Modifiers::ALT, egui::Key::ArrowDown),
+            )
+        });
+        if up && index > 0 {
+            self.move_gauge(index, index - 1);
+            return false;
+        }
+        if down {
+            self.move_gauge(index, index + 2);
+            return false;
+        }
         let panels: Vec<(u32, String)> = (self.layout.panels.iter())
             .filter(|panel| panel.kind == super::layout::Kind::Gauges)
             .map(|panel| (panel.id, panel.name.clone()))
@@ -1682,6 +1751,9 @@ impl Tab {
         // Which panel of gauges it is shown in.
         ui.add_space(4.0);
         widgets::caption(ui, tr("Shown in"));
+        let order = tr(
+            "In the order of the list: drag a gauge there, or press Alt+Up or Alt+Down, to move it.",
+        );
         if panels.is_empty() {
             ui.horizontal(|ui| {
                 note(ui, tr("There is no panel of gauges to show it in."));
@@ -1700,6 +1772,7 @@ impl Tab {
                         ui.selectable_value(&mut rule.panel, *id, name);
                     }
                 });
+            note(ui, order);
         }
         ui.add_space(4.0);
         widgets::caption(ui, tr("Preview"));

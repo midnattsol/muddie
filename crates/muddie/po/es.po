@@ -1377,3 +1377,7 @@ msgstr "Se muestra en"
 
 msgid "↑ ↓ to choose  ·  Tab to complete  ·  Enter to run  ·  Esc to close"
 msgstr "↑ ↓ para elegir  ·  Tab para completar  ·  Intro para ejecutar  ·  Esc para cerrar"
+
+
+msgid "In the order of the list: drag a gauge there, or press Alt+Up or Alt+Down, to move it."
+msgstr "En el orden de la lista: arrastra allí un indicador, o pulsa Alt+Arriba o Alt+Abajo, para moverlo."

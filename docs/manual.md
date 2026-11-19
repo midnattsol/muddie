@@ -112,7 +112,9 @@ The three, and what else there is:
   was typed.
 - A **macro** goes off when a key is pressed. Press **Record a key** and then
   the key: function keys, combinations with Ctrl or Alt, and the keys of the
-  numeric keypad can be used.
+  numeric keypad can be used. The keypad's digits are one key with Num Lock
+  on and another with it off, so it can walk with Num Lock off and type
+  numbers with it on; record the key in the state you will use it in.
 - A **timer** goes off after a while: every so many seconds, or once.
 - **Scripts** are Luau code that is always loaded, for what no rule can do:
   building the map, acting on what the MUD reports. They are the profile's
@@ -187,7 +189,8 @@ from the dots beside its name in the layout mode.
 The **gauges** are made and changed in the editor, under **Gauges**; the
 dots at the corner of a panel of gauges and **Preferences > Gauges…** lead
 there. Each gauge says which panel it is shown in, so that yours can be below
-and an enemy's beside the map. A gauge
+and an enemy's beside the map, and they are shown in the order of the
+editor's list: drag one there, or press Alt+Up or Alt+Down, to move it. A gauge
 follows something the MUD reports, and is one of these kinds:
 
 - **Bar** and **Cells**: how full something is, of its maximum.

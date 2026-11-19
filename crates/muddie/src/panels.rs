@@ -78,6 +78,17 @@ impl Gauges {
         self.0.clear();
     }
 
+    /// Puts the gauges in the order of `names`, those not among them
+    /// after, as they were.
+    pub fn arrange(&mut self, names: &[String]) {
+        let place = |gauge: &Gauge| {
+            (names.iter().position(|name| *name == gauge.name)).unwrap_or(usize::MAX)
+        };
+        if !self.0.is_sorted_by_key(place) {
+            self.0.sort_by_key(place);
+        }
+    }
+
     /// All gauges as a sentence for speech, e.g. "HP 80 of 100, MP 5 of
     /// 50", each said as what it is.
     pub fn summary(&self) -> String {

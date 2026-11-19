@@ -12,11 +12,13 @@ use winit::event_loop::ActiveEventLoop;
 use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::window::WindowId;
 
-/// A keypad key: its name for `bind`, the key egui takes it for, and what
-/// it types with Num Lock on.
+/// A keypad key: its name for `bind` with Num Lock on, the one it has
+/// with Num Lock off if that is another, the key egui takes it for, and
+/// what it types with Num Lock on.
 struct KeypadKey {
     code: KeyCode,
     name: &'static str,
+    off: &'static str,
     egui_key: Option<Key>,
     types: &'static str,
 }
@@ -24,45 +26,134 @@ struct KeypadKey {
 const fn key(
     code: KeyCode,
     name: &'static str,
+    off: &'static str,
     egui_key: Option<Key>,
     types: &'static str,
 ) -> KeypadKey {
     KeypadKey {
         code,
         name,
+        off,
         egui_key,
         types,
     }
 }
 
 const KEYS: [KeypadKey; 16] = [
-    key(KeyCode::Numpad0, "numpad0", Some(Key::Num0), "0"),
-    key(KeyCode::Numpad1, "numpad1", Some(Key::Num1), "1"),
-    key(KeyCode::Numpad2, "numpad2", Some(Key::Num2), "2"),
-    key(KeyCode::Numpad3, "numpad3", Some(Key::Num3), "3"),
-    key(KeyCode::Numpad4, "numpad4", Some(Key::Num4), "4"),
-    key(KeyCode::Numpad5, "numpad5", Some(Key::Num5), "5"),
-    key(KeyCode::Numpad6, "numpad6", Some(Key::Num6), "6"),
-    key(KeyCode::Numpad7, "numpad7", Some(Key::Num7), "7"),
-    key(KeyCode::Numpad8, "numpad8", Some(Key::Num8), "8"),
-    key(KeyCode::Numpad9, "numpad9", Some(Key::Num9), "9"),
-    key(KeyCode::NumpadAdd, "numpadadd", Some(Key::Plus), "+"),
+    key(
+        KeyCode::Numpad0,
+        "numpad0",
+        "numpadinsert",
+        Some(Key::Num0),
+        "0",
+    ),
+    key(
+        KeyCode::Numpad1,
+        "numpad1",
+        "numpadend",
+        Some(Key::Num1),
+        "1",
+    ),
+    key(
+        KeyCode::Numpad2,
+        "numpad2",
+        "numpaddown",
+        Some(Key::Num2),
+        "2",
+    ),
+    key(
+        KeyCode::Numpad3,
+        "numpad3",
+        "numpadpagedown",
+        Some(Key::Num3),
+        "3",
+    ),
+    key(
+        KeyCode::Numpad4,
+        "numpad4",
+        "numpadleft",
+        Some(Key::Num4),
+        "4",
+    ),
+    key(
+        KeyCode::Numpad5,
+        "numpad5",
+        "numpadclear",
+        Some(Key::Num5),
+        "5",
+    ),
+    key(
+        KeyCode::Numpad6,
+        "numpad6",
+        "numpadright",
+        Some(Key::Num6),
+        "6",
+    ),
+    key(
+        KeyCode::Numpad7,
+        "numpad7",
+        "numpadhome",
+        Some(Key::Num7),
+        "7",
+    ),
+    key(
+        KeyCode::Numpad8,
+        "numpad8",
+        "numpadup",
+        Some(Key::Num8),
+        "8",
+    ),
+    key(
+        KeyCode::Numpad9,
+        "numpad9",
+        "numpadpageup",
+        Some(Key::Num9),
+        "9",
+    ),
+    key(KeyCode::NumpadAdd, "numpadadd", "", Some(Key::Plus), "+"),
     key(
         KeyCode::NumpadSubtract,
         "numpadsubtract",
+        "",
         Some(Key::Minus),
         "-",
     ),
-    key(KeyCode::NumpadMultiply, "numpadmultiply", None, "*"),
-    key(KeyCode::NumpadDivide, "numpaddivide", Some(Key::Slash), "/"),
+    key(KeyCode::NumpadMultiply, "numpadmultiply", "", None, "*"),
+    key(
+        KeyCode::NumpadDivide,
+        "numpaddivide",
+        "",
+        Some(Key::Slash),
+        "/",
+    ),
     key(
         KeyCode::NumpadDecimal,
         "numpaddecimal",
+        "numpaddelete",
         Some(Key::Period),
         ".",
     ),
-    key(KeyCode::NumpadEnter, "numpadenter", Some(Key::Enter), ""),
+    key(
+        KeyCode::NumpadEnter,
+        "numpadenter",
+        "",
+        Some(Key::Enter),
+        "",
+    ),
 ];
+
+/// The name of a press of the keypad key `code`. With Num Lock off the
+/// digits and the point are other keys, by what is then written on them:
+/// arrows, Home, End and the like; `typing` says whether the press typed
+/// a character, which is how Num Lock being on is told.
+pub fn name_of(code: KeyCode, typing: bool) -> Option<&'static str> {
+    let key = KEYS.iter().find(|key| key.code == code)?;
+    Some(if typing || key.off.is_empty() {
+        key.name
+    } else {
+        key.off
+    })
+}
 
 /// Keypad keys pressed since they were last taken, by name.
 pub type Pressed = Arc<Mutex<Vec<&'static str>>>;
@@ -71,11 +162,15 @@ pub type Pressed = Arc<Mutex<Vec<&'static str>>>;
 /// the key itself, or the character it typed. Such events are dropped when
 /// the key is bound, so that it does not also type or move the cursor.
 pub fn is_event_of(name: &str, event: &Event) -> bool {
-    let Some(keypad_key) = KEYS.iter().find(|key| key.name == name) else {
+    let named = |key: &&KeypadKey| key.name == name || (!key.off.is_empty() && key.off == name);
+    let Some(keypad_key) = KEYS.iter().find(named) else {
         return false;
     };
     match event {
-        Event::Text(text) => !keypad_key.types.is_empty() && text == keypad_key.types,
+        // Only with Num Lock on does it type.
+        Event::Text(text) => {
+            keypad_key.name == name && !keypad_key.types.is_empty() && text == keypad_key.types
+        }
         // With Num Lock off the key arrives as an arrow or the like, but
         // its physical key is still the keypad's.
         Event::Key { physical_key, .. } => {
@@ -108,12 +203,12 @@ impl ApplicationHandler<UserEvent> for Watcher<'_> {
             && key_event.state == ElementState::Pressed
             && !key_event.repeat
             && let PhysicalKey::Code(code) = key_event.physical_key
-            && let Some(keypad_key) = KEYS.iter().find(|key| key.code == code)
+            && let Some(name) = name_of(
+                code,
+                matches!(key_event.logical_key, winit::keyboard::Key::Character(_)),
+            )
         {
-            self.pressed
-                .lock()
-                .expect("keypad lock")
-                .push(keypad_key.name);
+            self.pressed.lock().expect("keypad lock").push(name);
             if let Some(ctx) = &*self.ctx.lock().expect("context lock") {
                 ctx.request_repaint();
             }
@@ -188,11 +283,21 @@ mod tests {
             "numpad8",
             &key_event(Key::Num8, Some(Key::Num8))
         ));
-        // Num Lock off: it arrives as the up arrow.
+        // Num Lock off: it arrives as the up arrow, and is another key
+        // to bind, which types nothing.
         assert!(is_event_of(
-            "numpad8",
+            "numpadup",
             &key_event(Key::ArrowUp, Some(Key::Num8))
         ));
+        assert!(!is_event_of("numpadup", &Event::Text("8".into())));
+        assert_eq!(name_of(KeyCode::Numpad8, true), Some("numpad8"));
+        assert_eq!(name_of(KeyCode::Numpad8, false), Some("numpadup"));
+        assert_eq!(name_of(KeyCode::Numpad5, false), Some("numpadclear"));
+        assert_eq!(name_of(KeyCode::NumpadDecimal, false), Some("numpaddelete"));
+        // The signs and Enter are the same keys either way.
+        assert_eq!(name_of(KeyCode::NumpadAdd, false), Some("numpadadd"));
+        assert_eq!(name_of(KeyCode::NumpadEnter, false), Some("numpadenter"));
+        assert_eq!(name_of(KeyCode::KeyA, true), None);
         // The real up arrow is another key.
         assert!(!is_event_of(
             "numpad8",

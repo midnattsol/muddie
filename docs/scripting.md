@@ -86,9 +86,14 @@ Keys are named in lower case with their modifiers in the order `ctrl`, `alt`,
 function keys and keys pressed with Ctrl or Alt can be bound, so typing is
 never intercepted.
 
-The numeric keypad has names of its own, whatever Num Lock says: `numpad0`
-to `numpad9`, `numpadadd`, `numpadsubtract`, `numpadmultiply`,
-`numpaddivide`, `numpaddecimal` and `numpadenter`. A bound keypad key no
+The numeric keypad has names of its own: `numpad0` to `numpad9`,
+`numpadadd`, `numpadsubtract`, `numpadmultiply`, `numpaddivide`,
+`numpaddecimal` and `numpadenter`. With Num Lock off the digits and the point
+are other keys, named by what is then written on them: `numpadup`,
+`numpaddown`, `numpadleft`, `numpadright`, `numpadhome`, `numpadend`,
+`numpadpageup`, `numpadpagedown`, `numpadclear` (the 5), `numpadinsert` and
+`numpaddelete`. So the keypad can walk with Num Lock off and type numbers
+with it on, or do one thing in each. A bound keypad key no
 longer types its digit, which makes the keypad a good place for movement:
 
 ```lua

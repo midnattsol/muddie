@@ -1108,6 +1108,12 @@ impl Tab {
     /// The gauges of a panel in a row, or how to get some.
     fn gauges_body(&mut self, ui: &mut egui::Ui, id: u32) {
         let full = ui.max_rect();
+        // In the order they have in the editor, whichever the MUD
+        // reported first.
+        let order: Vec<String> = (self.rules.gauges.iter())
+            .map(|gauge| gauge.shown_name().to_owned())
+            .collect();
+        self.gauges.arrange(&order);
         if self.gauges.show(ui, |name| self.gauge_is_in(name, id)) {
             // The way to change them, at the corner, out of their way.
             if !self.editing_layout {

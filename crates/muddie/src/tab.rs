@@ -158,6 +158,8 @@ pub struct Tab {
     recording_key: bool,
     /// The palette of commands: which one is chosen, and the text it was
     /// put away over, so that it stays away until that changes.
+    /// The gauge being dragged to another place in the editor's list.
+    gauge_dragged: Option<usize>,
     palette_chosen: usize,
     palette_put_away: Option<String>,
     palette_cache: Option<(String, Vec<commands::Item>)>,
@@ -366,6 +368,7 @@ impl Tab {
             rules_changed_at: None,
             rules_sample: String::new(),
             recording_key: false,
+            gauge_dragged: None,
             palette_chosen: 0,
             palette_put_away: None,
             palette_cache: None,
@@ -3169,6 +3172,61 @@ mod tests {
             harness.state().tab().output.len()
         );
         assert!(harness.query_by_label("Latest lines").is_none());
+    }
+
+    #[test]
+    fn gauges_are_shown_in_the_order_of_the_editor() {
+        let mut harness = window(None);
+        harness.set_size(egui::vec2(1400.0, 800.0));
+        let app = harness.state_mut().tab_mut();
+        let gauge = |name: &str| crate::rules::Gauge {
+            name: name.into(),
+            value: format!("Char.{name}"),
+            ..crate::rules::Gauge::starter()
+        };
+        app.rules.gauges = vec![gauge("HP"), gauge("MP"), gauge("Gold")];
+        // The MUD reports them in an order of its own.
+        for name in ["Gold", "HP", "MP"] {
+            app.gauges.set(name, Some((1.0, 2.0)));
+        }
+        harness.run_steps(3);
+        assert_eq!(
+            harness.state().tab().gauges.summary(),
+            "HP 1 of 2, MP 1 of 2, Gold 1 of 2"
+        );
+        // Moved in the editor with Alt and an arrow, and saved, the panel
+        // follows.
+        let app = harness.state_mut().tab_mut();
+        app.open_automation(automation::GAUGES);
+        app.select_rule(automation::GAUGES, 2);
+        harness.run_steps(3);
+        harness.key_press_modifiers(egui::Modifiers::ALT, Key::ArrowUp);
+        harness.run_steps(3);
+        harness.key_press_modifiers(egui::Modifiers::ALT, Key::ArrowUp);
+        harness.run_steps(3);
+        let names = |app: &Tab| -> Vec<String> {
+            (app.rules_draft.gauges.iter())
+                .map(|gauge| gauge.name.clone())
+                .collect()
+        };
+        assert_eq!(names(harness.state().tab()), ["Gold", "HP", "MP"]);
+        // At the top it stays; down it goes, and no further than the end.
+        harness.key_press_modifiers(egui::Modifiers::ALT, Key::ArrowUp);
+        harness.run_steps(3);
+        assert_eq!(names(harness.state().tab()), ["Gold", "HP", "MP"]);
+        harness.key_press_modifiers(egui::Modifiers::ALT, Key::ArrowDown);
+        harness.run_steps(3);
+        assert_eq!(names(harness.state().tab()), ["HP", "Gold", "MP"]);
+        // Dropped before another, as dragging does.
+        let app = harness.state_mut().tab_mut();
+        app.move_gauge(2, 0);
+        assert_eq!(names(app), ["MP", "HP", "Gold"]);
+        app.close_automation();
+        harness.run_steps(3);
+        assert_eq!(
+            harness.state().tab().gauges.summary(),
+            "MP 1 of 2, HP 1 of 2, Gold 1 of 2"
+        );
     }
 
     #[test]

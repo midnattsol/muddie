@@ -66,6 +66,9 @@ impl App {
         if let Some(profiles) = &profiles {
             i18n::set_user_dir(profiles.locale_dir());
         }
+        // Not in tests, which read the interface in English and run side
+        // by side: the language is one for the whole program.
+        #[cfg(not(test))]
         i18n::set_language(&settings.language);
         if let Err(error) = theme::apply(&cc.egui_ctx, &settings) {
             settings_error = Some(error);

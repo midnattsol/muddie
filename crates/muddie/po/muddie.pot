@@ -743,6 +743,9 @@ msgstr ""
 msgid "Shown in"
 msgstr ""
 
+msgid "In the order of the list: drag a gauge there, or press Alt+Up or Alt+Down, to move it."
+msgstr ""
+
 msgid "There is no panel of gauges to show it in."
 msgstr ""
 
