@@ -670,3 +670,116 @@ pub fn icon_button(ui: &mut Ui, icon: Icon, label: &str, on: bool) -> Response {
     }
     response.on_hover_text(label)
 }
+
+/// A box for Luau code, coloured as it is typed, as tall as `rows` lines
+/// at least. `label` names it for screen readers.
+pub fn code_editor(
+    ui: &mut Ui,
+    label: &str,
+    value: &mut String,
+    hint: &str,
+    rows: usize,
+) -> Response {
+    let theme = theme::current();
+    let font = egui::FontId::monospace(13.0);
+    let mut coloured = |ui: &Ui, text: &dyn egui::TextBuffer, wrap_width: f32| {
+        let mut job = crate::luau::highlight(text.as_str(), &font, &theme);
+        job.wrap.max_width = wrap_width;
+        ui.fonts_mut(|fonts| fonts.layout_job(job))
+    };
+    let response = ui.add(
+        TextEdit::multiline(value)
+            .font(font.clone())
+            .hint_text(RichText::new(hint).color(theme.text_faint))
+            .margin(Margin::symmetric(12, 10))
+            .desired_rows(rows)
+            .lock_focus(true)
+            .desired_width(f32::INFINITY)
+            .layouter(&mut coloured),
+    );
+    ui.ctx().accesskit_node_builder(response.id, |node| {
+        node.set_label(label);
+    });
+    response
+}
+
+/// A code editor with its label above it.
+pub fn script_field(
+    ui: &mut Ui,
+    label: &str,
+    value: &mut String,
+    hint: &str,
+    rows: usize,
+) -> Response {
+    ui.vertical(|ui| {
+        ui.spacing_mut().item_spacing.y = 4.0;
+        ui.label(
+            RichText::new(label)
+                .font(theme::font(Weight::Regular, 12.0))
+                .color(theme::current().text_dim),
+        );
+        code_editor(ui, label, value, hint, rows)
+    })
+    .inner
+}
+
+/// A choice between a few views, as a row of words with the current one
+/// raised. Returns the one clicked.
+pub fn segmented(ui: &mut Ui, choices: &[&str], current: usize) -> Option<usize> {
+    let theme = theme::current();
+    let mut chosen = None;
+    Frame::new()
+        .fill(theme.background)
+        .corner_radius(CornerRadius::same(9))
+        .inner_margin(Margin::same(3))
+        .show(ui, |ui| {
+            // In their order, whichever way the row they are in runs.
+            let widths = choices.iter().map(|name| {
+                let font = theme::font(Weight::Medium, 12.5);
+                let text = ui
+                    .painter()
+                    .layout_no_wrap((*name).to_owned(), font, theme.text);
+                text.size().x + 24.0
+            });
+            let total = widths.sum::<f32>() + 2.0 * choices.len().saturating_sub(1) as f32;
+            let row = Layout::left_to_right(Align::Center);
+            ui.allocate_ui_with_layout(vec2(total, 24.0), row, |ui| {
+                ui.spacing_mut().item_spacing.x = 2.0;
+                for (index, name) in choices.iter().enumerate() {
+                    let selected = index == current;
+                    let font = theme::font(Weight::Medium, 12.5);
+                    let width = ui
+                        .painter()
+                        .layout_no_wrap((*name).to_owned(), font.clone(), theme.text)
+                        .size()
+                        .x;
+                    let (rect, response) =
+                        ui.allocate_exact_size(vec2(width + 24.0, 24.0), Sense::click());
+                    response.widget_info(|| {
+                        WidgetInfo::selected(Role::Tab, ui.is_enabled(), selected, *name)
+                    });
+                    let hovered = response.hovered() || response.has_focus();
+                    if selected {
+                        ui.painter()
+                            .rect_filled(rect, CornerRadius::same(7), theme.raised);
+                    }
+                    let colour = if selected || hovered {
+                        theme.text
+                    } else {
+                        theme.text_dim
+                    };
+                    ui.painter().text(
+                        rect.center(),
+                        egui::Align2::CENTER_CENTER,
+                        *name,
+                        font,
+                        colour,
+                    );
+                    if response.clicked() && !selected {
+                        chosen = Some(index);
+                    }
+                }
+            });
+        });
+    chosen
+}

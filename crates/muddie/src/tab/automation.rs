@@ -28,43 +28,61 @@ impl Tab {
         self.list_scripts();
     }
 
-    pub(super) fn automation_window(&mut self, ctx: &egui::Context) {
-        if !self.rules_open {
-            return;
-        }
+    /// Opens the automation view where it was left.
+    pub fn reopen_automation(&mut self) {
+        self.open_automation(self.rules_section);
+    }
+
+    /// Whether the automation view is on screen instead of the game.
+    pub fn automation_open(&self) -> bool {
+        self.rules_open
+    }
+
+    /// The automation view, which takes the session's whole space: the
+    /// sections, the list of the current one, and the selected item.
+    pub(super) fn automation_page(&mut self, ui: &mut egui::Ui) {
+        let ctx = &ui.ctx().clone();
+        let theme = theme::current();
         let mut open = true;
-        let room = ctx.content_rect().size() - egui::vec2(80.0, 150.0);
-        let height = room.y.clamp(320.0, 720.0);
-        widgets::dialog(
-            ctx,
-            "automation",
-            tr("Automation"),
-            &mut open,
-            1120.0,
-            |ui| {
-                // The panes get a region of their own, under the title.
-                let size = egui::vec2(ui.available_width(), height);
-                let (region, _) = ui.allocate_exact_size(size, egui::Sense::hover());
-                let ui = &mut ui.new_child(egui::UiBuilder::new().max_rect(region));
-                let plain = egui::Frame::new().inner_margin(egui::Margin::symmetric(0, 4));
-                Panel::left("automation sections")
-                    .frame(plain)
-                    .exact_size(168.0)
-                    .show_separator_line(false)
-                    .show(ui, |ui| self.automation_sections(ui));
-                let list = egui::Frame::new().inner_margin(egui::Margin::symmetric(12, 4));
-                Panel::left("automation list")
-                    .frame(list)
-                    .exact_size(280.0)
-                    .show(ui, |ui| self.automation_list(ui));
-                let detail = egui::Frame::new().inner_margin(egui::Margin::symmetric(20, 6));
-                CentralPanel::default().frame(detail).show(ui, |ui| {
-                    egui::ScrollArea::vertical()
-                        .auto_shrink(false)
-                        .show(ui, |ui| self.automation_detail(ui));
-                });
-            },
-        );
+        // Escape goes back to the game, unless it is cancelling a key.
+        if !self.recording_key
+            && ui.input_mut(|input| input.consume_key(Modifiers::NONE, Key::Escape))
+        {
+            open = false;
+        }
+        let page = egui::Frame::new()
+            .fill(theme.surface)
+            .inner_margin(egui::Margin {
+                left: 12,
+                right: 16,
+                top: 6,
+                bottom: 10,
+            });
+        CentralPanel::default().frame(page).show(ui, |ui| {
+            let plain = egui::Frame::new().inner_margin(egui::Margin::symmetric(0, 4));
+            Panel::left("automation sections")
+                .frame(plain)
+                .exact_size(180.0)
+                .show_separator_line(false)
+                .show(ui, |ui| self.automation_sections(ui));
+            let list = egui::Frame::new().inner_margin(egui::Margin::symmetric(14, 4));
+            Panel::left("automation list")
+                .frame(list)
+                .resizable(true)
+                .default_size(320.0)
+                .min_size(240.0)
+                .show(ui, |ui| self.automation_list(ui));
+            let detail = egui::Frame::new().inner_margin(egui::Margin::symmetric(24, 6));
+            CentralPanel::default().frame(detail).show(ui, |ui| {
+                egui::ScrollArea::vertical()
+                    .auto_shrink(false)
+                    .show(ui, |ui| {
+                        // Lines of text are easier read when not too long.
+                        ui.set_max_width(ui.available_width().min(820.0));
+                        self.automation_detail(ui)
+                    });
+            });
+        });
         // Edits are saved by themselves once they stop for a moment, and
         // when the window closes.
         if self.rules_draft != self.rules_seen {
@@ -175,7 +193,12 @@ impl Tab {
                 .map(|rule| {
                     (
                         untitled(&rule.name, &rule.pattern, "New alias"),
-                        format!("→ {}", rule.send),
+                        format!(
+                            "→ {}",
+                            crate::rules::commands(&rule.send)
+                                .collect::<Vec<_>>()
+                                .join("; ")
+                        ),
                         rule.enabled,
                     )
                 })
@@ -184,7 +207,13 @@ impl Tab {
                 .map(|rule| {
                     (
                         untitled(&rule.name, &rule.key, "New macro"),
-                        format!("{}  →  {}", rule.key, rule.send),
+                        format!(
+                            "{}  →  {}",
+                            rule.key,
+                            crate::rules::commands(&rule.send)
+                                .collect::<Vec<_>>()
+                                .join("; ")
+                        ),
                         rule.enabled,
                     )
                 })
@@ -506,7 +535,7 @@ impl Tab {
             columns[1].add_space(22.0);
             widgets::switch_row(&mut columns[1], &mut rule.gag, tr("Hide the line"));
         });
-        widgets::editor(
+        widgets::script_field(
             ui,
             tr("Run a script (Luau): m holds the match, line the whole line"),
             &mut rule.script,
@@ -565,7 +594,7 @@ impl Tab {
                 .font(theme::font(Weight::Regular, 11.5))
                 .color(theme::current().text_faint),
         );
-        widgets::editor(
+        widgets::script_field(
             ui,
             tr("Run a script (Luau): m holds the match, input what was typed"),
             &mut rule.script,
@@ -642,7 +671,7 @@ impl Tab {
             "north",
             3,
         );
-        widgets::editor(
+        widgets::script_field(
             ui,
             tr("Run a script (Luau)"),
             &mut rule.script,
@@ -767,18 +796,7 @@ impl Tab {
         ui.label(place);
         let rows = ((ui.available_height() - 40.0) / 17.0).max(8.0) as usize;
         let hint = "-- Luau\non_gmcp(\"Room.Info\", function(room)\n\tmap.visit({id = room.num, name = room.name, exits = room.exits})\nend)";
-        let editor = ui.add(
-            TextEdit::multiline(&mut self.script_text)
-                .font(egui::FontId::monospace(13.0))
-                .hint_text(RichText::new(hint).color(theme.text_faint))
-                .margin(egui::Margin::symmetric(12, 10))
-                .desired_rows(rows)
-                .lock_focus(true)
-                .desired_width(f32::INFINITY),
-        );
-        ui.ctx().accesskit_node_builder(editor.id, |node| {
-            node.set_label(tr("Script"));
-        });
+        widgets::code_editor(ui, tr("Script"), &mut self.script_text, hint, rows);
         delete
     }
 

@@ -73,9 +73,11 @@ anything else is sent to the MUD.
 
 ## Triggers, aliases and keys without scripting
 
-The **Automation** menu opens a window to make them, with the list on the
-left and the selected one's details beside it. Changes are saved by
-themselves; there is no button to press.
+**Automation**, at the right of the top bar or from its menu, takes the place
+of the game while you work on it: the sections on the left, the list of the
+current one, and the selected item's details in the rest of the window.
+**Game**, or Escape, goes back; the session keeps running meanwhile. Changes
+are saved by themselves; there is no button to press.
 
 - A **trigger** reacts to a line of output: it can send commands, say
   something, play a sound, colour the matched text or hide the line.
@@ -89,8 +91,9 @@ themselves; there is no button to press.
   fields inside it (`Char.Vitals.health.current`), or the name of a MSDP
   variable. Choose its colour, whether it is drawn as a row of cells, and the
   level under which its numbers turn red. Alt+0 reads the gauges aloud.
-- **Scripts** are the profile's Luau files, written right there: for what the
-  rest cannot do, such as building the map from what your MUD sends.
+- **Scripts** are the profile's Luau files, written right there with the
+  code coloured as you type: for what the rest cannot do, such as building
+  the map from what your MUD sends.
 
 Commands go one per line. A trigger, alias or macro can also run a few lines
 of Luau of its own, with the match in `m`. A mistake in one is reported with

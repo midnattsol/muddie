@@ -14,8 +14,11 @@ impl Tab {
         } else {
             self.bound_keys(ui);
         }
-        self.automation_window(ui.ctx());
         self.connection_window(ui.ctx());
+        // The automation view takes the place of the game while open.
+        if self.rules_open {
+            return self.automation_page(ui);
+        }
         // Alt+0 reads the gauges aloud.
         if ui.input_mut(|input| input.consume_key(Modifiers::ALT, Key::Num0)) {
             self.voice.stop();

@@ -2355,8 +2355,9 @@ mod tests {
             enabled: true,
             pattern: r"^(\w+) attacks you".into(),
             regex: true,
-            send: "kill %1; shield".into(),
+            send: "kill %1\nshield".into(),
             sound: "alert.ogg".into(),
+            script: "-- Only the dangerous ones\nlocal feared = {Orc = true, Troll = true}\nif feared[m[1]] and gmcp(\"Char.Vitals\").hp < 40 then\n\tsend(\"flee\")\n\techo(\"Too weak for \" .. m[1])\nend".into(),
             ..Trigger::default()
         });
         app.rules.triggers.push(Trigger {
@@ -2395,7 +2396,7 @@ mod tests {
         rules.run_steps(3);
         save(&mut rules, "gauges");
         // The menus, as someone using Spanish sees them.
-        for menu in ["Sesión", "Ver", "Automatización", "Mapa"] {
+        for menu in ["Sesión", "Ver", "Mapa"] {
             let mut menus = connected_demo_window();
             crate::i18n::set_language(crate::settings::Language::Spanish);
             menus.run_steps(2);

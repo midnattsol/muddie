@@ -5,6 +5,7 @@ mod i18n;
 mod i18n_es;
 mod keypad;
 mod logger;
+mod luau;
 mod mapview;
 mod output;
 mod packages;

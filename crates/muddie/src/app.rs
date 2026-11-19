@@ -142,6 +142,17 @@ impl App {
             visuals.open.bg_stroke = Stroke::NONE;
             visuals.active.bg_stroke = Stroke::NONE;
             self.menus(ui);
+            // The session's views, at the far end.
+            let active = self.active;
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                let tab = &mut self.tabs[active];
+                let current = usize::from(tab.automation_open());
+                match widgets::segmented(ui, &[tr("Game"), tr("Automation")], current) {
+                    Some(0) => tab.close_automation(),
+                    Some(_) => tab.reopen_automation(),
+                    None => {}
+                }
+            });
         });
     }
 

@@ -512,4 +512,5 @@ pub const SPANISH: &[(&str, &str)] = &[
     ("Preview", "Vista previa"),
     ("Gauge", "Indicador"),
     ("Script", "Script"),
+    ("Game", "Juego"),
 ];

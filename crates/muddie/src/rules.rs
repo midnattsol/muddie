@@ -102,7 +102,10 @@ impl Trigger {
     pub fn summary(&self) -> String {
         let mut parts = Vec::new();
         if !self.send.trim().is_empty() {
-            parts.push(format!("→ {}", self.send.trim()));
+            parts.push(format!(
+                "→ {}",
+                commands(&self.send).collect::<Vec<_>>().join("; ")
+            ));
         }
         if !self.speak.trim().is_empty() {
             parts.push(format!("“{}”", self.speak.trim()));
