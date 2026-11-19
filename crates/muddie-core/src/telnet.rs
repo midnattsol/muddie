@@ -46,7 +46,8 @@ pub mod opt {
             MXP => "MXP",
             MSP => "MSP",
             GMCP => "GMCP",
-            NEW_ENVIRON => "NEW-ENVIRON",
+            // NEW-ENVIRON, by the name MUDs know what they ask with it.
+            NEW_ENVIRON => "MNES",
             // Others some MUDs offer, which this client does not take up.
             85 => "MCCP1",
             93 => "ZMP",
