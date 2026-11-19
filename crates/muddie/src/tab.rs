@@ -164,6 +164,8 @@ pub struct Tab {
     /// What the last command of the client answered, and the command:
     /// shown over the command line, not among the lines of the game.
     command_answer: Option<(String, Vec<String>)>,
+    /// When it was first shown, in the time of the window.
+    command_answer_at: Option<f64>,
     /// A command is being carried out, and what it says is its answer.
     answering: bool,
     /// Where the command line was drawn, and whether its cursor is to go
@@ -368,6 +370,7 @@ impl Tab {
             palette_put_away: None,
             palette_cache: None,
             command_answer: None,
+            command_answer_at: None,
             answering: false,
             input_rect: egui::Rect::NOTHING,
             cursor_to_end: false,
@@ -814,7 +817,10 @@ impl Tab {
                 if sender.send(event).is_err() {
                     break;
                 }
-                ctx.request_repaint();
+                // A moment later rather than at once: asked for at once,
+                // egui draws a second frame after the first, and what
+                // arrives together is drawn together this way.
+                ctx.request_repaint_after(Duration::from_millis(30));
             }
         });
         self.connection = Some(Connection {
@@ -850,6 +856,11 @@ impl Tab {
     }
 
     /// Shows a line from the server.
+    /// How many lines the scrollback holds.
+    pub fn lines(&self) -> usize {
+        self.output.len()
+    }
+
     fn show_line(&mut self, line: &Line) {
         self.output.push(line);
         let time = self.output.time(self.output.len() - 1).to_owned();
@@ -1930,6 +1941,7 @@ impl Tab {
             // A command of the client answers over the command line.
             self.palette_cache = None;
             self.command_answer = line.starts_with('/').then(|| (line.clone(), Vec::new()));
+            self.command_answer_at = None;
             self.answering = true;
             let ours = self.map_command(&line);
             self.answering = false;
@@ -2119,6 +2131,10 @@ impl Tab {
         } else {
             Vec::new()
         };
+        // Typing puts away what the last command answered.
+        if response.changed() {
+            self.command_answer = None;
+        }
         self.palette_card(ui, &offered, shown.response.rect);
         let submitted = response.lost_focus() && ui.input(|input| input.key_pressed(Key::Enter));
         if submitted {
@@ -2740,6 +2756,15 @@ mod tests {
         harness.key_press(Key::Escape);
         harness.run_steps(2);
         assert!(harness.state().tab().command_answer.is_none());
+        // Left alone, it goes by itself after a moment.
+        harness.state_mut().tab_mut().input = "/group".into();
+        harness.run_steps(2);
+        harness.key_press(Key::Enter);
+        harness.run_steps(3);
+        assert!(harness.state().tab().command_answer.is_some());
+        harness.run_steps(40);
+        assert!(harness.state().tab().command_answer.is_none());
+        assert!(harness.query_by_label("Combat: on").is_none());
     }
 
     #[test]
@@ -3740,7 +3765,7 @@ mod tests {
         app.input = "/group".into();
         palette.run_steps(3);
         palette.key_press(Key::Enter);
-        palette.run_steps(12);
+        palette.run_steps(4);
         save(&mut palette, "answer");
         // The command line with nothing typed in it.
         let mut empty = connected_demo_window();

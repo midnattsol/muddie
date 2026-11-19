@@ -91,6 +91,8 @@ pub struct Watcher<'a> {
     pub pressed: Pressed,
     /// Asked to redraw when a keypad key arrives, in case nothing else does.
     pub ctx: Arc<Mutex<Option<egui::Context>>>,
+    /// Whether text is being composed with an input method.
+    pub composing: bool,
 }
 
 impl ApplicationHandler<UserEvent> for Watcher<'_> {
@@ -114,6 +116,17 @@ impl ApplicationHandler<UserEvent> for Watcher<'_> {
                 .push(keypad_key.name);
             if let Some(ctx) = &*self.ctx.lock().expect("context lock") {
                 ctx.request_repaint();
+            }
+        }
+        // Some input methods answer every frame, with nothing being
+        // composed, that nothing is: passed on, each answer asks for a
+        // frame, which gets another answer, and the window is drawn sixty
+        // times a second for as long as the command line has the focus.
+        if let WindowEvent::Ime(winit::event::Ime::Preedit(text, _)) = &event {
+            let idle = text.is_empty() && !self.composing;
+            self.composing = !text.is_empty();
+            if idle {
+                return;
             }
         }
         self.app.window_event(event_loop, window_id, event);

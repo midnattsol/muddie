@@ -203,6 +203,25 @@ impl Tab {
     /// offer, or else what the last command answered.
     pub(super) fn palette_card(&mut self, ui: &egui::Ui, items: &[Item], line: egui::Rect) {
         let theme = theme::current();
+        // An answer is gone by itself after a moment, longer the more it
+        // says, so as not to stay over the game; the palette is not.
+        let now = ui.input(|input| input.time);
+        let mut fading = 1.0;
+        if items.is_empty()
+            && let Some((_, lines)) = &self.command_answer
+        {
+            let lasts = (2.5 + 0.6 * lines.len() as f64).min(9.0);
+            let left = self.command_answer_at.get_or_insert(now).to_owned() + lasts - now;
+            if left <= 0.0 {
+                self.command_answer = None;
+            } else if left < 0.3 {
+                fading = (left / 0.3) as f32;
+                ui.ctx().request_repaint();
+            } else {
+                ui.ctx()
+                    .request_repaint_after(std::time::Duration::from_secs_f64(left - 0.3));
+            }
+        }
         let showing = !items.is_empty() || self.command_answer.is_some();
         // It slides up into place, and away.
         let shown =
@@ -226,12 +245,12 @@ impl Tab {
             });
         let mut clicked = None;
         let mut dismissed = false;
-        egui::Area::new(ui.make_persistent_id("palette"))
+        let area = egui::Area::new(ui.make_persistent_id("palette"))
             .order(egui::Order::Foreground)
             .fixed_pos(place)
             .pivot(egui::Align2::LEFT_BOTTOM)
             .show(ui.ctx(), |ui| {
-                ui.set_opacity(shown);
+                ui.set_opacity(shown * fading);
                 card.show(ui, |ui| {
                     ui.set_width(width - 14.0);
                     ui.spacing_mut().item_spacing.y = 1.0;
@@ -301,6 +320,10 @@ impl Tab {
                     });
                 });
             });
+        // It stays for as long as the pointer is over it, to be read.
+        if area.response.contains_pointer() && self.command_answer.is_some() {
+            self.command_answer_at = Some(now);
+        }
         if let Some(index) = clicked {
             self.input.clone_from(&items[index].insert);
             self.palette_chosen = 0;

@@ -500,7 +500,19 @@ impl eframe::App for App {
         self.frames += 1;
         if self.traced_at.elapsed() >= std::time::Duration::from_secs(5) {
             if std::env::var_os("MUDDIE_TRACE").is_some() {
-                eprintln!("muddie: {} frames in 5 s", self.frames);
+                let causes: Vec<String> = (ui.ctx().repaint_causes().iter())
+                    .map(ToString::to_string)
+                    .collect();
+                let lines = self.tabs[self.active].lines();
+                let events: Vec<String> = ui.input(|input| {
+                    (input.events.iter())
+                        .map(|event| format!("{event:?}").chars().take(60).collect())
+                        .collect()
+                });
+                eprintln!(
+                    "muddie: {} frames in 5 s, {lines} lines; last asked for by {causes:?}; input {events:?}",
+                    self.frames
+                );
             }
             (self.frames, self.traced_at) = (0, std::time::Instant::now());
         }

@@ -59,8 +59,9 @@ command line, each with what it does. Up and Down choose one, which is also
 read aloud; Tab completes it, Enter completes it too and runs it once it is
 whole, and Escape puts the list away. The commands that take the name of a
 group or a plugin list the ones there are. What a command answers is shown in
-the same place, not among the lines of the game, until Escape or the next
-command.
+the same place, not among the lines of the game, and goes by itself after a
+moment, or at once with Escape or as soon as something is typed; it stays
+while the pointer is over it.
 
 | Command | What it does |
 |---|---|

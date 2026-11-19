@@ -108,6 +108,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }),
         &event_loop,
     );
-    event_loop.run_app(&mut keypad::Watcher { app, pressed, ctx })?;
+    event_loop.run_app(&mut keypad::Watcher {
+        app,
+        pressed,
+        ctx,
+        composing: false,
+    })?;
     Ok(())
 }
