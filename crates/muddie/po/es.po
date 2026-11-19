@@ -38,18 +38,6 @@ msgstr "Alto contraste"
 msgid "Language"
 msgstr "Idioma"
 
-msgid "System"
-msgstr "Sistema"
-
-msgid "Text size"
-msgstr "Tamaño del texto"
-
-msgid "Font file"
-msgstr "Fichero de fuente"
-
-msgid "Built-in font"
-msgstr "Fuente incluida"
-
 #, python-brace-format
 msgid "Could not save the settings: {0}"
 msgstr "No se pudieron guardar los ajustes: {0}"
@@ -1020,5 +1008,58 @@ msgstr "Alias"
 msgid "Macros"
 msgstr "Macros"
 
-msgid "Runs a line of Luau"
-msgstr "Ejecuta una línea de Luau"
+
+msgid "General"
+msgstr "General"
+
+msgid "Plugins"
+msgstr "Complementos"
+
+msgid "Same as the system"
+msgstr "El del sistema"
+
+msgid "Interface size"
+msgstr "Tamaño de la interfaz"
+
+msgid "More languages can be added as gettext catalogues in the locale folder of the configuration."
+msgstr "Se pueden añadir más idiomas como catálogos gettext en la carpeta locale de la configuración."
+
+msgid "Text of the MUD"
+msgstr "Texto del MUD"
+
+msgid "Font"
+msgstr "Tipografía"
+
+msgid "JetBrains Mono (built in)"
+msgstr "JetBrains Mono (incluida)"
+
+msgid "Size"
+msgstr "Tamaño"
+
+msgid "Line spacing"
+msgstr "Interlineado"
+
+msgid "No plugins yet. A plugin is a set of scripts someone made for a MUD: a mapper, triggers, gauges."
+msgstr "Aún no hay complementos. Un complemento es un conjunto de scripts que alguien hizo para un MUD: un mapper, disparadores, indicadores."
+
+msgid "Update"
+msgstr "Actualizar"
+
+msgid "Remove"
+msgstr "Quitar"
+
+msgid "Install a plugin"
+msgstr "Instalar un complemento"
+
+msgid "Git address"
+msgstr "Dirección git"
+
+msgid "Install"
+msgstr "Instalar"
+
+msgid "It is downloaded with git into the configuration's packages folder. Only install what you trust: a plugin can send commands as you."
+msgstr "Se descarga con git en la carpeta packages de la configuración. Instala solo lo que te merezca confianza: un complemento puede enviar comandos en tu nombre."
+
+msgid "Working…"
+msgstr "Trabajando…"
+

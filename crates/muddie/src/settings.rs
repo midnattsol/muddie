@@ -48,6 +48,13 @@ pub struct Settings {
     /// A TrueType or OpenType file to use for the output instead of the
     /// built-in monospace font; empty for the built-in one.
     pub font_file: String,
+    /// The family of an installed font to use for the output instead of
+    /// the built-in one; empty for the built-in one.
+    pub font_family: String,
+    /// How far apart the lines of the output are: 1 is the font's own.
+    pub line_spacing: f32,
+    /// How large the interface is drawn: 1 is its natural size.
+    pub ui_scale: f32,
     /// Lines of output kept per session.
     pub scrollback_lines: usize,
     /// Speech rate from -100 (slowest) to 100 (fastest); 0 is the voice's
@@ -85,6 +92,9 @@ impl Default for Settings {
             language: String::new(),
             font_size: 15.0,
             font_file: String::new(),
+            font_family: String::new(),
+            line_spacing: 1.0,
+            ui_scale: 1.0,
             scrollback_lines: 20_000,
             speech_rate: 0,
             speech_language: String::new(),

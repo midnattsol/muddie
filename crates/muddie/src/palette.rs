@@ -63,6 +63,7 @@ pub fn format(style: Style) -> TextFormat {
         italics: style.italic,
         underline: if style.underline { line } else { Stroke::NONE },
         strikethrough: if style.strike { line } else { Stroke::NONE },
+        line_height: theme::output_line_height(),
         ..TextFormat::default()
     }
 }
@@ -109,6 +110,7 @@ pub fn local_format() -> TextFormat {
     TextFormat {
         font_id: font(),
         color: theme::current().text_dim,
+        line_height: theme::output_line_height(),
         ..TextFormat::default()
     }
 }

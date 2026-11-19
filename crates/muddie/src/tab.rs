@@ -34,6 +34,7 @@ use crate::voice::Voice;
 use muddie_sound::{self as sound, Msp, Player};
 
 mod automation;
+mod plugins;
 mod view;
 
 struct Connection {
@@ -136,6 +137,10 @@ pub struct Tab {
     rules_sample: String,
     /// The next key pressed becomes the selected macro's key.
     recording_key: bool,
+    /// The address being typed to install a plugin from, and the row of
+    /// the output from which the answers to the settings' plugins are.
+    plugin_address: String,
+    plugin_said: usize,
     /// The command left in the command line after it was sent, while it
     /// is still untouched; and whether it has yet to be selected.
     kept_input: Option<String>,
@@ -295,6 +300,8 @@ impl Tab {
             rules_changed_at: None,
             rules_sample: String::new(),
             recording_key: false,
+            plugin_address: String::new(),
+            plugin_said: 0,
             kept_input: None,
             select_input: false,
             panes: settings.automation_panes,
@@ -2836,9 +2843,29 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
 
         let mut settings = demo_window();
-        settings.state_mut().open_settings();
+        settings.state_mut().open_settings(1);
         settings.run_steps(4);
         save(&mut settings, "settings");
+        settings.state_mut().open_settings(0);
+        settings.run_steps(4);
+        save(&mut settings, "settings-general");
+        // The plugins, with one installed and enabled and one not.
+        let dir = std::env::temp_dir().join(format!("muddie-shot-plugins-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        for plugin in ["aardwolf-mapper", "combat-gauges"] {
+            std::fs::create_dir_all(dir.join("packages").join(plugin)).unwrap();
+            std::fs::write(dir.join("packages").join(plugin).join("init.luau"), "").unwrap();
+        }
+        let profiles = Profiles::at(dir.clone());
+        profiles.save("Aardwolf", &Profile::default()).unwrap();
+        let mut plugins = window(Some(profiles));
+        let app = plugins.state_mut().tab_mut();
+        app.profile = Some("Aardwolf".into());
+        app.packages = vec!["aardwolf-mapper".into()];
+        plugins.state_mut().open_settings(5);
+        plugins.run_steps(4);
+        save(&mut plugins, "plugins");
+        std::fs::remove_dir_all(&dir).unwrap();
         // The automation window, with rules of each kind to look at.
         let mut rules = demo_window();
         rules.set_size(egui::vec2(1500.0, 900.0));

@@ -357,12 +357,60 @@ impl Theme {
 struct Current {
     theme: Theme,
     output_size: f32,
+    line_spacing: f32,
 }
 
 static CURRENT: RwLock<Current> = RwLock::new(Current {
     theme: DARK,
     output_size: 15.0,
+    line_spacing: 1.0,
 });
+
+/// The height of a line of the output, if it is not the font's own.
+pub fn output_line_height() -> Option<f32> {
+    let current = CURRENT.read().expect("theme lock");
+    // A monospace line is about 1.32 times the size of its letters.
+    (current.line_spacing != 1.0).then(|| current.output_size * 1.32 * current.line_spacing)
+}
+
+/// An installed font that suits the output: its family, where its
+/// regular face is, and which face of that file it is.
+pub struct InstalledFont {
+    pub family: String,
+    file: std::path::PathBuf,
+    index: u32,
+}
+
+/// The monospaced fonts installed on the system, by family. The system is
+/// asked once, the first time this is called.
+pub fn installed_fonts() -> &'static [InstalledFont] {
+    static FONTS: std::sync::OnceLock<Vec<InstalledFont>> = std::sync::OnceLock::new();
+    FONTS.get_or_init(|| {
+        let mut database = fontdb::Database::new();
+        database.load_system_fonts();
+        let mut fonts: Vec<InstalledFont> = Vec::new();
+        for face in database.faces() {
+            let upright =
+                face.style == fontdb::Style::Normal && face.weight == fontdb::Weight::NORMAL;
+            let file = match &face.source {
+                fontdb::Source::File(file) | fontdb::Source::SharedFile(file, _) => file.clone(),
+                fontdb::Source::Binary(_) => continue,
+            };
+            let Some((family, _)) = face.families.first() else {
+                continue;
+            };
+            if face.monospaced && upright && !fonts.iter().any(|font| font.family == *family) {
+                fonts.push(InstalledFont {
+                    family: family.clone(),
+                    file,
+                    index: face.index,
+                });
+            }
+        }
+        fonts.sort_by_key(|font| font.family.to_lowercase());
+        fonts
+    })
+}
 
 /// The theme in use.
 pub fn current() -> Theme {
@@ -399,7 +447,9 @@ pub fn apply(ctx: &egui::Context, settings: &Settings) -> Result<(), String> {
     *CURRENT.write().expect("theme lock") = Current {
         theme,
         output_size: settings.font_size.clamp(8.0, 40.0),
+        line_spacing: settings.line_spacing.clamp(0.8, 2.0),
     };
+    ctx.set_zoom_factor(settings.ui_scale.clamp(0.75, 2.0));
     ctx.set_theme(if theme.dark {
         egui::Theme::Dark
     } else {
@@ -480,7 +530,7 @@ pub fn apply(ctx: &egui::Context, settings: &Settings) -> Result<(), String> {
         ]
         .into();
     });
-    install_fonts(ctx, &settings.font_file)
+    install_fonts(ctx, settings)
 }
 
 /// Blends `amount` of `other` into `base`, giving an opaque colour.
@@ -494,9 +544,9 @@ pub fn mix(base: Color32, other: Color32, amount: f32) -> Color32 {
     )
 }
 
-/// Installs the built-in typefaces, and the user's output font if `file`
-/// names one.
-fn install_fonts(ctx: &egui::Context, file: &str) -> Result<(), String> {
+/// Installs the built-in typefaces, and the output font the settings ask
+/// for, if they ask for one.
+fn install_fonts(ctx: &egui::Context, settings: &Settings) -> Result<(), String> {
     let mut fonts = FontDefinitions::default();
     let built_in: [(&str, &'static [u8]); 4] = [
         ("inter", include_bytes!("../assets/fonts/Inter-Regular.ttf")),
@@ -540,17 +590,50 @@ fn install_fonts(ctx: &egui::Context, file: &str) -> Result<(), String> {
         }
     }
 
+    // An installed family, or failing that a file given by hand.
+    let chosen = if !settings.font_family.is_empty() {
+        let found = installed_fonts()
+            .iter()
+            .find(|font| font.family == settings.font_family);
+        match found {
+            Some(font) => Some((font.file.display().to_string(), font.index)),
+            None => {
+                return finish(
+                    ctx,
+                    fonts,
+                    Err(format!(
+                        "{}: no such font is installed",
+                        settings.font_family
+                    )),
+                );
+            }
+        }
+    } else if !settings.font_file.is_empty() {
+        Some((settings.font_file.clone(), 0))
+    } else {
+        None
+    };
     let mut result = Ok(());
-    if !file.is_empty() {
-        match std::fs::read(file) {
+    if let Some((file, index)) = chosen {
+        match std::fs::read(&file) {
             Ok(bytes) => {
-                (fonts.font_data).insert("output".to_owned(), FontData::from_owned(bytes).into());
+                let mut data = FontData::from_owned(bytes);
+                data.index = index;
+                fonts.font_data.insert("output".to_owned(), data.into());
                 let monospace = fonts.families.entry(FontFamily::Monospace).or_default();
                 monospace.insert(0, "output".to_owned());
             }
             Err(error) => result = Err(format!("{file}: {error}")),
         }
     }
+    finish(ctx, fonts, result)
+}
+
+fn finish(
+    ctx: &egui::Context,
+    fonts: FontDefinitions,
+    result: Result<(), String>,
+) -> Result<(), String> {
     ctx.set_fonts(fonts);
     result
 }

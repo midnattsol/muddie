@@ -101,8 +101,9 @@ impl App {
 
     /// Opens the settings window, to look at it.
     #[cfg(test)]
-    pub fn open_settings(&mut self) {
+    pub fn open_settings(&mut self, section: usize) {
         self.show_settings = true;
+        self.settings_section = section;
     }
 
     fn new_tab(&mut self, ctx: &egui::Context) {
@@ -295,15 +296,25 @@ impl App {
     }
 
     fn settings_window(&mut self, ctx: &egui::Context) {
+        const GENERAL: usize = 0;
+        const APPEARANCE: usize = 1;
+        const PLUGINS: usize = 5;
         let before = self.settings.clone();
         let mut open = self.show_settings;
-        widgets::dialog(ctx, "settings", tr("Settings"), &mut open, 660.0, |ui| {
+        widgets::dialog(ctx, "settings", tr("Settings"), &mut open, 760.0, |ui| {
             ui.horizontal_top(|ui| {
                 // The sections on the left; more can be added as settings grow.
                 ui.vertical(|ui| {
-                    ui.set_width(160.0);
-                    ui.spacing_mut().item_spacing.y = 2.0;
-                    let sections = [tr("Appearance"), tr("Output"), tr("Sessions"), tr("Speech")];
+                    ui.set_width(170.0);
+                    ui.spacing_mut().item_spacing.y = 4.0;
+                    let sections = [
+                        tr("General"),
+                        tr("Appearance"),
+                        tr("Output"),
+                        tr("Sessions"),
+                        tr("Speech"),
+                        tr("Plugins"),
+                    ];
                     for (index, name) in sections.into_iter().enumerate() {
                         let selected = self.settings_section == index;
                         if widgets::nav_item(ui, selected, name, None).clicked() {
@@ -311,10 +322,11 @@ impl App {
                         }
                     }
                 });
-                ui.add_space(12.0);
+                ui.add_space(14.0);
                 let section = self.settings_section;
+                let active = self.active;
                 ui.vertical(|ui| {
-                    ui.set_min_height(300.0);
+                    ui.set_min_height(380.0);
                     // On a small window the settings scroll rather than spill.
                     let room = ctx.content_rect().height() - 150.0;
                     egui::ScrollArea::vertical()
@@ -322,94 +334,13 @@ impl App {
                         .show(ui, |ui| {
                             ui.spacing_mut().item_spacing.y = 9.0;
                             let settings = &mut self.settings;
-                            if section == 0 {
-                                widgets::group(ui, |ui| {
-                                    let row = widgets::setting_row;
-                                    row(ui, tr("Theme"), &mut |ui| {
-                                        let name = |theme: ThemeName| match theme {
-                                            ThemeName::Dark => tr("Dark"),
-                                            ThemeName::Mocha => "Mocha",
-                                            ThemeName::Dusk => tr("Dusk"),
-                                            ThemeName::TokyoNight => "Tokyo Night",
-                                            ThemeName::Nord => "Nord",
-                                            ThemeName::Graphite => tr("Graphite"),
-                                            ThemeName::Light => tr("Light"),
-                                            ThemeName::Contrast => tr("High contrast"),
-                                        };
-                                        egui::ComboBox::from_id_salt("theme")
-                                            .selected_text(name(settings.theme))
-                                            .width(170.0)
-                                            .show_ui(ui, |ui| {
-                                                for theme in [
-                                                    ThemeName::Dark,
-                                                    ThemeName::Graphite,
-                                                    ThemeName::Mocha,
-                                                    ThemeName::Dusk,
-                                                    ThemeName::TokyoNight,
-                                                    ThemeName::Nord,
-                                                    ThemeName::Light,
-                                                    ThemeName::Contrast,
-                                                ] {
-                                                    ui.selectable_value(
-                                                        &mut settings.theme,
-                                                        theme,
-                                                        name(theme),
-                                                    );
-                                                }
-                                            })
-                                            .response
-                                    });
-                                    row(ui, tr("Language"), &mut |ui| {
-                                        // The system's, English, and every catalogue there is.
-                                        let mut choices = vec![
-                                            (String::new(), tr("System").to_owned()),
-                                            ("en".to_owned(), "English".to_owned()),
-                                        ];
-                                        choices.extend(i18n::languages());
-                                        let current = match settings.language.as_str() {
-                                            "auto" => "",
-                                            "english" => "en",
-                                            "spanish" => "es",
-                                            code => code,
-                                        }
-                                        .to_owned();
-                                        let shown = choices
-                                            .iter()
-                                            .find(|(code, _)| *code == current)
-                                            .map_or(current.as_str(), |(_, name)| name.as_str())
-                                            .to_owned();
-                                        egui::ComboBox::from_id_salt("language")
-                                            .selected_text(shown)
-                                            .width(170.0)
-                                            .show_ui(ui, |ui| {
-                                                for (code, name) in &choices {
-                                                    if ui
-                                                        .selectable_label(*code == current, name)
-                                                        .clicked()
-                                                    {
-                                                        settings.language.clone_from(code);
-                                                    }
-                                                }
-                                            })
-                                            .response
-                                    });
-                                    row(ui, tr("Text size"), &mut |ui| {
-                                        ui.add(
-                                            egui::Slider::new(&mut settings.font_size, 10.0..=28.0)
-                                                .step_by(0.5),
-                                        )
-                                    });
-                                    row(ui, tr("Font file"), &mut |ui| {
-                                        ui.add(
-                                            egui::TextEdit::singleline(&mut settings.font_file)
-                                                .hint_text(tr("Built-in font"))
-                                                .margin(egui::Margin::symmetric(9, 6))
-                                                .desired_width(230.0),
-                                        )
-                                    });
-                                });
+                            match section {
+                                GENERAL => general_settings(ui, settings),
+                                APPEARANCE => appearance_settings(ui, settings),
+                                PLUGINS => self.tabs[active].plugins_ui(ui),
+                                // Those of the sessions: output, sessions, speech.
+                                section => Tab::settings_ui(ui, settings, section - 1),
                             }
-                            Tab::settings_ui(ui, settings, section);
                             if let Some(error) = &self.settings_error {
                                 ui.colored_label(theme::current().danger, error);
                             }
@@ -590,4 +521,147 @@ impl eframe::App for App {
             }
         }
     }
+}
+
+/// The language and the size of the interface.
+fn general_settings(ui: &mut Ui, settings: &mut Settings) {
+    widgets::group(ui, |ui| {
+        widgets::setting_row(ui, tr("Language"), &mut |ui| {
+            // The system's, English, and every catalogue there is.
+            let mut choices = vec![
+                (String::new(), tr("Same as the system").to_owned()),
+                ("en".to_owned(), "English".to_owned()),
+            ];
+            choices.extend(i18n::languages());
+            let current = match settings.language.as_str() {
+                "auto" => "",
+                "english" => "en",
+                "spanish" => "es",
+                code => code,
+            }
+            .to_owned();
+            let shown = choices.iter().find(|(code, _)| *code == current);
+            let shown = shown.map_or(current.clone(), |(_, name)| name.clone());
+            egui::ComboBox::from_id_salt("language")
+                .selected_text(shown)
+                .width(210.0)
+                .show_ui(ui, |ui| {
+                    for (code, name) in &choices {
+                        if ui.selectable_label(*code == current, name).clicked() {
+                            settings.language.clone_from(code);
+                        }
+                    }
+                })
+                .response
+        });
+        widgets::setting_row(ui, tr("Interface size"), &mut |ui| {
+            let mut percent = (settings.ui_scale * 100.0).round();
+            let slider = egui::Slider::new(&mut percent, 75.0..=200.0)
+                .step_by(5.0)
+                .suffix(" %");
+            let response = ui.add(slider);
+            // Applied once let go: the slider would move under the pointer.
+            if response.drag_stopped() || (response.changed() && !response.dragged()) {
+                settings.ui_scale = percent / 100.0;
+            }
+            response
+        });
+    });
+    let about = tr(
+        "More languages can be added as gettext catalogues in the locale folder of the configuration.",
+    );
+    ui.label(
+        RichText::new(about)
+            .font(theme::font(Weight::Regular, 12.0))
+            .color(theme::current().text_faint),
+    );
+}
+
+/// The theme, and the typeface of the output with a sample of it.
+fn appearance_settings(ui: &mut Ui, settings: &mut Settings) {
+    let theme = theme::current();
+    widgets::group(ui, |ui| {
+        widgets::setting_row(ui, tr("Theme"), &mut |ui| {
+            let name = |theme: ThemeName| match theme {
+                ThemeName::Dark => tr("Dark"),
+                ThemeName::Graphite => tr("Graphite"),
+                ThemeName::Mocha => "Mocha",
+                ThemeName::Dusk => tr("Dusk"),
+                ThemeName::TokyoNight => "Tokyo Night",
+                ThemeName::Nord => "Nord",
+                ThemeName::Light => tr("Light"),
+                ThemeName::Contrast => tr("High contrast"),
+            };
+            let themes = [
+                ThemeName::Dark,
+                ThemeName::Graphite,
+                ThemeName::Mocha,
+                ThemeName::Dusk,
+                ThemeName::TokyoNight,
+                ThemeName::Nord,
+                ThemeName::Light,
+                ThemeName::Contrast,
+            ];
+            egui::ComboBox::from_id_salt("theme")
+                .selected_text(name(settings.theme))
+                .width(210.0)
+                .show_ui(ui, |ui| {
+                    for theme in themes {
+                        ui.selectable_value(&mut settings.theme, theme, name(theme));
+                    }
+                })
+                .response
+        });
+    });
+    ui.add_space(6.0);
+    widgets::caption(ui, tr("Text of the MUD"));
+    widgets::group(ui, |ui| {
+        widgets::setting_row(ui, tr("Font"), &mut |ui| {
+            let built_in = tr("JetBrains Mono (built in)");
+            let shown = if settings.font_family.is_empty() {
+                built_in
+            } else {
+                settings.font_family.as_str()
+            };
+            egui::ComboBox::from_id_salt("font")
+                .selected_text(shown.to_owned())
+                .width(260.0)
+                .height(320.0)
+                .show_ui(ui, |ui| {
+                    if ui
+                        .selectable_label(settings.font_family.is_empty(), built_in)
+                        .clicked()
+                    {
+                        settings.font_family.clear();
+                    }
+                    // The monospaced fonts the system has.
+                    for font in theme::installed_fonts() {
+                        let chosen = settings.font_family == font.family;
+                        if ui.selectable_label(chosen, &font.family).clicked() {
+                            settings.font_family.clone_from(&font.family);
+                        }
+                    }
+                })
+                .response
+        });
+        widgets::setting_row(ui, tr("Size"), &mut |ui| {
+            ui.add(egui::Slider::new(&mut settings.font_size, 10.0..=28.0).step_by(0.5))
+        });
+        widgets::setting_row(ui, tr("Line spacing"), &mut |ui| {
+            ui.add(egui::Slider::new(&mut settings.line_spacing, 0.9..=1.8).step_by(0.05))
+        });
+    });
+    // What the output will look like.
+    let sample = "\x1b[1;32mPlaza Mayor\x1b[0m\nUna plaza amplia con una fuente. Al norte, la \x1b[33mtorre\x1b[0m.\n\x1b[36mSalidas: norte, este, sur\x1b[0m  0O 1lI {}[] <=>";
+    let well = egui::Frame::new()
+        .fill(theme.background)
+        .corner_radius(CornerRadius::same(12))
+        .inner_margin(egui::Margin::symmetric(14, 10));
+    well.show(ui, |ui| {
+        ui.set_width(ui.available_width());
+        ui.spacing_mut().item_spacing.y = 0.0;
+        for line in crate::panels::styled_lines(sample) {
+            ui.add(egui::Label::new(crate::output::server_job(&line)).selectable(false));
+        }
+    });
 }
