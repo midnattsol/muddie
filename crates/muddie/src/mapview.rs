@@ -78,7 +78,7 @@ impl MapView {
         }
         let (mut area, mut level) = self.browsing.clone().unwrap_or_else(|| home.clone());
         ui.horizontal_wrapped(|ui| {
-            ComboBox::from_id_salt("map area")
+            ComboBox::from_label("Area")
                 .selected_text(area.as_str())
                 .show_ui(ui, |ui| {
                     for name in map.areas() {
