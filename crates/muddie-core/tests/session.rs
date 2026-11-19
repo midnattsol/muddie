@@ -23,11 +23,18 @@ async fn start() -> (Session, TcpStream) {
     (session, server)
 }
 
+/// The next thing the session tells, other than which protocols the
+/// server offered, which the pipeline's own tests are about.
 async fn next(session: &mut Session) -> Event {
-    timeout(WAIT, session.events.recv())
-        .await
-        .expect("timed out waiting for an event")
-        .expect("event channel closed")
+    loop {
+        let event = timeout(WAIT, session.events.recv())
+            .await
+            .expect("timed out waiting for an event")
+            .expect("event channel closed");
+        if !matches!(event, Event::Protocol { .. }) {
+            return event;
+        }
+    }
 }
 
 async fn read_exact(server: &mut TcpStream, len: usize) -> Vec<u8> {

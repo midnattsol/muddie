@@ -231,16 +231,25 @@ impl Tab {
             ui.spacing_mut().item_spacing = egui::vec2(6.0, 6.0);
             for name in names {
                 let chosen = filter.as_deref() == Some(name);
-                let (colour, fill, about) = match state(name) {
-                    _ if chosen => (theme.on_accent, theme.accent, tr("Showing only this one")),
-                    Some((_, true)) => (theme.text, theme.hover, tr("In use")),
+                // In use, it is filled; offered and not used, an outline;
+                // not offered, only its name, faint.
+                let (colour, fill, edge, about) = match state(name) {
+                    _ if chosen => (
+                        theme.on_accent,
+                        theme.accent,
+                        theme.accent,
+                        tr("Showing only this one"),
+                    ),
+                    Some((_, true)) => (theme.text, theme.hover, theme.hover, tr("In use")),
                     Some((_, false)) => (
-                        theme.text_faint,
+                        theme.text_dim,
                         egui::Color32::TRANSPARENT,
+                        theme.text_faint,
                         tr("Offered by the MUD, and not used by Muddie"),
                     ),
                     None => (
-                        theme.text_faint.gamma_multiply(0.6),
+                        theme.text_faint.gamma_multiply(0.55),
+                        egui::Color32::TRANSPARENT,
                         egui::Color32::TRANSPARENT,
                         tr("Not offered by this MUD"),
                     ),
@@ -258,7 +267,7 @@ impl Tab {
                 ui.painter().rect_stroke(
                     rect,
                     corner,
-                    egui::Stroke::new(1.0, theme.border),
+                    egui::Stroke::new(1.0, edge),
                     egui::StrokeKind::Inside,
                 );
                 ui.painter()
@@ -275,6 +284,10 @@ impl Tab {
             }
         });
         self.data_protocol = filter;
+        ui.horizontal_wrapped(|ui| {
+            let key = tr("Filled: in use. Outlined: offered by the MUD, not used by Muddie. Faint: not offered.");
+            ui.add(Label::new(small(key, theme.text_faint)).wrap());
+        });
         // Why there may be nothing to see.
         let data = |name: &str| state(name).is_some_and(|(_, on)| *on);
         if self.connection.is_some() && !data("GMCP") && !data("MSDP") {

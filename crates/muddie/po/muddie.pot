@@ -915,6 +915,9 @@ msgstr ""
 msgid "Not offered by this MUD"
 msgstr ""
 
+msgid "Filled: in use. Outlined: offered by the MUD, not used by Muddie. Faint: not offered."
+msgstr ""
+
 msgid "This MUD offers neither GMCP nor MSDP: all it sends is text, and what it says on its channels comes as lines of the game."
 msgstr ""
 
@@ -954,10 +957,10 @@ msgstr ""
 msgid "A path is what a gauge follows, and what a script reads after gmcp(\"…\")."
 msgstr ""
 
-msgid "As it came"
+msgid "Raw message"
 msgstr ""
 
-msgid "Before that"
+msgid "History"
 msgstr ""
 
 msgid "Plugins need a configuration folder, and none was found."

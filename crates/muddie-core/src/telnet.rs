@@ -46,6 +46,7 @@ pub mod opt {
             MSP => "MSP",
             GMCP => "GMCP",
             // Others some MUDs offer, which this client does not take up.
+            39 => "NEW-ENVIRON",
             85 => "MCCP1",
             93 => "ZMP",
             102 => "Aardwolf",

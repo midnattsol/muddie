@@ -1404,3 +1404,5 @@ msgstr "Mensaje original"
 msgid "History"
 msgstr "Historial"
 
+msgid "Filled: in use. Outlined: offered by the MUD, not used by Muddie. Faint: not offered."
+msgstr "Relleno: en uso. Con borde: lo ofrece el MUD y Muddie no lo usa. Tenue: no ofrecido."

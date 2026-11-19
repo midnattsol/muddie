@@ -264,9 +264,7 @@ impl Pipeline {
             }
             let signal = self.negotiator.handle(&telnet_event, reply);
             // What the server offers is told, taken up or not.
-            if let telnet::Event::Negotiate(telnet::Verb::Will | telnet::Verb::Wont, option) =
-                telnet_event
-            {
+            if let telnet::Event::Negotiate(_, option) = telnet_event {
                 events.push(Event::Protocol {
                     name: opt::name(option),
                     on: self.negotiator.in_use(option),
@@ -409,6 +407,24 @@ mod tests {
                 offered("MXP", true)
             ]
         );
+        // Some servers ask for MXP instead of offering it: it is taken up
+        // the same, and its tags are read.
+        let mut asked = Pipeline::new(Config::default());
+        let mut input = vec![IAC, telnet::DO, opt::MXP, IAC, telnet::DO, 39];
+        input.extend_from_slice(b"\x1b[1z<send>look</send>\r\n");
+        let (reply, events) = receive_all(&mut asked, &input);
+        assert_eq!(
+            reply[..6],
+            [IAC, telnet::WILL, opt::MXP, IAC, telnet::WONT, 39]
+        );
+        assert_eq!(
+            events[..2],
+            [offered("MXP", true), offered("NEW-ENVIRON", false)]
+        );
+        let Some(Event::Line(line)) = events.get(2) else {
+            panic!("expected a line");
+        };
+        assert_eq!((line.text().as_str(), line.links.len()), ("look", 1));
         // What this client makes nothing of is passed over...
         assert!(
             !events

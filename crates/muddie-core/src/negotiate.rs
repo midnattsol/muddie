@@ -95,9 +95,10 @@ impl Negotiator {
         }
     }
 
-    /// Whether an option the server offered is in use.
+    /// Whether an option the server offered, or asked this client for,
+    /// is in use.
     pub fn in_use(&self, option: u8) -> bool {
-        self.remote[option as usize]
+        self.remote[option as usize] || self.local[option as usize]
     }
 
     /// Handles one non-data telnet event, appending any answer to `reply`.
@@ -173,7 +174,9 @@ impl Negotiator {
                 }
             }
             Verb::Do => {
-                let accept = matches!(option, opt::TTYPE | opt::NAWS | opt::CHARSET);
+                // MXP is asked for this way by some servers, and offered
+                // with WILL by others: it is taken up either way.
+                let accept = matches!(option, opt::TTYPE | opt::NAWS | opt::CHARSET | opt::MXP);
                 if !accept {
                     send(reply, Verb::Wont, option);
                 } else if !self.local[o] {
@@ -181,6 +184,9 @@ impl Negotiator {
                     send(reply, Verb::Will, option);
                     if option == opt::NAWS {
                         self.write_naws(reply);
+                    }
+                    if option == opt::MXP {
+                        return Some(Signal::Mxp);
                     }
                 }
             }
