@@ -18,6 +18,9 @@
 //!   with their style: `text`, `fg` and `bg` (a palette number, an
 //!   `"#rrggbb"` string, or `nil` for the default), `bold`, `italic`,
 //!   `underline` and `inverse`.
+//! - `highlight(fg, bg)`: inside a trigger, recolour the text that matched.
+//!   A colour is a name (`"red"`, `"bright blue"`...), `"#rrggbb"` or a
+//!   palette number; `nil` leaves that colour as it is.
 //! - `alias(pattern, fn, options)`: call `fn(m, input)` instead of sending
 //!   typed input that matches; same options as `trigger`.
 //! - `enable(group, enabled)`: switch a group of triggers and aliases on
@@ -25,6 +28,13 @@
 //! - `separator(text)`: the text that separates several commands typed on
 //!   one line (`;` by default, doubled to type it literally); `nil` turns
 //!   splitting off.
+//! - `bind(key, action)`: run `action` (a command to send, or a function)
+//!   when `key` is pressed, e.g. `bind("f5", "look")` or
+//!   `bind("ctrl+shift+k", function() ... end)`; `unbind(key)` removes it.
+//! - `remember(key, value)` and `recall(key)`: keep values between
+//!   sessions, per profile. Values can be anything JSON can hold.
+//! - `play(file, {volume = 0.8, loop = false})`: play a sound file, by
+//!   path or by name in the profile's `sounds` folder; `stop_sounds()`.
 //! - `require(name)`: load `name.luau` (or `name/init.luau`) from a folder
 //!   scripts were loaded from, once, and return what it returns.
 //! - `after(seconds, fn)` and `every(seconds, fn)`: timers.
@@ -138,6 +148,13 @@ pub enum Action {
         variable: String,
         values: Vec<String>,
     },
+    /// Play a sound file at `volume` (0 to 1), repeating if `looped`.
+    PlaySound {
+        file: String,
+        volume: f32,
+        looped: bool,
+    },
+    StopSounds,
     /// A script failed; the message is for the user.
     Error(String),
 }
@@ -150,6 +167,11 @@ struct Matcher {
     group: Option<String>,
     /// Removed after firing once.
     once: bool,
+}
+
+enum Binding {
+    Command(String),
+    Function(Function),
 }
 
 struct Timer {
@@ -205,6 +227,13 @@ struct State {
     gag: bool,
     /// The line whose triggers are running, with its styles.
     current_line: Option<Line>,
+    /// Byte range of the text the running trigger matched.
+    current_match: Option<(usize, usize)>,
+    /// What to do for each bound key, by normalised key name.
+    bindings: HashMap<String, Binding>,
+    /// Values kept between sessions, and the file they are saved in.
+    memory: serde_json::Map<String, serde_json::Value>,
+    memory_file: Option<PathBuf>,
     /// Groups switched off with `enable(group, false)`.
     disabled_groups: HashSet<String>,
     /// Set by `separator()`: `Some(None)` turns command splitting off.
@@ -231,6 +260,8 @@ impl State {
 struct Hit {
     id: u64,
     once: bool,
+    /// Byte range of the whole match.
+    range: (usize, usize),
     callback: Function,
     groups: Vec<Option<String>>,
     named: Vec<(String, String)>,
@@ -320,16 +351,59 @@ impl Engine {
     /// Offers a completed output line to the triggers. Returns false if a
     /// trigger gagged it, meaning it must not be shown or spoken.
     pub fn on_line(&mut self, line: &str) -> bool {
-        self.dispatch_line(line, None)
+        self.dispatch_line(line, None).is_some()
     }
 
     /// Like [`Self::on_line`], with the line's colours available to the
     /// triggers through `line_spans()`.
-    pub fn on_styled_line(&mut self, line: &Line) -> bool {
+    /// Returns the line to show, which triggers may have recoloured, or
+    /// `None` if one gagged it.
+    pub fn on_styled_line(&mut self, line: &Line) -> Option<Line> {
         self.dispatch_line(&line.text(), Some(line.clone()))
     }
 
-    fn dispatch_line(&mut self, text: &str, styled: Option<Line>) -> bool {
+    /// Handles a key press, named as in `bind` (see [`key_name`]). Returns
+    /// whether the key was bound, in which case nothing else should use it.
+    pub fn on_key(&mut self, key: &str) -> bool {
+        let action = match self.state.borrow().bindings.get(&key_name(key)) {
+            Some(Binding::Command(command)) => Ok(command.clone()),
+            Some(Binding::Function(function)) => Err(function.clone()),
+            None => return false,
+        };
+        match action {
+            Ok(command) => self.on_input(&command),
+            Err(function) => {
+                self.guarded(|| function.call::<()>(()));
+            }
+        }
+        true
+    }
+
+    /// Keeps the values of `remember` in `file`, loading what it holds.
+    pub fn use_memory_file(&mut self, file: PathBuf) {
+        let loaded = match std::fs::read_to_string(&file) {
+            Ok(text) => serde_json::from_str(&text).map_err(|error| error.to_string()),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(Default::default()),
+            Err(error) => Err(error.to_string()),
+        };
+        let mut state = self.state.borrow_mut();
+        match loaded {
+            Ok(memory) => {
+                state.memory = memory;
+                state.memory_file = Some(file);
+            }
+            // Left unset, so the unreadable file is not overwritten.
+            Err(error) => {
+                let message = format!(
+                    "remembered values not loaded from {}: {error}",
+                    file.display()
+                );
+                state.actions.push(Action::Error(message));
+            }
+        }
+    }
+
+    fn dispatch_line(&mut self, text: &str, styled: Option<Line>) -> Option<Line> {
         {
             let mut state = self.state.borrow_mut();
             state.gag = false;
@@ -342,8 +416,11 @@ impl Engine {
             }
         }
         let mut state = self.state.borrow_mut();
-        state.current_line = None;
-        !std::mem::take(&mut state.gag)
+        let line = state.current_line.take();
+        if std::mem::take(&mut state.gag) {
+            return None;
+        }
+        Some(line.unwrap_or_default())
     }
 
     /// Handles a line typed by the user: a client command, or one or more
@@ -491,6 +568,7 @@ impl Engine {
             Some(Hit {
                 id: matcher.id,
                 once: matcher.once,
+                range: captures.get(0).map_or((0, 0), |m| (m.start(), m.end())),
                 callback: matcher.callback.clone(),
                 groups: captures.iter().map(|m| m.map(group)).collect(),
                 named: (matcher.regex.capture_names().flatten())
@@ -502,6 +580,7 @@ impl Engine {
     }
 
     fn fire(&mut self, hit: &Hit, text: &str) {
+        self.state.borrow_mut().current_match = Some(hit.range);
         if hit.once {
             let mut state = self.state.borrow_mut();
             state.triggers.retain(|trigger| trigger.id != hit.id);
@@ -584,6 +663,61 @@ fn valid_module_name(name: &str) -> bool {
                 .all(|ch| ch.is_ascii_alphanumeric() || ch == '_' || ch == '-')
     };
     name.split('/').all(plain)
+}
+
+/// The name `bind` and [`Engine::on_key`] know a key by: lower case, with
+/// its modifiers in the order ctrl, alt, shift, as in `ctrl+shift+f5`.
+pub fn key_name(key: &str) -> String {
+    let lower = key.to_lowercase();
+    let mut parts: Vec<&str> = lower.split('+').map(str::trim).collect();
+    let key = parts.pop().unwrap_or_default();
+    let mut name = String::new();
+    for modifier in ["ctrl", "alt", "shift"] {
+        if parts.contains(&modifier) {
+            name.push_str(modifier);
+            name.push('+');
+        }
+    }
+    name + key
+}
+
+/// Reads a colour given by a script: a palette number, `"#rrggbb"`, or a
+/// name such as `"red"` or `"bright blue"`. `nil` gives `None`.
+fn color_from(value: &Value) -> mlua::Result<Option<Color>> {
+    const NAMES: [&str; 8] = [
+        "black", "red", "green", "yellow", "blue", "magenta", "cyan", "white",
+    ];
+    let unknown =
+        || mlua::Error::runtime("a colour is a name, \"#rrggbb\" or a number from 0 to 255");
+    match value {
+        Value::Nil => Ok(None),
+        Value::Integer(index) => Ok(Some(Color::Indexed(
+            u8::try_from(*index).map_err(|_| unknown())?,
+        ))),
+        Value::Number(index) if index.fract() == 0.0 && (0.0..=255.0).contains(index) => {
+            Ok(Some(Color::Indexed(*index as u8)))
+        }
+        Value::String(text) => {
+            let text = text.to_string_lossy().trim().to_lowercase();
+            if let Some(hex) = text.strip_prefix('#') {
+                let channel = |at: usize| u8::from_str_radix(hex.get(at..at + 2)?, 16).ok();
+                return match (hex.len(), channel(0), channel(2), channel(4)) {
+                    (6, Some(r), Some(g), Some(b)) => Ok(Some(Color::Rgb(r, g, b))),
+                    _ => Err(unknown()),
+                };
+            }
+            let (bright, name) = match text.strip_prefix("bright ") {
+                Some(name) => (8, name),
+                None => (0, text.as_str()),
+            };
+            let index = NAMES
+                .iter()
+                .position(|known| *known == name)
+                .ok_or_else(unknown)?;
+            Ok(Some(Color::Indexed(bright + index as u8)))
+        }
+        _ => Err(unknown()),
+    }
 }
 
 /// A colour as scripts see it: a palette number, `"#rrggbb"`, or nil.
@@ -1088,6 +1222,124 @@ fn install_api(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
                 spans.push(entry)?;
             }
             Ok(spans)
+        })?,
+    )?;
+
+    let shared = Rc::clone(state);
+    add(
+        "highlight",
+        lua.create_function(move |_, (fg, bg): (Value, Value)| {
+            let (fg, bg) = (color_from(&fg)?, color_from(&bg)?);
+            let mut state = shared.borrow_mut();
+            let Some((start, end)) = state.current_match else {
+                return Ok(());
+            };
+            if let Some(line) = &mut state.current_line {
+                line.restyle(start..end, |style| {
+                    style.fg = fg.unwrap_or(style.fg);
+                    style.bg = bg.unwrap_or(style.bg);
+                });
+            }
+            Ok(())
+        })?,
+    )?;
+
+    let shared = Rc::clone(state);
+    add(
+        "bind",
+        lua.create_function(move |_, (key, action): (String, Value)| {
+            let binding = match action {
+                Value::String(command) => Binding::Command(command.to_string_lossy()),
+                Value::Function(function) => Binding::Function(function),
+                _ => return Err(mlua::Error::runtime("bind needs a command or a function")),
+            };
+            shared.borrow_mut().bindings.insert(key_name(&key), binding);
+            Ok(())
+        })?,
+    )?;
+
+    let shared = Rc::clone(state);
+    add(
+        "unbind",
+        lua.create_function(move |_, key: String| {
+            Ok(shared
+                .borrow_mut()
+                .bindings
+                .remove(&key_name(&key))
+                .is_some())
+        })?,
+    )?;
+
+    let shared = Rc::clone(state);
+    add(
+        "remember",
+        lua.create_function(move |_, (key, value): (String, Value)| {
+            let mut state = shared.borrow_mut();
+            match value {
+                Value::Nil => {
+                    state.memory.remove(&key);
+                }
+                value => {
+                    let json = serde_json::to_value(&value).map_err(mlua::Error::runtime)?;
+                    state.memory.insert(key, json);
+                }
+            }
+            let Some(file) = &state.memory_file else {
+                return Ok(());
+            };
+            // Written to a temporary file first, so a crash cannot leave
+            // the real one half written.
+            let text = serde_json::to_string_pretty(&state.memory).map_err(mlua::Error::runtime)?;
+            let temporary = file.with_extension("json.tmp");
+            std::fs::write(&temporary, text)
+                .and_then(|()| std::fs::rename(&temporary, file))
+                .map_err(|error| {
+                    mlua::Error::runtime(format!("could not save {}: {error}", file.display()))
+                })
+        })?,
+    )?;
+
+    let shared = Rc::clone(state);
+    add(
+        "recall",
+        lua.create_function(move |lua, key: String| {
+            let options = SerializeOptions::new()
+                .serialize_none_to_null(false)
+                .serialize_unit_to_null(false)
+                .set_array_metatable(false);
+            match shared.borrow().memory.get(&key) {
+                Some(value) => lua.to_value_with(value, options),
+                None => Ok(Value::Nil),
+            }
+        })?,
+    )?;
+
+    let shared = Rc::clone(state);
+    add(
+        "play",
+        lua.create_function(move |_, (file, options): (String, Option<Table>)| {
+            let (volume, looped) = match options {
+                Some(options) => (
+                    options.get::<Option<f32>>("volume")?.unwrap_or(1.0),
+                    options.get::<Option<bool>>("loop")?.unwrap_or(false),
+                ),
+                None => (1.0, false),
+            };
+            (shared.borrow_mut().actions).push(Action::PlaySound {
+                file,
+                volume: volume.clamp(0.0, 1.0),
+                looped,
+            });
+            Ok(())
+        })?,
+    )?;
+
+    let shared = Rc::clone(state);
+    add(
+        "stop_sounds",
+        lua.create_function(move |_, ()| {
+            shared.borrow_mut().actions.push(Action::StopSounds);
+            Ok(())
         })?,
     )?;
 
@@ -1736,7 +1988,7 @@ mod tests {
                 ),
             ],
         };
-        assert!(engine.on_styled_line(&line));
+        assert_eq!(engine.on_styled_line(&line), Some(line.clone()));
         assert_eq!(
             engine.take_actions(),
             [Action::Echo(
@@ -1784,6 +2036,113 @@ mod tests {
             );
         }
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn trigger_can_recolour_its_match_or_gag_the_line() {
+        use muddie_core::{Span, Style};
+        let mut engine = engine(
+            r##"trigger("An (\\w+)", function() highlight("bright yellow", "#102030") end)
+            trigger("^secret", function() gag() end)"##,
+        );
+        let plain = |text: &str| Line {
+            spans: vec![Span {
+                text: text.into(),
+                style: Style::default(),
+            }],
+        };
+        let shown = engine.on_styled_line(&plain("An orc!")).unwrap();
+        let styles: Vec<(&str, Color, Color)> = (shown.spans.iter())
+            .map(|span| (span.text.as_str(), span.style.fg, span.style.bg))
+            .collect();
+        assert_eq!(
+            styles,
+            [
+                ("An orc", Color::Indexed(11), Color::Rgb(0x10, 0x20, 0x30)),
+                ("!", Color::Default, Color::Default),
+            ]
+        );
+        assert_eq!(engine.on_styled_line(&plain("secret plans")), None);
+        engine.on_input("/lua highlight('plaid')");
+        assert!(error_text(&engine.take_actions()).contains("a colour is"));
+    }
+
+    #[test]
+    fn keys_run_their_binding() {
+        let mut engine = engine(
+            r#"bind("F5", "look;inventory")
+            bind("Shift + CTRL+k", function() send("kick") end)"#,
+        );
+        assert!(engine.on_key("f5"));
+        assert!(engine.on_key("ctrl+shift+k"));
+        assert!(!engine.on_key("f6"));
+        assert_eq!(
+            engine.take_actions(),
+            [send("look"), send("inventory"), send("kick")]
+        );
+        engine.on_input("/lua echo(`{unbind('f5')} {unbind('f5')}`)");
+        assert!(!engine.on_key("f5"));
+        assert_eq!(engine.take_actions(), [Action::Echo("true false".into())]);
+        assert_eq!(key_name("Shift+Alt+Ctrl+Enter"), "ctrl+alt+shift+enter");
+    }
+
+    #[test]
+    fn remembered_values_survive_a_new_engine() {
+        let file =
+            std::env::temp_dir().join(format!("muddie-memory-test-{}.json", std::process::id()));
+        let _ = std::fs::remove_file(&file);
+        let mut engine = engine("");
+        engine.use_memory_file(file.clone());
+        engine.exec(
+            "test",
+            r#"remember("kills", 41)
+            remember("friends", {"ana", "luis"})
+            remember("config", {speed = "fast"})
+            remember("gone", 1)
+            remember("gone", nil)"#,
+        );
+        assert_eq!(engine.take_actions(), []);
+        let mut engine = self::engine("");
+        engine.use_memory_file(file.clone());
+        engine.exec(
+            "test",
+            r#"echo(`{recall("kills") + 1} {recall("friends")[2]} {recall("config").speed} {recall("gone")}`)"#,
+        );
+        assert_eq!(
+            engine.take_actions(),
+            [Action::Echo("42 luis fast nil".into())]
+        );
+
+        std::fs::write(&file, "not json").unwrap();
+        let mut engine = self::engine("");
+        engine.use_memory_file(file.clone());
+        assert!(error_text(&engine.take_actions()).contains("not loaded"));
+        // The damaged file is left alone rather than overwritten.
+        engine.exec("test", r#"remember("x", 1)"#);
+        assert_eq!(std::fs::read_to_string(&file).unwrap(), "not json");
+        std::fs::remove_file(&file).unwrap();
+    }
+
+    #[test]
+    fn sounds_are_requested_with_their_options() {
+        let mut engine = engine("");
+        engine.exec(
+            "test",
+            r#"play("alert.ogg") play("rain.ogg", {volume = 4, loop = true}) stop_sounds()"#,
+        );
+        let sound = |file: &str, volume, looped| Action::PlaySound {
+            file: file.into(),
+            volume,
+            looped,
+        };
+        assert_eq!(
+            engine.take_actions(),
+            [
+                sound("alert.ogg", 1.0, false),
+                sound("rain.ogg", 1.0, true),
+                Action::StopSounds
+            ]
+        );
     }
 
     #[test]

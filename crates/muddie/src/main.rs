@@ -1,13 +1,16 @@
 mod app;
+mod complete;
 mod history;
 mod i18n;
 mod i18n_es;
+mod logger;
 mod mapview;
 mod output;
 mod palette;
 mod panels;
 mod profile;
 mod settings;
+mod sound;
 mod tab;
 mod theme;
 mod voice;

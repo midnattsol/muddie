@@ -9,6 +9,7 @@ pub const WONT: u8 = 252;
 pub const WILL: u8 = 251;
 pub const SB: u8 = 250;
 pub const GA: u8 = 249;
+pub const NOP: u8 = 241;
 pub const SE: u8 = 240;
 pub const EOR: u8 = 239;
 

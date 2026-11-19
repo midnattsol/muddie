@@ -29,6 +29,8 @@ pub struct Voice {
     /// Rows last read with the review keys: in the output, and in the chat.
     review: [Option<usize>; 2],
     ctrl_was_down: bool,
+    /// Speech rate from -100 to 100, applied whenever speech is on.
+    rate: i32,
 }
 
 impl Voice {
@@ -41,8 +43,16 @@ impl Voice {
             return;
         }
         self.speech = enabled.then(Speech::start);
+        self.set_rate(self.rate);
         self.narrator = Narrator::default();
         self.say("Speech on.");
+    }
+
+    pub fn set_rate(&mut self, rate: i32) {
+        self.rate = rate;
+        if let Some(speech) = &self.speech {
+            speech.set_rate(rate);
+        }
     }
 
     /// Speaks `text` after whatever is already queued.

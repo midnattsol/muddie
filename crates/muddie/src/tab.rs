@@ -15,14 +15,17 @@ use muddie_mapper::{Map, Progress, RoomId, RoomInfo, Walk};
 use muddie_script::{Action, Engine};
 use tokio::sync::mpsc::UnboundedSender;
 
+use crate::complete::{self, Completion};
 use crate::history::History;
-use crate::i18n::tr;
+use crate::i18n::{tr, trf};
+use crate::logger::SessionLog;
 use crate::mapview::{MapAction, MapView};
 use crate::output::{Output, server_job};
 use crate::palette;
 use crate::panels::{self, Gauges, MsdpVitals};
 use crate::profile::{Profile, Profiles};
-use crate::settings::Settings;
+use crate::settings::{LogFormat, Settings};
+use crate::sound::Player;
 use crate::theme;
 use crate::voice::Voice;
 
@@ -48,8 +51,8 @@ pub struct Tab {
     /// Unterminated text waiting to settle before its triggers run.
     pending_partial: Option<(Line, Instant)>,
     /// Unterminated text whose triggers already ran, and whether they let
-    /// it show.
-    settled_partial: Option<(String, bool)>,
+    /// it show: the line to show, or `None` if they gagged it.
+    settled_partial: Option<(String, Option<Line>)>,
     connection: Option<Connection>,
     output: Output,
     input: String,
@@ -73,6 +76,25 @@ pub struct Tab {
     walk: Option<(Walk, Instant)>,
     /// Output arrived while the session was not on screen.
     unread: bool,
+    /// The settings in force, as of the last change.
+    settings: Settings,
+    /// The log being written, if logging is on.
+    log: Option<SessionLog>,
+    sound: Player,
+    completion: Completion,
+    /// The find bar is showing, and what it searches for.
+    find_open: bool,
+    find_query: String,
+    /// Give the find bar the keyboard on the next frame.
+    find_wants_focus: bool,
+    /// The user asked to disconnect, so the session must not reconnect.
+    user_disconnected: bool,
+    /// When to try connecting again after losing the connection, and how
+    /// many times in a row that has been tried.
+    reconnect_at: Option<Instant>,
+    reconnect_attempts: u32,
+    /// When something was last sent or received, for keep-alives.
+    last_activity: Instant,
 }
 
 /// How long unterminated text must stay unchanged before triggers see it
@@ -151,6 +173,17 @@ impl Tab {
             text_panels: Vec::new(),
             walk: None,
             unread: false,
+            settings: settings.clone(),
+            log: None,
+            sound: Player::default(),
+            completion: Completion::default(),
+            find_open: false,
+            find_query: String::new(),
+            find_wants_focus: false,
+            user_disconnected: false,
+            reconnect_at: None,
+            reconnect_attempts: 0,
+            last_activity: Instant::now(),
         };
         app.voice.set_enabled(startup.speech);
         match startup.profile {
@@ -188,12 +221,78 @@ impl Tab {
 
     /// Takes changed settings into account.
     pub fn settings_changed(&mut self, settings: &Settings) {
-        self.output.restyle(settings.scrollback_lines);
-        self.chat.restyle(settings.scrollback_lines);
+        self.settings = settings.clone();
+        self.output
+            .restyle(settings.scrollback_lines, settings.timestamps);
+        self.chat
+            .restyle(settings.scrollback_lines, settings.timestamps);
+        self.voice.set_rate(settings.speech_rate);
     }
 
     /// The part of the settings window that belongs to sessions.
-    pub fn settings_ui(_ui: &mut egui::Ui, _settings: &mut Settings) {}
+    pub fn settings_ui(ui: &mut egui::Ui, settings: &mut Settings) {
+        ui.add_space(10.0);
+        ui.label(RichText::new(tr("Sessions")).strong());
+        egui::Grid::new("sessions")
+            .num_columns(2)
+            .spacing([16.0, 8.0])
+            .show(ui, |ui| {
+                let label = ui.label(tr("Lines kept"));
+                ui.add(
+                    egui::DragValue::new(&mut settings.scrollback_lines)
+                        .range(100..=1_000_000)
+                        .speed(100),
+                )
+                .labelled_by(label.id);
+                ui.end_row();
+
+                ui.label(tr("Output"));
+                ui.checkbox(&mut settings.timestamps, tr("Show the time of each line"));
+                ui.end_row();
+
+                ui.label(tr("Log"));
+                ui.horizontal(|ui| {
+                    ui.checkbox(&mut settings.log_sessions, tr("Log every session"));
+                    let name = |format: LogFormat| match format {
+                        LogFormat::Text => tr("Text"),
+                        LogFormat::Html => "HTML",
+                    };
+                    ComboBox::from_id_salt("log format")
+                        .selected_text(name(settings.log_format))
+                        .width(70.0)
+                        .show_ui(ui, |ui| {
+                            for format in [LogFormat::Text, LogFormat::Html] {
+                                ui.selectable_value(&mut settings.log_format, format, name(format));
+                            }
+                        });
+                });
+                ui.end_row();
+
+                ui.label(tr("Connection"));
+                ui.checkbox(
+                    &mut settings.reconnect,
+                    tr("Reconnect when the connection is lost"),
+                );
+                ui.end_row();
+
+                let label = ui.label(tr("Keep-alive"));
+                ui.add(
+                    egui::DragValue::new(&mut settings.keepalive_seconds)
+                        .range(0..=3600)
+                        .suffix(" s"),
+                )
+                .on_hover_text(tr(
+                    "Seconds of silence before a keep-alive is sent; 0 sends none.",
+                ))
+                .labelled_by(label.id);
+                ui.end_row();
+
+                let label = ui.label(tr("Speech rate"));
+                ui.add(egui::Slider::new(&mut settings.speech_rate, -100..=100))
+                    .labelled_by(label.id);
+                ui.end_row();
+            });
+    }
 
     /// Starts the script runtime afresh and runs the user's scripts: the
     /// general one, the profile's packages and scripts, and those given on
@@ -201,6 +300,9 @@ impl Tab {
     fn load_scripts(&mut self) {
         self.scripts =
             Engine::new(Rc::clone(&self.map)).expect("failed to start the script runtime");
+        if let Some(profiles) = &self.profiles {
+            (self.scripts).use_memory_file(profiles.memory_path(self.profile.as_deref()));
+        }
         let mut files = Vec::new();
         if let Some(profiles) = &self.profiles {
             files.extend(profiles.init_script());
@@ -296,6 +398,8 @@ impl Tab {
             self.note("Enter a host to connect to.");
             return;
         }
+        self.user_disconnected = false;
+        self.reconnect_at = None;
         self.note(&format!("Connecting to {host}:{port}..."));
         self.walk = None;
         // A script may have chosen to keep the map in memory only.
@@ -356,6 +460,8 @@ impl Tab {
     }
 
     fn disconnect(&mut self) {
+        self.user_disconnected = true;
+        self.reconnect_at = None;
         if let Some(connection) = &self.connection {
             let _ = connection.commands.send(Command::Disconnect);
         }
@@ -363,8 +469,52 @@ impl Tab {
 
     /// Shows and speaks a message from the client itself.
     pub fn note(&mut self, text: &str) {
-        self.output.push_local(text);
+        self.show_local(text);
         self.voice.say(text);
+    }
+
+    /// Shows a line of the client's own, without speaking it.
+    fn show_local(&mut self, text: &str) {
+        self.output.push_local(text);
+        let time = self.output.time(self.output.len() - 1).to_owned();
+        self.logged(|log| log.local(&time, text));
+    }
+
+    /// Shows a line from the server.
+    fn show_line(&mut self, line: &Line) {
+        self.output.push(line);
+        let time = self.output.time(self.output.len() - 1).to_owned();
+        self.logged(|log| log.line(&time, line));
+    }
+
+    /// Writes to the log, if one is open; a failure closes it with a note.
+    fn logged(&mut self, write: impl FnOnce(&mut SessionLog) -> std::io::Result<()>) {
+        let Some(log) = &mut self.log else {
+            return;
+        };
+        if let Err(error) = write(log) {
+            self.log = None;
+            self.note(&trf("Logging stopped: {0}", &[&error.to_string()]));
+        }
+    }
+
+    /// Starts writing the session to a new log file.
+    fn start_log(&mut self) {
+        let Some(profiles) = &self.profiles else {
+            return self.note(tr("Cannot log: no configuration folder was found."));
+        };
+        match SessionLog::start(
+            &profiles.logs_dir(),
+            &self.title(),
+            self.settings.log_format,
+        ) {
+            Ok(log) => {
+                let path = log.path().display().to_string();
+                self.log = Some(log);
+                self.note(&trf("Logging to {0}", &[&path]));
+            }
+            Err(error) => self.note(&trf("Cannot log: {0}", &[&error.to_string()])),
+        }
     }
 
     fn handle_events(&mut self) {
@@ -374,7 +524,14 @@ impl Tab {
         let events: Vec<Event> = connection.events.try_iter().collect();
         for event in events {
             match event {
-                Event::Connected => self.note("Connected."),
+                Event::Connected => {
+                    self.reconnect_attempts = 0;
+                    self.last_activity = Instant::now();
+                    if self.settings.log_sessions && self.log.is_none() {
+                        self.start_log();
+                    }
+                    self.note(tr("Connected."));
+                }
                 Event::Line(line) | Event::Prompt(line) => {
                     let text = line.text();
                     self.pending_partial = None;
@@ -384,17 +541,21 @@ impl Tab {
                         .settled_partial
                         .take()
                         .filter(|(fired, _)| *fired == text);
-                    let show = match settled {
-                        Some((_, show)) => show,
+                    let shown = match settled {
+                        Some((_, shown)) => shown,
                         None => self.scripts.on_styled_line(&line),
                     };
-                    if show {
-                        self.output.push(&line);
-                        self.voice.line(&text);
-                    } else {
-                        self.output.clear_partial();
-                        self.voice.skip_line(&text);
+                    match shown {
+                        Some(shown) => {
+                            self.show_line(&shown);
+                            self.voice.line(&text);
+                        }
+                        None => {
+                            self.output.clear_partial();
+                            self.voice.skip_line(&text);
+                        }
                     }
+                    self.last_activity = Instant::now();
                     self.run_actions();
                 }
                 Event::Partial(line) => {
@@ -402,8 +563,8 @@ impl Tab {
                     let settled =
                         (self.settled_partial.as_ref()).filter(|(fired, _)| *fired == text);
                     match settled {
-                        Some((_, false)) => continue,
-                        Some((_, true)) => {}
+                        Some((_, None)) => continue,
+                        Some((_, Some(_))) => {}
                         None => {
                             self.settled_partial = None;
                             let waiting = (self.pending_partial.as_ref())
@@ -418,7 +579,7 @@ impl Tab {
                 }
                 Event::InputHidden(hidden) => self.input_hidden = hidden,
                 // Not spoken: the user has just typed it.
-                Event::Sent(text) => self.output.push_local(&format!("> {text}")),
+                Event::Sent(text) => self.show_local(&format!("> {text}")),
                 Event::Gmcp { package, data } => {
                     // Built-in panels first, so scripts can override them.
                     if package.eq_ignore_ascii_case("Char.Vitals") {
@@ -453,12 +614,27 @@ impl Tab {
                     self.settled_partial = None;
                     self.gauges.clear();
                     self.msdp_vitals.clear();
-                    self.note(&match error {
-                        Some(error) => format!("Disconnected: {error}"),
-                        None => "Disconnected.".to_owned(),
-                    });
+                    self.sound.stop_all();
                     self.input_hidden = false;
                     self.connection = None;
+                    // A connection lost to an error is worth retrying; one
+                    // the server or the user closed is not.
+                    let lost = error.is_some() && !self.user_disconnected;
+                    self.note(&match &error {
+                        Some(error) => trf("Disconnected: {0}", &[error]),
+                        None => tr("Disconnected.").to_owned(),
+                    });
+                    if lost && self.settings.reconnect {
+                        let wait =
+                            Duration::from_secs(2u64.pow(self.reconnect_attempts.min(5)).min(60));
+                        self.reconnect_attempts += 1;
+                        self.reconnect_at = Some(Instant::now() + wait);
+                        self.note(&trf(
+                            "Reconnecting in {0} seconds.",
+                            &[&wait.as_secs().to_string()],
+                        ));
+                    }
+                    self.log = None;
                 }
             }
         }
@@ -512,6 +688,17 @@ impl Tab {
                         self.chat.push(&line);
                     }
                 }
+                Action::PlaySound {
+                    file,
+                    volume,
+                    looped,
+                } => {
+                    let path = self.sound_file(&file);
+                    if let Err(error) = self.sound.play(&path, volume, looped) {
+                        self.note(&trf("Cannot play the sound: {0}", &[&error]));
+                    }
+                }
+                Action::StopSounds => self.sound.stop_all(),
                 Action::Error(message) => {
                     let message = format!("Script error: {message}");
                     message.lines().for_each(|line| self.note(line));
@@ -524,9 +711,133 @@ impl Tab {
         match &self.connection {
             Some(connection) => {
                 let _ = connection.commands.send(Command::Send(line));
+                self.last_activity = Instant::now();
             }
-            None => self.note("Not connected."),
+            None => self.note(tr("Not connected.")),
         }
+    }
+
+    /// Where a sound a script named is: the path given if it is one, else
+    /// the first file of that name in the sound folders.
+    fn sound_file(&self, name: &str) -> PathBuf {
+        let given = PathBuf::from(name);
+        if given.is_absolute() {
+            return given;
+        }
+        let folders = (self.profiles.as_ref())
+            .map(|profiles| profiles.sound_dirs(self.profile.as_deref()))
+            .unwrap_or_default();
+        let found = folders
+            .iter()
+            .map(|dir| dir.join(name))
+            .find(|path| path.is_file());
+        found.unwrap_or(given)
+    }
+
+    /// Reconnects, keeps the connection alive and keeps looped sounds
+    /// going, each when its time comes.
+    fn check_timers(&mut self, ctx: &egui::Context) {
+        let now = Instant::now();
+        if let Some(at) = self.reconnect_at {
+            if at <= now {
+                self.reconnect_at = None;
+                self.connect(ctx);
+            } else {
+                ctx.request_repaint_after(at - now);
+            }
+        }
+        let keepalive = Duration::from_secs(self.settings.keepalive_seconds.into());
+        if let (Some(connection), false) = (&self.connection, keepalive.is_zero()) {
+            let idle = now.saturating_duration_since(self.last_activity);
+            if idle >= keepalive {
+                let _ = connection.commands.send(Command::KeepAlive);
+                self.last_activity = now;
+                ctx.request_repaint_after(keepalive);
+            } else {
+                ctx.request_repaint_after(keepalive - idle);
+            }
+        }
+        self.sound.poll();
+        if self.sound.has_loops() {
+            ctx.request_repaint_after(Duration::from_millis(250));
+        }
+    }
+
+    /// Runs the binding of any key pressed with Ctrl or Alt, or of a
+    /// function key, before anything else gets to use the key.
+    fn bound_keys(&mut self, ui: &mut egui::Ui) {
+        let pressed: Vec<(Key, Modifiers)> = ui.input(|input| {
+            let keys = input.events.iter().filter_map(|event| match event {
+                egui::Event::Key {
+                    key,
+                    pressed: true,
+                    repeat: false,
+                    modifiers,
+                    ..
+                } => Some((*key, *modifiers)),
+                _ => None,
+            });
+            keys.collect()
+        });
+        for (key, modifiers) in pressed {
+            let name = key.name().to_lowercase();
+            let is_function_key =
+                name.len() > 1 && name.starts_with('f') && name[1..].parse::<u8>().is_ok();
+            if !(modifiers.ctrl || modifiers.alt || is_function_key) {
+                continue;
+            }
+            let mut full = String::new();
+            for (held, modifier) in [
+                (modifiers.ctrl, "ctrl+"),
+                (modifiers.alt, "alt+"),
+                (modifiers.shift, "shift+"),
+            ] {
+                if held {
+                    full.push_str(modifier);
+                }
+            }
+            full.push_str(&name);
+            if self.scripts.on_key(&full) {
+                ui.input_mut(|input| input.consume_key(modifiers, key));
+                self.run_actions();
+            }
+        }
+    }
+
+    /// The bar for searching the scrollback, shown above the input line.
+    fn find_bar(&mut self, ui: &mut egui::Ui) {
+        ui.horizontal(|ui| {
+            let label = ui.label(tr("Find"));
+            let field = ui
+                .add(TextEdit::singleline(&mut self.find_query).desired_width(260.0))
+                .labelled_by(label.id);
+            if std::mem::take(&mut self.find_wants_focus) {
+                field.request_focus();
+            }
+            let enter = field.lost_focus() && ui.input(|input| input.key_pressed(Key::Enter));
+            let forward = enter && ui.input(|input| input.modifiers.shift);
+            let previous = ui.button(tr("Previous")).clicked() || (enter && !forward);
+            let next = ui.button(tr("Next")).clicked() || forward;
+            if previous || next {
+                let found = self.output.find(&self.find_query, next);
+                match found {
+                    Some(row) => {
+                        let text = self.output.text(row).trim().to_owned();
+                        self.voice.stop();
+                        self.voice.say(&text);
+                    }
+                    None => self.voice.say(tr("Not found.")),
+                }
+                if enter {
+                    field.request_focus();
+                }
+            }
+            let escape = ui.input_mut(|input| input.consume_key(Modifiers::NONE, Key::Escape));
+            if ui.button(tr("Close")).clicked() || escape {
+                self.find_open = false;
+                self.output.end_find();
+            }
+        });
     }
 
     /// The server reported the room the player is in.
@@ -605,12 +916,15 @@ impl Tab {
             return;
         };
         let text = line.text();
-        let show = self.scripts.on_styled_line(&line);
-        if !show {
-            self.output.clear_partial();
-            self.voice.skip_partial(&text);
+        let shown = self.scripts.on_styled_line(&line);
+        match &shown {
+            Some(shown) => self.output.set_partial(shown),
+            None => {
+                self.output.clear_partial();
+                self.voice.skip_partial(&text);
+            }
         }
-        self.settled_partial = Some((text, show));
+        self.settled_partial = Some((text, shown));
         self.run_actions();
     }
 
@@ -747,6 +1061,14 @@ impl Tab {
                     self.note(&format!("{package}: {state}"));
                 }
             }
+            // Starts or stops logging the session.
+            "/log" => match self.log.take() {
+                Some(log) => self.note(&trf(
+                    "Logging stopped; the log is {0}",
+                    &[&log.path().display().to_string()],
+                )),
+                None => self.start_log(),
+            },
             "/stop" => {
                 let stopped = self.walk.take().is_some();
                 self.note(if stopped {
@@ -882,27 +1204,72 @@ impl Tab {
     }
 
     fn input_line(&mut self, ui: &mut egui::Ui) {
-        let response = ui.add(
-            TextEdit::singleline(&mut self.input)
-                .font(palette::font())
-                .password(self.input_hidden)
-                .hint_text("Type a command")
-                .desired_width(f32::INFINITY),
-        );
+        let id = ui.make_persistent_id("command input");
+        // Tab completes the word being typed. With nothing typed it is
+        // left alone, to move between controls as usual.
+        let focused = ui.memory(|memory| memory.has_focus(id));
+        let completing = focused
+            && !self.input.is_empty()
+            && !self.input_hidden
+            && ui.input_mut(|input| input.consume_key(Modifiers::NONE, Key::Tab));
+        if completing {
+            // Most recent first: the latest output, then what was typed.
+            let rows = (0..self.output.len()).rev().take(200);
+            let seen: Vec<&str> = rows
+                .flat_map(|row| complete::words(self.output.text(row)))
+                .collect();
+            let typed = self
+                .history
+                .entries()
+                .iter()
+                .rev()
+                .flat_map(|entry| complete::words(entry));
+            self.completion
+                .complete(&mut self.input, seen.into_iter().chain(typed));
+        }
+        let has_text = !self.input.is_empty();
+        let mut output = TextEdit::singleline(&mut self.input)
+            .id(id)
+            .font(palette::font())
+            .password(self.input_hidden)
+            // Keeps Tab from moving to the next control while there is a
+            // word to complete.
+            .lock_focus(has_text)
+            .hint_text(tr("Type a command"))
+            .desired_width(f32::INFINITY)
+            .show(ui);
+        if completing {
+            // Put the cursor after the completed word.
+            let end = egui::text::CCursor::new(self.input.chars().count());
+            output
+                .state
+                .cursor
+                .set_char_range(Some(egui::text::CCursorRange::one(end)));
+            output.state.store(ui.ctx(), id);
+        }
+        let response = output.response;
         ui.ctx().accesskit_node_builder(response.id, |node| {
-            node.set_label("Command");
+            node.set_label(tr("Command"));
         });
         if response.has_focus() {
-            let (up, down) = ui.input_mut(|input| {
+            let (up, down, search, find) = ui.input_mut(|input| {
                 (
                     input.consume_key(Modifiers::NONE, Key::ArrowUp),
                     input.consume_key(Modifiers::NONE, Key::ArrowDown),
+                    input.consume_key(Modifiers::CTRL, Key::R),
+                    input.consume_key(Modifiers::CTRL, Key::F),
                 )
             });
             if up {
                 self.history.older(&mut self.input);
             } else if down {
                 self.history.newer(&mut self.input);
+            } else if search {
+                self.history.search(&mut self.input);
+            }
+            if find {
+                self.find_open = true;
+                self.find_wants_focus = true;
             }
         }
         let submitted = response.lost_focus() && ui.input(|input| input.key_pressed(Key::Enter));
@@ -927,6 +1294,7 @@ impl Tab {
         self.run_actions();
         self.check_walk(ctx);
         self.check_partial(ctx);
+        self.check_timers(ctx);
         if let Some(deadline) = self.scripts.next_deadline() {
             ctx.request_repaint_after(deadline.saturating_duration_since(now));
         }
@@ -935,6 +1303,7 @@ impl Tab {
 
     /// Draws the session in `ui`.
     pub fn show(&mut self, ui: &mut egui::Ui, _settings: &Settings) {
+        self.bound_keys(ui);
         // Alt+0 reads the gauges aloud.
         if ui.input_mut(|input| input.consume_key(Modifiers::ALT, Key::Num0)) {
             self.voice.stop();
@@ -952,11 +1321,14 @@ impl Tab {
                 .resizable(true)
                 .default_size(84.0)
                 .min_size(48.0)
-                .show(ui, |ui| self.chat.show(ui));
+                .show(ui, |ui| self.chat.show(ui, "chat"));
         }
         Panel::bottom("input").show(ui, |ui| {
             if !self.gauges.is_empty() {
                 self.gauges.show(ui);
+            }
+            if self.find_open {
+                self.find_bar(ui);
             }
             self.input_line(ui);
         });
@@ -992,7 +1364,7 @@ impl Tab {
             .inner_margin(egui::Margin::symmetric(10, 6));
         CentralPanel::default()
             .frame(frame)
-            .show(ui, |ui| self.output.show(ui));
+            .show(ui, |ui| self.output.show(ui, "output"));
     }
 }
 
@@ -1007,6 +1379,13 @@ mod tests {
 
     /// A window that is not drawn, using `profiles` as its configuration.
     fn window<'a>(profiles: Option<Profiles>) -> Harness<'a, App> {
+        // Tests read the interface's text, so it must not follow the
+        // language of whatever machine they run on.
+        let english = |cc: &eframe::CreationContext<'_>, startup| {
+            let app = App::new(cc, startup);
+            crate::i18n::set_language(crate::settings::Language::English);
+            app
+        };
         Harness::builder().build_eframe(|cc| {
             let startup = Startup {
                 profiles,
@@ -1015,7 +1394,7 @@ mod tests {
                 speech: false,
                 scripts: Vec::new(),
             };
-            App::new(cc, startup)
+            english(cc, startup)
         })
     }
 
@@ -1124,6 +1503,111 @@ mod tests {
             .unwrap();
         harness.run_steps(2);
         assert_eq!(output_lines(harness.state().tab()), ["Name: "]);
+    }
+
+    #[test]
+    fn lost_connection_is_retried_but_a_closed_one_is_not() {
+        let mut harness = window(None);
+        let app = harness.state_mut().tab_mut();
+        app.host = "127.0.0.1".into();
+        let (events, _sent) = fake_connection(app);
+        events
+            .send(Event::Disconnected(Some("connection reset".into())))
+            .unwrap();
+        harness.run_steps(2);
+        let app = harness.state_mut().tab_mut();
+        assert!(app.reconnect_at.is_some());
+        assert!(
+            output_lines(app)
+                .iter()
+                .any(|line| line.starts_with("Reconnecting in 1 "))
+        );
+
+        // Closed by the server without an error: nothing to retry.
+        app.reconnect_at = None;
+        let (events, _sent) = fake_connection(app);
+        events.send(Event::Disconnected(None)).unwrap();
+        harness.run_steps(2);
+        assert!(harness.state().tab().reconnect_at.is_none());
+
+        // Asked for by the user: not retried even if it ends in an error.
+        let app = harness.state_mut().tab_mut();
+        let (events, _sent) = fake_connection(app);
+        app.disconnect();
+        events
+            .send(Event::Disconnected(Some("broken pipe".into())))
+            .unwrap();
+        harness.run_steps(2);
+        assert!(harness.state().tab().reconnect_at.is_none());
+    }
+
+    #[test]
+    fn idle_connection_gets_a_keep_alive() {
+        let mut harness = window(None);
+        let app = harness.state_mut().tab_mut();
+        app.settings.keepalive_seconds = 1;
+        let (_events, mut sent) = fake_connection(app);
+        app.last_activity = Instant::now() - Duration::from_secs(2);
+        harness.run_steps(2);
+        assert_eq!(sent.try_recv().unwrap(), Command::KeepAlive);
+        assert!(sent.try_recv().is_err(), "only one until idle again");
+    }
+
+    #[test]
+    fn bound_function_key_sends_its_command() {
+        let mut harness = window(None);
+        let app = harness.state_mut().tab_mut();
+        app.scripts
+            .exec("test", r#"bind("f5", "look") bind("ctrl+k", "kick")"#);
+        let (_events, mut sent) = fake_connection(app);
+        harness.key_press(Key::F5);
+        harness.run_steps(2);
+        harness.key_press_modifiers(Modifiers::CTRL, Key::K);
+        harness.run_steps(2);
+        let commands: Vec<Command> = std::iter::from_fn(|| sent.try_recv().ok()).collect();
+        assert_eq!(
+            commands,
+            [Command::Send("look".into()), Command::Send("kick".into())]
+        );
+    }
+
+    #[test]
+    fn tab_completes_from_recent_output() {
+        let mut harness = window(None);
+        let app = harness.state_mut().tab_mut();
+        app.show_local("A goblin sharpens a golden axe.");
+        app.input = "kill go".into();
+        harness.run_steps(2);
+        harness.key_press(Key::Tab);
+        harness.run_steps(2);
+        assert_eq!(harness.state().tab().input, "kill goblin");
+        harness.key_press(Key::Tab);
+        harness.run_steps(2);
+        assert_eq!(harness.state().tab().input, "kill golden");
+    }
+
+    #[test]
+    fn session_is_logged_when_asked() {
+        let dir = std::env::temp_dir().join(format!("muddie-app-log-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let mut harness = window(Some(Profiles::at(dir.clone())));
+        let app = harness.state_mut().tab_mut();
+        app.host = "mud.example.org".into();
+        assert!(app.map_command("/log"));
+        let (events, _sent) = fake_connection(app);
+        events
+            .send(Event::Line(
+                panels::styled_lines("\x1b[31mAn orc\x1b[0m arrives").remove(0),
+            ))
+            .unwrap();
+        harness.run_steps(2);
+        let app = harness.state_mut().tab_mut();
+        let path = app.log.as_ref().unwrap().path().to_owned();
+        assert!(app.map_command("/log"));
+        assert!(app.log.is_none());
+        let log = std::fs::read_to_string(path).unwrap();
+        assert!(log.contains("An orc arrives"), "{log}");
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     /// A window with every panel in use, as after some minutes of play.

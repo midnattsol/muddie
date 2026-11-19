@@ -5,6 +5,7 @@ edition.workspace = true
 description = "A modern, accessible MUD client."
 
 [dependencies]
+chrono = { version = "0.4.45", default-features = false, features = ["clock"] }
 eframe = "0.37.0"
 muddie-core = { path = "../muddie-core" }
 muddie-mapper = { version = "0.1.0", path = "../muddie-mapper" }

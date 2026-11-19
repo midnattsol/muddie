@@ -54,6 +54,10 @@ impl Connection {
         self.command("CANCEL self")
     }
 
+    pub fn set_rate(&mut self, rate: i32) -> io::Result<()> {
+        self.command(&format!("SET self RATE {rate}"))
+    }
+
     fn command(&mut self, command: &str) -> io::Result<()> {
         self.writer.write_all(format!("{command}\r\n").as_bytes())?;
         self.reply()

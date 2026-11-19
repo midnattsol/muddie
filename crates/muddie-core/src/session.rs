@@ -47,6 +47,8 @@ pub enum Command {
         variable: String,
         values: Vec<String>,
     },
+    /// Send a telnet no-operation, so an idle connection is not dropped.
+    KeepAlive,
     Disconnect,
 }
 
@@ -174,6 +176,9 @@ async fn drive(
                 }
                 Some(Command::Msdp { variable, values }) => {
                     pipeline.send_msdp(&variable, &values, &mut outgoing);
+                }
+                Some(Command::KeepAlive) => {
+                    outgoing.extend_from_slice(&[crate::telnet::IAC, crate::telnet::NOP]);
                 }
                 Some(Command::Disconnect) | None => {
                     let _ = writer.shutdown().await;

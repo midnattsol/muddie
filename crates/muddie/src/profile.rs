@@ -147,6 +147,27 @@ impl Profiles {
         packages.chain(own).collect()
     }
 
+    /// Where scripts' remembered values are kept: with the profile, or
+    /// with the general configuration when no profile is in use.
+    pub fn memory_path(&self, name: Option<&str>) -> PathBuf {
+        match name {
+            Some(name) => self.profile_dir(name).join("data.json"),
+            None => self.dir.join("data.json"),
+        }
+    }
+
+    /// Where sound files are looked for by name: the profile's `sounds`
+    /// folder, then the general one.
+    pub fn sound_dirs(&self, name: Option<&str>) -> Vec<PathBuf> {
+        let own = name.map(|name| self.profile_dir(name).join("sounds"));
+        own.into_iter().chain([self.dir.join("sounds")]).collect()
+    }
+
+    /// Where session logs are written.
+    pub fn logs_dir(&self) -> PathBuf {
+        self.dir.join("logs")
+    }
+
     /// Where a profile's map is stored.
     pub fn map_path(&self, name: &str) -> PathBuf {
         self.profile_dir(name).join("map.sqlite")

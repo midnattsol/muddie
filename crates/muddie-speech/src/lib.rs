@@ -15,6 +15,8 @@ pub use narrator::Narrator;
 enum Request {
     Say(String),
     Stop,
+    /// Speech rate from -100 to 100; 0 is the voice's default.
+    Rate(i32),
 }
 
 /// Handle to the speech thread. Calls never block; dropping it ends the
@@ -38,6 +40,11 @@ impl Speech {
         let _ = self.requests.send(Request::Say(text.to_owned()));
     }
 
+    /// Sets how fast to speak, from -100 (slowest) to 100 (fastest).
+    pub fn set_rate(&self, rate: i32) {
+        let _ = self.requests.send(Request::Rate(rate.clamp(-100, 100)));
+    }
+
     /// Silences the current and all queued speech.
     pub fn stop(&self) {
         let _ = self.requests.send(Request::Stop);
@@ -58,6 +65,7 @@ fn worker(requests: Receiver<Request>) {
             match &request {
                 Request::Say(text) => open.speak(text)?,
                 Request::Stop => open.cancel()?,
+                Request::Rate(rate) => open.set_rate(*rate)?,
             }
             Ok(open)
         });

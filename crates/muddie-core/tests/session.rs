@@ -65,6 +65,11 @@ async fn full_exchange_with_a_server() {
         .unwrap();
     assert_eq!(read_exact(&mut server, 9).await, b"gandalf\r\n");
     assert_eq!(next(&mut session).await, Event::Sent("gandalf".into()));
+    session.commands.send(Command::KeepAlive).unwrap();
+    assert_eq!(
+        read_exact(&mut server, 2).await,
+        [IAC, muddie_core::telnet::NOP]
+    );
 
     drop(server);
     assert_eq!(next(&mut session).await, Event::Disconnected(None));
