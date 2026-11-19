@@ -63,6 +63,8 @@ pub struct Settings {
     /// A TrueType or OpenType file to use for the output instead of the
     /// built-in monospace font; empty for the built-in one.
     pub font_file: String,
+    /// Which face of `font_file` is meant, for files that hold several.
+    pub font_index: u32,
     /// The family of an installed font to use for the output instead of
     /// the built-in one; empty for the built-in one.
     pub font_family: String,
@@ -105,6 +107,7 @@ impl Default for Settings {
             mud_palette: MudPalette::default(),
             font_size: 15.0,
             font_file: String::new(),
+            font_index: 0,
             font_family: String::new(),
             line_spacing: 1.0,
             ui_scale: 1.0,

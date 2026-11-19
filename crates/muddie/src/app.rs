@@ -30,6 +30,10 @@ pub struct App {
     show_settings: bool,
     /// The section of the settings on screen.
     settings_section: usize,
+    /// Settings changed and not yet written to their file.
+    settings_unsaved: bool,
+    /// The languages there are, looked up when the settings open.
+    languages: Option<Vec<(String, String)>>,
     show_shortcuts: bool,
     show_about: bool,
     /// A problem with the settings to show in the settings window.
@@ -76,6 +80,8 @@ impl App {
             extra_scripts,
             show_settings: false,
             settings_section: 0,
+            settings_unsaved: false,
+            languages: None,
             show_shortcuts: false,
             show_about: false,
             settings_error,
@@ -307,6 +313,8 @@ impl App {
         const PLUGINS: usize = 5;
         let before = self.settings.clone();
         let mut open = self.show_settings;
+        // Which there are is looked up as the settings open, not each frame.
+        let languages = self.languages.get_or_insert_with(i18n::languages).clone();
         widgets::dialog(ctx, "settings", tr("Settings"), &mut open, 760.0, |ui| {
             ui.horizontal_top(|ui| {
                 // The sections on the left; more can be added as settings grow.
@@ -341,7 +349,7 @@ impl App {
                             ui.spacing_mut().item_spacing.y = 9.0;
                             let settings = &mut self.settings;
                             match section {
-                                GENERAL => general_settings(ui, settings),
+                                GENERAL => general_settings(ui, settings, &languages),
                                 APPEARANCE => appearance_settings(ui, settings),
                                 PLUGINS => self.tabs[active].plugins_ui(ui),
                                 // Those of the sessions: output, sessions, speech.
@@ -355,6 +363,9 @@ impl App {
             });
         });
         self.show_settings = open;
+        if !open {
+            self.languages = None;
+        }
         if self.settings != before {
             self.apply_settings(ctx);
         }
@@ -459,6 +470,16 @@ impl App {
         for tab in &mut self.tabs {
             tab.settings_changed(&self.settings);
         }
+        // Saved once whatever is being dragged is let go, not at each step
+        // of a slider.
+        self.settings_unsaved = true;
+    }
+
+    /// Writes the settings to their file if they changed since.
+    fn save_settings(&mut self) {
+        if !std::mem::take(&mut self.settings_unsaved) {
+            return;
+        }
         if let Some(profiles) = &self.profiles
             && let Err(error) = self.settings.save(&profiles.settings_path())
         {
@@ -515,6 +536,9 @@ impl eframe::App for App {
         let panes = self.tabs[active].pane_widths();
         // Not while something is being dragged: once it is let go.
         let settled = !ui.input(|input| input.pointer.any_down());
+        if settled {
+            self.save_settings();
+        }
         if settled && panes != self.settings.automation_panes {
             self.settings.automation_panes = panes;
             if let Some(profiles) = &self.profiles
@@ -527,7 +551,7 @@ impl eframe::App for App {
 }
 
 /// The language and the size of the interface.
-fn general_settings(ui: &mut Ui, settings: &mut Settings) {
+fn general_settings(ui: &mut Ui, settings: &mut Settings, languages: &[(String, String)]) {
     widgets::group(ui, |ui| {
         widgets::setting_row(ui, tr("Language"), &mut |ui| {
             // The system's, English, and every catalogue there is.
@@ -535,7 +559,7 @@ fn general_settings(ui: &mut Ui, settings: &mut Settings) {
                 (String::new(), tr("Same as the system").to_owned()),
                 ("en".to_owned(), "English".to_owned()),
             ];
-            choices.extend(i18n::languages());
+            choices.extend(languages.iter().cloned());
             let current = match settings.language.as_str() {
                 "auto" => "",
                 "english" => "en",
@@ -638,7 +662,7 @@ fn appearance_settings(ui: &mut Ui, settings: &mut Settings) {
         widgets::setting_row(ui, tr("Font"), &mut |ui| {
             // What the settings hold is a name of ours or a family's.
             let shown = match settings.font_family.strip_prefix("muddie:") {
-                _ if settings.font_family.is_empty() => "JetBrains Mono",
+                _ if settings.font_family.is_empty() => theme::DEFAULT_FONT,
                 Some(bundled) => bundled,
                 None => settings.font_family.as_str(),
             }
@@ -656,10 +680,11 @@ fn appearance_settings(ui: &mut Ui, settings: &mut Settings) {
                     };
                     heading(ui, tr("With Muddie"));
                     if ui
-                        .selectable_label(settings.font_family.is_empty(), "JetBrains Mono")
+                        .selectable_label(settings.font_family.is_empty(), theme::DEFAULT_FONT)
                         .clicked()
                     {
                         settings.font_family.clear();
+                        settings.font_file.clear();
                     }
                     for (name, _) in theme::BUNDLED_FONTS {
                         let key = theme::bundled_font(name);
@@ -668,15 +693,26 @@ fn appearance_settings(ui: &mut Ui, settings: &mut Settings) {
                             .clicked()
                         {
                             settings.font_family = key;
+                            settings.font_file.clear();
                         }
                     }
                     // The monospaced fonts the system has.
                     ui.separator();
                     heading(ui, tr("Installed on this computer"));
-                    for font in theme::installed_fonts() {
+                    let Some(installed) = theme::installed_fonts() else {
+                        // Still going through the system's fonts.
+                        heading(ui, tr("Looking for them…"));
+                        ui.ctx()
+                            .request_repaint_after(std::time::Duration::from_millis(150));
+                        return;
+                    };
+                    for font in installed {
                         let chosen = settings.font_family == font.family;
                         if ui.selectable_label(chosen, &font.family).clicked() {
+                            // Where it is goes with its name, so that it is
+                            // found at once the next time.
                             settings.font_family.clone_from(&font.family);
+                            (settings.font_file, settings.font_index) = font.place();
                         }
                     }
                 })

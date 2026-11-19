@@ -1,0 +1,11 @@
+MesloLGS NF Regular
+
+Meslo LG is a customised version of Apple's Menlo typeface by André Berg,
+itself derived from Bitstream Vera Sans Mono. MesloLGS NF is Meslo LG S
+patched with additional glyphs by Roman Perepelitsa, from
+https://github.com/romkatv/powerlevel10k-media
+
+It is distributed under the Apache License, Version 2.0, whose text is in
+LICENSE-APACHE at the root of this project. The Bitstream Vera fonts it
+derives from are under the Bitstream Vera Fonts copyright and permission
+notice.

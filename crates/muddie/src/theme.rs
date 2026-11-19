@@ -419,20 +419,13 @@ pub fn output_line_height() -> Option<f32> {
 /// The fonts for the output that come with the program besides the
 /// default one, by name. The settings name one as `muddie:<name>`, so
 /// that it is never taken for a font of the system called the same.
-pub const BUNDLED_FONTS: [(&str, &[u8]); 3] = [
-    (
-        "Iosevka",
-        include_bytes!("../assets/fonts/Iosevka-Regular.ttf"),
-    ),
-    (
-        "Cascadia Mono",
-        include_bytes!("../assets/fonts/CascadiaMono-Regular.ttf"),
-    ),
-    (
-        "DejaVu Sans Mono",
-        include_bytes!("../assets/fonts/DejaVuSansMono.ttf"),
-    ),
-];
+pub const BUNDLED_FONTS: [(&str, &[u8]); 1] = [(
+    "JetBrains Mono",
+    include_bytes!("../assets/fonts/JetBrainsMono-Regular.ttf"),
+)];
+
+/// The name of the font the output is in unless another is chosen.
+pub const DEFAULT_FONT: &str = "MesloLGS NF";
 
 /// What the settings call a bundled font.
 pub fn bundled_font(name: &str) -> String {
@@ -447,35 +440,50 @@ pub struct InstalledFont {
     index: u32,
 }
 
-/// The monospaced fonts installed on the system, by family. The system is
-/// asked once, the first time this is called.
-pub fn installed_fonts() -> &'static [InstalledFont] {
+impl InstalledFont {
+    /// Where its regular face is: the file, and which face of it.
+    pub fn place(&self) -> (String, u32) {
+        (self.file.display().to_string(), self.index)
+    }
+}
+
+/// The monospaced fonts installed on the system, by family, or nothing
+/// while they are still being looked for. Going through every font of the
+/// system takes a moment, so it is done once, apart, the first time this
+/// is asked.
+pub fn installed_fonts() -> Option<&'static [InstalledFont]> {
     static FONTS: std::sync::OnceLock<Vec<InstalledFont>> = std::sync::OnceLock::new();
-    FONTS.get_or_init(|| {
-        let mut database = fontdb::Database::new();
-        database.load_system_fonts();
-        let mut fonts: Vec<InstalledFont> = Vec::new();
-        for face in database.faces() {
-            let upright =
-                face.style == fontdb::Style::Normal && face.weight == fontdb::Weight::NORMAL;
-            let file = match &face.source {
-                fontdb::Source::File(file) | fontdb::Source::SharedFile(file, _) => file.clone(),
-                fontdb::Source::Binary(_) => continue,
-            };
-            let Some((family, _)) = face.families.first() else {
-                continue;
-            };
-            if face.monospaced && upright && !fonts.iter().any(|font| font.family == *family) {
-                fonts.push(InstalledFont {
-                    family: family.clone(),
-                    file,
-                    index: face.index,
-                });
+    static LOOKING: std::sync::Once = std::sync::Once::new();
+    LOOKING.call_once(|| {
+        std::thread::spawn(|| {
+            let mut database = fontdb::Database::new();
+            database.load_system_fonts();
+            let mut fonts: Vec<InstalledFont> = Vec::new();
+            for face in database.faces() {
+                let upright =
+                    face.style == fontdb::Style::Normal && face.weight == fontdb::Weight::NORMAL;
+                let file = match &face.source {
+                    fontdb::Source::File(file) | fontdb::Source::SharedFile(file, _) => {
+                        file.clone()
+                    }
+                    fontdb::Source::Binary(_) => continue,
+                };
+                let Some((family, _)) = face.families.first() else {
+                    continue;
+                };
+                if face.monospaced && upright && !fonts.iter().any(|font| font.family == *family) {
+                    fonts.push(InstalledFont {
+                        family: family.clone(),
+                        file,
+                        index: face.index,
+                    });
+                }
             }
-        }
-        fonts.sort_by_key(|font| font.family.to_lowercase());
-        fonts
-    })
+            fonts.sort_by_key(|font| font.family.to_lowercase());
+            let _ = FONTS.set(fonts);
+        });
+    });
+    FONTS.get().map(Vec::as_slice)
 }
 
 /// The theme in use.
@@ -608,6 +616,21 @@ pub fn apply(ctx: &egui::Context, settings: &Settings) -> Result<(), String> {
         ]
         .into();
     });
+    // Fonts are costly to put in place, so only when they changed.
+    let chosen = (
+        settings.font_family.clone(),
+        settings.font_file.clone(),
+        settings.font_index,
+    );
+    let marker = egui::Id::unique("muddie fonts in place");
+    if ctx
+        .data(|data| data.get_temp::<(String, String, u32)>(marker))
+        .as_ref()
+        == Some(&chosen)
+    {
+        return Ok(());
+    }
+    ctx.data_mut(|data| data.insert_temp(marker, chosen));
     install_fonts(ctx, settings)
 }
 
@@ -637,8 +660,8 @@ fn install_fonts(ctx: &egui::Context, settings: &Settings) -> Result<(), String>
             include_bytes!("../assets/fonts/Inter-SemiBold.ttf"),
         ),
         (
-            "jetbrains-mono",
-            include_bytes!("../assets/fonts/JetBrainsMono-Regular.ttf"),
+            "meslo",
+            include_bytes!("../assets/fonts/MesloLGS-NF-Regular.ttf"),
         ),
     ];
     for (name, bytes) in built_in {
@@ -660,7 +683,7 @@ fn install_fonts(ctx: &egui::Context, settings: &Settings) -> Result<(), String>
         fonts.families.insert(family, names);
     }
     let monospace = fonts.families.entry(FontFamily::Monospace).or_default();
-    monospace.insert(0, "jetbrains-mono".to_owned());
+    monospace.insert(0, "meslo".to_owned());
     // The symbol and emoji fonts too: MUDs send them, and code can hold them.
     for name in &fallbacks {
         if !monospace.contains(name) {
@@ -680,29 +703,14 @@ fn install_fonts(ctx: &egui::Context, settings: &Settings) -> Result<(), String>
         monospace.insert(0, "output".to_owned());
         return finish(ctx, fonts, Ok(()));
     }
-    // An installed family, or failing that a file given by hand.
-    let chosen = if !settings.font_family.is_empty() {
-        let found = installed_fonts()
-            .iter()
-            .find(|font| font.family == settings.font_family);
-        match found {
-            Some(font) => Some((font.file.display().to_string(), font.index)),
-            None => {
-                return finish(
-                    ctx,
-                    fonts,
-                    Err(format!(
-                        "{}: no such font is installed",
-                        settings.font_family
-                    )),
-                );
-            }
-        }
-    } else if !settings.font_file.is_empty() {
-        Some((settings.font_file.clone(), 0))
-    } else {
-        None
-    };
+    // One of ours that is no longer there: the default serves.
+    if bundled.is_some() {
+        return finish(ctx, fonts, Ok(()));
+    }
+    // A file: the one an installed font was found in when it was chosen,
+    // or one given by hand.
+    let chosen =
+        (!settings.font_file.is_empty()).then(|| (settings.font_file.clone(), settings.font_index));
     let mut result = Ok(());
     if let Some((file, index)) = chosen {
         match std::fs::read(&file) {

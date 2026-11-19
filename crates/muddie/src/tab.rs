@@ -155,6 +155,8 @@ pub struct Tab {
     rules_sample: String,
     /// The next key pressed becomes the selected macro's key.
     recording_key: bool,
+    /// What checking the scripts being edited said.
+    checks: automation::Checks,
     /// What the MUD has sent besides text, by name, to look at.
     data_seen: Vec<data::Seen>,
     /// The debugging view: whether it is on screen, the one chosen in
@@ -344,6 +346,7 @@ impl Tab {
             rules_changed_at: None,
             rules_sample: String::new(),
             recording_key: false,
+            checks: automation::Checks::default(),
             data_seen: Vec::new(),
             debug_open: false,
             data_selected: 0,
@@ -2468,9 +2471,17 @@ mod tests {
         // The size goes out once the panel has kept it for a moment.
         harness.run_steps(2);
         assert!(sent.try_recv().is_err());
-        std::thread::sleep(Duration::from_millis(300));
-        harness.run_steps(2);
-        let Ok(Command::Gmcp { package, data }) = sent.try_recv() else {
+        // However busy the machine: it is waited for, not timed.
+        let mut answer = None;
+        for _ in 0..40 {
+            std::thread::sleep(Duration::from_millis(100));
+            harness.run_steps(2);
+            answer = sent.try_recv().ok();
+            if answer.is_some() {
+                break;
+            }
+        }
+        let Some(Command::Gmcp { package, data }) = answer else {
             panic!("the panel's size was not sent");
         };
         assert_eq!(package, "Map.Render.Size");
@@ -2846,6 +2857,40 @@ mod tests {
         let app = harness.state().tab();
         assert!(app.gauge_is_in("health", made.panel));
         assert!(app.gauges.summary().contains("health 55 of 100"));
+    }
+
+    #[test]
+    fn long_scrollback_is_not_laid_out_all_at_once_when_the_text_changes() {
+        let mut harness = window(None);
+        let app = harness.state_mut().tab_mut();
+        (0..6000).for_each(|n| {
+            app.show_local(&format!(
+                "line {n} of a long session, long enough to matter"
+            ))
+        });
+        harness.run_steps(3);
+        // A change of the text's size: every row may be another height.
+        let mut settings = harness.state().tab().settings.clone();
+        settings.font_size = 19.0;
+        let ctx = harness.ctx.clone();
+        crate::theme::apply(&ctx, &settings).unwrap();
+        harness.state_mut().tab_mut().settings_changed(&settings);
+        let started = Instant::now();
+        harness.step();
+        let first = started.elapsed();
+        // Whatever the machine, one frame must not pay for six thousand
+        // rows: the same work done at once takes many times longer.
+        harness.state_mut().tab_mut().output.measure_all_for_test();
+        let started = Instant::now();
+        harness.step();
+        let all = started.elapsed();
+        assert!(
+            first < all,
+            "a frame after the change took {first:?}, laying all out {all:?}"
+        );
+        // And the end stays in view while the rest catches up.
+        harness.run_steps(40);
+        assert!(harness.query_by_label("Latest lines").is_none());
     }
 
     #[test]

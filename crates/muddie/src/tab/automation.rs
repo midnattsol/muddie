@@ -847,7 +847,7 @@ impl Tab {
         widgets::switch_row(ui, &mut rule.regex, tr("Regular expression"));
         ui.add_space(6.0);
         let mistake = if rule.lua {
-            self.scripts.check(&rule.script)
+            self.checks.of(&self.scripts, &rule.script)
         } else {
             None
         };
@@ -968,7 +968,7 @@ impl Tab {
         widgets::switch_row(ui, &mut rule.regex, tr("Regular expression"));
         ui.add_space(6.0);
         let mistake = if rule.lua {
-            self.scripts.check(&rule.script)
+            self.checks.of(&self.scripts, &rule.script)
         } else {
             None
         };
@@ -1052,7 +1052,7 @@ impl Tab {
         );
         ui.add_space(6.0);
         let mistake = if rule.lua {
-            self.scripts.check(&rule.script)
+            self.checks.of(&self.scripts, &rule.script)
         } else {
             None
         };
@@ -1122,7 +1122,7 @@ impl Tab {
         );
         ui.add_space(6.0);
         let mistake = if rule.lua {
-            self.scripts.check(&rule.script)
+            self.checks.of(&self.scripts, &rule.script)
         } else {
             None
         };
@@ -1410,7 +1410,7 @@ impl Tab {
         // The editor is the whole of the view.
         let rows = script_rows(self.detail_height, 96.0);
         let hint = "-- Luau\non_gmcp(\"Room.Info\", function(room)\n\tmap.visit({id = room.num, name = room.name, exits = room.exits})\nend)";
-        let mistake = self.scripts.check(&self.script_text);
+        let mistake = self.checks.of(&self.scripts, &self.script_text);
         widgets::code_editor(
             ui,
             tr("Script"),
@@ -1573,6 +1573,30 @@ fn note(ui: &mut egui::Ui, text: &str) {
         .font(theme::font(Weight::Regular, 11.5))
         .color(theme::current().text_faint);
     ui.label(small);
+}
+
+/// What checking a script said, kept for the scripts last looked at, so
+/// that one being shown is not compiled again at every frame.
+#[derive(Default)]
+pub(super) struct Checks(Vec<(u64, Option<(usize, String)>)>);
+
+impl Checks {
+    /// The mistake in `code`, if it has one.
+    pub fn of(&mut self, engine: &Engine, code: &str) -> Option<(usize, String)> {
+        use std::hash::{Hash, Hasher};
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        code.hash(&mut hasher);
+        let key = hasher.finish();
+        if let Some((_, known)) = self.0.iter().find(|(known, _)| *known == key) {
+            return known.clone();
+        }
+        let found = engine.check(code);
+        if self.0.len() >= 8 {
+            self.0.remove(0);
+        }
+        self.0.push((key, found.clone()));
+        found
+    }
 }
 
 /// What a rule does: either the commands it sends or the script it runs.

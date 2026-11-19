@@ -208,15 +208,24 @@ impl Output {
 
     /// Lays everything out again, after a change of theme or text size,
     /// and applies the settings that affect the scrollback.
+    /// Forgets every height at once, as was done before they were
+    /// measured a share per frame: what that costs is what a test
+    /// compares against.
+    #[cfg(test)]
+    pub fn measure_all_for_test(&mut self) {
+        self.rows.iter_mut().for_each(|row| row.height = None);
+        self.stale = 0;
+    }
+
     pub fn restyle(&mut self, capacity: usize, timestamps: bool) {
         self.capacity = capacity.max(100);
         self.timestamps = timestamps;
         while self.rows.len() > self.capacity {
             self.drop_oldest();
         }
-        for row in &mut self.rows {
-            row.height = None;
-        }
+        // Every row may now be another height. They are measured again a
+        // share per frame, those on screen first, as after a resize.
+        self.stale = self.rows.len();
     }
 
     /// Number of completed rows.

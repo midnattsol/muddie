@@ -1297,3 +1297,6 @@ msgstr ""
 msgid "What the MUD sends is under Debug: a gauge can be made from a number there."
 msgstr "Lo que envía el MUD está en Depuración: allí se puede crear un indicador a partir de un número."
 
+msgid "Looking for them…"
+msgstr "Buscándolas…"
+
