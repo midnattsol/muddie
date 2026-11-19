@@ -327,81 +327,70 @@ impl App {
                             ui.spacing_mut().item_spacing.y = 9.0;
                             let settings = &mut self.settings;
                             if section == 0 {
-                                let row =
-                        |ui: &mut Ui,
-                         label: &str,
-                         control: &mut dyn FnMut(&mut Ui) -> egui::Response| {
-                            ui.horizontal(|ui| {
-                                let name = ui.label(label);
-                                ui.with_layout(
-                                    egui::Layout::right_to_left(egui::Align::Center),
-                                    |ui| {
-                                        control(ui).labelled_by(name.id);
-                                    },
-                                );
-                            });
-                        };
-                                row(ui, tr("Theme"), &mut |ui| {
-                                    let name = |theme: ThemeName| match theme {
-                                        ThemeName::Dark => tr("Dark"),
-                                        ThemeName::Light => tr("Light"),
-                                        ThemeName::Contrast => tr("High contrast"),
-                                    };
-                                    egui::ComboBox::from_id_salt("theme")
-                                        .selected_text(name(settings.theme))
-                                        .width(170.0)
-                                        .show_ui(ui, |ui| {
-                                            for theme in [
-                                                ThemeName::Dark,
-                                                ThemeName::Light,
-                                                ThemeName::Contrast,
-                                            ] {
-                                                ui.selectable_value(
-                                                    &mut settings.theme,
-                                                    theme,
-                                                    name(theme),
-                                                );
-                                            }
-                                        })
-                                        .response
-                                });
-                                row(ui, tr("Language"), &mut |ui| {
-                                    let name = |language: Language| match language {
-                                        Language::Auto => tr("System"),
-                                        Language::English => "English",
-                                        Language::Spanish => "Español",
-                                    };
-                                    egui::ComboBox::from_id_salt("language")
-                                        .selected_text(name(settings.language))
-                                        .width(170.0)
-                                        .show_ui(ui, |ui| {
-                                            for language in [
-                                                Language::Auto,
-                                                Language::English,
-                                                Language::Spanish,
-                                            ] {
-                                                ui.selectable_value(
-                                                    &mut settings.language,
-                                                    language,
-                                                    name(language),
-                                                );
-                                            }
-                                        })
-                                        .response
-                                });
-                                row(ui, tr("Text size"), &mut |ui| {
-                                    ui.add(
-                                        egui::Slider::new(&mut settings.font_size, 10.0..=28.0)
-                                            .step_by(0.5),
-                                    )
-                                });
-                                row(ui, tr("Font file"), &mut |ui| {
-                                    ui.add(
-                                        egui::TextEdit::singleline(&mut settings.font_file)
-                                            .hint_text(tr("Built-in font"))
-                                            .margin(egui::Margin::symmetric(9, 6))
-                                            .desired_width(230.0),
-                                    )
+                                widgets::group(ui, |ui| {
+                                    let row = widgets::setting_row;
+                                    row(ui, tr("Theme"), &mut |ui| {
+                                        let name = |theme: ThemeName| match theme {
+                                            ThemeName::Dark => tr("Dark"),
+                                            ThemeName::Light => tr("Light"),
+                                            ThemeName::Contrast => tr("High contrast"),
+                                        };
+                                        egui::ComboBox::from_id_salt("theme")
+                                            .selected_text(name(settings.theme))
+                                            .width(170.0)
+                                            .show_ui(ui, |ui| {
+                                                for theme in [
+                                                    ThemeName::Dark,
+                                                    ThemeName::Light,
+                                                    ThemeName::Contrast,
+                                                ] {
+                                                    ui.selectable_value(
+                                                        &mut settings.theme,
+                                                        theme,
+                                                        name(theme),
+                                                    );
+                                                }
+                                            })
+                                            .response
+                                    });
+                                    row(ui, tr("Language"), &mut |ui| {
+                                        let name = |language: Language| match language {
+                                            Language::Auto => tr("System"),
+                                            Language::English => "English",
+                                            Language::Spanish => "Español",
+                                        };
+                                        egui::ComboBox::from_id_salt("language")
+                                            .selected_text(name(settings.language))
+                                            .width(170.0)
+                                            .show_ui(ui, |ui| {
+                                                for language in [
+                                                    Language::Auto,
+                                                    Language::English,
+                                                    Language::Spanish,
+                                                ] {
+                                                    ui.selectable_value(
+                                                        &mut settings.language,
+                                                        language,
+                                                        name(language),
+                                                    );
+                                                }
+                                            })
+                                            .response
+                                    });
+                                    row(ui, tr("Text size"), &mut |ui| {
+                                        ui.add(
+                                            egui::Slider::new(&mut settings.font_size, 10.0..=28.0)
+                                                .step_by(0.5),
+                                        )
+                                    });
+                                    row(ui, tr("Font file"), &mut |ui| {
+                                        ui.add(
+                                            egui::TextEdit::singleline(&mut settings.font_file)
+                                                .hint_text(tr("Built-in font"))
+                                                .margin(egui::Margin::symmetric(9, 6))
+                                                .desired_width(230.0),
+                                        )
+                                    });
                                 });
                             }
                             Tab::settings_ui(ui, settings, section);

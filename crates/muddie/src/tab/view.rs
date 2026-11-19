@@ -461,59 +461,59 @@ impl Tab {
             "connection",
             tr("Connection"),
             &mut open,
-            420.0,
+            460.0,
             |ui| {
-                ui.spacing_mut().item_spacing.y = 10.0;
+                ui.spacing_mut().item_spacing.y = 8.0;
                 widgets::caption(ui, tr("Server"));
-                ui.horizontal(|ui| {
-                    ui.scope(|ui| {
-                        ui.set_width(312.0);
-                        widgets::field(ui, tr("Host"), &mut self.host, "mud.example.org");
+                widgets::group(ui, |ui| {
+                    widgets::setting_row(ui, tr("Host"), &mut |ui| {
+                        widgets::row_field(ui, &mut self.host, "mud.example.org", 230.0)
                     });
-                    ui.scope(|ui| {
-                        ui.set_width(100.0);
-                        widgets::field(ui, tr("Port"), &mut self.port, "23");
+                    widgets::setting_row(ui, tr("Port"), &mut |ui| {
+                        widgets::row_field(ui, &mut self.port, "23", 80.0)
                     });
-                });
-                widgets::switch_row(ui, &mut self.tls, tr("Secure connection (TLS)"));
-                ui.add_enabled_ui(self.tls, |ui| {
-                    widgets::switch_row(ui, &mut self.verify_certificate, tr("Verify certificate"));
-                });
-                widgets::field(ui, tr("Text encoding"), &mut self.encoding, "auto").on_hover_text(
-                    tr("Only for servers that do not use UTF-8 or Latin-1, e.g. big5 or koi8-r."),
-                );
-                ui.add_space(4.0);
-                widgets::caption(ui, tr("Log in automatically"));
-                ui.columns(2, |columns| {
-                    widgets::field(&mut columns[0], tr("Character"), &mut self.character, "");
-                    columns[1].vertical(|ui| {
-                        ui.spacing_mut().item_spacing.y = 4.0;
-                        let name = ui.label(
-                            RichText::new(tr("Password"))
-                                .font(theme::font(Weight::Regular, 12.0))
-                                .color(theme.text_dim),
+                    widgets::switch_setting(ui, &mut self.tls, tr("Secure connection (TLS)"));
+                    widgets::row_divider(ui);
+                    ui.add_enabled_ui(self.tls, |ui| {
+                        widgets::switch_setting(
+                            ui,
+                            &mut self.verify_certificate,
+                            tr("Verify certificate"),
                         );
+                    });
+                    widgets::setting_row(ui, tr("Text encoding"), &mut |ui| {
+                        widgets::row_field(ui, &mut self.encoding, "auto", 120.0)
+                    })
+                    .on_hover_text(tr(
+                        "Only for servers that do not use UTF-8 or Latin-1, e.g. big5 or koi8-r.",
+                    ));
+                });
+                ui.add_space(6.0);
+                widgets::caption(ui, tr("Log in automatically"));
+                widgets::group(ui, |ui| {
+                    widgets::setting_row(ui, tr("Character"), &mut |ui| {
+                        widgets::row_field(ui, &mut self.character, "", 230.0)
+                    });
+                    widgets::setting_row(ui, tr("Password"), &mut |ui| {
                         ui.add(
                             TextEdit::singleline(&mut self.new_password)
                                 .password(true)
                                 .hint_text(RichText::new(tr("unchanged")).color(theme.text_faint))
                                 .margin(egui::Margin::symmetric(9, 6))
-                                .desired_width(f32::INFINITY),
+                                .desired_width(230.0),
                         )
-                        .on_hover_text(tr(
-                            "Kept in the system's keyring when the profile is saved.",
-                        ))
-                        .labelled_by(name.id);
-                    });
+                    })
+                    .on_hover_text(tr(
+                        "Kept in the system's keyring when the profile is saved.",
+                    ));
                 });
-                ui.add_space(4.0);
+                ui.add_space(6.0);
                 widgets::caption(ui, tr("Profile"));
-                ui.horizontal(|ui| {
-                    ui.scope(|ui| {
-                        ui.set_width(280.0);
-                        widgets::text_box(ui, &mut self.profile_name, tr("Profile name"));
+                widgets::group(ui, |ui| {
+                    widgets::setting_row(ui, tr("Profile name"), &mut |ui| {
+                        save = ui.button(tr("Save profile")).clicked();
+                        widgets::row_field(ui, &mut self.profile_name, "", 150.0)
                     });
-                    save = ui.button(tr("Save profile")).clicked();
                 });
                 ui.add_space(10.0);
                 ui.horizontal(|ui| {

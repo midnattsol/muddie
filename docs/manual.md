@@ -93,7 +93,9 @@ are saved by themselves; there is no button to press.
   level under which its numbers turn red. Alt+0 reads the gauges aloud.
 - **Scripts** are the profile's Luau files, written right there with the
   code coloured as you type: for what the rest cannot do, such as building
-  the map from what your MUD sends.
+  the map from what your MUD sends. The `+` offers examples to start from:
+  a map the MUD draws itself, a map it sends whole, a map read from the room
+  descriptions, words to complete given by the MUD, and gauges.
 
 Commands go one per line. A trigger, alias or macro can also run a few lines
 of Luau of its own, with the match in `m`. A mistake in one is reported with

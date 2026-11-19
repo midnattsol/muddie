@@ -513,4 +513,26 @@ pub const SPANISH: &[(&str, &str)] = &[
     ("Gauge", "Indicador"),
     ("Script", "Script"),
     ("Game", "Juego"),
+    ("Empty script", "Script vacío"),
+    ("From an example", "A partir de un ejemplo"),
+    (
+        "A map the MUD draws itself",
+        "Un mapa que dibuja el propio MUD",
+    ),
+    (
+        "A map the MUD sends whole",
+        "Un mapa que el MUD envía entero",
+    ),
+    (
+        "A map read from the room descriptions",
+        "Un mapa leído de las descripciones de las salas",
+    ),
+    (
+        "Words to complete, given by the MUD",
+        "Palabras para completar, dadas por el MUD",
+    ),
+    (
+        "Gauges from the MUD's vitals",
+        "Indicadores a partir de los vitales del MUD",
+    ),
 ];

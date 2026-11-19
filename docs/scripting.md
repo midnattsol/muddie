@@ -113,6 +113,9 @@ send_msdp("REPORT", "HEALTH", "MANA")
 | `gmcp(package)` | The data last received for exactly that package. |
 | `send_gmcp(package, data)` | Sends a GMCP message. |
 | `on_msdp(variable, fn)`, `msdp(variable)`, `send_msdp(command, ...)` | The same for MSDP. Values arrive as strings. |
+| `supports(module, ...)` | Announces GMCP modules to the server besides the usual ones, as `"Name version"`: `supports("Map.Render 1")`. Some servers only send what was announced. |
+| `on_event(name, fn)` | Calls `fn` when something happens in the client: `"connect"`, `"disconnect"`, or `"panel"` with `{columns, rows}`, the size in characters of the panel beside the output, once it stops changing. For a server that draws its map to fit. |
+| `completions(name, words)` | Words for Tab to offer, besides those seen in the output. Each name keeps its own list; `completions(name)` removes it. |
 | `mssp()` | The server's MSSP status as a table. |
 
 ## The map

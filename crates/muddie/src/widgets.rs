@@ -783,3 +783,80 @@ pub fn segmented(ui: &mut Ui, choices: &[&str], current: usize) -> Option<usize>
         });
     chosen
 }
+
+/// A card holding rows of settings that belong together, in place of a
+/// form: each row names a thing on the left and has its control on the
+/// right, with a hairline between rows.
+pub fn group<R>(ui: &mut Ui, add_rows: impl FnOnce(&mut Ui) -> R) -> R {
+    let theme = theme::current();
+    Frame::new()
+        .fill(theme.background)
+        .corner_radius(CornerRadius::same(12))
+        .inner_margin(Margin::symmetric(14, 3))
+        .show(ui, |ui| {
+            ui.spacing_mut().item_spacing.y = 0.0;
+            // Fields inside stand out from the card, not sink into it.
+            ui.visuals_mut().text_edit_bg_color = Some(theme.surface);
+            ui.set_width(ui.available_width());
+            add_rows(ui)
+        })
+        .inner
+}
+
+/// Starts a row of a [`group`]: draws the hairline above every row but
+/// the first.
+fn row_start(ui: &mut Ui) {
+    if ui.min_rect().height() > 2.0 {
+        row_divider(ui);
+    }
+}
+
+/// The hairline between two rows of a [`group`], for a row that is drawn
+/// in a region of its own and so cannot tell it is not the first.
+pub fn row_divider(ui: &mut Ui) {
+    let (rect, _) = ui.allocate_exact_size(vec2(ui.available_width(), 1.0), Sense::hover());
+    let stroke = Stroke::new(1.0, theme::current().border);
+    ui.painter().hline(rect.x_range(), rect.center().y, stroke);
+}
+
+/// A row of a [`group`]: `label` on the left, the control on the right.
+pub fn setting_row(
+    ui: &mut Ui,
+    label: &str,
+    control: &mut dyn FnMut(&mut Ui) -> Response,
+) -> Response {
+    row_start(ui);
+    ui.horizontal(|ui| {
+        ui.set_min_height(42.0);
+        let name = ui.label(label);
+        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+            control(ui).labelled_by(name.id)
+        })
+        .inner
+    })
+    .inner
+}
+
+/// A row of a [`group`] with a switch.
+pub fn switch_setting(ui: &mut Ui, on: &mut bool, label: &str) -> Response {
+    row_start(ui);
+    ui.horizontal(|ui| {
+        ui.set_min_height(42.0);
+        ui.label(label);
+        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+            switch(ui, on, label)
+        })
+        .inner
+    })
+    .inner
+}
+
+/// A text field for the right-hand side of a [`setting_row`].
+pub fn row_field(ui: &mut Ui, value: &mut String, hint: &str, width: f32) -> Response {
+    ui.add(
+        TextEdit::singleline(value)
+            .hint_text(RichText::new(hint).color(theme::current().text_faint))
+            .margin(Margin::symmetric(9, 6))
+            .desired_width(width),
+    )
+}
