@@ -6,6 +6,7 @@ mod i18n_es;
 mod logger;
 mod mapview;
 mod output;
+mod packages;
 mod palette;
 mod panels;
 mod profile;

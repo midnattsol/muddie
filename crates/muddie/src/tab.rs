@@ -21,6 +21,7 @@ use crate::i18n::{tr, trf};
 use crate::logger::SessionLog;
 use crate::mapview::{MapAction, MapView};
 use crate::output::{Output, server_job};
+use crate::packages;
 use crate::palette;
 use crate::panels::{self, Gauges, MsdpVitals};
 use crate::profile::{Profile, Profiles};
@@ -107,6 +108,9 @@ pub struct Tab {
     rules_section: usize,
     /// Label of the text encoding the server uses; `auto` for most.
     encoding: String,
+    /// Package installs and updates under way; the flag says to enable
+    /// the package when its job ends well.
+    package_jobs: Vec<(Receiver<packages::Outcome>, bool)>,
     /// Character to log in as, from the profile.
     character: String,
     /// A new password typed in the bar, saved with the profile.
@@ -219,6 +223,7 @@ impl Tab {
             rules_open: false,
             rules_section: 0,
             encoding: "auto".into(),
+            package_jobs: Vec::new(),
             character: String::new(),
             new_password: String::new(),
             login: Login::Idle,
@@ -849,6 +854,61 @@ impl Tab {
         found.unwrap_or(given)
     }
 
+    /// Adds a package to the profile's list, or takes it off, saves the
+    /// profile and runs the scripts again.
+    fn set_package(&mut self, name: &str, enable: bool) {
+        let Some(profile) = self.profile.clone() else {
+            return self.note(tr(
+                "Packages are enabled per profile: save or choose a profile first.",
+            ));
+        };
+        self.packages.retain(|package| package != name);
+        if enable {
+            self.packages.push(name.to_owned());
+        }
+        self.profile_name = profile;
+        self.save_profile();
+        self.load_scripts();
+        self.note(&if enable {
+            trf("Package {0} enabled.", &[name])
+        } else {
+            trf("Package {0} disabled.", &[name])
+        });
+    }
+
+    /// Reports package installs and updates that have ended.
+    fn check_packages(&mut self, ctx: &egui::Context) {
+        let mut ended = Vec::new();
+        self.package_jobs
+            .retain(|(job, enable)| match job.try_recv() {
+                Ok(outcome) => {
+                    ended.push((outcome, *enable));
+                    false
+                }
+                Err(std::sync::mpsc::TryRecvError::Empty) => true,
+                Err(std::sync::mpsc::TryRecvError::Disconnected) => false,
+            });
+        if !self.package_jobs.is_empty() {
+            ctx.request_repaint_after(Duration::from_millis(200));
+        }
+        for (outcome, enable) in ended {
+            match outcome {
+                Ok(name) if enable => {
+                    self.note(&trf("Package {0} installed.", &[&name]));
+                    self.set_package(&name, true);
+                }
+                Ok(name) => {
+                    self.note(&trf("Package {0} updated.", &[&name]));
+                    self.load_scripts();
+                }
+                Err(error) => self.note(&trf(
+                    "The package could not be installed or updated: {0}",
+                    &[&error],
+                )),
+            }
+        }
+    }
+
     /// Reconnects, keeps the connection alive and keeps looped sounds
     /// going, each when its time comes.
     fn check_timers(&mut self, ctx: &egui::Context) {
@@ -1267,15 +1327,64 @@ impl Tab {
                     .map(Profiles::packages)
                     .unwrap_or_default();
                 if installed.is_empty() {
-                    self.note("No script packages are installed.");
+                    self.note(tr(
+                        "No script packages are installed. Use /install with a git address.",
+                    ));
                 }
                 for package in installed {
                     let state = if self.packages.contains(&package) {
-                        "enabled in this profile"
+                        tr("enabled in this profile")
                     } else {
-                        "not enabled"
+                        tr("not enabled; use /enable")
                     };
                     self.note(&format!("{package}: {state}"));
+                }
+            }
+            // Downloads a package from a git repository and enables it.
+            "/install" if !argument.is_empty() => {
+                let (address, given) = argument.split_once(' ').unwrap_or((argument, ""));
+                let name = match given.trim() {
+                    "" => packages::name_from_address(address),
+                    given => crate::profile::valid_name(given).then(|| given.to_owned()),
+                };
+                let folder = self.profiles.as_ref().map(Profiles::packages_dir);
+                match (folder, name) {
+                    (Some(folder), Some(name)) => {
+                        self.note(&trf("Installing {0}...", &[&name]));
+                        let job = packages::install(&folder, &name, address);
+                        self.package_jobs.push((job, true));
+                    }
+                    (None, _) => self.note(tr(
+                        "Packages need a configuration folder, and none was found.",
+                    )),
+                    (_, None) => self.note(tr(
+                        "Give the package a name after the address: letters, digits, - and _.",
+                    )),
+                }
+            }
+            "/update" if !argument.is_empty() => {
+                match self.profiles.as_ref().map(Profiles::packages_dir) {
+                    Some(folder) => {
+                        self.note(&trf("Updating {0}...", &[argument]));
+                        let job = packages::update(&folder, argument);
+                        self.package_jobs.push((job, false));
+                    }
+                    None => self.note(tr(
+                        "Packages need a configuration folder, and none was found.",
+                    )),
+                }
+            }
+            "/enable" | "/disable" if !argument.is_empty() => {
+                let enable = command == "/enable";
+                let installed = self
+                    .profiles
+                    .as_ref()
+                    .map(Profiles::packages)
+                    .unwrap_or_default();
+                if enable && !installed.iter().any(|package| package == argument) {
+                    self.note(tr("No such package is installed; see /packages."));
+                } else {
+                    self.set_package(argument, enable);
                 }
             }
             "/reload" => {
@@ -1284,10 +1393,10 @@ impl Tab {
             }
             // Starts or stops logging the session.
             "/log" => match self.log.take() {
-                Some(log) => self.note(&trf(
-                    "Logging stopped; the log is {0}",
-                    &[&log.path().display().to_string()],
-                )),
+                Some(log) => {
+                    let path = log.path().display().to_string();
+                    self.note(&trf("Logging stopped; the log is {0}", &[&path]));
+                }
                 None => self.start_log(),
             },
             "/stop" => {
@@ -1545,6 +1654,7 @@ impl Tab {
         self.check_walk(ctx);
         self.check_partial(ctx);
         self.check_timers(ctx);
+        self.check_packages(ctx);
         if let Some(deadline) = self.scripts.next_deadline() {
             ctx.request_repaint_after(deadline.saturating_duration_since(now));
         }

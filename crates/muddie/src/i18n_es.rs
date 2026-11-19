@@ -138,4 +138,36 @@ pub const SPANISH: &[(&str, &str)] = &[
         "Only for servers that do not use UTF-8 or Latin-1, e.g. big5 or koi8-r.",
         "Solo para servidores que no usan UTF-8 ni Latin-1, p. ej. big5 o koi8-r.",
     ),
+    (
+        "No script packages are installed. Use /install with a git address.",
+        "No hay paquetes de scripts instalados. Usa /install con una dirección git.",
+    ),
+    ("enabled in this profile", "activo en este perfil"),
+    ("not enabled; use /enable", "inactivo; usa /enable"),
+    ("Installing {0}...", "Instalando {0}..."),
+    (
+        "Packages need a configuration folder, and none was found.",
+        "Los paquetes necesitan una carpeta de configuración y no se encontró ninguna.",
+    ),
+    (
+        "Give the package a name after the address: letters, digits, - and _.",
+        "Indica un nombre para el paquete tras la dirección: letras, dígitos, - y _.",
+    ),
+    ("Updating {0}...", "Actualizando {0}..."),
+    (
+        "No such package is installed; see /packages.",
+        "No hay ningún paquete instalado con ese nombre; mira /packages.",
+    ),
+    (
+        "Packages are enabled per profile: save or choose a profile first.",
+        "Los paquetes se activan por perfil: guarda o elige un perfil primero.",
+    ),
+    ("Package {0} enabled.", "Paquete {0} activado."),
+    ("Package {0} disabled.", "Paquete {0} desactivado."),
+    ("Package {0} installed.", "Paquete {0} instalado."),
+    ("Package {0} updated.", "Paquete {0} actualizado."),
+    (
+        "The package could not be installed or updated: {0}",
+        "No se pudo instalar o actualizar el paquete: {0}",
+    ),
 ];

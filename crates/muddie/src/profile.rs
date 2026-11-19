@@ -92,6 +92,11 @@ impl Profiles {
         self.folders_with("profiles", "profile.toml")
     }
 
+    /// Where script packages are installed.
+    pub fn packages_dir(&self) -> PathBuf {
+        self.dir.join("packages")
+    }
+
     /// Names of the installed script packages, in alphabetical order.
     pub fn packages(&self) -> Vec<String> {
         self.folders_with("packages", "init.luau")
