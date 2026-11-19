@@ -50,7 +50,7 @@ const fn rgb(hex: u32) -> Color32 {
 /// is read or typed sits in darker wells.
 const DARK: Theme = Theme {
     dark: true,
-    background: rgb(0x191b28),
+    background: rgb(0x11121b),
     surface: rgb(0x222436),
     raised: rgb(0x2c2f45),
     hover: rgb(0x383c57),
