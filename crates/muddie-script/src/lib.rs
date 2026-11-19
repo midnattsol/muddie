@@ -27,7 +27,31 @@
 //! - `gauge(name, value, max)`: show or update a bar in the status strip;
 //!   `gauge(name)` removes it.
 //! - `chat(text)`: add a line to the chat panel.
-//! - `walk(room)`: walk to the room with that number, using the map.
+//!
+//! The `map` table reads and edits the automapper's map. A room is given
+//! by its number, or by the text the server identifies it with.
+//!
+//! - `map.visit(room)`: the player is now in `room`, a table with `id` and
+//!   optionally `name`, `area`, `exits` (direction to room id) and `x`,
+//!   `y`, `z`. This is how a script maps a MUD the built-in loader does not
+//!   understand, from whatever the server sends.
+//! - `map.native(false)`: turn the built-in loader (GMCP `Room.Info`, MSDP
+//!   `ROOM`) off, leaving the map to the script.
+//! - `map.persist(false)`: keep the map in memory only instead of saving
+//!   it to a file, for servers that send the map themselves.
+//! - `map.clear()`: forget every room, for instance before loading the
+//!   area the server has just sent.
+//! - `map.set_room(room)`: add or update a room without moving there.
+//! - `map.room(id)`: a room as such a table, the current one if `id` is
+//!   omitted; `nil` if unknown.
+//! - `map.find(text)`: the rooms whose name contains `text`.
+//! - `map.path(to, from)`: the directions to walk, from the current room
+//!   if `from` is omitted; `nil` if there is no known route.
+//! - `map.walk(to)`: walk there.
+//! - `map.set_exit(from, direction, to)`, `map.remove_exit(from,
+//!   direction)`, `map.remove_room(id)` and `map.move(id, x, y, z)`.
+//! - `map.id(text)`: the room number used for a text identifier.
+//!
 //! - `cancel(id)`: remove the trigger, alias, timer or GMCP handler with the
 //!   id that the functions above returned.
 
@@ -39,6 +63,7 @@ use std::time::{Duration, Instant};
 
 use mlua::serde::SerializeOptions;
 use mlua::{Function, Lua, LuaOptions, LuaSerdeExt, StdLib, Table, Value, Variadic, VmState};
+use muddie_mapper::{Map, Pos, Room, RoomId, RoomInfo, room_id};
 use regex::Regex;
 
 /// Longest a single script run or callback may take before it is stopped,
@@ -69,7 +94,9 @@ pub enum Action {
     /// Add a line to the chat panel.
     Chat(String),
     /// Walk to the room with this number.
-    Walk(i64),
+    Walk(RoomId),
+    /// A script moved the player to this room on the map.
+    Entered(RoomId),
     /// Send an MSDP message such as `REPORT` with variable names.
     Msdp {
         variable: String,
@@ -130,6 +157,10 @@ struct State {
     /// The server's MSSP status, as `(name, value)` pairs.
     mssp: Vec<(String, String)>,
     actions: Vec<Action>,
+    /// Set by `map.native(false)`.
+    map_native_off: bool,
+    /// Set by `map.persist(false)`.
+    map_memory_only: bool,
     /// Set by `gag()` while a line's triggers run.
     gag: bool,
     /// When the script currently running must be stopped.
@@ -155,12 +186,16 @@ struct Hit {
 pub struct Engine {
     lua: Lua,
     state: Rc<RefCell<State>>,
+    /// The automapper's map, shared with the frontend.
+    map: Rc<RefCell<Map>>,
     /// Script files loaded so far, in order, for `/reload`.
     files: Vec<PathBuf>,
 }
 
 impl Engine {
-    pub fn new() -> mlua::Result<Self> {
+    /// Starts a runtime whose scripts read and edit `map`. The frontend
+    /// must not hold a borrow of the map while it calls into the engine.
+    pub fn new(map: Rc<RefCell<Map>>) -> mlua::Result<Self> {
         // No `io`, `package` or `debug`: scripts cannot touch files, load
         // other code from disk or escape the sandbox. Luau's `os` only has
         // clock and date functions.
@@ -178,6 +213,7 @@ impl Engine {
         lua.set_memory_limit(MEMORY_LIMIT)?;
         let state = Rc::new(RefCell::new(State::default()));
         install_api(&lua, &state)?;
+        install_map_api(&lua, &state, &map)?;
 
         let watched = Rc::clone(&state);
         lua.set_interrupt(move |_| {
@@ -194,6 +230,7 @@ impl Engine {
         // to a separate table layered on top.
         lua.sandbox(true)?;
         Ok(Self {
+            map,
             lua,
             state,
             files: Vec::new(),
@@ -325,6 +362,18 @@ impl Engine {
         }
     }
 
+    /// Whether the built-in map loader should run, which it does unless a
+    /// script turned it off with `map.native(false)`.
+    pub fn native_map(&self) -> bool {
+        !self.state.borrow().map_native_off
+    }
+
+    /// Whether the map should be saved to a file, which it is unless a
+    /// script chose otherwise with `map.persist(false)`.
+    pub fn persist_map(&self) -> bool {
+        !self.state.borrow().map_memory_only
+    }
+
     /// When [`Self::tick`] next has something to do.
     pub fn next_deadline(&self) -> Option<Instant> {
         self.state.borrow().timers.iter().map(|t| t.due).min()
@@ -337,7 +386,7 @@ impl Engine {
 
     /// Starts from a clean runtime and runs the loaded files again.
     fn reload(&mut self) {
-        let mut fresh = match Engine::new() {
+        let mut fresh = match Engine::new(Rc::clone(&self.map)) {
             Ok(fresh) => fresh,
             Err(error) => return self.error(format!("cannot restart scripts: {error}")),
         };
@@ -405,6 +454,234 @@ impl Engine {
     fn push_all(&self, actions: Vec<Action>) {
         self.state.borrow_mut().actions.extend(actions);
     }
+}
+
+/// Reads a room id argument: a number, or text (see [`room_id`]).
+fn id_of(value: &Value) -> mlua::Result<RoomId> {
+    match value {
+        Value::Integer(id) => Ok(*id),
+        Value::Number(id) if id.fract() == 0.0 => Ok(*id as RoomId),
+        Value::String(text) => Ok(room_id(&text.to_string_lossy())),
+        _ => Err(mlua::Error::runtime(
+            "a room id must be a whole number or text",
+        )),
+    }
+}
+
+/// Reads a room description given by a script.
+fn room_info(room: &Table) -> mlua::Result<RoomInfo> {
+    let mut exits = std::collections::BTreeMap::new();
+    if let Some(table) = room.get::<Option<Table>>("exits")? {
+        for pair in table.pairs::<String, Value>() {
+            let (direction, to) = pair?;
+            exits.insert(muddie_mapper::canonical_direction(&direction), id_of(&to)?);
+        }
+    }
+    let coordinate = |name: &str| room.get::<Option<i32>>(name);
+    let pos = match (coordinate("x")?, coordinate("y")?) {
+        (Some(x), Some(y)) => Some(Pos {
+            x,
+            y,
+            z: coordinate("z")?.unwrap_or(0),
+        }),
+        _ => None,
+    };
+    Ok(RoomInfo {
+        id: id_of(&room.get::<Value>("id")?)?,
+        name: room.get::<Option<String>>("name")?.unwrap_or_default(),
+        area: room.get::<Option<String>>("area")?.unwrap_or_default(),
+        exits,
+        pos,
+    })
+}
+
+/// Describes a room to a script, in the shape [`room_info`] reads.
+fn room_table(lua: &Lua, room: &Room) -> mlua::Result<Table> {
+    let table = lua.create_table()?;
+    table.set("id", room.id)?;
+    table.set("name", room.name.as_str())?;
+    table.set("area", room.area.as_str())?;
+    table.set("x", room.pos.x)?;
+    table.set("y", room.pos.y)?;
+    table.set("z", room.pos.z)?;
+    let exits = lua.create_table()?;
+    for (direction, to) in &room.exits {
+        exits.set(direction.as_str(), *to)?;
+    }
+    table.set("exits", exits)?;
+    Ok(table)
+}
+
+/// Defines the `map` table.
+fn install_map_api(
+    lua: &Lua,
+    state: &Rc<RefCell<State>>,
+    map: &Rc<RefCell<Map>>,
+) -> mlua::Result<()> {
+    let api = lua.create_table()?;
+    // The map is updated even when saving it fails; the script still gets
+    // the failure as an error, so the user hears about it.
+    let saved = |result: Result<(), muddie_mapper::Error>| {
+        result.map_err(|error| mlua::Error::runtime(format!("could not save the map: {error}")))
+    };
+
+    let (shared, world) = (Rc::clone(state), Rc::clone(map));
+    api.set(
+        "visit",
+        lua.create_function(move |_, room: Table| {
+            let info = room_info(&room)?;
+            let id = info.id;
+            let result = world.borrow_mut().visit(info);
+            shared.borrow_mut().actions.push(Action::Entered(id));
+            saved(result)?;
+            Ok(id)
+        })?,
+    )?;
+
+    let world = Rc::clone(map);
+    api.set(
+        "set_room",
+        lua.create_function(move |_, room: Table| {
+            let info = room_info(&room)?;
+            let id = info.id;
+            saved(world.borrow_mut().set_room(info))?;
+            Ok(id)
+        })?,
+    )?;
+
+    let shared = Rc::clone(state);
+    api.set(
+        "native",
+        lua.create_function(move |_, enabled: bool| {
+            shared.borrow_mut().map_native_off = !enabled;
+            Ok(())
+        })?,
+    )?;
+
+    let (shared, world) = (Rc::clone(state), Rc::clone(map));
+    api.set(
+        "persist",
+        lua.create_function(move |_, enabled: bool| {
+            shared.borrow_mut().map_memory_only = !enabled;
+            if !enabled {
+                world.borrow_mut().stop_storing();
+            }
+            Ok(())
+        })?,
+    )?;
+
+    let world = Rc::clone(map);
+    api.set(
+        "clear",
+        lua.create_function(move |_, ()| saved(world.borrow_mut().clear()))?,
+    )?;
+
+    let world = Rc::clone(map);
+    api.set(
+        "room",
+        lua.create_function(move |lua, id: Value| {
+            let world = world.borrow();
+            let room = match id {
+                Value::Nil => world.current(),
+                id => world.room(id_of(&id)?),
+            };
+            room.map(|room| room_table(lua, room)).transpose()
+        })?,
+    )?;
+
+    let world = Rc::clone(map);
+    api.set(
+        "find",
+        lua.create_function(move |lua, text: String| {
+            let world = world.borrow();
+            let rooms = world.find(&text).into_iter();
+            rooms
+                .map(|room| room_table(lua, room))
+                .collect::<mlua::Result<Vec<Table>>>()
+        })?,
+    )?;
+
+    let world = Rc::clone(map);
+    api.set(
+        "path",
+        lua.create_function(move |_, (to, from): (Value, Value)| {
+            let world = world.borrow();
+            let from = match from {
+                Value::Nil => world.current().map(|room| room.id),
+                from => Some(id_of(&from)?),
+            };
+            let route = from.and_then(|from| world.route(from, id_of(&to).ok()?));
+            Ok(route.map(|steps| {
+                (steps.into_iter())
+                    .map(|step| step.direction)
+                    .collect::<Vec<String>>()
+            }))
+        })?,
+    )?;
+
+    let shared = Rc::clone(state);
+    api.set(
+        "walk",
+        lua.create_function(move |_, to: Value| {
+            (shared.borrow_mut().actions).push(Action::Walk(id_of(&to)?));
+            Ok(())
+        })?,
+    )?;
+
+    let world = Rc::clone(map);
+    api.set(
+        "set_exit",
+        lua.create_function(move |_, (from, direction, to): (Value, String, Value)| {
+            let result = (world.borrow_mut()).set_exit(id_of(&from)?, &direction, id_of(&to)?);
+            let found = *result.as_ref().unwrap_or(&true);
+            saved(result.map(drop))?;
+            Ok(found)
+        })?,
+    )?;
+
+    let world = Rc::clone(map);
+    api.set(
+        "remove_exit",
+        lua.create_function(move |_, (from, direction): (Value, String)| {
+            let result = world.borrow_mut().remove_exit(id_of(&from)?, &direction);
+            let found = *result.as_ref().unwrap_or(&true);
+            saved(result.map(drop))?;
+            Ok(found)
+        })?,
+    )?;
+
+    let world = Rc::clone(map);
+    api.set(
+        "remove_room",
+        lua.create_function(move |_, id: Value| {
+            let result = world.borrow_mut().remove_room(id_of(&id)?);
+            let found = *result.as_ref().unwrap_or(&true);
+            saved(result.map(drop))?;
+            Ok(found)
+        })?,
+    )?;
+
+    let world = Rc::clone(map);
+    api.set(
+        "move",
+        lua.create_function(move |_, (id, x, y, z): (Value, i32, i32, Option<i32>)| {
+            let pos = Pos {
+                x,
+                y,
+                z: z.unwrap_or(0),
+            };
+            let result = world.borrow_mut().move_room(id_of(&id)?, pos);
+            let found = *result.as_ref().unwrap_or(&true);
+            saved(result.map(drop))?;
+            Ok(found)
+        })?,
+    )?;
+
+    api.set(
+        "id",
+        lua.create_function(|_, text: String| Ok(room_id(&text)))?,
+    )?;
+    lua.globals().set("map", api)
 }
 
 /// The error as a script author wants to read it: the message with its
@@ -594,15 +871,6 @@ fn install_api(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
 
     let shared = Rc::clone(state);
     add(
-        "walk",
-        lua.create_function(move |_, room: i64| {
-            shared.borrow_mut().actions.push(Action::Walk(room));
-            Ok(())
-        })?,
-    )?;
-
-    let shared = Rc::clone(state);
-    add(
         "chat",
         lua.create_function(move |_, text: String| {
             shared.borrow_mut().actions.push(Action::Chat(text));
@@ -637,7 +905,7 @@ mod tests {
     use super::*;
 
     fn engine(code: &str) -> Engine {
-        let mut engine = Engine::new().unwrap();
+        let mut engine = Engine::new(Rc::default()).unwrap();
         engine.exec("test", code);
         assert_eq!(engine.take_actions(), [], "setup script failed");
         engine
@@ -808,7 +1076,7 @@ mod tests {
             send_gmcp("Char.Login", {name = "ana"})
             gauge("HP")
             chat("Ana: hola")
-            walk(42)"#,
+            map.walk(42)"#,
         );
         let gmcp = |package: &str, data: &str| Action::Gmcp {
             package: package.into(),
@@ -860,6 +1128,137 @@ mod tests {
     }
 
     #[test]
+    fn script_can_load_the_map_from_text() {
+        // A MUD with no GMCP: the room is read from its title and exits
+        // lines, and identified by the title since there is no number.
+        let mut engine = engine(
+            r#"map.native(false)
+            local title
+            trigger("^\\[ (.+) \\]$", function(m) title = m[1] end)
+            trigger("^Exits: (.+)$", function(m)
+                local exits = {}
+                for direction, to in m[1]:gmatch("(%a+)=(%a+)") do exits[direction] = to end
+                map.visit({id = title, name = title, area = "town", exits = exits})
+            end)"#,
+        );
+        assert!(!engine.native_map());
+        for line in [
+            "[ Gate ]",
+            "Exits: north=Square",
+            "[ Square ]",
+            "Exits: south=Gate east=Tower",
+        ] {
+            engine.on_line(line);
+        }
+        let (gate, square) = (room_id("Gate"), room_id("Square"));
+        assert_eq!(
+            engine.take_actions(),
+            [Action::Entered(gate), Action::Entered(square)]
+        );
+        {
+            let map = engine.map.borrow();
+            assert_eq!(map.current().unwrap().name, "Square");
+            assert_eq!(map.room(gate).unwrap().exits.get("n"), Some(&square));
+            let (from, to) = (map.room(gate).unwrap().pos, map.room(square).unwrap().pos);
+            assert_eq!((to.x - from.x, to.y - from.y), (0, 1));
+        }
+        engine.exec(
+            "test",
+            r#"local here = map.room()
+            echo(`{here.name} {here.exits.s == map.id("Gate")} {map.room("Tower")}`)
+            echo(table.concat(map.path("Gate"), ","))
+            map.walk("Gate")"#,
+        );
+        assert_eq!(
+            engine.take_actions(),
+            [
+                Action::Echo("Square true nil".into()),
+                Action::Echo("s".into()),
+                Action::Walk(gate),
+            ]
+        );
+    }
+
+    #[test]
+    fn script_can_take_the_whole_map_from_the_server() {
+        // The server sends each area complete: nothing is saved, and the
+        // previous area is dropped when a new one arrives.
+        let mut engine = engine(
+            r#"map.native(false)
+            map.persist(false)
+            on_gmcp("Area.Map", function(area)
+                map.clear()
+                for _, room in area.rooms do
+                    map.set_room({id = room.id, name = room.name, area = area.name,
+                                  x = room.x, y = room.y, exits = room.exits})
+                end
+            end)
+            on_gmcp("Area.Position", function(id) map.visit(map.room(id)) end)"#,
+        );
+        assert!(!engine.persist_map());
+        engine.on_gmcp(
+            "Area.Map",
+            r#"{"name": "Docks", "rooms": [
+                {"id": 1, "name": "Pier", "x": 0, "y": 0, "exits": {"e": 2}},
+                {"id": 2, "name": "Wharf", "x": 1, "y": 0, "exits": {"w": 1}}]}"#,
+        );
+        engine.on_gmcp("Area.Position", "2");
+        assert_eq!(engine.take_actions(), [Action::Entered(2)]);
+        {
+            let map = engine.map.borrow();
+            assert_eq!(map.rooms().count(), 2);
+            assert_eq!(map.current().unwrap().name, "Wharf");
+            assert_eq!(map.room(2).unwrap().area, "Docks");
+        }
+        engine.on_gmcp(
+            "Area.Map",
+            r#"{"name": "Sea", "rooms": [{"id": 9, "name": "Raft", "x": 0, "y": 0}]}"#,
+        );
+        let map = engine.map.borrow();
+        assert_eq!(map.rooms().count(), 1);
+        assert!(map.current().is_none());
+    }
+
+    #[test]
+    fn script_can_edit_and_query_the_map() {
+        let mut engine = engine(
+            r#"map.set_room({id = 1, name = "Gate", exits = {n = 2}})
+            map.set_room({id = 2, name = "Square", x = 5, y = 5, exits = {south = 1}})
+            map.set_room({id = 3, name = "Old Square"})"#,
+        );
+        assert!(engine.native_map());
+        engine.exec(
+            "test",
+            r#"echo(`{map.room()} {map.path(2)} {#map.find("square")} {map.find("square")[2].id}`)
+            echo(table.concat(map.path(2, 1), ",") .. " " .. tostring(map.path(3, 1)))
+            echo(`{map.set_exit(2, "enter portal", 3)} {map.set_exit(9, "n", 1)}`)
+            echo(table.concat(map.path(3, 1), ";"))
+            echo(`{map.move(3, 7, 8)} {map.room(3).x},{map.room(3).y},{map.room(3).z}`)
+            echo(`{map.remove_exit(2, "enter portal")} {map.remove_room(3)} {map.room(3)}`)
+            map.visit({name = "No id"})"#,
+        );
+        let actions = engine.take_actions();
+        let echoes: Vec<&str> = (actions.iter())
+            .filter_map(|action| match action {
+                Action::Echo(text) => Some(text.as_str()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            echoes,
+            [
+                "nil nil 2 2",
+                "n nil",
+                "true false",
+                "n;enter portal",
+                "true 7,8,0",
+                "true true nil",
+            ]
+        );
+        assert!(error_text(&actions[6..]).contains("a room id must be"));
+    }
+
+    #[test]
     fn failing_repeating_timer_is_dropped() {
         let mut engine = engine(r#"every(1, function() error("bad") end)"#);
         engine.tick(Instant::now() + Duration::from_secs(2));
@@ -873,7 +1272,7 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let file = dir.join("init.luau");
         std::fs::write(&file, r#"trigger("hi", function() send("v1") end)"#).unwrap();
-        let mut engine = Engine::new().unwrap();
+        let mut engine = Engine::new(Rc::default()).unwrap();
         engine.load_file(&file);
         engine.on_input("/lua stray = 1");
         std::fs::write(

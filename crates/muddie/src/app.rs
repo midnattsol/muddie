@@ -1,8 +1,10 @@
 //! The main window: connection bar, output and input line.
 
+use std::cell::RefCell;
 use std::path::PathBuf;
+use std::rc::Rc;
 use std::sync::mpsc::{Receiver, channel};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use eframe::egui::{self, CentralPanel, Key, Modifiers, Panel, TextEdit};
 use muddie_core::{Command, Config, Event, Session, Target, connect};
@@ -11,7 +13,7 @@ use muddie_script::{Action, Engine};
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::history::History;
-use crate::mapview::MapView;
+use crate::mapview::{MapAction, MapView};
 use crate::output::Output;
 use crate::palette;
 use crate::panels::{self, Gauges, MsdpVitals};
@@ -37,12 +39,19 @@ pub struct App {
     msdp_vitals: MsdpVitals,
     chat: Output,
     show_chat: bool,
-    map: Map,
+    /// Shared with the script engine, which reads and edits it. No borrow
+    /// may be held while calling into `scripts`.
+    map: Rc<RefCell<Map>>,
     map_view: MapView,
     show_map: bool,
-    /// The route being followed, if a walk is under way.
-    walk: Option<Walk>,
+    /// The route being followed, if a walk is under way, and when it last
+    /// made progress.
+    walk: Option<(Walk, Instant)>,
 }
+
+/// How long a walk waits for a move to take effect before giving up, as
+/// happens at a closed door.
+const WALK_TIMEOUT: Duration = Duration::from_secs(6);
 
 /// Most rooms listed when a search matches several.
 const MAX_LISTED_ROOMS: usize = 10;
@@ -82,6 +91,7 @@ impl App {
         cc.egui_ctx.all_styles_mut(|style| {
             style.visuals.panel_fill = palette::BACKGROUND;
         });
+        let map = Rc::new(RefCell::new(Map::in_memory()));
         let mut app = Self {
             host: String::new(),
             port: "23".into(),
@@ -92,12 +102,12 @@ impl App {
             input_hidden: false,
             history: History::default(),
             voice: Voice::default(),
-            scripts: Engine::new().expect("failed to start the script runtime"),
+            scripts: Engine::new(Rc::clone(&map)).expect("failed to start the script runtime"),
             gauges: Gauges::default(),
             msdp_vitals: MsdpVitals::default(),
             chat: Output::default(),
             show_chat: true,
-            map: Map::in_memory(),
+            map,
             map_view: MapView::default(),
             show_map: true,
             walk: None,
@@ -128,8 +138,13 @@ impl App {
         }
         self.note(&format!("Connecting to {host}:{port}..."));
         self.walk = None;
-        let stored = map_path(&host, port).map(|path| Map::open(&path));
-        self.map = match stored {
+        // A script may have chosen to keep the map in memory only.
+        let stored = if self.scripts.persist_map() {
+            map_path(&host, port).map(|path| Map::open(&path))
+        } else {
+            Some(Ok(Map::in_memory()))
+        };
+        let map = match stored {
             Some(Ok(map)) => map,
             Some(Err(error)) => {
                 self.note(&format!("The map will not be saved: {error}"));
@@ -140,6 +155,7 @@ impl App {
                 Map::in_memory()
             }
         };
+        *self.map.borrow_mut() = map;
         let target = Target {
             host,
             port,
@@ -221,7 +237,8 @@ impl App {
                         for line in panels::channel_text(&data) {
                             self.chat.push(&line);
                         }
-                    } else if package.eq_ignore_ascii_case("Room.Info") {
+                    } else if package.eq_ignore_ascii_case("Room.Info") && self.scripts.native_map()
+                    {
                         self.entered_room(&data);
                     }
                     self.scripts.on_gmcp(&package, &data);
@@ -231,7 +248,7 @@ impl App {
                     if let Some((name, value, max)) = self.msdp_vitals.update(&variable, &data) {
                         self.gauges.set(name, Some((value, max)));
                     }
-                    if variable == "ROOM" {
+                    if variable == "ROOM" && self.scripts.native_map() {
                         self.entered_room(&data);
                     }
                     self.scripts.on_msdp(&variable, &data);
@@ -277,6 +294,7 @@ impl App {
                 }
                 Action::Gauge { name, level } => self.gauges.set(&name, level),
                 Action::Walk(room) => self.walk_to(room),
+                Action::Entered(room) => self.arrived_in(room),
                 Action::Chat(text) => {
                     for line in panels::styled_lines(&text) {
                         self.chat.push(&line);
@@ -305,31 +323,48 @@ impl App {
             return;
         };
         let room = info.id;
-        if let Err(error) = self.map.visit(info) {
+        let saved = self.map.borrow_mut().visit(info);
+        if let Err(error) = saved {
             self.note(&format!("Could not save the map: {error}"));
         }
-        if let Some(walk) = &mut self.walk {
+        self.arrived_in(room);
+    }
+
+    /// The map now has the player in `room`: continue a walk, if any.
+    fn arrived_in(&mut self, room: RoomId) {
+        if let Some((walk, _)) = &mut self.walk {
             let progress = walk.entered(room);
             self.follow(progress);
         }
     }
 
     fn walk_to(&mut self, room: RoomId) {
-        let Some(from) = self.map.current().map(|current| current.id) else {
-            return self.note("The map does not know where you are yet.");
+        let route = {
+            let map = self.map.borrow();
+            let Some(from) = map.current().map(|current| current.id) else {
+                drop(map);
+                return self.note("The map does not know where you are yet.");
+            };
+            map.route(from, room).map(|route| (from, route))
         };
-        let Some(route) = self.map.route(from, room) else {
+        let Some((from, route)) = route else {
             return self.note("No known route to that room.");
         };
-        let walk = Walk::new(route);
+        let walk = Walk::new(from, route);
         let progress = walk.start();
-        self.walk = Some(walk);
+        self.walk = Some((walk, Instant::now()));
         self.follow(progress);
     }
 
     fn follow(&mut self, progress: Progress) {
         match progress {
-            Progress::Go(direction) => self.send(direction),
+            Progress::Go(direction) => {
+                if let Some((_, moved_at)) = &mut self.walk {
+                    *moved_at = Instant::now();
+                }
+                self.send(direction);
+            }
+            Progress::Waiting => {}
             Progress::Arrived => {
                 self.walk = None;
                 self.note("Arrived.");
@@ -341,26 +376,42 @@ impl App {
         }
     }
 
+    /// Gives up a walk whose last move had no effect for too long.
+    fn check_walk(&mut self, ctx: &egui::Context) {
+        let Some((_, moved_at)) = &self.walk else {
+            return;
+        };
+        let waited = moved_at.elapsed();
+        if waited >= WALK_TIMEOUT {
+            self.walk = None;
+            self.note("Walk stopped: the last move had no effect.");
+        } else {
+            ctx.request_repaint_after(WALK_TIMEOUT - waited);
+        }
+    }
+
     /// Handles the client's own map commands. Returns false if `line` is
     /// not one of them.
     fn map_command(&mut self, line: &str) -> bool {
         let (command, argument) = line.split_once(' ').unwrap_or((line, ""));
         let argument = argument.trim();
         match command {
-            "/where" => match self.map.current() {
-                Some(room) => {
+            "/where" => {
+                let place = self.map.borrow().current().map(|room| {
                     let exits: Vec<&str> = room.exits.keys().map(String::as_str).collect();
-                    let text = format!(
+                    format!(
                         "{} (#{}) in {}. Exits: {}.",
                         room.name,
                         room.id,
                         room.area,
                         exits.join(", ")
-                    );
-                    self.note(&text);
+                    )
+                });
+                match place {
+                    Some(place) => self.note(&place),
+                    None => self.note("The map does not know where you are yet."),
                 }
-                None => self.note("The map does not know where you are yet."),
-            },
+            }
             "/find" if !argument.is_empty() => {
                 let rooms = self.matching_rooms(argument);
                 if rooms.is_empty() {
@@ -372,7 +423,7 @@ impl App {
                 if let Ok(room) = argument.parse::<RoomId>() {
                     self.walk_to(room);
                 } else {
-                    let found: Vec<RoomId> = (self.map.find(argument).iter())
+                    let found: Vec<RoomId> = (self.map.borrow().find(argument).iter())
                         .map(|room| room.id)
                         .collect();
                     match found[..] {
@@ -401,7 +452,7 @@ impl App {
 
     /// Up to [`MAX_LISTED_ROOMS`] rooms matching `query`, one line each.
     fn matching_rooms(&self, query: &str) -> Vec<String> {
-        (self.map.find(query).iter())
+        (self.map.borrow().find(query).iter())
             .take(MAX_LISTED_ROOMS)
             .map(|room| format!("#{}: {} ({})", room.id, room.name, room.area))
             .collect()
@@ -492,6 +543,7 @@ impl eframe::App for App {
         let now = Instant::now();
         self.scripts.tick(now);
         self.run_actions();
+        self.check_walk(ui.ctx());
         if let Some(deadline) = self.scripts.next_deadline() {
             ui.ctx()
                 .request_repaint_after(deadline.saturating_duration_since(now));
@@ -521,15 +573,22 @@ impl eframe::App for App {
             }
             self.input_line(ui);
         });
-        if self.show_map && self.map.current().is_some() {
-            let clicked = Panel::right("map")
+        if self.show_map && self.map.borrow().current().is_some() {
+            let action = Panel::right("map")
                 .resizable(true)
                 .default_size(320.0)
                 .min_size(160.0)
-                .show(ui, |ui| self.map_view.show(ui, &self.map))
+                .show(ui, |ui| self.map_view.show(ui, &self.map.borrow()))
                 .inner;
-            if let Some(room) = clicked {
-                self.walk_to(room);
+            match action {
+                Some(MapAction::Walk(room)) => self.walk_to(room),
+                Some(MapAction::Move(room, pos)) => {
+                    let saved = self.map.borrow_mut().move_room(room, pos);
+                    if let Err(error) = saved {
+                        self.note(&format!("Could not save the map: {error}"));
+                    }
+                }
+                None => {}
             }
         }
         CentralPanel::default().show(ui, |ui| self.output.show(ui));

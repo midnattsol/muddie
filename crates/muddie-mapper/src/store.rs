@@ -7,6 +7,9 @@ use rusqlite::{Connection, Result, params};
 
 use crate::{Pos, Room};
 
+/// Version of the schema below, kept in the database's `user_version`.
+const VERSION: i64 = 1;
+
 const SCHEMA: &str = "
     CREATE TABLE IF NOT EXISTS rooms (
         id INTEGER PRIMARY KEY,
@@ -17,7 +20,7 @@ const SCHEMA: &str = "
         z INTEGER NOT NULL
     );
     CREATE TABLE IF NOT EXISTS exits (
-        room_id INTEGER NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+        room_id INTEGER NOT NULL,
         direction TEXT NOT NULL,
         to_id INTEGER NOT NULL,
         PRIMARY KEY (room_id, direction)
@@ -32,7 +35,19 @@ impl Store {
     /// Opens (or creates) the database and returns it with all its rooms.
     pub fn open(path: &Path) -> Result<(Self, Vec<Room>)> {
         let connection = Connection::open(path)?;
+        let version: i64 = connection.query_row("PRAGMA user_version", [], |row| row.get(0))?;
+        if version > VERSION {
+            // Written by a newer muddie: refuse rather than risk damaging it.
+            return Err(rusqlite::Error::InvalidParameterName(format!(
+                "the map file has format {version}, newer than this version understands"
+            )));
+        }
+        // A room is saved on every move: write-ahead logging without a sync
+        // per write keeps that from stalling the caller on slow disks.
+        connection.pragma_update(None, "journal_mode", "WAL")?;
+        connection.pragma_update(None, "synchronous", "NORMAL")?;
         connection.execute_batch(SCHEMA)?;
+        connection.pragma_update(None, "user_version", VERSION)?;
 
         let mut exits: BTreeMap<i64, BTreeMap<String, i64>> = BTreeMap::new();
         let mut statement = connection.prepare("SELECT room_id, direction, to_id FROM exits")?;
@@ -62,6 +77,20 @@ impl Store {
             .collect::<Result<Vec<Room>>>()?;
         drop(statement);
         Ok((Self { connection }, rooms))
+    }
+
+    /// Removes every room.
+    pub fn clear(&mut self) -> Result<()> {
+        self.connection
+            .execute_batch("BEGIN; DELETE FROM exits; DELETE FROM rooms; COMMIT;")
+    }
+
+    /// Removes a room and its exits.
+    pub fn delete(&mut self, id: i64) -> Result<()> {
+        let transaction = self.connection.transaction()?;
+        transaction.execute("DELETE FROM exits WHERE room_id = ?1", [id])?;
+        transaction.execute("DELETE FROM rooms WHERE id = ?1", [id])?;
+        transaction.commit()
     }
 
     /// Inserts or replaces a room and its exits.

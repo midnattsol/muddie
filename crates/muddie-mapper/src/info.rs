@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use serde_json::{Map as Fields, Value};
 
-use crate::{Pos, RoomId, canonical_direction};
+use crate::{Pos, RoomId, canonical_direction, room_id};
 
 /// What the server says about the room the player is in.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -35,12 +35,14 @@ impl RoomInfo {
         };
         let exits = match first(&["exits"]) {
             Some(Value::Object(exits)) => (exits.iter())
-                .filter_map(|(direction, to)| Some((canonical_direction(direction), integer(to)?)))
+                .filter_map(|(direction, to)| {
+                    Some((canonical_direction(direction), identifier(to)?))
+                })
                 .collect(),
             _ => BTreeMap::new(),
         };
         Some(Self {
-            id: integer(first(&["num", "vnum", "id"])?)?,
+            id: identifier(first(&["num", "vnum", "id", "identifier"])?)?,
             name: text(&["name"]),
             area: text(&["area", "zone"]),
             exits,
@@ -55,6 +57,15 @@ fn lower_keys(fields: Fields<String, Value>) -> Fields<String, Value> {
     (fields.into_iter())
         .map(|(name, value)| (name.to_lowercase(), value))
         .collect()
+}
+
+/// A room identifier: a number, or text (numeric or not, see [`room_id`]).
+fn identifier(value: &Value) -> Option<RoomId> {
+    match value {
+        Value::Number(number) => number.as_i64(),
+        Value::String(text) if !text.trim().is_empty() => Some(room_id(text)),
+        _ => None,
+    }
 }
 
 /// Servers send numbers either as JSON numbers or as strings.
@@ -141,6 +152,16 @@ mod tests {
         assert_eq!(info.id, 7);
         assert_eq!(info.exits, exits(&[("n", 8), ("u", 9)]));
         assert_eq!(info.pos, Some(Pos { x: 1, y: -2, z: 0 }));
+    }
+
+    #[test]
+    fn text_identifiers_are_accepted() {
+        let info = RoomInfo::from_json(
+            r#"{"identifier": "a7f3c9", "name": "Dock", "exits": {"north": "b01d", "south": ""}}"#,
+        )
+        .unwrap();
+        assert_eq!(info.id, room_id("a7f3c9"));
+        assert_eq!(info.exits, exits(&[("n", room_id("b01d"))]));
     }
 
     #[test]

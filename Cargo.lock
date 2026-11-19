@@ -1985,6 +1985,7 @@ name = "muddie-script"
 version = "0.1.0"
 dependencies = [
  "mlua",
+ "muddie-mapper",
  "regex",
  "serde_json",
 ]

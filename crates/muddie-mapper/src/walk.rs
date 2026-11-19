@@ -9,6 +9,8 @@ use crate::{RoomId, Step};
 /// closed door stops the walk instead of sending the rest blindly.
 #[derive(Debug)]
 pub struct Walk {
+    /// The room the player was last known to be in.
+    at: RoomId,
     steps: VecDeque<Step>,
 }
 
@@ -16,14 +18,18 @@ pub struct Walk {
 pub enum Progress {
     /// Send this direction next.
     Go(String),
+    /// Nothing to do: the pending move has not taken effect yet.
+    Waiting,
     Arrived,
     /// The player ended up somewhere the route did not expect.
     Lost,
 }
 
 impl Walk {
-    pub fn new(route: Vec<Step>) -> Self {
+    /// A walk along `route`, starting in the room `from`.
+    pub fn new(from: RoomId, route: Vec<Step>) -> Self {
         Self {
+            at: from,
             steps: route.into(),
         }
     }
@@ -38,11 +44,16 @@ impl Walk {
 
     /// The server reported the player in `room`; what to do next.
     pub fn entered(&mut self, room: RoomId) -> Progress {
-        if self.steps.front().is_none_or(|step| step.to != room) {
-            return Progress::Lost;
+        match self.steps.front() {
+            Some(step) if step.to == room => {
+                self.at = room;
+                self.steps.pop_front();
+                self.start()
+            }
+            // Servers repeat the current room, for instance after `look`.
+            Some(_) if room == self.at => Progress::Waiting,
+            _ => Progress::Lost,
         }
-        self.steps.pop_front();
-        self.start()
     }
 }
 
@@ -61,17 +72,19 @@ mod tests {
 
     #[test]
     fn walks_step_by_step_to_the_end() {
-        let mut walk = Walk::new(route(&[("n", 2), ("e", 3)]));
+        let mut walk = Walk::new(1, route(&[("n", 2), ("e", 3)]));
         assert_eq!(walk.start(), Progress::Go("n".into()));
+        assert_eq!(walk.entered(1), Progress::Waiting);
         assert_eq!(walk.entered(2), Progress::Go("e".into()));
+        assert_eq!(walk.entered(2), Progress::Waiting);
         assert_eq!(walk.entered(3), Progress::Arrived);
         assert_eq!(walk.entered(3), Progress::Lost);
     }
 
     #[test]
     fn unexpected_room_stops_the_walk() {
-        let mut walk = Walk::new(route(&[("n", 2), ("e", 3)]));
+        let mut walk = Walk::new(1, route(&[("n", 2), ("e", 3)]));
         assert_eq!(walk.entered(7), Progress::Lost);
-        assert_eq!(Walk::new(Vec::new()).start(), Progress::Arrived);
+        assert_eq!(Walk::new(1, Vec::new()).start(), Progress::Arrived);
     }
 }
