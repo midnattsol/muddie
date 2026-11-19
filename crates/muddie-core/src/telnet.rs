@@ -24,6 +24,8 @@ pub mod opt {
     pub const MSDP: u8 = 69;
     pub const MSSP: u8 = 70;
     pub const MCCP2: u8 = 86;
+    pub const MCCP3: u8 = 87;
+    pub const MXP: u8 = 91;
     pub const MSP: u8 = 90;
     pub const GMCP: u8 = 201;
 }

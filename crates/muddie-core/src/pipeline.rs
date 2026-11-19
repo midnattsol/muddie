@@ -3,7 +3,7 @@
 
 use std::io;
 
-use flate2::{Decompress, FlushDecompress, Status};
+use flate2::{Compress, Compression, Decompress, FlushCompress, FlushDecompress, Status};
 
 use crate::ansi::Assembler;
 use crate::decode::Decoder;
@@ -59,14 +59,19 @@ pub struct Pipeline {
     /// `Some` while the server's stream is compressed (MCCP2).
     inflater: Option<Decompress>,
     inflated: Vec<u8>,
+    /// `Some` once what the client sends must be compressed (MCCP3).
+    deflater: Option<Compress>,
+    /// Where in the buffer being filled compression starts, when it was
+    /// turned on part-way through filling it.
+    deflate_from: Option<usize>,
 }
 
 impl Pipeline {
     pub fn new(config: Config) -> Self {
         Self {
             parser: Parser::new(),
+            decoder: Decoder::for_label(&config.encoding).unwrap_or_default(),
             negotiator: Negotiator::new(config),
-            decoder: Decoder::new(),
             assembler: Assembler::new(),
             telnet_events: Vec::new(),
             text: String::new(),
@@ -74,6 +79,8 @@ impl Pipeline {
             input_hidden: false,
             inflater: None,
             inflated: Vec::new(),
+            deflater: None,
+            deflate_from: None,
         }
     }
 
@@ -86,6 +93,7 @@ impl Pipeline {
         reply: &mut Vec<u8>,
         events: &mut Vec<Event>,
     ) -> io::Result<()> {
+        let reply_start = reply.len();
         let mut rest = input;
         while !rest.is_empty() {
             match self.inflater.take() {
@@ -104,7 +112,31 @@ impl Pipeline {
         if !self.assembler.partial().is_empty() {
             events.push(Event::Partial(self.assembler.partial().clone()));
         }
+        self.finish_outgoing(reply, reply_start);
         Ok(())
+    }
+
+    /// Compresses what was appended to `out` from `start` on, if outgoing
+    /// compression is on. Everything the client sends goes through here.
+    fn finish_outgoing(&mut self, out: &mut Vec<u8>, start: usize) {
+        // Compression turned on while this buffer was being filled only
+        // covers what came after the message that announced it.
+        let from = self.deflate_from.take().unwrap_or(start);
+        let Some(deflater) = &mut self.deflater else {
+            return;
+        };
+        let plain = out.split_off(from);
+        let mut rest = plain.as_slice();
+        loop {
+            out.reserve(rest.len() + 64);
+            let before = deflater.total_in();
+            // A sync flush makes each write decodable on arrival.
+            let _ = deflater.compress_vec(rest, out, FlushCompress::Sync);
+            rest = &rest[(deflater.total_in() - before) as usize..];
+            if rest.is_empty() && out.len() < out.capacity() {
+                return;
+            }
+        }
     }
 
     /// Inflates as much of `rest` as belongs to the compressed stream and
@@ -161,6 +193,11 @@ impl Pipeline {
                     self.assembler.feed(&self.text, &mut self.lines);
                     self.text.clear();
                     events.extend(self.lines.drain(..).map(Event::Line));
+                    // Answers to MXP queries go back as lines.
+                    for answer in self.assembler.take_replies() {
+                        telnet::escape_iac(&self.decoder.encode(&answer), reply);
+                        reply.extend_from_slice(b"\r\n");
+                    }
                     continue;
                 }
                 telnet::Event::Subneg(opt::MCCP2, _) => {
@@ -201,6 +238,11 @@ impl Pipeline {
                     self.input_hidden = on;
                     events.push(Event::InputHidden(on));
                 }
+                Some(Signal::CompressOutgoing) => {
+                    self.deflater = Some(Compress::new(Compression::default(), true));
+                    self.deflate_from = Some(reply.len());
+                }
+                Some(Signal::Mxp) => self.assembler.enable_mxp(),
                 None => {}
             }
         }
@@ -209,23 +251,34 @@ impl Pipeline {
 
     /// Encodes a GMCP message; `data` is JSON or empty. Nothing is written
     /// if the server did not enable GMCP.
-    pub fn send_gmcp(&self, package: &str, data: &str, out: &mut Vec<u8>) {
+    pub fn send_gmcp(&mut self, package: &str, data: &str, out: &mut Vec<u8>) {
         if !self.negotiator.gmcp_enabled() {
             return;
         }
+        let start = out.len();
         let message = if data.is_empty() {
             package.to_owned()
         } else {
             format!("{package} {data}")
         };
         telnet::write_subneg(opt::GMCP, message.as_bytes(), out);
+        self.finish_outgoing(out, start);
+    }
+
+    /// Writes a telnet no-operation, to keep an idle connection alive.
+    pub fn keep_alive(&mut self, out: &mut Vec<u8>) {
+        let start = out.len();
+        out.extend_from_slice(&[telnet::IAC, telnet::NOP]);
+        self.finish_outgoing(out, start);
     }
 
     /// Encodes an MSDP message such as `REPORT` with variable names.
     /// Nothing is written if the server did not enable MSDP.
-    pub fn send_msdp(&self, variable: &str, values: &[String], out: &mut Vec<u8>) {
+    pub fn send_msdp(&mut self, variable: &str, values: &[String], out: &mut Vec<u8>) {
         if self.negotiator.msdp_enabled() {
+            let start = out.len();
             msdp::write(variable, values, out);
+            self.finish_outgoing(out, start);
         }
     }
 
@@ -243,13 +296,17 @@ impl Pipeline {
         if !self.input_hidden {
             events.push(Event::Sent(line.to_owned()));
         }
-        telnet::escape_iac(line.as_bytes(), out);
+        let start = out.len();
+        telnet::escape_iac(&self.decoder.encode(line), out);
         out.extend_from_slice(b"\r\n");
+        self.finish_outgoing(out, start);
     }
 
     /// Reports a new window size; any telnet message goes to `reply`.
     pub fn set_window(&mut self, width: u16, height: u16, reply: &mut Vec<u8>) {
+        let start = reply.len();
         self.negotiator.set_window(width, height, reply);
+        self.finish_outgoing(reply, start);
     }
 }
 
@@ -381,6 +438,77 @@ mod tests {
         stream.extend_from_slice(b"this is not zlib data");
         let (mut reply, mut events) = (Vec::new(), Vec::new());
         assert!(pipeline.receive(&stream, &mut reply, &mut events).is_err());
+    }
+
+    #[test]
+    fn mccp3_compresses_everything_after_its_announcement() {
+        let mut pipeline = Pipeline::new(Config::default());
+        // Accepting MCCP3 and NAWS in one read: the answers up to and
+        // including the MCCP3 start marker are plain, the rest is not.
+        let (reply, _) = receive(&mut pipeline, &[IAC, WILL, opt::MCCP3, IAC, DO, opt::NAWS]);
+        let plain = [
+            IAC,
+            DO,
+            opt::MCCP3,
+            IAC,
+            crate::telnet::SB,
+            opt::MCCP3,
+            IAC,
+            crate::telnet::SE,
+        ];
+        assert_eq!(reply[..plain.len()], plain);
+        let mut compressed = reply[plain.len()..].to_vec();
+        let (mut events, mut out) = (Vec::new(), Vec::new());
+        pipeline.send_line("look", &mut out, &mut events);
+        compressed.extend_from_slice(&out);
+        out.clear();
+        pipeline.keep_alive(&mut out);
+        compressed.extend_from_slice(&out);
+
+        let mut inflater = Decompress::new(true);
+        let mut sent = vec![0; 256];
+        inflater
+            .decompress(&compressed, &mut sent, FlushDecompress::Sync)
+            .unwrap();
+        sent.truncate(inflater.total_out() as usize);
+        let mut expected = vec![IAC, WILL, opt::NAWS];
+        telnet::write_subneg(opt::NAWS, &[0, 80, 0, 24], &mut expected);
+        expected.extend_from_slice(b"look\r\n");
+        expected.extend_from_slice(&[IAC, crate::telnet::NOP]);
+        assert_eq!(sent, expected);
+    }
+
+    #[test]
+    fn chosen_encoding_is_used_both_ways() {
+        let mut pipeline = Pipeline::new(Config {
+            encoding: "koi8-r".into(),
+            ..Config::default()
+        });
+        let (_, events) = receive(&mut pipeline, b"\xf0\xd2\xc9\xd7\xc5\xd4\r\n");
+        assert_eq!(events.iter().map(text).collect::<Vec<_>>(), ["line:Привет"]);
+        let (mut events, mut out) = (Vec::new(), Vec::new());
+        pipeline.send_line("да", &mut out, &mut events);
+        assert_eq!(out, b"\xc4\xc1\r\n");
+    }
+
+    #[test]
+    fn mxp_is_interpreted_once_negotiated_and_queries_answered() {
+        let mut pipeline = Pipeline::new(Config::default());
+        let (_, events) = receive(&mut pipeline, b"<b>raw</b>\r\n");
+        assert_eq!(
+            events.iter().map(text).collect::<Vec<_>>(),
+            ["line:<b>raw</b>"]
+        );
+        let mut input = vec![IAC, WILL, opt::MXP];
+        input.extend_from_slice(b"\x1b[1z<version><send>look</send>\r\n");
+        let (reply, events) = receive(&mut pipeline, &input);
+        assert_eq!(reply[..3], [IAC, DO, opt::MXP]);
+        assert!(reply[3..].starts_with(b"\x1b[1z<VERSION MXP="));
+        assert!(reply.ends_with(b"\r\n"));
+        let Event::Line(line) = &events[0] else {
+            panic!("expected a line");
+        };
+        assert_eq!((line.text().as_str(), line.links.len()), ("look", 1));
     }
 
     #[test]

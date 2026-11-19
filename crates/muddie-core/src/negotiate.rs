@@ -31,6 +31,9 @@ pub struct Config {
     pub gmcp_supports: Vec<String>,
     /// MSDP variables the server is asked to report when it enables MSDP.
     pub msdp_report: Vec<String>,
+    /// Label of the text encoding to use, such as `big5`; `auto` reads
+    /// UTF-8 with Latin-1 as a fallback.
+    pub encoding: String,
 }
 
 impl Default for Config {
@@ -55,6 +58,7 @@ impl Default for Config {
             ]
             .map(String::from)
             .to_vec(),
+            encoding: "auto".into(),
         }
     }
 }
@@ -66,6 +70,10 @@ pub enum Signal {
     ServerEcho(bool),
     /// End of a prompt (`IAC GA` or `IAC EOR`).
     Prompt,
+    /// Everything sent from now on must be compressed (MCCP3).
+    CompressOutgoing,
+    /// The server will send MXP markup.
+    Mxp,
 }
 
 pub struct Negotiator {
@@ -124,6 +132,8 @@ impl Negotiator {
                         | opt::MSDP
                         | opt::MSSP
                         | opt::MSP
+                        | opt::MCCP3
+                        | opt::MXP
                 );
                 if !accept {
                     send(reply, Verb::Dont, option);
@@ -135,6 +145,13 @@ impl Negotiator {
                     }
                     if option == opt::MSDP && !self.config.msdp_report.is_empty() {
                         msdp::write("REPORT", &self.config.msdp_report, reply);
+                    }
+                    if option == opt::MCCP3 {
+                        telnet::write_subneg(opt::MCCP3, &[], reply);
+                        return Some(Signal::CompressOutgoing);
+                    }
+                    if option == opt::MXP {
+                        return Some(Signal::Mxp);
                     }
                     if option == opt::ECHO {
                         return Some(Signal::ServerEcho(true));
@@ -192,14 +209,21 @@ impl Negotiator {
                 if let Some(rest) = list.strip_prefix(b"[TTABLE]") {
                     list = rest.get(1..).unwrap_or_default();
                 }
-                let offers_utf8 = list.split_first().is_some_and(|(sep, names)| {
+                // The encoding the user chose, if any; else UTF-8.
+                let chosen = self.config.encoding.trim();
+                let wanted = if chosen.is_empty() || chosen.eq_ignore_ascii_case("auto") {
+                    "UTF-8"
+                } else {
+                    chosen
+                };
+                let offered = list.split_first().and_then(|(sep, names)| {
                     names
                         .split(|b| b == sep)
-                        .any(|name| name.eq_ignore_ascii_case(b"UTF-8"))
+                        .find(|name| name.eq_ignore_ascii_case(wanted.as_bytes()))
                 });
-                if offers_utf8 {
+                if let Some(name) = offered {
                     let mut body = vec![CHARSET_ACCEPTED];
-                    body.extend_from_slice(b"UTF-8");
+                    body.extend_from_slice(name);
                     telnet::write_subneg(opt::CHARSET, &body, reply);
                 } else {
                     telnet::write_subneg(opt::CHARSET, &[CHARSET_REJECTED], reply);
@@ -405,7 +429,15 @@ mod tests {
         };
         let (reply, _) = handle(&mut n, request(b";ISO-8859-1;utf-8"));
         assert_eq!(reply[3], CHARSET_ACCEPTED);
-        assert_eq!(&reply[4..9], b"UTF-8");
+        assert_eq!(&reply[4..9], b"utf-8");
+        let mut chosen = Negotiator::new(Config {
+            encoding: "big5".into(),
+            ..Config::default()
+        });
+        let (reply, _) = handle(&mut chosen, request(b";UTF-8;BIG5"));
+        assert_eq!(&reply[3..8], [&[CHARSET_ACCEPTED][..], b"BIG5"].concat());
+        let (reply, _) = handle(&mut chosen, request(b";UTF-8"));
+        assert_eq!(reply[3], CHARSET_REJECTED);
         let (reply, _) = handle(&mut n, request(b" ISO-8859-1"));
         assert_eq!(reply, [IAC, SB, opt::CHARSET, CHARSET_REJECTED, IAC, SE]);
     }

@@ -177,9 +177,7 @@ async fn drive(
                 Some(Command::Msdp { variable, values }) => {
                     pipeline.send_msdp(&variable, &values, &mut outgoing);
                 }
-                Some(Command::KeepAlive) => {
-                    outgoing.extend_from_slice(&[crate::telnet::IAC, crate::telnet::NOP]);
-                }
+                Some(Command::KeepAlive) => pipeline.keep_alive(&mut outgoing),
                 Some(Command::Disconnect) | None => {
                     let _ = writer.shutdown().await;
                     return Ok(());

@@ -129,4 +129,13 @@ pub const SPANISH: &[(&str, &str)] = &[
     ("Typing", "Al escribir"),
     ("Sends", "Envía"),
     ("Key", "Tecla"),
+    (
+        "Unknown text encoding {0}; using the automatic one.",
+        "Codificación de texto {0} desconocida; se usa la automática.",
+    ),
+    ("Encoding", "Codificación"),
+    (
+        "Only for servers that do not use UTF-8 or Latin-1, e.g. big5 or koi8-r.",
+        "Solo para servidores que no usan UTF-8 ni Latin-1, p. ej. big5 o koi8-r.",
+    ),
 ];

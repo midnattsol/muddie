@@ -10,7 +10,7 @@ use eframe::egui::text::LayoutJob;
 use eframe::egui::{
     Frame, Galley, Label, OpenUrl, Panel, Rect, RichText, ScrollArea, Sense, Ui, UiBuilder, vec2,
 };
-use muddie_core::{Color, Line};
+use muddie_core::{Color, Line, LinkTarget};
 
 use crate::i18n::tr;
 use crate::palette;
@@ -35,8 +35,9 @@ struct Row {
     text: String,
     /// When it arrived, as `HH:MM:SS`.
     time: String,
-    /// Byte ranges of `text` that are web links.
-    links: Vec<Range<usize>>,
+    /// Parts of `text` that can be clicked: web addresses found in it, and
+    /// links the server marked.
+    links: Vec<(Range<usize>, LinkTarget)>,
     /// Height when wrapped to `Output::width`; `None` until measured.
     height: Option<f32>,
 }
@@ -52,7 +53,7 @@ impl Row {
             Content::Server(line) => {
                 let accent = theme::current().accent;
                 let mut line = line.clone();
-                for link in &self.links {
+                for (link, _) in &self.links {
                     line.restyle(link.clone(), |style| {
                         style.underline = true;
                         style.fg = Color::Rgb(accent.r(), accent.g(), accent.b());
@@ -70,7 +71,7 @@ impl Row {
     }
 
     /// The link at a character offset into the row as drawn, if any.
-    fn link_at(&self, char_index: usize, timestamps: bool) -> Option<&str> {
+    fn link_at(&self, char_index: usize, timestamps: bool) -> Option<&LinkTarget> {
         let prefix = if timestamps {
             self.time.chars().count() + 1
         } else {
@@ -78,8 +79,8 @@ impl Row {
         };
         let char_index = char_index.checked_sub(prefix)?;
         let (byte, _) = self.text.char_indices().nth(char_index)?;
-        let link = self.links.iter().find(|link| link.contains(&byte))?;
-        Some(&self.text[link.clone()])
+        let (_, target) = self.links.iter().find(|(link, _)| link.contains(&byte))?;
+        Some(target)
     }
 }
 
@@ -146,12 +147,16 @@ impl Output {
     /// Appends a completed server line, replacing any partial text.
     pub fn push(&mut self, line: &Line) {
         self.partial = None;
-        self.push_row(Content::Server(line.clone()), line.text());
+        let marked = line
+            .links
+            .iter()
+            .map(|link| (link.range.clone(), link.target.clone()));
+        self.push_row(Content::Server(line.clone()), line.text(), marked.collect());
     }
 
     /// Appends a line produced by the client itself.
     pub fn push_local(&mut self, text: &str) {
-        self.push_row(Content::Local(text.to_owned()), text.to_owned());
+        self.push_row(Content::Local(text.to_owned()), text.to_owned(), Vec::new());
     }
 
     /// Drops the partial text without showing a line in its place.
@@ -163,13 +168,22 @@ impl Output {
         self.partial = Some(line.clone());
     }
 
-    fn push_row(&mut self, content: Content, text: String) {
+    fn push_row(
+        &mut self,
+        content: Content,
+        text: String,
+        marked: Vec<(Range<usize>, LinkTarget)>,
+    ) {
         while self.rows.len() >= self.capacity.max(1) {
             self.drop_oldest();
         }
         self.pushed += 1;
+        let found = links(&text).into_iter().map(|range| {
+            let address = LinkTarget::Url(text[range.clone()].to_owned());
+            (range, address)
+        });
         self.rows.push_back(Row {
-            links: links(&text),
+            links: found.chain(marked).collect(),
             content,
             text,
             time: chrono::Local::now().format("%H:%M:%S").to_string(),
@@ -251,8 +265,9 @@ impl Output {
     }
 
     /// Draws the scrollback in `ui`. `name` tells this output's panels
-    /// apart from another's.
-    pub fn show(&mut self, ui: &mut Ui, name: &str) {
+    /// apart from another's. Returns the command of a link the user
+    /// clicked, for the caller to send.
+    pub fn show(&mut self, ui: &mut Ui, name: &str) -> Option<String> {
         let theme = theme::current();
         // While scrolled back, the latest lines stay in view below.
         if !self.at_end && !self.rows.is_empty() {
@@ -298,10 +313,11 @@ impl Output {
                 .sum();
             area = area.vertical_scroll_offset((above - ui.available_height() / 3.0).max(0.0));
         }
-        area.show_viewport(ui, |ui, viewport| self.show_rows(ui, viewport));
+        area.show_viewport(ui, |ui, viewport| self.show_rows(ui, viewport))
+            .inner
     }
 
-    fn show_rows(&mut self, ui: &mut Ui, viewport: Rect) {
+    fn show_rows(&mut self, ui: &mut Ui, viewport: Rect) -> Option<String> {
         ui.spacing_mut().item_spacing.y = 0.0;
         let width = ui.available_width();
         if width != self.width {
@@ -345,6 +361,7 @@ impl Output {
             vec2(max_rect.width(), total - top),
         );
         let found = self.found;
+        let mut command = None;
         ui.scope_builder(UiBuilder::new().max_rect(rect), |ui| {
             // Keep widget ids stable while scrolling.
             ui.skip_ahead_auto_ids(first);
@@ -369,8 +386,12 @@ impl Output {
                     && let Some(pointer) = response.interact_pointer_pos()
                 {
                     let cursor = galley.cursor_from_pos(pointer - response.rect.min);
-                    if let Some(link) = row.link_at(cursor.index.0, timestamps) {
-                        ui.ctx().open_url(OpenUrl::new_tab(link));
+                    match row.link_at(cursor.index.0, timestamps) {
+                        Some(LinkTarget::Url(address)) => {
+                            ui.ctx().open_url(OpenUrl::new_tab(address))
+                        }
+                        Some(LinkTarget::Send(text)) => command = Some(text.clone()),
+                        None => {}
                     }
                 }
             }
@@ -378,6 +399,7 @@ impl Output {
                 ui.add(Label::new(galley));
             }
         });
+        command
     }
 }
 
@@ -414,10 +436,30 @@ mod tests {
         let mut output = Output::default();
         output.push_local("ñ go to https://example.org now");
         let row = &output.rows[0];
-        assert_eq!(row.link_at(10, false), Some("https://example.org"));
+        let address = LinkTarget::Url("https://example.org".into());
+        assert_eq!(row.link_at(10, false), Some(&address));
         assert_eq!(row.link_at(2, false), None);
-        assert_eq!(row.link_at(10 + 9, true), Some("https://example.org"));
+        assert_eq!(row.link_at(10 + 9, true), Some(&address));
         assert_eq!(row.link_at(3, true), None);
+    }
+
+    #[test]
+    fn links_marked_by_the_server_are_kept_with_the_row() {
+        let mut output = Output::default();
+        let mut line = Line::default();
+        "Go north"
+            .chars()
+            .for_each(|ch| line.push(ch, Default::default()));
+        line.links.push(muddie_core::LineLink {
+            range: 3..8,
+            target: LinkTarget::Send("north".into()),
+        });
+        output.push(&line);
+        assert_eq!(
+            output.rows[0].link_at(4, false),
+            Some(&LinkTarget::Send("north".into()))
+        );
+        assert_eq!(output.rows[0].link_at(0, false), None);
     }
 
     #[test]

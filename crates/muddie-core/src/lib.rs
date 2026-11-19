@@ -14,4 +14,4 @@ pub mod text;
 pub use negotiate::Config;
 pub use pipeline::Event;
 pub use session::{Command, Session, Target, connect};
-pub use text::{Color, Line, Span, Style};
+pub use text::{Color, Line, LineLink, LinkTarget, Span, Style};

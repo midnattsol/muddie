@@ -33,6 +33,24 @@ pub struct Span {
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Line {
     pub spans: Vec<Span>,
+    /// Parts of the line that can be clicked, when the server marked any.
+    pub links: Vec<LineLink>,
+}
+
+/// Where a link leads.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LinkTarget {
+    /// A command to send to the server.
+    Send(String),
+    /// A web address to open.
+    Url(String),
+}
+
+/// A clickable part of a line: a byte range of [].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LineLink {
+    pub range: std::ops::Range<usize>,
+    pub target: LinkTarget,
 }
 
 impl Line {

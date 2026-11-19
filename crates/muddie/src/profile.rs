@@ -28,6 +28,8 @@ pub struct Profile {
     /// Character name to log in with; its password is in the system's
     /// keyring, never in this file.
     pub character: String,
+    /// Label of the server's text encoding; `auto` suits most servers.
+    pub encoding: String,
     /// Script packages to load before the profile's own scripts.
     pub packages: Vec<String>,
 }
@@ -41,6 +43,7 @@ impl Default for Profile {
             verify_certificate: true,
             speech: false,
             character: String::new(),
+            encoding: "auto".into(),
             packages: Vec::new(),
         }
     }
@@ -208,6 +211,7 @@ mod tests {
             verify_certificate: false,
             speech: true,
             character: "Gandalf".into(),
+            encoding: "koi8-r".into(),
             packages: vec!["combat".into()],
         };
         profiles.save("Reinos", &profile).unwrap();

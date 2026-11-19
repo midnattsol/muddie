@@ -105,6 +105,8 @@ pub struct Tab {
     rules_open: bool,
     /// Which of triggers, aliases and keys the rules window shows.
     rules_section: usize,
+    /// Label of the text encoding the server uses; `auto` for most.
+    encoding: String,
     /// Character to log in as, from the profile.
     character: String,
     /// A new password typed in the bar, saved with the profile.
@@ -216,6 +218,7 @@ impl Tab {
             rules_draft: Rules::default(),
             rules_open: false,
             rules_section: 0,
+            encoding: "auto".into(),
             character: String::new(),
             new_password: String::new(),
             login: Login::Idle,
@@ -405,6 +408,7 @@ impl Tab {
             self.verify_certificate = profile.verify_certificate;
             self.packages = profile.packages;
             self.character = profile.character;
+            self.encoding = profile.encoding;
             self.voice.set_enabled(profile.speech);
         } else {
             self.packages.clear();
@@ -431,6 +435,7 @@ impl Tab {
             verify_certificate: self.verify_certificate,
             speech: self.voice.enabled(),
             character: self.character.trim().to_owned(),
+            encoding: self.encoding.trim().to_owned(),
             // A profile saved under a new name starts without packages.
             packages: if self.profile.as_deref() == Some(&name) {
                 self.packages.clone()
@@ -470,6 +475,13 @@ impl Tab {
         if host.is_empty() {
             self.note("Enter a host to connect to.");
             return;
+        }
+        if muddie_core::decode::Decoder::for_label(&self.encoding).is_none() {
+            let unknown = self.encoding.clone();
+            self.note(&trf(
+                "Unknown text encoding {0}; using the automatic one.",
+                &[&unknown],
+            ));
         }
         self.user_disconnected = false;
         self.reconnect_at = None;
@@ -511,6 +523,7 @@ impl Tab {
             target,
             Config {
                 screen_reader: self.voice.enabled(),
+                encoding: self.encoding.clone(),
                 ..Config::default()
             },
         );
@@ -1405,6 +1418,16 @@ impl Tab {
             if self.tls {
                 ui.checkbox(&mut self.verify_certificate, "Verify certificate");
             }
+            let label = ui.label(tr("Encoding"));
+            ui.add(
+                TextEdit::singleline(&mut self.encoding)
+                    .hint_text("auto")
+                    .desired_width(70.0),
+            )
+            .on_hover_text(tr(
+                "Only for servers that do not use UTF-8 or Latin-1, e.g. big5 or koi8-r.",
+            ))
+            .labelled_by(label.id);
             ui.separator();
             let label = ui.label(tr("Character"));
             ui.add(TextEdit::singleline(&mut self.character).desired_width(100.0))
@@ -1549,7 +1572,9 @@ impl Tab {
                 .resizable(true)
                 .default_size(84.0)
                 .min_size(48.0)
-                .show(ui, |ui| self.chat.show(ui, "chat"));
+                .show(ui, |ui| {
+                    self.chat.show(ui, "chat");
+                });
         }
         Panel::bottom("input").show(ui, |ui| {
             if !self.gauges.is_empty() {
@@ -1590,9 +1615,13 @@ impl Tab {
         let frame = egui::Frame::new()
             .fill(theme.background)
             .inner_margin(egui::Margin::symmetric(10, 6));
-        CentralPanel::default()
+        let clicked = CentralPanel::default()
             .frame(frame)
             .show(ui, |ui| self.output.show(ui, "output"));
+        // A link the server marked as a command was clicked.
+        if let Some(command) = clicked.inner {
+            self.send(command);
+        }
     }
 }
 
@@ -1909,7 +1938,10 @@ mod tests {
         let mut harness = window(Some(Profiles::at(dir.clone())));
         harness.get_by_label("Triggers").click();
         harness.run_steps(4);
-        assert!(harness.state().tab().rules_open, "the button opens the window");
+        assert!(
+            harness.state().tab().rules_open,
+            "the button opens the window"
+        );
         harness.get_by_label("Add").click();
         harness.run_steps(2);
         let app = harness.state_mut().tab_mut();
