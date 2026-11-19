@@ -7,9 +7,11 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ThemeName {
-    /// The default: soft, warm darks with a mauve accent.
+    /// The default: neutral charcoal, with no colour of its own.
     #[default]
     Dark,
+    /// Soft, warm darks with a mauve accent.
+    Mocha,
     /// Blue-violet with an amber accent.
     Dusk,
     /// Deep blues with a blue accent.

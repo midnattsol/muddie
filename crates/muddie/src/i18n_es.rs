@@ -550,4 +550,11 @@ pub const SPANISH: &[(&str, &str)] = &[
         "Luau, run when the key is pressed.",
         "Luau; se ejecuta al pulsar la tecla.",
     ),
+    ("Show the map", "Mostrar el mapa"),
+    ("No map yet", "Aún no hay mapa"),
+    (
+        "It is drawn as you walk, if the MUD says which room you are in. If yours tells it another way, or draws the map itself, a script can take it from there.",
+        "Se dibuja al caminar, si el MUD dice en qué sala estás. Si el tuyo lo cuenta de otra forma, o dibuja él mismo el mapa, un script puede encargarse.",
+    ),
+    ("Set up a mapper…", "Configurar un mapper…"),
 ];

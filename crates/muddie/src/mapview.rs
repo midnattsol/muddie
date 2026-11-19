@@ -28,6 +28,8 @@ pub enum MapAction {
     Tidy(String),
     /// Run one of the client's own commands, such as `/where`.
     Command(&'static str),
+    /// Open the scripts, to set a mapper up.
+    Scripts,
 }
 
 /// The map's colours, taken from the theme.

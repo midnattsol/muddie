@@ -158,7 +158,7 @@ folder and then in `sounds` in the configuration folder.
 ## Settings
 
 **View > Settings…**, in sections: appearance (theme, language, text size and
-font; the themes are Mocha, Dusk, Tokyo Night, Nord, Graphite, Light and
+font; the themes are Dark, Graphite, Mocha, Dusk, Tokyo Night, Nord, Light and
 High contrast), output (lines kept, timestamps), sessions (logging, reconnection,
 keep-alive) and speech (rate, language, screen reader). They are saved in
 `settings.toml`, which also remembers whether the chat and map panels are

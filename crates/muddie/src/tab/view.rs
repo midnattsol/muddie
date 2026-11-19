@@ -79,8 +79,7 @@ impl Tab {
                 self.announce(ui);
                 self.input_line(ui);
             });
-        let has_map = self.map.borrow().current().is_some();
-        if self.show_map && (has_map || !self.text_panels.is_empty()) {
+        if self.show_map {
             let action = Panel::right("map")
                 .frame(well(4, 8))
                 .show_separator_line(false)
@@ -92,6 +91,7 @@ impl Tab {
             match action {
                 Some(MapAction::Walk(room)) => self.walk_to(room),
                 Some(MapAction::Tidy(area)) => self.tidy(&area),
+                Some(MapAction::Scripts) => self.open_automation(4),
                 Some(MapAction::Command(command)) => {
                     self.map_command(command);
                 }
@@ -110,17 +110,13 @@ impl Tab {
                 None => {}
             }
         }
-        if !(self.show_map && (has_map || !self.text_panels.is_empty())) {
+        if !self.show_map {
             // No panel yet: what a script would get if it opened one.
             let room = egui::vec2(330.0 - 28.0, ui.available_height() - 50.0);
             self.panel_cells = Self::cells(ui, room);
         }
         self.report_panel(ui.ctx());
-        let right = if self.show_map && (has_map || !self.text_panels.is_empty()) {
-            4
-        } else {
-            8
-        };
+        let right = if self.show_map { 4 } else { 8 };
         let frame = well(8, right);
         let clicked = CentralPanel::default()
             .frame(frame)
@@ -161,13 +157,13 @@ impl Tab {
                 &painter,
                 low - egui::vec2(sky.width() * 0.22, 0.0),
                 reach,
-                theme.terminal[5].gamma_multiply(strength * 0.7),
+                theme.accent.gamma_multiply(strength * 0.35),
             );
             widgets::glow(
                 &painter,
                 low + egui::vec2(sky.width() * 0.1, 0.0),
                 reach * 0.8,
-                theme.accent.gamma_multiply(strength),
+                theme.accent.gamma_multiply(strength * 0.5),
             );
 
             egui::ScrollArea::vertical()
@@ -399,7 +395,7 @@ impl Tab {
     /// The session's entries of the View menu.
     pub fn view_menu(&mut self, ui: &mut egui::Ui) {
         widgets::menu_check(ui, &mut self.show_chat, tr("Chat panel"));
-        widgets::menu_check(ui, &mut self.show_map, tr("Map panel"));
+        widgets::menu_check(ui, &mut self.show_map, tr("Show the map"));
         widgets::menu_separator(ui);
         if widgets::menu_item(ui, tr("Find…"), "Ctrl+F").clicked() {
             self.find_open = true;
@@ -438,6 +434,7 @@ impl Tab {
 
     /// The Map menu.
     pub fn map_menu(&mut self, ui: &mut egui::Ui) {
+        widgets::menu_check(ui, &mut self.show_map, tr("Show the map"));
         widgets::menu_check(ui, &mut self.map_view.all_areas, tr("Show all areas"));
         widgets::menu_separator(ui);
         for (name, command) in [

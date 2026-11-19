@@ -1662,10 +1662,26 @@ impl Tab {
         }
         let map = self.map.borrow();
         if map.current().is_some() {
-            self.map_view.show(ui, &map, self.walk.is_some())
-        } else {
-            None
+            return self.map_view.show(ui, &map, self.walk.is_some());
         }
+        if !self.text_panels.is_empty() {
+            return None;
+        }
+        // Nothing to show yet: say why, and where to go from here.
+        let theme = theme::current();
+        crate::widgets::caption(ui, tr("Map"));
+        ui.add_space((ui.available_height() * 0.28).max(12.0));
+        let mut scripts = false;
+        ui.vertical_centered(|ui| {
+            let title = RichText::new(tr("No map yet")).font(theme::font(theme::Weight::Medium, 14.5)).color(theme.text);
+            ui.add(Label::new(title).selectable(false));
+            ui.add_space(4.0);
+            let about = tr("It is drawn as you walk, if the MUD says which room you are in. If yours tells it another way, or draws the map itself, a script can take it from there.");
+            ui.label(RichText::new(about).font(theme::font(theme::Weight::Regular, 12.5)).color(theme.text_dim));
+            ui.add_space(12.0);
+            scripts = ui.button(tr("Set up a mapper…")).clicked();
+        });
+        scripts.then_some(MapAction::Scripts)
     }
 
     /// Up to [`MAX_LISTED_ROOMS`] rooms matching `query`, one line each.
@@ -2621,6 +2637,15 @@ mod tests {
             save(&mut menus, &format!("menu-{menu}"));
             crate::i18n::set_language(crate::settings::Language::English);
         }
+        // A session whose MUD has reported no room: the map says so.
+        let mut unmapped = window(None);
+        fake_connection(unmapped.state_mut().tab_mut());
+        unmapped
+            .state_mut()
+            .tab_mut()
+            .show_local("Bienvenido a Fimbulvetr.");
+        unmapped.run_steps(3);
+        save(&mut unmapped, "unmapped");
         // The command line with nothing typed in it.
         let mut empty = connected_demo_window();
         empty.state_mut().tab_mut().input.clear();

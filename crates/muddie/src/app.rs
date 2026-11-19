@@ -331,7 +331,8 @@ impl App {
                                     let row = widgets::setting_row;
                                     row(ui, tr("Theme"), &mut |ui| {
                                         let name = |theme: ThemeName| match theme {
-                                            ThemeName::Dark => "Mocha",
+                                            ThemeName::Dark => tr("Dark"),
+                                            ThemeName::Mocha => "Mocha",
                                             ThemeName::Dusk => tr("Dusk"),
                                             ThemeName::TokyoNight => "Tokyo Night",
                                             ThemeName::Nord => "Nord",
@@ -345,10 +346,11 @@ impl App {
                                             .show_ui(ui, |ui| {
                                                 for theme in [
                                                     ThemeName::Dark,
+                                                    ThemeName::Graphite,
+                                                    ThemeName::Mocha,
                                                     ThemeName::Dusk,
                                                     ThemeName::TokyoNight,
                                                     ThemeName::Nord,
-                                                    ThemeName::Graphite,
                                                     ThemeName::Light,
                                                     ThemeName::Contrast,
                                                 ] {

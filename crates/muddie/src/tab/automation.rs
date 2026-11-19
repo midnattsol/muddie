@@ -91,8 +91,8 @@ impl Tab {
             // The sections stand alone at the left, with air after them.
             // The list and the details are two cards; the gap between
             // them is the one place worth dragging, to trade their widths.
-            const SECTIONS: f32 = 176.0;
-            const AIR: f32 = 18.0;
+            const SECTIONS: f32 = 208.0;
+            const AIR: f32 = 22.0;
             const HANDLE: f32 = 12.0;
             let full = ui.available_rect_before_wrap();
             let most = (full.width() - SECTIONS - AIR - HANDLE - 460.0).max(240.0);
@@ -216,7 +216,7 @@ impl Tab {
     }
 
     fn automation_sections(&mut self, ui: &mut egui::Ui) {
-        ui.spacing_mut().item_spacing.y = 2.0;
+        ui.spacing_mut().item_spacing.y = 4.0;
         let heading = RichText::new(tr("Automation"))
             .font(theme::font(Weight::Semibold, 17.0))
             .color(theme::current().text);
@@ -224,7 +224,7 @@ impl Tab {
             ui.add_space(10.0);
             ui.add(Label::new(heading).selectable(false));
         });
-        ui.add_space(12.0);
+        ui.add_space(16.0);
         let counts = [
             self.rules_draft.triggers.len(),
             self.rules_draft.aliases.len(),

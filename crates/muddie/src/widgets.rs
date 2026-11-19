@@ -34,7 +34,10 @@ pub fn switch(ui: &mut Ui, on: &mut bool, label: &str) -> Response {
         }
         let travel = rect.width() - rect.height();
         let centre = rect.left_center() + vec2(rect.height() / 2.0 + travel * how_on, 0.0);
-        painter.circle_filled(centre, rect.height() / 2.0 - 2.5, Color32::WHITE);
+        // The knob takes the colour that reads on the track: on a light
+        // accent, a white knob would vanish once switched on.
+        let knob = theme::mix(Color32::WHITE, theme.on_accent, how_on);
+        painter.circle_filled(centre, rect.height() / 2.0 - 2.5, knob);
     }
     response
 }
@@ -113,7 +116,7 @@ pub fn text_box(ui: &mut Ui, value: &mut String, hint: &str) -> Response {
 /// An entry in a sidebar: its name, and a count at the right if given.
 pub fn nav_item(ui: &mut Ui, selected: bool, text: &str, count: Option<usize>) -> Response {
     let theme = theme::current();
-    let height = 30.0;
+    let height = 36.0;
     let (rect, response) =
         ui.allocate_exact_size(vec2(ui.available_width(), height), Sense::click());
     response.widget_info(|| WidgetInfo::selected(Role::Tab, ui.is_enabled(), selected, text));
@@ -132,7 +135,7 @@ pub fn nav_item(ui: &mut Ui, selected: bool, text: &str, count: Option<usize>) -
             Weight::Regular
         };
         painter.text(
-            rect.left_center() + vec2(10.0, 0.0),
+            rect.left_center() + vec2(12.0, 0.0),
             egui::Align2::LEFT_CENTER,
             text,
             theme::font(weight, 13.5),
@@ -140,7 +143,7 @@ pub fn nav_item(ui: &mut Ui, selected: bool, text: &str, count: Option<usize>) -
         );
         if let Some(count) = count {
             painter.text(
-                rect.right_center() - vec2(10.0, 0.0),
+                rect.right_center() - vec2(12.0, 0.0),
                 egui::Align2::RIGHT_CENTER,
                 count.to_string(),
                 theme::font(Weight::Regular, 12.0),

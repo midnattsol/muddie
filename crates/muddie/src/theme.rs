@@ -48,9 +48,47 @@ const fn rgb(hex: u32) -> Color32 {
     Color32::from_rgb((hex >> 16) as u8, (hex >> 8) as u8, hex as u8)
 }
 
+/// The default: sober. Neutral charcoal with no tint, and no accent colour
+/// either: what is selected or primary is marked in near-white. The only
+/// colour on screen is the MUD's own.
+const DARK: Theme = Theme {
+    dark: true,
+    background: rgb(0x0d0d0e),
+    surface: rgb(0x1a1a1c),
+    field: rgb(0x131314),
+    raised: rgb(0x29292c),
+    hover: rgb(0x36363a),
+    border: rgb(0x2b2b2e),
+    text: rgb(0xe8e8e8),
+    text_dim: rgb(0xa1a1a4),
+    text_faint: rgb(0x6c6c70),
+    accent: rgb(0xe4e4e6),
+    on_accent: rgb(0x131314),
+    good: rgb(0x7cc68d),
+    danger: rgb(0xe5737a),
+    terminal: [
+        rgb(0x3a3a3d),
+        rgb(0xe07a7f),
+        rgb(0x8cc98a),
+        rgb(0xd9bd7c),
+        rgb(0x7fa8d6),
+        rgb(0xb596cf),
+        rgb(0x6fbfc4),
+        rgb(0xc8c8cb),
+        rgb(0x6c6c70),
+        rgb(0xf0949a),
+        rgb(0xa6dca3),
+        rgb(0xecd49a),
+        rgb(0x9cc0ea),
+        rgb(0xcbb0e2),
+        rgb(0x8dd6da),
+        rgb(0xffffff),
+    ],
+};
+
 /// Mocha, after the Catppuccin palette: soft, warm darks and pastel
 /// colours, with mauve as the accent.
-const DARK: Theme = Theme {
+const MOCHA: Theme = Theme {
     dark: true,
     background: rgb(0x11111b),
     surface: rgb(0x1e1e2e),
@@ -305,6 +343,7 @@ impl Theme {
     pub fn named(name: ThemeName) -> Self {
         match name {
             ThemeName::Dark => DARK,
+            ThemeName::Mocha => MOCHA,
             ThemeName::Dusk => DUSK,
             ThemeName::TokyoNight => TOKYO_NIGHT,
             ThemeName::Nord => NORD,
