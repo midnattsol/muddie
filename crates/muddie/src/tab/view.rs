@@ -20,6 +20,9 @@ impl Tab {
         if self.rules_open {
             return self.automation_page(ui);
         }
+        if self.debug_open {
+            return self.debug_page(ui);
+        }
         // Alt+0 reads the gauges aloud.
         if ui.input_mut(|input| input.consume_key(Modifiers::ALT, Key::Num0)) {
             self.voice.stop();

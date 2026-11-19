@@ -18,6 +18,7 @@ use crate::widgets;
 const NEW_SESSION: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, egui::Key::T);
 const CLOSE_SESSION: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, egui::Key::W);
 const SWITCH_VIEW: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, egui::Key::E);
+const DEBUG_VIEW: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, egui::Key::D);
 
 pub struct App {
     tabs: Vec<Tab>,
@@ -158,11 +159,9 @@ impl App {
             let active = self.active;
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 let tab = &mut self.tabs[active];
-                let current = usize::from(tab.automation_open());
-                match widgets::segmented(ui, &[tr("Game"), tr("Editor")], current) {
-                    Some(0) => tab.close_automation(),
-                    Some(_) => tab.reopen_automation(),
-                    None => {}
+                let views = [tr("Game"), tr("Editor"), tr("Debug")];
+                if let Some(view) = widgets::segmented(ui, &views, tab.view()) {
+                    tab.set_view(view);
                 }
             });
         });
@@ -396,6 +395,10 @@ impl App {
                             ("Ctrl+T", tr("New session")),
                             ("Ctrl+W", tr("Close session")),
                             ("Ctrl+E", tr("Switch between the game and the editor")),
+                            (
+                                "Ctrl+D",
+                                tr("Switch between the game and the debugging view"),
+                            ),
                         ],
                     ),
                 ];
@@ -478,11 +481,11 @@ impl eframe::App for App {
         }
         if ui.input_mut(|input| input.consume_shortcut(&SWITCH_VIEW)) {
             let tab = &mut self.tabs[self.active];
-            if tab.automation_open() {
-                tab.close_automation();
-            } else {
-                tab.reopen_automation();
-            }
+            tab.set_view(if tab.view() == 1 { 0 } else { 1 });
+        }
+        if ui.input_mut(|input| input.consume_shortcut(&DEBUG_VIEW)) {
+            let tab = &mut self.tabs[self.active];
+            tab.set_view(if tab.view() == 2 { 0 } else { 2 });
         }
         let theme = theme::current();
         ui.painter().rect_filled(ui.max_rect(), 0.0, theme.surface);

@@ -135,7 +135,7 @@ pub struct Tab {
     /// screen; `None` until read, and again after one is saved.
     welcome_profiles: Option<Vec<(String, String)>>,
     /// The rule selected in each section of the automation window.
-    rules_selected: [usize; 7],
+    rules_selected: [usize; 6],
     /// The script files that can be edited, and the one being edited:
     /// its file, its name as typed, its text, and that text as saved.
     script_files: Vec<PathBuf>,
@@ -157,6 +157,11 @@ pub struct Tab {
     recording_key: bool,
     /// What the MUD has sent besides text, by name, to look at.
     data_seen: Vec<data::Seen>,
+    /// The debugging view: whether it is on screen, the one chosen in
+    /// its list, and what the list is narrowed to.
+    debug_open: bool,
+    data_selected: usize,
+    data_filter: String,
     /// The session has no saved profile to keep its variables in, so
     /// they are carried from one start of the scripts to the next.
     variables_passing: bool,
@@ -326,7 +331,7 @@ impl Tab {
             connection_open: false,
             started: false,
             welcome_profiles: None,
-            rules_selected: [0; 7],
+            rules_selected: [0; 6],
             script_files: Vec::new(),
             script_loaded: None,
             script_name: String::new(),
@@ -340,6 +345,9 @@ impl Tab {
             rules_sample: String::new(),
             recording_key: false,
             data_seen: Vec::new(),
+            debug_open: false,
+            data_selected: 0,
+            data_filter: String::new(),
             variables_passing: false,
             variable_loaded: None,
             variable_name: String::new(),
@@ -2801,7 +2809,7 @@ mod tests {
         );
         // The editor shows it, and a number there becomes a gauge with
         // its maximum found, in a panel of gauges.
-        app.open_automation(6);
+        app.set_view(2);
         harness.run_steps(3);
         assert!(
             harness
@@ -2831,7 +2839,8 @@ mod tests {
         );
         assert!(app.gauges_open);
         // Saved, it follows the value, in the panel it was put in.
-        app.close_automation();
+        app.gauges_open = false;
+        app.save_rules();
         events.send(vitals(55)).unwrap();
         harness.run_steps(3);
         let app = harness.state().tab();
@@ -3317,8 +3326,7 @@ mod tests {
             false,
             r#"{"num": 2, "name": "Plaza Mayor", "exits": {"n": 5, "e": 3}}"#,
         );
-        app.rules_section = 6;
-        app.rules_selected[6] = 0;
+        app.set_view(2);
         rules.run_steps(3);
         save(&mut rules, "data");
         // The menus, as someone using Spanish sees them.

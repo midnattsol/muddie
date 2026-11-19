@@ -87,6 +87,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_title("Muddie")
+            .with_maximized(true)
             .with_app_id("muddie")
             .with_inner_size([1180.0, 760.0])
             .with_min_inner_size([640.0, 400.0]),

@@ -1003,7 +1003,7 @@ impl Tab {
                         self.gauge_selected = self.rules_draft.gauges.len() - 1;
                     }
                     ui.add_space(6.0);
-                    let from_data = tr("What the MUD sends is under MUD data, in the editor: a gauge can be made from a number there.");
+                    let from_data = tr("What the MUD sends is under Debug: a gauge can be made from a number there.");
                     ui.label(RichText::new(from_data).font(theme::font(Weight::Regular, 11.5)).color(theme.text_faint));
                 });
                 ui.add_space(14.0);

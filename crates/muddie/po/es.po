@@ -1245,21 +1245,8 @@ msgstr "Aún no hay indicadores aquí."
 msgid "Add a gauge"
 msgstr "Añadir un indicador"
 
-msgid "What the MUD sends is under MUD data, in the editor: a gauge can be made from a number there."
-msgstr "Lo que envía el MUD está en Datos del MUD, en el editor: allí se puede crear un indicador a partir de un número."
-
 msgid "Shown in"
 msgstr "Se muestra en"
-
-msgid "MUD data"
-msgstr "Datos del MUD"
-
-msgid ""
-"Nothing received yet. What the MUD sends besides text, with GMCP or MSDP,\n"
-"appears here as it comes, to see what there is to follow or to script."
-msgstr ""
-"Aún no se ha recibido nada. Lo que el MUD envía además del texto, con GMCP o MSDP,\n"
-"aparece aquí según llega, para ver qué se puede seguir o usar en scripts."
 
 msgid "Nothing received yet."
 msgstr "Aún no se ha recibido nada."
@@ -1290,4 +1277,23 @@ msgstr "Tal como llegó"
 
 msgid "Before that"
 msgstr "Antes de eso"
+
+msgid "Debug"
+msgstr "Depuración"
+
+msgid "Switch between the game and the debugging view"
+msgstr "Cambiar entre el juego y la vista de depuración"
+
+msgid "What the MUD sends"
+msgstr "Lo que envía el MUD"
+
+msgid ""
+"What the MUD sends besides text, with GMCP or MSDP, appears here as it comes:\n"
+"look at it to know what a gauge can follow or a script can use."
+msgstr ""
+"Lo que el MUD envía además del texto, con GMCP o MSDP, aparece aquí según llega:\n"
+"míralo para saber qué puede seguir un indicador o usar un script."
+
+msgid "What the MUD sends is under Debug: a gauge can be made from a number there."
+msgstr "Lo que envía el MUD está en Depuración: allí se puede crear un indicador a partir de un número."
 

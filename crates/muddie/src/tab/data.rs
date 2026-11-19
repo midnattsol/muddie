@@ -145,13 +145,114 @@ impl Tab {
         }
     }
 
+    /// Which of its views the session is on: the game, the editor, or the
+    /// debugging one.
+    pub fn view(&self) -> usize {
+        match (self.rules_open, self.debug_open) {
+            (true, _) => 1,
+            (false, true) => 2,
+            (false, false) => 0,
+        }
+    }
+
+    /// Goes to one of the session's views.
+    pub fn set_view(&mut self, view: usize) {
+        if view != 1 && self.rules_open {
+            self.close_automation();
+        }
+        self.debug_open = view == 2;
+        if view == 1 {
+            self.reopen_automation();
+        }
+    }
+
+    /// The debugging view: what the MUD has sent besides text, each
+    /// package or variable in a list, and the one chosen laid out.
+    pub(super) fn debug_page(&mut self, ui: &mut egui::Ui) {
+        let theme = theme::current();
+        if ui.input_mut(|input| input.consume_key(Modifiers::NONE, Key::Escape)) {
+            self.debug_open = false;
+        }
+        let page = egui::Frame::new()
+            .fill(theme.surface)
+            .inner_margin(egui::Margin {
+                left: 8,
+                right: 8,
+                top: 2,
+                bottom: 8,
+            });
+        CentralPanel::default().frame(page).show(ui, |ui| {
+            let full = ui.available_rect_before_wrap();
+            let list = full.with_max_x(full.left() + 340.0_f32.min(full.width() * 0.4));
+            let detail = full.with_min_x(list.right() + 12.0);
+            let card = egui::CornerRadius::same(14);
+            ui.painter().rect_filled(list, card, theme.field);
+            ui.painter().rect_filled(detail, card, theme.field);
+            let mut pane = |name: &str, rect: egui::Rect, add: &mut dyn FnMut(&mut Self, &mut egui::Ui)| {
+                let builder = egui::UiBuilder::new()
+                    .id_salt(("debug pane", name))
+                    .max_rect(rect)
+                    .layout(egui::Layout::top_down(egui::Align::Min));
+                ui.scope_builder(builder, |ui| {
+                    ui.set_clip_rect(rect.intersect(ui.clip_rect()));
+                    ui.visuals_mut().text_edit_bg_color = Some(theme.surface);
+                    ui.visuals_mut().extreme_bg_color = theme.surface;
+                    add(self, ui);
+                });
+            };
+            pane("list", list.shrink2(egui::vec2(10.0, 12.0)), &mut |tab, ui| {
+                let heading = RichText::new(tr("What the MUD sends")).font(theme::font(Weight::Semibold, 15.0)).color(theme.text);
+                ui.horizontal(|ui| {
+                    ui.add_space(4.0);
+                    ui.add(Label::new(heading.clone()).selectable(false));
+                });
+                ui.add_space(6.0);
+                widgets::text_box(ui, &mut tab.data_filter, tr("Search"));
+                ui.add_space(4.0);
+                let filter = tab.data_filter.trim().to_lowercase();
+                egui::ScrollArea::vertical().auto_shrink(false).show(ui, |ui| {
+                    ui.spacing_mut().item_spacing.y = 2.0;
+                    if tab.data_seen.is_empty() {
+                        ui.add_space(24.0);
+                        let none = RichText::new(tr("Nothing received yet.")).color(theme.text_faint);
+                        ui.vertical_centered(|ui| ui.label(none));
+                    }
+                    for index in 0..tab.data_seen.len() {
+                        let seen = &tab.data_seen[index];
+                        if !filter.is_empty() && !seen.name.to_lowercase().contains(&filter) && !seen.json.to_lowercase().contains(&filter) {
+                            continue;
+                        }
+                        let (name, summary) = (seen.name.clone(), seen.summary());
+                        if widgets::list_row(ui, tab.data_selected == index, &name, &summary, true).clicked() {
+                            tab.data_selected = index;
+                        }
+                    }
+                });
+            });
+            pane("detail", detail.shrink2(egui::vec2(26.0, 18.0)), &mut |tab, ui| {
+                egui::ScrollArea::vertical().auto_shrink(false).show(ui, |ui| {
+                    ui.spacing_mut().item_spacing.y = 10.0;
+                    let index = tab.data_selected;
+                    if index < tab.data_seen.len() {
+                        tab.data_detail(ui, index);
+                        return;
+                    }
+                    ui.add_space(60.0);
+                    let about = tr("What the MUD sends besides text, with GMCP or MSDP, appears here as it comes:
+look at it to know what a gauge can follow or a script can use.");
+                    ui.vertical_centered(|ui| ui.label(RichText::new(about).color(theme.text_faint)));
+                });
+            });
+        });
+    }
+
     /// One thing the MUD sent, laid out: its values one by one, each with
     /// its path to copy and, if it is a number, a gauge to make of it;
     /// then the message as it came, and those before it.
-    pub(super) fn data_detail(&mut self, ui: &mut egui::Ui, index: usize) -> bool {
+    fn data_detail(&mut self, ui: &mut egui::Ui, index: usize) {
         let theme = theme::current();
         let Some(seen) = self.data_seen.get(index).cloned() else {
-            return false;
+            return;
         };
         ui.horizontal(|ui| {
             let title = RichText::new(&seen.name)
@@ -248,7 +349,6 @@ impl Tab {
         if let Some(path) = gauge {
             self.gauge_from(&path, &all);
         }
-        false
     }
 
     /// Makes a gauge that follows the value at `path`, with the maximum
@@ -265,6 +365,11 @@ impl Tab {
         let panel = (self.layout.panels.iter())
             .find(|panel| panel.kind == layout::Kind::Gauges)
             .map_or(0, |panel| panel.id);
+        // The gauges are edited over what is saved, as the editor does.
+        if !self.rules_open && !self.gauges_open {
+            self.rules_draft = self.rules.clone();
+            self.rules_seen = self.rules.clone();
+        }
         // Named after what it is: `health`, not the `current` inside it.
         let mut parts = path.rsplit('.');
         let last = parts.next().unwrap_or(path);
