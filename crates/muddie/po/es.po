@@ -1024,9 +1024,6 @@ msgstr "Texto del MUD"
 msgid "Font"
 msgstr "Tipografía"
 
-msgid "JetBrains Mono (built in)"
-msgstr "JetBrains Mono (incluida)"
-
 msgid "Size"
 msgstr "Tamaño"
 
@@ -1074,4 +1071,10 @@ msgstr "Suaves, a juego con el tema"
 
 msgid "Classic terminal"
 msgstr "Terminal clásico"
+
+msgid "With muddie"
+msgstr "Con muddie"
+
+msgid "Installed on this computer"
+msgstr "Instaladas en este equipo"
 

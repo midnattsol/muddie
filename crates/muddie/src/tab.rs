@@ -2849,6 +2849,16 @@ mod tests {
         settings.state_mut().open_settings(0);
         settings.run_steps(4);
         save(&mut settings, "settings-general");
+        // The same text in each of the fonts that come with the program.
+        for (name, _) in crate::theme::BUNDLED_FONTS {
+            let mut fonts = connected_demo_window();
+            let ctx = fonts.ctx.clone();
+            fonts
+                .state_mut()
+                .use_font(&ctx, &crate::theme::bundled_font(name));
+            fonts.run_steps(4);
+            save(&mut fonts, &format!("font-{}", name.replace(' ', "")));
+        }
         // The plugins, with one installed and enabled and one not.
         let dir = std::env::temp_dir().join(format!("muddie-shot-plugins-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);

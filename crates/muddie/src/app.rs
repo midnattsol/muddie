@@ -99,6 +99,13 @@ impl App {
         self.apply_settings(ctx);
     }
 
+    /// Switches the output's font as the settings window would.
+    #[cfg(test)]
+    pub fn use_font(&mut self, ctx: &egui::Context, family: &str) {
+        self.settings.font_family = family.to_owned();
+        self.apply_settings(ctx);
+    }
+
     /// Opens the settings window, to look at it.
     #[cfg(test)]
     pub fn open_settings(&mut self, section: usize) {
@@ -633,24 +640,43 @@ fn appearance_settings(ui: &mut Ui, settings: &mut Settings) {
                 .response
         });
         widgets::setting_row(ui, tr("Font"), &mut |ui| {
-            let built_in = tr("JetBrains Mono (built in)");
-            let shown = if settings.font_family.is_empty() {
-                built_in
-            } else {
-                settings.font_family.as_str()
-            };
+            // What the settings hold is a name of ours or a family's.
+            let shown = match settings.font_family.strip_prefix("muddie:") {
+                _ if settings.font_family.is_empty() => "JetBrains Mono",
+                Some(bundled) => bundled,
+                None => settings.font_family.as_str(),
+            }
+            .to_owned();
             egui::ComboBox::from_id_salt("font")
-                .selected_text(shown.to_owned())
+                .selected_text(shown)
                 .width(260.0)
-                .height(320.0)
+                .height(340.0)
                 .show_ui(ui, |ui| {
+                    let heading = |ui: &mut Ui, text: &str| {
+                        let small = RichText::new(text)
+                            .font(theme::font(Weight::Regular, 11.5))
+                            .color(theme.text_faint);
+                        ui.add(egui::Label::new(small).selectable(false));
+                    };
+                    heading(ui, tr("With muddie"));
                     if ui
-                        .selectable_label(settings.font_family.is_empty(), built_in)
+                        .selectable_label(settings.font_family.is_empty(), "JetBrains Mono")
                         .clicked()
                     {
                         settings.font_family.clear();
                     }
+                    for (name, _) in theme::BUNDLED_FONTS {
+                        let key = theme::bundled_font(name);
+                        if ui
+                            .selectable_label(settings.font_family == key, name)
+                            .clicked()
+                        {
+                            settings.font_family = key;
+                        }
+                    }
                     // The monospaced fonts the system has.
+                    ui.separator();
+                    heading(ui, tr("Installed on this computer"));
                     for font in theme::installed_fonts() {
                         let chosen = settings.font_family == font.family;
                         if ui.selectable_label(chosen, &font.family).clicked() {

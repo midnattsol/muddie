@@ -416,6 +416,29 @@ pub fn output_line_height() -> Option<f32> {
     (current.line_spacing != 1.0).then(|| current.output_size * 1.32 * current.line_spacing)
 }
 
+/// The fonts for the output that come with the program besides the
+/// default one, by name. The settings name one as `muddie:<name>`, so
+/// that it is never taken for a font of the system called the same.
+pub const BUNDLED_FONTS: [(&str, &[u8]); 3] = [
+    (
+        "Iosevka",
+        include_bytes!("../assets/fonts/Iosevka-Regular.ttf"),
+    ),
+    (
+        "Cascadia Mono",
+        include_bytes!("../assets/fonts/CascadiaMono-Regular.ttf"),
+    ),
+    (
+        "DejaVu Sans Mono",
+        include_bytes!("../assets/fonts/DejaVuSansMono.ttf"),
+    ),
+];
+
+/// What the settings call a bundled font.
+pub fn bundled_font(name: &str) -> String {
+    format!("muddie:{name}")
+}
+
 /// An installed font that suits the output: its family, where its
 /// regular face is, and which face of that file it is.
 pub struct InstalledFont {
@@ -645,6 +668,18 @@ fn install_fonts(ctx: &egui::Context, settings: &Settings) -> Result<(), String>
         }
     }
 
+    // One that comes with the program is simply put first.
+    let bundled = settings.font_family.strip_prefix("muddie:");
+    if let Some((_, bytes)) =
+        bundled.and_then(|name| BUNDLED_FONTS.iter().find(|(known, _)| *known == name))
+    {
+        fonts
+            .font_data
+            .insert("output".to_owned(), FontData::from_static(bytes).into());
+        let monospace = fonts.families.entry(FontFamily::Monospace).or_default();
+        monospace.insert(0, "output".to_owned());
+        return finish(ctx, fonts, Ok(()));
+    }
     // An installed family, or failing that a file given by hand.
     let chosen = if !settings.font_family.is_empty() {
         let found = installed_fonts()
