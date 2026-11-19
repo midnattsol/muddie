@@ -76,6 +76,11 @@ impl Profiles {
         Self { dir }
     }
 
+    /// Where translations of the user's own are looked for.
+    pub fn locale_dir(&self) -> PathBuf {
+        self.dir.join("locale")
+    }
+
     /// Where the settings shared by all profiles are kept.
     pub fn settings_path(&self) -> PathBuf {
         self.dir.join("settings.toml")

@@ -1916,7 +1916,7 @@ mod tests {
         // language of whatever machine they run on.
         let english = |cc: &eframe::CreationContext<'_>, startup| {
             let app = App::new(cc, startup, Default::default());
-            crate::i18n::set_language(crate::settings::Language::English);
+            crate::i18n::set_language("en");
             app
         };
         let mut harness = Harness::builder()
@@ -2523,7 +2523,7 @@ mod tests {
                     scripts: Vec::new(),
                 };
                 let app = App::new(cc, startup, Default::default());
-                crate::i18n::set_language(crate::settings::Language::English);
+                crate::i18n::set_language("en");
                 app
             });
         let app = harness.state_mut().tab_mut();
@@ -2736,12 +2736,12 @@ mod tests {
         // The menus, as someone using Spanish sees them.
         for menu in ["Sesión", "Ver", "Mapa"] {
             let mut menus = connected_demo_window();
-            crate::i18n::set_language(crate::settings::Language::Spanish);
+            crate::i18n::set_language("es");
             menus.run_steps(2);
             menus.get_by_label(menu).click();
             menus.run_steps(4);
             save(&mut menus, &format!("menu-{menu}"));
-            crate::i18n::set_language(crate::settings::Language::English);
+            crate::i18n::set_language("en");
         }
         // A session whose MUD has reported no room: the map says so.
         let mut unmapped = window(None);

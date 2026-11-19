@@ -1,0 +1,1079 @@
+# Spanish translation of muddie.
+# This file is distributed under the same licence as muddie.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: muddie\n"
+"Language: es\n"
+"X-Language-Name: Español\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "Settings"
+msgstr "Ajustes"
+
+msgid "New session"
+msgstr "Sesión nueva"
+
+msgid "Close"
+msgstr "Cerrar"
+
+msgid "Appearance"
+msgstr "Apariencia"
+
+msgid "Theme"
+msgstr "Tema"
+
+msgid "Dark"
+msgstr "Oscuro"
+
+msgid "Light"
+msgstr "Claro"
+
+msgid "High contrast"
+msgstr "Alto contraste"
+
+msgid "Language"
+msgstr "Idioma"
+
+msgid "System"
+msgstr "Sistema"
+
+msgid "Text size"
+msgstr "Tamaño del texto"
+
+msgid "Font file"
+msgstr "Fichero de fuente"
+
+msgid "Built-in font"
+msgstr "Fuente incluida"
+
+#, python-brace-format
+msgid "Could not save the settings: {0}"
+msgstr "No se pudieron guardar los ajustes: {0}"
+
+#, python-brace-format
+msgid "Could not load the settings: {0}"
+msgstr "No se pudieron cargar los ajustes: {0}"
+
+msgid "Sessions"
+msgstr "Sesiones"
+
+msgid "Lines kept"
+msgstr "Líneas guardadas"
+
+msgid "Output"
+msgstr "Salida"
+
+msgid "Show the time of each line"
+msgstr "Mostrar la hora de cada línea"
+
+msgid "Log"
+msgstr "Registro"
+
+msgid "Log every session"
+msgstr "Registrar todas las sesiones"
+
+msgid "Text"
+msgstr "Texto"
+
+msgid "Connection"
+msgstr "Conexión"
+
+msgid "Reconnect when the connection is lost"
+msgstr "Reconectar si se pierde la conexión"
+
+msgid "Keep-alive"
+msgstr "Mantener viva"
+
+msgid "Seconds of silence before a keep-alive is sent; 0 sends none."
+msgstr "Segundos de silencio antes de enviar una señal de vida; 0 no envía ninguna."
+
+msgid "Speech rate"
+msgstr "Velocidad de la voz"
+
+#, python-brace-format
+msgid "Logging stopped: {0}"
+msgstr "Registro detenido: {0}"
+
+msgid "Cannot log: no configuration folder was found."
+msgstr "No se puede registrar: no hay carpeta de configuración."
+
+#, python-brace-format
+msgid "Logging to {0}"
+msgstr "Registrando en {0}"
+
+#, python-brace-format
+msgid "Cannot log: {0}"
+msgstr "No se puede registrar: {0}"
+
+#, python-brace-format
+msgid "Logging stopped; the log is {0}"
+msgstr "Registro detenido; el fichero es {0}"
+
+msgid "Connected."
+msgstr "Conectado."
+
+msgid "Disconnected."
+msgstr "Desconectado."
+
+#, python-brace-format
+msgid "Disconnected: {0}"
+msgstr "Desconectado: {0}"
+
+#, python-brace-format
+msgid "Reconnecting in {0} seconds."
+msgstr "Reconectando en {0} segundos."
+
+msgid "Not connected."
+msgstr "No hay conexión."
+
+#, python-brace-format
+msgid "Cannot play the sound: {0}"
+msgstr "No se puede reproducir el sonido: {0}"
+
+msgid "Find"
+msgstr "Buscar"
+
+msgid "Previous"
+msgstr "Anterior"
+
+msgid "Next"
+msgstr "Siguiente"
+
+msgid "Not found."
+msgstr "No encontrado."
+
+msgid "Type a command"
+msgstr "Escribe un comando"
+
+msgid "Command"
+msgstr "Comando"
+
+msgid "Latest lines"
+msgstr "Últimas líneas"
+
+msgid "Back to the end"
+msgstr "Volver al final"
+
+#, python-brace-format
+msgid "Could not load the rules: {0}"
+msgstr "No se pudieron cargar las reglas: {0}"
+
+msgid "The rules cannot be saved: no configuration folder was found."
+msgstr "No se pueden guardar las reglas: no hay carpeta de configuración."
+
+msgid "Rules saved."
+msgstr "Reglas guardadas."
+
+#, python-brace-format
+msgid "Could not save the rules: {0}"
+msgstr "No se pudieron guardar las reglas: {0}"
+
+#, python-brace-format
+msgid "Profile {0} saved."
+msgstr "Perfil {0} guardado."
+
+#, python-brace-format
+msgid "The password could not be saved in the keyring: {0}"
+msgstr "No se pudo guardar la contraseña en el llavero: {0}"
+
+#, python-brace-format
+msgid "The password could not be read from the keyring: {0}"
+msgstr "No se pudo leer la contraseña del llavero: {0}"
+
+msgid "Scripts reloaded."
+msgstr "Scripts recargados."
+
+msgid "Map"
+msgstr "Mapa"
+
+msgid "Chat"
+msgstr "Chat"
+
+msgid "Triggers"
+msgstr "Triggers"
+
+msgid "Character"
+msgstr "Personaje"
+
+msgid "Password"
+msgstr "Contraseña"
+
+msgid "unchanged"
+msgstr "sin cambios"
+
+msgid "Kept in the system's keyring when the profile is saved."
+msgstr "Se guarda en el llavero del sistema al guardar el perfil."
+
+msgid "Triggers, aliases and keys"
+msgstr "Triggers, alias y teclas"
+
+msgid "Aliases"
+msgstr "Alias"
+
+msgid "Keys"
+msgstr "Teclas"
+
+msgid "Add"
+msgstr "Añadir"
+
+msgid "Save"
+msgstr "Guardar"
+
+msgid "Unsaved changes"
+msgstr "Cambios sin guardar"
+
+msgid "Nothing here yet. Use Add to make one."
+msgstr "Aún no hay nada. Usa Añadir para crear uno."
+
+msgid "Delete"
+msgstr "Borrar"
+
+msgid "On"
+msgstr "Activo"
+
+msgid "When a line has"
+msgstr "Cuando una línea contiene"
+
+msgid "Regular expression"
+msgstr "Expresión regular"
+
+msgid "Send"
+msgstr "Enviar"
+
+msgid "Say"
+msgstr "Decir"
+
+msgid "Play"
+msgstr "Sonido"
+
+msgid "Colour"
+msgstr "Color"
+
+msgid "Hide the line"
+msgstr "Ocultar la línea"
+
+msgid "Typing"
+msgstr "Al escribir"
+
+msgid "Sends"
+msgstr "Envía"
+
+msgid "Key"
+msgstr "Tecla"
+
+#, python-brace-format
+msgid "Unknown text encoding {0}; using the automatic one."
+msgstr "Codificación de texto {0} desconocida; se usa la automática."
+
+msgid "Encoding"
+msgstr "Codificación"
+
+msgid "Only for servers that do not use UTF-8 or Latin-1, e.g. big5 or koi8-r."
+msgstr "Solo para servidores que no usan UTF-8 ni Latin-1, p. ej. big5 o koi8-r."
+
+msgid "No script packages are installed. Use /install with a git address."
+msgstr "No hay paquetes de scripts instalados. Usa /install con una dirección git."
+
+msgid "enabled in this profile"
+msgstr "activo en este perfil"
+
+msgid "not enabled; use /enable"
+msgstr "inactivo; usa /enable"
+
+#, python-brace-format
+msgid "Installing {0}..."
+msgstr "Instalando {0}..."
+
+msgid "Packages need a configuration folder, and none was found."
+msgstr "Los paquetes necesitan una carpeta de configuración y no se encontró ninguna."
+
+msgid "Give the package a name after the address: letters, digits, - and _."
+msgstr "Indica un nombre para el paquete tras la dirección: letras, dígitos, - y _."
+
+#, python-brace-format
+msgid "Updating {0}..."
+msgstr "Actualizando {0}..."
+
+msgid "No such package is installed; see /packages."
+msgstr "No hay ningún paquete instalado con ese nombre; mira /packages."
+
+msgid "Packages are enabled per profile: save or choose a profile first."
+msgstr "Los paquetes se activan por perfil: guarda o elige un perfil primero."
+
+#, python-brace-format
+msgid "Package {0} enabled."
+msgstr "Paquete {0} activado."
+
+#, python-brace-format
+msgid "Package {0} disabled."
+msgstr "Paquete {0} desactivado."
+
+#, python-brace-format
+msgid "Package {0} installed."
+msgstr "Paquete {0} instalado."
+
+#, python-brace-format
+msgid "Package {0} updated."
+msgstr "Paquete {0} actualizado."
+
+#, python-brace-format
+msgid "The package could not be installed or updated: {0}"
+msgstr "No se pudo instalar o actualizar el paquete: {0}"
+
+msgid "Profile"
+msgstr "Perfil"
+
+msgid "(none)"
+msgstr "(ninguno)"
+
+msgid "Disconnect"
+msgstr "Desconectar"
+
+msgid "Connect"
+msgstr "Conectar"
+
+msgid "Speech"
+msgstr "Voz"
+
+msgid "Host"
+msgstr "Servidor"
+
+msgid "Port"
+msgstr "Puerto"
+
+msgid "Security"
+msgstr "Seguridad"
+
+msgid "Verify certificate"
+msgstr "Verificar certificado"
+
+msgid "Profile name"
+msgstr "Nombre del perfil"
+
+msgid "Save profile"
+msgstr "Guardar perfil"
+
+msgid "Speech on."
+msgstr "Voz activada."
+
+msgid "Blank."
+msgstr "En blanco."
+
+msgid "No gauges."
+msgstr "No hay indicadores."
+
+msgid "No map yet: the server has not reported a room."
+msgstr "Aún no hay mapa: el servidor no ha informado de ninguna sala."
+
+msgid "Area"
+msgstr "Zona"
+
+msgid "Down"
+msgstr "Bajar"
+
+msgid "Up"
+msgstr "Subir"
+
+msgid "Back to me"
+msgstr "Volver a mí"
+
+msgid "All areas"
+msgstr "Todas las zonas"
+
+msgid "Map view"
+msgstr "Vista del mapa"
+
+msgid "Tidy this area"
+msgstr "Ordenar esta zona"
+
+msgid "Walk here"
+msgstr "Caminar hasta aquí"
+
+msgid "Allow in routes"
+msgstr "Permitir en rutas"
+
+msgid "Avoid in routes"
+msgstr "Evitar en rutas"
+
+msgid "Click a room to walk there, right-click for more, Shift+drag to move it."
+msgstr "Clic en una sala para caminar hasta ella, clic derecho para más, Mayús+arrastrar para moverla."
+
+#, python-brace-format
+msgid "Could not load the profile: {0}"
+msgstr "No se pudo cargar el perfil: {0}"
+
+msgid "Profiles cannot be saved: no configuration folder was found."
+msgstr "No se pueden guardar perfiles: no hay carpeta de configuración."
+
+msgid "The port must be a number from 1 to 65535."
+msgstr "El puerto debe ser un número del 1 al 65535."
+
+#, python-brace-format
+msgid "Could not save the profile: {0}"
+msgstr "No se pudo guardar el perfil: {0}"
+
+msgid "Enter a host to connect to."
+msgstr "Indica un servidor al que conectar."
+
+#, python-brace-format
+msgid "Connecting to {0}:{1}..."
+msgstr "Conectando a {0}:{1}..."
+
+#, python-brace-format
+msgid "The map will not be saved: {0}"
+msgstr "El mapa no se guardará: {0}"
+
+msgid "The map will not be saved: no data folder was found."
+msgstr "El mapa no se guardará: no hay carpeta de datos."
+
+#, python-brace-format
+msgid "Could not save the map: {0}"
+msgstr "No se pudo guardar el mapa: {0}"
+
+msgid "The map does not know where you are yet."
+msgstr "El mapa aún no sabe dónde estás."
+
+msgid "No known route to that room."
+msgstr "No hay ruta conocida hasta esa sala."
+
+msgid "Arrived."
+msgstr "Has llegado."
+
+msgid "Walk stopped: this is not the room the route expected."
+msgstr "Recorrido detenido: esta no es la sala que esperaba la ruta."
+
+msgid "Walk stopped: the last move had no effect."
+msgstr "Recorrido detenido: el último paso no tuvo efecto."
+
+msgid "No room matches."
+msgstr "Ninguna sala coincide."
+
+msgid "Several rooms match; use /go with a room number:"
+msgstr "Coinciden varias salas; usa /go con un número de sala:"
+
+#, python-brace-format
+msgid "Routes will avoid {0}."
+msgstr "Las rutas evitarán {0}."
+
+#, python-brace-format
+msgid "Routes may pass through {0} again."
+msgstr "Las rutas pueden volver a pasar por {0}."
+
+msgid "No such room; use /avoid with a room number."
+msgstr "No existe esa sala; usa /avoid con un número de sala."
+
+msgid "Routes will not use that exit."
+msgstr "Las rutas no usarán esa salida."
+
+msgid "Routes may use that exit again."
+msgstr "Las rutas pueden volver a usar esa salida."
+
+msgid "This room has no such exit."
+msgstr "Esta sala no tiene esa salida."
+
+#, python-brace-format
+msgid "Tidied the map: {0} rooms moved."
+msgstr "Mapa ordenado: {0} salas movidas."
+
+msgid "Walk stopped."
+msgstr "Recorrido detenido."
+
+msgid "Not walking."
+msgstr "No hay ningún recorrido en curso."
+
+msgid "exits"
+msgstr "salidas"
+
+msgid "level"
+msgstr "nivel"
+
+msgid "avoided"
+msgstr "evitada"
+
+msgid "weight"
+msgstr "peso"
+
+#, python-brace-format
+msgid "{0} (#{1}) in {2}. Exits: {3}."
+msgstr "{0} (n.º {1}) en {2}. Salidas: {3}."
+
+#, python-brace-format
+msgid "Script error: {0}"
+msgstr "Error de script: {0}"
+
+msgid "Speech language"
+msgstr "Idioma de la voz"
+
+msgid "system"
+msgstr "sistema"
+
+msgid "A language code such as es or en, so the text is read with the right voice."
+msgstr "Un código de idioma como es o en, para que el texto se lea con la voz adecuada."
+
+msgid "Screen reader"
+msgstr "Lector de pantalla"
+
+msgid "Voice through the screen reader (also braille)"
+msgstr "Leer a través del lector de pantalla (también braille)"
+
+msgid "Instead of speaking directly, hand each line to the screen reader to announce."
+msgstr "En vez de hablar directamente, pasa cada línea al lector de pantalla para que la anuncie."
+
+msgid "Close session"
+msgstr "Cerrar sesión"
+
+msgid "Session"
+msgstr "Sesión"
+
+msgid "View"
+msgstr "Ver"
+
+msgid "Settings…"
+msgstr "Ajustes…"
+
+msgid "Automation"
+msgstr "Automatización"
+
+msgid "Help"
+msgstr "Ayuda"
+
+msgid "Keyboard shortcuts"
+msgstr "Atajos de teclado"
+
+msgid "About muddie"
+msgstr "Acerca de muddie"
+
+msgid "Earlier and later commands"
+msgstr "Comandos anteriores y posteriores"
+
+msgid "Search the commands typed before"
+msgstr "Buscar en los comandos escritos"
+
+msgid "Complete the word being typed"
+msgstr "Completar la palabra que escribes"
+
+msgid "Search the output"
+msgstr "Buscar en la salida"
+
+msgid "Silence speech"
+msgstr "Silenciar la voz"
+
+msgid "Read the previous and next line"
+msgstr "Leer la línea anterior y la siguiente"
+
+msgid "Read the most recent lines"
+msgstr "Leer las líneas más recientes"
+
+msgid "The same, for the chat"
+msgstr "Lo mismo, para el chat"
+
+msgid "Read the gauges"
+msgstr "Leer los indicadores"
+
+#, python-brace-format
+msgid "Version {0}"
+msgstr "Versión {0}"
+
+msgid "A modern, accessible MUD client."
+msgstr "Un cliente de MUD moderno y accesible."
+
+msgid "Free software, under the MIT or Apache 2.0 licence."
+msgstr "Software libre, bajo licencia MIT o Apache 2.0."
+
+msgid "Where do you want to play?"
+msgstr "¿Dónde quieres jugar?"
+
+msgid "Your profiles"
+msgstr "Tus perfiles"
+
+msgid "New connection"
+msgstr "Conexión nueva"
+
+msgid "Secure connection (TLS)"
+msgstr "Conexión segura (TLS)"
+
+msgid "More options…"
+msgstr "Más opciones…"
+
+#, python-brace-format
+msgid "Connected to {0}, encrypted"
+msgstr "Conectado a {0}, cifrado"
+
+#, python-brace-format
+msgid "Connected to {0}"
+msgstr "Conectado a {0}"
+
+msgid "Not connected"
+msgstr "Sin conexión"
+
+msgid "Logging"
+msgstr "Registrando"
+
+msgid "Walking"
+msgstr "Caminando"
+
+msgid "Connection…"
+msgstr "Conexión…"
+
+msgid "Log this session"
+msgstr "Registrar esta sesión"
+
+msgid "Chat panel"
+msgstr "Panel de chat"
+
+msgid "Map panel"
+msgstr "Panel del mapa"
+
+msgid "Find…"
+msgstr "Buscar…"
+
+msgid "Triggers…"
+msgstr "Triggers…"
+
+msgid "Aliases…"
+msgstr "Alias…"
+
+msgid "Macros…"
+msgstr "Macros…"
+
+msgid "Reload scripts"
+msgstr "Recargar scripts"
+
+msgid "List script packages"
+msgstr "Listar paquetes de scripts"
+
+msgid "Where am I?"
+msgstr "¿Dónde estoy?"
+
+msgid "Avoid this room in routes"
+msgstr "Evitar esta sala en las rutas"
+
+msgid "Stop walking"
+msgstr "Dejar de caminar"
+
+msgid "Server"
+msgstr "Servidor"
+
+msgid "Text encoding"
+msgstr "Codificación del texto"
+
+msgid "Log in automatically"
+msgstr "Entrar automáticamente"
+
+msgid "Macros"
+msgstr "Macros"
+
+msgid "All changes saved"
+msgstr "Todos los cambios guardados"
+
+msgid "Saving…"
+msgstr "Guardando…"
+
+msgid "Search"
+msgstr "Buscar"
+
+msgid ""
+"Nothing here yet.\n"
+"Press + to make one."
+msgstr ""
+"Aún no hay nada.\n"
+"Pulsa + para crear uno."
+
+msgid ""
+"A trigger reacts to what the MUD sends:\n"
+"it can answer, speak, play a sound, colour or hide the line."
+msgstr ""
+"Un trigger reacciona a lo que envía el MUD:\n"
+"puede responder, hablar, reproducir un sonido, colorear u ocultar la línea."
+
+msgid ""
+"An alias turns a short command you type\n"
+"into the commands you mean."
+msgstr ""
+"Un alias convierte un comando corto que escribes\n"
+"en los comandos que quieres decir."
+
+msgid "A macro sends commands at the press of a key."
+msgstr "Una macro envía comandos al pulsar una tecla."
+
+msgid "Name this trigger"
+msgstr "Ponle nombre a este trigger"
+
+msgid "When"
+msgstr "Cuando"
+
+msgid "A line matches this regular expression"
+msgstr "Una línea cumple esta expresión regular"
+
+msgid "A line contains this text"
+msgstr "Una línea contiene este texto"
+
+msgid "tells you"
+msgstr "te dice"
+
+msgid "Do"
+msgstr "Hacer"
+
+msgid "Send commands"
+msgstr "Enviar comandos"
+
+msgid "%1 is here"
+msgstr "%1 está aquí"
+
+msgid "Play a sound"
+msgstr "Reproducir un sonido"
+
+msgid "Colour the match"
+msgstr "Colorear la coincidencia"
+
+msgid "Try it"
+msgstr "Pruébalo"
+
+msgid "Paste a line from the MUD"
+msgstr "Pega una línea del MUD"
+
+msgid "sends"
+msgstr "envía"
+
+msgid "says"
+msgstr "dice"
+
+msgid "Name this alias"
+msgstr "Ponle nombre a este alias"
+
+msgid "What you type matches this regular expression"
+msgstr "Lo que escribes cumple esta expresión regular"
+
+msgid "You type this word, alone or followed by more"
+msgstr "Escribes esta palabra, sola o seguida de más"
+
+msgid "Send instead"
+msgstr "Enviar en su lugar"
+
+msgid "%1 stands for what follows the word. Separate several commands with ;"
+msgstr "%1 es lo que sigue a la palabra. Separa varios comandos con ;"
+
+msgid "Name this macro"
+msgstr "Ponle nombre a esta macro"
+
+msgid "Press the key…"
+msgstr "Pulsa la tecla…"
+
+msgid "None"
+msgstr "Ninguna"
+
+msgid "Cancel"
+msgstr "Cancelar"
+
+msgid "Record a key"
+msgstr "Grabar una tecla"
+
+msgid "Function keys, keys with Ctrl or Alt, and the numeric keypad can be used."
+msgstr "Sirven las teclas de función, las combinaciones con Ctrl o Alt y el teclado numérico."
+
+msgid "Enabled"
+msgstr "Activo"
+
+msgid "Name"
+msgstr "Nombre"
+
+msgid "The pattern is not valid:"
+msgstr "El patrón no es válido:"
+
+msgid "Does not match."
+msgstr "No coincide."
+
+msgid "Matches."
+msgstr "Coincide."
+
+msgid "Matches:"
+msgstr "Coincide:"
+
+msgid "Show all areas"
+msgstr "Mostrar todas las zonas"
+
+msgid "Log format"
+msgstr "Formato del registro"
+
+msgid "Address"
+msgstr "Dirección"
+
+msgid "red"
+msgstr "rojo"
+
+msgid "green"
+msgstr "verde"
+
+msgid "yellow"
+msgstr "amarillo"
+
+msgid "blue"
+msgstr "azul"
+
+msgid "magenta"
+msgstr "magenta"
+
+msgid "cyan"
+msgstr "cian"
+
+msgid "white"
+msgstr "blanco"
+
+msgid "Gauges…"
+msgstr "Indicadores…"
+
+msgid "Scripts…"
+msgstr "Scripts…"
+
+msgid "Gauges"
+msgstr "Indicadores"
+
+msgid "Scripts"
+msgstr "Scripts"
+
+msgid "In every session"
+msgstr "En todas las sesiones"
+
+msgid "In this profile"
+msgstr "En este perfil"
+
+#, python-brace-format
+msgid "Could not save the script: {0}"
+msgstr "No se pudo guardar el script: {0}"
+
+msgid "Scripts of your own are kept per profile: save or choose a profile first."
+msgstr "Tus scripts se guardan por perfil: guarda o elige un perfil primero."
+
+msgid ""
+"A gauge is a bar that follows a number the MUD reports,\n"
+"such as your health."
+msgstr ""
+"Un indicador es una barra que sigue un número que da el MUD,\n"
+"como tu vida."
+
+msgid ""
+"Scripts are Luau programs: for what triggers cannot do,\n"
+"such as building the map from what your MUD sends."
+msgstr ""
+"Los scripts son programas en Luau: para lo que los triggers no pueden,\n"
+"como construir el mapa con lo que envía tu MUD."
+
+#, python-brace-format
+msgid "Could not delete the script: {0}"
+msgstr "No se pudo borrar el script: {0}"
+
+msgid "Send commands, one per line"
+msgstr "Enviar comandos, uno por línea"
+
+msgid "Run a script (Luau): m holds the match, line the whole line"
+msgstr "Ejecutar un script (Luau): m es la coincidencia, line la línea entera"
+
+msgid "Send instead, one command per line"
+msgstr "Enviar en su lugar, un comando por línea"
+
+msgid "%1 stands for what follows the word."
+msgstr "%1 es lo que sigue a la palabra."
+
+msgid "Run a script (Luau): m holds the match, input what was typed"
+msgstr "Ejecutar un script (Luau): m es la coincidencia, input lo que escribiste"
+
+msgid "Run a script (Luau)"
+msgstr "Ejecutar un script (Luau)"
+
+msgid "Name this gauge"
+msgstr "Ponle nombre a este indicador"
+
+msgid "Follows"
+msgstr "Sigue"
+
+msgid "Value"
+msgstr "Valor"
+
+msgid "Maximum"
+msgstr "Máximo"
+
+msgid "Where the MUD reports it: a GMCP package and the fields inside it, such as Char.Vitals.health.current, or the name of a MSDP variable. The maximum can also be a number."
+msgstr "Dónde lo da el MUD: un paquete GMCP y los campos que lleva dentro, como Char.Vitals.health.current, o el nombre de una variable MSDP. El máximo también puede ser un número."
+
+msgid "Look"
+msgstr "Aspecto"
+
+msgid "Draw it as cells"
+msgstr "Dibujarlo en casillas"
+
+msgid "Warn when under"
+msgstr "Avisar por debajo de"
+
+msgid "Preview"
+msgstr "Vista previa"
+
+msgid "Gauge"
+msgstr "Indicador"
+
+msgid "Script"
+msgstr "Script"
+
+msgid "Game"
+msgstr "Juego"
+
+msgid "Empty script"
+msgstr "Script vacío"
+
+msgid "From an example"
+msgstr "A partir de un ejemplo"
+
+msgid "A map the MUD draws itself"
+msgstr "Un mapa que dibuja el propio MUD"
+
+msgid "A map the MUD sends whole"
+msgstr "Un mapa que el MUD envía entero"
+
+msgid "A map read from the room descriptions"
+msgstr "Un mapa leído de las descripciones de las salas"
+
+msgid "Words to complete, given by the MUD"
+msgstr "Palabras para completar, dadas por el MUD"
+
+msgid "Gauges from the MUD's vitals"
+msgstr "Indicadores a partir de los vitales del MUD"
+
+msgid "Dusk"
+msgstr "Atardecer"
+
+msgid "Graphite"
+msgstr "Grafito"
+
+msgid "Resize"
+msgstr "Redimensionar"
+
+msgid "Luau, run after the rest. m holds the match, line the whole line."
+msgstr "Luau; se ejecuta después de lo demás. m es la coincidencia, line la línea entera."
+
+msgid "Luau, run after the rest. m holds the match, input what was typed."
+msgstr "Luau; se ejecuta después de lo demás. m es la coincidencia, input lo que escribiste."
+
+msgid "Luau, run when the key is pressed."
+msgstr "Luau; se ejecuta al pulsar la tecla."
+
+msgid "Show the map"
+msgstr "Mostrar el mapa"
+
+msgid "No map yet"
+msgstr "Aún no hay mapa"
+
+msgid "It is drawn as you walk, if the MUD says which room you are in. If yours tells it another way, or draws the map itself, a script can take it from there."
+msgstr "Se dibuja al caminar, si el MUD dice en qué sala estás. Si el tuyo lo cuenta de otra forma, o dibuja él mismo el mapa, un script puede encargarse."
+
+msgid "Set up a mapper…"
+msgstr "Configurar un mapper…"
+
+msgid "Switch between the game and automation"
+msgstr "Cambiar entre el juego y la automatización"
+
+msgid "Line"
+msgstr "Línea"
+
+msgid "Keep the command after sending it"
+msgstr "Dejar el comando tras enviarlo"
+
+msgid "It stays selected: Enter sends it again, and typing replaces it."
+msgstr "Queda seleccionado: Enter lo envía otra vez y escribir lo sustituye."
+
+msgid "Modules"
+msgstr "Módulos"
+
+msgid "Run everything again"
+msgstr "Ejecutar todo de nuevo"
+
+msgid "Loads the modules and the rules afresh, as when connecting."
+msgstr "Carga de nuevo los módulos y las reglas, como al conectar."
+
+msgid ""
+"Modules are Luau code that is always loaded: what no rule can do,\n"
+"such as building the map or acting on what your MUD reports."
+msgstr ""
+"Los módulos son código Luau que está siempre cargado: lo que ninguna regla puede hacer,\n"
+"como construir el mapa o reaccionar a lo que informa tu MUD."
+
+msgid "One command per line. %1, %2… are the groups of the pattern."
+msgstr "Un comando por línea. %1, %2… son los grupos del patrón."
+
+msgid "m holds the match, line the whole line."
+msgstr "m es la coincidencia, line la línea entera."
+
+msgid "Also"
+msgstr "Además"
+
+msgid "runs the script"
+msgstr "ejecuta el script"
+
+msgid "One command per line. %1 stands for what follows the word."
+msgstr "Un comando por línea. %1 es lo que sigue a la palabra."
+
+msgid "m holds the match, input what was typed."
+msgstr "m es la coincidencia, input lo que escribiste."
+
+msgid "One command per line, sent as if you had typed them."
+msgstr "Un comando por línea, enviados como si los hubieras escrito."
+
+msgid "Run when the key is pressed."
+msgstr "Se ejecuta al pulsar la tecla."
+
+msgid "Module"
+msgstr "Módulo"
+
+msgid "Commands"
+msgstr "Comandos"
+
+msgid "Lua script"
+msgstr "Script Lua"
+
+msgid "Timers"
+msgstr "Temporizadores"
+
+msgid "every"
+msgstr "cada"
+
+msgid "after"
+msgstr "tras"
+
+msgid ""
+"A timer does something after a while,\n"
+"once or again and again."
+msgstr ""
+"Un temporizador hace algo pasado un tiempo,\n"
+"una vez o una y otra vez."
+
+msgid "Name this timer"
+msgstr "Ponle nombre a este temporizador"
+
+msgid "Every"
+msgstr "Cada"
+
+msgid "Once, after"
+msgstr "Una vez, tras"
+
+msgid "seconds"
+msgstr "segundos"
+
+msgid "Counted from when the session starts or the rules are run again."
+msgstr "Se cuenta desde que empieza la sesión o se vuelven a ejecutar las reglas."
+
+msgid "Goes off once, that long after the session starts or the rules are run again."
+msgstr "Salta una vez, ese tiempo después de empezar la sesión o de volver a ejecutar las reglas."
+
+msgid "One command per line."
+msgstr "Un comando por línea."
+
+msgid "Run each time the timer goes off."
+msgstr "Se ejecuta cada vez que salta el temporizador."
+
+#, python-brace-format
+msgid "Reconnecting in {0} second."
+msgid_plural "Reconnecting in {0} seconds."
+msgstr[0] "Reconectando en {0} segundo."
+msgstr[1] "Reconectando en {0} segundos."

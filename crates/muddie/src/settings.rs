@@ -27,16 +27,6 @@ pub enum ThemeName {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
-pub enum Language {
-    /// Follow the system's locale.
-    #[default]
-    Auto,
-    English,
-    Spanish,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
 pub enum LogFormat {
     #[default]
     Text,
@@ -50,7 +40,9 @@ pub enum LogFormat {
 #[serde(default)]
 pub struct Settings {
     pub theme: ThemeName,
-    pub language: Language,
+    /// The code of the interface's language, such as `es`; `en` for
+    /// English, empty to follow the system.
+    pub language: String,
     /// Size of the output's text, in points.
     pub font_size: f32,
     /// A TrueType or OpenType file to use for the output instead of the
@@ -90,7 +82,7 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             theme: ThemeName::default(),
-            language: Language::default(),
+            language: String::new(),
             font_size: 15.0,
             font_file: String::new(),
             scrollback_lines: 20_000,
@@ -146,7 +138,7 @@ mod tests {
         assert_eq!(Settings::load(&path).unwrap(), Settings::default());
         let settings = Settings {
             theme: ThemeName::Contrast,
-            language: Language::Spanish,
+            language: "es".to_owned(),
             font_size: 18.5,
             log_format: LogFormat::Html,
             keepalive_seconds: 0,

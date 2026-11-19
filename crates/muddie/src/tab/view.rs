@@ -330,7 +330,11 @@ impl Tab {
                 let seconds = at.saturating_duration_since(Instant::now()).as_secs() + 1;
                 (
                     theme.terminal[3],
-                    trf("Reconnecting in {0} seconds.", &[&seconds.to_string()]),
+                    crate::i18n::trn(
+                        "Reconnecting in {0} second.",
+                        "Reconnecting in {0} seconds.",
+                        seconds,
+                    ),
                 )
             }
             (None, None) => (theme.text_faint, tr("Not connected").to_owned()),

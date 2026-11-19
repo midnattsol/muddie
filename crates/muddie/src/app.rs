@@ -10,7 +10,7 @@ use eframe::egui::{
 use crate::i18n::{self, tr, trf};
 use crate::keypad;
 use crate::profile::Profiles;
-use crate::settings::{Language, Settings, ThemeName};
+use crate::settings::{Settings, ThemeName};
 use crate::tab::{Startup, Tab};
 use crate::theme::{self, Weight};
 use crate::widgets;
@@ -55,7 +55,10 @@ impl App {
                 Some(trf("Could not load the settings: {0}", &[&error])),
             ),
         };
-        i18n::set_language(settings.language);
+        if let Some(profiles) = &profiles {
+            i18n::set_user_dir(profiles.locale_dir());
+        }
+        i18n::set_language(&settings.language);
         if let Err(error) = theme::apply(&cc.egui_ctx, &settings) {
             settings_error = Some(error);
         }
@@ -361,25 +364,35 @@ impl App {
                                             .response
                                     });
                                     row(ui, tr("Language"), &mut |ui| {
-                                        let name = |language: Language| match language {
-                                            Language::Auto => tr("System"),
-                                            Language::English => "English",
-                                            Language::Spanish => "Español",
-                                        };
+                                        // The system's, English, and every catalogue there is.
+                                        let mut choices = vec![
+                                            (String::new(), tr("System").to_owned()),
+                                            ("en".to_owned(), "English".to_owned()),
+                                        ];
+                                        choices.extend(i18n::languages());
+                                        let current = match settings.language.as_str() {
+                                            "auto" => "",
+                                            "english" => "en",
+                                            "spanish" => "es",
+                                            code => code,
+                                        }
+                                        .to_owned();
+                                        let shown = choices
+                                            .iter()
+                                            .find(|(code, _)| *code == current)
+                                            .map_or(current.as_str(), |(_, name)| name.as_str())
+                                            .to_owned();
                                         egui::ComboBox::from_id_salt("language")
-                                            .selected_text(name(settings.language))
+                                            .selected_text(shown)
                                             .width(170.0)
                                             .show_ui(ui, |ui| {
-                                                for language in [
-                                                    Language::Auto,
-                                                    Language::English,
-                                                    Language::Spanish,
-                                                ] {
-                                                    ui.selectable_value(
-                                                        &mut settings.language,
-                                                        language,
-                                                        name(language),
-                                                    );
+                                                for (code, name) in &choices {
+                                                    if ui
+                                                        .selectable_label(*code == current, name)
+                                                        .clicked()
+                                                    {
+                                                        settings.language.clone_from(code);
+                                                    }
                                                 }
                                             })
                                             .response
@@ -504,7 +517,7 @@ impl App {
 
     /// Puts changed settings into effect and saves them.
     fn apply_settings(&mut self, ctx: &egui::Context) {
-        i18n::set_language(self.settings.language);
+        i18n::set_language(&self.settings.language);
         self.settings_error = theme::apply(ctx, &self.settings).err();
         for tab in &mut self.tabs {
             tab.settings_changed(&self.settings);

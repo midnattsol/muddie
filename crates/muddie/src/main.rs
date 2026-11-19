@@ -2,7 +2,6 @@ mod app;
 mod complete;
 mod history;
 mod i18n;
-mod i18n_es;
 mod keypad;
 mod logger;
 mod luau;
