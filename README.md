@@ -1,4 +1,4 @@
-# muddie
+# Muddie
 
 A modern, accessible MUD client written in Rust.
 
@@ -39,7 +39,7 @@ and the [example scripts](examples/scripts).
 
 ## State of the project
 
-muddie is new. It is developed and tested on Linux; the Windows and macOS
+Muddie is new. It is developed and tested on Linux; the Windows and macOS
 builds compile but have had little use, and reports from screen reader users
 are especially welcome.
 

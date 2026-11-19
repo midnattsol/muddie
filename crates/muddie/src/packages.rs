@@ -61,7 +61,7 @@ fn check_package(folder: PathBuf) -> Result<(), String> {
     if folder.join("init.luau").is_file() {
         Ok(())
     } else {
-        Err("it was downloaded, but has no init.luau, so it is not a muddie package".to_owned())
+        Err("it was downloaded, but has no init.luau, so it is not a Muddie plugin".to_owned())
     }
 }
 

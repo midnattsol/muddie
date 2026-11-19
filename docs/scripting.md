@@ -1,4 +1,4 @@
-# Scripting muddie
+# Scripting Muddie
 
 Scripts are written in [Luau](https://luau.org), a fast, typed dialect of Lua
 5.1. They run in a sandbox: a script cannot read or write files, start

@@ -286,7 +286,7 @@ pub fn commands_as_lua(send: &str, matched: bool) -> String {
 
 /// What every chunk of [`Rules::chunks`] starts with.
 const PRELUDE: &str = r#"local function fill(template, m)
-	return (template:gsub("%%(%d)", function(n) return m[tonumber(n)] or "" end))
+	return expand((template:gsub("%%(%d)", function(n) return m[tonumber(n)] or "" end)))
 end
 local function dig(path)
 	local number = tonumber(path)
@@ -512,7 +512,7 @@ impl Rules {
                 script(&timer.script)
             } else {
                 commands(&timer.send)
-                    .map(|command| format!("\tsend({})\n", quoted(command)))
+                    .map(|command| format!("\tsend(expand({}))\n", quoted(command)))
                     .collect()
             };
             let how = if timer.repeat { "every" } else { "after" };
@@ -976,6 +976,39 @@ mod tests {
             rules.groups.is_empty(),
             "the usual state is not written down"
         );
+    }
+
+    #[test]
+    fn commands_of_rules_take_the_values_of_variables() {
+        let rules = Rules {
+            triggers: vec![Trigger {
+                enabled: true,
+                pattern: r"^(\w+) arrives".into(),
+                regex: true,
+                send: "tell $friend %1 is here; $5 stays".into(),
+                ..Trigger::default()
+            }],
+            timers: vec![Timer {
+                tenths: 10,
+                send: "cast $spell".into(),
+                ..Timer::default()
+            }],
+            ..Rules::default()
+        };
+        let mut engine = run(&rules);
+        engine
+            .set_variable("friend", Some(serde_json::json!("Ana")))
+            .unwrap();
+        engine
+            .set_variable("spell", Some(serde_json::json!("shield")))
+            .unwrap();
+        engine.on_line("Orc arrives");
+        assert_eq!(
+            engine.take_actions(),
+            ["tell Ana Orc is here", "$5 stays"].map(send)
+        );
+        engine.tick(std::time::Instant::now() + std::time::Duration::from_millis(1100));
+        assert_eq!(engine.take_actions(), [send("cast shield")]);
     }
 
     #[test]

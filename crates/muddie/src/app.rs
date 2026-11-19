@@ -280,7 +280,7 @@ impl App {
                 tab.session_menu(ui);
             }
         });
-        ui.menu_button(tr("View"), |ui| {
+        ui.menu_button(tr("Preferences"), |ui| {
             widgets::menu_width(ui);
             self.tabs[active].view_menu(ui);
             widgets::menu_separator(ui);
@@ -295,7 +295,7 @@ impl App {
                 self.show_shortcuts = true;
                 ui.close();
             }
-            if widgets::menu_item(ui, tr("About muddie"), "").clicked() {
+            if widgets::menu_item(ui, tr("About Muddie"), "").clicked() {
                 self.show_about = true;
                 ui.close();
             }
@@ -426,12 +426,12 @@ impl App {
         widgets::dialog(
             ctx,
             "about muddie",
-            tr("About muddie"),
+            tr("About Muddie"),
             &mut self.show_about,
             320.0,
             |ui| {
                 ui.label(
-                    RichText::new("muddie")
+                    RichText::new("Muddie")
                         .font(theme::font(Weight::Semibold, 26.0))
                         .color(theme.text),
                 );
@@ -651,7 +651,7 @@ fn appearance_settings(ui: &mut Ui, settings: &mut Settings) {
                             .color(theme.text_faint);
                         ui.add(egui::Label::new(small).selectable(false));
                     };
-                    heading(ui, tr("With muddie"));
+                    heading(ui, tr("With Muddie"));
                     if ui
                         .selectable_label(settings.font_family.is_empty(), "JetBrains Mono")
                         .clicked()

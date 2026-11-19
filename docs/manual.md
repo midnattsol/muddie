@@ -1,4 +1,4 @@
-# muddie manual
+# Muddie manual
 
 ## Starting
 
@@ -28,7 +28,7 @@ Type a profile name and press **Save profile** to keep it. A profile also has it
 all under `profiles/<name>/` in the configuration folder (`~/.config/muddie`
 on Linux, `%APPDATA%\muddie` on Windows).
 
-With a character name saved, muddie answers the first prompt with it. The
+With a character name saved, Muddie answers the first prompt with it. The
 password is kept in the system's keyring, never in a file, and is sent when
 the server hides typing.
 
@@ -51,7 +51,7 @@ addresses in the output can be clicked, as can links the server marks.
 
 ## Commands
 
-Lines starting with `/` and one of these words are for muddie itself;
+Lines starting with `/` and one of these words are for Muddie itself;
 anything else is sent to the MUD.
 
 | Command | What it does |
@@ -132,9 +132,9 @@ They are saved in the profile's `rules.toml`. For anything more, see
 
 Around the output there can be panels: the map, the gauges, and panels of
 text. A profile starts with one for the MUD's channels above, the map at the
-right and the gauges below. **View** lists them, each to show or hide.
+right and the gauges below. **Preferences** lists them, each to show or hide.
 
-**View > Edit the layout…** is where they are made and placed, on the game
+**Preferences > Edit the layout…** is where they are made and placed, on the game
 itself:
 
 - **Add a panel** makes one: of text, the map, or the gauges.
@@ -178,7 +178,7 @@ used. Both are kept when the server reports the room again.
 
 ## Speech
 
-With **Speech** on, muddie speaks each new line through the system's speech:
+With **Speech** on, Muddie speaks each new line through the system's speech:
 speech-dispatcher on Linux, the system voices on Windows and macOS.
 
 | Key | What it does |
@@ -190,7 +190,7 @@ speech-dispatcher on Linux, the system voices on Windows and macOS.
 | Alt+Shift with the same keys | The same for the chat panel |
 | Alt+0 | Reads the gauges |
 
-With **Voice through the screen reader** set in the settings, muddie hands
+With **Voice through the screen reader** set in the settings, Muddie hands
 each line to your screen reader to announce instead of speaking itself. That
 is the way to read the MUD on a braille display, and it uses the screen
 reader's own voice and settings.
@@ -207,7 +207,7 @@ folder and then in `sounds` in the configuration folder.
 
 ## Settings
 
-**View > Settings…**, in sections:
+**Preferences > Settings…**, in sections:
 
 - **General**: the language, and the size the interface is drawn at.
 - **Appearance**: the theme (Dark, Graphite, Mocha, Dusk, Tokyo Night, Nord,

@@ -144,7 +144,7 @@ impl Tab {
                             ui.vertical_centered(|ui| {
                                 widgets::logo(ui, 54.0);
                                 ui.add_space(10.0);
-                                let name = RichText::new("muddie")
+                                let name = RichText::new("Muddie")
                                     .font(theme::font(Weight::Semibold, 32.0))
                                     .color(theme.text);
                                 ui.add(Label::new(name).selectable(false));

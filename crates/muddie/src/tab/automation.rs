@@ -14,7 +14,8 @@ const TRIGGERS: usize = 0;
 const ALIASES: usize = 1;
 const MACROS: usize = 2;
 const TIMERS: usize = 3;
-pub(super) const SCRIPTS: usize = 4;
+const VARIABLES: usize = 4;
+pub(super) const SCRIPTS: usize = 5;
 
 /// Scripts to start from: what each is for, its file name, its text.
 const EXAMPLES: [(&str, &str, &str); 5] = [
@@ -234,6 +235,7 @@ impl Tab {
             self.rules_draft.aliases.len(),
             self.rules_draft.keys.len(),
             self.rules_draft.timers.len(),
+            self.scripts.variables().len(),
             self.script_files.len(),
         ];
         let names = [
@@ -241,6 +243,7 @@ impl Tab {
             tr("Aliases"),
             tr("Macros"),
             tr("Timers"),
+            tr("Variables"),
             tr("Scripts"),
         ];
         for (section, name) in names.into_iter().enumerate() {
@@ -428,6 +431,9 @@ impl Tab {
                         rule.enabled,
                     )
                 })
+                .collect(),
+            VARIABLES => (self.scripts.variables().into_iter())
+                .map(|(name, value)| (name, shown_value(&value).replace('\n', " "), true))
                 .collect(),
             _ => (self.script_files.iter())
                 .map(|file| {
@@ -700,6 +706,7 @@ impl Tab {
                 draft.timers.push(Timer::default());
                 draft.timers.len() - 1
             }
+            VARIABLES => return self.add_variable(),
             _ => return self.add_script(None),
         };
         self.rules_selected[self.rules_section] = index;
@@ -762,6 +769,9 @@ impl Tab {
                 }
                 MACROS => tr("A macro sends commands at the press of a key."),
                 TIMERS => tr("A timer does something after a while,\nonce or again and again."),
+                VARIABLES => tr(
+                    "A variable is a value with a name, kept from one session to the next:\nwho you are hunting, what you carry, how many you have killed.",
+                ),
                 _ => tr(
                     "Scripts are Luau code that is always loaded: what no rule can do,\nsuch as building the map or acting on what your MUD reports.",
                 ),
@@ -777,6 +787,7 @@ impl Tab {
             ALIASES => self.alias_detail(ui, index),
             MACROS => self.macro_detail(ui, index),
             TIMERS => self.timer_detail(ui, index),
+            VARIABLES => self.variable_detail(ui, index),
             _ => self.script_detail(ui, index),
         };
         if delete {
@@ -786,6 +797,15 @@ impl Tab {
                 ALIASES => drop(draft.aliases.remove(index)),
                 MACROS => drop(draft.keys.remove(index)),
                 TIMERS => drop(draft.timers.remove(index)),
+                VARIABLES => {
+                    if let Some((name, _)) = self.scripts.variables().get(index) {
+                        let forgotten = self.scripts.set_variable(name, None);
+                        if let Err(error) = forgotten {
+                            self.note(&error);
+                        }
+                    }
+                    self.variable_loaded = None;
+                }
                 _ => {
                     let path = self.script_files[index].clone();
                     self.script_loaded = None;
@@ -905,7 +925,7 @@ impl Tab {
         note(
             ui,
             tr(
-                "With the line hidden, it is only in the panel. Panels are made in View, Edit the layout.",
+                "With the line hidden, it is only in the panel. Panels are made in Preferences, Edit the layout.",
             ),
         );
         ui.add_space(6.0);
@@ -1127,6 +1147,149 @@ impl Tab {
         delete
     }
 
+    /// Makes a variable with a name not yet taken and selects it.
+    fn add_variable(&mut self) {
+        let known: Vec<String> = self
+            .scripts
+            .variables()
+            .into_iter()
+            .map(|(name, _)| name)
+            .collect();
+        let names = (1..).map(|number| {
+            if number == 1 {
+                "variable".to_owned()
+            } else {
+                format!("variable{number}")
+            }
+        });
+        let Some(name) = names.take(500).find(|name| !known.contains(name)) else {
+            return;
+        };
+        if let Err(error) = self
+            .scripts
+            .set_variable(&name, Some(serde_json::Value::String(String::new())))
+        {
+            self.note(&error);
+        }
+        let place = self
+            .scripts
+            .variables()
+            .iter()
+            .position(|(known, _)| *known == name);
+        self.rules_selected[VARIABLES] = place.unwrap_or(0);
+        self.rules_filter.clear();
+    }
+
+    fn variable_detail(&mut self, ui: &mut egui::Ui, index: usize) -> bool {
+        let theme = theme::current();
+        let variables = self.scripts.variables();
+        let Some((name, value)) = variables.get(index).cloned() else {
+            return false;
+        };
+        if self.variable_loaded.as_ref() != Some(&name) {
+            self.variable_loaded = Some(name.clone());
+            self.variable_name.clone_from(&name);
+            self.variable_text = shown_value(&value);
+        }
+        let mut delete = false;
+        let mut renamed = false;
+        ui.horizontal(|ui| {
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                let label = RichText::new(tr("Delete")).color(theme.danger);
+                delete = ui
+                    .add(egui::Button::new(label).fill(egui::Color32::TRANSPARENT))
+                    .clicked();
+                let title = TextEdit::singleline(&mut self.variable_name)
+                    .font(theme::font(Weight::Semibold, 20.0))
+                    .frame(egui::Frame::NONE)
+                    .desired_width(f32::INFINITY);
+                let field = ui.add(title);
+                ui.ctx().accesskit_node_builder(field.id, |node| {
+                    node.set_label(tr("Name"));
+                });
+                // Renamed once its name is done being typed.
+                renamed = field.lost_focus();
+            });
+        });
+        ui.add(egui::Separator::default().spacing(2.0));
+        let wanted = self.variable_name.trim().to_owned();
+        let is_a_name = wanted.starts_with(|ch: char| ch.is_ascii_alphabetic() || ch == '_')
+            && wanted
+                .chars()
+                .all(|ch| ch.is_ascii_alphanumeric() || ch == '_');
+        let taken = variables.iter().any(|(known, _)| *known == wanted);
+        if wanted != name && !is_a_name {
+            note(
+                ui,
+                tr("A name is made of letters, digits and _, and does not start with a digit."),
+            );
+        } else if wanted != name && taken {
+            note(ui, tr("There is already a variable of that name."));
+        } else if wanted != name && renamed {
+            let moved = (self.scripts.set_variable(&wanted, Some(value.clone())))
+                .and_then(|()| self.scripts.set_variable(&name, None));
+            if let Err(error) = moved {
+                self.note(&error);
+            }
+            self.variable_loaded = Some(wanted.clone());
+            let place = self
+                .scripts
+                .variables()
+                .iter()
+                .position(|(known, _)| *known == wanted);
+            self.rules_selected[VARIABLES] = place.unwrap_or(0);
+            return false;
+        }
+        widgets::caption(ui, tr("Value"));
+        let before = self.variable_text.clone();
+        let editor = ui.add(
+            TextEdit::multiline(&mut self.variable_text)
+                .font(egui::FontId::monospace(13.0))
+                .margin(egui::Margin::symmetric(12, 10))
+                .desired_rows(6)
+                .desired_width(f32::INFINITY),
+        );
+        ui.ctx().accesskit_node_builder(editor.id, |node| {
+            node.set_label(tr("Value"));
+        });
+        if self.variable_text != before {
+            let kept = self
+                .scripts
+                .set_variable(&name, Some(read_value(&self.variable_text)));
+            if let Err(error) = kept {
+                self.note(&error);
+            }
+        }
+        let kind = match read_value(&self.variable_text) {
+            serde_json::Value::Number(_) => tr("A number."),
+            serde_json::Value::Bool(_) => tr("True or false."),
+            serde_json::Value::Array(_) | serde_json::Value::Object(_) => {
+                tr("A table, written as JSON.")
+            }
+            _ => tr("Text."),
+        };
+        note(ui, kind);
+        ui.add_space(6.0);
+        // Where it is kept, which is with the session's profile or nowhere.
+        let kept = match &self.profile {
+            Some(profile) => trf("Kept with the profile {0}.", &[profile]),
+            None => tr("This session has no saved profile, so its variables last until it is closed. Save the profile, in Session, Connection, to keep them.").to_owned(),
+        };
+        note(ui, &kept);
+        ui.add_space(6.0);
+        widgets::caption(ui, tr("Using it"));
+        let uses = trf(
+            "In the commands of a rule, ${0} is replaced by its value. In a script it is vars.{0}, to read it and to change it.",
+            &[&name],
+        );
+        ui.label(
+            RichText::new(uses)
+                .font(theme::font(Weight::Regular, 12.5))
+                .color(theme.text_dim),
+        );
+        delete
+    }
+
     pub(super) fn gauge_detail(&mut self, ui: &mut egui::Ui, index: usize) -> bool {
         let theme = theme::current();
         let rule = &mut self.rules_draft.gauges[index];
@@ -1315,6 +1478,31 @@ impl Tab {
             ui.input_mut(|input| input.events.clear());
         }
     }
+}
+
+/// A variable's value as it is shown to be edited: text as it is, the
+/// rest as JSON writes it.
+fn shown_value(value: &serde_json::Value) -> String {
+    match value {
+        serde_json::Value::String(text) => text.clone(),
+        serde_json::Value::Array(_) | serde_json::Value::Object(_) => {
+            serde_json::to_string_pretty(value).unwrap_or_default()
+        }
+        other => other.to_string(),
+    }
+}
+
+/// What was typed as a variable's value: a number, true or false, a table
+/// if it reads as one, and text otherwise.
+fn read_value(typed: &str) -> serde_json::Value {
+    let trimmed = typed.trim();
+    let table = trimmed.starts_with(['{', '[']);
+    let plain =
+        matches!(trimmed, "true" | "false") || trimmed.parse::<f64>().is_ok_and(f64::is_finite);
+    let read = (table || plain)
+        .then(|| serde_json::from_str(trimmed).ok())
+        .flatten();
+    read.unwrap_or_else(|| serde_json::Value::String(typed.to_owned()))
 }
 
 /// The group a rule belongs to: typed, or picked among those there are.
@@ -1547,6 +1735,25 @@ mod tests {
             Outcome::Invalid(reason) => format!("invalid: {reason}"),
             Outcome::NoMatch => "no match".into(),
             Outcome::Match(effect) => format!("match: {effect}"),
+        }
+    }
+
+    #[test]
+    fn values_are_read_as_what_they_look_like() {
+        use serde_json::json;
+        assert_eq!(read_value(" 42 "), json!(42));
+        assert_eq!(read_value("3.5"), json!(3.5));
+        assert_eq!(read_value("true"), json!(true));
+        assert_eq!(read_value("{\"hp\": 10}"), json!({"hp": 10}));
+        assert_eq!(read_value("[1, 2]"), json!([1, 2]));
+        // What only looks like one of those is text, kept as typed.
+        assert_eq!(read_value("{broken"), json!("{broken"));
+        assert_eq!(read_value("orc chieftain "), json!("orc chieftain "));
+        assert_eq!(read_value("NaN"), json!("NaN"));
+        assert_eq!(read_value(""), json!(""));
+        // And what is shown reads back as what it was.
+        for value in [json!(42), json!(true), json!("orc"), json!({"a": [1, 2]})] {
+            assert_eq!(read_value(&shown_value(&value)), value);
         }
     }
 

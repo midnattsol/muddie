@@ -51,6 +51,10 @@
 //!   `send_msdp(command, ...)`: the same for MSDP, e.g.
 //!   `send_msdp("REPORT", "HEALTH")`. Values arrive as strings.
 //! - `mssp()`: the server's MSSP status as a table, empty if it sent none.
+//! - `vars`: the remembered values as a table: `vars.target = "orc"`
+//!   remembers, `vars.target` recalls, and `for name, value in vars`
+//!   goes through them. `expand(text)` puts them in place of each
+//!   `$name` in `text`, as the commands of rules and key bindings do.
 //! - `on_event(name, fn)`: call `fn` when something happens in the client:
 //!   `"connect"`, `"disconnect"`, or `"panel"` with the size in characters
 //!   of the panel beside the output.
@@ -302,6 +306,48 @@ impl State {
         self.last_id
     }
 
+    /// Writes the remembered values to their file, if they have one.
+    fn save_memory(&self) -> Result<(), String> {
+        let Some(file) = &self.memory_file else {
+            return Ok(());
+        };
+        // Written to a temporary file first, so a crash cannot leave the
+        // real one half written.
+        let text = serde_json::to_string_pretty(&self.memory).map_err(|error| error.to_string())?;
+        let temporary = file.with_extension("json.tmp");
+        std::fs::write(&temporary, text)
+            .and_then(|()| std::fs::rename(&temporary, file))
+            .map_err(|error| format!("could not save {}: {error}", file.display()))
+    }
+
+    /// `text` with each `$name` that is a remembered value replaced by
+    /// it. A `$` before anything else is left as it is.
+    fn expand(&self, text: &str) -> String {
+        let mut expanded = String::with_capacity(text.len());
+        let mut rest = text;
+        while let Some(at) = rest.find('$') {
+            expanded.push_str(&rest[..at]);
+            let after = &rest[at + 1..];
+            let end = after
+                .find(|ch: char| !(ch.is_ascii_alphanumeric() || ch == '_'))
+                .unwrap_or(after.len());
+            let name = &after[..end];
+            let starts_as_a_name =
+                name.starts_with(|ch: char| ch.is_ascii_alphabetic() || ch == '_');
+            match self.memory.get(name).filter(|_| starts_as_a_name) {
+                Some(serde_json::Value::String(value)) => expanded.push_str(value),
+                Some(value) => expanded.push_str(&value.to_string()),
+                None => {
+                    expanded.push('$');
+                    expanded.push_str(name);
+                }
+            }
+            rest = &after[end..];
+        }
+        expanded.push_str(rest);
+        expanded
+    }
+
     /// The groups there are, in alphabetical order.
     fn group_names(&self) -> Vec<String> {
         let matchers = self
@@ -367,6 +413,16 @@ impl Engine {
         let state = Rc::new(RefCell::new(State::default()));
         install_api(&lua, &state)?;
         install_map_api(&lua, &state, &map)?;
+        // The remembered values as a table, over `remember` and `recall`.
+        lua.load(
+            r#"vars = setmetatable({}, {
+                __index = function(_, name) return recall(name) end,
+                __newindex = function(_, name, value) remember(name, value) end,
+                __iter = function() return next, remembered() end,
+            })"#,
+        )
+        .set_name("=vars")
+        .exec()?;
 
         let watched = Rc::clone(&state);
         lua.set_interrupt(move |_| {
@@ -464,7 +520,7 @@ impl Engine {
                     .is_none_or(|group| !state.disabled_groups.contains(group))
             });
             match live {
-                Some((_, Binding::Command(command))) => Ok(command.clone()),
+                Some((_, Binding::Command(command))) => Ok(state.expand(command)),
                 Some((_, Binding::Function(function))) => Err(function.clone()),
                 None => return false,
             }
@@ -635,6 +691,34 @@ impl Engine {
                 }
             }
         }
+    }
+
+    /// The remembered values, by name, in alphabetical order.
+    pub fn variables(&self) -> Vec<(String, serde_json::Value)> {
+        let state = self.state.borrow();
+        let mut all: Vec<(String, serde_json::Value)> = (state.memory.iter())
+            .map(|(name, value)| (name.clone(), value.clone()))
+            .collect();
+        all.sort_by_key(|(name, _)| name.to_lowercase());
+        all
+    }
+
+    /// Remembers a value, or forgets it if given none, and saves.
+    pub fn set_variable(
+        &mut self,
+        name: &str,
+        value: Option<serde_json::Value>,
+    ) -> Result<(), String> {
+        let mut state = self.state.borrow_mut();
+        match value {
+            Some(value) => {
+                state.memory.insert(name.to_owned(), value);
+            }
+            None => {
+                state.memory.remove(name);
+            }
+        }
+        state.save_memory()
     }
 
     /// The groups there are: those anything belongs to, and those
@@ -1467,18 +1551,26 @@ fn install_api(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
                     state.memory.insert(key, json);
                 }
             }
-            let Some(file) = &state.memory_file else {
-                return Ok(());
-            };
-            // Written to a temporary file first, so a crash cannot leave
-            // the real one half written.
-            let text = serde_json::to_string_pretty(&state.memory).map_err(mlua::Error::runtime)?;
-            let temporary = file.with_extension("json.tmp");
-            std::fs::write(&temporary, text)
-                .and_then(|()| std::fs::rename(&temporary, file))
-                .map_err(|error| {
-                    mlua::Error::runtime(format!("could not save {}: {error}", file.display()))
-                })
+            state.save_memory().map_err(mlua::Error::runtime)
+        })?,
+    )?;
+
+    let shared = Rc::clone(state);
+    add(
+        "expand",
+        lua.create_function(move |_, text: String| Ok(shared.borrow().expand(&text)))?,
+    )?;
+
+    let shared = Rc::clone(state);
+    add(
+        "remembered",
+        lua.create_function(move |lua, ()| {
+            let options = SerializeOptions::new()
+                .serialize_none_to_null(false)
+                .serialize_unit_to_null(false)
+                .set_array_metatable(false);
+            let all = serde_json::Value::Object(shared.borrow().memory.clone());
+            lua.to_value_with(&all, options)
         })?,
     )?;
 
@@ -2536,6 +2628,54 @@ mod tests {
         assert_eq!(engine.take_actions(), [send("tick")]);
         assert!(engine.on_key("f1"));
         assert_eq!(engine.take_actions(), [send("kick")]);
+    }
+
+    #[test]
+    fn variables_are_a_table_that_is_kept_and_go_into_commands() {
+        let file =
+            std::env::temp_dir().join(format!("muddie-vars-test-{}.json", std::process::id()));
+        let _ = std::fs::remove_file(&file);
+        let mut engine = Engine::new(Rc::default()).unwrap();
+        engine.use_memory_file(file.clone());
+        engine.exec(
+            "test",
+            r#"
+            vars.target = "orc"
+            vars.kills = (vars.kills or 0) + 2
+            bind("f1", "kill $target; say $kills down, $5 left, $nothing")
+            local names = {}
+            for name, value in vars do table.insert(names, name .. "=" .. tostring(value)) end
+            table.sort(names)
+            echo(table.concat(names, " ") .. " | " .. expand("$target!"))
+            "#,
+        );
+        assert_eq!(
+            engine.take_actions(),
+            [Action::Echo("kills=2 target=orc | orc!".into())]
+        );
+        engine.on_key("f1");
+        assert_eq!(
+            engine.take_actions(),
+            [send("kill orc"), send("say 2 down, $5 left, $nothing")]
+        );
+        // The editor reads and changes the same values.
+        assert_eq!(
+            engine.variables()[0],
+            ("kills".to_owned(), serde_json::json!(2))
+        );
+        engine
+            .set_variable("target", Some(serde_json::json!("troll")))
+            .unwrap();
+        engine.set_variable("kills", None).unwrap();
+        // They are there the next time.
+        let mut later = Engine::new(Rc::default()).unwrap();
+        later.use_memory_file(file.clone());
+        later.exec(
+            "test",
+            r#"echo(tostring(vars.target) .. tostring(vars.kills))"#,
+        );
+        assert_eq!(later.take_actions(), [Action::Echo("trollnil".into())]);
+        std::fs::remove_file(&file).unwrap();
     }
 
     #[test]

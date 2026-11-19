@@ -404,9 +404,6 @@ msgstr "Cerrar sesión"
 msgid "Session"
 msgstr "Sesión"
 
-msgid "View"
-msgstr "Ver"
-
 msgid "Settings…"
 msgstr "Ajustes…"
 
@@ -415,9 +412,6 @@ msgstr "Ayuda"
 
 msgid "Keyboard shortcuts"
 msgstr "Atajos de teclado"
-
-msgid "About muddie"
-msgstr "Acerca de muddie"
 
 msgid "Earlier and later commands"
 msgstr "Comandos anteriores y posteriores"
@@ -678,9 +672,6 @@ msgstr "Ponle nombre a este indicador"
 
 msgid "Follows"
 msgstr "Sigue"
-
-msgid "Value"
-msgstr "Valor"
 
 msgid "Maximum"
 msgstr "Máximo"
@@ -1054,9 +1045,6 @@ msgstr "Suaves, a juego con el tema"
 msgid "Classic terminal"
 msgstr "Terminal clásico"
 
-msgid "With muddie"
-msgstr "Con muddie"
-
 msgid "Installed on this computer"
 msgstr "Instaladas en este equipo"
 
@@ -1098,9 +1086,6 @@ msgstr "Activa o desactiva un grupo durante esta sesión"
 
 msgid "Show it in the panel"
 msgstr "Mostrarla en el panel"
-
-msgid "With the line hidden, it is only in the panel. Panels are made in View, Edit the layout."
-msgstr "Con la línea oculta, solo sale en el panel. Los paneles se crean en Ver, Editar la disposición."
 
 #, python-brace-format
 msgid "Could not load the panels: {0}"
@@ -1186,4 +1171,61 @@ msgstr "Mapa"
 
 msgid "Chat"
 msgstr "Chat"
+
+msgid "Variables"
+msgstr "Variables"
+
+msgid ""
+"A variable is a value with a name, kept from one session to the next:\n"
+"who you are hunting, what you carry, how many you have killed."
+msgstr ""
+"Una variable es un valor con nombre, que se conserva de una sesión a otra:\n"
+"a quién persigues, qué llevas, cuántos has matado."
+
+msgid "A name is made of letters, digits and _, and does not start with a digit."
+msgstr "Un nombre se compone de letras, cifras y _, y no empieza por una cifra."
+
+msgid "There is already a variable of that name."
+msgstr "Ya hay una variable con ese nombre."
+
+msgid "Value"
+msgstr "Valor"
+
+msgid "A number."
+msgstr "Un número."
+
+msgid "True or false."
+msgstr "Verdadero o falso."
+
+msgid "A table, written as JSON."
+msgstr "Una tabla, escrita en JSON."
+
+msgid "Text."
+msgstr "Texto."
+
+msgid "Using it"
+msgstr "Cómo usarla"
+
+#, python-brace-format
+msgid "In the commands of a rule, ${0} is replaced by its value. In a script it is vars.{0}, to read it and to change it."
+msgstr "En los comandos de una regla, ${0} se sustituye por su valor. En un script es vars.{0}, para leerla y para cambiarla."
+
+msgid "About Muddie"
+msgstr "Acerca de Muddie"
+
+msgid "With Muddie"
+msgstr "Con Muddie"
+
+msgid "Preferences"
+msgstr "Preferencias"
+
+msgid "With the line hidden, it is only in the panel. Panels are made in Preferences, Edit the layout."
+msgstr "Con la línea oculta, solo sale en el panel. Los paneles se crean en Preferencias, Editar la disposición."
+
+#, python-brace-format
+msgid "Kept with the profile {0}."
+msgstr "Se guarda con el perfil {0}."
+
+msgid "This session has no saved profile, so its variables last until it is closed. Save the profile, in Session, Connection, to keep them."
+msgstr "Esta sesión no tiene un perfil guardado, así que sus variables duran hasta que se cierre. Guarda el perfil, en Sesión, Conexión, para conservarlas."
 

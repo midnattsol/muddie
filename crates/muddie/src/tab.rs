@@ -151,6 +151,14 @@ pub struct Tab {
     rules_sample: String,
     /// The next key pressed becomes the selected macro's key.
     recording_key: bool,
+    /// The session has no saved profile to keep its variables in, so
+    /// they are carried from one start of the scripts to the next.
+    variables_passing: bool,
+    /// The variable being edited: which, its name as typed, its value as
+    /// typed.
+    variable_loaded: Option<String>,
+    variable_name: String,
+    variable_text: String,
     /// The group the editor's lists are narrowed to, and those folded.
     group_filter: Option<String>,
     folded_groups: Vec<String>,
@@ -323,6 +331,10 @@ impl Tab {
             rules_changed_at: None,
             rules_sample: String::new(),
             recording_key: false,
+            variables_passing: false,
+            variable_loaded: None,
+            variable_name: String::new(),
+            variable_text: String::new(),
             group_filter: None,
             folded_groups: Vec::new(),
             plugin_address: String::new(),
@@ -507,10 +519,28 @@ impl Tab {
         self.supports.clear();
         self.completions.clear();
         self.panel_reported = None;
+        // Variables belong to the session. With a saved profile they are
+        // kept with it; without one they last as long as the session, and
+        // go with it into a profile if it is then saved as one.
+        let passing = std::mem::take(&mut self.variables_passing).then(|| self.scripts.variables());
         self.scripts =
             Engine::new(Rc::clone(&self.map)).expect("failed to start the script runtime");
-        if let Some(profiles) = &self.profiles {
-            (self.scripts).use_memory_file(profiles.memory_path(self.profile.as_deref()));
+        match (&self.profiles, &self.profile) {
+            (Some(profiles), Some(profile)) => {
+                (self.scripts).use_memory_file(profiles.memory_path(Some(profile)));
+            }
+            _ => self.variables_passing = true,
+        }
+        let known: Vec<String> = self
+            .scripts
+            .variables()
+            .into_iter()
+            .map(|(name, _)| name)
+            .collect();
+        for (name, value) in passing.into_iter().flatten() {
+            if !known.contains(&name) {
+                let _ = self.scripts.set_variable(&name, Some(value));
+            }
         }
         let mut files = Vec::new();
         if let Some(profiles) = &self.profiles {
@@ -2672,6 +2702,42 @@ mod tests {
     }
 
     #[test]
+    fn variables_are_the_sessions_and_kept_only_with_a_saved_profile() {
+        let dir = std::env::temp_dir().join(format!("muddie-app-vars-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let mut harness = window(Some(Profiles::at(dir.clone())));
+        let app = harness.state_mut().tab_mut();
+        // No profile: they last through the scripts starting again, and
+        // nothing is written anywhere.
+        app.scripts.exec("t", r#"vars.target = "orc""#);
+        app.load_scripts();
+        assert_eq!(
+            app.scripts.variables(),
+            [("target".to_owned(), serde_json::json!("orc"))]
+        );
+        assert!(!dir.join("data.json").exists());
+        // Another session does not see them.
+        let mut other = window(Some(Profiles::at(dir.clone())));
+        assert!(other.state_mut().tab_mut().scripts.variables().is_empty());
+        // Saved as a profile, they go with it, and are there the next time.
+        let app = harness.state_mut().tab_mut();
+        app.host = "mud.example.org".into();
+        app.port = "4000".into();
+        app.profile_name = "Reinos".into();
+        app.save_profile();
+        assert_eq!(app.profile.as_deref(), Some("Reinos"));
+        assert_eq!(app.scripts.variables().len(), 1);
+        let mut later = window(Some(Profiles::at(dir.clone())));
+        let app = later.state_mut().tab_mut();
+        assert!(app.select_profile(Some("Reinos".into())));
+        assert_eq!(
+            app.scripts.variables(),
+            [("target".to_owned(), serde_json::json!("orc"))]
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
     fn session_is_logged_when_asked() {
         let dir = std::env::temp_dir().join(format!("muddie-app-log-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
@@ -3121,6 +3187,17 @@ mod tests {
         app.rules_section = 3;
         rules.run_steps(3);
         save(&mut rules, "timers");
+        let app = rules.state_mut().tab_mut();
+        app.scripts
+            .set_variable("objetivo", Some(serde_json::json!("orco jefe")))
+            .unwrap();
+        app.scripts
+            .set_variable("muertes", Some(serde_json::json!(12)))
+            .unwrap();
+        app.rules_section = 4;
+        app.rules_selected[4] = 1;
+        rules.run_steps(3);
+        save(&mut rules, "variables");
         // The menus, as someone using Spanish sees them.
         for menu in ["Sesión", "Ver"] {
             let mut menus = connected_demo_window();
