@@ -127,6 +127,9 @@ pub struct Tab {
     rules_sample: String,
     /// The next key pressed becomes the selected macro's key.
     recording_key: bool,
+    /// Whether the region for announcements was in the accessibility tree
+    /// on the last frame.
+    announce_ready: bool,
     /// Which of triggers, aliases and keys the rules window shows.
     rules_section: usize,
     /// Label of the text encoding the server uses; `auto` for most.
@@ -257,6 +260,7 @@ impl Tab {
             rules_changed_at: None,
             rules_sample: String::new(),
             recording_key: false,
+            announce_ready: false,
             rules_section: 0,
             encoding: "auto".into(),
             package_jobs: Vec::new(),
@@ -1088,7 +1092,13 @@ impl Tab {
         if !self.voice.announcing() {
             return;
         }
-        let lines = self.voice.take_announcements();
+        // A screen reader is only told of changes to a region it already
+        // knows, so text waits until the region has been in the tree.
+        let lines = if self.announce_ready {
+            self.voice.take_announcements()
+        } else {
+            Vec::new()
+        };
         if !lines.is_empty() {
             let mut text = lines.join("\n");
             // The same text twice running would not count as a change.
@@ -1101,9 +1111,13 @@ impl Tab {
             .size(1.0)
             .color(egui::Color32::TRANSPARENT);
         let response = ui.add(Label::new(label).selectable(false));
-        ui.ctx().accesskit_node_builder(response.id, |node| {
+        let in_tree = ui.ctx().accesskit_node_builder(response.id, |node| {
             node.set_live(egui::accesskit::Live::Polite);
         });
+        self.announce_ready = in_tree.is_some();
+        if !self.announce_ready {
+            ui.ctx().request_repaint_after(Duration::from_millis(250));
+        }
     }
 
     /// The bar for searching the scrollback, shown above the input line.
