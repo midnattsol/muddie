@@ -2978,6 +2978,66 @@ mod tests {
         assert_eq!(kept(harness.state().tab()), serde_json::json!(false));
     }
 
+    /// Says what a frame costs in the views that could be slow, to look
+    /// for what to make faster:
+    /// `cargo test -p muddie frame_costs -- --ignored --nocapture`.
+    #[test]
+    #[ignore = "a measurement, not a check"]
+    fn frame_costs() {
+        let cost = |harness: &mut Harness<'_, App>, what: &str| {
+            harness.run_steps(3);
+            let started = Instant::now();
+            for _ in 0..30 {
+                harness.step();
+            }
+            println!(
+                "{what}: {:.2} ms a frame",
+                started.elapsed().as_secs_f64() * 1000.0 / 30.0
+            );
+        };
+        let mut harness = window(None);
+        harness.set_size(egui::vec2(1600.0, 1000.0));
+        cost(&mut harness, "empty session");
+        let app = harness.state_mut().tab_mut();
+        for n in 0..20_000 {
+            app.show_local(&format!(
+                "\x1b[32mline {n}\x1b[0m of a long session, with some text to wrap now and then"
+            ));
+        }
+        cost(&mut harness, "20000 lines of scrollback");
+        let app = harness.state_mut().tab_mut();
+        for n in 0..2000 {
+            let line = panels::styled_lines(&format!("[ooc] someone says thing {n}")).remove(0);
+            app.channel_line(&line);
+            app.add_to_panel("Combat", &line);
+        }
+        app.gauges.set("HP", Some((80.0, 100.0)));
+        cost(&mut harness, "with panels of 2000 lines and gauges");
+        let app = harness.state_mut().tab_mut();
+        for n in 0..300 {
+            app.rules.triggers.push(Trigger {
+                name: format!("Trigger {n}"),
+                enabled: true,
+                pattern: format!("pattern {n}"),
+                send: "say hi".into(),
+                group: format!("Group {}", n % 6),
+                ..Trigger::default()
+            });
+        }
+        app.open_automation(0);
+        cost(&mut harness, "editor with 300 triggers");
+        let app = harness.state_mut().tab_mut();
+        for n in 0..120 {
+            app.saw_data(
+                &format!("Pkg.Number{n}"),
+                false,
+                r#"{"a": 1, "b": {"c": [1, 2, 3], "d": "text"}}"#,
+            );
+        }
+        app.set_view(2);
+        cost(&mut harness, "debug with 120 packages");
+    }
+
     #[test]
     fn session_is_logged_when_asked() {
         let dir = std::env::temp_dir().join(format!("muddie-app-log-{}", std::process::id()));

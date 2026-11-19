@@ -7,7 +7,19 @@ description = "A modern, accessible MUD client."
 
 [dependencies]
 chrono = { version = "0.4.45", default-features = false, features = ["clock"] }
-eframe = "0.37.0"
+# Drawn with OpenGL: the Vulkan path of the default renderer loads every
+# graphics driver the system has, some eighty megabytes of them.
+eframe = { version = "0.37.0", default-features = false, features = [
+    "accesskit",
+    "clipboard",
+    "default_fonts",
+    "glow",
+    "links",
+    "system_fonts",
+    "wayland",
+    "web_screen_reader",
+    "x11",
+] }
 fontdb = "0.24.0"
 keyring = "4.2.0"
 muddie-core = { path = "../muddie-core" }
@@ -20,7 +32,13 @@ serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 tokio = { version = "1.54.1", features = ["rt-multi-thread", "sync"] }
 toml = "1.2.1"
-winit = { version = "0.30", default-features = false }
+winit = { version = "0.30", default-features = false, features = [
+    "rwh_06",
+    "wayland",
+    "wayland-csd-adwaita",
+    "wayland-dlopen",
+    "x11",
+] }
 
 [dev-dependencies]
 egui_kittest = { version = "0.37.0", features = ["wgpu", "snapshot", "eframe"] }

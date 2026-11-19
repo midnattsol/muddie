@@ -32,6 +32,9 @@ pub struct App {
     settings_section: usize,
     /// Settings changed and not yet written to their file.
     settings_unsaved: bool,
+    /// Frames drawn since they were last counted, and when that was.
+    frames: u32,
+    traced_at: std::time::Instant,
     /// The languages there are, looked up when the settings open.
     languages: Option<Vec<(String, String)>>,
     show_shortcuts: bool,
@@ -81,6 +84,8 @@ impl App {
             show_settings: false,
             settings_section: 0,
             settings_unsaved: false,
+            frames: 0,
+            traced_at: std::time::Instant::now(),
             languages: None,
             show_shortcuts: false,
             show_about: false,
@@ -490,6 +495,15 @@ impl App {
 
 impl eframe::App for App {
     fn ui(&mut self, ui: &mut Ui, _frame: &mut eframe::Frame) {
+        // With MUDDIE_TRACE set, how often the window is drawn is said on
+        // standard error, to find what keeps it busy when nothing happens.
+        self.frames += 1;
+        if self.traced_at.elapsed() >= std::time::Duration::from_secs(5) {
+            if std::env::var_os("MUDDIE_TRACE").is_some() {
+                eprintln!("muddie: {} frames in 5 s", self.frames);
+            }
+            (self.frames, self.traced_at) = (0, std::time::Instant::now());
+        }
         // Every session keeps running; only the active one is drawn.
         for (index, tab) in self.tabs.iter_mut().enumerate() {
             tab.poll(ui.ctx(), &self.settings, index == self.active);
