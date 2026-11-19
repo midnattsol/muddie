@@ -1,0 +1,10 @@
+[package]
+name = "muddie-script"
+version.workspace = true
+edition.workspace = true
+description = "Triggers, aliases, timers and Luau scripting for the muddie MUD client."
+
+[dependencies]
+mlua = { version = "0.12.2", features = ["luau", "serde"] }
+regex = "1.13.2"
+serde_json = "1.0.154"
