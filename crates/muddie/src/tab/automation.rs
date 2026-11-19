@@ -471,7 +471,8 @@ impl Tab {
                     } else {
                         tr("In this profile")
                     };
-                    (name, detail.to_owned(), true)
+                    let on = !draft.scripts_off.contains(&crate::rules::script_key(file));
+                    (name, detail.to_owned(), on)
                 })
                 .collect(),
         }
@@ -533,6 +534,18 @@ impl Tab {
         if own && name != current && crate::profile::valid_name(&name) {
             let renamed = path.with_file_name(format!("{name}.luau"));
             if !renamed.exists() && std::fs::rename(&path, &renamed).is_ok() {
+                // Switched off, it stays so under its new name.
+                let (was, now) = (
+                    crate::rules::script_key(&path),
+                    crate::rules::script_key(&renamed),
+                );
+                for rules in [&mut self.rules_draft, &mut self.rules] {
+                    for known in &mut rules.scripts_off {
+                        if *known == was {
+                            known.clone_from(&now);
+                        }
+                    }
+                }
                 self.script_loaded = Some(renamed.clone());
                 self.list_scripts();
                 let index = self.script_files.iter().position(|file| *file == renamed);
@@ -1897,6 +1910,16 @@ impl Tab {
                         .add(egui::Button::new(label).fill(egui::Color32::TRANSPARENT))
                         .clicked();
                 }
+                // Switched off, it is kept and not run.
+                let key = crate::rules::script_key(&path);
+                let mut on = !self.rules_draft.scripts_off.contains(&key);
+                if widgets::switch(ui, &mut on, tr("Enabled")).changed() {
+                    self.rules_draft.scripts_off.retain(|known| *known != key);
+                    if !on {
+                        self.rules_draft.scripts_off.push(key);
+                    }
+                }
+                ui.label(RichText::new(tr("Enabled")).color(theme.text_dim));
                 run = widgets::run_button(ui, tr("Run"))
                     .on_hover_text(tr(
                         "Saves it and runs it now, with the other scripts and the rules, which share what they keep.",

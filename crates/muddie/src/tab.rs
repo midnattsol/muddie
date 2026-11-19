@@ -87,6 +87,11 @@ pub struct Tab {
     /// on show; and those that got something while they were not.
     shown_tabs: Vec<(u32, u32)>,
     unread_tabs: Vec<u32>,
+    /// The channels of the MUD's that have been heard of: each with what
+    /// was said on it, and whether something was that has not been seen.
+    channels: Vec<layout::Channel>,
+    /// The channel each panel of channels is showing; none is all.
+    channel_shown: Vec<(u32, String)>,
     removed_panel: Option<usize>,
     /// Stands in for the channels when no panel shows them.
     no_chat: Output,
@@ -395,6 +400,8 @@ impl Tab {
             panel_rects: Vec::new(),
             shown_tabs: Vec::new(),
             unread_tabs: Vec::new(),
+            channels: Vec::new(),
+            channel_shown: Vec::new(),
             removed_panel: None,
             no_chat: Output::default(),
             dispatched: None,
@@ -541,6 +548,11 @@ impl Tab {
             .restyle(settings.scrollback_lines, settings.timestamps);
         for (_, content) in &mut self.panel_text {
             content
+                .log
+                .restyle(settings.scrollback_lines, settings.timestamps);
+        }
+        for channel in &mut self.channels {
+            channel
                 .log
                 .restyle(settings.scrollback_lines, settings.timestamps);
         }
@@ -707,16 +719,30 @@ impl Tab {
             }
         }
         files.extend(self.extra_scripts.iter().cloned());
-        for file in &files {
-            self.scripts.load_file(file);
-        }
-        // The rules made in the interface run last, as one more script.
+        // The rules made in the interface, which also say which of the
+        // scripts are switched off.
         if let Some(profiles) = &self.profiles {
             match Rules::load(&profiles.rules_path(self.profile.as_deref())) {
                 Ok(rules) => self.rules = rules,
                 Err(error) => self.note(&trf("Could not load the rules: {0}", &[&error])),
             }
         }
+        // The player's own scripts that are switched off are not run;
+        // a plugin has its own way of being switched off.
+        let own: Vec<PathBuf> = (self.profiles.as_ref())
+            .map(|profiles| profiles.editable_scripts(self.profile.as_deref()))
+            .unwrap_or_default();
+        files.retain(|file| {
+            !own.contains(file)
+                || !self
+                    .rules
+                    .scripts_off
+                    .contains(&crate::rules::script_key(file))
+        });
+        for file in &files {
+            self.scripts.load_file(file);
+        }
+        // The rules run last, as one more script.
         // Each on its own, so a mistake in one says which and spares the rest.
         for (name, code) in self.rules.chunks() {
             self.scripts.exec(&name, &code);
@@ -1290,9 +1316,8 @@ impl Tab {
                     } else if let Some(message) = crate::media::parse(&package, &data) {
                         self.media(message);
                     } else if package.eq_ignore_ascii_case("Comm.Channel.Text") {
-                        for line in panels::channel_text(&data) {
-                            self.channel_line(&line);
-                        }
+                        let name = panels::channel_name(&data);
+                        self.channel_said(&name, panels::channel_text(&data));
                     } else if package.eq_ignore_ascii_case("Room.Info") && self.scripts.native_map()
                     {
                         self.entered_room(&data);
@@ -1453,6 +1478,10 @@ impl Tab {
                         (None, false) => self.completions.push((name, words)),
                         (None, true) => {}
                     }
+                }
+                Action::Channel { name, text } => {
+                    let lines = text.as_deref().map(panels::styled_lines);
+                    self.channel_said(&name, lines.unwrap_or_default());
                 }
                 Action::Chat(text) => {
                     for line in panels::styled_lines(&text) {
@@ -4182,6 +4211,120 @@ mod tests {
     }
 
     #[test]
+    fn channels_have_a_tab_each_in_the_panel_of_channels() {
+        let mut harness = window(None);
+        harness.set_size(egui::vec2(1300.0, 800.0));
+        let app = harness.state_mut().tab_mut();
+        // A script says what was said on which channel; and a channel
+        // can be made known before anyone speaks on it.
+        app.scripts.exec(
+            "t",
+            r#"channel("chat", "Ana: hola") channel("mercenario") channel("chat", "Luis: buenas")"#,
+        );
+        app.run_actions();
+        // The usual message of GMCP names its channel too.
+        let said = r#"{"channel": "bando", "talker": "Eva", "text": "Eva: al norte"}"#;
+        let (events, _sent) = fake_connection(app);
+        events
+            .send(Event::Gmcp {
+                package: "Comm.Channel.Text".into(),
+                data: said.into(),
+            })
+            .unwrap();
+        harness.run_steps(3);
+        let app = harness.state().tab();
+        let names: Vec<&str> = app
+            .channels
+            .iter()
+            .map(|channel| channel.name.as_str())
+            .collect();
+        assert_eq!(names, ["chat", "mercenario", "bando"]);
+        assert_eq!(app.channels[0].log.len(), 2);
+        // One panel, not one for each: the panel of channels shows all
+        // of it, and a tab for each channel.
+        assert_eq!(
+            app.layout
+                .panels
+                .iter()
+                .filter(|panel| panel.kind == layout::Kind::Text)
+                .count(),
+            1
+        );
+        harness.get_by_label("Luis: buenas");
+        harness.get_by_label("Eva: al norte");
+        // A channel's tab shows what was said on it alone.
+        harness.get_by_label("mercenario");
+        harness.get_by_label("chat").click();
+        harness.run_steps(3);
+        harness.get_by_label("Ana: hola");
+        assert!(harness.query_by_label("Eva: al norte").is_none());
+        // What is said on another meanwhile marks its tab, until looked at.
+        let app = harness.state_mut().tab_mut();
+        app.scripts.exec("t", r#"channel("bando", "Eva: esperad")"#);
+        app.run_actions();
+        harness.run_steps(2);
+        let unread =
+            |app: &Tab, name: &str| app.channels.iter().any(|c| c.name == name && c.unread);
+        assert!(unread(harness.state().tab(), "bando") && !unread(harness.state().tab(), "chat"));
+        harness.get_by_label("bando, new").click();
+        harness.run_steps(3);
+        assert!(!unread(harness.state().tab(), "bando"));
+        harness.get_by_label("Eva: esperad");
+    }
+
+    #[test]
+    fn a_script_switched_off_is_kept_and_not_run() {
+        let dir = std::env::temp_dir().join(format!("muddie-scriptoff-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let profiles = Profiles::at(dir.clone());
+        profiles
+            .save("Test", &crate::profile::Profile::default())
+            .unwrap();
+        let scripts = profiles.scripts_dir("Test");
+        std::fs::create_dir_all(&scripts).unwrap();
+        std::fs::write(
+            scripts.join("keys.luau"),
+            r#"bind("f9", "kick", {group = "Combat"})"#,
+        )
+        .unwrap();
+        let mut harness = window(Some(profiles));
+        harness.set_size(egui::vec2(1400.0, 800.0));
+        let app = harness.state_mut().tab_mut();
+        assert!(app.select_profile(Some("Test".into())));
+        assert_eq!(app.scripts.groups(), ["Combat"]);
+        // Switched off beside its name, it stops being run once saved...
+        app.open_automation(automation::SCRIPTS);
+        harness.run_steps(3);
+        let index = (harness.state().tab().script_files.iter())
+            .position(|file| file.ends_with("keys.luau"))
+            .unwrap();
+        harness
+            .state_mut()
+            .tab_mut()
+            .select_rule(automation::SCRIPTS, index);
+        harness.run_steps(3);
+        harness
+            .get_by_role_and_label(egui::accesskit::Role::Switch, "Enabled")
+            .click();
+        harness.run_steps(2);
+        std::thread::sleep(Duration::from_millis(1000));
+        harness.run_steps(3);
+        let app = harness.state().tab();
+        assert_eq!(app.rules.scripts_off, ["keys.luau"]);
+        assert!(app.scripts.groups().is_empty());
+        // ...and is still there, to be switched on again.
+        assert!(scripts.join("keys.luau").is_file());
+        harness
+            .get_by_role_and_label(egui::accesskit::Role::Switch, "Enabled")
+            .click();
+        harness.run_steps(2);
+        std::thread::sleep(Duration::from_millis(1000));
+        harness.run_steps(3);
+        assert_eq!(harness.state().tab().scripts.groups(), ["Combat"]);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
     fn session_is_logged_when_asked() {
         let dir = std::env::temp_dir().join(format!("muddie-app-log-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
@@ -4526,6 +4669,24 @@ mod tests {
         welcome.run_steps(4);
         save(&mut welcome, "connection");
         std::fs::remove_dir_all(&dir).unwrap();
+
+        // The channels of the MUD, each with its tab in one panel.
+        let mut channels = connected_demo_window();
+        let app = channels.state_mut().tab_mut();
+        app.scripts.exec(
+            "t",
+            "channel(\"chat\", \"[Chat] Naylhena: \\27[1mre\\27[0m\") channel(\"mercenario\") channel(\"bando\", \"[Bando] Eva: al norte\") channel(\"chat\", \"[Chat] Luis: buenas\")",
+        );
+        app.run_actions();
+        channels.run_steps(3);
+        channels.get_by_label("chat").click();
+        channels.run_steps(3);
+        let app = channels.state_mut().tab_mut();
+        app.scripts
+            .exec("t", "channel(\"bando\", \"[Bando] Eva: esperad\")");
+        app.run_actions();
+        channels.run_steps(3);
+        save(&mut channels, "channels");
 
         // A script, run from its button, and one that fails.
         let dir = std::env::temp_dir().join(format!("muddie-shot-script-{}", std::process::id()));

@@ -130,7 +130,10 @@ The three, and what else there is:
   building the map, acting on what the MUD reports. They are the profile's
   `.luau` files. The `+` offers examples to start from: a map the MUD draws
   itself, a map it sends whole, a map read from the room descriptions, words
-  to complete given by the MUD, and gauges.
+  to complete given by the MUD, and gauges. A script is saved, and run, a
+  moment after you stop typing; **Run** does it at once, and under its name
+  it says when it ran, or what kept it from running. Switched off with
+  **Enabled**, a script is kept and not run.
 
 Rules can be put in **groups**, to switch a whole way of playing on and off
 at once: a group holds triggers, aliases, macros and timers alike. Give a
@@ -215,6 +218,19 @@ those with a maximum the colours it takes as it gets low: yellow under 60 %,
 red under 30 %, as many levels as wanted, kept in order. A light can have a
 colour for when it is off as well, to say which of two things is so: red for
 poisoned, green for not. Alt+0 reads the gauges aloud.
+
+### Channels
+
+What is said on the channels of a MUD (chat, guild, tells...) goes to the
+panel of channels, the one called Chat at first. It has a tab for each
+channel, and one for all of them together; a tab turns yellow, with a dot,
+when something is said on it that you have not looked at. Any text panel can
+be one of channels: **Show the MUD's channels here**, in the layout mode.
+
+A MUD that sends its channels the usual way over GMCP (`Comm.Channel.Text`)
+fills them by itself. For one that does it its own way, a script says which
+channel a line is of with `channel(name, text)`; for one that only sends
+text, a trigger can.
 
 ## Debugging: what the MUD sends
 

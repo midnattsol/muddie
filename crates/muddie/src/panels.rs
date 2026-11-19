@@ -395,6 +395,15 @@ pub fn channel_text(json: &str) -> Vec<Line> {
     }
 }
 
+/// The channel a `Comm.Channel.Text` payload was said on, if it says.
+pub fn channel_name(json: &str) -> String {
+    let named = serde_json::from_str::<Value>(json).ok();
+    let name = named
+        .as_ref()
+        .and_then(|value| value.get("channel")?.as_str());
+    name.unwrap_or_default().trim().to_owned()
+}
+
 /// Splits text that may contain ANSI colour codes into styled lines.
 pub fn styled_lines(text: &str) -> Vec<Line> {
     let mut assembler = Assembler::new();

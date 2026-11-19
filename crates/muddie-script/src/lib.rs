@@ -64,6 +64,9 @@
 //!   strip; `gauge(name)` removes it. `options` may give a `colour`, a
 //!   `style` (`"segments"`) and `low`, a percentage to warn under.
 //! - `chat(text)`: add a line to the chat panel.
+//! - `channel(name, text)`: add a line said on a channel of the MUD's,
+//!   which has a tab of its own in the chat panel; `channel(name)` makes
+//!   the tab before anyone speaks.
 //! - `panel_add(name, text)`: add `text` at the end of a panel, which keeps
 //!   what it had, as a log does. In a trigger, `to_panel(name)` adds the
 //!   line being looked at, with its colours.
@@ -172,6 +175,13 @@ pub enum Action {
     },
     /// Add a line to the chat panel.
     Chat(String),
+    /// A line said on a channel of the MUD's, by the channel's name; or
+    /// with no text, a channel there is, to have its tab before anyone
+    /// speaks on it.
+    Channel {
+        name: String,
+        text: Option<String>,
+    },
     /// Add lines to the end of a panel of text.
     PanelAdd {
         name: String,
@@ -1896,6 +1906,15 @@ fn install_api(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
         "to_panel",
         lua.create_function(move |_, name: String| {
             (shared.borrow_mut().actions).push(Action::ToPanel(name));
+            Ok(())
+        })?,
+    )?;
+
+    let shared = Rc::clone(state);
+    add(
+        "channel",
+        lua.create_function(move |_, (name, text): (String, Option<String>)| {
+            (shared.borrow_mut().actions).push(Action::Channel { name, text });
             Ok(())
         })?,
     )?;

@@ -1447,3 +1447,10 @@ msgstr "Ejecutado a las {0}."
 
 msgid "It runs when it is saved, a moment after you stop typing."
 msgstr "Se ejecuta al guardarse, un momento después de que dejes de escribir."
+
+
+msgid "All"
+msgstr "Todos"
+
+msgid "new"
+msgstr "nuevo"

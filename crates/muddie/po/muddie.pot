@@ -776,6 +776,22 @@ msgstr ""
 msgid "standing"
 msgstr ""
 
+msgid "Enabled"
+msgstr ""
+
+msgid "Run"
+msgstr ""
+
+msgid "Saves it and runs it now, with the other scripts and the rules, which share what they keep."
+msgstr ""
+
+#, python-brace-format
+msgid "Run at {0}."
+msgstr ""
+
+msgid "It runs when it is saved, a moment after you stop typing."
+msgstr ""
+
 msgid "Script"
 msgstr ""
 
@@ -789,9 +805,6 @@ msgid "Do"
 msgstr ""
 
 msgid "Lua"
-msgstr ""
-
-msgid "Enabled"
 msgstr ""
 
 msgid "The pattern is not valid:"
@@ -815,6 +828,12 @@ msgstr ""
 
 #, python-brace-format
 msgid "Could not save the panels: {0}"
+msgstr ""
+
+msgid "All"
+msgstr ""
+
+msgid "new"
 msgstr ""
 
 msgid "Gauges…"

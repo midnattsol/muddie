@@ -331,6 +331,21 @@ pub struct Rules {
     pub groups: Vec<Group>,
     #[serde(rename = "gauge")]
     pub gauges: Vec<Gauge>,
+    /// The scripts that are switched off, by [`script_key`]: they are
+    /// kept, and not run.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub scripts_off: Vec<String>,
+}
+
+/// What a script file is known by among those switched off: its name, or
+/// for the one of every session, which is not in a `scripts` folder,
+/// its name after `every/`.
+pub fn script_key(file: &std::path::Path) -> String {
+    let name = file.file_name().unwrap_or_default().to_string_lossy();
+    match file.parent().is_some_and(|dir| dir.ends_with("scripts")) {
+        true => name.into_owned(),
+        false => format!("every/{name}"),
+    }
 }
 
 /// The commands of a rule's `send`: one per line, or separated by `;`.
@@ -1247,6 +1262,7 @@ mod tests {
                 colour: "red".into(),
                 ..Gauge::starter()
             }],
+            scripts_off: vec!["keys.luau".into()],
         };
         rules.save(&path).unwrap();
         assert_eq!(Rules::load(&path).unwrap(), rules);

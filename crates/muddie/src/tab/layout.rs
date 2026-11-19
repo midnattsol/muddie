@@ -171,6 +171,18 @@ pub struct TextContent {
     pub fixed: Vec<Line>,
 }
 
+/// A channel of the MUD's: what was said on it, and whether something
+/// was that has not been looked at.
+pub struct Channel {
+    pub name: String,
+    pub log: Output,
+    pub unread: bool,
+}
+
+/// How many channels are kept apart; what is said on more goes with the
+/// rest only.
+const MOST_CHANNELS: usize = 64;
+
 /// The frame of a panel: a rounded well on the window's chrome.
 pub(super) fn well(left: i8, right: i8) -> egui::Frame {
     egui::Frame::new()
@@ -316,6 +328,125 @@ impl Tab {
             self.text_of(id).log.push(line);
             self.note_unread(id);
         }
+    }
+
+    /// Takes lines said on a channel of the MUD's: they go with the rest
+    /// of what is said, and under the channel's own tab. With no lines,
+    /// the channel is made known, to have its tab.
+    pub(super) fn channel_said(&mut self, name: &str, lines: Vec<Line>) {
+        let name = name.trim();
+        let known =
+            (self.channels.iter()).position(|channel| channel.name.eq_ignore_ascii_case(name));
+        let index = match known {
+            Some(index) => Some(index),
+            None if name.is_empty() || self.channels.len() >= MOST_CHANNELS => None,
+            None => {
+                let mut log = Output::default();
+                log.restyle(self.settings.scrollback_lines, self.settings.timestamps);
+                self.channels.push(Channel {
+                    name: name.to_owned(),
+                    log,
+                    unread: false,
+                });
+                Some(self.channels.len() - 1)
+            }
+        };
+        if lines.is_empty() {
+            return;
+        }
+        // Seen as it comes where a panel shows this channel, or all.
+        let panels: Vec<u32> = (self.layout.panels.iter())
+            .filter(|panel| panel.channels && panel.visible)
+            .map(|panel| panel.id)
+            .collect();
+        let seen = panels.iter().any(|id| {
+            let shown = self.channel_shown.iter().find(|(panel, _)| panel == id);
+            shown.is_none_or(|(_, shown)| shown.is_empty() || shown.eq_ignore_ascii_case(name))
+        });
+        for line in &lines {
+            self.channel_line(line);
+            if let Some(index) = index {
+                self.channels[index].log.push(line);
+            }
+        }
+        if let Some(index) = index {
+            self.channels[index].unread |= !seen;
+        }
+    }
+
+    /// The tabs of a panel of channels: all, and one for each channel,
+    /// marked if something was said on it that has not been looked at.
+    /// Returns the channel chosen; none for all.
+    fn channel_tabs(&mut self, ui: &mut egui::Ui, id: u32) -> String {
+        let theme = theme::current();
+        let known = self.channel_shown.iter().find(|(panel, _)| *panel == id);
+        let mut shown = known.map(|(_, shown)| shown.clone()).unwrap_or_default();
+        let names: Vec<(String, bool)> = std::iter::once((String::new(), false))
+            .chain(
+                self.channels
+                    .iter()
+                    .map(|channel| (channel.name.clone(), channel.unread)),
+            )
+            .collect();
+        ui.horizontal_wrapped(|ui| {
+            ui.spacing_mut().item_spacing = egui::vec2(2.0, 2.0);
+            for (name, unread) in &names {
+                let on = *name == shown;
+                let label = if name.is_empty() {
+                    tr("All")
+                } else {
+                    name.as_str()
+                };
+                let font = theme::font(
+                    if on || *unread {
+                        Weight::Medium
+                    } else {
+                        Weight::Regular
+                    },
+                    12.0,
+                );
+                // One that has something new stands out, and says so.
+                let fresh = crate::panels::colour_named("yellow").unwrap_or(theme.accent);
+                let colour = match (on, *unread) {
+                    (true, _) => theme.text,
+                    (false, true) => fresh,
+                    (false, false) => theme.text_dim,
+                };
+                let galley = ui.painter().layout_no_wrap(label.to_owned(), font, colour);
+                // Room for a dot beside the name of one with something new.
+                let dot = if *unread { 10.0 } else { 0.0 };
+                let size = galley.size() + egui::vec2(16.0 + dot, 8.0);
+                let (rect, tab) = ui.allocate_exact_size(size, egui::Sense::click());
+                tab.widget_info(|| {
+                    let said = match *unread {
+                        true => format!("{label}, {}", tr("new")),
+                        false => label.to_owned(),
+                    };
+                    egui::WidgetInfo::selected(egui::Role::Tab, true, on, said)
+                });
+                if on {
+                    ui.painter()
+                        .rect_filled(rect, egui::CornerRadius::same(6), theme.raised);
+                } else if tab.hovered() || tab.has_focus() {
+                    let fill = theme.raised.gamma_multiply(0.6);
+                    ui.painter()
+                        .rect_filled(rect, egui::CornerRadius::same(6), fill);
+                }
+                let at = egui::pos2(rect.left() + 8.0, rect.center().y - galley.size().y / 2.0);
+                ui.painter().galley(at, galley, colour);
+                if *unread {
+                    let centre = rect.right_center() - egui::vec2(9.0, 0.0);
+                    ui.painter().circle_filled(centre, 3.0, fresh);
+                }
+                if tab.clicked() {
+                    shown.clone_from(name);
+                }
+            }
+        });
+        ui.add_space(2.0);
+        self.channel_shown.retain(|(panel, _)| *panel != id);
+        self.channel_shown.push((id, shown.clone()));
+        shown
     }
 
     /// Whether the map has its panel on screen.
@@ -1177,6 +1308,31 @@ impl Tab {
                 });
             });
             return true;
+        }
+        // A panel of channels has a tab for each: one alone, or all.
+        let of_channels = (self.layout.panels.iter()).any(|panel| panel.id == id && panel.channels);
+        if of_channels && !self.channels.is_empty() {
+            let shown = self.channel_tabs(ui, id);
+            let chosen = (self.channels.iter_mut())
+                .find(|channel| !shown.is_empty() && channel.name == shown);
+            match chosen {
+                Some(channel) => {
+                    channel.unread = false;
+                    let clicked = match channel.log.len() {
+                        0 => None,
+                        _ => channel.log.show(ui, &format!("panel {id} channel {shown}")),
+                    };
+                    if let Some(clicked) = clicked {
+                        self.link_clicked(clicked);
+                    }
+                    return true;
+                }
+                // With all of them in view there is nothing unseen.
+                None => self
+                    .channels
+                    .iter_mut()
+                    .for_each(|channel| channel.unread = false),
+            }
         }
         if self.text_of(id).log.len() > 0 {
             let clicked = self.text_of(id).log.show(ui, &format!("panel {id}"));
