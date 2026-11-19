@@ -538,31 +538,6 @@ pub fn glow(painter: &egui::Painter, centre: egui::Pos2, radii: Vec2, colour: Co
     painter.add(mesh);
 }
 
-/// A box for several lines of commands or code, set in the output's
-/// typeface, with its label above. Tab indents instead of leaving it.
-pub fn editor(ui: &mut Ui, label: &str, value: &mut String, hint: &str, rows: usize) -> Response {
-    let theme = theme::current();
-    ui.vertical(|ui| {
-        ui.spacing_mut().item_spacing.y = 4.0;
-        let name = ui.label(
-            RichText::new(label)
-                .font(theme::font(Weight::Regular, 12.0))
-                .color(theme.text_dim),
-        );
-        ui.add(
-            TextEdit::multiline(value)
-                .font(egui::FontId::monospace(13.0))
-                .hint_text(RichText::new(hint).color(theme.text_faint))
-                .margin(Margin::symmetric(10, 8))
-                .desired_rows(rows)
-                .lock_focus(true)
-                .desired_width(f32::INFINITY),
-        )
-        .labelled_by(name.id)
-    })
-    .inner
-}
-
 /// A round swatch to pick a colour by. `label` names it for screen readers.
 pub fn swatch(ui: &mut Ui, colour: Color32, selected: bool, label: &str) -> Response {
     let theme = theme::current();
@@ -674,35 +649,106 @@ pub fn icon_button(ui: &mut Ui, icon: Icon, label: &str, on: bool) -> Response {
     response.on_hover_text(label)
 }
 
-/// A box for Luau code, coloured as it is typed, as tall as `rows` lines
-/// at least. `label` names it for screen readers.
+/// An editor for Luau code: coloured as it is typed, with the lines
+/// numbered and the one being written marked, as tall as `rows` lines at
+/// least. `mistake` is the line and the message of what keeps the code
+/// from running, shown at that line and under the editor. `label` names
+/// the editor for screen readers.
 pub fn code_editor(
     ui: &mut Ui,
     label: &str,
     value: &mut String,
     hint: &str,
     rows: usize,
+    mistake: Option<&(usize, String)>,
 ) -> Response {
     let theme = theme::current();
     let font = egui::FontId::monospace(13.0);
+    let small = egui::FontId::monospace(11.5);
+    // Room for the numbers of as many lines as there are, or will fit.
+    let lines = value.split('\n').count().max(rows);
+    let digit = ui.fonts_mut(|fonts| fonts.glyph_width(&small, '0'));
+    let gutter = lines.to_string().len().max(2) as f32 * digit + 26.0;
     let mut coloured = |ui: &Ui, text: &dyn egui::TextBuffer, wrap_width: f32| {
         let mut job = crate::luau::highlight(text.as_str(), &font, &theme);
         job.wrap.max_width = wrap_width;
         ui.fonts_mut(|fonts| fonts.layout_job(job))
     };
-    let response = ui.add(
-        TextEdit::multiline(value)
-            .font(font.clone())
-            .hint_text(RichText::new(hint).color(theme.text_faint))
-            .margin(Margin::symmetric(12, 10))
-            .desired_rows(rows)
-            .lock_focus(true)
-            .desired_width(f32::INFINITY)
-            .layouter(&mut coloured),
-    );
+    let margin = Margin {
+        left: gutter as i8,
+        right: 12,
+        top: 10,
+        bottom: 10,
+    };
+    let output = TextEdit::multiline(value)
+        .font(font.clone())
+        .hint_text(
+            RichText::new(hint)
+                .font(font.clone())
+                .color(theme.text_faint),
+        )
+        .margin(margin)
+        .desired_rows(rows)
+        .lock_focus(true)
+        .desired_width(f32::INFINITY)
+        .layouter(&mut coloured)
+        .show(ui);
+    let response = output.response.response.clone();
     ui.ctx().accesskit_node_builder(response.id, |node| {
         node.set_label(label);
     });
+
+    let rect = response.rect;
+    let painter = ui.painter().with_clip_rect(rect);
+    let edge = rect.left() + gutter - 12.0;
+    painter.vline(
+        edge,
+        rect.y_range().shrink(1.0),
+        Stroke::new(1.0, theme.border),
+    );
+    let writing = (output.cursor_range)
+        .filter(|_| response.has_focus())
+        .map(|range| output.galley.layout_from_cursor(range.primary).row);
+    // A line of code can wrap into several rows; only its first is numbered.
+    let (mut number, mut first_row) = (1, true);
+    for (index, row) in output.galley.rows.iter().enumerate() {
+        let placed = row.rect().translate(output.galley_pos.to_vec2());
+        let current = writing == Some(index);
+        if current {
+            let band = egui::Rect::from_x_y_ranges(rect.x_range().shrink(1.0), placed.y_range());
+            painter.rect_filled(band, 0.0, theme.text.gamma_multiply(0.045));
+        }
+        if first_row {
+            let wrong = mistake.is_some_and(|(line, _)| *line == number);
+            let colour = match (wrong, current) {
+                (true, _) => theme.danger,
+                (false, true) => theme.text_dim,
+                (false, false) => theme.text_faint,
+            };
+            painter.text(
+                egui::pos2(edge - 9.0, placed.center().y),
+                egui::Align2::RIGHT_CENTER,
+                number.to_string(),
+                small.clone(),
+                colour,
+            );
+            if wrong {
+                let mark =
+                    egui::Rect::from_x_y_ranges(rect.left()..=rect.left() + 3.0, placed.y_range());
+                painter.rect_filled(mark, 0.0, theme.danger);
+            }
+            number += 1;
+        }
+        first_row = row.ends_with_newline;
+    }
+    if let Some((line, message)) = mistake {
+        let text = format!("{} {line}: {message}", crate::i18n::tr("Line"));
+        ui.label(
+            RichText::new(text)
+                .font(theme::font(Weight::Regular, 12.0))
+                .color(theme.danger),
+        );
+    }
     response
 }
 

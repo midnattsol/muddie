@@ -40,7 +40,7 @@ else, such as `big5` or `koi8-r`.
 
 | Key | What it does |
 |---|---|
-| Enter | Sends the line. Several commands can be separated by `;` |
+| Enter | Sends the line. Several commands can be separated by `;`. The line stays, selected: Enter sends it again, and typing replaces it (this can be switched off in the settings) |
 | Up, Down | Earlier and later lines; with something typed, only those starting with it |
 | Ctrl+R | Searches the history for what is typed; again goes further back |
 | Tab | Completes the word being typed from recent output |
@@ -73,38 +73,45 @@ anything else is sent to the MUD.
 
 ## Triggers, aliases and keys without scripting
 
-**Automation**, at the right of the top bar or from its menu, takes the place
-of the game while you work on it: the sections on the left, then the list of
-the current one and the selected item's details. Drag the gap between the
-list and the details to trade their widths. On a wide window the details are
-in two columns, with the item's script beside the rest.
-**Game**, or Escape, goes back; the session keeps running meanwhile. Changes
-are saved by themselves; there is no button to press.
+**Automation**, at the right of the top bar, takes the place of the game
+while you work on it; **Game**, Escape or Ctrl+E goes back, and the session
+keeps running meanwhile. The sections are on the left, then the list of the
+current one and the selected item's details; drag the gap between those two
+to trade their widths. Changes are saved by themselves.
 
-- A **trigger** reacts to a line of output: it can send commands, say
-  something, play a sound, colour the matched text or hide the line.
-- An **alias** replaces a typed command; `%1` in what it sends is the rest of
-  what was typed.
-- A **macro** sends commands when a key is pressed. Press **Record a key** and
-  then the key: function keys, combinations with Ctrl or Alt, and the keys of
-  the numeric keypad can be used.
+A trigger, an alias and a macro differ in what sets them off; what they then
+do is the same choice for all three:
+
+- **Commands**: what to send, one command per line.
+- **Lua script**: a few lines of Luau instead, in an editor that numbers the
+  lines, colours the code and marks the line of a mistake with what is wrong.
+
+The three, and what else there is:
+
+- A **trigger** goes off when a line of output matches. Besides its action
+  it can say something, play a sound, colour the matched text or hide the
+  line. `%1`, `%2`… in its commands are the groups of its pattern; a script
+  has them in `m`.
+- An **alias** goes off when you type a command; `%1` is the rest of what
+  was typed.
+- A **macro** goes off when a key is pressed. Press **Record a key** and then
+  the key: function keys, combinations with Ctrl or Alt, and the keys of the
+  numeric keypad can be used.
 - A **gauge** is a bar that follows a number the MUD reports, such as your
   health. Say where the value and its maximum are: a GMCP package and the
   fields inside it (`Char.Vitals.health.current`), or the name of a MSDP
   variable. Choose its colour, whether it is drawn as a row of cells, and the
   level under which its numbers turn red. Alt+0 reads the gauges aloud.
-- **Scripts** are the profile's Luau files, written right there with the
-  code coloured as you type: for what the rest cannot do, such as building
-  the map from what your MUD sends. The `+` offers examples to start from:
-  a map the MUD draws itself, a map it sends whole, a map read from the room
-  descriptions, words to complete given by the MUD, and gauges.
+- **Modules** are Luau code that is always loaded, for what no rule can do:
+  building the map, acting on what the MUD reports. They are the profile's
+  `.luau` files. The `+` offers examples to start from: a map the MUD draws
+  itself, a map it sends whole, a map read from the room descriptions, words
+  to complete given by the MUD, and gauges.
 
-Commands go one per line. A trigger, alias or macro can also run a few lines
-of Luau of its own, with the match in `m`. A mistake in one is reported with
-its name and does not stop the others.
-
-Triggers and aliases have a box to try them out: paste a line from the MUD,
-or type a command, and it says whether it matches and what it would do.
+A mistake in one rule or module is reported with its name and does not stop
+the others. Triggers and aliases have a box to try them out: paste a line
+from the MUD, or type a command, and it says whether it matches and what it
+would do.
 
 They are saved in the profile's `rules.toml`. For anything more, see
 [scripting](scripting.md).

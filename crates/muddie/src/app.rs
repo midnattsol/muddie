@@ -17,6 +17,7 @@ use crate::widgets;
 
 const NEW_SESSION: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, egui::Key::T);
 const CLOSE_SESSION: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, egui::Key::W);
+const SWITCH_VIEW: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, egui::Key::E);
 
 pub struct App {
     tabs: Vec<Tab>,
@@ -277,10 +278,6 @@ impl App {
                 ui.close();
             }
         });
-        ui.menu_button(tr("Automation"), |ui| {
-            widgets::menu_width(ui);
-            self.tabs[active].automation_menu(ui);
-        });
         ui.menu_button(tr("Map"), |ui| {
             widgets::menu_width(ui);
             self.tabs[active].map_menu(ui);
@@ -451,6 +448,7 @@ impl App {
                         &[
                             ("Ctrl+T", tr("New session")),
                             ("Ctrl+W", tr("Close session")),
+                            ("Ctrl+E", tr("Switch between the game and automation")),
                         ],
                     ),
                 ];
@@ -530,6 +528,14 @@ impl eframe::App for App {
         }
         if ui.input_mut(|input| input.consume_shortcut(&CLOSE_SESSION)) {
             self.close_tab(self.active, ui.ctx());
+        }
+        if ui.input_mut(|input| input.consume_shortcut(&SWITCH_VIEW)) {
+            let tab = &mut self.tabs[self.active];
+            if tab.automation_open() {
+                tab.close_automation();
+            } else {
+                tab.reopen_automation();
+            }
         }
         let theme = theme::current();
         ui.painter().rect_filled(ui.max_rect(), 0.0, theme.surface);

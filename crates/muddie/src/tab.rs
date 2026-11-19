@@ -136,6 +136,10 @@ pub struct Tab {
     rules_sample: String,
     /// The next key pressed becomes the selected macro's key.
     recording_key: bool,
+    /// The command left in the command line after it was sent, while it
+    /// is still untouched; and whether it has yet to be selected.
+    kept_input: Option<String>,
+    select_input: bool,
     /// The widths of the automation view's first two panes, and how tall
     /// its details are.
     panes: [f32; 2],
@@ -291,6 +295,8 @@ impl Tab {
             rules_changed_at: None,
             rules_sample: String::new(),
             recording_key: false,
+            kept_input: None,
+            select_input: false,
             panes: settings.automation_panes,
             detail_height: 600.0,
             supports: Vec::new(),
@@ -377,6 +383,14 @@ impl Tab {
         }
         if section == 2 {
             group(ui, |ui| {
+                switch_row(
+                    ui,
+                    &mut settings.keep_command,
+                    tr("Keep the command after sending it"),
+                )
+                .on_hover_text(tr(
+                    "It stays selected: Enter sends it again, and typing replaces it.",
+                ));
                 switch_row(ui, &mut settings.log_sessions, tr("Log every session"));
                 row(ui, tr("Log format"), &mut |ui| {
                     let name = |format: LogFormat| match format {
@@ -1694,6 +1708,14 @@ impl Tab {
 
     fn submit(&mut self) {
         let line = std::mem::take(&mut self.input);
+        // The command stays, selected, to be sent again or typed over.
+        // Never a password.
+        self.kept_input = (self.settings.keep_command && !self.input_hidden && !line.is_empty())
+            .then(|| line.clone());
+        if let Some(kept) = &self.kept_input {
+            self.input.clone_from(kept);
+            self.select_input = true;
+        }
         // What follows answers this command, so drop what was still queued.
         self.voice.stop();
         if self.input_hidden {
@@ -1790,6 +1812,22 @@ impl Tab {
             .inner
         });
         let mut output = shown.inner;
+        if std::mem::take(&mut self.select_input) {
+            let all = egui::text::CCursorRange::two(
+                egui::text::CCursor::new(0),
+                egui::text::CCursor::new(self.input.chars().count()),
+            );
+            output.state.cursor.set_char_range(Some(all));
+            output.state.clone().store(ui.ctx(), id);
+        }
+        // Once it is typed over or edited, it is a new command.
+        if self
+            .kept_input
+            .as_ref()
+            .is_some_and(|kept| *kept != self.input)
+        {
+            self.kept_input = None;
+        }
         if completing {
             // Put the cursor after the completed word.
             let end = egui::text::CCursor::new(self.input.chars().count());
@@ -1812,6 +1850,14 @@ impl Tab {
                     input.consume_key(Modifiers::CTRL, Key::F),
                 )
             });
+            // A command left from before is the newest in the history: the
+            // arrows start from it, not from what its text happens to match.
+            if (up || down || search) && self.kept_input.take().is_some() {
+                self.input.clear();
+                if up {
+                    self.history.older(&mut self.input);
+                }
+            }
             if up {
                 self.history.older(&mut self.input);
             } else if down {
@@ -2218,6 +2264,42 @@ mod tests {
     }
 
     #[test]
+    fn sent_command_stays_selected_to_repeat_or_type_over() {
+        let mut harness = window(None);
+        let (_events, mut sent) = fake_connection(harness.state_mut().tab_mut());
+        let send = |text: &str| Command::Send(text.into());
+        harness.state_mut().tab_mut().input = "north".into();
+        harness.run_steps(2);
+        // Enter sends it and leaves it there; Enter again sends it again.
+        for _ in 0..3 {
+            harness.key_press(Key::Enter);
+            harness.run_steps(3);
+            assert_eq!(sent.try_recv().unwrap(), send("north"));
+            assert_eq!(harness.state().tab().input, "north");
+        }
+        // It is selected: what is typed takes its place.
+        harness.get_by_label("Command").type_text("look");
+        harness.run_steps(3);
+        assert_eq!(harness.state().tab().input, "look");
+        harness.key_press(Key::Enter);
+        harness.run_steps(3);
+        assert_eq!(sent.try_recv().unwrap(), send("look"));
+        // The arrows browse from it as the newest command, not as a search.
+        harness.key_press(Key::ArrowUp);
+        harness.run_steps(3);
+        assert_eq!(harness.state().tab().input, "north");
+        // With the setting off, the line empties as it used to.
+        let app = harness.state_mut().tab_mut();
+        app.settings.keep_command = false;
+        app.input = "south".into();
+        harness.run_steps(2);
+        harness.key_press(Key::Enter);
+        harness.run_steps(3);
+        assert_eq!(sent.try_recv().unwrap(), send("south"));
+        assert_eq!(harness.state().tab().input, "");
+    }
+
+    #[test]
     fn session_is_logged_when_asked() {
         let dir = std::env::temp_dir().join(format!("muddie-app-log-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
@@ -2589,7 +2671,8 @@ mod tests {
             regex: true,
             send: "kill %1\nshield".into(),
             sound: "alert.ogg".into(),
-            script: "-- Only the dangerous ones\nlocal feared = {Orc = true, Troll = true}\nif feared[m[1]] and gmcp(\"Char.Vitals\").hp < 40 then\n\tsend(\"flee\")\n\techo(\"Too weak for \" .. m[1])\nend".into(),
+            lua: true,
+            script: "-- Only the dangerous ones\nsend(\"kill \" .. m[1])\nlocal feared = {Orc = true, Troll = true}\nif feared[m[1]] and gmcp(\"Char.Vitals\").hp < 40 then\n\tsend(\"flee\")\n\techo(\"Too weak for \" .. m[1])\nend".into(),
             ..Trigger::default()
         });
         app.rules.triggers.push(Trigger {
@@ -2610,6 +2693,19 @@ mod tests {
         app.rules_sample = "Orc attacks you with a rusty axe!".into();
         rules.run_steps(4);
         save(&mut rules, "automation");
+        // The same with a mistake in the script, and then as commands.
+        let app = rules.state_mut().tab_mut();
+        let good = app.rules_draft.triggers[1].script.clone();
+        app.rules_draft.triggers[1].script =
+            good.replace("then\n\tsend(\"flee\")", "\n\tsend(\"flee\"");
+        rules.run_steps(3);
+        save(&mut rules, "mistake");
+        let app = rules.state_mut().tab_mut();
+        app.rules_draft.triggers[1].script = good;
+        app.rules_draft.triggers[1].lua = false;
+        rules.run_steps(3);
+        save(&mut rules, "commands");
+        rules.state_mut().tab_mut().rules_draft.triggers[1].lua = true;
         let app = rules.state_mut().tab_mut();
         app.rules_section = 2;
         rules.run_steps(3);

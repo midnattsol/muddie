@@ -404,34 +404,6 @@ impl Tab {
         }
     }
 
-    /// The Automation menu.
-    pub fn automation_menu(&mut self, ui: &mut egui::Ui) {
-        for (section, name) in [
-            tr("Triggers…"),
-            tr("Aliases…"),
-            tr("Macros…"),
-            tr("Gauges…"),
-            tr("Scripts…"),
-        ]
-        .into_iter()
-        .enumerate()
-        {
-            if widgets::menu_item(ui, name, "").clicked() {
-                self.open_automation(section);
-                ui.close();
-            }
-        }
-        widgets::menu_separator(ui);
-        if widgets::menu_item(ui, tr("Reload scripts"), "").clicked() {
-            self.map_command("/reload");
-            ui.close();
-        }
-        if widgets::menu_item(ui, tr("List script packages"), "").clicked() {
-            self.map_command("/packages");
-            ui.close();
-        }
-    }
-
     /// The Map menu.
     pub fn map_menu(&mut self, ui: &mut egui::Ui) {
         widgets::menu_check(ui, &mut self.show_map, tr("Show the map"));

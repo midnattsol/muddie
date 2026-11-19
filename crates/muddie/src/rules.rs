@@ -34,6 +34,8 @@ pub struct Trigger {
     pub sound: String,
     /// Luau to run, with the match as `m` and the line as `line`.
     pub script: String,
+    /// What it does is the script, not the commands.
+    pub lua: bool,
 }
 
 /// Replaces a typed command.
@@ -52,6 +54,8 @@ pub struct Alias {
     pub send: String,
     /// Luau to run, with the match as `m` and what was typed as `input`.
     pub script: String,
+    /// What it does is the script, not the commands.
+    pub lua: bool,
 }
 
 /// Sends commands when a key is pressed.
@@ -66,6 +70,8 @@ pub struct KeyBinding {
     pub send: String,
     /// Luau to run when the key is pressed.
     pub script: String,
+    /// What it does is the script, not the commands.
+    pub lua: bool,
 }
 
 /// A bar that follows a value the server reports.
@@ -101,7 +107,9 @@ impl Trigger {
     /// A line saying what the trigger does, for lists.
     pub fn summary(&self) -> String {
         let mut parts = Vec::new();
-        if !self.send.trim().is_empty() {
+        if self.lua {
+            parts.push("Luau".to_owned());
+        } else if !self.send.trim().is_empty() {
             parts.push(format!(
                 "→ {}",
                 commands(&self.send).collect::<Vec<_>>().join("; ")
@@ -119,9 +127,7 @@ impl Trigger {
         if self.gag {
             parts.push("∅".to_owned());
         }
-        if !self.script.trim().is_empty() {
-            parts.push("Luau".to_owned());
-        }
+
         parts.join("  ·  ")
     }
 }
@@ -174,6 +180,34 @@ pub fn commands(send: &str) -> impl Iterator<Item = &str> {
         .filter(|command| !command.is_empty())
 }
 
+/// The commands of a rule's `send` as the Luau that sends them: `%1`...
+/// become the match's groups if the rule has a match.
+pub fn commands_as_lua(send: &str, matched: bool) -> String {
+    let mut code = String::new();
+    for command in commands(send) {
+        let mut pieces: Vec<String> = Vec::new();
+        let mut text = String::new();
+        let mut chars = command.chars().peekable();
+        while let Some(ch) = chars.next() {
+            match (ch, chars.peek().and_then(|next| next.to_digit(10))) {
+                ('%', Some(group)) if matched => {
+                    chars.next();
+                    if !text.is_empty() {
+                        pieces.push(quoted(&std::mem::take(&mut text)));
+                    }
+                    pieces.push(format!("(m[{group}] or \"\")"));
+                }
+                _ => text.push(ch),
+            }
+        }
+        if !text.is_empty() || pieces.is_empty() {
+            pieces.push(quoted(&text));
+        }
+        code.push_str(&format!("send({})\n", pieces.join(" .. ")));
+    }
+    code
+}
+
 /// What every chunk of [`Rules::chunks`] starts with.
 const PRELUDE: &str = r#"local function fill(template, m)
 	return (template:gsub("%%(%d)", function(n) return m[tonumber(n)] or "" end))
@@ -201,7 +235,10 @@ impl Rules {
     pub fn load(path: &Path) -> Result<Self, String> {
         match std::fs::read_to_string(path) {
             Ok(text) => {
-                toml::from_str(&text).map_err(|error| format!("{}: {error}", path.display()))
+                let loaded: Result<Self, _> = toml::from_str(&text);
+                let mut rules = loaded.map_err(|error| format!("{}: {error}", path.display()))?;
+                rules.migrate();
+                Ok(rules)
             }
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(Self::default()),
             Err(error) => Err(format!("cannot read {}: {error}", path.display())),
@@ -215,6 +252,28 @@ impl Rules {
         }
         std::fs::write(path, text)
             .map_err(|error| format!("cannot write {}: {error}", path.display()))
+    }
+
+    /// Brings rules written by earlier versions up to date: a rule does
+    /// its commands or its script, so one that had both becomes a script
+    /// that starts by sending the commands.
+    pub fn migrate(&mut self) {
+        let merge = |send: &mut String, script: &mut String, lua: &mut bool, matched: bool| {
+            if !*lua && !script.trim().is_empty() {
+                *script = format!("{}{script}", commands_as_lua(send, matched));
+                send.clear();
+                *lua = true;
+            }
+        };
+        for rule in &mut self.triggers {
+            merge(&mut rule.send, &mut rule.script, &mut rule.lua, true);
+        }
+        for rule in &mut self.aliases {
+            merge(&mut rule.send, &mut rule.script, &mut rule.lua, true);
+        }
+        for rule in &mut self.keys {
+            merge(&mut rule.send, &mut rule.script, &mut rule.lua, false);
+        }
     }
 
     /// The rules as one Luau script.
@@ -269,7 +328,11 @@ impl Rules {
             if trigger.gag {
                 code.push_str("\tgag()\n");
             }
-            code.push_str(&sends(&trigger.send));
+            if trigger.lua {
+                code.push_str(&script(&trigger.script));
+            } else {
+                code.push_str(&sends(&trigger.send));
+            }
             if !trigger.speak.trim().is_empty() {
                 code.push_str(&format!(
                     "\tspeak(fill({}, m))\n",
@@ -279,37 +342,31 @@ impl Rules {
             if !trigger.sound.trim().is_empty() {
                 code.push_str(&format!("\tplay({})\n", quoted(trigger.sound.trim())));
             }
-            code.push_str(&script(&trigger.script));
             code.push_str("end)\n");
             chunks.push((titled("trigger", &trigger.name, &trigger.pattern), code));
         }
         for alias in
             (self.aliases.iter()).filter(|rule| rule.enabled && !rule.pattern.trim().is_empty())
         {
-            let code = format!(
-                "{PRELUDE}alias({}, function(m, input)\n{}{}end)\n",
-                quoted(&alias.regex_source()),
-                sends(&alias.send),
+            let action = if alias.lua {
                 script(&alias.script)
+            } else {
+                sends(&alias.send)
+            };
+            let code = format!(
+                "{PRELUDE}alias({}, function(m, input)\n{action}end)\n",
+                quoted(&alias.regex_source())
             );
             chunks.push((titled("alias", &alias.name, &alias.pattern), code));
         }
         for key in (self.keys.iter()).filter(|rule| rule.enabled && !rule.key.trim().is_empty()) {
             let name = quoted(key.key.trim());
-            let code = if key.script.trim().is_empty() {
-                format!(
-                    "bind({name}, {})\n",
-                    quoted(&commands(&key.send).collect::<Vec<_>>().join(";"))
-                )
+            let code = if key.lua {
+                format!("bind({name}, function()\n{}end)\n", script(&key.script))
             } else {
                 // What it sends goes through aliases, as if typed.
-                let typed: String = commands(&key.send)
-                    .map(|command| format!("\tsend({})\n", quoted(command)))
-                    .collect();
-                format!(
-                    "bind({name}, function()\n{typed}{}end)\n",
-                    script(&key.script)
-                )
+                let typed = commands(&key.send).collect::<Vec<_>>().join(";");
+                format!("bind({name}, {})\n", quoted(&typed))
             };
             chunks.push((titled("macro", &key.name, &key.key), code));
         }
@@ -623,9 +680,29 @@ mod tests {
             }],
             ..Rules::default()
         };
+        // Written by an earlier version, with commands and a script both:
+        // the commands become the start of the script.
+        let mut rules = rules;
+        rules.migrate();
+        let trigger = &rules.triggers[0];
+        assert!(trigger.lua && trigger.send.is_empty());
+        assert!(
+            trigger
+                .script
+                .starts_with("send(\"kill \" .. (m[1] or \"\"))\nsend(\"shield\")\n")
+        );
         let mut engine = run(&rules);
         engine.on_line("Orc attacks");
         let expected = ["kill Orc", "shield", "parry", "flee from Orc attacks"].map(send);
+        assert_eq!(engine.take_actions(), expected);
+        assert!(engine.on_key("f5"));
+        assert_eq!(engine.take_actions(), ["look", "score"].map(send));
+        // A rule does one or the other: with the script chosen, commands
+        // left in the other form are not sent.
+        let mut either = rules.clone();
+        either.triggers[0].send = "never sent".into();
+        let mut engine = run(&either);
+        engine.on_line("Orc attacks");
         assert_eq!(engine.take_actions(), expected);
         // A rule whose script is wrong is reported by name, and alone.
         let broken = Rules {
@@ -634,6 +711,7 @@ mod tests {
                 enabled: true,
                 pattern: "x".into(),
                 script: "this is not Luau".into(),
+                lua: true,
                 ..Trigger::default()
             }],
             ..rules

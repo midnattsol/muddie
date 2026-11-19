@@ -557,4 +557,56 @@ pub const SPANISH: &[(&str, &str)] = &[
         "Se dibuja al caminar, si el MUD dice en qué sala estás. Si el tuyo lo cuenta de otra forma, o dibuja él mismo el mapa, un script puede encargarse.",
     ),
     ("Set up a mapper…", "Configurar un mapper…"),
+    (
+        "Switch between the game and automation",
+        "Cambiar entre el juego y la automatización",
+    ),
+    ("Line", "Línea"),
+    (
+        "Keep the command after sending it",
+        "Dejar el comando tras enviarlo",
+    ),
+    (
+        "It stays selected: Enter sends it again, and typing replaces it.",
+        "Queda seleccionado: Enter lo envía otra vez y escribir lo sustituye.",
+    ),
+    ("Modules", "Módulos"),
+    ("Run everything again", "Ejecutar todo de nuevo"),
+    (
+        "Loads the modules and the rules afresh, as when connecting.",
+        "Carga de nuevo los módulos y las reglas, como al conectar.",
+    ),
+    (
+        "Modules are Luau code that is always loaded: what no rule can do,\nsuch as building the map or acting on what your MUD reports.",
+        "Los módulos son código Luau que está siempre cargado: lo que ninguna regla puede hacer,\ncomo construir el mapa o reaccionar a lo que informa tu MUD.",
+    ),
+    (
+        "One command per line. %1, %2… are the groups of the pattern.",
+        "Un comando por línea. %1, %2… son los grupos del patrón.",
+    ),
+    (
+        "m holds the match, line the whole line.",
+        "m es la coincidencia, line la línea entera.",
+    ),
+    ("Also", "Además"),
+    ("runs the script", "ejecuta el script"),
+    (
+        "One command per line. %1 stands for what follows the word.",
+        "Un comando por línea. %1 es lo que sigue a la palabra.",
+    ),
+    (
+        "m holds the match, input what was typed.",
+        "m es la coincidencia, input lo que escribiste.",
+    ),
+    (
+        "One command per line, sent as if you had typed them.",
+        "Un comando por línea, enviados como si los hubieras escrito.",
+    ),
+    (
+        "Run when the key is pressed.",
+        "Se ejecuta al pulsar la tecla.",
+    ),
+    ("Module", "Módulo"),
+    ("Commands", "Comandos"),
+    ("Lua script", "Script Lua"),
 ];

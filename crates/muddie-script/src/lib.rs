@@ -373,6 +373,25 @@ impl Engine {
     }
 
     /// Runs a chunk of Luau code; `name` identifies it in error messages.
+    /// Says whether `code` is Luau that could be run, without running it:
+    /// the line and the message of its first mistake if it is not.
+    pub fn check(&self, code: &str) -> Option<(usize, String)> {
+        let error = self
+            .lua
+            .load(code)
+            .set_name("=code")
+            .into_function()
+            .err()?;
+        let text = error.to_string();
+        // The message reads `code:3: what is wrong`.
+        let located = text.split_once("code:").and_then(|(_, rest)| {
+            let (line, message) = rest.split_once(':')?;
+            let message = message.trim().lines().next().unwrap_or_default();
+            Some((line.trim().parse().ok()?, message.to_owned()))
+        });
+        Some(located.unwrap_or((1, text)))
+    }
+
     pub fn exec(&mut self, name: &str, code: &str) {
         // The "@" makes errors read `name:line: message`.
         let chunk = self.lua.load(code).set_name(format!("@{name}"));
@@ -2310,6 +2329,25 @@ mod tests {
         );
         // A package of the same name from the server is not the event.
         engine.on_gmcp("panel", r#"{"columns": 1, "rows": 1}"#);
+        assert_eq!(engine.take_actions(), []);
+    }
+
+    #[test]
+    fn code_is_checked_without_being_run() {
+        let engine = Engine::new(Rc::default()).unwrap();
+        assert_eq!(
+            engine.check("send(\"north\")\nif m then echo(m[1]) end"),
+            None
+        );
+        let (line, message) = engine.check("local x = 1\n\nif x then\n  send(\n").unwrap();
+        assert_eq!(line, 5);
+        assert!(
+            !message.is_empty() && !message.contains("code:"),
+            "{message}"
+        );
+        // Nothing ran: no action was asked for.
+        let mut engine = engine;
+        engine.check("send(\"north\")");
         assert_eq!(engine.take_actions(), []);
     }
 

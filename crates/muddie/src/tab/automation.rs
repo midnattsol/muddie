@@ -237,7 +237,7 @@ impl Tab {
             tr("Aliases"),
             tr("Macros"),
             tr("Gauges"),
-            tr("Scripts"),
+            tr("Modules"),
         ];
         for (section, name) in names.into_iter().enumerate() {
             let selected = self.rules_section == section;
@@ -249,6 +249,19 @@ impl Tab {
             }
         }
         ui.add_space(14.0);
+        ui.horizontal(|ui| {
+            ui.add_space(2.0);
+            let again = widgets::quiet_button(ui, tr("Run everything again"));
+            if again
+                .on_hover_text(tr(
+                    "Loads the modules and the rules afresh, as when connecting.",
+                ))
+                .clicked()
+            {
+                self.flush_script();
+                self.load_scripts();
+            }
+        });
         ui.horizontal(|ui| {
             ui.add_space(10.0);
             let saved = self.rules_draft == self.rules && self.script_text == self.script_saved;
@@ -558,7 +571,7 @@ impl Tab {
                     "A gauge is a bar that follows a number the MUD reports,\nsuch as your health.",
                 ),
                 _ => tr(
-                    "Scripts are Luau programs: for what triggers cannot do,\nsuch as building the map from what your MUD sends.",
+                    "Modules are Luau code that is always loaded: what no rule can do,\nsuch as building the map or acting on what your MUD reports.",
                 ),
             };
             ui.vertical_centered(|ui| {
@@ -618,96 +631,85 @@ impl Tab {
             &mut rule.enabled,
             tr("Name this trigger"),
         );
-        let (left, right) = detail_columns(ui);
-        let mut first = column(ui, left, "first");
-        {
-            let ui = &mut first;
-            widgets::caption(ui, tr("When"));
-            let label = if rule.regex {
-                tr("A line matches this regular expression")
-            } else {
-                tr("A line contains this text")
-            };
-            widgets::field(ui, label, &mut rule.pattern, tr("tells you"));
-            widgets::switch_row(ui, &mut rule.regex, tr("Regular expression"));
-            ui.add_space(6.0);
-            widgets::caption(ui, tr("Do"));
-            widgets::editor(
-                ui,
-                tr("Send commands, one per line"),
-                &mut rule.send,
-                "kill %1\nloot",
-                4,
-            );
-            ui.columns(2, |columns| {
-                widgets::field(
-                    &mut columns[0],
-                    tr("Say"),
-                    &mut rule.speak,
-                    tr("%1 is here"),
-                );
-                widgets::field(
-                    &mut columns[1],
-                    tr("Play a sound"),
-                    &mut rule.sound,
-                    "alert.ogg",
-                );
-            });
+        widgets::caption(ui, tr("When"));
+        let label = if rule.regex {
+            tr("A line matches this regular expression")
+        } else {
+            tr("A line contains this text")
+        };
+        widgets::field(ui, label, &mut rule.pattern, tr("tells you"));
+        widgets::switch_row(ui, &mut rule.regex, tr("Regular expression"));
+        ui.add_space(6.0);
+        let mistake = if rule.lua {
+            self.scripts.check(&rule.script)
+        } else {
+            None
+        };
+        action_block(
+            ui,
+            Action {
+                lua: &mut rule.lua,
+                commands: &mut rule.send,
+                script: &mut rule.script,
+                matched: true,
+                commands_hint: "kill %1\nloot",
+                script_hint: "if m[1] ~= \"you\" then\n\tsend(\"assist \" .. m[1])\nend",
+                about_commands: tr("One command per line. %1, %2… are the groups of the pattern."),
+                about_script: tr("m holds the match, line the whole line."),
+            },
+            script_rows(height, 560.0),
+            mistake.as_ref(),
+        );
+        ui.add_space(6.0);
+        widgets::caption(ui, tr("Also"));
+        ui.columns(2, |columns| {
             widgets::field(
-                ui,
+                &mut columns[0],
+                tr("Say"),
+                &mut rule.speak,
+                tr("%1 is here"),
+            );
+            widgets::field(
+                &mut columns[1],
+                tr("Play a sound"),
+                &mut rule.sound,
+                "alert.ogg",
+            );
+        });
+        ui.columns(2, |columns| {
+            widgets::field(
+                &mut columns[0],
                 tr("Colour the match"),
                 &mut rule.highlight,
                 "yellow, #ffcc00",
             );
-            widgets::switch_row(ui, &mut rule.gag, tr("Hide the line"));
-        }
-        let used = first.min_rect();
-        let mut second = match right {
-            Some(right) => column(ui, right, "second"),
-            None => first,
-        };
-        {
-            let ui = &mut second;
-            if right.is_none() {
-                ui.add_space(6.0);
+            columns[1].add_space(22.0);
+            widgets::switch_row(&mut columns[1], &mut rule.gag, tr("Hide the line"));
+        });
+        ui.add_space(6.0);
+        widgets::caption(ui, tr("Try it"));
+        widgets::text_box(ui, &mut self.rules_sample, tr("Paste a line from the MUD"));
+        let rule = &self.rules_draft.triggers[index];
+        let outcome = try_pattern(&rule.regex_source(), &self.rules_sample, |captures| {
+            let mut effects = Vec::new();
+            let sent: Vec<String> = crate::rules::commands(&rule.send)
+                .map(|command| fill(command, captures))
+                .collect();
+            if rule.lua {
+                effects.push(tr("runs the script").to_owned());
+            } else if !sent.is_empty() {
+                effects.push(format!("{} {}", tr("sends"), sent.join("; ")));
             }
-            // Beside the rest, the script takes the height there is.
-            let rows = if right.is_some() {
-                script_rows(height, 250.0)
-            } else {
-                8
-            };
-            script_block(
-                ui,
-                tr("Luau, run after the rest. m holds the match, line the whole line."),
-                &mut rule.script,
-                "if m[1] ~= \"you\" then\n\tsend(\"assist \" .. m[1])\nend",
-                rows,
-            );
-            ui.add_space(6.0);
-            widgets::caption(ui, tr("Try it"));
-            widgets::text_box(ui, &mut self.rules_sample, tr("Paste a line from the MUD"));
-            let rule = &self.rules_draft.triggers[index];
-            let outcome = try_pattern(&rule.regex_source(), &self.rules_sample, |captures| {
-                let mut effects = Vec::new();
-                let sent: Vec<String> = crate::rules::commands(&rule.send)
-                    .map(|command| fill(command, captures))
-                    .collect();
-                if !sent.is_empty() {
-                    effects.push(format!("{} {}", tr("sends"), sent.join("; ")));
-                }
-                if !rule.speak.trim().is_empty() {
-                    effects.push(format!(
-                        "{} “{}”",
-                        tr("says"),
-                        fill(rule.speak.trim(), captures)
-                    ));
-                }
-                effects.join(" · ")
-            });
-            show_outcome(ui, outcome);
-        }
-        ui.allocate_rect(used.union(second.min_rect()), egui::Sense::hover());
+            if !rule.speak.trim().is_empty() {
+                effects.push(format!(
+                    "{} “{}”",
+                    tr("says"),
+                    fill(rule.speak.trim(), captures)
+                ));
+            }
+            effects.join(" · ")
+        });
+        show_outcome(ui, outcome);
         delete
     }
 
@@ -715,64 +717,49 @@ impl Tab {
         let height = self.detail_height;
         let rule = &mut self.rules_draft.aliases[index];
         let delete = rule_header(ui, &mut rule.name, &mut rule.enabled, tr("Name this alias"));
-        let (left, right) = detail_columns(ui);
-        let mut first = column(ui, left, "first");
-        {
-            let ui = &mut first;
-            widgets::caption(ui, tr("When"));
-            let label = if rule.regex {
-                tr("What you type matches this regular expression")
-            } else {
-                tr("You type this word, alone or followed by more")
-            };
-            widgets::field(ui, label, &mut rule.pattern, "k");
-            widgets::switch_row(ui, &mut rule.regex, tr("Regular expression"));
-            ui.add_space(6.0);
-            widgets::caption(ui, tr("Do"));
-            widgets::editor(
-                ui,
-                tr("Send instead, one command per line"),
-                &mut rule.send,
-                "kill %1",
-                4,
-            );
-            note(ui, tr("%1 stands for what follows the word."));
-        }
-        let used = first.min_rect();
-        let mut second = match right {
-            Some(right) => column(ui, right, "second"),
-            None => first,
+        widgets::caption(ui, tr("When"));
+        let label = if rule.regex {
+            tr("What you type matches this regular expression")
+        } else {
+            tr("You type this word, alone or followed by more")
         };
-        {
-            let ui = &mut second;
-            if right.is_none() {
-                ui.add_space(6.0);
+        widgets::field(ui, label, &mut rule.pattern, "k");
+        widgets::switch_row(ui, &mut rule.regex, tr("Regular expression"));
+        ui.add_space(6.0);
+        let mistake = if rule.lua {
+            self.scripts.check(&rule.script)
+        } else {
+            None
+        };
+        action_block(
+            ui,
+            Action {
+                lua: &mut rule.lua,
+                commands: &mut rule.send,
+                script: &mut rule.script,
+                matched: true,
+                commands_hint: "kill %1",
+                script_hint: "send(\"say \" .. string.upper(m[1]))",
+                about_commands: tr("One command per line. %1 stands for what follows the word."),
+                about_script: tr("m holds the match, input what was typed."),
+            },
+            script_rows(height, 400.0),
+            mistake.as_ref(),
+        );
+        ui.add_space(6.0);
+        widgets::caption(ui, tr("Try it"));
+        widgets::text_box(ui, &mut self.rules_sample, tr("Type a command"));
+        let rule = &self.rules_draft.aliases[index];
+        let outcome = try_pattern(&rule.regex_source(), &self.rules_sample, |captures| {
+            if rule.lua {
+                return tr("runs the script").to_owned();
             }
-            let rows = if right.is_some() {
-                script_rows(height, 250.0)
-            } else {
-                8
-            };
-            script_block(
-                ui,
-                tr("Luau, run after the rest. m holds the match, input what was typed."),
-                &mut rule.script,
-                "send(\"say \" .. string.upper(m[1]))",
-                rows,
-            );
-            ui.add_space(6.0);
-            widgets::caption(ui, tr("Try it"));
-            widgets::text_box(ui, &mut self.rules_sample, tr("Type a command"));
-            let rule = &self.rules_draft.aliases[index];
-            let outcome = try_pattern(&rule.regex_source(), &self.rules_sample, |captures| {
-                let sent: Vec<String> = crate::rules::commands(&rule.send)
-                    .map(|command| fill(command, captures))
-                    .collect();
-                format!("{} {}", tr("sends"), sent.join("; "))
-            });
-            show_outcome(ui, outcome);
-        }
-        ui.allocate_rect(used.union(second.min_rect()), egui::Sense::hover());
+            let sent: Vec<String> = crate::rules::commands(&rule.send)
+                .map(|command| fill(command, captures))
+                .collect();
+            format!("{} {}", tr("sends"), sent.join("; "))
+        });
+        show_outcome(ui, outcome);
         delete
     }
 
@@ -783,81 +770,64 @@ impl Tab {
         let mut toggle = false;
         let rule = &mut self.rules_draft.keys[index];
         let delete = rule_header(ui, &mut rule.name, &mut rule.enabled, tr("Name this macro"));
-        let (left, right) = detail_columns(ui);
-        let mut first = column(ui, left, "first");
-        {
-            let ui = &mut first;
-            widgets::caption(ui, tr("Key"));
-            ui.horizontal(|ui| {
-                let shown = if recording {
-                    tr("Press the key…").to_owned()
-                } else if rule.key.trim().is_empty() {
-                    tr("None").to_owned()
-                } else {
-                    rule.key.trim().to_uppercase().replace('+', " + ")
-                };
-                let (colour, edge) = if recording {
-                    (theme.accent, theme.accent)
-                } else {
-                    (theme.text, theme.border)
-                };
-                egui::Frame::new()
-                    .fill(theme.field)
-                    .stroke(egui::Stroke::new(1.0, edge))
-                    .corner_radius(egui::CornerRadius::same(8))
-                    .inner_margin(egui::Margin::symmetric(14, 7))
-                    .show(ui, |ui| {
-                        ui.label(
-                            RichText::new(shown)
-                                .font(theme::font(Weight::Medium, 13.5))
-                                .color(colour),
-                        );
-                    });
-                let label = if recording {
-                    tr("Cancel")
-                } else {
-                    tr("Record a key")
-                };
-                toggle = ui.button(label).clicked();
-            });
-            note(
-                ui,
-                tr("Function keys, keys with Ctrl or Alt, and the numeric keypad can be used."),
-            );
-            ui.add_space(6.0);
-            widgets::caption(ui, tr("Do"));
-            widgets::editor(
-                ui,
-                tr("Send commands, one per line"),
-                &mut rule.send,
-                "north",
-                4,
-            );
-        }
-        let used = first.min_rect();
-        let mut second = match right {
-            Some(right) => column(ui, right, "second"),
-            None => first,
-        };
-        {
-            let ui = &mut second;
-            if right.is_none() {
-                ui.add_space(6.0);
-            }
-            let rows = if right.is_some() {
-                script_rows(height, 150.0)
+        widgets::caption(ui, tr("Key"));
+        ui.horizontal(|ui| {
+            let shown = if recording {
+                tr("Press the key…").to_owned()
+            } else if rule.key.trim().is_empty() {
+                tr("None").to_owned()
             } else {
-                8
+                rule.key.trim().to_uppercase().replace('+', " + ")
             };
-            script_block(
-                ui,
-                tr("Luau, run when the key is pressed."),
-                &mut rule.script,
-                "map.walk(map.find(\"Temple\")[1].id)",
-                rows,
-            );
-        }
-        ui.allocate_rect(used.union(second.min_rect()), egui::Sense::hover());
+            let (colour, edge) = if recording {
+                (theme.accent, theme.accent)
+            } else {
+                (theme.text, theme.border)
+            };
+            egui::Frame::new()
+                .fill(theme.surface)
+                .stroke(egui::Stroke::new(1.0, edge))
+                .corner_radius(egui::CornerRadius::same(8))
+                .inner_margin(egui::Margin::symmetric(14, 7))
+                .show(ui, |ui| {
+                    ui.label(
+                        RichText::new(shown)
+                            .font(theme::font(Weight::Medium, 13.5))
+                            .color(colour),
+                    );
+                });
+            let label = if recording {
+                tr("Cancel")
+            } else {
+                tr("Record a key")
+            };
+            toggle = ui.button(label).clicked();
+        });
+        note(
+            ui,
+            tr("Function keys, keys with Ctrl or Alt, and the numeric keypad can be used."),
+        );
+        ui.add_space(6.0);
+        let mistake = if rule.lua {
+            self.scripts.check(&rule.script)
+        } else {
+            None
+        };
+        action_block(
+            ui,
+            Action {
+                lua: &mut rule.lua,
+                commands: &mut rule.send,
+                script: &mut rule.script,
+                matched: false,
+                commands_hint: "north",
+                script_hint: "map.walk(map.find(\"Temple\")[1].id)",
+                about_commands: tr("One command per line, sent as if you had typed them."),
+                about_script: tr("Run when the key is pressed."),
+            },
+            script_rows(height, 300.0),
+            mistake.as_ref(),
+        );
         if toggle {
             self.recording_key = !recording;
         }
@@ -987,7 +957,15 @@ impl Tab {
         // The editor is the whole of the view.
         let rows = script_rows(self.detail_height, 96.0);
         let hint = "-- Luau\non_gmcp(\"Room.Info\", function(room)\n\tmap.visit({id = room.num, name = room.name, exits = room.exits})\nend)";
-        widgets::code_editor(ui, tr("Script"), &mut self.script_text, hint, rows);
+        let mistake = self.scripts.check(&self.script_text);
+        widgets::code_editor(
+            ui,
+            tr("Module"),
+            &mut self.script_text,
+            hint,
+            rows,
+            mistake.as_ref(),
+        );
         delete
     }
 
@@ -1086,11 +1064,75 @@ fn note(ui: &mut egui::Ui, text: &str) {
     ui.label(small);
 }
 
-/// A rule's script: its title, what it is given, and the editor.
-fn script_block(ui: &mut egui::Ui, about: &str, script: &mut String, hint: &str, rows: usize) {
-    widgets::caption(ui, tr("Script"));
-    widgets::code_editor(ui, tr("Script"), script, hint, rows);
-    note(ui, about);
+/// What a rule does: either the commands it sends or the script it runs.
+struct Action<'a> {
+    lua: &'a mut bool,
+    commands: &'a mut String,
+    script: &'a mut String,
+    /// The rule matches something, so there are groups to refer to.
+    matched: bool,
+    commands_hint: &'a str,
+    script_hint: &'a str,
+    about_commands: &'a str,
+    about_script: &'a str,
+}
+
+/// The part of a rule that says what it does, the same for triggers,
+/// aliases and macros: a choice between commands and a Lua script, and
+/// the editor of the one chosen, `rows` lines tall.
+fn action_block(
+    ui: &mut egui::Ui,
+    action: Action<'_>,
+    rows: usize,
+    mistake: Option<&(usize, String)>,
+) {
+    ui.horizontal(|ui| {
+        widgets::caption(ui, tr("Do"));
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            let current = usize::from(*action.lua);
+            match widgets::segmented(ui, &[tr("Commands"), tr("Lua script")], current) {
+                Some(0) => *action.lua = false,
+                Some(_) => {
+                    *action.lua = true;
+                    // Start the script from the commands there were.
+                    if action.script.trim().is_empty() {
+                        *action.script =
+                            crate::rules::commands_as_lua(action.commands, action.matched);
+                    }
+                }
+                None => {}
+            }
+        });
+    });
+    if *action.lua {
+        widgets::code_editor(
+            ui,
+            tr("Lua script"),
+            action.script,
+            action.script_hint,
+            rows,
+            mistake,
+        );
+        note(ui, action.about_script);
+    } else {
+        let theme = theme::current();
+        let editor = ui.add(
+            TextEdit::multiline(action.commands)
+                .font(egui::FontId::monospace(13.0))
+                .hint_text(
+                    RichText::new(action.commands_hint)
+                        .font(egui::FontId::monospace(13.0))
+                        .color(theme.text_faint),
+                )
+                .margin(egui::Margin::symmetric(12, 10))
+                .desired_rows(rows)
+                .desired_width(f32::INFINITY),
+        );
+        ui.ctx().accesskit_node_builder(editor.id, |node| {
+            node.set_label(tr("Commands"));
+        });
+        note(ui, action.about_commands);
+    }
 }
 
 /// The top of a rule's details: its name, set large, with the switch that
