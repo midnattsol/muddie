@@ -79,8 +79,8 @@ pub struct Room {
     pub name: String,
     pub area: String,
     pub pos: Pos,
-    /// Exit direction (see [`canonical_direction`]) to destination room.
-    pub exits: BTreeMap<String, RoomId>,
+    /// Exits by direction (see [`canonical_direction`]).
+    pub exits: BTreeMap<String, Exit>,
     /// Cost of entering the room when finding routes; 1 for a normal room.
     /// Set by the user, so what the server reports never changes it.
     pub weight: u32,
@@ -89,10 +89,28 @@ pub struct Room {
     pub avoid: bool,
 }
 
-/// One move of a route: the command to send and the room it leads to.
+/// A way out of a room. Everything but `to` is set by the user, and kept
+/// when the server reports the room again.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Exit {
+    pub to: RoomId,
+    /// Extra cost of using the exit when finding routes; 0 for a normal one.
+    pub cost: u32,
+    /// Routes never use the exit, as for a door that cannot be opened.
+    pub locked: bool,
+    /// What a walk sends to use the exit when the direction alone is not
+    /// enough; several commands are separated by `;` ("open door;n").
+    pub command: Option<String>,
+    /// Added by the user rather than reported by the server, so it stays
+    /// when the server lists the room's exits without it.
+    pub custom: bool,
+}
+
+/// One move of a route: what to send and the room it leads to.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Step {
-    pub direction: String,
+    /// One or more commands, separated by `;`.
+    pub command: String,
     pub to: RoomId,
 }
 
@@ -132,6 +150,10 @@ pub fn direction_offset(direction: &str) -> Option<(i32, i32, i32)> {
         _ => return None,
     })
 }
+
+/// A room's neighbour for layout: the neighbour, the grid step of the
+/// compass exit joining them, and which way along it the neighbour lies.
+type Link = (RoomId, (i32, i32, i32), i32);
 
 #[derive(Default)]
 pub struct Map {
@@ -202,12 +224,12 @@ impl Map {
     fn join_islands(&mut self, came_from: Option<RoomId>, here: RoomId) -> Result<(), Error> {
         let mut links = Vec::new();
         if let Some(previous) = came_from.and_then(|id| self.rooms.get(&id)) {
-            let exit = previous.exits.iter().find(|(_, to)| **to == here);
+            let exit = previous.exits.iter().find(|(_, exit)| exit.to == here);
             links.extend(exit.map(|(direction, _)| (previous.id, direction.clone(), here)));
         }
         if let Some(room) = self.rooms.get(&here) {
             let exits = room.exits.iter();
-            links.extend(exits.map(|(direction, to)| (here, direction.clone(), *to)));
+            links.extend(exits.map(|(direction, exit)| (here, direction.clone(), exit.to)));
         }
         let mut moved = Vec::new();
         for (anchor, direction, other) in links {
@@ -267,11 +289,11 @@ impl Map {
         let area = &self.rooms.get(&start)?.area;
         let mut neighbours: HashMap<RoomId, Vec<RoomId>> = HashMap::new();
         for room in self.rooms.values().filter(|room| &room.area == area) {
-            for to in room.exits.values() {
-                let direct = (room.id, *to) == (start, apart) || (room.id, *to) == (apart, start);
-                if !direct && self.rooms.get(to).is_some_and(|other| &other.area == area) {
-                    neighbours.entry(room.id).or_default().push(*to);
-                    neighbours.entry(*to).or_default().push(room.id);
+            for to in room.exits.values().map(|exit| exit.to) {
+                let direct = (room.id, to) == (start, apart) || (room.id, to) == (apart, start);
+                if !direct && self.rooms.get(&to).is_some_and(|other| &other.area == area) {
+                    neighbours.entry(room.id).or_default().push(to);
+                    neighbours.entry(to).or_default().push(room.id);
                 }
             }
         }
@@ -299,12 +321,31 @@ impl Map {
     fn upsert(&mut self, info: RoomInfo, came_from: Option<RoomId>) -> Result<(), Error> {
         let pos = self.place(&info, came_from);
         let existing = self.rooms.get(&info.id);
+        let old_exits = existing.map(|room| &room.exits);
+        // The server decides where its exits lead; what the user added to
+        // them, and the exits the user added, carry over.
+        let mut exits: BTreeMap<String, Exit> = (info.exits.into_iter())
+            .map(|(direction, to)| {
+                let old = old_exits.and_then(|exits| exits.get(&direction));
+                let exit = Exit {
+                    to,
+                    custom: false,
+                    ..old.cloned().unwrap_or_default()
+                };
+                (direction, exit)
+            })
+            .collect();
+        for (direction, exit) in old_exits.into_iter().flatten() {
+            if exit.custom && !exits.contains_key(direction) {
+                exits.insert(direction.clone(), exit.clone());
+            }
+        }
         let room = Room {
             id: info.id,
             name: info.name,
             area: info.area,
             pos,
-            exits: info.exits,
+            exits,
             weight: existing.map_or(1, |room| room.weight),
             avoid: existing.is_some_and(|room| room.avoid),
         };
@@ -337,7 +378,7 @@ impl Map {
         // room, and which way along that step the new room lies.
         let after_previous = || {
             let previous = self.rooms.get(&came_from?)?;
-            let (direction, _) = previous.exits.iter().find(|(_, to)| **to == info.id)?;
+            let (direction, _) = (previous.exits.iter()).find(|(_, exit)| exit.to == info.id)?;
             Some((previous.pos, direction_offset(direction)?, 1))
         };
         let beside_neighbour = || {
@@ -386,12 +427,36 @@ impl Map {
         self.edit_room(id, |room| room.avoid = avoid)
     }
 
-    /// Adds an exit, or changes where it leads. `direction` is also the
-    /// command a walk sends to use it, so it can be any command.
+    /// Adds an exit of the user's own, or changes where an exit leads.
+    /// `direction` is what a walk sends to use it unless the exit is given
+    /// a command, so it need not be a compass direction.
     pub fn set_exit(&mut self, from: RoomId, direction: &str, to: RoomId) -> Result<bool, Error> {
         let direction = canonical_direction(direction);
         self.edit_room(from, |room| {
-            room.exits.insert(direction, to);
+            let exit = room.exits.entry(direction).or_insert(Exit {
+                custom: true,
+                ..Exit::default()
+            });
+            exit.to = to;
+        })
+    }
+
+    /// Changes an exit's cost, lock or command. Returns false if there is
+    /// no such room or exit.
+    pub fn edit_exit(
+        &mut self,
+        from: RoomId,
+        direction: &str,
+        edit: impl FnOnce(&mut Exit),
+    ) -> Result<bool, Error> {
+        let direction = canonical_direction(direction);
+        let has_exit =
+            (self.rooms.get(&from)).is_some_and(|room| room.exits.contains_key(&direction));
+        if !has_exit {
+            return Ok(false);
+        }
+        self.edit_room(from, |room| {
+            room.exits.entry(direction).and_modify(edit);
         })
     }
 
@@ -400,6 +465,81 @@ impl Map {
         self.edit_room(from, |room| {
             room.exits.remove(&direction);
         })
+    }
+
+    /// Draws an area again from scratch: starting from the player's room
+    /// if it is there, each room is placed by the compass direction of the
+    /// exits that reach it. For an area whose drawing has become tangled.
+    /// Returns how many rooms moved.
+    pub fn relayout(&mut self, area: &str) -> Result<usize, Error> {
+        let mut members: Vec<RoomId> = (self.rooms.values())
+            .filter(|room| room.area == area)
+            .map(|room| room.id)
+            .collect();
+        members.sort_unstable();
+        // Every compass exit links two rooms both ways: a neighbour, the
+        // grid step, and which way along it the neighbour lies.
+        let mut links: HashMap<RoomId, Vec<Link>> = HashMap::new();
+        for id in &members {
+            for (direction, exit) in &self.rooms[id].exits {
+                let inside = (self.rooms.get(&exit.to)).is_some_and(|room| room.area == area);
+                if let (Some(step), true) = (direction_offset(direction), inside) {
+                    links.entry(*id).or_default().push((exit.to, step, 1));
+                    links.entry(exit.to).or_default().push((*id, step, -1));
+                }
+            }
+        }
+        let player = self.current.filter(|id| members.contains(id));
+        let mut placed: HashMap<RoomId, Pos> = HashMap::new();
+        let mut taken: HashSet<Pos> = HashSet::new();
+        for seed in player.into_iter().chain(members.iter().copied()) {
+            if placed.contains_key(&seed) {
+                continue;
+            }
+            // The first room stays where it is; a part no compass exit
+            // reaches starts its own island east of everything placed.
+            let old = self.rooms[&seed].pos;
+            let east_edge = placed.values().map(|pos| pos.x).max();
+            let start = match east_edge {
+                Some(x) => Pos {
+                    x: x + 2,
+                    y: 0,
+                    z: old.z,
+                },
+                None => old,
+            };
+            placed.insert(seed, start);
+            taken.insert(start);
+            let mut queue = VecDeque::from([seed]);
+            while let Some(id) = queue.pop_front() {
+                for &(next, step, sign) in links.get(&id).into_iter().flatten() {
+                    if placed.contains_key(&next) {
+                        continue;
+                    }
+                    let from = placed[&id];
+                    let pos = (1..=MAX_STRETCH)
+                        .map(|distance| from.offset(step, sign * distance))
+                        .find(|pos| !taken.contains(pos))
+                        .unwrap_or(from.offset(step, sign));
+                    placed.insert(next, pos);
+                    taken.insert(pos);
+                    queue.push_back(next);
+                }
+            }
+        }
+        let mut moved = Vec::new();
+        for (id, pos) in placed {
+            let room = self.rooms.get_mut(&id).expect("members exist");
+            if room.pos != pos {
+                room.pos = pos;
+                moved.push(id);
+            }
+        }
+        let rooms = moved.iter().filter_map(|id| self.rooms.get(id));
+        if let Some(store) = &mut self.store {
+            store.save(rooms)?;
+        }
+        Ok(moved.len())
     }
 
     fn edit_room(&mut self, id: RoomId, edit: impl FnOnce(&mut Room)) -> Result<bool, Error> {
@@ -457,8 +597,9 @@ impl Map {
     }
 
     /// The cheapest known route between two rooms: each move costs the
-    /// weight of the room entered, and rooms marked to avoid are only
-    /// entered as the destination. Empty if both are the same room; `None`
+    /// weight of the room entered plus the exit's own cost, locked exits
+    /// are never used, and rooms marked to avoid are only entered as the
+    /// destination. Empty if both are the same room; `None`
     /// if there is no route.
     pub fn route(&self, from: RoomId, to: RoomId) -> Option<Vec<Step>> {
         // Dijkstra's algorithm, remembering how each room was best reached.
@@ -475,7 +616,11 @@ impl Map {
             let Some(room) = self.rooms.get(&id) else {
                 continue;
             };
-            for (direction, &next) in &room.exits {
+            for (direction, exit) in &room.exits {
+                if exit.locked {
+                    continue;
+                }
+                let next = exit.to;
                 // An unexplored room can be walked into, but not through.
                 let (weight, avoid) = match self.rooms.get(&next) {
                     Some(room) => (room.weight, room.avoid),
@@ -484,10 +629,11 @@ impl Map {
                 if avoid && next != to {
                     continue;
                 }
-                let next_cost = cost + u64::from(weight);
+                let next_cost = cost + u64::from(weight) + u64::from(exit.cost);
                 if cost_to.get(&next).is_none_or(|known| next_cost < *known) {
                     cost_to.insert(next, next_cost);
-                    reached_by.insert(next, (id, direction));
+                    let command = exit.command.as_deref().unwrap_or(direction);
+                    reached_by.insert(next, (id, command));
                     queue.push(Reverse((next_cost, next)));
                 }
             }
@@ -495,9 +641,9 @@ impl Map {
         let mut steps = Vec::new();
         let mut at = to;
         while at != from {
-            let &(previous, direction) = reached_by.get(&at)?;
+            let &(previous, command) = reached_by.get(&at)?;
             steps.push(Step {
-                direction: direction.to_owned(),
+                command: command.to_owned(),
                 to: at,
             });
             at = previous;
@@ -599,7 +745,7 @@ mod tests {
         assert!(map.set_exit(2, "Down", 5).unwrap());
         assert!(!map.set_exit(99, "n", 1).unwrap());
         let directions: Vec<String> = (map.route(4, 5).unwrap().into_iter())
-            .map(|step| step.direction)
+            .map(|step| step.command)
             .collect();
         assert_eq!(directions, ["d", "w", "d"]);
 
@@ -611,7 +757,7 @@ mod tests {
         assert!(map.remove_room(4).unwrap());
         assert!(!map.remove_room(4).unwrap());
         assert!(map.current().is_none());
-        assert_eq!(map.room(3).unwrap().exits.get("u"), Some(&4));
+        assert_eq!(map.room(3).unwrap().exits["u"].to, 4);
     }
 
     #[test]
@@ -692,6 +838,97 @@ mod tests {
     }
 
     #[test]
+    fn exit_cost_lock_and_command_shape_the_route() {
+        let mut map = Map::in_memory();
+        for room in [
+            info(1, "Hall", &[("n", 2), ("e", 3)]),
+            info(2, "Vault", &[]),
+            info(3, "Passage", &[("n", 4)]),
+            info(4, "Loft", &[("w", 2)]),
+        ] {
+            map.set_room(room).unwrap();
+        }
+        let commands = |map: &Map| -> Option<Vec<String>> {
+            Some(
+                map.route(1, 2)?
+                    .into_iter()
+                    .map(|step| step.command)
+                    .collect(),
+            )
+        };
+        assert_eq!(commands(&map).unwrap(), ["n"]);
+        // A door: the walk must open it first.
+        assert!(
+            map.edit_exit(1, "North", |exit| exit.command = Some("open door;n".into()))
+                .unwrap()
+        );
+        assert_eq!(commands(&map).unwrap(), ["open door;n"]);
+        // Costly enough, the long way round wins.
+        map.edit_exit(1, "n", |exit| exit.cost = 5).unwrap();
+        assert_eq!(commands(&map).unwrap(), ["e", "n", "w"]);
+        map.edit_exit(1, "n", |exit| exit.cost = 0).unwrap();
+        map.edit_exit(1, "n", |exit| exit.locked = true).unwrap();
+        assert_eq!(commands(&map).unwrap(), ["e", "n", "w"]);
+        map.edit_exit(3, "n", |exit| exit.locked = true).unwrap();
+        assert_eq!(commands(&map), None);
+        assert!(!map.edit_exit(1, "up", |exit| exit.locked = true).unwrap());
+        assert!(!map.edit_exit(99, "n", |exit| exit.locked = true).unwrap());
+    }
+
+    #[test]
+    fn server_reports_keep_what_the_user_set_on_exits() {
+        let mut map = Map::in_memory();
+        map.visit(info(1, "Hall", &[("n", 2), ("e", 3)])).unwrap();
+        map.edit_exit(1, "n", |exit| exit.locked = true).unwrap();
+        map.set_exit(1, "enter portal", 9).unwrap();
+        // The server now says north leads elsewhere and east is gone.
+        map.visit(info(1, "Hall", &[("n", 5)])).unwrap();
+        let hall = map.room(1).unwrap();
+        assert_eq!((hall.exits["n"].to, hall.exits["n"].locked), (5, true));
+        assert!(!hall.exits.contains_key("e"));
+        assert_eq!(
+            (
+                hall.exits["enter portal"].to,
+                hall.exits["enter portal"].custom
+            ),
+            (9, true)
+        );
+        // Once the server lists the user's exit itself, it is no longer
+        // custom, so it goes away when the server later drops it.
+        map.visit(info(1, "Hall", &[("enter portal", 9)])).unwrap();
+        map.visit(info(1, "Hall", &[])).unwrap();
+        assert!(map.room(1).unwrap().exits.is_empty());
+    }
+
+    #[test]
+    fn relayout_redraws_a_tangled_area_around_the_player() {
+        let mut map = town();
+        let mut dock = info(30, "Dock", &[("e", 31)]);
+        dock.area = "town".into();
+        map.set_room(dock).unwrap();
+        map.set_room(info(31, "Pier", &[])).unwrap();
+        for (id, at) in [
+            (1, pos(7, -3, 2)),
+            (2, pos(7, -3, 2)),
+            (3, pos(0, 9, 0)),
+            (31, pos(-4, 0, 0)),
+        ] {
+            map.move_room(id, at).unwrap();
+        }
+        // The player is on the tower top, which keeps its place.
+        assert_eq!(map.relayout("town").unwrap(), 4);
+        let at = |id| map.room(id).unwrap().pos;
+        assert_eq!(
+            [at(4), at(3), at(2), at(1)],
+            [pos(1, 1, 1), pos(1, 1, 0), pos(0, 1, 0), pos(0, 0, 0)]
+        );
+        // The dock and pier connect to nothing else: a separate island.
+        assert_eq!([at(30), at(31)], [pos(3, 0, 0), pos(4, 0, 0)]);
+        assert_eq!(map.relayout("town").unwrap(), 0);
+        assert_eq!(map.relayout("nowhere").unwrap(), 0);
+    }
+
+    #[test]
     fn areas_are_listed_once_in_order() {
         let mut map = town();
         let mut other = info(9, "Raft", &[]);
@@ -731,7 +968,7 @@ mod tests {
             Some(
                 map.route(from, to)?
                     .into_iter()
-                    .map(|step| step.direction)
+                    .map(|step| step.command)
                     .collect(),
             )
         };
@@ -742,7 +979,7 @@ mod tests {
         assert_eq!(
             map.route(4, 1).unwrap()[0],
             Step {
-                direction: "d".into(),
+                command: "d".into(),
                 to: 3
             }
         );
@@ -780,6 +1017,16 @@ mod tests {
             assert!(map.move_room(1, pos(4, 4, 0)).unwrap());
             assert!(map.set_weight(1, 3).unwrap());
             assert!(map.set_avoid(2, true).unwrap());
+            let door = |exit: &mut Exit| {
+                *exit = Exit {
+                    cost: 4,
+                    locked: true,
+                    command: Some("open door;n".into()),
+                    ..exit.clone()
+                }
+            };
+            assert!(map.edit_exit(1, "n", door).unwrap());
+            assert!(map.set_exit(1, "leap", 2).unwrap());
             assert!(map.is_stored());
             // What happens after storing stops must not reach the file.
             map.stop_storing();
@@ -796,7 +1043,20 @@ mod tests {
             ("Square", "town")
         );
         assert_eq!(square.pos, pos(0, 1, 0));
-        assert_eq!(square.exits, BTreeMap::from([("s".to_owned(), 1)]));
+        let exits: Vec<(&str, RoomId)> = (square.exits.iter())
+            .map(|(direction, exit)| (direction.as_str(), exit.to))
+            .collect();
+        assert_eq!(exits, [("s", 1)]);
+        let gate = map.room(1).unwrap();
+        let expected = Exit {
+            to: 2,
+            cost: 4,
+            locked: true,
+            command: Some("open door;n".into()),
+            custom: false,
+        };
+        assert_eq!(gate.exits["n"], expected);
+        assert!(gate.exits["leap"].custom);
         assert_eq!(map.room(1).unwrap().pos, pos(4, 4, 0));
         assert_eq!(
             (map.room(1).unwrap().weight, map.room(2).unwrap().avoid),

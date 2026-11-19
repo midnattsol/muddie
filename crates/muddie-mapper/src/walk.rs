@@ -16,7 +16,7 @@ pub struct Walk {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Progress {
-    /// Send this direction next.
+    /// Send this next: one or more commands separated by `;`.
     Go(String),
     /// Nothing to do: the pending move has not taken effect yet.
     Waiting,
@@ -37,7 +37,7 @@ impl Walk {
     /// What to do first: the opening move, or nothing for an empty route.
     pub fn start(&self) -> Progress {
         match self.steps.front() {
-            Some(step) => Progress::Go(step.direction.clone()),
+            Some(step) => Progress::Go(step.command.clone()),
             None => Progress::Arrived,
         }
     }
@@ -63,8 +63,8 @@ mod tests {
 
     fn route(steps: &[(&str, RoomId)]) -> Vec<Step> {
         (steps.iter())
-            .map(|(direction, to)| Step {
-                direction: (*direction).to_owned(),
+            .map(|(command, to)| Step {
+                command: (*command).to_owned(),
                 to: *to,
             })
             .collect()

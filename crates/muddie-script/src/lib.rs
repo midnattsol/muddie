@@ -27,6 +27,10 @@
 //! - `gauge(name, value, max)`: show or update a bar in the status strip;
 //!   `gauge(name)` removes it.
 //! - `chat(text)`: add a line to the chat panel.
+//! - `panel(name, text)`: show `text` (several lines, colours allowed) in
+//!   a panel of its own, replacing what it showed before; `panel(name)`
+//!   removes it. For anything the server sends ready to display, such as
+//!   a map it draws itself.
 //!
 //! The `map` table reads and edits the automapper's map. A room is given
 //! by its number, or by the text the server identifies it with.
@@ -48,8 +52,17 @@
 //! - `map.path(to, from)`: the directions to walk, from the current room
 //!   if `from` is omitted; `nil` if there is no known route.
 //! - `map.walk(to)`: walk there.
-//! - `map.set_exit(from, direction, to)`, `map.remove_exit(from,
-//!   direction)`, `map.remove_room(id)` and `map.move(id, x, y, z)`.
+//! - `map.set_exit(from, direction, to, options)`: add an exit of your
+//!   own or change where one leads. `map.edit_exit(from, direction,
+//!   options)` changes an existing exit. The options, all optional, are
+//!   `cost` (extra cost for routes), `locked` (routes never use it) and
+//!   `command` (what a walk sends instead of the direction, such as
+//!   `"open door;n"`; `""` clears it). `map.exit(from, direction)` returns
+//!   an exit as a table with those fields plus `to` and `custom`.
+//! - `map.remove_exit(from, direction)`, `map.remove_room(id)` and
+//!   `map.move(id, x, y, z)`.
+//! - `map.relayout(area)`: draw an area again from scratch (the current
+//!   one if omitted); returns how many rooms moved.
 //! - `map.set_weight(id, weight)`: how costly routes consider entering the
 //!   room (1 is normal), and `map.avoid(id, true)`: keep routes out of it.
 //!   A room table reports them as `weight` and `avoid`.
@@ -67,7 +80,7 @@ use std::time::{Duration, Instant};
 
 use mlua::serde::SerializeOptions;
 use mlua::{Function, Lua, LuaOptions, LuaSerdeExt, StdLib, Table, Value, Variadic, VmState};
-use muddie_mapper::{Map, Pos, Room, RoomId, RoomInfo, room_id};
+use muddie_mapper::{Exit, Map, Pos, Room, RoomId, RoomInfo, room_id};
 use regex::Regex;
 
 /// Longest a single script run or callback may take before it is stopped,
@@ -97,6 +110,11 @@ pub enum Action {
     },
     /// Add a line to the chat panel.
     Chat(String),
+    /// Set the text of the named panel, or remove the panel.
+    Panel {
+        name: String,
+        text: Option<String>,
+    },
     /// Walk to the room with this number.
     Walk(RoomId),
     /// A script moved the player to this room on the map.
@@ -499,6 +517,40 @@ fn room_info(room: &Table) -> mlua::Result<RoomInfo> {
     })
 }
 
+/// Applies the `cost`, `locked` and `command` a script gave to an exit.
+fn apply_exit_options(exit: &mut Exit, options: &ExitOptions) {
+    if let Some(cost) = options.cost {
+        exit.cost = cost;
+    }
+    if let Some(locked) = options.locked {
+        exit.locked = locked;
+    }
+    if let Some(command) = &options.command {
+        exit.command = (!command.is_empty()).then(|| command.clone());
+    }
+}
+
+/// The optional fields of a script's exit options table.
+#[derive(Default)]
+struct ExitOptions {
+    cost: Option<u32>,
+    locked: Option<bool>,
+    command: Option<String>,
+}
+
+impl ExitOptions {
+    fn read(options: Option<Table>) -> mlua::Result<Self> {
+        let Some(options) = options else {
+            return Ok(Self::default());
+        };
+        Ok(Self {
+            cost: options.get("cost")?,
+            locked: options.get("locked")?,
+            command: options.get("command")?,
+        })
+    }
+}
+
 /// Describes a room to a script, in the shape [`room_info`] reads.
 fn room_table(lua: &Lua, room: &Room) -> mlua::Result<Table> {
     let table = lua.create_table()?;
@@ -511,8 +563,8 @@ fn room_table(lua: &Lua, room: &Room) -> mlua::Result<Table> {
     table.set("weight", room.weight)?;
     table.set("avoid", room.avoid)?;
     let exits = lua.create_table()?;
-    for (direction, to) in &room.exits {
-        exits.set(direction.as_str(), *to)?;
+    for (direction, exit) in &room.exits {
+        exits.set(direction.as_str(), exit.to)?;
     }
     table.set("exits", exits)?;
     Ok(table)
@@ -619,7 +671,7 @@ fn install_map_api(
             let route = from.and_then(|from| world.route(from, id_of(&to).ok()?));
             Ok(route.map(|steps| {
                 (steps.into_iter())
-                    .map(|step| step.direction)
+                    .map(|step| step.command)
                     .collect::<Vec<String>>()
             }))
         })?,
@@ -637,11 +689,72 @@ fn install_map_api(
     let world = Rc::clone(map);
     api.set(
         "set_exit",
-        lua.create_function(move |_, (from, direction, to): (Value, String, Value)| {
-            let result = (world.borrow_mut()).set_exit(id_of(&from)?, &direction, id_of(&to)?);
-            let found = *result.as_ref().unwrap_or(&true);
-            saved(result.map(drop))?;
-            Ok(found)
+        lua.create_function(
+            move |_, (from, direction, to, options): (Value, String, Value, Option<Table>)| {
+                let (from, to) = (id_of(&from)?, id_of(&to)?);
+                let options = ExitOptions::read(options)?;
+                let mut world = world.borrow_mut();
+                let result = world.set_exit(from, &direction, to).and_then(|found| {
+                    world.edit_exit(from, &direction, |exit| apply_exit_options(exit, &options))?;
+                    Ok(found)
+                });
+                let found = *result.as_ref().unwrap_or(&true);
+                saved(result.map(drop))?;
+                Ok(found)
+            },
+        )?,
+    )?;
+
+    let world = Rc::clone(map);
+    api.set(
+        "edit_exit",
+        lua.create_function(
+            move |_, (from, direction, options): (Value, String, Option<Table>)| {
+                let options = ExitOptions::read(options)?;
+                let result = (world.borrow_mut()).edit_exit(id_of(&from)?, &direction, |exit| {
+                    apply_exit_options(exit, &options)
+                });
+                let found = *result.as_ref().unwrap_or(&true);
+                saved(result.map(drop))?;
+                Ok(found)
+            },
+        )?,
+    )?;
+
+    let world = Rc::clone(map);
+    api.set(
+        "exit",
+        lua.create_function(move |lua, (from, direction): (Value, String)| {
+            let world = world.borrow();
+            let direction = muddie_mapper::canonical_direction(&direction);
+            let exit = world
+                .room(id_of(&from)?)
+                .and_then(|room| room.exits.get(&direction));
+            let Some(exit) = exit else {
+                return Ok(None);
+            };
+            let table = lua.create_table()?;
+            table.set("to", exit.to)?;
+            table.set("cost", exit.cost)?;
+            table.set("locked", exit.locked)?;
+            table.set("command", exit.command.as_deref())?;
+            table.set("custom", exit.custom)?;
+            Ok(Some(table))
+        })?,
+    )?;
+
+    let world = Rc::clone(map);
+    api.set(
+        "relayout",
+        lua.create_function(move |_, area: Option<String>| {
+            let mut world = world.borrow_mut();
+            let area = area.or_else(|| Some(world.current()?.area.clone()));
+            let Some(area) = area else {
+                return Ok(0);
+            };
+            world
+                .relayout(&area)
+                .map_err(|error| mlua::Error::runtime(format!("could not save the map: {error}")))
         })?,
     )?;
 
@@ -906,6 +1019,15 @@ fn install_api(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
                 Ok(())
             },
         )?,
+    )?;
+
+    let shared = Rc::clone(state);
+    add(
+        "panel",
+        lua.create_function(move |_, (name, text): (String, Option<String>)| {
+            (shared.borrow_mut().actions).push(Action::Panel { name, text });
+            Ok(())
+        })?,
     )?;
 
     let shared = Rc::clone(state);
@@ -1197,7 +1319,7 @@ mod tests {
         {
             let map = engine.map.borrow();
             assert_eq!(map.current().unwrap().name, "Square");
-            assert_eq!(map.room(gate).unwrap().exits.get("n"), Some(&square));
+            assert_eq!(map.room(gate).unwrap().exits["n"].to, square);
             let (from, to) = (map.room(gate).unwrap().pos, map.room(square).unwrap().pos);
             assert_eq!((to.x - from.x, to.y - from.y), (0, 1));
         }
@@ -1278,6 +1400,15 @@ mod tests {
             map.set_exit(1, "e", 4)
             echo(`{map.avoid(2, true)} {map.room(2).avoid} {map.path(2, 1)[1]} {map.path(4, 1)[1]}`)
             echo(`{map.set_weight(4, 9)} {map.room(4).weight} {table.concat(map.areas(), "+")}`)
+            map.avoid(2, false)
+            map.set_exit(1, "gate", 2, {command = "open gate;n", cost = 0})
+            map.edit_exit(1, "n", {locked = true})
+            local gate = map.exit(1, "gate")
+            echo(`{map.path(2, 1)[1]} {gate.custom} {gate.locked} {map.exit(1, "n").locked} {map.exit(1, "x")}`)
+            echo(`{map.edit_exit(1, "gate", {command = ""})} {map.exit(1, "gate").command} {map.edit_exit(1, "x", {})}`)
+            echo(`{map.relayout("nowhere")} {map.relayout()}`)
+            panel("Minimap", "+-+\n| |")
+            panel("Minimap")
             map.visit({name = "No id"})"#,
         );
         let actions = engine.take_actions();
@@ -1298,9 +1429,25 @@ mod tests {
                 "true true nil",
                 "true true n e",
                 "true 9 +wilds",
+                "open gate;n true false true nil",
+                "true nil false",
+                "0 0",
             ]
         );
-        assert!(error_text(&actions[8..]).contains("a room id must be"));
+        assert_eq!(
+            actions[11..13],
+            [
+                Action::Panel {
+                    name: "Minimap".into(),
+                    text: Some("+-+\n| |".into())
+                },
+                Action::Panel {
+                    name: "Minimap".into(),
+                    text: None
+                },
+            ]
+        );
+        assert!(error_text(&actions[13..]).contains("a room id must be"));
     }
 
     #[test]

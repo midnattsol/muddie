@@ -10,6 +10,7 @@ const ROOM_FILL: Color32 = Color32::from_rgb(0x4a, 0x52, 0x63);
 const AVOIDED_FILL: Color32 = Color32::from_rgb(0x7a, 0x30, 0x3a);
 const CURRENT_FILL: Color32 = Color32::from_rgb(0xe5, 0xc0, 0x7b);
 const EXIT_LINE: Color32 = Color32::from_rgb(0x6b, 0x72, 0x80);
+const LOCKED_LINE: Color32 = Color32::from_rgb(0xc0, 0x4a, 0x55);
 const MARK: Color32 = Color32::from_rgb(0xc8, 0xcc, 0xd4);
 
 /// Distance between neighbouring rooms, in points, at the default zoom.
@@ -17,7 +18,7 @@ const DEFAULT_CELL: f32 = 28.0;
 const CELL_RANGE: std::ops::RangeInclusive<f32> = 10.0..=72.0;
 
 /// Something the user did on the map that the caller must carry out.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MapAction {
     /// Walk to this room.
     Walk(RoomId),
@@ -25,6 +26,8 @@ pub enum MapAction {
     Move(RoomId, Pos),
     /// Keep routes out of this room (true) or allow them again (false).
     Avoid(RoomId, bool),
+    /// Draw this area again from scratch.
+    Tidy(String),
 }
 
 pub struct MapView {
@@ -36,6 +39,8 @@ pub struct MapView {
     /// Area and level on show while the user looks away from where the
     /// player is; `None` follows the player.
     browsing: Option<(String, i32)>,
+    /// Draw the rooms of every area on the level, not just the chosen one.
+    all_areas: bool,
     /// Room being repositioned with Shift+drag.
     moving: Option<RoomId>,
     /// Room the context menu was opened on.
@@ -49,6 +54,7 @@ impl Default for MapView {
             pan: Vec2::ZERO,
             centred_on: None,
             browsing: None,
+            all_areas: false,
             moving: None,
             menu_room: None,
         }
@@ -95,6 +101,7 @@ impl MapView {
             if self.browsing.is_some() && ui.button("Back to me").clicked() {
                 (area, level) = home.clone();
             }
+            ui.checkbox(&mut self.all_areas, "All areas");
         });
         let shown = (area, level);
         if self.browsing.as_ref().unwrap_or(&home) != &shown {
@@ -118,11 +125,12 @@ impl MapView {
             self.pan += response.drag_delta();
         }
 
-        let on_level = |room: &Room| room.area == area && room.pos.z == level;
+        let all_areas = self.all_areas;
+        let on_level = |room: &Room| (all_areas || room.area == area) && room.pos.z == level;
         // The player's own area is centred on the player whatever the
         // level, so going up and down keeps the place; any other area is
         // centred on the middle of what is drawn.
-        let origin = if area == current.area {
+        let origin = if area == current.area || all_areas {
             (current.pos.x, current.pos.y)
         } else {
             let spans = map
@@ -155,12 +163,13 @@ impl MapView {
             (visible.iter()).find(|room| on_screen(room.pos).distance(point) <= half * 1.5)
         };
 
-        let line = Stroke::new(1.5, EXIT_LINE);
         for room in &visible {
             let from = on_screen(room.pos);
             let mut other_exits = false;
-            for (direction, to) in &room.exits {
-                let target = map.room(*to).filter(|target| on_level(target));
+            for (direction, exit) in &room.exits {
+                let colour = if exit.locked { LOCKED_LINE } else { EXIT_LINE };
+                let line = Stroke::new(1.5, colour);
+                let target = map.room(exit.to).filter(|target| on_level(target));
                 match (target, direction_offset(direction)) {
                     (Some(target), _) => {
                         painter.line_segment([from, on_screen(target.pos)], line);
@@ -195,6 +204,12 @@ impl MapView {
                 (true, _) => CURRENT_FILL,
                 (false, true) => AVOIDED_FILL,
                 (false, false) => ROOM_FILL,
+            };
+            // With every area on show, the chosen one stands out.
+            let fill = if room.area == area {
+                fill
+            } else {
+                fill.gamma_multiply(0.45)
             };
             painter.rect_filled(rect, 3.0, fill);
             if is_current {
@@ -235,7 +250,10 @@ impl MapView {
         let mut chosen = None;
         response.context_menu(|ui| {
             let Some(room) = self.menu_room.and_then(|id| map.room(id)) else {
-                ui.label("No room here.");
+                if ui.button("Tidy this area").clicked() {
+                    chosen = Some(MapAction::Tidy(area.clone()));
+                    ui.close();
+                }
                 return;
             };
             ui.label(format!("{} (#{})", room.name, room.id));
@@ -250,6 +268,10 @@ impl MapView {
             };
             if ui.button(toggle).clicked() {
                 chosen = Some(MapAction::Avoid(room.id, !room.avoid));
+                ui.close();
+            }
+            if ui.button("Tidy this area").clicked() {
+                chosen = Some(MapAction::Tidy(room.area.clone()));
                 ui.close();
             }
         });

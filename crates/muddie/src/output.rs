@@ -131,7 +131,8 @@ impl Output {
     }
 }
 
-fn server_job(line: &Line) -> LayoutJob {
+/// A line of server text laid out with its colours.
+pub fn server_job(line: &Line) -> LayoutJob {
     let mut job = LayoutJob::default();
     for span in &line.spans {
         job.append(&span.text, 0.0, palette::format(span.style));

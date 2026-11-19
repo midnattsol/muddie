@@ -5,11 +5,12 @@ use std::path::Path;
 
 use rusqlite::{Connection, Result, Transaction, params};
 
-use crate::{Pos, Room};
+use crate::{Exit, Pos, Room};
 
 /// Version of the schema below, kept in the database's `user_version`.
-/// Version 1 lacked the `weight` and `avoid` columns.
-const VERSION: i64 = 2;
+/// Version 1 lacked the rooms' `weight` and `avoid` columns, and versions
+/// 1 and 2 the exits' `cost`, `locked`, `command` and `custom`.
+const VERSION: i64 = 3;
 
 const SCHEMA: &str = "
     CREATE TABLE IF NOT EXISTS rooms (
@@ -26,13 +27,24 @@ const SCHEMA: &str = "
         room_id INTEGER NOT NULL,
         direction TEXT NOT NULL,
         to_id INTEGER NOT NULL,
+        cost INTEGER NOT NULL DEFAULT 0,
+        locked INTEGER NOT NULL DEFAULT 0,
+        command TEXT,
+        custom INTEGER NOT NULL DEFAULT 0,
         PRIMARY KEY (room_id, direction)
     );
 ";
 
-const UPGRADE_FROM_1: &str = "
+const UPGRADE_ROOMS_FROM_1: &str = "
     ALTER TABLE rooms ADD COLUMN weight INTEGER NOT NULL DEFAULT 1;
     ALTER TABLE rooms ADD COLUMN avoid INTEGER NOT NULL DEFAULT 0;
+";
+
+const UPGRADE_EXITS_FROM_2: &str = "
+    ALTER TABLE exits ADD COLUMN cost INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE exits ADD COLUMN locked INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE exits ADD COLUMN command TEXT;
+    ALTER TABLE exits ADD COLUMN custom INTEGER NOT NULL DEFAULT 0;
 ";
 
 pub struct Store {
@@ -56,16 +68,30 @@ impl Store {
         connection.pragma_update(None, "synchronous", "NORMAL")?;
         connection.execute_batch(SCHEMA)?;
         if version == 1 {
-            connection.execute_batch(UPGRADE_FROM_1)?;
+            connection.execute_batch(UPGRADE_ROOMS_FROM_1)?;
+        }
+        if version == 1 || version == 2 {
+            connection.execute_batch(UPGRADE_EXITS_FROM_2)?;
         }
         connection.pragma_update(None, "user_version", VERSION)?;
 
-        let mut exits: BTreeMap<i64, BTreeMap<String, i64>> = BTreeMap::new();
-        let mut statement = connection.prepare("SELECT room_id, direction, to_id FROM exits")?;
-        let rows = statement.query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?;
+        let mut exits: BTreeMap<i64, BTreeMap<String, Exit>> = BTreeMap::new();
+        let mut statement = connection.prepare(
+            "SELECT room_id, direction, to_id, cost, locked, command, custom FROM exits",
+        )?;
+        let rows = statement.query_map([], |row| {
+            let exit = Exit {
+                to: row.get(2)?,
+                cost: row.get(3)?,
+                locked: row.get(4)?,
+                command: row.get(5)?,
+                custom: row.get(6)?,
+            };
+            Ok((row.get(0)?, row.get(1)?, exit))
+        })?;
         for row in rows {
-            let (room_id, direction, to_id): (i64, String, i64) = row?;
-            exits.entry(room_id).or_default().insert(direction, to_id);
+            let (room_id, direction, exit): (i64, String, Exit) = row?;
+            exits.entry(room_id).or_default().insert(direction, exit);
         }
         drop(statement);
 
@@ -136,10 +162,19 @@ fn save_room(transaction: &Transaction, room: &Room) -> Result<()> {
         ],
     )?;
     transaction.execute("DELETE FROM exits WHERE room_id = ?1", [room.id])?;
-    for (direction, to) in &room.exits {
+    for (direction, exit) in &room.exits {
         transaction.execute(
-            "INSERT INTO exits (room_id, direction, to_id) VALUES (?1, ?2, ?3)",
-            params![room.id, direction, to],
+            "INSERT INTO exits (room_id, direction, to_id, cost, locked, command, custom)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![
+                room.id,
+                direction,
+                exit.to,
+                exit.cost,
+                exit.locked,
+                exit.command,
+                exit.custom
+            ],
         )?;
     }
     Ok(())
@@ -170,7 +205,13 @@ mod tests {
         let (mut store, mut rooms) = Store::open(&path).unwrap();
         assert_eq!(rooms.len(), 1);
         assert_eq!((rooms[0].weight, rooms[0].avoid), (1, false));
-        assert_eq!(rooms[0].exits.get("n"), Some(&2));
+        assert_eq!(
+            rooms[0].exits["n"],
+            Exit {
+                to: 2,
+                ..Exit::default()
+            }
+        );
         rooms[0].weight = 5;
         rooms[0].avoid = true;
         store.save(&rooms).unwrap();

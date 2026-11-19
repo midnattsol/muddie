@@ -6,7 +6,8 @@ use std::rc::Rc;
 use std::sync::mpsc::{Receiver, channel};
 use std::time::{Duration, Instant};
 
-use eframe::egui::{self, CentralPanel, Key, Modifiers, Panel, TextEdit};
+use eframe::egui::{self, CentralPanel, Key, Label, Modifiers, Panel, RichText, TextEdit};
+use muddie_core::Line;
 use muddie_core::{Command, Config, Event, Session, Target, connect};
 use muddie_mapper::{Map, Progress, RoomId, RoomInfo, Walk};
 use muddie_script::{Action, Engine};
@@ -14,7 +15,7 @@ use tokio::sync::mpsc::UnboundedSender;
 
 use crate::history::History;
 use crate::mapview::{MapAction, MapView};
-use crate::output::Output;
+use crate::output::{Output, server_job};
 use crate::palette;
 use crate::panels::{self, Gauges, MsdpVitals};
 use crate::voice::Voice;
@@ -44,6 +45,8 @@ pub struct App {
     map: Rc<RefCell<Map>>,
     map_view: MapView,
     show_map: bool,
+    /// Panels of text that scripts filled in, by name, in creation order.
+    text_panels: Vec<(String, Vec<Line>)>,
     /// The route being followed, if a walk is under way, and when it last
     /// made progress.
     walk: Option<(Walk, Instant)>,
@@ -110,6 +113,7 @@ impl App {
             map,
             map_view: MapView::default(),
             show_map: true,
+            text_panels: Vec::new(),
             walk: None,
         };
         app.voice.set_enabled(startup.speech);
@@ -295,6 +299,24 @@ impl App {
                 Action::Gauge { name, level } => self.gauges.set(&name, level),
                 Action::Walk(room) => self.walk_to(room),
                 Action::Entered(room) => self.arrived_in(room),
+                Action::Panel { name, text } => {
+                    let index = self
+                        .text_panels
+                        .iter()
+                        .position(|(panel, _)| *panel == name);
+                    match (index, text) {
+                        (Some(index), Some(text)) => {
+                            self.text_panels[index].1 = panels::styled_lines(&text);
+                        }
+                        (None, Some(text)) => {
+                            self.text_panels.push((name, panels::styled_lines(&text)));
+                        }
+                        (Some(index), None) => {
+                            self.text_panels.remove(index);
+                        }
+                        (None, None) => {}
+                    }
+                }
                 Action::Chat(text) => {
                     for line in panels::styled_lines(&text) {
                         self.chat.push(&line);
@@ -358,11 +380,14 @@ impl App {
 
     fn follow(&mut self, progress: Progress) {
         match progress {
-            Progress::Go(direction) => {
+            Progress::Go(commands) => {
                 if let Some((_, moved_at)) = &mut self.walk {
                     *moved_at = Instant::now();
                 }
-                self.send(direction);
+                // An exit may need several commands, as in "open door;n".
+                for command in commands.split(';') {
+                    self.send(command.trim().to_owned());
+                }
             }
             Progress::Waiting => {}
             Progress::Arrived => {
@@ -461,6 +486,36 @@ impl App {
                     None => self.note("No such room; use /avoid with a room number."),
                 }
             }
+            // Toggles whether routes may use an exit of the current room.
+            "/lock" if !argument.is_empty() => {
+                let toggled = {
+                    let mut map = self.map.borrow_mut();
+                    let here = map.current().map(|room| room.id);
+                    let direction = muddie_mapper::canonical_direction(argument);
+                    let exit = here.and_then(|id| map.room(id)?.exits.get(&direction).cloned());
+                    here.zip(exit).map(|(id, exit)| {
+                        let locked = !exit.locked;
+                        (
+                            map.edit_exit(id, &direction, |exit| exit.locked = locked),
+                            locked,
+                        )
+                    })
+                };
+                match toggled {
+                    Some((Ok(_), true)) => self.note("Routes will not use that exit."),
+                    Some((Ok(_), false)) => self.note("Routes may use that exit again."),
+                    Some((Err(error), _)) => self.note(&format!("Could not save the map: {error}")),
+                    None => self.note("This room has no such exit."),
+                }
+            }
+            // Draws the current area again from scratch.
+            "/tidy" => {
+                let area = self.map.borrow().current().map(|room| room.area.clone());
+                match area {
+                    Some(area) => self.tidy(&area),
+                    None => self.note("The map does not know where you are yet."),
+                }
+            }
             "/stop" => {
                 let stopped = self.walk.take().is_some();
                 self.note(if stopped {
@@ -472,6 +527,32 @@ impl App {
             _ => return false,
         }
         true
+    }
+
+    fn tidy(&mut self, area: &str) {
+        let moved = self.map.borrow_mut().relayout(area);
+        match moved {
+            Ok(moved) => self.note(&format!("Tidied the map: {moved} rooms moved.")),
+            Err(error) => self.note(&format!("Could not save the map: {error}")),
+        }
+    }
+
+    /// The right-hand panel: text panels from scripts, then the map.
+    fn side_panel(&mut self, ui: &mut egui::Ui) -> Option<MapAction> {
+        for (name, lines) in &self.text_panels {
+            ui.label(RichText::new(name).weak());
+            for line in lines {
+                // Never wrapped: this is often a drawing made of characters.
+                ui.add(Label::new(server_job(line)).extend());
+            }
+            ui.separator();
+        }
+        let map = self.map.borrow();
+        if map.current().is_some() {
+            self.map_view.show(ui, &map)
+        } else {
+            None
+        }
     }
 
     /// Up to [`MAX_LISTED_ROOMS`] rooms matching `query`, one line each.
@@ -597,15 +678,17 @@ impl eframe::App for App {
             }
             self.input_line(ui);
         });
-        if self.show_map && self.map.borrow().current().is_some() {
+        let has_map = self.map.borrow().current().is_some();
+        if self.show_map && (has_map || !self.text_panels.is_empty()) {
             let action = Panel::right("map")
                 .resizable(true)
                 .default_size(320.0)
                 .min_size(160.0)
-                .show(ui, |ui| self.map_view.show(ui, &self.map.borrow()))
+                .show(ui, |ui| self.side_panel(ui))
                 .inner;
             match action {
                 Some(MapAction::Walk(room)) => self.walk_to(room),
+                Some(MapAction::Tidy(area)) => self.tidy(&area),
                 Some(MapAction::Avoid(room, avoid)) => {
                     let saved = self.map.borrow_mut().set_avoid(room, avoid);
                     if let Err(error) = saved {
