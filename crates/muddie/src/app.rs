@@ -489,31 +489,21 @@ impl eframe::App for App {
             self.close_tab(self.active, ui.ctx());
         }
         let theme = theme::current();
-        let hairline = Stroke::new(1.0, theme.border);
+        ui.painter().rect_filled(ui.max_rect(), 0.0, theme.surface);
         let chrome = |vertical: i8| {
             egui::Frame::new()
                 .fill(theme.surface)
                 .inner_margin(egui::Margin::symmetric(10, vertical))
         };
-        let top = Panel::top("top bar")
+        Panel::top("top bar")
             .frame(chrome(5))
             .show_separator_line(false)
             .show(ui, |ui| self.top_bar(ui));
-        ui.painter().hline(
-            top.response.rect.x_range(),
-            top.response.rect.bottom(),
-            hairline,
-        );
         let active = self.active;
-        let bottom = Panel::bottom("status bar")
+        Panel::bottom("status bar")
             .frame(chrome(4))
             .show_separator_line(false)
             .show(ui, |ui| self.bottom_bar(ui));
-        ui.painter().hline(
-            bottom.response.rect.x_range(),
-            bottom.response.rect.top(),
-            hairline,
-        );
 
         self.settings_window(ui.ctx());
         self.shortcuts_window(ui.ctx());

@@ -31,14 +31,29 @@ impl Tab {
             return self.welcome(ui);
         }
         let theme = theme::current();
-        let bar = |vertical: i8| {
+        // What is read sits in rounded wells on the window's chrome.
+        let well = |left: i8, right: i8| {
             egui::Frame::new()
-                .fill(theme.surface)
-                .inner_margin(egui::Margin::symmetric(14, vertical))
+                .fill(theme.background)
+                .corner_radius(egui::CornerRadius::same(12))
+                .inner_margin(egui::Margin::symmetric(14, 10))
+                .outer_margin(egui::Margin {
+                    left,
+                    right,
+                    top: 4,
+                    bottom: 4,
+                })
         };
+        let plain = egui::Frame::new().inner_margin(egui::Margin {
+            left: 8,
+            right: 8,
+            top: 4,
+            bottom: 8,
+        });
         if self.show_chat && self.chat.len() > 0 {
             Panel::top("chat")
-                .frame(bar(8))
+                .frame(well(8, 8))
+                .show_separator_line(false)
                 .resizable(true)
                 .default_size(96.0)
                 .min_size(56.0)
@@ -48,7 +63,7 @@ impl Tab {
                 });
         }
         Panel::bottom("input")
-            .frame(bar(10))
+            .frame(plain)
             .show_separator_line(false)
             .show(ui, |ui| {
                 if !self.gauges.is_empty() {
@@ -64,7 +79,8 @@ impl Tab {
         let has_map = self.map.borrow().current().is_some();
         if self.show_map && (has_map || !self.text_panels.is_empty()) {
             let action = Panel::right("map")
-                .frame(bar(12))
+                .frame(well(4, 8))
+                .show_separator_line(false)
                 .resizable(true)
                 .default_size(330.0)
                 .min_size(200.0)
@@ -88,9 +104,12 @@ impl Tab {
                 None => {}
             }
         }
-        let frame = egui::Frame::new()
-            .fill(theme.background)
-            .inner_margin(egui::Margin::symmetric(16, 10));
+        let right = if self.show_map && (has_map || !self.text_panels.is_empty()) {
+            4
+        } else {
+            8
+        };
+        let frame = well(8, right);
         let clicked = CentralPanel::default()
             .frame(frame)
             .show(ui, |ui| self.output.show(ui, "output"));
@@ -118,74 +137,104 @@ impl Tab {
             listed
         });
         let (mut chosen, mut connect) = (None, false);
-        let frame = egui::Frame::new().fill(theme.background);
+        let frame = egui::Frame::new().fill(theme.surface);
         CentralPanel::default().frame(frame).show(ui, |ui| {
+            // The last light of the day, low behind everything.
+            let sky = ui.max_rect();
+            let painter = ui.painter().with_clip_rect(sky);
+            let strength = if theme.dark { 0.32 } else { 0.3 };
+            let reach = egui::vec2(sky.width() * 0.62, sky.height() * 0.75);
+            let low = sky.center_bottom() + egui::vec2(0.0, sky.height() * 0.2);
+            widgets::glow(
+                &painter,
+                low - egui::vec2(sky.width() * 0.22, 0.0),
+                reach,
+                theme.terminal[5].gamma_multiply(strength * 0.7),
+            );
+            widgets::glow(
+                &painter,
+                low + egui::vec2(sky.width() * 0.1, 0.0),
+                reach * 0.8,
+                theme.accent.gamma_multiply(strength),
+            );
+
             egui::ScrollArea::vertical()
                 .auto_shrink(false)
                 .show(ui, |ui| {
-                    let width = 500.0_f32.min(ui.available_width() - 32.0);
+                    let width = 520.0_f32.min(ui.available_width() - 32.0);
                     let margin = ((ui.available_width() - width) / 2.0).max(0.0);
-                    let rows = profiles.len().min(5) as f32;
-                    let height = 250.0
+                    let rows = profiles.len().div_ceil(2).min(4) as f32;
+                    let height = 290.0
                         + if profiles.is_empty() {
                             0.0
                         } else {
-                            56.0 + rows * 60.0
+                            60.0 + rows * 78.0
                         };
-                    ui.add_space(((ui.available_height() - height) * 0.42).max(24.0));
+                    ui.add_space(((ui.available_height() - height) * 0.4).max(24.0));
                     ui.horizontal(|ui| {
                         ui.add_space(margin);
                         ui.vertical(|ui| {
                             ui.set_width(width);
                             ui.spacing_mut().item_spacing.y = 0.0;
-                            ui.label(
-                                RichText::new("muddie")
-                                    .font(theme::font(Weight::Semibold, 30.0))
-                                    .color(theme.text),
-                            );
-                            ui.add_space(6.0);
-                            let question = RichText::new(tr("Where do you want to play?"))
-                                .font(theme::font(Weight::Regular, 15.0))
-                                .color(theme.text_dim);
-                            ui.label(question);
+                            ui.vertical_centered(|ui| {
+                                widgets::logo(ui, 54.0);
+                                ui.add_space(10.0);
+                                let name = RichText::new("muddie")
+                                    .font(theme::font(Weight::Semibold, 32.0))
+                                    .color(theme.text);
+                                ui.add(Label::new(name).selectable(false));
+                                ui.add_space(6.0);
+                                let question = RichText::new(tr("Where do you want to play?"))
+                                    .font(theme::font(Weight::Regular, 15.0))
+                                    .color(theme.text_dim);
+                                ui.add(Label::new(question).selectable(false));
+                            });
                             ui.add_space(30.0);
 
                             // One field takes the whole address; Enter connects.
-                            ui.horizontal(|ui| {
-                                ui.spacing_mut().item_spacing.x = 10.0;
-                                let button = 120.0_f32;
-                                let field = ui.add(
-                                    TextEdit::singleline(&mut self.address)
-                                        .hint_text(
-                                            RichText::new("mud.example.org:4000")
-                                                .color(theme.text_faint),
-                                        )
-                                        .font(theme::font(Weight::Regular, 15.0))
-                                        .margin(egui::Margin::symmetric(14, 10))
-                                        .desired_width(width - button - 10.0 - 28.0),
-                                );
-                                ui.ctx().accesskit_node_builder(field.id, |node| {
-                                    node.set_label(tr("Address"));
+                            let id = ui.make_persistent_id("address");
+                            let focused = ui.memory(|memory| memory.has_focus(id));
+                            let edge = if focused { theme.accent } else { theme.border };
+                            let pill = egui::Frame::new()
+                                .fill(theme.background)
+                                .stroke(egui::Stroke::new(1.0, edge))
+                                .corner_radius(egui::CornerRadius::same(26))
+                                .inner_margin(egui::Margin {
+                                    left: 22,
+                                    right: 7,
+                                    top: 7,
+                                    bottom: 7,
                                 });
-                                let entered = field.lost_focus()
-                                    && ui.input(|input| input.key_pressed(Key::Enter));
-                                ui.scope(|ui| {
-                                    ui.set_min_width(button);
-                                    let pressed = ui
-                                        .with_layout(
-                                            egui::Layout::top_down_justified(egui::Align::Center),
-                                            |ui| {
-                                                widgets::big_primary_button(ui, tr("Connect"))
-                                                    .clicked()
-                                            },
-                                        )
-                                        .inner;
+                            pill.show(ui, |ui| {
+                                let row = egui::vec2(ui.available_width(), 38.0);
+                                let centred = egui::Layout::right_to_left(egui::Align::Center);
+                                ui.allocate_ui_with_layout(row, centred, |ui| {
+                                    let pressed =
+                                        widgets::go_button(ui, tr("Connect"), 38.0).clicked();
+                                    let field = ui.add(
+                                        TextEdit::singleline(&mut self.address)
+                                            .id(id)
+                                            .frame(egui::Frame::NONE)
+                                            .hint_text(
+                                                RichText::new("mud.example.org:4000")
+                                                    .color(theme.text_faint),
+                                            )
+                                            .font(theme::font(Weight::Regular, 16.0))
+                                            .align(egui::Align2::LEFT_CENTER)
+                                            .desired_width(f32::INFINITY),
+                                    );
+                                    ui.ctx().accesskit_node_builder(field.id, |node| {
+                                        node.set_label(tr("Address"));
+                                    });
+                                    let entered = field.lost_focus()
+                                        && ui.input(|input| input.key_pressed(Key::Enter));
                                     connect = pressed || entered;
                                 });
                             });
-                            ui.add_space(12.0);
+                            ui.add_space(14.0);
                             ui.horizontal(|ui| {
                                 ui.spacing_mut().item_spacing.x = 9.0;
+                                ui.add_space(12.0);
                                 widgets::switch(ui, &mut self.tls, tr("Secure connection (TLS)"));
                                 let label = RichText::new(tr("Secure connection (TLS)"))
                                     .font(theme::font(Weight::Regular, 13.0))
@@ -194,6 +243,7 @@ impl Tab {
                                 ui.with_layout(
                                     egui::Layout::right_to_left(egui::Align::Center),
                                     |ui| {
+                                        ui.add_space(4.0);
                                         if widgets::quiet_button(ui, tr("More options…")).clicked()
                                         {
                                             self.apply_address();
@@ -204,22 +254,27 @@ impl Tab {
                             });
 
                             if !profiles.is_empty() {
-                                ui.add_space(34.0);
-                                widgets::caption(ui, tr("Your profiles"));
-                                ui.add_space(8.0);
-                                let list = egui::Frame::new()
-                                    .fill(theme.surface)
-                                    .stroke(egui::Stroke::new(1.0, theme.border))
-                                    .corner_radius(egui::CornerRadius::same(12))
-                                    .inner_margin(egui::Margin::same(4));
-                                list.show(ui, |ui| {
-                                    ui.spacing_mut().item_spacing.y = 2.0;
-                                    for (name, place) in &profiles {
-                                        if widgets::profile_row(ui, name, place).clicked() {
-                                            chosen = Some(name.clone());
-                                        }
-                                    }
+                                ui.add_space(38.0);
+                                ui.horizontal(|ui| {
+                                    ui.add_space(4.0);
+                                    widgets::caption(ui, tr("Your profiles"));
                                 });
+                                ui.add_space(10.0);
+                                let gap = 10.0;
+                                let card = (width - gap) / 2.0;
+                                for pair in profiles.chunks(2) {
+                                    ui.horizontal(|ui| {
+                                        ui.spacing_mut().item_spacing.x = gap;
+                                        for (name, place) in pair {
+                                            if widgets::profile_card(ui, card, name, place)
+                                                .clicked()
+                                            {
+                                                chosen = Some(name.clone());
+                                            }
+                                        }
+                                    });
+                                    ui.add_space(gap);
+                                }
                             }
                             ui.add_space(24.0);
                         });

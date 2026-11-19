@@ -45,23 +45,25 @@ const fn rgb(hex: u32) -> Color32 {
     Color32::from_rgb((hex >> 16) as u8, (hex >> 8) as u8, hex as u8)
 }
 
-/// Graphite: near-black neutrals with a single blue accent.
+/// Dusk: the blue-violet of a sky after sunset, with the amber of the
+/// last light as the one accent. The chrome is the lighter tone, and what
+/// is read or typed sits in darker wells.
 const DARK: Theme = Theme {
     dark: true,
-    background: rgb(0x0c0d0f),
-    surface: rgb(0x131416),
-    raised: rgb(0x1c1d21),
-    hover: rgb(0x26282d),
-    border: rgb(0x232429),
-    text: rgb(0xececee),
-    text_dim: rgb(0x9a9ca4),
-    text_faint: rgb(0x62656d),
-    accent: rgb(0x4c8dff),
-    on_accent: rgb(0xffffff),
-    good: rgb(0x3ecf8e),
-    danger: rgb(0xff6369),
+    background: rgb(0x191b28),
+    surface: rgb(0x222436),
+    raised: rgb(0x2c2f45),
+    hover: rgb(0x383c57),
+    border: rgb(0x33364e),
+    text: rgb(0xe9eaf4),
+    text_dim: rgb(0xa9acc6),
+    text_faint: rgb(0x71759a),
+    accent: rgb(0xf6ad63),
+    on_accent: rgb(0x2a1a08),
+    good: rgb(0x7ddba0),
+    danger: rgb(0xff7d8a),
     terminal: [
-        rgb(0x2a2c31),
+        rgb(0x2c2f45),
         rgb(0xf0767e),
         rgb(0x8fd68a),
         rgb(0xebc983),
@@ -231,7 +233,7 @@ pub fn apply(ctx: &egui::Context, settings: &Settings) -> Result<(), String> {
             spread: 0,
             color: Color32::from_black_alpha(if theme.dark { 110 } else { 40 }),
         };
-        visuals.selection.bg_fill = theme.accent.gamma_multiply(0.38);
+        visuals.selection.bg_fill = theme.accent.gamma_multiply(0.3);
         visuals.selection.stroke = Stroke::new(1.0, theme.accent);
         visuals.hyperlink_color = theme.accent;
         visuals.override_text_color = None;

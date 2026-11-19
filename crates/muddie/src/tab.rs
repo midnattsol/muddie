@@ -1585,16 +1585,41 @@ impl Tab {
                 .complete(&mut self.input, seen.into_iter().chain(typed));
         }
         let has_text = !self.input.is_empty();
-        let mut output = TextEdit::singleline(&mut self.input)
-            .id(id)
-            .font(palette::font())
-            .password(self.input_hidden)
-            // Keeps Tab from moving to the next control while there is a
-            // word to complete.
-            .lock_focus(has_text)
-            .hint_text(tr("Type a command"))
-            .desired_width(f32::INFINITY)
-            .show(ui);
+        let theme = theme::current();
+        let edge = if focused {
+            theme.accent.gamma_multiply(0.7)
+        } else {
+            theme.border
+        };
+        let line = egui::Frame::new()
+            .fill(theme.background)
+            .stroke(egui::Stroke::new(1.0, edge))
+            .corner_radius(egui::CornerRadius::same(12))
+            .inner_margin(egui::Margin::symmetric(14, 8));
+        let shown = line.show(ui, |ui| {
+            let height = ui.fonts_mut(|fonts| fonts.row_height(&palette::font())) + 4.0;
+            let row = egui::vec2(ui.available_width(), height);
+            let centred = egui::Layout::left_to_right(egui::Align::Center);
+            ui.allocate_ui_with_layout(row, centred, |ui| {
+                ui.spacing_mut().item_spacing.x = 10.0;
+                let mark = RichText::new("›").font(palette::font()).color(theme.accent);
+                ui.add(Label::new(mark).selectable(false));
+                TextEdit::singleline(&mut self.input)
+                    .id(id)
+                    .frame(egui::Frame::NONE)
+                    .font(palette::font())
+                    .password(self.input_hidden)
+                    // Keeps Tab from moving to the next control while there
+                    // is a word to complete.
+                    .lock_focus(has_text)
+                    .hint_text(RichText::new(tr("Type a command")).color(theme.text_faint))
+                    .align(egui::Align2::LEFT_CENTER)
+                    .desired_width(f32::INFINITY)
+                    .show(ui)
+            })
+            .inner
+        });
+        let mut output = shown.inner;
         if completing {
             // Put the cursor after the completed word.
             let end = egui::text::CCursor::new(self.input.chars().count());

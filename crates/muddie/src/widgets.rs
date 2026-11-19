@@ -395,51 +395,42 @@ pub fn dialog<R>(
     Some(modal.inner)
 }
 
-/// The primary button at the size of a view's one main action.
-pub fn big_primary_button(ui: &mut Ui, text: &str) -> Response {
+/// A saved profile to pick, as a card: a coloured initial, its name,
+/// where it leads.
+pub fn profile_card(ui: &mut Ui, width: f32, name: &str, place: &str) -> Response {
     let theme = theme::current();
-    let label = RichText::new(text)
-        .font(theme::font(Weight::Medium, 14.0))
-        .color(theme.on_accent);
-    ui.scope(|ui| {
-        ui.spacing_mut().button_padding = vec2(18.0, 8.0);
-        ui.add(
-            egui::Button::new(label)
-                .fill(theme.accent)
-                .stroke(Stroke::NONE)
-                .corner_radius(CornerRadius::same(9))
-                .min_size(vec2(0.0, 40.0)),
-        )
-    })
-    .inner
-}
-
-/// A saved profile to pick: a coloured initial, its name, where it leads.
-pub fn profile_row(ui: &mut Ui, name: &str, place: &str) -> Response {
-    let theme = theme::current();
-    let (rect, response) = ui.allocate_exact_size(vec2(ui.available_width(), 58.0), Sense::click());
+    let (rect, response) = ui.allocate_exact_size(vec2(width, 68.0), Sense::click());
     response.widget_info(|| WidgetInfo::labeled(Role::Button, ui.is_enabled(), name));
     if ui.is_rect_visible(rect) {
         let hovered = response.hovered() || response.has_focus();
-        let painter = ui.painter().with_clip_rect(rect);
-        if hovered {
-            painter.rect_filled(rect, CornerRadius::same(9), theme.hover);
-        }
+        let lift = ui.ctx().animate_bool_with_time(response.id, hovered, 0.12);
         // The same name always gets the same colour.
         let hues = [12, 10, 11, 13, 14, 9];
         let sum: usize = name.bytes().map(usize::from).sum();
         let hue = theme.terminal[hues[sum % hues.len()]];
-        let centre = rect.left_center() + vec2(30.0, 0.0);
-        painter.circle_filled(centre, 17.0, theme::mix(theme.surface, hue, 0.2));
+        let painter = ui.painter();
+        let fill = theme::mix(theme.raised, theme.hover, lift);
+        painter.rect_filled(rect, CornerRadius::same(14), fill);
+        let edge = theme::mix(theme.border, hue, lift * 0.7);
+        painter.rect_stroke(
+            rect,
+            CornerRadius::same(14),
+            Stroke::new(1.0, edge),
+            egui::StrokeKind::Inside,
+        );
+        let tile =
+            egui::Rect::from_center_size(rect.left_center() + vec2(35.0, 0.0), Vec2::splat(40.0));
+        painter.rect_filled(tile, CornerRadius::same(11), theme::mix(fill, hue, 0.22));
         let initial: String = name.chars().take(1).flat_map(char::to_uppercase).collect();
         painter.text(
-            centre,
+            tile.center(),
             egui::Align2::CENTER_CENTER,
             initial,
-            theme::font(Weight::Semibold, 14.5),
+            theme::font(Weight::Semibold, 16.0),
             hue,
         );
-        let left = rect.left() + 60.0;
+        let painter = painter.with_clip_rect(rect.shrink2(vec2(12.0, 0.0)));
+        let left = rect.left() + 68.0;
         painter.text(
             egui::pos2(left, rect.center().y - 9.0),
             egui::Align2::LEFT_CENTER,
@@ -454,17 +445,92 @@ pub fn profile_row(ui: &mut Ui, name: &str, place: &str) -> Response {
             theme::font(Weight::Regular, 12.5),
             theme.text_dim,
         );
-        // A chevron: this row goes somewhere.
-        let tip = rect.right_center() - vec2(20.0, 0.0);
-        let colour = if hovered {
-            theme.text
-        } else {
-            theme.text_faint
-        };
-        painter.add(egui::Shape::line(
-            vec![tip + vec2(-4.0, -5.0), tip, tip + vec2(-4.0, 5.0)],
-            Stroke::new(1.5, colour),
-        ));
     }
     response
+}
+
+/// A round button in the accent with an arrow: go. `label` says where,
+/// for screen readers.
+pub fn go_button(ui: &mut Ui, label: &str, size: f32) -> Response {
+    let theme = theme::current();
+    let (rect, response) = ui.allocate_exact_size(Vec2::splat(size), Sense::click());
+    response.widget_info(|| WidgetInfo::labeled(Role::Button, ui.is_enabled(), label));
+    if ui.is_rect_visible(rect) {
+        let painter = ui.painter();
+        let hovered = response.hovered() || response.has_focus();
+        let fill = if hovered {
+            theme::mix(theme.accent, Color32::WHITE, 0.14)
+        } else {
+            theme.accent
+        };
+        painter.circle_filled(rect.center(), size / 2.0, fill);
+        let stroke = Stroke::new(1.8, theme.on_accent);
+        let (centre, arm) = (rect.center(), size * 0.17);
+        painter.line_segment(
+            [centre - vec2(arm * 1.2, 0.0), centre + vec2(arm * 1.2, 0.0)],
+            stroke,
+        );
+        painter.add(egui::Shape::line(
+            vec![
+                centre + vec2(arm * 0.2, -arm),
+                centre + vec2(arm * 1.2, 0.0),
+                centre + vec2(arm * 0.2, arm),
+            ],
+            stroke,
+        ));
+    }
+    response.on_hover_text(label)
+}
+
+/// muddie's mark: the sun on the horizon, and its light on the water.
+pub fn logo(ui: &mut Ui, size: f32) {
+    let theme = theme::current();
+    let (rect, _) = ui.allocate_exact_size(Vec2::splat(size), Sense::hover());
+    let centre = rect.center();
+    let horizon = centre.y + size * 0.06;
+    let above = egui::Rect::from_min_max(rect.min, egui::pos2(rect.max.x, horizon - size * 0.05));
+    ui.painter().with_clip_rect(above).circle_filled(
+        egui::pos2(centre.x, horizon),
+        size * 0.3,
+        theme.accent,
+    );
+    for (step, (half, strength)) in [(0.46, 1.0), (0.3, 0.6), (0.16, 0.32)]
+        .into_iter()
+        .enumerate()
+    {
+        let y = horizon + size * 0.13 * step as f32;
+        let colour = theme.accent.gamma_multiply(strength);
+        let stroke = Stroke::new((size * 0.055).max(1.5), colour);
+        ui.painter().line_segment(
+            [
+                egui::pos2(centre.x - size * half, y),
+                egui::pos2(centre.x + size * half, y),
+            ],
+            stroke,
+        );
+    }
+}
+
+/// A soft light that fades out from `centre`, as wide and tall as `radii`.
+pub fn glow(painter: &egui::Painter, centre: egui::Pos2, radii: Vec2, colour: Color32) {
+    const STEPS: u32 = 64;
+    let mut mesh = egui::Mesh::default();
+    mesh.colored_vertex(centre, colour);
+    // A ring halfway at a quarter strength makes the light fall off softly.
+    for (reach, strength) in [(0.5, 0.3), (1.0, 0.0)] {
+        for step in 0..STEPS {
+            let angle = step as f32 / STEPS as f32 * std::f32::consts::TAU;
+            let offset = vec2(angle.cos() * radii.x, angle.sin() * radii.y) * reach;
+            mesh.colored_vertex(centre + offset, colour.gamma_multiply(strength));
+        }
+    }
+    for step in 0..STEPS {
+        let next = (step + 1) % STEPS;
+        let (inner, inner_next) = (1 + step, 1 + next);
+        let (outer, outer_next) = (1 + STEPS + step, 1 + STEPS + next);
+        mesh.add_triangle(0, inner, inner_next);
+        mesh.add_triangle(inner, outer, outer_next);
+        mesh.add_triangle(inner, outer_next, inner_next);
+    }
+    painter.add(mesh);
 }
