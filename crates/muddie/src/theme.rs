@@ -242,7 +242,7 @@ pub fn apply(ctx: &egui::Context, settings: &Settings) -> Result<(), String> {
 
         // Controls have no outline of their own: they are told apart from
         // the surface by their fill, and from each other by spacing.
-        let radius = CornerRadius::same(7);
+        let radius = CornerRadius::same(8);
         let widgets = &mut visuals.widgets;
         widgets.noninteractive.bg_fill = theme.surface;
         widgets.noninteractive.weak_bg_fill = theme.surface;
@@ -250,9 +250,9 @@ pub fn apply(ctx: &egui::Context, settings: &Settings) -> Result<(), String> {
         widgets.noninteractive.fg_stroke = Stroke::new(1.0, theme.text_dim);
         widgets.noninteractive.corner_radius = radius;
         for (widget, fill) in [
-            (&mut widgets.inactive, theme.raised),
-            (&mut widgets.hovered, theme.hover),
-            (&mut widgets.active, mix(theme.hover, theme.text, 0.12)),
+            (&mut widgets.inactive, mix(theme.raised, theme.text, 0.035)),
+            (&mut widgets.hovered, mix(theme.raised, theme.text, 0.1)),
+            (&mut widgets.active, mix(theme.raised, theme.text, 0.16)),
             (&mut widgets.open, theme.hover),
         ] {
             widget.bg_fill = fill;
@@ -266,8 +266,8 @@ pub fn apply(ctx: &egui::Context, settings: &Settings) -> Result<(), String> {
 
         let spacing = &mut style.spacing;
         spacing.item_spacing = Vec2::new(8.0, 8.0);
-        spacing.button_padding = Vec2::new(12.0, 5.0);
-        spacing.interact_size.y = 28.0;
+        spacing.button_padding = Vec2::new(13.0, 6.0);
+        spacing.interact_size.y = 30.0;
         spacing.menu_margin = Margin::same(6);
         spacing.window_margin = Margin::same(16);
         spacing.combo_width = 120.0;
@@ -278,7 +278,7 @@ pub fn apply(ctx: &egui::Context, settings: &Settings) -> Result<(), String> {
         style.text_styles = [
             (TextStyle::Heading, font(Weight::Semibold, 20.0)),
             (TextStyle::Body, font(Weight::Regular, 13.5)),
-            (TextStyle::Button, font(Weight::Regular, 13.5)),
+            (TextStyle::Button, font(Weight::Medium, 13.0)),
             (TextStyle::Small, font(Weight::Regular, 11.5)),
             (TextStyle::Monospace, FontId::monospace(13.0)),
         ]

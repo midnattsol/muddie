@@ -443,4 +443,5 @@ pub const SPANISH: &[(&str, &str)] = &[
     ("Matches:", "Coincide:"),
     ("Show all areas", "Mostrar todas las zonas"),
     ("Log format", "Formato del registro"),
+    ("Address", "Dirección"),
 ];

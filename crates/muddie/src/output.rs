@@ -119,6 +119,8 @@ pub struct Output {
     timestamps: bool,
     /// Whether the view was at the end of the scrollback last frame.
     at_end: bool,
+    /// How tall the content was when it was last drawn.
+    shown_height: f32,
     /// Row to bring into view on the next frame.
     scroll_to: Option<usize>,
     /// Go back to the end on the next frame.
@@ -137,6 +139,7 @@ impl Default for Output {
             pushed: 0,
             timestamps: false,
             at_end: true,
+            shown_height: 0.0,
             scroll_to: None,
             jump_to_end: false,
             found: None,
@@ -347,7 +350,10 @@ impl Output {
         let partial_top = total;
         total += partial.as_ref().map_or(0.0, |galley| galley.size().y);
         ui.set_height(total);
-        self.at_end = viewport.max.y >= total - 2.0;
+        // The viewport was placed against last frame's content: lines that
+        // arrived since do not mean the reader scrolled back.
+        self.at_end = viewport.max.y >= self.shown_height.min(total) - 2.0;
+        self.shown_height = total;
         // Asking the scroll area to show a place is what lets it leave the
         // end it otherwise sticks to, and go back to it.
         let origin = ui.max_rect().min;

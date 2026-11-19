@@ -13,12 +13,15 @@ repeated), and `--insecure` accepts a self-signed TLS certificate.
 
 ## Sessions and profiles
 
-Each tab is a session with its own connection, scripts and map. The `+`
-beside the tabs, or **Session > New session**, opens another; sessions in the
-background keep running and mark their tab when something arrives.
+Each session has its own connection, scripts and map. The sessions are the
+tabs along the bottom of the window, each with a dot that is green while it is
+connected. The `+` beside them, or **Session > New session**, opens another;
+sessions in the background keep running and mark their tab when something
+arrives.
 
-A new session opens on a welcome screen: your saved profiles, one click from
-playing, and a short form to connect somewhere new. **More options…** there,
+A new session opens on a welcome screen. Type an address such as
+`mud.example.org:4000` and press Enter to connect, or pick one of your saved
+profiles below it. **More options…** there,
 or **Session > Connection…**, opens the window with everything about a
 connection: host, port, TLS, text encoding, and the character to log in as.
 Type a profile name and press **Save profile** to keep it. A profile also has its own scripts, triggers, map and remembered values,

@@ -324,33 +324,33 @@ impl MapView {
         }
         let mut chosen = None;
         response.context_menu(|ui| {
-            ui.checkbox(&mut self.all_areas, tr("Show all areas"));
-            ui.separator();
-            let Some(room) = self.menu_room.and_then(|id| map.room(id)) else {
-                if ui.button(tr("Tidy this area")).clicked() {
-                    chosen = Some(MapAction::Tidy(area.clone()));
+            widgets::menu_width(ui);
+            if let Some(room) = self.menu_room.and_then(|id| map.room(id)) {
+                widgets::menu_heading(ui, &format!("{} (#{})", room.name, room.id));
+                if widgets::menu_item(ui, tr("Walk here"), "").clicked() {
+                    chosen = Some(MapAction::Walk(room.id));
                     ui.close();
                 }
-                return;
-            };
-            ui.label(format!("{} (#{})", room.name, room.id));
-            if ui.button(tr("Walk here")).clicked() {
-                chosen = Some(MapAction::Walk(room.id));
+                let toggle = if room.avoid {
+                    tr("Allow in routes")
+                } else {
+                    tr("Avoid in routes")
+                };
+                if widgets::menu_item(ui, toggle, "").clicked() {
+                    chosen = Some(MapAction::Avoid(room.id, !room.avoid));
+                    ui.close();
+                }
+                widgets::menu_separator(ui);
+            }
+            let tidied = self
+                .menu_room
+                .and_then(|id| map.room(id))
+                .map_or_else(|| area.clone(), |room| room.area.clone());
+            if widgets::menu_item(ui, tr("Tidy this area"), "").clicked() {
+                chosen = Some(MapAction::Tidy(tidied));
                 ui.close();
             }
-            let toggle = if room.avoid {
-                tr("Allow in routes")
-            } else {
-                tr("Avoid in routes")
-            };
-            if ui.button(toggle).clicked() {
-                chosen = Some(MapAction::Avoid(room.id, !room.avoid));
-                ui.close();
-            }
-            if ui.button(tr("Tidy this area")).clicked() {
-                chosen = Some(MapAction::Tidy(room.area.clone()));
-                ui.close();
-            }
+            widgets::menu_check(ui, &mut self.all_areas, tr("Show all areas"));
         });
         if chosen.is_none() && response.clicked() {
             chosen = pointed.map(|room| MapAction::Walk(room.id));

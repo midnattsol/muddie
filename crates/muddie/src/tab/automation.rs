@@ -30,14 +30,19 @@ impl Tab {
             return;
         }
         let mut open = true;
-        egui::Window::new(tr("Automation"))
-            .open(&mut open)
-            .collapsible(false)
-            .default_size([960.0, 580.0])
-            .pivot(egui::Align2::CENTER_CENTER)
-            .default_pos(ctx.content_rect().center())
-            .min_size([780.0, 420.0])
-            .show(ctx, |ui| {
+        let room = ctx.content_rect().size() - egui::vec2(80.0, 150.0);
+        let height = room.y.clamp(320.0, 560.0);
+        widgets::dialog(
+            ctx,
+            "automation",
+            tr("Automation"),
+            &mut open,
+            940.0,
+            |ui| {
+                // The panes get a region of their own, under the title.
+                let size = egui::vec2(ui.available_width(), height);
+                let (region, _) = ui.allocate_exact_size(size, egui::Sense::hover());
+                let ui = &mut ui.new_child(egui::UiBuilder::new().max_rect(region));
                 let plain = egui::Frame::new().inner_margin(egui::Margin::symmetric(0, 4));
                 Panel::left("automation sections")
                     .frame(plain)
@@ -55,7 +60,8 @@ impl Tab {
                         .auto_shrink(false)
                         .show(ui, |ui| self.automation_detail(ui));
                 });
-            });
+            },
+        );
         // Edits are saved by themselves once they stop for a moment, and
         // when the window closes.
         if self.rules_draft != self.rules_seen {

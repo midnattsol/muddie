@@ -120,74 +120,86 @@ impl App {
         }
     }
 
-    /// The bar on top: the menus, then one tab per session.
+    /// The bar on top: the menus.
     fn top_bar(&mut self, ui: &mut Ui) {
+        let theme = theme::current();
+        ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing.x = 2.0;
+            ui.spacing_mut().button_padding = egui::vec2(9.0, 4.0);
+            let plain = theme::font(Weight::Regular, 13.5);
+            ui.style_mut()
+                .text_styles
+                .insert(egui::TextStyle::Button, plain);
+            // The menus are plain words until pointed at.
+            let visuals = &mut ui.visuals_mut().widgets;
+            visuals.inactive.weak_bg_fill = Color32::TRANSPARENT;
+            visuals.inactive.bg_stroke = Stroke::NONE;
+            visuals.inactive.fg_stroke = Stroke::new(1.0, theme.text_dim);
+            visuals.hovered.bg_stroke = Stroke::NONE;
+            visuals.open.bg_stroke = Stroke::NONE;
+            visuals.active.bg_stroke = Stroke::NONE;
+            self.menus(ui);
+        });
+    }
+
+    /// The bar at the bottom: one tab per session, each with a dot that
+    /// says how its connection is doing, then what the session on screen
+    /// is up to.
+    fn bottom_bar(&mut self, ui: &mut Ui) {
         let theme = theme::current();
         let mut close = None;
         ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing.x = 2.0;
-            // The menus are plain words until pointed at.
-            ui.scope(|ui| {
-                ui.spacing_mut().button_padding = egui::vec2(8.0, 4.0);
-                let widgets = &mut ui.visuals_mut().widgets;
-                widgets.inactive.weak_bg_fill = Color32::TRANSPARENT;
-                widgets.inactive.bg_stroke = Stroke::NONE;
-                widgets.inactive.fg_stroke = Stroke::new(1.0, theme.text_dim);
-                self.menus(ui);
-            });
-            ui.add_space(10.0);
-            let (line, _) = ui.allocate_exact_size(egui::vec2(1.0, 16.0), Sense::hover());
-            ui.painter().vline(
-                line.center().x,
-                line.y_range(),
-                Stroke::new(1.0, theme.border),
-            );
-            ui.add_space(10.0);
+            ui.spacing_mut().item_spacing.x = 4.0;
             for (index, tab) in self.tabs.iter().enumerate() {
                 let active = index == self.active;
                 let title = tab.title();
-                let (fill, colour) = if active {
-                    (theme.raised, theme.text)
+                let (dot, state) = tab.status();
+                let fill = if active {
+                    theme.raised
                 } else {
-                    (Color32::TRANSPARENT, theme.text_dim)
+                    Color32::TRANSPARENT
                 };
                 let frame = egui::Frame::new()
                     .fill(fill)
                     .corner_radius(CornerRadius::same(7))
-                    .inner_margin(egui::Margin::symmetric(11, 4));
+                    .inner_margin(egui::Margin {
+                        left: 10,
+                        right: 5,
+                        top: 3,
+                        bottom: 3,
+                    });
                 let selected = frame
                     .show(ui, |ui| {
                         ui.spacing_mut().item_spacing.x = 7.0;
-                        if tab.has_unread() && !active {
-                            widgets::status_dot(ui, theme.accent);
-                        }
-                        let weight = if active {
+                        widgets::status_dot(ui, dot);
+                        let unread = tab.has_unread() && !active;
+                        let colour = match (active, unread) {
+                            (true, _) => theme.text,
+                            (false, true) => theme.accent,
+                            (false, false) => theme.text_dim,
+                        };
+                        let weight = if active || unread {
                             Weight::Medium
                         } else {
                             Weight::Regular
                         };
                         let label = RichText::new(title.as_str())
-                            .font(theme::font(weight, 13.0))
+                            .font(theme::font(weight, 12.5))
                             .color(colour);
-                        let select = ui.add(
-                            egui::Label::new(label)
-                                .selectable(false)
-                                .sense(Sense::click()),
-                        );
-                        let cross = RichText::new("×")
-                            .font(theme::font(Weight::Regular, 14.0))
-                            .color(theme.text_faint);
-                        let closing = ui
+                        let select = ui
                             .add(
-                                egui::Button::new(cross)
-                                    .frame(false)
-                                    .min_size(egui::vec2(14.0, 14.0)),
+                                egui::Label::new(label)
+                                    .selectable(false)
+                                    .sense(Sense::click()),
                             )
-                            .on_hover_text(tr("Close session"));
-                        ui.ctx().accesskit_node_builder(closing.id, |node| {
-                            node.set_label(format!("{} {title}", tr("Close session")));
+                            .on_hover_text(state.as_str());
+                        ui.ctx().accesskit_node_builder(select.id, |node| {
+                            node.set_role(egui::accesskit::Role::Tab);
+                            node.set_selected(active);
+                            node.set_label(format!("{title}, {state}"));
                         });
-                        if closing.clicked() {
+                        let closing = format!("{} {title}", tr("Close session"));
+                        if widgets::close_button(ui, &closing, 18.0).clicked() {
                             close = Some(index);
                         }
                         select.clicked()
@@ -201,7 +213,11 @@ impl App {
                 .font(theme::font(Weight::Regular, 16.0))
                 .color(theme.text_dim);
             let add = ui
-                .add(egui::Button::new(plus).frame(false))
+                .add(
+                    egui::Button::new(plus)
+                        .frame(false)
+                        .min_size(egui::vec2(24.0, 24.0)),
+                )
                 .on_hover_text(tr("New session"));
             ui.ctx().accesskit_node_builder(add.id, |node| {
                 node.set_label(tr("New session"));
@@ -209,6 +225,10 @@ impl App {
             if add.clicked() {
                 self.new_tab(ui.ctx());
             }
+            let active = self.active;
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                self.tabs[active].status_line(ui);
+            });
         });
         if let Some(index) = close {
             self.close_tab(index, ui.ctx());
@@ -218,47 +238,46 @@ impl App {
     fn menus(&mut self, ui: &mut Ui) {
         let active = self.active;
         ui.menu_button(tr("Session"), |ui| {
-            if ui
-                .add(
-                    egui::Button::new(tr("New session"))
-                        .shortcut_text(ui.ctx().format_shortcut(&NEW_SESSION)),
-                )
-                .clicked()
-            {
+            widgets::menu_width(ui);
+            let shortcut = ui.ctx().format_shortcut(&NEW_SESSION);
+            if widgets::menu_item(ui, tr("New session"), &shortcut).clicked() {
                 self.new_tab(ui.ctx());
                 ui.close();
             }
-            if ui
-                .add(
-                    egui::Button::new(tr("Close session"))
-                        .shortcut_text(ui.ctx().format_shortcut(&CLOSE_SESSION)),
-                )
-                .clicked()
-            {
+            let shortcut = ui.ctx().format_shortcut(&CLOSE_SESSION);
+            if widgets::menu_item(ui, tr("Close session"), &shortcut).clicked() {
                 self.close_tab(self.active, ui.ctx());
                 ui.close();
             }
-            ui.separator();
+            widgets::menu_separator(ui);
             if let Some(tab) = self.tabs.get_mut(active) {
                 tab.session_menu(ui);
             }
         });
         ui.menu_button(tr("View"), |ui| {
+            widgets::menu_width(ui);
             self.tabs[active].view_menu(ui);
-            ui.separator();
-            if ui.button(tr("Settings…")).clicked() {
+            widgets::menu_separator(ui);
+            if widgets::menu_item(ui, tr("Settings…"), "").clicked() {
                 self.show_settings = true;
                 ui.close();
             }
         });
-        ui.menu_button(tr("Automation"), |ui| self.tabs[active].automation_menu(ui));
-        ui.menu_button(tr("Map"), |ui| self.tabs[active].map_menu(ui));
+        ui.menu_button(tr("Automation"), |ui| {
+            widgets::menu_width(ui);
+            self.tabs[active].automation_menu(ui);
+        });
+        ui.menu_button(tr("Map"), |ui| {
+            widgets::menu_width(ui);
+            self.tabs[active].map_menu(ui);
+        });
         ui.menu_button(tr("Help"), |ui| {
-            if ui.button(tr("Keyboard shortcuts")).clicked() {
+            widgets::menu_width(ui);
+            if widgets::menu_item(ui, tr("Keyboard shortcuts"), "").clicked() {
                 self.show_shortcuts = true;
                 ui.close();
             }
-            if ui.button(tr("About muddie")).clicked() {
+            if widgets::menu_item(ui, tr("About muddie"), "").clicked() {
                 self.show_about = true;
                 ui.close();
             }
@@ -268,23 +287,17 @@ impl App {
     fn settings_window(&mut self, ctx: &egui::Context) {
         let before = self.settings.clone();
         let mut open = self.show_settings;
-        egui::Window::new(tr("Settings"))
-            .open(&mut open)
-            .pivot(egui::Align2::CENTER_CENTER)
-            .default_pos(ctx.content_rect().center())
-            .collapsible(false)
-            .resizable(false)
-            .show(ctx, |ui| {
-                ui.set_width(430.0);
-                // On a small window the settings scroll rather than spill.
-                let room = ctx.content_rect().height() - 150.0;
-                egui::ScrollArea::vertical()
-                    .max_height(room)
-                    .show(ui, |ui| {
-                        ui.spacing_mut().item_spacing.y = 9.0;
-                        let settings = &mut self.settings;
-                        widgets::caption(ui, tr("Appearance"));
-                        let row =
+        widgets::dialog(ctx, "settings", tr("Settings"), &mut open, 430.0, |ui| {
+            // On a small window the settings scroll rather than spill.
+            let room = ctx.content_rect().height() - 150.0;
+            egui::ScrollArea::vertical()
+                .max_height(room)
+                .min_scrolled_height(room)
+                .show(ui, |ui| {
+                    ui.spacing_mut().item_spacing.y = 9.0;
+                    let settings = &mut self.settings;
+                    widgets::caption(ui, tr("Appearance"));
+                    let row =
                         |ui: &mut Ui,
                          label: &str,
                          control: &mut dyn FnMut(&mut Ui) -> egui::Response| {
@@ -298,70 +311,63 @@ impl App {
                                 );
                             });
                         };
-                        row(ui, tr("Theme"), &mut |ui| {
-                            let name = |theme: ThemeName| match theme {
-                                ThemeName::Dark => tr("Dark"),
-                                ThemeName::Light => tr("Light"),
-                                ThemeName::Contrast => tr("High contrast"),
-                            };
-                            egui::ComboBox::from_id_salt("theme")
-                                .selected_text(name(settings.theme))
-                                .width(170.0)
-                                .show_ui(ui, |ui| {
-                                    for theme in
-                                        [ThemeName::Dark, ThemeName::Light, ThemeName::Contrast]
-                                    {
-                                        ui.selectable_value(
-                                            &mut settings.theme,
-                                            theme,
-                                            name(theme),
-                                        );
-                                    }
-                                })
-                                .response
-                        });
-                        row(ui, tr("Language"), &mut |ui| {
-                            let name = |language: Language| match language {
-                                Language::Auto => tr("System"),
-                                Language::English => "English",
-                                Language::Spanish => "Español",
-                            };
-                            egui::ComboBox::from_id_salt("language")
-                                .selected_text(name(settings.language))
-                                .width(170.0)
-                                .show_ui(ui, |ui| {
-                                    for language in
-                                        [Language::Auto, Language::English, Language::Spanish]
-                                    {
-                                        ui.selectable_value(
-                                            &mut settings.language,
-                                            language,
-                                            name(language),
-                                        );
-                                    }
-                                })
-                                .response
-                        });
-                        row(ui, tr("Text size"), &mut |ui| {
-                            ui.add(
-                                egui::Slider::new(&mut settings.font_size, 10.0..=28.0)
-                                    .step_by(0.5),
-                            )
-                        });
-                        row(ui, tr("Font file"), &mut |ui| {
-                            ui.add(
-                                egui::TextEdit::singleline(&mut settings.font_file)
-                                    .hint_text(tr("Built-in font"))
-                                    .margin(egui::Margin::symmetric(9, 6))
-                                    .desired_width(230.0),
-                            )
-                        });
-                        Tab::settings_ui(ui, settings);
-                        if let Some(error) = &self.settings_error {
-                            ui.colored_label(theme::current().danger, error);
-                        }
+                    row(ui, tr("Theme"), &mut |ui| {
+                        let name = |theme: ThemeName| match theme {
+                            ThemeName::Dark => tr("Dark"),
+                            ThemeName::Light => tr("Light"),
+                            ThemeName::Contrast => tr("High contrast"),
+                        };
+                        egui::ComboBox::from_id_salt("theme")
+                            .selected_text(name(settings.theme))
+                            .width(170.0)
+                            .show_ui(ui, |ui| {
+                                for theme in
+                                    [ThemeName::Dark, ThemeName::Light, ThemeName::Contrast]
+                                {
+                                    ui.selectable_value(&mut settings.theme, theme, name(theme));
+                                }
+                            })
+                            .response
                     });
-            });
+                    row(ui, tr("Language"), &mut |ui| {
+                        let name = |language: Language| match language {
+                            Language::Auto => tr("System"),
+                            Language::English => "English",
+                            Language::Spanish => "Español",
+                        };
+                        egui::ComboBox::from_id_salt("language")
+                            .selected_text(name(settings.language))
+                            .width(170.0)
+                            .show_ui(ui, |ui| {
+                                for language in
+                                    [Language::Auto, Language::English, Language::Spanish]
+                                {
+                                    ui.selectable_value(
+                                        &mut settings.language,
+                                        language,
+                                        name(language),
+                                    );
+                                }
+                            })
+                            .response
+                    });
+                    row(ui, tr("Text size"), &mut |ui| {
+                        ui.add(egui::Slider::new(&mut settings.font_size, 10.0..=28.0).step_by(0.5))
+                    });
+                    row(ui, tr("Font file"), &mut |ui| {
+                        ui.add(
+                            egui::TextEdit::singleline(&mut settings.font_file)
+                                .hint_text(tr("Built-in font"))
+                                .margin(egui::Margin::symmetric(9, 6))
+                                .desired_width(230.0),
+                        )
+                    });
+                    Tab::settings_ui(ui, settings);
+                    if let Some(error) = &self.settings_error {
+                        ui.colored_label(theme::current().danger, error);
+                    }
+                });
+        });
         self.show_settings = open;
         if self.settings != before {
             self.apply_settings(ctx);
@@ -370,14 +376,13 @@ impl App {
 
     fn shortcuts_window(&mut self, ctx: &egui::Context) {
         let theme = theme::current();
-        egui::Window::new(tr("Keyboard shortcuts"))
-            .open(&mut self.show_shortcuts)
-            .pivot(egui::Align2::CENTER_CENTER)
-            .default_pos(ctx.content_rect().center())
-            .collapsible(false)
-            .resizable(false)
-            .show(ctx, |ui| {
-                ui.set_width(430.0);
+        widgets::dialog(
+            ctx,
+            "keyboard shortcuts",
+            tr("Keyboard shortcuts"),
+            &mut self.show_shortcuts,
+            430.0,
+            |ui| {
                 let groups: [(&str, &[(&str, &str)]); 3] = [
                     (
                         tr("Typing"),
@@ -424,19 +429,19 @@ impl App {
                         });
                     ui.add_space(8.0);
                 }
-            });
+            },
+        );
     }
 
     fn about_window(&mut self, ctx: &egui::Context) {
         let theme = theme::current();
-        egui::Window::new(tr("About muddie"))
-            .open(&mut self.show_about)
-            .pivot(egui::Align2::CENTER_CENTER)
-            .default_pos(ctx.content_rect().center())
-            .collapsible(false)
-            .resizable(false)
-            .show(ctx, |ui| {
-                ui.set_width(320.0);
+        widgets::dialog(
+            ctx,
+            "about muddie",
+            tr("About muddie"),
+            &mut self.show_about,
+            320.0,
+            |ui| {
                 ui.label(
                     RichText::new("muddie")
                         .font(theme::font(Weight::Semibold, 26.0))
@@ -452,7 +457,8 @@ impl App {
                     RichText::new(tr("Free software, under the MIT or Apache 2.0 licence."))
                         .color(theme.text_faint),
                 );
-            });
+            },
+        );
     }
 
     /// Puts changed settings into effect and saves them.
@@ -502,7 +508,7 @@ impl eframe::App for App {
         let bottom = Panel::bottom("status bar")
             .frame(chrome(4))
             .show_separator_line(false)
-            .show(ui, |ui| self.tabs[active].status_bar(ui));
+            .show(ui, |ui| self.bottom_bar(ui));
         ui.painter().hline(
             bottom.response.rect.x_range(),
             bottom.response.rect.top(),

@@ -127,6 +127,8 @@ pub struct Tab {
     rules_sample: String,
     /// The next key pressed becomes the selected macro's key.
     recording_key: bool,
+    /// The address typed on the welcome screen.
+    address: String,
     /// Whether the region for announcements was in the accessibility tree
     /// on the last frame.
     announce_ready: bool,
@@ -260,6 +262,7 @@ impl Tab {
             rules_changed_at: None,
             rules_sample: String::new(),
             recording_key: false,
+            address: String::new(),
             announce_ready: false,
             rules_section: 0,
             encoding: "auto".into(),
@@ -2084,6 +2087,23 @@ mod tests {
     }
 
     #[test]
+    fn arriving_lines_do_not_flash_the_view_of_the_latest_lines() {
+        let mut harness = window(None);
+        for burst in 0..12 {
+            let app = harness.state_mut().tab_mut();
+            (0..9).for_each(|n| app.show_local(&format!("burst {burst} line {n}")));
+            // Frame by frame: the view must not come up even for one.
+            for _ in 0..3 {
+                harness.step();
+                assert!(
+                    harness.query_by_label("Latest lines").is_none(),
+                    "shown during burst {burst}"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn sound_requests_from_the_server_are_not_shown() {
         let mut harness = window(None);
         let app = harness.state_mut().tab_mut();
@@ -2315,6 +2335,16 @@ mod tests {
         app.rules_section = 2;
         rules.run_steps(3);
         save(&mut rules, "macros");
+        // The menus, as someone using Spanish sees them.
+        for menu in ["Sesión", "Ver", "Automatización", "Mapa"] {
+            let mut menus = connected_demo_window();
+            crate::i18n::set_language(crate::settings::Language::Spanish);
+            menus.run_steps(2);
+            menus.get_by_label(menu).click();
+            menus.run_steps(4);
+            save(&mut menus, &format!("menu-{menu}"));
+            crate::i18n::set_language(crate::settings::Language::English);
+        }
         // The find bar and the view of the latest lines while scrolled back.
         let mut find = connected_demo_window();
         let app = find.state_mut().tab_mut();
