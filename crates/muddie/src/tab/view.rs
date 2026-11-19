@@ -426,6 +426,13 @@ impl Tab {
                             tr("Verify certificate"),
                         );
                     });
+                    widgets::setting_row(ui, tr("GMCP modules"), &mut |ui| {
+                        widgets::row_field(ui, &mut self.gmcp_modules, "Comm, Char.Stats", 220.0)
+                    })
+                    .on_hover_text(tr(
+                        "What to ask this MUD for besides the usual: each MUD has its own modules, named in its help. With commas between them. They are asked for on connecting.",
+                    ));
+                    widgets::row_divider(ui);
                     widgets::setting_row(ui, tr("Text encoding"), &mut |ui| {
                         widgets::row_field(ui, &mut self.encoding, "auto", 120.0)
                     })

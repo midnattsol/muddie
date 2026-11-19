@@ -4,6 +4,13 @@
 use crate::msdp;
 use crate::telnet::{self, Event, Verb, opt};
 
+// NEW-ENVIRON (RFC 1572): the commands, and what marks a name and a value.
+const ENVIRON_IS: u8 = 0;
+const ENVIRON_SEND: u8 = 1;
+const ENVIRON_VAR: u8 = 0;
+const ENVIRON_VALUE: u8 = 1;
+const ENVIRON_USERVAR: u8 = 3;
+
 // MTTS capability bits (https://tintin.mudhalla.net/protocols/mtts/).
 const MTTS_ANSI: u32 = 1;
 const MTTS_UTF8: u32 = 4;
@@ -44,9 +51,15 @@ impl Default for Config {
             window: (80, 24),
             screen_reader: false,
             tls: false,
-            gmcp_supports: ["Core 1", "Char 1", "Room 1", "Comm.Channel 1"]
-                .map(String::from)
-                .to_vec(),
+            gmcp_supports: [
+                "Core 1",
+                "Char 1",
+                "Room 1",
+                "Comm.Channel 1",
+                "Client.Media 1",
+            ]
+            .map(String::from)
+            .to_vec(),
             msdp_report: [
                 "HEALTH",
                 "HEALTH_MAX",
@@ -176,7 +189,10 @@ impl Negotiator {
             Verb::Do => {
                 // MXP is asked for this way by some servers, and offered
                 // with WILL by others: it is taken up either way.
-                let accept = matches!(option, opt::TTYPE | opt::NAWS | opt::CHARSET | opt::MXP);
+                let accept = matches!(
+                    option,
+                    opt::TTYPE | opt::NAWS | opt::CHARSET | opt::MXP | opt::NEW_ENVIRON
+                );
                 if !accept {
                     send(reply, Verb::Wont, option);
                 } else if !self.local[o] {
@@ -200,8 +216,40 @@ impl Negotiator {
         None
     }
 
+    /// What this client says of itself when asked through NEW-ENVIRON,
+    /// by the names of the MUD New-Environ Standard. Nothing of the
+    /// computer or its user is among them, whatever is asked for.
+    fn environment(&self) -> [(&'static str, String); 5] {
+        [
+            ("CHARSET", "UTF-8".to_owned()),
+            ("CLIENT_NAME", self.config.client_name.clone()),
+            ("CLIENT_VERSION", env!("CARGO_PKG_VERSION").to_owned()),
+            ("MTTS", self.mtts().to_string()),
+            ("TERMINAL_TYPE", self.config.terminal_type.clone()),
+        ]
+    }
+
     fn subneg(&mut self, option: u8, payload: &[u8], reply: &mut Vec<u8>) {
         match option {
+            // `SEND` with the names wanted, each after `VAR` or `USERVAR`;
+            // with none, all there are. Answered with `IS`, each name
+            // after `VAR` and its value after `VALUE`.
+            opt::NEW_ENVIRON if payload.first() == Some(&ENVIRON_SEND) => {
+                let asked: Vec<&[u8]> = (payload[1..])
+                    .split(|byte| matches!(*byte, ENVIRON_VAR | ENVIRON_USERVAR))
+                    .filter(|name| !name.is_empty())
+                    .collect();
+                let mut body = vec![ENVIRON_IS];
+                for (name, value) in self.environment() {
+                    if asked.is_empty() || asked.contains(&name.as_bytes()) {
+                        body.push(ENVIRON_VAR);
+                        body.extend_from_slice(name.as_bytes());
+                        body.push(ENVIRON_VALUE);
+                        body.extend_from_slice(value.as_bytes());
+                    }
+                }
+                telnet::write_subneg(opt::NEW_ENVIRON, &body, reply);
+            }
             opt::TTYPE if payload == [TTYPE_SEND] => {
                 // MTTS: client name, then terminal type, then the capability
                 // bitvector, which is repeated for any further request.
@@ -451,5 +499,45 @@ mod tests {
         assert_eq!(reply[3], CHARSET_REJECTED);
         let (reply, _) = handle(&mut n, request(b" ISO-8859-1"));
         assert_eq!(reply, [IAC, SB, opt::CHARSET, CHARSET_REJECTED, IAC, SE]);
+    }
+
+    #[test]
+    fn the_client_says_what_it_is_when_asked_and_nothing_else() {
+        let mut n = Negotiator::new(Config::default());
+        let mut reply = Vec::new();
+        n.handle(&Event::Negotiate(Verb::Do, opt::NEW_ENVIRON), &mut reply);
+        assert_eq!(reply, [IAC, WILL, opt::NEW_ENVIRON]);
+        // Asked for two by name, one of them the name of the user of the
+        // computer, which is not among what it tells.
+        let mut ask = vec![ENVIRON_SEND, ENVIRON_VAR];
+        ask.extend_from_slice(b"CLIENT_NAME");
+        ask.push(ENVIRON_USERVAR);
+        ask.extend_from_slice(b"USER");
+        reply.clear();
+        n.handle(&Event::Subneg(opt::NEW_ENVIRON, ask), &mut reply);
+        let mut answer = vec![ENVIRON_IS, ENVIRON_VAR];
+        answer.extend_from_slice(b"CLIENT_NAME");
+        answer.push(ENVIRON_VALUE);
+        answer.extend_from_slice(b"MUDDIE");
+        let mut expected = Vec::new();
+        telnet::write_subneg(opt::NEW_ENVIRON, &answer, &mut expected);
+        assert_eq!(reply, expected);
+        // Asked for everything, it tells its five.
+        reply.clear();
+        n.handle(
+            &Event::Subneg(opt::NEW_ENVIRON, vec![ENVIRON_SEND]),
+            &mut reply,
+        );
+        let told = String::from_utf8_lossy(&reply).into_owned();
+        for name in [
+            "CHARSET",
+            "CLIENT_NAME",
+            "CLIENT_VERSION",
+            "MTTS",
+            "TERMINAL_TYPE",
+        ] {
+            assert!(told.contains(name), "{name} is missing from {told:?}");
+        }
+        assert!(told.contains("UTF-8") && !told.contains("USER"));
     }
 }

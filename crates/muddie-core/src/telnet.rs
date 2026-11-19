@@ -20,6 +20,7 @@ pub mod opt {
     pub const TTYPE: u8 = 24;
     pub const EOR: u8 = 25;
     pub const NAWS: u8 = 31;
+    pub const NEW_ENVIRON: u8 = 39;
     pub const CHARSET: u8 = 42;
     pub const MSDP: u8 = 69;
     pub const MSSP: u8 = 70;
@@ -45,8 +46,8 @@ pub mod opt {
             MXP => "MXP",
             MSP => "MSP",
             GMCP => "GMCP",
+            NEW_ENVIRON => "NEW-ENVIRON",
             // Others some MUDs offer, which this client does not take up.
-            39 => "NEW-ENVIRON",
             85 => "MCCP1",
             93 => "ZMP",
             102 => "Aardwolf",

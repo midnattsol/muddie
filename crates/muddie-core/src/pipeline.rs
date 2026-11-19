@@ -410,16 +410,16 @@ mod tests {
         // Some servers ask for MXP instead of offering it: it is taken up
         // the same, and its tags are read.
         let mut asked = Pipeline::new(Config::default());
-        let mut input = vec![IAC, telnet::DO, opt::MXP, IAC, telnet::DO, 39];
+        let mut input = vec![IAC, telnet::DO, opt::MXP, IAC, telnet::DO, 36];
         input.extend_from_slice(b"\x1b[1z<send>look</send>\r\n");
         let (reply, events) = receive_all(&mut asked, &input);
         assert_eq!(
             reply[..6],
-            [IAC, telnet::WILL, opt::MXP, IAC, telnet::WONT, 39]
+            [IAC, telnet::WILL, opt::MXP, IAC, telnet::WONT, 36]
         );
         assert_eq!(
             events[..2],
-            [offered("MXP", true), offered("NEW-ENVIRON", false)]
+            [offered("MXP", true), offered("option 36", false)]
         );
         let Some(Event::Line(line)) = events.get(2) else {
             panic!("expected a line");

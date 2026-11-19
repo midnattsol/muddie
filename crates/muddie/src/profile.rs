@@ -32,6 +32,9 @@ pub struct Profile {
     pub encoding: String,
     /// Script packages to load before the profile's own scripts.
     pub packages: Vec<String>,
+    /// Modules of GMCP to ask this MUD for besides the usual ones, as
+    /// `Name version`: each MUD has its own.
+    pub gmcp_modules: Vec<String>,
 }
 
 impl Default for Profile {
@@ -45,6 +48,7 @@ impl Default for Profile {
             character: String::new(),
             encoding: "auto".into(),
             packages: Vec::new(),
+            gmcp_modules: Vec::new(),
         }
     }
 }
@@ -258,6 +262,7 @@ mod tests {
             character: "Gandalf".into(),
             encoding: "koi8-r".into(),
             packages: vec!["combat".into()],
+            gmcp_modules: vec!["Comm 1".into()],
         };
         profiles.save("Reinos", &profile).unwrap();
         profiles.save("Aardwolf", &Profile::default()).unwrap();

@@ -251,6 +251,9 @@ pub struct Tab {
     rules_section: usize,
     /// Label of the text encoding the server uses; `auto` for most.
     encoding: String,
+    /// The modules of GMCP to ask this MUD for besides the usual ones, as
+    /// typed: their names, with commas between.
+    gmcp_modules: String,
     /// Package installs and updates under way; the flag says to enable
     /// the package when its job ends well.
     package_jobs: Vec<(Receiver<packages::Outcome>, bool)>,
@@ -320,6 +323,19 @@ pub struct Startup {
     pub speech: bool,
     /// Extra script files to run after the profile's, in order.
     pub scripts: Vec<PathBuf>,
+}
+
+/// The modules of GMCP typed in a profile, each as `Name version`: with
+/// commas between them, and version 1 for those given none.
+fn modules_typed(typed: &str) -> Vec<String> {
+    (typed.split(','))
+        .map(str::trim)
+        .filter(|module| !module.is_empty())
+        .map(|module| match module.rsplit_once(' ') {
+            Some((_, version)) if version.parse::<u32>().is_ok() => module.to_owned(),
+            _ => format!("{module} 1"),
+        })
+        .collect()
 }
 
 impl Tab {
@@ -443,6 +459,7 @@ impl Tab {
             announce_ready: false,
             rules_section: 0,
             encoding: "auto".into(),
+            gmcp_modules: String::new(),
             package_jobs: Vec::new(),
             character: String::new(),
             new_password: String::new(),
@@ -721,6 +738,7 @@ impl Tab {
             self.packages = profile.packages;
             self.character = profile.character;
             self.encoding = profile.encoding;
+            self.gmcp_modules = profile.gmcp_modules.join(", ");
             self.voice.set_enabled(profile.speech);
         } else {
             self.packages.clear();
@@ -751,6 +769,7 @@ impl Tab {
             speech: self.voice.enabled(),
             character: self.character.trim().to_owned(),
             encoding: self.encoding.trim().to_owned(),
+            gmcp_modules: modules_typed(&self.gmcp_modules),
             // A profile saved under a new name starts without packages.
             packages: if self.profile.as_deref() == Some(&name) {
                 self.packages.clone()
@@ -853,6 +872,11 @@ impl Tab {
                 ..Config::default()
             };
             config.gmcp_supports.extend(self.supports.iter().cloned());
+            for module in modules_typed(&self.gmcp_modules) {
+                if !config.gmcp_supports.contains(&module) {
+                    config.gmcp_supports.push(module);
+                }
+            }
             config
         });
 
@@ -3464,6 +3488,15 @@ mod tests {
             second.0 > first.0 && second.1 < first.1,
             "{first:?} then {second:?}"
         );
+    }
+
+    #[test]
+    fn modules_of_gmcp_are_typed_with_commas_and_get_a_version() {
+        assert_eq!(
+            modules_typed("Comm, Char.Ficha 2 ,, Char.Stats"),
+            ["Comm 1", "Char.Ficha 2", "Char.Stats 1"]
+        );
+        assert!(modules_typed("  ").is_empty());
     }
 
     #[test]
