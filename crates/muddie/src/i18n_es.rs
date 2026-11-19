@@ -444,4 +444,11 @@ pub const SPANISH: &[(&str, &str)] = &[
     ("Show all areas", "Mostrar todas las zonas"),
     ("Log format", "Formato del registro"),
     ("Address", "Dirección"),
+    ("red", "rojo"),
+    ("green", "verde"),
+    ("yellow", "amarillo"),
+    ("blue", "azul"),
+    ("magenta", "magenta"),
+    ("cyan", "cian"),
+    ("white", "blanco"),
 ];

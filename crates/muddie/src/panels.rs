@@ -3,9 +3,10 @@
 
 use std::collections::HashMap;
 
-use eframe::egui::{Align2, Color32, FontId, Rect, Role, Sense, Ui, WidgetInfo, vec2};
+use eframe::egui::{Align2, Color32, Rect, Role, Sense, Ui, WidgetInfo, vec2};
 use muddie_core::Line;
 use muddie_core::ansi::Assembler;
+use muddie_script::GaugeLook;
 use serde_json::Value;
 
 use crate::theme;
@@ -35,6 +36,7 @@ struct Gauge {
     name: String,
     value: f64,
     max: f64,
+    look: GaugeLook,
 }
 
 /// Named bars such as health and mana, in the order they were first set.
@@ -44,16 +46,26 @@ pub struct Gauges(Vec<Gauge>);
 impl Gauges {
     /// Sets the named gauge to `(value, max)`, or removes it.
     pub fn set(&mut self, name: &str, level: Option<(f64, f64)>) {
+        self.set_with(name, level, None);
+    }
+
+    /// The same, also saying how the gauge is drawn. With no look given a
+    /// gauge keeps the one it has.
+    pub fn set_with(&mut self, name: &str, level: Option<(f64, f64)>, look: Option<GaugeLook>) {
         let index = self.0.iter().position(|gauge| gauge.name == name);
         match (index, level) {
             (Some(index), Some((value, max))) => {
-                self.0[index].value = value;
-                self.0[index].max = max;
+                let gauge = &mut self.0[index];
+                (gauge.value, gauge.max) = (value, max);
+                if let Some(look) = look {
+                    gauge.look = look;
+                }
             }
             (None, Some((value, max))) => self.0.push(Gauge {
                 name: name.to_owned(),
                 value,
                 max,
+                look: look.unwrap_or_default(),
             }),
             (Some(index), None) => {
                 self.0.remove(index);
@@ -78,59 +90,120 @@ impl Gauges {
         parts.join(", ")
     }
 
-    /// Draws each gauge as a slim bar with its name and numbers above.
+    /// Draws the gauges in a row that wraps.
     pub fn show(&self, ui: &mut Ui) {
-        let theme = theme::current();
         ui.horizontal_wrapped(|ui| {
-            ui.spacing_mut().item_spacing.x = 18.0;
+            ui.spacing_mut().item_spacing.x = 22.0;
             for gauge in &self.0 {
-                let fraction = if gauge.max > 0.0 {
-                    (gauge.value / gauge.max).clamp(0.0, 1.0) as f32
-                } else {
-                    0.0
-                };
-                let numbers = format!("{} / {}", gauge.value, gauge.max);
-                let (rect, response) = ui.allocate_exact_size(vec2(150.0, 26.0), Sense::hover());
-                let described = format!("{} {numbers}", gauge.name);
-                response.widget_info(|| {
-                    WidgetInfo::labeled(Role::ProgressIndicator, true, described.as_str())
-                });
-                let painter = ui.painter();
-                let small = FontId::proportional(11.5);
-                painter.text(
-                    rect.left_top(),
-                    Align2::LEFT_TOP,
-                    &gauge.name,
-                    small.clone(),
-                    theme.text_dim,
-                );
-                painter.text(
-                    rect.right_top(),
-                    Align2::RIGHT_TOP,
-                    numbers,
-                    small,
-                    theme.text,
-                );
-                let track =
-                    Rect::from_min_max(rect.left_bottom() - vec2(0.0, 6.0), rect.right_bottom());
-                painter.rect_filled(track, 3.0, theme.raised);
-                let filled =
-                    Rect::from_min_size(track.min, vec2(track.width() * fraction, track.height()));
-                painter.rect_filled(filled, 3.0, color(&gauge.name));
+                draw_gauge(ui, &gauge.name, gauge.value, gauge.max, &gauge.look);
             }
         });
     }
 }
 
-/// The colour of a gauge's bar, from the theme's terminal colours.
+/// Draws one gauge: its name and numbers over a bar, or over a row of
+/// cells if its look asks for segments.
+pub fn draw_gauge(ui: &mut Ui, name: &str, value: f64, max: f64, look: &GaugeLook) {
+    const CELLS: usize = 10;
+    let theme = theme::current();
+    let fraction = if max > 0.0 {
+        (value / max).clamp(0.0, 1.0) as f32
+    } else {
+        0.0
+    };
+    let numbers = format!("{value} / {max}");
+    let (rect, response) = ui.allocate_exact_size(vec2(158.0, 28.0), Sense::hover());
+    let described = format!("{name} {numbers}");
+    response.widget_info(|| WidgetInfo::labeled(Role::ProgressIndicator, true, described.as_str()));
+    let painter = ui.painter();
+    let small = theme::font(theme::Weight::Medium, 11.5);
+    painter.text(
+        rect.left_top(),
+        Align2::LEFT_TOP,
+        name,
+        small.clone(),
+        theme.text_dim,
+    );
+    let low = look.low > 0.0 && f64::from(fraction) * 100.0 < look.low;
+    let figures = if low { theme.danger } else { theme.text };
+    painter.text(rect.right_top(), Align2::RIGHT_TOP, numbers, small, figures);
+    let colour = colour_named(&look.colour).unwrap_or_else(|| color(name));
+    let empty = theme::mix(theme.surface, theme.text, 0.1);
+    if look.segments {
+        let gap = 3.0;
+        let width = (rect.width() - gap * (CELLS as f32 - 1.0)) / CELLS as f32;
+        let filled = (fraction * CELLS as f32).round() as usize;
+        // Never all empty while something is left, nor full while short.
+        let filled = match filled {
+            0 if fraction > 0.0 => 1,
+            CELLS if fraction < 1.0 => CELLS - 1,
+            filled => filled,
+        };
+        for cell in 0..CELLS {
+            let left = rect.left() + cell as f32 * (width + gap);
+            let (top, bottom) = (rect.bottom() - 8.0, rect.bottom());
+            // Leaning cells, like the ▰ of a terminal's status line.
+            let lean = 2.5;
+            let points = vec![
+                eframe::egui::pos2(left + lean, top),
+                eframe::egui::pos2(left + width, top),
+                eframe::egui::pos2(left + width - lean, bottom),
+                eframe::egui::pos2(left, bottom),
+            ];
+            let fill = if cell < filled { colour } else { empty };
+            painter.add(eframe::egui::Shape::convex_polygon(
+                points,
+                fill,
+                eframe::egui::Stroke::NONE,
+            ));
+        }
+    } else {
+        let track = Rect::from_min_max(rect.left_bottom() - vec2(0.0, 6.0), rect.right_bottom());
+        painter.rect_filled(track, 3.0, empty);
+        let filled = Rect::from_min_size(track.min, vec2(track.width() * fraction, track.height()));
+        painter.rect_filled(filled, 3.0, colour);
+    }
+}
+
+/// The colour of a gauge's bar when it was given none, from its name.
 fn color(name: &str) -> Color32 {
     let theme = theme::current();
     match name.to_lowercase().as_str() {
-        "hp" | "health" => theme.terminal[1],
-        "mp" | "mana" | "sp" => theme.terminal[4],
-        "mv" | "moves" | "ep" => theme.terminal[2],
+        "hp" | "health" | "salud" | "vida" | "pv" => theme.terminal[1],
+        "mp" | "mana" | "sp" | "maná" | "pm" => theme.terminal[4],
+        "mv" | "moves" | "ep" | "stamina" | "resistencia" => theme.terminal[2],
         _ => theme.accent,
     }
+}
+
+/// The names a gauge's colour can be chosen by.
+pub const GAUGE_COLOURS: [&str; 7] = ["red", "green", "yellow", "blue", "magenta", "cyan", "white"];
+
+/// A colour given by name, from the theme's palette, or as `#rrggbb`.
+pub fn colour_named(name: &str) -> Option<Color32> {
+    let name = name.trim().to_lowercase();
+    if let Some(hex) = name.strip_prefix('#') {
+        let value = u32::from_str_radix(hex, 16)
+            .ok()
+            .filter(|_| hex.len() == 6)?;
+        return Some(Color32::from_rgb(
+            (value >> 16) as u8,
+            (value >> 8) as u8,
+            value as u8,
+        ));
+    }
+    let index = match name.as_str() {
+        "red" => 1,
+        "green" => 2,
+        "yellow" => 3,
+        "blue" => 4,
+        "magenta" | "purple" => 5,
+        "cyan" => 6,
+        "white" => 7,
+        "accent" => return Some(theme::current().accent),
+        _ => return None,
+    };
+    Some(theme::current().terminal[index])
 }
 
 /// Extracts the vitals this client knows how to show from a `Char.Vitals`

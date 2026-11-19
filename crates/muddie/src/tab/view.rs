@@ -388,9 +388,15 @@ impl Tab {
 
     /// The Automation menu.
     pub fn automation_menu(&mut self, ui: &mut egui::Ui) {
-        for (section, name) in [tr("Triggers…"), tr("Aliases…"), tr("Macros…")]
-            .into_iter()
-            .enumerate()
+        for (section, name) in [
+            tr("Triggers…"),
+            tr("Aliases…"),
+            tr("Macros…"),
+            tr("Gauges…"),
+            tr("Scripts…"),
+        ]
+        .into_iter()
+        .enumerate()
         {
             if widgets::menu_item(ui, name, "").clicked() {
                 self.open_automation(section);

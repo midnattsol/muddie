@@ -47,8 +47,9 @@
 //!   `send_msdp(command, ...)`: the same for MSDP, e.g.
 //!   `send_msdp("REPORT", "HEALTH")`. Values arrive as strings.
 //! - `mssp()`: the server's MSSP status as a table, empty if it sent none.
-//! - `gauge(name, value, max)`: show or update a bar in the status strip;
-//!   `gauge(name)` removes it.
+//! - `gauge(name, value, max, options)`: show or update a bar in the status
+//!   strip; `gauge(name)` removes it. `options` may give a `colour`, a
+//!   `style` (`"segments"`) and `low`, a percentage to warn under.
 //! - `chat(text)`: add a line to the chat panel.
 //! - `panel(name, text)`: show `text` (several lines, colours allowed) in
 //!   a panel of its own, replacing what it showed before; `panel(name)`
@@ -114,6 +115,17 @@ const MEMORY_LIMIT: usize = 256 << 20;
 const MIN_TIMER_INTERVAL: Duration = Duration::from_millis(10);
 
 /// Something a script asked the client to do.
+/// How a gauge is drawn, as far as the script cares to say.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct GaugeLook {
+    /// A colour name or `#rrggbb`; empty lets the client choose.
+    pub colour: String,
+    /// Drawn as a row of cells instead of a continuous bar.
+    pub segments: bool,
+    /// The percentage under which the numbers turn to a warning colour.
+    pub low: f64,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Action {
     Send(String),
@@ -131,6 +143,7 @@ pub enum Action {
     Gauge {
         name: String,
         level: Option<(f64, f64)>,
+        look: GaugeLook,
     },
     /// Add a line to the chat panel.
     Chat(String),
@@ -1474,13 +1487,28 @@ fn install_api(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     add(
         "gauge",
         lua.create_function(
-            move |_, (name, value, max): (String, Option<f64>, Option<f64>)| {
+            move |_,
+                  (name, value, max, options): (
+                String,
+                Option<f64>,
+                Option<f64>,
+                Option<mlua::Table>,
+            )| {
                 let level = match (value, max) {
                     (Some(value), Some(max)) => Some((value, max)),
                     (None, None) => None,
                     _ => return Err(mlua::Error::runtime("gauge needs both a value and a max")),
                 };
-                (shared.borrow_mut().actions).push(Action::Gauge { name, level });
+                let mut look = GaugeLook::default();
+                if let Some(options) = options {
+                    let colour: Option<String> = options.get("colour")?;
+                    let color: Option<String> = options.get("color")?;
+                    look.colour = colour.or(color).unwrap_or_default();
+                    let style: Option<String> = options.get("style")?;
+                    look.segments = style.as_deref() == Some("segments");
+                    look.low = options.get::<Option<f64>>("low")?.unwrap_or(0.0);
+                }
+                (shared.borrow_mut().actions).push(Action::Gauge { name, level, look });
                 Ok(())
             },
         )?,
@@ -1672,7 +1700,8 @@ mod tests {
                 Action::Echo("Char.Vitals: 80/100".into()),
                 Action::Gauge {
                     name: "HP".into(),
-                    level: Some((80.0, 100.0))
+                    level: Some((80.0, 100.0)),
+                    look: GaugeLook::default(),
                 },
             ]
         );
@@ -1716,7 +1745,8 @@ mod tests {
                 gmcp("Char.Login", r#"{"name":"ana"}"#),
                 Action::Gauge {
                     name: "HP".into(),
-                    level: None
+                    level: None,
+                    look: GaugeLook::default(),
                 },
                 Action::Chat("Ana: hola".into()),
                 Action::Walk(42),

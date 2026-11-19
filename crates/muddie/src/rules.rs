@@ -32,6 +32,8 @@ pub struct Trigger {
     pub speak: String,
     /// Sound file to play.
     pub sound: String,
+    /// Luau to run, with the match as `m` and the line as `line`.
+    pub script: String,
 }
 
 /// Replaces a typed command.
@@ -48,6 +50,8 @@ pub struct Alias {
     /// Commands to send, separated by `;`. For a word alias `%1` is the
     /// rest of what was typed; for a regular expression, its groups.
     pub send: String,
+    /// Luau to run, with the match as `m` and what was typed as `input`.
+    pub script: String,
 }
 
 /// Sends commands when a key is pressed.
@@ -60,6 +64,28 @@ pub struct KeyBinding {
     /// The key as `bind` names it, such as `f5` or `ctrl+k`.
     pub key: String,
     pub send: String,
+    /// Luau to run when the key is pressed.
+    pub script: String,
+}
+
+/// A bar that follows a value the server reports.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Gauge {
+    pub name: String,
+    #[serde(default = "yes")]
+    pub enabled: bool,
+    /// Where the value is: a GMCP package and the fields inside it, such
+    /// as `Char.Vitals.health.current`, or the name of a MSDP variable.
+    pub value: String,
+    /// Where the maximum is, in the same way, or a number.
+    pub max: String,
+    /// A colour name or `#rrggbb`; empty to let the client choose.
+    pub colour: String,
+    /// Drawn as a row of cells instead of a continuous bar.
+    pub segments: bool,
+    /// The percentage under which the numbers turn to a warning colour.
+    pub low: u8,
 }
 
 impl Trigger {
@@ -89,6 +115,9 @@ impl Trigger {
         }
         if self.gag {
             parts.push("∅".to_owned());
+        }
+        if !self.script.trim().is_empty() {
+            parts.push("Luau".to_owned());
         }
         parts.join("  ·  ")
     }
@@ -131,7 +160,38 @@ pub struct Rules {
     pub aliases: Vec<Alias>,
     #[serde(rename = "key")]
     pub keys: Vec<KeyBinding>,
+    #[serde(rename = "gauge")]
+    pub gauges: Vec<Gauge>,
 }
+
+/// The commands of a rule's `send`: one per line, or separated by `;`.
+pub fn commands(send: &str) -> impl Iterator<Item = &str> {
+    send.split([';', '\n'])
+        .map(str::trim)
+        .filter(|command| !command.is_empty())
+}
+
+/// What every chunk of [`Rules::chunks`] starts with.
+const PRELUDE: &str = r#"local function fill(template, m)
+	return (template:gsub("%%(%d)", function(n) return m[tonumber(n)] or "" end))
+end
+local function dig(path)
+	local number = tonumber(path)
+	if number then return number end
+	local parts = string.split(path, ".")
+	for n = #parts, 1, -1 do
+		local data = gmcp(table.concat(parts, ".", 1, n))
+		if data ~= nil then
+			for i = n + 1, #parts do
+				if type(data) ~= "table" then return nil end
+				data = data[parts[i]]
+			end
+			return tonumber(data)
+		end
+	end
+	return tonumber(msdp(path))
+end
+"#;
 
 impl Rules {
     /// Reads the rules file; a missing one means no rules.
@@ -154,32 +214,49 @@ impl Rules {
             .map_err(|error| format!("cannot write {}: {error}", path.display()))
     }
 
-    /// The rules as a Luau script. Disabled rules and those with nothing
-    /// to match are left out.
+    /// The rules as one Luau script.
+    #[cfg(test)]
     pub fn to_luau(&self) -> String {
-        // `%1`... in a template become the match's groups.
-        let mut code = String::from(
-            "local function fill(template, m)\n\
-             \treturn (template:gsub(\"%%(%d)\", function(n) return m[tonumber(n)] or \"\" end))\n\
-             end\n",
-        );
-        let sends = |commands: &str| -> String {
-            (commands
-                .split(';')
-                .map(str::trim)
-                .filter(|command| !command.is_empty()))
-            .map(|command| format!("\tsend(fill({}, m))\n", quoted(command)))
-            .collect()
+        let chunks = self
+            .chunks()
+            .into_iter()
+            .map(|(_, code)| format!("do\n{code}end\n"));
+        chunks.collect()
+    }
+
+    /// Each rule as a Luau script of its own, with a name to report its
+    /// errors by. Disabled rules and those with nothing to match are left
+    /// out.
+    pub fn chunks(&self) -> Vec<(String, String)> {
+        let sends = |send: &str| -> String {
+            commands(send)
+                .map(|command| format!("\tsend(fill({}, m))\n", quoted(command)))
+                .collect()
         };
-        for trigger in self
-            .triggers
-            .iter()
-            .filter(|trigger| trigger.enabled && !trigger.pattern.is_empty())
+        // A script of the user's, kept apart from what surrounds it.
+        let script = |code: &str| -> String {
+            if code.trim().is_empty() {
+                String::new()
+            } else {
+                format!("\tdo\n{code}\n\tend\n")
+            }
+        };
+        let titled = |kind: &str, name: &str, fallback: &str| {
+            let name = if name.trim().is_empty() {
+                fallback
+            } else {
+                name
+            };
+            format!("{kind} {}", name.trim())
+        };
+        let mut chunks = Vec::new();
+        for trigger in
+            (self.triggers.iter()).filter(|rule| rule.enabled && !rule.pattern.is_empty())
         {
-            code.push_str(&format!(
-                "trigger({}, function(m)\n",
+            let mut code = format!(
+                "{PRELUDE}trigger({}, function(m, line)\n",
                 quoted(&trigger.regex_source())
-            ));
+            );
             if !trigger.highlight.trim().is_empty() {
                 code.push_str(&format!(
                     "\thighlight({})\n",
@@ -199,31 +276,76 @@ impl Rules {
             if !trigger.sound.trim().is_empty() {
                 code.push_str(&format!("\tplay({})\n", quoted(trigger.sound.trim())));
             }
+            code.push_str(&script(&trigger.script));
             code.push_str("end)\n");
+            chunks.push((titled("trigger", &trigger.name, &trigger.pattern), code));
         }
-        for alias in self
-            .aliases
-            .iter()
-            .filter(|alias| alias.enabled && !alias.pattern.trim().is_empty())
+        for alias in
+            (self.aliases.iter()).filter(|rule| rule.enabled && !rule.pattern.trim().is_empty())
         {
-            code.push_str(&format!(
-                "alias({}, function(m)\n{}end)\n",
+            let code = format!(
+                "{PRELUDE}alias({}, function(m, input)\n{}{}end)\n",
                 quoted(&alias.regex_source()),
-                sends(&alias.send)
-            ));
+                sends(&alias.send),
+                script(&alias.script)
+            );
+            chunks.push((titled("alias", &alias.name, &alias.pattern), code));
         }
-        for key in self
-            .keys
-            .iter()
-            .filter(|key| key.enabled && !key.key.trim().is_empty())
+        for key in (self.keys.iter()).filter(|rule| rule.enabled && !rule.key.trim().is_empty()) {
+            let name = quoted(key.key.trim());
+            let code = if key.script.trim().is_empty() {
+                format!(
+                    "bind({name}, {})\n",
+                    quoted(&commands(&key.send).collect::<Vec<_>>().join(";"))
+                )
+            } else {
+                // What it sends goes through aliases, as if typed.
+                let typed: String = commands(&key.send)
+                    .map(|command| format!("\tsend({})\n", quoted(command)))
+                    .collect();
+                format!(
+                    "bind({name}, function()\n{typed}{}end)\n",
+                    script(&key.script)
+                )
+            };
+            chunks.push((titled("macro", &key.name, &key.key), code));
+        }
+        for gauge in
+            (self.gauges.iter()).filter(|rule| rule.enabled && !rule.value.trim().is_empty())
         {
-            code.push_str(&format!(
-                "bind({}, {})\n",
-                quoted(key.key.trim()),
-                quoted(&key.send)
-            ));
+            let name = if gauge.name.trim().is_empty() {
+                gauge.value.trim()
+            } else {
+                gauge.name.trim()
+            };
+            let max = if gauge.max.trim().is_empty() {
+                "100"
+            } else {
+                gauge.max.trim()
+            };
+            let style = if gauge.segments { "segments" } else { "bar" };
+            let root = gauge.value.trim().split('.').next().unwrap_or_default();
+            let code = format!(
+                "{PRELUDE}local function update()\n\
+                 \tlocal value, max = dig({value}), dig({max})\n\
+                 \tif value and max then\n\
+                 \t\tgauge({name}, value, max, {{colour = {colour}, style = {style}, low = {low}}})\n\
+                 \tend\n\
+                 end\n\
+                 on_gmcp({root}, update)\n\
+                 on_msdp({variable}, update)\n",
+                value = quoted(gauge.value.trim()),
+                max = quoted(max),
+                name = quoted(name),
+                colour = quoted(gauge.colour.trim()),
+                style = quoted(style),
+                low = gauge.low,
+                root = quoted(root),
+                variable = quoted(gauge.value.trim()),
+            );
+            chunks.push((titled("gauge", name, ""), code));
         }
-        code
+        chunks
     }
 }
 
@@ -426,6 +548,99 @@ mod tests {
     }
 
     #[test]
+    fn gauges_follow_values_the_server_reports() {
+        let gauge = |value: &str, max: &str| Gauge {
+            name: "Salud".into(),
+            enabled: true,
+            value: value.into(),
+            max: max.into(),
+            colour: "red".into(),
+            segments: true,
+            low: 30,
+        };
+        let rules = Rules {
+            gauges: vec![
+                gauge("Char.Vitals.health.current", "Char.Vitals.health.max"),
+                Gauge {
+                    name: "Oro".into(),
+                    ..gauge("Player.Status.gold", "1000")
+                },
+            ],
+            ..Rules::default()
+        };
+        let mut engine = run(&rules);
+        engine.on_gmcp(
+            "Char.Vitals",
+            r#"{"health": {"current": 25, "max": "100"}}"#,
+        );
+        let look = muddie_script::GaugeLook {
+            colour: "red".into(),
+            segments: true,
+            low: 30.0,
+        };
+        assert_eq!(
+            engine.take_actions(),
+            [Action::Gauge {
+                name: "Salud".into(),
+                level: Some((25.0, 100.0)),
+                look: look.clone(),
+            }]
+        );
+        // A maximum can be a plain number; a value not there yet shows nothing.
+        engine.on_gmcp("Player.Status", r#"{"level": 3}"#);
+        assert_eq!(engine.take_actions(), []);
+        engine.on_gmcp("Player.Status", r#"{"gold": 40}"#);
+        assert_eq!(
+            engine.take_actions(),
+            [Action::Gauge {
+                name: "Oro".into(),
+                level: Some((40.0, 1000.0)),
+                look,
+            }]
+        );
+    }
+
+    #[test]
+    fn rules_run_their_scripts_and_take_commands_on_several_lines() {
+        let rules = Rules {
+            triggers: vec![Trigger {
+                enabled: true,
+                pattern: r"^(\w+) attacks".into(),
+                regex: true,
+                send: "kill %1\nshield; parry".into(),
+                script: "if m[1] == \"Orc\" then\n\tsend(\"flee from \" .. line)\nend".into(),
+                ..Trigger::default()
+            }],
+            keys: vec![KeyBinding {
+                enabled: true,
+                key: "f5".into(),
+                send: "look".into(),
+                script: "send(\"score\")".into(),
+                ..KeyBinding::default()
+            }],
+            ..Rules::default()
+        };
+        let mut engine = run(&rules);
+        engine.on_line("Orc attacks");
+        let expected = ["kill Orc", "shield", "parry", "flee from Orc attacks"].map(send);
+        assert_eq!(engine.take_actions(), expected);
+        // A rule whose script is wrong is reported by name, and alone.
+        let broken = Rules {
+            triggers: vec![Trigger {
+                name: "Broken".into(),
+                enabled: true,
+                pattern: "x".into(),
+                script: "this is not Luau".into(),
+                ..Trigger::default()
+            }],
+            ..rules
+        };
+        let chunks = broken.chunks();
+        assert_eq!(chunks.len(), 2);
+        assert_eq!(chunks[0].0, "trigger Broken");
+    }
+
+    #[test]
     fn rules_round_trip_through_their_file() {
         let path =
             std::env::temp_dir().join(format!("muddie-rules-{}/rules.toml", std::process::id()));
@@ -448,6 +663,16 @@ mod tests {
                 enabled: true,
                 key: "ctrl+k".into(),
                 send: "kick".into(),
+                ..KeyBinding::default()
+            }],
+            gauges: vec![Gauge {
+                name: "Salud".into(),
+                enabled: true,
+                value: "Char.Vitals.health.current".into(),
+                max: "Char.Vitals.health.max".into(),
+                colour: "red".into(),
+                segments: true,
+                low: 30,
             }],
         };
         rules.save(&path).unwrap();

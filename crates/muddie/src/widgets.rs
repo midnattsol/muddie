@@ -534,3 +534,49 @@ pub fn glow(painter: &egui::Painter, centre: egui::Pos2, radii: Vec2, colour: Co
     }
     painter.add(mesh);
 }
+
+/// A box for several lines of commands or code, set in the output's
+/// typeface, with its label above. Tab indents instead of leaving it.
+pub fn editor(ui: &mut Ui, label: &str, value: &mut String, hint: &str, rows: usize) -> Response {
+    let theme = theme::current();
+    ui.vertical(|ui| {
+        ui.spacing_mut().item_spacing.y = 4.0;
+        let name = ui.label(
+            RichText::new(label)
+                .font(theme::font(Weight::Regular, 12.0))
+                .color(theme.text_dim),
+        );
+        ui.add(
+            TextEdit::multiline(value)
+                .font(egui::FontId::monospace(13.0))
+                .hint_text(RichText::new(hint).color(theme.text_faint))
+                .margin(Margin::symmetric(10, 8))
+                .desired_rows(rows)
+                .lock_focus(true)
+                .desired_width(f32::INFINITY),
+        )
+        .labelled_by(name.id)
+    })
+    .inner
+}
+
+/// A round swatch to pick a colour by. `label` names it for screen readers.
+pub fn swatch(ui: &mut Ui, colour: Color32, selected: bool, label: &str) -> Response {
+    let theme = theme::current();
+    let (rect, response) = ui.allocate_exact_size(Vec2::splat(24.0), Sense::click());
+    response
+        .widget_info(|| WidgetInfo::selected(Role::RadioButton, ui.is_enabled(), selected, label));
+    if ui.is_rect_visible(rect) {
+        let painter = ui.painter();
+        painter.circle_filled(rect.center(), 8.0, colour);
+        if selected || response.hovered() || response.has_focus() {
+            let ring = if selected {
+                theme.text
+            } else {
+                theme.text_faint
+            };
+            painter.circle_stroke(rect.center(), 11.0, Stroke::new(1.5, ring));
+        }
+    }
+    response.on_hover_text(label)
+}

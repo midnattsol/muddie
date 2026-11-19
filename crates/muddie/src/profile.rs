@@ -159,6 +159,33 @@ impl Profiles {
         packages.chain(own).collect()
     }
 
+    /// Where a profile's own scripts are kept.
+    pub fn scripts_dir(&self, name: &str) -> PathBuf {
+        self.profile_dir(name).join("scripts")
+    }
+
+    /// The scripts the user can edit: the one run in every session, there
+    /// or not, then the profile's own.
+    pub fn editable_scripts(&self, name: Option<&str>) -> Vec<PathBuf> {
+        let mut files = vec![self.dir.join("init.luau")];
+        if let Some(name) = name {
+            let dir = self.scripts_dir(name);
+            let mut own: Vec<PathBuf> = std::fs::read_dir(dir)
+                .into_iter()
+                .flatten()
+                .flatten()
+                .map(|entry| entry.path())
+                .filter(|path| {
+                    path.extension()
+                        .is_some_and(|extension| extension == "luau")
+                })
+                .collect();
+            own.sort();
+            files.extend(own);
+        }
+        files
+    }
+
     /// Where scripts' remembered values are kept: with the profile, or
     /// with the general configuration when no profile is in use.
     pub fn memory_path(&self, name: Option<&str>) -> PathBuf {

@@ -2,7 +2,7 @@
 //! script, in a list on the left with the selected one's details beside it.
 
 use super::*;
-use crate::rules::fill;
+use crate::rules::{Gauge, fill};
 use crate::theme::Weight;
 use crate::widgets;
 
@@ -13,6 +13,8 @@ const SAVE_AFTER: Duration = Duration::from_millis(900);
 const TRIGGERS: usize = 0;
 const ALIASES: usize = 1;
 const MACROS: usize = 2;
+const GAUGES: usize = 3;
+const SCRIPTS: usize = 4;
 
 impl Tab {
     /// Opens the automation window on one of its sections.
@@ -23,6 +25,7 @@ impl Tab {
         }
         self.rules_section = section;
         self.rules_open = true;
+        self.list_scripts();
     }
 
     pub(super) fn automation_window(&mut self, ctx: &egui::Context) {
@@ -31,13 +34,13 @@ impl Tab {
         }
         let mut open = true;
         let room = ctx.content_rect().size() - egui::vec2(80.0, 150.0);
-        let height = room.y.clamp(320.0, 560.0);
+        let height = room.y.clamp(320.0, 720.0);
         widgets::dialog(
             ctx,
             "automation",
             tr("Automation"),
             &mut open,
-            940.0,
+            1120.0,
             |ui| {
                 // The panes get a region of their own, under the title.
                 let size = egui::vec2(ui.available_width(), height);
@@ -71,6 +74,18 @@ impl Tab {
         let settled = self
             .rules_changed_at
             .is_some_and(|at| at.elapsed() >= SAVE_AFTER);
+        // The script being edited is saved the same way.
+        if self.script_text != self.script_seen {
+            self.script_seen = self.script_text.clone();
+            self.script_changed_at = Some(Instant::now());
+        }
+        if let Some(at) = self.script_changed_at {
+            if at.elapsed() >= SAVE_AFTER {
+                self.flush_script();
+            } else {
+                ctx.request_repaint_after(SAVE_AFTER.saturating_sub(at.elapsed()));
+            }
+        }
         if !open {
             self.close_automation();
         } else if self.rules_draft != self.rules && settled {
@@ -86,6 +101,7 @@ impl Tab {
         self.rules_open = false;
         self.recording_key = false;
         self.rules_changed_at = None;
+        self.flush_script();
         if self.rules_draft != self.rules {
             self.save_rules();
         }
@@ -97,20 +113,27 @@ impl Tab {
             self.rules_draft.triggers.len(),
             self.rules_draft.aliases.len(),
             self.rules_draft.keys.len(),
+            self.rules_draft.gauges.len(),
+            self.script_files.len(),
         ];
-        for (section, name) in [tr("Triggers"), tr("Aliases"), tr("Macros")]
-            .into_iter()
-            .enumerate()
-        {
+        let names = [
+            tr("Triggers"),
+            tr("Aliases"),
+            tr("Macros"),
+            tr("Gauges"),
+            tr("Scripts"),
+        ];
+        for (section, name) in names.into_iter().enumerate() {
             let selected = self.rules_section == section;
             if widgets::nav_item(ui, selected, name, Some(counts[section])).clicked() {
+                self.flush_script();
                 self.rules_section = section;
                 self.rules_sample.clear();
                 self.recording_key = false;
             }
         }
         ui.add_space(14.0);
-        let saved = self.rules_draft == self.rules;
+        let saved = self.rules_draft == self.rules && self.script_text == self.script_saved;
         let state = if saved {
             tr("All changes saved")
         } else {
@@ -157,7 +180,7 @@ impl Tab {
                     )
                 })
                 .collect(),
-            _ => (draft.keys.iter())
+            MACROS => (draft.keys.iter())
                 .map(|rule| {
                     (
                         untitled(&rule.name, &rule.key, "New macro"),
@@ -166,6 +189,83 @@ impl Tab {
                     )
                 })
                 .collect(),
+            GAUGES => (draft.gauges.iter())
+                .map(|rule| {
+                    (
+                        untitled(&rule.name, &rule.value, "New gauge"),
+                        rule.value.clone(),
+                        rule.enabled,
+                    )
+                })
+                .collect(),
+            _ => (self.script_files.iter())
+                .map(|file| {
+                    let name = file
+                        .file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .into_owned();
+                    let everywhere = file.parent().is_some_and(|dir| !dir.ends_with("scripts"));
+                    let detail = if everywhere {
+                        tr("In every session")
+                    } else {
+                        tr("In this profile")
+                    };
+                    (name, detail.to_owned(), true)
+                })
+                .collect(),
+        }
+    }
+
+    /// Looks again for the script files that can be edited.
+    fn list_scripts(&mut self) {
+        self.script_files = match &self.profiles {
+            Some(profiles) => profiles.editable_scripts(self.profile.as_deref()),
+            None => Vec::new(),
+        };
+    }
+
+    /// Saves the script being edited if it changed, renames its file if
+    /// its name was changed, and runs the scripts again.
+    fn flush_script(&mut self) {
+        self.script_changed_at = None;
+        let Some(path) = self.script_loaded.clone() else {
+            return;
+        };
+        let mut changed = false;
+        if self.script_text != self.script_saved {
+            let written = (path.parent().map_or(Ok(()), std::fs::create_dir_all))
+                .and_then(|()| std::fs::write(&path, &self.script_text));
+            match written {
+                Ok(()) => {
+                    self.script_saved = self.script_text.clone();
+                    changed = true;
+                }
+                Err(error) => self.note(&trf(
+                    "Could not save the script: {0}",
+                    &[&error.to_string()],
+                )),
+            }
+        }
+        let name = self.script_name.trim().trim_end_matches(".luau").to_owned();
+        let current = path
+            .file_stem()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .into_owned();
+        let own = path.parent().is_some_and(|dir| dir.ends_with("scripts"));
+        if own && name != current && crate::profile::valid_name(&name) {
+            let renamed = path.with_file_name(format!("{name}.luau"));
+            if !renamed.exists() && std::fs::rename(&path, &renamed).is_ok() {
+                self.script_loaded = Some(renamed.clone());
+                self.list_scripts();
+                let index = self.script_files.iter().position(|file| *file == renamed);
+                self.rules_selected[SCRIPTS] = index.unwrap_or(0);
+                changed = true;
+            }
+        }
+        if changed {
+            self.load_scripts();
         }
     }
 
@@ -229,17 +329,63 @@ impl Tab {
                 });
                 draft.aliases.len() - 1
             }
-            _ => {
+            MACROS => {
                 draft.keys.push(KeyBinding {
                     enabled: true,
                     ..KeyBinding::default()
                 });
                 draft.keys.len() - 1
             }
+            GAUGES => {
+                draft.gauges.push(Gauge {
+                    enabled: true,
+                    segments: true,
+                    low: 30,
+                    ..Gauge::default()
+                });
+                draft.gauges.len() - 1
+            }
+            _ => return self.add_script(),
         };
         self.rules_selected[self.rules_section] = index;
         self.rules_filter.clear();
         self.rules_sample.clear();
+    }
+
+    /// Makes an empty script file for the profile and selects it.
+    fn add_script(&mut self) {
+        self.flush_script();
+        let (Some(profiles), Some(profile)) = (&self.profiles, &self.profile) else {
+            return self.note(tr(
+                "Scripts of your own are kept per profile: save or choose a profile first.",
+            ));
+        };
+        let dir = profiles.scripts_dir(profile);
+        let free = (1..).map(|n| {
+            dir.join(if n == 1 {
+                "script.luau".to_owned()
+            } else {
+                format!("script-{n}.luau")
+            })
+        });
+        let path = free.take(500).find(|path| !path.exists());
+        let made = path
+            .ok_or_else(|| "too many scripts".to_owned())
+            .and_then(|path| {
+                std::fs::create_dir_all(&dir)
+                    .and_then(|()| std::fs::write(&path, ""))
+                    .map(|()| path)
+                    .map_err(|error| error.to_string())
+            });
+        match made {
+            Ok(path) => {
+                self.list_scripts();
+                let index = self.script_files.iter().position(|file| *file == path);
+                self.rules_selected[SCRIPTS] = index.unwrap_or(0);
+                self.rules_filter.clear();
+            }
+            Err(error) => self.note(&trf("Could not save the script: {0}", &[&error])),
+        }
     }
 
     fn automation_detail(&mut self, ui: &mut egui::Ui) {
@@ -255,7 +401,13 @@ impl Tab {
                 ALIASES => {
                     tr("An alias turns a short command you type\ninto the commands you mean.")
                 }
-                _ => tr("A macro sends commands at the press of a key."),
+                MACROS => tr("A macro sends commands at the press of a key."),
+                GAUGES => tr(
+                    "A gauge is a bar that follows a number the MUD reports,\nsuch as your health.",
+                ),
+                _ => tr(
+                    "Scripts are Luau programs: for what triggers cannot do,\nsuch as building the map from what your MUD sends.",
+                ),
             };
             ui.vertical_centered(|ui| {
                 ui.label(RichText::new(hint).color(theme::current().text_faint))
@@ -266,14 +418,39 @@ impl Tab {
         let delete = match section {
             TRIGGERS => self.trigger_detail(ui, index),
             ALIASES => self.alias_detail(ui, index),
-            _ => self.macro_detail(ui, index),
+            MACROS => self.macro_detail(ui, index),
+            GAUGES => self.gauge_detail(ui, index),
+            _ => self.script_detail(ui, index),
         };
         if delete {
             let draft = &mut self.rules_draft;
             match section {
                 TRIGGERS => drop(draft.triggers.remove(index)),
                 ALIASES => drop(draft.aliases.remove(index)),
-                _ => drop(draft.keys.remove(index)),
+                MACROS => drop(draft.keys.remove(index)),
+                GAUGES => {
+                    // Take the bar off the screen too.
+                    let gone = draft.gauges.remove(index);
+                    let name = if gone.name.trim().is_empty() {
+                        gone.value
+                    } else {
+                        gone.name
+                    };
+                    self.gauges.set(name.trim(), None);
+                }
+                _ => {
+                    let path = self.script_files[index].clone();
+                    self.script_loaded = None;
+                    self.script_changed_at = None;
+                    if let Err(error) = std::fs::remove_file(&path) {
+                        self.note(&trf(
+                            "Could not delete the script: {0}",
+                            &[&error.to_string()],
+                        ));
+                    }
+                    self.list_scripts();
+                    self.load_scripts();
+                }
             }
             self.rules_selected[section] = index.saturating_sub(1);
             self.recording_key = false;
@@ -298,7 +475,13 @@ impl Tab {
         widgets::switch_row(ui, &mut rule.regex, tr("Regular expression"));
         ui.add_space(4.0);
         widgets::caption(ui, tr("Do"));
-        widgets::field(ui, tr("Send commands"), &mut rule.send, "kill %1; loot");
+        widgets::editor(
+            ui,
+            tr("Send commands, one per line"),
+            &mut rule.send,
+            "kill %1\nloot",
+            3,
+        );
         ui.columns(2, |columns| {
             widgets::field(
                 &mut columns[0],
@@ -323,6 +506,13 @@ impl Tab {
             columns[1].add_space(22.0);
             widgets::switch_row(&mut columns[1], &mut rule.gag, tr("Hide the line"));
         });
+        widgets::editor(
+            ui,
+            tr("Run a script (Luau): m holds the match, line the whole line"),
+            &mut rule.script,
+            "if m[1] ~= \"you\" then\n\tsend(\"assist \" .. m[1])\nend",
+            6,
+        );
         ui.add_space(4.0);
         widgets::caption(ui, tr("Try it"));
         widgets::text_box(ui, &mut self.rules_sample, tr("Paste a line from the MUD"));
@@ -362,12 +552,25 @@ impl Tab {
         widgets::switch_row(ui, &mut rule.regex, tr("Regular expression"));
         ui.add_space(4.0);
         widgets::caption(ui, tr("Do"));
-        widgets::field(ui, tr("Send instead"), &mut rule.send, "kill %1");
-        let hint = tr("%1 stands for what follows the word. Separate several commands with ;");
+        widgets::editor(
+            ui,
+            tr("Send instead, one command per line"),
+            &mut rule.send,
+            "kill %1",
+            3,
+        );
+        let hint = tr("%1 stands for what follows the word.");
         ui.label(
             RichText::new(hint)
                 .font(theme::font(Weight::Regular, 11.5))
                 .color(theme::current().text_faint),
+        );
+        widgets::editor(
+            ui,
+            tr("Run a script (Luau): m holds the match, input what was typed"),
+            &mut rule.script,
+            "send(\"say \" .. string.upper(m[1]))",
+            6,
         );
         ui.add_space(4.0);
         widgets::caption(ui, tr("Try it"));
@@ -432,7 +635,150 @@ impl Tab {
         ui.add_space(4.0);
         widgets::caption(ui, tr("Do"));
         let rule = &mut self.rules_draft.keys[index];
-        widgets::field(ui, tr("Send commands"), &mut rule.send, "north");
+        widgets::editor(
+            ui,
+            tr("Send commands, one per line"),
+            &mut rule.send,
+            "north",
+            3,
+        );
+        widgets::editor(
+            ui,
+            tr("Run a script (Luau)"),
+            &mut rule.script,
+            "map.walk(map.find(\"Temple\")[1].id)",
+            6,
+        );
+        delete
+    }
+
+    fn gauge_detail(&mut self, ui: &mut egui::Ui, index: usize) -> bool {
+        let theme = theme::current();
+        let rule = &mut self.rules_draft.gauges[index];
+        let delete = rule_header(ui, &mut rule.name, &mut rule.enabled, tr("Name this gauge"));
+        widgets::caption(ui, tr("Follows"));
+        ui.columns(2, |columns| {
+            widgets::field(
+                &mut columns[0],
+                tr("Value"),
+                &mut rule.value,
+                "Char.Vitals.hp",
+            );
+            widgets::field(
+                &mut columns[1],
+                tr("Maximum"),
+                &mut rule.max,
+                "Char.Vitals.maxhp",
+            );
+        });
+        let hint = tr(
+            "Where the MUD reports it: a GMCP package and the fields inside it, such as Char.Vitals.health.current, or the name of a MSDP variable. The maximum can also be a number.",
+        );
+        ui.label(
+            RichText::new(hint)
+                .font(theme::font(Weight::Regular, 11.5))
+                .color(theme.text_faint),
+        );
+        ui.add_space(4.0);
+        widgets::caption(ui, tr("Look"));
+        ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing.x = 4.0;
+            ui.label(RichText::new(tr("Colour")).color(theme.text_dim));
+            ui.add_space(8.0);
+            for name in crate::panels::GAUGE_COLOURS {
+                let colour = crate::panels::colour_named(name).unwrap_or(theme.accent);
+                if widgets::swatch(ui, colour, rule.colour == name, tr(name)).clicked() {
+                    rule.colour = name.to_owned();
+                }
+            }
+        });
+        widgets::switch_row(ui, &mut rule.segments, tr("Draw it as cells"));
+        ui.horizontal(|ui| {
+            let label = ui.label(tr("Warn when under"));
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                ui.add(
+                    egui::DragValue::new(&mut rule.low)
+                        .range(0..=100)
+                        .suffix(" %"),
+                )
+                .labelled_by(label.id);
+            });
+        });
+        ui.add_space(4.0);
+        widgets::caption(ui, tr("Preview"));
+        let look = muddie_script::GaugeLook {
+            colour: rule.colour.clone(),
+            segments: rule.segments,
+            low: f64::from(rule.low),
+        };
+        let name = if rule.name.trim().is_empty() {
+            tr("Gauge")
+        } else {
+            rule.name.trim()
+        };
+        ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing.x = 22.0;
+            crate::panels::draw_gauge(ui, name, 68.0, 100.0, &look);
+            crate::panels::draw_gauge(ui, name, 21.0, 100.0, &look);
+        });
+        delete
+    }
+
+    fn script_detail(&mut self, ui: &mut egui::Ui, index: usize) -> bool {
+        let theme = theme::current();
+        let path = self.script_files[index].clone();
+        if self.script_loaded.as_ref() != Some(&path) {
+            self.flush_script();
+            // A file that is not there yet is an empty script.
+            self.script_text = std::fs::read_to_string(&path).unwrap_or_default();
+            self.script_saved = self.script_text.clone();
+            self.script_seen = self.script_text.clone();
+            self.script_name = path
+                .file_stem()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .into_owned();
+            self.script_loaded = Some(path.clone());
+        }
+        let own = path.parent().is_some_and(|dir| dir.ends_with("scripts"));
+        let mut delete = false;
+        ui.horizontal(|ui| {
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if own {
+                    let label = RichText::new(tr("Delete")).color(theme.danger);
+                    delete = ui
+                        .add(egui::Button::new(label).fill(egui::Color32::TRANSPARENT))
+                        .clicked();
+                }
+                let title = TextEdit::singleline(&mut self.script_name)
+                    .font(theme::font(Weight::Semibold, 20.0))
+                    .frame(egui::Frame::NONE)
+                    .interactive(own)
+                    .desired_width(f32::INFINITY);
+                let field = ui.add(title);
+                ui.ctx().accesskit_node_builder(field.id, |node| {
+                    node.set_label(tr("Name"));
+                });
+            });
+        });
+        let place = RichText::new(path.display().to_string())
+            .font(theme::font(Weight::Regular, 11.5))
+            .color(theme.text_faint);
+        ui.label(place);
+        let rows = ((ui.available_height() - 40.0) / 17.0).max(8.0) as usize;
+        let hint = "-- Luau\non_gmcp(\"Room.Info\", function(room)\n\tmap.visit({id = room.num, name = room.name, exits = room.exits})\nend)";
+        let editor = ui.add(
+            TextEdit::multiline(&mut self.script_text)
+                .font(egui::FontId::monospace(13.0))
+                .hint_text(RichText::new(hint).color(theme.text_faint))
+                .margin(egui::Margin::symmetric(12, 10))
+                .desired_rows(rows)
+                .lock_focus(true)
+                .desired_width(f32::INFINITY),
+        );
+        ui.ctx().accesskit_node_builder(editor.id, |node| {
+            node.set_label(tr("Script"));
+        });
         delete
     }
 

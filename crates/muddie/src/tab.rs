@@ -116,7 +116,16 @@ pub struct Tab {
     /// screen; `None` until read, and again after one is saved.
     welcome_profiles: Option<Vec<(String, String)>>,
     /// The rule selected in each section of the automation window.
-    rules_selected: [usize; 3],
+    rules_selected: [usize; 5],
+    /// The script files that can be edited, and the one being edited:
+    /// its file, its name as typed, its text, and that text as saved.
+    script_files: Vec<PathBuf>,
+    script_loaded: Option<PathBuf>,
+    script_name: String,
+    script_text: String,
+    script_saved: String,
+    script_seen: String,
+    script_changed_at: Option<Instant>,
     /// What the automation window's search box holds.
     rules_filter: String,
     /// The draft as last seen, and when it last changed: edits are saved
@@ -256,7 +265,14 @@ impl Tab {
             connection_open: false,
             started: false,
             welcome_profiles: None,
-            rules_selected: [0; 3],
+            rules_selected: [0; 5],
+            script_files: Vec::new(),
+            script_loaded: None,
+            script_name: String::new(),
+            script_text: String::new(),
+            script_saved: String::new(),
+            script_seen: String::new(),
+            script_changed_at: None,
             rules_filter: String::new(),
             rules_seen: Rules::default(),
             rules_changed_at: None,
@@ -439,7 +455,10 @@ impl Tab {
                 Err(error) => self.note(&trf("Could not load the rules: {0}", &[&error])),
             }
         }
-        self.scripts.exec("rules", &self.rules.to_luau());
+        // Each on its own, so a mistake in one says which and spares the rest.
+        for (name, code) in self.rules.chunks() {
+            self.scripts.exec(&name, &code);
+        }
         self.run_actions();
     }
 
@@ -867,7 +886,10 @@ impl Tab {
                         let _ = connection.commands.send(Command::Msdp { variable, values });
                     }
                 }
-                Action::Gauge { name, level } => self.gauges.set(&name, level),
+                Action::Gauge { name, level, look } => {
+                    let look = (look != Default::default()).then_some(look);
+                    self.gauges.set_with(&name, level, look);
+                }
                 Action::Walk(room) => self.walk_to(room),
                 Action::Entered(room) => self.arrived_in(room),
                 Action::Panel { name, text } => {
@@ -2350,6 +2372,7 @@ mod tests {
             enabled: true,
             key: "numpad8".into(),
             send: "north".into(),
+            ..KeyBinding::default()
         });
         app.open_automation(0);
         app.rules_selected[0] = 1;
@@ -2360,6 +2383,19 @@ mod tests {
         app.rules_section = 2;
         rules.run_steps(3);
         save(&mut rules, "macros");
+        let app = rules.state_mut().tab_mut();
+        app.rules_draft.gauges.push(crate::rules::Gauge {
+            name: "Salud".into(),
+            enabled: true,
+            value: "Char.Vitals.health.current".into(),
+            max: "Char.Vitals.health.max".into(),
+            colour: "red".into(),
+            segments: true,
+            low: 30,
+        });
+        app.rules_section = 3;
+        rules.run_steps(3);
+        save(&mut rules, "gauges");
         // The menus, as someone using Spanish sees them.
         for menu in ["Sesión", "Ver", "Automatización", "Mapa"] {
             let mut menus = connected_demo_window();
