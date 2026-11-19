@@ -1730,9 +1730,9 @@ impl Tab {
             let centred = egui::Layout::left_to_right(egui::Align::Center);
             ui.allocate_ui_with_layout(row, centred, |ui| {
                 ui.spacing_mut().item_spacing.x = 10.0;
-                let mark = RichText::new("›").font(palette::font()).color(theme.accent);
-                ui.add(Label::new(mark).selectable(false));
-                TextEdit::singleline(&mut self.input)
+                let (mark, _) =
+                    ui.allocate_exact_size(egui::vec2(8.0, height), egui::Sense::hover());
+                let edit = TextEdit::singleline(&mut self.input)
                     .id(id)
                     .frame(egui::Frame::NONE)
                     .font(palette::font())
@@ -1743,7 +1743,25 @@ impl Tab {
                     .hint_text(RichText::new(tr("Type a command")).color(theme.text_faint))
                     .align(egui::Align2::LEFT_CENTER)
                     .desired_width(f32::INFINITY)
-                    .show(ui)
+                    .show(ui);
+                // The prompt mark is drawn, not typed, and against the text
+                // itself: level with the middle of its lowercase letters.
+                let galley = &edit.galley;
+                let line = edit.galley_pos.y
+                    + galley
+                        .rows
+                        .first()
+                        .map_or(galley.size().y / 2.0, |row| row.rect().center().y);
+                let x_height = ui.fonts_mut(|fonts| fonts.row_height(&palette::font())) * 0.08;
+                let (centre, arm) = (egui::pos2(mark.center().x, line + x_height), 4.0);
+                let chevron = vec![
+                    centre + egui::vec2(-arm * 0.5, -arm),
+                    centre + egui::vec2(arm * 0.5, 0.0),
+                    centre + egui::vec2(-arm * 0.5, arm),
+                ];
+                let stroke = egui::Stroke::new(1.6, theme.accent);
+                ui.painter().add(egui::Shape::line(chevron, stroke));
+                edit
             })
             .inner
         });
