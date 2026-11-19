@@ -43,7 +43,7 @@ impl Tab {
                             let what = if enabled { "enable" } else { "disable" };
                             command = Some(format!("/plugin {what} {name}"));
                         }
-                        if ui.button(tr("Update")).clicked() {
+                        if crate::widgets::button(ui, tr("Update")).clicked() {
                             command = Some(format!("/plugin update {name}"));
                         }
                         let remove = RichText::new(tr("Remove")).color(theme.danger);

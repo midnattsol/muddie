@@ -6,9 +6,7 @@ use std::rc::Rc;
 use std::sync::mpsc::{Receiver, channel};
 use std::time::{Duration, Instant};
 
-use eframe::egui::{
-    self, CentralPanel, ComboBox, Key, Label, Modifiers, Panel, RichText, TextEdit,
-};
+use eframe::egui::{self, CentralPanel, Key, Label, Modifiers, Panel, RichText, TextEdit};
 use muddie_core::Line;
 use muddie_core::{Command, Config, Event, Session, Target, connect};
 use muddie_mapper::{Map, Progress, RoomId, RoomInfo, Walk};
@@ -161,18 +159,24 @@ pub struct Tab {
     /// The gauge being dragged to another place in the editor's list.
     gauge_dragged: Option<usize>,
     palette_chosen: usize,
-    palette_put_away: Option<String>,
-    palette_cache: Option<(String, Vec<commands::Item>)>,
-    /// What the last command of the client answered, and the command:
-    /// shown over the command line, not among the lines of the game.
-    command_answer: Option<(String, Vec<String>)>,
-    /// When it was first shown, in the time of the window.
-    command_answer_at: Option<f64>,
-    /// A command is being carried out, and what it says is its answer.
-    answering: bool,
-    /// Where the command line was drawn, and whether its cursor is to go
+    palette_open: bool,
+    palette_query: String,
+    /// The palette's field is to take the keyboard, or its cursor to go
     /// to the end of what was put in it.
-    input_rect: egui::Rect,
+    palette_focus: bool,
+    palette_cursor_end: bool,
+    palette_cache: Option<(String, Vec<commands::Item>)>,
+    /// What the command being carried out has said so far, and whether
+    /// it said it could not do what was asked.
+    answer: Vec<commands::Said>,
+    answering: bool,
+    answer_failed: bool,
+    /// What the last command said in a line, shown in the command line
+    /// for a moment, and what it listed, shown over it to choose from.
+    bar_note: Option<commands::BarNote>,
+    results: Option<Vec<commands::Item>>,
+    /// Whether the command line's cursor is to go to the end of what was
+    /// put in it.
     cursor_to_end: bool,
     /// What checking the scripts being edited said.
     checks: automation::Checks,
@@ -370,12 +374,16 @@ impl Tab {
             recording_key: false,
             gauge_dragged: None,
             palette_chosen: 0,
-            palette_put_away: None,
+            palette_open: false,
+            palette_query: String::new(),
+            palette_focus: false,
+            palette_cursor_end: false,
             palette_cache: None,
-            command_answer: None,
-            command_answer_at: None,
+            answer: Vec::new(),
             answering: false,
-            input_rect: egui::Rect::NOTHING,
+            answer_failed: false,
+            bar_note: None,
+            results: None,
             cursor_to_end: false,
             checks: automation::Checks::default(),
             data_seen: Vec::new(),
@@ -472,7 +480,7 @@ impl Tab {
             group(ui, |ui| {
                 row(ui, tr("Lines kept"), &mut |ui| {
                     ui.add(
-                        egui::DragValue::new(&mut settings.scrollback_lines)
+                        crate::widgets::number(&mut settings.scrollback_lines)
                             .range(100..=1_000_000)
                             .speed(100),
                     )
@@ -500,12 +508,17 @@ impl Tab {
                         LogFormat::Text => tr("Text"),
                         LogFormat::Html => "HTML",
                     };
-                    ComboBox::from_id_salt("log format")
+                    crate::widgets::dropdown("log format")
                         .selected_text(name(settings.log_format))
                         .width(110.0)
                         .show_ui(ui, |ui| {
                             for format in [LogFormat::Text, LogFormat::Html] {
-                                ui.selectable_value(&mut settings.log_format, format, name(format));
+                                crate::widgets::choice_value(
+                                    ui,
+                                    &mut settings.log_format,
+                                    format,
+                                    name(format),
+                                );
                             }
                         })
                         .response
@@ -517,7 +530,7 @@ impl Tab {
                 );
                 row(ui, tr("Keep-alive"), &mut |ui| {
                     ui.add(
-                        egui::DragValue::new(&mut settings.keepalive_seconds)
+                        crate::widgets::number(&mut settings.keepalive_seconds)
                             .range(0..=3600)
                             .suffix(" s"),
                     )
@@ -530,7 +543,10 @@ impl Tab {
         if section == 3 {
             group(ui, |ui| {
                 row(ui, tr("Speech rate"), &mut |ui| {
-                    ui.add(egui::Slider::new(&mut settings.speech_rate, -100..=100))
+                    ui.add(crate::widgets::slider(
+                        &mut settings.speech_rate,
+                        -100..=100,
+                    ))
                 });
                 row(ui, tr("Speech language"), &mut |ui| {
                     ui.add(
@@ -842,11 +858,16 @@ impl Tab {
 
     /// Shows and speaks a message from the client itself.
     pub fn note(&mut self, text: &str) {
-        // What a command typed with `/` says is its answer, shown over the
+        // What a command typed with `/` says is its answer, shown at the
         // command line; anything else is a line of the client's.
-        match &mut self.command_answer {
-            Some((_, lines)) if self.answering => lines.push(text.to_owned()),
-            _ => self.show_local(text),
+        if self.answering {
+            self.answer.push(commands::Said {
+                text: text.to_owned(),
+                about: String::new(),
+                run: None,
+            });
+        } else {
+            self.show_local(text);
         }
         self.voice.say(text);
     }
@@ -1243,17 +1264,20 @@ impl Tab {
         for (outcome, enable) in ended {
             match outcome {
                 Ok(name) if enable => {
-                    self.note(&trf("Plugin {0} installed.", &[&name]));
+                    self.bar(&trf("Plugin {0} installed.", &[&name]), false);
                     self.set_package(&name, true);
                 }
                 Ok(name) => {
-                    self.note(&trf("Plugin {0} updated.", &[&name]));
+                    self.bar(&trf("Plugin {0} updated.", &[&name]), false);
                     self.load_scripts();
                 }
-                Err(error) => self.note(&trf(
-                    "The plugin could not be installed or updated: {0}",
-                    &[&error],
-                )),
+                Err(error) => self.bar(
+                    &trf(
+                        "The plugin could not be installed or updated: {0}",
+                        &[&error],
+                    ),
+                    true,
+                ),
             }
         }
     }
@@ -1403,8 +1427,9 @@ impl Tab {
             }
             let enter = field.lost_focus() && ui.input(|input| input.key_pressed(Key::Enter));
             let forward = enter && ui.input(|input| input.modifiers.shift);
-            let previous = ui.button(tr("Previous")).clicked() || (enter && !forward);
-            let next = ui.button(tr("Next")).clicked() || forward;
+            let previous =
+                crate::widgets::button(ui, tr("Previous")).clicked() || (enter && !forward);
+            let next = crate::widgets::button(ui, tr("Next")).clicked() || forward;
             if previous || next {
                 let found = self.output.find(&self.find_query, next);
                 match found {
@@ -1420,7 +1445,7 @@ impl Tab {
                 }
             }
             let escape = ui.input_mut(|input| input.consume_key(Modifiers::NONE, Key::Escape));
-            if ui.button(tr("Close")).clicked() || escape {
+            if crate::widgets::button(ui, tr("Close")).clicked() || escape {
                 self.find_open = false;
                 self.output.end_find();
             }
@@ -1577,20 +1602,16 @@ impl Tab {
         };
         let argument = argument.as_str();
         match command {
-            "/help" => {
-                self.note(tr("Commands of the client, typed like any other:"));
-                for (usage, about) in COMMANDS {
-                    self.note(&format!("  {usage}  —  {}", tr(about)));
-                }
-            }
-            // A group without what to do in it: say what there is.
-            "/map" | "/plugin" => {
-                for (usage, about) in COMMANDS
-                    .iter()
-                    .filter(|(usage, _)| usage.starts_with(command))
-                {
-                    self.note(&format!("  {usage}  —  {}", tr(about)));
-                }
+            // The palette is the list of commands: open it, at the group
+            // if one was given.
+            "/help" | "/map" | "/plugin" => {
+                self.palette_open = true;
+                self.palette_focus = true;
+                self.palette_cursor_end = true;
+                self.palette_query = match command {
+                    "/help" => String::new(),
+                    group => format!("{} ", &group[1..]),
+                };
             }
             "/map-show" | "/map-hide" => self.set_map_shown(command == "/map-show"),
             // Switches a group for this session, or lists them all.
@@ -1603,7 +1624,7 @@ impl Tab {
                 let known = self.scripts.groups();
                 if name.is_empty() {
                     if known.is_empty() {
-                        self.note(tr(
+                        self.refuse(tr(
                             "There are no groups. Give a rule a group in the editor.",
                         ));
                     }
@@ -1613,7 +1634,7 @@ impl Tab {
                         } else {
                             tr("off")
                         };
-                        self.note(&format!("{group}: {state}"));
+                        self.offer(&group, state, &format!("/group {group}"));
                     }
                 } else if let Some(group) =
                     known.iter().find(|group| group.eq_ignore_ascii_case(name))
@@ -1627,7 +1648,7 @@ impl Tab {
                     };
                     self.note(&trf(said, &[group]));
                 } else {
-                    self.note(&trf(
+                    self.refuse(&trf(
                         "There is no group called {0}; /group lists them.",
                         &[name],
                     ));
@@ -1649,15 +1670,13 @@ impl Tab {
                 });
                 match place {
                     Some(place) => self.note(&place),
-                    None => self.note(tr("The map does not know where you are yet.")),
+                    None => self.refuse(tr("The map does not know where you are yet.")),
                 }
             }
             "/find" if !argument.is_empty() => {
-                let rooms = self.matching_rooms(argument);
-                if rooms.is_empty() {
-                    self.note(tr("No room matches."));
+                if !self.offer_rooms(argument) {
+                    self.refuse(tr("No room matches."));
                 }
-                rooms.iter().for_each(|room| self.note(room));
             }
             "/go" if !argument.is_empty() => {
                 if let Ok(room) = argument.parse::<RoomId>() {
@@ -1667,12 +1686,11 @@ impl Tab {
                         .map(|room| room.id)
                         .collect();
                     match found[..] {
-                        [] => self.note(tr("No room matches.")),
+                        [] => self.refuse(tr("No room matches.")),
                         [room] => self.walk_to(room),
+                        // Several: listed, to choose the one meant.
                         _ => {
-                            self.note(tr("Several rooms match; use /map walk with a room number:"));
-                            let rooms = self.matching_rooms(argument);
-                            rooms.iter().for_each(|room| self.note(room));
+                            self.offer_rooms(argument);
                         }
                     }
                 }
@@ -1701,9 +1719,9 @@ impl Tab {
                         ));
                     }
                     Some((Err(error), ..)) => {
-                        self.note(&trf("Could not save the map: {0}", &[&error.to_string()]))
+                        self.refuse(&trf("Could not save the map: {0}", &[&error.to_string()]))
                     }
-                    None => self.note(tr("No such room; use /map avoid with a room number.")),
+                    None => self.refuse(tr("No such room; use /map avoid with a room number.")),
                 }
             }
             // Toggles whether routes may use an exit of the current room.
@@ -1725,9 +1743,9 @@ impl Tab {
                     Some((Ok(_), true)) => self.note(tr("Routes will not use that exit.")),
                     Some((Ok(_), false)) => self.note(tr("Routes may use that exit again.")),
                     Some((Err(error), _)) => {
-                        self.note(&trf("Could not save the map: {0}", &[&error.to_string()]))
+                        self.refuse(&trf("Could not save the map: {0}", &[&error.to_string()]))
                     }
-                    None => self.note(tr("This room has no such exit.")),
+                    None => self.refuse(tr("This room has no such exit.")),
                 }
             }
             // Draws the current area again from scratch.
@@ -1735,7 +1753,7 @@ impl Tab {
                 let area = self.map.borrow().current().map(|room| room.area.clone());
                 match area {
                     Some(area) => self.tidy(&area),
-                    None => self.note(tr("The map does not know where you are yet.")),
+                    None => self.refuse(tr("The map does not know where you are yet.")),
                 }
             }
             "/packages" => {
@@ -1745,17 +1763,18 @@ impl Tab {
                     .map(Profiles::packages)
                     .unwrap_or_default();
                 if installed.is_empty() {
-                    self.note(tr(
+                    self.refuse(tr(
                         "No plugins are installed. Use /plugin install with a git address.",
                     ));
                 }
                 for package in installed {
-                    let state = if self.packages.contains(&package) {
-                        tr("enabled in this profile")
+                    let on = self.packages.contains(&package);
+                    let (state, switch) = if on {
+                        (tr("enabled in this profile"), "disable")
                     } else {
-                        tr("not enabled; use /plugin enable")
+                        (tr("not enabled; use /plugin enable"), "enable")
                     };
-                    self.note(&format!("{package}: {state}"));
+                    self.offer(&package, state, &format!("/plugin {switch} {package}"));
                 }
             }
             // Downloads a package from a git repository and enables it.
@@ -1837,7 +1856,7 @@ impl Tab {
                 "Tidied the map: {0} rooms moved.",
                 &[&moved.to_string()],
             )),
-            Err(error) => self.note(&trf("Could not save the map: {0}", &[&error.to_string()])),
+            Err(error) => self.refuse(&trf("Could not save the map: {0}", &[&error.to_string()])),
         }
     }
 
@@ -1907,7 +1926,7 @@ impl Tab {
             let about = tr("It is drawn as you walk, if the MUD says which room you are in. If yours tells it another way, or draws the map itself, a script can take it from there.");
             ui.label(RichText::new(about).font(theme::font(theme::Weight::Regular, 12.5)).color(theme.text_dim));
             ui.add_space(12.0);
-            scripts = ui.button(tr("Set up a mapper…")).clicked();
+            scripts = crate::widgets::button(ui, tr("Set up a mapper…")).clicked();
             ui.add_space(4.0);
             if crate::widgets::quiet_button(ui, tr("Hide the map")).clicked() {
                 self.set_map_shown(false);
@@ -1917,19 +1936,30 @@ impl Tab {
     }
 
     /// Up to [`MAX_LISTED_ROOMS`] rooms matching `query`, one line each.
-    fn matching_rooms(&self, query: &str) -> Vec<String> {
-        (self.map.borrow().find(query).iter())
+    /// Lists the rooms whose name contains `query`, each to be walked to
+    /// by choosing it. Returns whether there were any.
+    fn offer_rooms(&mut self, query: &str) -> bool {
+        let rooms: Vec<(RoomId, String, String)> = (self.map.borrow().find(query).iter())
             .take(MAX_LISTED_ROOMS)
-            .map(|room| format!("#{}: {} ({})", room.id, room.name, room.area))
-            .collect()
+            .map(|room| (room.id, room.name.to_string(), room.area.to_string()))
+            .collect();
+        for (id, name, area) in &rooms {
+            self.offer(&format!("#{id}: {name}"), area, &format!("/map walk {id}"));
+        }
+        !rooms.is_empty()
     }
 
     fn submit(&mut self) {
         let line = std::mem::take(&mut self.input);
         // The command stays, selected, to be sent again or typed over.
         // Never a password.
-        self.kept_input = (self.settings.keep_command && !self.input_hidden && !line.is_empty())
-            .then(|| line.clone());
+        // Never a password, and not a command of the client: that is not
+        // something to send again and again.
+        let keep = self.settings.keep_command
+            && !self.input_hidden
+            && !line.is_empty()
+            && client_command(&line).is_none();
+        self.kept_input = keep.then(|| line.clone());
         if let Some(kept) = &self.kept_input {
             self.input.clone_from(kept);
             self.select_input = true;
@@ -1941,21 +1971,8 @@ impl Tab {
             self.send(line);
         } else {
             self.history.add(&line);
-            // A command of the client answers over the command line.
-            self.palette_cache = None;
-            self.command_answer = line.starts_with('/').then(|| (line.clone(), Vec::new()));
-            self.command_answer_at = None;
-            self.answering = true;
-            let ours = self.map_command(&line);
-            self.answering = false;
-            if self
-                .command_answer
-                .as_ref()
-                .is_some_and(|(_, lines)| lines.is_empty())
-            {
-                self.command_answer = None;
-            }
-            if !ours {
+            // A command of the client answers at the command line.
+            if !self.run_command(&line) {
                 self.scripts.on_input(&line);
                 self.run_actions();
             }
@@ -1967,32 +1984,6 @@ impl Tab {
         // Tab completes the word being typed. With nothing typed it is
         // left alone, to move between controls as usual.
         let focused = ui.memory(|memory| memory.has_focus(id));
-        // The palette of commands, while a `/` command is being typed.
-        if self
-            .palette_put_away
-            .as_ref()
-            .is_some_and(|over| *over != self.input)
-        {
-            self.palette_put_away = None;
-        }
-        // Escape takes the focus from the line before it gets here, and
-        // the line takes it back: it is the line's while nothing else has it.
-        let ours = focused || ui.memory(|memory| memory.focused().is_none());
-        let offered = if ours {
-            self.palette_items()
-        } else {
-            Vec::new()
-        };
-        if self.palette_keys(ui, &offered) {
-            self.cursor_to_end = true;
-        }
-        // Escape puts away what the last command answered.
-        if offered.is_empty()
-            && self.command_answer.is_some()
-            && ui.input_mut(|input| input.consume_key(Modifiers::NONE, Key::Escape))
-        {
-            self.command_answer = None;
-        }
         let completing = focused
             && !self.input.is_empty()
             && !self.input_hidden
@@ -2016,6 +2007,15 @@ impl Tab {
         }
         let has_text = !self.input.is_empty();
         let theme = theme::current();
+        // What the last command said takes the place of the hint; with
+        // something typed, it is said at the other end of the line.
+        let said = self.bar_said(ui);
+        let hint = match &said {
+            Some((text, colour)) => RichText::new(text).font(palette::font()).color(*colour),
+            None => RichText::new(tr("Type a command"))
+                .font(palette::font())
+                .color(theme.text_faint),
+        };
         let edge = if focused {
             theme.accent.gamma_multiply(0.7)
         } else {
@@ -2042,13 +2042,9 @@ impl Tab {
                     // Keeps Tab from moving to the next control while there
                     // is a word to complete.
                     .lock_focus(has_text)
-                    .hint_text(
-                        // In the typeface of what will be typed, so it sits
-                        // on the same line.
-                        RichText::new(tr("Type a command"))
-                            .font(palette::font())
-                            .color(theme.text_faint),
-                    )
+                    // In the typeface of what will be typed, so it sits
+                    // on the same line.
+                    .hint_text(hint)
                     .align(egui::Align2::LEFT_CENTER)
                     .desired_width(f32::INFINITY)
                     .show(ui);
@@ -2128,23 +2124,30 @@ impl Tab {
                 self.find_wants_focus = true;
             }
         }
-        self.input_rect = shown.response.rect;
-        let offered = if response.has_focus() || ours {
-            self.palette_items()
-        } else {
-            Vec::new()
-        };
+        if has_text && let Some((text, colour)) = said {
+            let bar = shown.response.rect;
+            let at = bar.right_center() - egui::vec2(14.0, 0.0);
+            let font = theme::font(crate::theme::Weight::Regular, 13.0);
+            let galley = ui.painter().layout_no_wrap(text, font, colour);
+            let place = egui::Rect::from_min_size(
+                egui::pos2(at.x - galley.size().x, at.y - galley.size().y / 2.0),
+                galley.size(),
+            );
+            // Over whatever of the typed text reaches that far.
+            ui.painter()
+                .rect_filled(place.expand2(egui::vec2(10.0, 2.0)), 4.0, theme.background);
+            ui.painter().galley(place.min, galley, colour);
+        }
         // Typing puts away what the last command answered.
         if response.changed() {
-            self.command_answer = None;
+            self.bar_note = None;
         }
-        self.palette_card(ui, &offered, shown.response.rect);
         let submitted = response.lost_focus() && ui.input(|input| input.key_pressed(Key::Enter));
         if submitted {
             self.submit();
         }
         // The input owns the keyboard unless the user moved focus elsewhere.
-        if submitted || ui.memory(|memory| memory.focused().is_none()) {
+        if !self.palette_open && (submitted || ui.memory(|memory| memory.focused().is_none())) {
             response.request_focus();
         }
     }
@@ -2670,7 +2673,7 @@ mod tests {
     }
 
     #[test]
-    fn client_commands_are_grouped_and_complete_with_tab() {
+    fn client_commands_are_grouped() {
         let read = |line| client_command(line).map(|(command, rest)| format!("{command} {rest}"));
         assert_eq!(
             read("/map walk Temple of Mota").unwrap(),
@@ -2690,7 +2693,9 @@ mod tests {
         let app = harness.state_mut().tab_mut();
         assert!(app.map_command("/map hide") && !app.map_shown());
         assert!(app.map_command("/map show") && app.map_shown());
-        assert!(app.map_command("/help"));
+        // The palette is the list of the commands: asking for help opens it.
+        assert!(app.map_command("/help") && app.palette_open);
+        app.toggle_palette();
         // Groups: listed, and switched for the session by name.
         app.scripts
             .exec("t", r#"bind("f9", "kick", {group = "Combat"})"#);
@@ -2698,76 +2703,104 @@ mod tests {
         assert!(app.map_command("/group Combat") && app.scripts.group_enabled("Combat"));
         assert!(app.map_command("/group"));
         assert!(output_lines(app).iter().any(|line| line == "Combat: on"));
-        assert!(
-            output_lines(app)
-                .iter()
-                .any(|line| line.contains("/plugin install"))
-        );
-        // An incomplete group lists what it has instead of going to the MUD.
+        // An incomplete group opens the palette at what it has, instead
+        // of going to the MUD.
         assert!(app.map_command("/map dance"));
-        app.input = "/map wh".into();
-        harness.run_steps(2);
-        harness.key_press(Key::Tab);
-        harness.run_steps(2);
-        assert_eq!(harness.state().tab().input, "/map where");
+        assert!(app.palette_open && app.palette_query == "map ");
     }
 
     #[test]
-    fn commands_are_chosen_from_a_palette_and_answer_over_the_line() {
+    fn commands_are_chosen_from_a_palette_and_answer_at_the_line() {
         let mut harness = window(None);
         harness.run_steps(2);
         let before = output_lines(harness.state().tab()).len();
-        // A slash offers the commands, each said for what it is.
+        // Typing a slash in the command line offers nothing over it.
         harness.state_mut().tab_mut().input = "/pl".into();
         harness.run_steps(3);
-        harness.get_by_label_contains("/plugin install");
-        // The arrows choose, and do not walk the history meanwhile.
+        assert!(harness.query_by_label_contains("plugin install").is_none());
+        harness.state_mut().tab_mut().input.clear();
+        // The palette lists the commands, each said for what it is.
+        harness.state_mut().tab_mut().toggle_palette();
+        harness.run_steps(3);
+        harness.get_by_label_contains("map where");
+        harness.state_mut().tab_mut().palette_query = "pl".into();
+        harness.run_steps(3);
+        harness.get_by_label_contains("plugin install");
+        assert!(harness.query_by_label_contains("map where").is_none());
+        // The arrows choose; Enter on one that takes something more
+        // completes it, to type that after.
         harness.key_press(Key::ArrowDown);
         harness.run_steps(2);
-        assert_eq!(harness.state().tab().input, "/pl");
-        // Enter completes what is not yet a whole command...
         harness.key_press(Key::Enter);
         harness.run_steps(2);
-        assert_eq!(harness.state().tab().input, "/plugin install ");
-        // ...and Escape puts the palette away, until more is typed.
+        let app = harness.state().tab();
+        assert!(app.palette_open);
+        assert_eq!(app.palette_query, "plugin install ");
+        // Escape closes it.
         harness.key_press(Key::Escape);
         harness.run_steps(2);
-        assert!(
-            harness
-                .query_by_label_contains("/plugin install <git")
-                .is_none()
-        );
-        // A whole command is run by Enter, and answers over the command
-        // line, leaving the lines of the game as they were.
+        assert!(!harness.state().tab().palette_open);
+        assert!(harness.query_by_label_contains("plugin install").is_none());
+        // One Enter runs what is chosen, typed in full or not, and closes
+        // the palette. A line of answer is said in the command line, and
+        // the lines of the game are as they were.
         let app = harness.state_mut().tab_mut();
-        app.settings.keep_command = false;
         app.scripts
             .exec("t", r#"bind("f9", "kick", {group = "Combat"})"#);
-        app.input = "/group".into();
+        app.toggle_palette();
+        app.palette_query = "map hi".into();
         harness.run_steps(2);
         harness.key_press(Key::Enter);
         harness.run_steps(3);
         let app = harness.state().tab();
+        assert!(!app.map_shown() && !app.palette_open);
         assert_eq!(output_lines(app).len(), before);
-        let (command, lines) = app.command_answer.clone().expect("an answer");
-        assert_eq!(
-            (command.as_str(), lines.as_slice()),
-            ("/group", ["Combat: on".to_owned()].as_slice())
-        );
-        harness.get_by_label("Combat: on");
-        // Escape puts the answer away, and so does the next command sent.
-        harness.key_press(Key::Escape);
-        harness.run_steps(2);
-        assert!(harness.state().tab().command_answer.is_none());
-        // Left alone, it goes by itself after a moment.
-        harness.state_mut().tab_mut().input = "/group".into();
+        let app = harness.state_mut().tab_mut();
+        app.toggle_palette();
+        app.palette_query = "group Com".into();
         harness.run_steps(2);
         harness.key_press(Key::Enter);
         harness.run_steps(3);
-        assert!(harness.state().tab().command_answer.is_some());
+        let app = harness.state().tab();
+        assert!(!app.scripts.group_enabled("Combat"));
+        let note = app.bar_note.clone().expect("a line of answer");
+        assert_eq!(
+            (note.text.as_str(), note.problem),
+            ("Group Combat off.", false)
+        );
+        assert_eq!(output_lines(app).len(), before);
+        // Left alone, it goes by itself after a moment.
         harness.run_steps(40);
-        assert!(harness.state().tab().command_answer.is_none());
-        assert!(harness.query_by_label("Combat: on").is_none());
+        assert!(harness.state().tab().bar_note.is_none());
+        // What a command lists stays in the palette, to choose from:
+        // Enter on a group switches it.
+        let app = harness.state_mut().tab_mut();
+        app.toggle_palette();
+        app.palette_query = "gr".into();
+        harness.run_steps(2);
+        harness.key_press(Key::Enter);
+        harness.run_steps(3);
+        let app = harness.state().tab();
+        assert!(app.palette_open && app.results.is_some());
+        harness.get_by_label("Combat. off");
+        harness.key_press(Key::Enter);
+        harness.run_steps(3);
+        let app = harness.state().tab();
+        assert!(app.scripts.group_enabled("Combat") && !app.palette_open);
+        // Typed in the command line after a slash, a command is carried
+        // out the same, and is not kept there to be sent again. What
+        // could not be done stays said, until something is typed.
+        harness.state_mut().tab_mut().input = "/map find nowhere".into();
+        harness.run_steps(2);
+        harness.key_press(Key::Enter);
+        harness.run_steps(40);
+        let app = harness.state().tab();
+        assert!(app.input.is_empty());
+        let note = app.bar_note.clone().expect("a refusal");
+        assert_eq!(
+            (note.text.as_str(), note.problem),
+            ("No room matches.", true)
+        );
     }
 
     #[test]
@@ -3815,16 +3848,20 @@ mod tests {
             "t",
             r#"bind("f9", "kick", {group = "Combate"}) bind("f8", "hi", {group = "Social"})"#,
         );
-        app.kept_input = None;
-        app.input = "/map".into();
-        palette.run_steps(12);
+        app.toggle_palette();
+        palette.run_steps(8);
         save(&mut palette, "palette");
-        let app = palette.state_mut().tab_mut();
-        app.input = "/group".into();
+        palette.state_mut().tab_mut().palette_query = "map".into();
+        palette.run_steps(4);
+        save(&mut palette, "palette-typed");
+        palette.state_mut().tab_mut().palette_query = "gr".into();
         palette.run_steps(3);
         palette.key_press(Key::Enter);
         palette.run_steps(4);
         save(&mut palette, "answer");
+        palette.key_press(Key::Enter);
+        palette.run_steps(3);
+        save(&mut palette, "bar-note");
         // The command line with nothing typed in it.
         let mut empty = connected_demo_window();
         empty.state_mut().tab_mut().input.clear();

@@ -18,6 +18,7 @@ use crate::widgets;
 const NEW_SESSION: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, egui::Key::T);
 const CLOSE_SESSION: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, egui::Key::W);
 const SWITCH_VIEW: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, egui::Key::E);
+const COMMANDS: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, egui::Key::K);
 const DEBUG_VIEW: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, egui::Key::D);
 
 pub struct App {
@@ -304,6 +305,10 @@ impl App {
         });
         ui.menu_button(tr("Help"), |ui| {
             widgets::menu_width(ui);
+            if widgets::menu_item(ui, tr("Commands…"), "Ctrl+K").clicked() {
+                self.tabs[self.active].toggle_palette();
+                ui.close();
+            }
             if widgets::menu_item(ui, tr("Keyboard shortcuts"), "").clicked() {
                 self.show_shortcuts = true;
                 ui.close();
@@ -413,6 +418,7 @@ impl App {
                         &[
                             ("Ctrl+T", tr("New session")),
                             ("Ctrl+W", tr("Close session")),
+                            ("Ctrl+K", tr("Commands")),
                             ("Ctrl+E", tr("Switch between the game and the editor")),
                             (
                                 "Ctrl+D",
@@ -529,6 +535,9 @@ impl eframe::App for App {
         if ui.input_mut(|input| input.consume_shortcut(&CLOSE_SESSION)) {
             self.close_tab(self.active, ui.ctx());
         }
+        if ui.input_mut(|input| input.consume_shortcut(&COMMANDS)) {
+            self.tabs[self.active].toggle_palette();
+        }
         if ui.input_mut(|input| input.consume_shortcut(&SWITCH_VIEW)) {
             let tab = &mut self.tabs[self.active];
             tab.set_view(if tab.view() == 1 { 0 } else { 1 });
@@ -598,12 +607,12 @@ fn general_settings(ui: &mut Ui, settings: &mut Settings, languages: &[(String, 
             .to_owned();
             let shown = choices.iter().find(|(code, _)| *code == current);
             let shown = shown.map_or(current.clone(), |(_, name)| name.clone());
-            egui::ComboBox::from_id_salt("language")
+            crate::widgets::dropdown("language")
                 .selected_text(shown)
                 .width(210.0)
                 .show_ui(ui, |ui| {
                     for (code, name) in &choices {
-                        if ui.selectable_label(*code == current, name).clicked() {
+                        if crate::widgets::choice(ui, *code == current, name).clicked() {
                             settings.language.clone_from(code);
                         }
                     }
@@ -612,7 +621,7 @@ fn general_settings(ui: &mut Ui, settings: &mut Settings, languages: &[(String, 
         });
         widgets::setting_row(ui, tr("Interface size"), &mut |ui| {
             let mut percent = (settings.ui_scale * 100.0).round();
-            let slider = egui::Slider::new(&mut percent, 75.0..=200.0)
+            let slider = crate::widgets::slider(&mut percent, 75.0..=200.0)
                 .step_by(5.0)
                 .suffix(" %");
             let response = ui.add(slider);
@@ -658,12 +667,12 @@ fn appearance_settings(ui: &mut Ui, settings: &mut Settings) {
                 ThemeName::Light,
                 ThemeName::Contrast,
             ];
-            egui::ComboBox::from_id_salt("theme")
+            crate::widgets::dropdown("theme")
                 .selected_text(name(settings.theme))
                 .width(210.0)
                 .show_ui(ui, |ui| {
                     for theme in themes {
-                        ui.selectable_value(&mut settings.theme, theme, name(theme));
+                        crate::widgets::choice_value(ui, &mut settings.theme, theme, name(theme));
                     }
                 })
                 .response
@@ -678,12 +687,17 @@ fn appearance_settings(ui: &mut Ui, settings: &mut Settings) {
                 MudPalette::Soft => tr("Soft, to go with the theme"),
                 MudPalette::Classic => tr("Classic terminal"),
             };
-            egui::ComboBox::from_id_salt("mud palette")
+            crate::widgets::dropdown("mud palette")
                 .selected_text(name(settings.mud_palette))
                 .width(260.0)
                 .show_ui(ui, |ui| {
                     for palette in [MudPalette::Vivid, MudPalette::Soft, MudPalette::Classic] {
-                        ui.selectable_value(&mut settings.mud_palette, palette, name(palette));
+                        crate::widgets::choice_value(
+                            ui,
+                            &mut settings.mud_palette,
+                            palette,
+                            name(palette),
+                        );
                     }
                 })
                 .response
@@ -696,7 +710,7 @@ fn appearance_settings(ui: &mut Ui, settings: &mut Settings) {
                 None => settings.font_family.as_str(),
             }
             .to_owned();
-            egui::ComboBox::from_id_salt("font")
+            crate::widgets::dropdown("font")
                 .selected_text(shown)
                 .width(260.0)
                 .height(340.0)
@@ -708,19 +722,19 @@ fn appearance_settings(ui: &mut Ui, settings: &mut Settings) {
                         ui.add(egui::Label::new(small).selectable(false));
                     };
                     heading(ui, tr("With Muddie"));
-                    if ui
-                        .selectable_label(settings.font_family.is_empty(), theme::DEFAULT_FONT)
-                        .clicked()
+                    if crate::widgets::choice(
+                        ui,
+                        settings.font_family.is_empty(),
+                        theme::DEFAULT_FONT,
+                    )
+                    .clicked()
                     {
                         settings.font_family.clear();
                         settings.font_file.clear();
                     }
                     for (name, _) in theme::BUNDLED_FONTS {
                         let key = theme::bundled_font(name);
-                        if ui
-                            .selectable_label(settings.font_family == key, name)
-                            .clicked()
-                        {
+                        if crate::widgets::choice(ui, settings.font_family == key, name).clicked() {
                             settings.font_family = key;
                             settings.font_file.clear();
                         }
@@ -737,7 +751,7 @@ fn appearance_settings(ui: &mut Ui, settings: &mut Settings) {
                     };
                     for font in installed {
                         let chosen = settings.font_family == font.family;
-                        if ui.selectable_label(chosen, &font.family).clicked() {
+                        if crate::widgets::choice(ui, chosen, &font.family).clicked() {
                             // Where it is goes with its name, so that it is
                             // found at once the next time.
                             settings.font_family.clone_from(&font.family);
@@ -748,10 +762,10 @@ fn appearance_settings(ui: &mut Ui, settings: &mut Settings) {
                 .response
         });
         widgets::setting_row(ui, tr("Size"), &mut |ui| {
-            ui.add(egui::Slider::new(&mut settings.font_size, 10.0..=28.0).step_by(0.5))
+            ui.add(crate::widgets::slider(&mut settings.font_size, 10.0..=28.0).step_by(0.5))
         });
         widgets::setting_row(ui, tr("Line spacing"), &mut |ui| {
-            ui.add(egui::Slider::new(&mut settings.line_spacing, 0.9..=1.8).step_by(0.05))
+            ui.add(crate::widgets::slider(&mut settings.line_spacing, 0.9..=1.8).step_by(0.05))
         });
     });
     // What the output will look like.

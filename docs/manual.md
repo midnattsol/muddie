@@ -54,18 +54,22 @@ addresses in the output can be clicked, as can links the server marks.
 Lines starting with `/` and one of these words are for Muddie itself;
 anything else is sent to the MUD.
 
-As soon as a `/` is typed, the commands that begin so are listed over the
-command line, each with what it does. Up and Down choose one, which is also
-read aloud; Tab completes it, Enter completes it too and runs it once it is
-whole, and Escape puts the list away. The commands that take the name of a
-group or a plugin list the ones there are. What a command answers is shown in
-the same place, not among the lines of the game, and goes by itself after a
-moment, or at once with Escape or as soon as something is typed; it stays
-while the pointer is over it.
+**Ctrl+K** opens them in a palette over the window, with the game in view
+behind it: type to find one, Up and Down choose, which is also read aloud,
+and Enter runs it. One that needs something more, such as the room to walk
+to, is completed instead, to type that after it; Tab completes without
+running. Escape, or a click anywhere else, closes it. Typed in the command
+line after the `/`, a command is carried out the same.
+
+What a command answers is not put among the lines of the game. A line of it
+is said inside the command line for a moment; if something could not be
+done, it stays there until you type. A list, of the rooms found, the groups
+or the plugins, is shown in the palette, to choose from: Enter on a room
+walks to it, and on a group or a plugin switches it.
 
 | Command | What it does |
 |---|---|
-| `/help` | Lists these commands |
+| `/help` | Opens the palette of these commands |
 | `/lua <code>` | Runs a line of Luau |
 | `/reload` | Runs the scripts and rules again |
 | `/log` | Starts or stops logging the session to a file |

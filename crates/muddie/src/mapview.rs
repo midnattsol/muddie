@@ -2,8 +2,7 @@
 //! mark or move rooms.
 
 use eframe::egui::{
-    self, Align2, Color32, ComboBox, FontId, Pos2, Rect, RichText, Sense, Stroke, StrokeKind, Ui,
-    Vec2, vec2,
+    self, Align2, Color32, FontId, Pos2, Rect, RichText, Sense, Stroke, StrokeKind, Ui, Vec2, vec2,
 };
 use muddie_mapper::{Map, Pos, Room, RoomId, direction_offset};
 
@@ -161,12 +160,12 @@ impl MapView {
         // One compact row: which area, which level, and the way back.
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = 6.0;
-            let chooser = ComboBox::from_id_salt("map area")
+            let chooser = crate::widgets::dropdown("map area")
                 .selected_text(area.as_str())
                 .width(130.0)
                 .show_ui(ui, |ui| {
                     for name in map.areas() {
-                        ui.selectable_value(&mut area, name.to_owned(), name);
+                        crate::widgets::choice_value(ui, &mut area, name.to_owned(), name);
                     }
                 })
                 .response;
@@ -197,7 +196,7 @@ impl MapView {
             if up.clicked() {
                 level += 1;
             }
-            if self.browsing.is_some() && ui.button(tr("Back to me")).clicked() {
+            if self.browsing.is_some() && crate::widgets::button(ui, tr("Back to me")).clicked() {
                 (area, level) = home.clone();
             }
         });

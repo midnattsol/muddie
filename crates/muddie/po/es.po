@@ -744,9 +744,6 @@ msgstr "Un comando por línea, enviados como si los hubieras escrito."
 msgid "Run when the key is pressed."
 msgstr "Se ejecuta al pulsar la tecla."
 
-msgid "Commands"
-msgstr "Comandos"
-
 msgid "every"
 msgstr "cada"
 
@@ -830,12 +827,6 @@ msgstr "Complemento {0} actualizado."
 #, python-brace-format
 msgid "The plugin could not be installed or updated: {0}"
 msgstr "No se pudo instalar o actualizar el complemento: {0}"
-
-msgid "Commands of the client, typed like any other:"
-msgstr "Comandos del cliente, que se escriben como cualquier otro:"
-
-msgid "Several rooms match; use /map walk with a room number:"
-msgstr "Coinciden varias salas; usa /map walk con un número de sala:"
 
 msgid "No such room; use /map avoid with a room number."
 msgstr "No existe esa sala; usa /map avoid con un número de sala."
@@ -1375,9 +1366,17 @@ msgstr "Añadir un panel de indicadores"
 msgid "Shown in"
 msgstr "Se muestra en"
 
-msgid "↑ ↓ to choose  ·  Tab to complete  ·  Enter to run  ·  Esc to close"
-msgstr "↑ ↓ para elegir  ·  Tab para completar  ·  Intro para ejecutar  ·  Esc para cerrar"
-
 
 msgid "In the order of the list: drag a gauge there, or press Alt+Up or Alt+Down, to move it."
 msgstr "En el orden de la lista: arrastra allí un indicador, o pulsa Alt+Arriba o Alt+Abajo, para moverlo."
+
+
+msgid "Choose one, or type a command"
+msgstr "Elige uno, o escribe un comando"
+
+msgid "Commands"
+msgstr "Comandos"
+
+msgid "Commands…"
+msgstr "Comandos…"
+

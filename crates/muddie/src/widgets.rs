@@ -54,6 +54,46 @@ pub fn switch_row(ui: &mut Ui, on: &mut bool, label: &str) -> Response {
     .inner
 }
 
+/// The ordinary button, for something to do that is not the main thing.
+pub fn button(ui: &mut Ui, text: impl Into<egui::WidgetText>) -> Response {
+    ui.add(egui::Button::new(text).min_size(vec2(0.0, 30.0)))
+}
+
+/// A list to choose one thing from, shown when pressed. Give it what is
+/// chosen with `selected_text`, and its rows with [`choice`].
+pub fn dropdown(id: &str) -> egui::ComboBox<'_> {
+    egui::ComboBox::from_id_salt(id).height(320.0)
+}
+
+/// A row of a [`dropdown`], ticked like a choice of a menu if it is the
+/// one chosen.
+pub fn choice(ui: &mut Ui, selected: bool, text: &str) -> Response {
+    menu_row(ui, Some(selected), text, "")
+}
+
+/// A row of a [`dropdown`] that sets `current` to `value` when chosen.
+pub fn choice_value<V: PartialEq>(ui: &mut Ui, current: &mut V, value: V, text: &str) -> Response {
+    let mut response = choice(ui, *current == value, text);
+    if response.clicked() && *current != value {
+        *current = value;
+        response.mark_changed();
+    }
+    response
+}
+
+/// A number to drag, or to click and type.
+pub fn number<N: egui::emath::Numeric>(value: &mut N) -> egui::DragValue<'_> {
+    egui::DragValue::new(value)
+}
+
+/// A number chosen along a line.
+pub fn slider<N: egui::emath::Numeric>(
+    value: &mut N,
+    range: std::ops::RangeInclusive<N>,
+) -> egui::Slider<'_> {
+    egui::Slider::new(value, range)
+}
+
 /// The button for the main thing to do in a view, filled with the accent.
 pub fn primary_button(ui: &mut Ui, text: &str) -> Response {
     let theme = theme::current();
@@ -254,17 +294,10 @@ pub fn menu_check(ui: &mut Ui, on: &mut bool, text: &str) -> Response {
     response
 }
 
-/// A choice in a menu that is on or off and has a keyboard shortcut.
+/// A choice in a menu that is on or off and has a keyboard shortcut,
+/// which goes before the tick.
 pub fn menu_row_with_shortcut(ui: &mut Ui, on: &mut bool, text: &str, shortcut: &str) -> Response {
-    // The tick goes with the text, so that the shortcut keeps the right.
-    let shown = if *on {
-        format!("✓  {text}")
-    } else {
-        format!("     {text}")
-    };
-    let mut response = menu_row(ui, None, &shown, shortcut);
-    response
-        .widget_info(|| WidgetInfo::selected(Role::MenuItemCheckBox, ui.is_enabled(), *on, text));
+    let mut response = menu_row(ui, Some(*on), text, shortcut);
     if response.clicked() {
         *on = !*on;
         response.mark_changed();
@@ -282,10 +315,12 @@ fn menu_row(ui: &mut Ui, checked: Option<bool>, text: &str, shortcut: &str) -> R
             .layout_no_wrap(text.to_owned(), font.clone(), theme.text);
         galley.size().x
     };
+    // The tick has the right edge to itself, wherever there can be one.
+    let tick = if checked.is_some() { 24.0 } else { 0.0 };
     let right = if shortcut.is_empty() {
-        22.0
+        22.0_f32.max(tick)
     } else {
-        measure(shortcut, &small) + 28.0
+        measure(shortcut, &small) + 28.0 + tick
     };
     let needed = 10.0 + measure(text, &font) + right + 10.0;
     let width = menu_row_width(ui, needed);
@@ -315,7 +350,7 @@ fn menu_row(ui: &mut Ui, checked: Option<bool>, text: &str, shortcut: &str) -> R
         );
         if !shortcut.is_empty() {
             painter.text(
-                rect.right_center() - vec2(10.0, 0.0),
+                rect.right_center() - vec2(10.0 + tick, 0.0),
                 egui::Align2::RIGHT_CENTER,
                 shortcut,
                 small,
@@ -565,6 +600,37 @@ pub fn swatch(ui: &mut Ui, colour: Color32, selected: bool, label: &str) -> Resp
     if ui.is_rect_visible(rect) {
         let painter = ui.painter();
         painter.circle_filled(rect.center(), 8.0, colour);
+        if selected || response.hovered() || response.has_focus() {
+            let ring = if selected {
+                theme.text
+            } else {
+                theme.text_faint
+            };
+            painter.circle_stroke(rect.center(), 11.0, Stroke::new(1.5, ring));
+        }
+    }
+    response.on_hover_text(label)
+}
+
+/// The choice of no colour, beside the [`swatch`]es: an empty ring,
+/// struck through.
+pub fn swatch_none(ui: &mut Ui, selected: bool, label: &str) -> Response {
+    let theme = theme::current();
+    let (rect, response) = ui.allocate_exact_size(Vec2::splat(24.0), Sense::click());
+    response
+        .widget_info(|| WidgetInfo::selected(Role::RadioButton, ui.is_enabled(), selected, label));
+    if ui.is_rect_visible(rect) {
+        let painter = ui.painter();
+        let line = Stroke::new(1.3, theme.text_faint);
+        painter.circle_stroke(rect.center(), 7.5, line);
+        let reach = vec2(5.3, 5.3);
+        painter.line_segment(
+            [
+                rect.center() + vec2(-reach.x, reach.y),
+                rect.center() + vec2(reach.x, -reach.y),
+            ],
+            line,
+        );
         if selected || response.hovered() || response.has_focus() {
             let ring = if selected {
                 theme.text
@@ -898,4 +964,58 @@ pub fn row_field(ui: &mut Ui, value: &mut String, hint: &str, width: f32) -> Res
             .margin(Margin::symmetric(9, 6))
             .desired_width(width),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    /// Every control is one of this module's, so that there is one of
+    /// each kind and they all look and behave alike: nothing else makes
+    /// a button, a list, a tick or a number field of its own.
+    #[test]
+    fn controls_are_made_here_and_nowhere_else() {
+        let raw = [
+            "ui.button(",
+            "ui.small_button(",
+            ".selectable_label(",
+            ".selectable_value(",
+            "ComboBox::from_",
+            "DragValue::new(",
+            "Slider::new(",
+            "ui.checkbox(",
+            "ui.radio(",
+            ".radio_value(",
+            ".toggle_value(",
+        ];
+        let source = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+        let mut files = vec![];
+        for folder in [source.clone(), source.join("tab")] {
+            for entry in std::fs::read_dir(folder).unwrap().flatten() {
+                let path = entry.path();
+                let ours = path.ends_with("widgets.rs");
+                if path.extension().is_some_and(|kind| kind == "rs") && !ours {
+                    files.push(path);
+                }
+            }
+        }
+        assert!(files.len() > 20, "the sources were not found");
+        let mut found = vec![];
+        for path in files {
+            let text = std::fs::read_to_string(&path).unwrap();
+            for (number, line) in text.lines().enumerate() {
+                if raw.iter().any(|control| line.contains(control)) {
+                    found.push(format!(
+                        "{}:{}: {}",
+                        path.display(),
+                        number + 1,
+                        line.trim()
+                    ));
+                }
+            }
+        }
+        assert!(
+            found.is_empty(),
+            "use the controls of widgets.rs:\n{}",
+            found.join("\n")
+        );
+    }
 }

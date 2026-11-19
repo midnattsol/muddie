@@ -1002,18 +1002,17 @@ impl Tab {
             } else {
                 rule.panel.clone()
             };
-            egui::ComboBox::from_id_salt("trigger panel")
+            crate::widgets::dropdown("trigger panel")
                 .selected_text(shown)
                 .width(200.0)
                 .show_ui(ui, |ui| {
-                    if ui
-                        .selectable_label(rule.panel.trim().is_empty(), tr("None"))
+                    if crate::widgets::choice(ui, rule.panel.trim().is_empty(), tr("None"))
                         .clicked()
                     {
                         rule.panel.clear();
                     }
                     for panel in &text_panels {
-                        if ui.selectable_label(rule.panel == *panel, panel).clicked() {
+                        if crate::widgets::choice(ui, rule.panel == *panel, panel).clicked() {
                             rule.panel.clone_from(panel);
                         }
                     }
@@ -1146,7 +1145,7 @@ impl Tab {
             } else {
                 tr("Record a key")
             };
-            toggle = ui.button(label).clicked();
+            toggle = crate::widgets::button(ui, label).clicked();
         });
         note(
             ui,
@@ -1196,7 +1195,7 @@ impl Tab {
             }
             let mut seconds = f64::from(rule.tenths) / 10.0;
             let field = ui.add(
-                egui::DragValue::new(&mut seconds)
+                crate::widgets::number(&mut seconds)
                     .range(0.1..=86_400.0)
                     .speed(0.5)
                     .max_decimals(1),
@@ -1415,7 +1414,7 @@ impl Tab {
         match self.variable_kind {
             NUMBER => {
                 let field = ui.add(
-                    egui::DragValue::new(&mut self.variable_number)
+                    crate::widgets::number(&mut self.variable_number)
                         .speed(1.0)
                         .max_decimals(6)
                         .min_decimals(0)
@@ -1508,7 +1507,7 @@ impl Tab {
                 } else {
                     tr("Add an item")
                 };
-                if ui.button(add).clicked() {
+                if crate::widgets::button(ui, add).clicked() {
                     self.variable_items.push((String::new(), String::new()));
                 }
                 note(
@@ -1562,7 +1561,7 @@ impl Tab {
                 (tr("In a script"), in_scripts),
             ] {
                 widgets::setting_row(ui, place, &mut |ui| {
-                    let copy = ui.button(tr("Copy"));
+                    let copy = crate::widgets::button(ui, tr("Copy"));
                     if copy.clicked() {
                         ui.ctx().copy_text(written.clone());
                     }
@@ -1684,7 +1683,7 @@ impl Tab {
             ui.horizontal(|ui| {
                 swatches(ui, &mut rule.off_colour);
                 let unlit = rule.off_colour.trim().is_empty();
-                if ui.selectable_label(unlit, tr("Unlit")).clicked() {
+                if widgets::swatch_none(ui, unlit, tr("Unlit")).clicked() {
                     rule.off_colour.clear();
                 }
             });
@@ -1714,7 +1713,7 @@ impl Tab {
                 ui.horizontal(|ui| {
                     let label = ui.label(RichText::new(tr("Under")).color(theme.text_dim));
                     ui.add(
-                        egui::DragValue::new(&mut step.under)
+                        crate::widgets::number(&mut step.under)
                             .range(1..=100)
                             .suffix(" %"),
                     )
@@ -1735,7 +1734,7 @@ impl Tab {
             if !busy {
                 rule.steps.sort_by_key(|step| std::cmp::Reverse(step.under));
             }
-            if ui.button(tr("Add a level")).clicked() {
+            if crate::widgets::button(ui, tr("Add a level")).clicked() {
                 // Under the lowest there is, or a first one at a third.
                 let lowest = rule.steps.iter().map(|step| step.under).min();
                 let (under, colour) = match lowest {
@@ -1757,19 +1756,19 @@ impl Tab {
         if panels.is_empty() {
             ui.horizontal(|ui| {
                 note(ui, tr("There is no panel of gauges to show it in."));
-                add_panel = ui.button(tr("Add a panel of gauges")).clicked();
+                add_panel = crate::widgets::button(ui, tr("Add a panel of gauges")).clicked();
             });
         } else {
             let home = panels
                 .iter()
                 .find(|(id, _)| *id == rule.panel)
                 .unwrap_or(&panels[0]);
-            egui::ComboBox::from_id_salt("gauge panel")
+            crate::widgets::dropdown("gauge panel")
                 .selected_text(home.1.clone())
                 .width(220.0)
                 .show_ui(ui, |ui| {
                     for (id, name) in &panels {
-                        ui.selectable_value(&mut rule.panel, *id, name);
+                        crate::widgets::choice_value(ui, &mut rule.panel, *id, name);
                     }
                 });
             note(ui, order);

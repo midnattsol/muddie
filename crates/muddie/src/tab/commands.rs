@@ -1,6 +1,10 @@
-//! The commands of the client, offered over the command line as soon as a
-//! `/` is typed, and what a command answers, shown there too instead of
-//! among the lines of the game.
+//! The commands of the client, in a palette that Ctrl+K opens over the
+//! window: type to find one, the arrows choose, Enter runs it, and Escape
+//! or a click anywhere else closes it, with the game in view all along.
+//! Typed in the command line after a `/` they are carried out the same.
+//! What a command answers is not put among the lines of the game: a line
+//! of it is said inside the command line for a moment, and a list of
+//! things is shown in the palette, to choose from.
 
 use super::*;
 use crate::theme::Weight;
@@ -14,6 +18,9 @@ pub struct Item {
     pub usage: String,
     /// What it is for.
     pub about: String,
+    /// Whether it takes something that has yet to be typed, so that
+    /// choosing it completes it rather than runs it.
+    pub more: bool,
 }
 
 /// The words of a command that are typed as they are, not the `<this>` or
@@ -34,10 +41,11 @@ pub fn offered(typed: &str, groups: &[(String, bool)], plugins: &[String]) -> Ve
     let words: Vec<&str> = typed.split_whitespace().collect();
     // A word is still being typed unless a space follows it.
     let open = !typed.ends_with(char::is_whitespace);
-    let item = |insert: String, usage: String, about: &str| Item {
+    let item = |insert: String, usage: String, about: &str, more: bool| Item {
         insert,
         usage,
         about: about.to_owned(),
+        more,
     };
     // The names of what there is, for the commands that take one.
     let named = |prefix: &[&str], names: Vec<(String, String)>| -> Option<Vec<Item>> {
@@ -58,7 +66,10 @@ pub fn offered(typed: &str, groups: &[(String, bool)], plugins: &[String]) -> Ve
             .into_iter()
             .filter(|(name, _)| name.to_lowercase().starts_with(&start));
         let items: Vec<Item> = matching
-            .map(|(name, about)| item(format!("{head} {name} "), format!("{head} {name}"), &about))
+            .map(|(name, about)| {
+                let whole = format!("{head} {name}");
+                item(whole.clone(), whole, &about, false)
+            })
             .collect();
         (!items.is_empty()).then_some(items)
     };
@@ -101,38 +112,151 @@ pub fn offered(typed: &str, groups: &[(String, bool)], plugins: &[String]) -> Ve
         if !fits || (words.len() > command.len() && !takes_more) {
             continue;
         }
-        let insert = format!("{}{}", command.join(" "), if takes_more { " " } else { "" });
-        items.push(item(insert, (*usage).to_owned(), tr(about)));
+        // Only what it cannot do without keeps it from being run as it is.
+        let more = usage.contains('<');
+        let insert = format!("{}{}", command.join(" "), if more { " " } else { "" });
+        items.push(item(insert, (*usage).to_owned(), tr(about), more));
     }
     items
 }
 
-/// Whether what was typed is a whole command, to be run as it is rather
-/// than completed.
-fn whole(typed: &str, item: &Item) -> bool {
-    typed.trim_end().len() >= item.insert.trim_end().len()
+/// A command as the palette shows it: without the slash it is typed
+/// after in the command line.
+fn shown_usage(usage: &str) -> &str {
+    usage.strip_prefix('/').unwrap_or(usage)
+}
+
+/// What a command said: a line of text, and for a thing that can be
+/// chosen, what it is and the command that choosing it runs.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Said {
+    pub text: String,
+    pub about: String,
+    pub run: Option<String>,
+}
+
+/// A line shown inside the command line for a moment.
+#[derive(Debug, Clone, PartialEq)]
+pub struct BarNote {
+    pub text: String,
+    /// Something could not be done: it stays until something is typed.
+    pub problem: bool,
+    /// When it was first shown, in the time of the window.
+    pub since: Option<f64>,
 }
 
 impl Tab {
-    /// What the palette offers now, if it is to be shown at all.
+    /// Says, as part of what a command answers, a thing that can be
+    /// chosen: `command` is run by choosing it. Said outside a command, it
+    /// is a line like any other.
+    pub(super) fn offer(&mut self, text: &str, about: &str, command: &str) {
+        if self.answering {
+            self.voice.say(&format!("{text}: {about}"));
+            self.answer.push(Said {
+                text: text.to_owned(),
+                about: about.to_owned(),
+                run: Some(command.to_owned()),
+            });
+        } else {
+            self.note(&format!("{text}: {about}"));
+        }
+    }
+
+    /// Says that what was asked could not be done.
+    pub(super) fn refuse(&mut self, text: &str) {
+        self.answer_failed |= self.answering;
+        self.note(text);
+    }
+
+    /// Says something inside the command line, if it is empty to say it
+    /// in, and among the lines of the game if not: for what a command
+    /// answers some time after it was given.
+    pub(super) fn bar(&mut self, text: &str, problem: bool) {
+        if self.input.is_empty() {
+            self.voice.say(text);
+            self.bar_note = Some(BarNote {
+                text: text.to_owned(),
+                problem,
+                since: None,
+            });
+        } else {
+            self.note(text);
+        }
+    }
+
+    /// Carries out a command of the client and puts what it answers where
+    /// it is shown. Returns whether it was one.
+    pub(super) fn run_command(&mut self, line: &str) -> bool {
+        self.results = None;
+        self.bar_note = None;
+        self.palette_cache = None;
+        self.palette_chosen = 0;
+        self.answer.clear();
+        (self.answering, self.answer_failed) = (true, false);
+        let ours = self.map_command(line);
+        self.answering = false;
+        let mut said = std::mem::take(&mut self.answer);
+        match said.len() {
+            0 => {}
+            // A line of text is said in the command line itself.
+            1 if said[0].run.is_none() => {
+                self.bar_note = Some(BarNote {
+                    text: said.remove(0).text,
+                    problem: self.answer_failed,
+                    since: None,
+                });
+            }
+            // More than that is a list, to read and to choose from.
+            _ => {
+                let items = said.into_iter().map(|said| Item {
+                    insert: said.run.unwrap_or_default(),
+                    usage: said.text,
+                    about: said.about,
+                    more: false,
+                });
+                self.results = Some(items.collect());
+                self.palette_query.clear();
+                self.palette_open = true;
+            }
+        }
+        ours
+    }
+
+    /// Opens the palette of commands, or closes it.
+    pub fn toggle_palette(&mut self) {
+        self.palette_open = !self.palette_open;
+        self.palette_query.clear();
+        self.palette_chosen = 0;
+        self.results = None;
+        self.palette_focus = self.palette_open;
+    }
+
+    fn close_palette(&mut self) {
+        self.palette_open = false;
+        self.results = None;
+        self.palette_query.clear();
+        self.palette_chosen = 0;
+    }
+
+    /// What the palette offers: what the last command listed, until
+    /// something is typed, or the commands that begin as what is typed.
     pub(super) fn palette_items(&mut self) -> Vec<Item> {
-        // Not over a command left there after being sent, nor once put away.
-        if !self.input.starts_with('/')
-            || self.input_hidden
-            || self.kept_input.is_some()
-            || self.palette_put_away.as_deref() == Some(self.input.as_str())
+        if self.palette_query.is_empty()
+            && let Some(results) = &self.results
         {
-            return Vec::new();
+            return results.clone();
         }
         // Worked out when what is typed changes, not every frame.
         if let Some((typed, items)) = &self.palette_cache
-            && *typed == self.input
+            && *typed == self.palette_query
         {
             return items.clone();
         }
+        // As it would be typed in the command line: after a slash.
+        let typed = format!("/{}", self.palette_query.trim_start_matches('/'));
         // The groups and the plugins there are, for the commands that
         // take the name of one; the plugins are read from the disk.
-        let groups: Vec<(String, bool)> = if self.input.starts_with("/group") {
+        let groups: Vec<(String, bool)> = if typed.starts_with("/group") {
             (self.scripts.groups().into_iter())
                 .map(|name| {
                     let on = self.scripts.group_enabled(&name);
@@ -143,33 +267,64 @@ impl Tab {
             Vec::new()
         };
         let plugins = match &self.profiles {
-            Some(profiles) if self.input.starts_with("/plugin ") => profiles.packages(),
+            Some(profiles) if typed.starts_with("/plugin ") => profiles.packages(),
             _ => Vec::new(),
         };
-        let items = offered(&self.input, &groups, &plugins);
-        self.palette_cache = Some((self.input.clone(), items.clone()));
+        let items = offered(&typed, &groups, &plugins);
+        self.palette_cache = Some((self.palette_query.clone(), items.clone()));
         items
     }
 
-    /// Lets the keys that move in the palette do so, before the command
-    /// line gets them: the arrows choose, Tab completes, Enter completes
-    /// what is not yet a whole command, and Escape puts the palette away.
-    /// Returns whether the command line's text was changed.
-    pub(super) fn palette_keys(&mut self, ui: &mut egui::Ui, items: &[Item]) -> bool {
-        if items.is_empty() {
-            self.palette_chosen = 0;
-            return false;
+    /// Does what choosing `item` means: runs it, or, if it takes
+    /// something yet to be typed, completes it to type that after. With
+    /// `typed_more`, what it takes is already there, and it is run as
+    /// typed.
+    fn choose(&mut self, item: &Item, typed_more: bool) {
+        // Something only to be read: done with the list.
+        if item.insert.is_empty() {
+            return self.close_palette();
         }
-        self.palette_chosen = self.palette_chosen.min(items.len() - 1);
-        let (up, down, tab, escape) = ui.input_mut(|input| {
+        let typed = format!("/{}", self.palette_query.trim_start_matches('/'));
+        if item.more && !typed_more {
+            self.palette_query = item.insert.trim_start_matches('/').to_owned();
+            self.palette_chosen = 0;
+            self.palette_cursor_end = true;
+            return;
+        }
+        let line = if item.more {
+            typed
+        } else {
+            item.insert.clone()
+        };
+        self.close_palette();
+        self.history.add(&line);
+        self.run_command(&line);
+    }
+
+    /// The palette of commands, over the window while it is open.
+    pub(super) fn palette(&mut self, ctx: &egui::Context) {
+        let theme = theme::current();
+        let shown =
+            ctx.animate_bool_with_time(egui::Id::unique("palette shown"), self.palette_open, 0.1);
+        if !self.palette_open {
+            return;
+        }
+        let items = self.palette_items();
+        self.palette_chosen = self.palette_chosen.min(items.len().saturating_sub(1));
+        // Its keys, before the field in it gets them.
+        let (up, down, tab, escape, enter) = ctx.input_mut(|input| {
             (
                 input.consume_key(Modifiers::NONE, Key::ArrowUp),
                 input.consume_key(Modifiers::NONE, Key::ArrowDown),
                 input.consume_key(Modifiers::NONE, Key::Tab),
                 input.consume_key(Modifiers::NONE, Key::Escape),
+                input.consume_key(Modifiers::NONE, Key::Enter),
             )
         });
-        if up || down {
+        if escape {
+            return self.close_palette();
+        }
+        if (up || down) && !items.is_empty() {
             let last = items.len() - 1;
             self.palette_chosen = match (up, self.palette_chosen) {
                 (true, 0) => last,
@@ -181,102 +336,114 @@ impl Tab {
             let chosen = &items[self.palette_chosen];
             self.voice.stop();
             self.voice
-                .say(&format!("{}. {}", chosen.usage, chosen.about));
+                .say(&format!("{}. {}", shown_usage(&chosen.usage), chosen.about));
         }
-        if escape {
-            self.palette_put_away = Some(self.input.clone());
-            return false;
-        }
-        let chosen = &items[self.palette_chosen];
-        // Enter runs a whole command and completes one that is not.
-        let enter = !whole(&self.input, chosen)
-            && ui.input_mut(|input| input.consume_key(Modifiers::NONE, Key::Enter));
-        if (tab || enter) && self.input != chosen.insert {
-            self.input.clone_from(&chosen.insert);
-            self.palette_chosen = 0;
-            return true;
-        }
-        false
-    }
-
-    /// Draws, over the command line, the palette if there is anything to
-    /// offer, or else what the last command answered.
-    pub(super) fn palette_card(&mut self, ui: &egui::Ui, items: &[Item], line: egui::Rect) {
-        let theme = theme::current();
-        // An answer is gone by itself after a moment, longer the more it
-        // says, so as not to stay over the game; the palette is not.
-        let now = ui.input(|input| input.time);
-        let mut fading = 1.0;
-        if items.is_empty()
-            && let Some((_, lines)) = &self.command_answer
-        {
-            let lasts = (2.5 + 0.6 * lines.len() as f64).min(9.0);
-            let left = self.command_answer_at.get_or_insert(now).to_owned() + lasts - now;
-            if left <= 0.0 {
-                self.command_answer = None;
-            } else if left < 0.3 {
-                fading = (left / 0.3) as f32;
-                ui.ctx().request_repaint();
-            } else {
-                ui.ctx()
-                    .request_repaint_after(std::time::Duration::from_secs_f64(left - 0.3));
+        let listed = self.results.is_some() && self.palette_query.is_empty();
+        if let Some(chosen) = items.get(self.palette_chosen).cloned() {
+            let typed = format!("/{}", self.palette_query.trim_start_matches('/'));
+            let typed_more = typed.trim_end().len() > chosen.insert.trim_end().len();
+            if enter {
+                return self.choose(&chosen, typed_more);
+            }
+            // Tab completes, and there is nothing to complete in a list.
+            if tab && !listed && !typed_more {
+                self.palette_query = chosen.insert.trim_start_matches('/').to_owned();
+                self.palette_chosen = 0;
+                self.palette_cursor_end = true;
             }
         }
-        let showing = !items.is_empty() || self.command_answer.is_some();
-        // It slides up into place, and away.
-        let shown =
-            ui.ctx()
-                .animate_bool_with_time(ui.make_persistent_id("palette shown"), showing, 0.12);
-        if !showing {
-            return;
-        }
-        let width = line.width().min(620.0);
-        let place = line.left_top() + egui::vec2(0.0, -8.0 + (1.0 - shown) * 10.0);
+
+        const ROWS: usize = 8;
+        const ROW: f32 = 32.0;
+        let screen = ctx.content_rect();
+        let width = (screen.width() - 32.0).min(560.0);
+        let place = egui::pos2(screen.center().x, screen.top() + 84.0 - (1.0 - shown) * 8.0);
         let card = egui::Frame::new()
             .fill(theme.raised)
             .stroke(egui::Stroke::new(1.0, theme.border))
-            .corner_radius(egui::CornerRadius::same(12))
+            .corner_radius(egui::CornerRadius::same(14))
             .inner_margin(egui::Margin::same(6))
             .shadow(egui::Shadow {
-                offset: [0, 8],
-                blur: 24,
+                offset: [0, 10],
+                blur: 30,
                 spread: 0,
-                color: egui::Color32::from_black_alpha(if theme.dark { 120 } else { 40 }),
+                color: egui::Color32::from_black_alpha(if theme.dark { 110 } else { 36 }),
             });
         let mut clicked = None;
-        let mut dismissed = false;
-        let area = egui::Area::new(ui.make_persistent_id("palette"))
+        let field = egui::Id::unique("palette field");
+        let area = egui::Area::new(egui::Id::unique("palette"))
             .order(egui::Order::Foreground)
             .fixed_pos(place)
-            .pivot(egui::Align2::LEFT_BOTTOM)
-            .show(ui.ctx(), |ui| {
-                ui.set_opacity(shown * fading);
+            .pivot(egui::Align2::CENTER_TOP)
+            .show(ctx, |ui| {
+                ui.set_opacity(shown);
                 card.show(ui, |ui| {
-                    ui.set_width(width - 14.0);
-                    ui.spacing_mut().item_spacing.y = 1.0;
+                    ui.set_width(width - 12.0);
+                    ui.spacing_mut().item_spacing.y = 0.0;
+                    // What to look for.
+                    let hint = if listed {
+                        tr("Choose one, or type a command")
+                    } else {
+                        tr("Type a command")
+                    };
+                    let hint = RichText::new(hint)
+                        .font(theme::font(Weight::Regular, 14.5))
+                        .color(theme.text_faint);
+                    let edit = egui::Frame::new()
+                        .inner_margin(egui::Margin::symmetric(10, 8))
+                        .show(ui, |ui| {
+                            TextEdit::singleline(&mut self.palette_query)
+                                .id(field)
+                                .frame(egui::Frame::NONE)
+                                .font(theme::font(Weight::Regular, 14.5))
+                                .hint_text(hint)
+                                .lock_focus(true)
+                                .desired_width(f32::INFINITY)
+                                .show(ui)
+                        })
+                        .inner;
+                    if edit.response.changed() {
+                        self.palette_chosen = 0;
+                        self.results = None;
+                    }
+                    if std::mem::take(&mut self.palette_cursor_end) {
+                        let end = egui::text::CCursor::new(self.palette_query.chars().count());
+                        let mut state = edit.state.clone();
+                        state
+                            .cursor
+                            .set_char_range(Some(egui::text::CCursorRange::one(end)));
+                        state.store(ui.ctx(), field);
+                    }
+                    // The keyboard is its own while it is open.
+                    if std::mem::take(&mut self.palette_focus) || !edit.response.has_focus() {
+                        edit.response.request_focus();
+                    }
                     if items.is_empty() {
-                        dismissed = self.answer_rows(ui);
                         return;
                     }
+                    let line = ui.available_rect_before_wrap();
+                    ui.painter().hline(
+                        line.x_range(),
+                        line.top(),
+                        egui::Stroke::new(1.0, theme.border),
+                    );
+                    ui.add_space(6.0);
                     // A window of the list around the one chosen.
-                    const ROWS: usize = 8;
-                    let first = self
-                        .palette_chosen
-                        .saturating_sub(ROWS - 1)
+                    let first = (self.palette_chosen.saturating_sub(ROWS - 1))
                         .min(items.len().saturating_sub(ROWS));
                     for (index, item) in items.iter().enumerate().skip(first).take(ROWS) {
                         let chosen = index == self.palette_chosen;
                         let (rect, row) = ui.allocate_exact_size(
-                            egui::vec2(ui.available_width(), 32.0),
+                            egui::vec2(ui.available_width(), ROW),
                             egui::Sense::click(),
                         );
+                        let usage = shown_usage(&item.usage);
                         row.widget_info(|| {
-                            egui::WidgetInfo::selected(
-                                egui::Role::ListItem,
-                                true,
-                                chosen,
-                                format!("{}. {}", item.usage, item.about),
-                            )
+                            let said = match item.about.is_empty() {
+                                true => usage.to_owned(),
+                                false => format!("{usage}. {}", item.about),
+                            };
+                            egui::WidgetInfo::selected(egui::Role::ListItem, true, chosen, said)
                         });
                         if chosen || row.hovered() {
                             let fill = if chosen {
@@ -285,95 +452,77 @@ impl Tab {
                                 theme.hover.gamma_multiply(0.5)
                             };
                             ui.painter()
-                                .rect_filled(rect, egui::CornerRadius::same(7), fill);
+                                .rect_filled(rect, egui::CornerRadius::same(8), fill);
                         }
-                        let painter = ui
-                            .painter()
-                            .with_clip_rect(rect.shrink2(egui::vec2(8.0, 0.0)));
-                        let usage = painter.text(
-                            rect.left_center() + egui::vec2(10.0, 0.0),
-                            egui::Align2::LEFT_CENTER,
-                            &item.usage,
-                            egui::FontId::monospace(13.0),
-                            theme.text,
-                        );
-                        painter.text(
-                            egui::pos2(usage.right() + 14.0, rect.center().y),
-                            egui::Align2::LEFT_CENTER,
+                        let inside = rect.shrink2(egui::vec2(10.0, 0.0));
+                        // What it is, at the right, and the thing itself
+                        // up to it.
+                        let about = ui.painter().with_clip_rect(inside).text(
+                            inside.right_center(),
+                            egui::Align2::RIGHT_CENTER,
                             &item.about,
                             theme::font(Weight::Regular, 12.5),
-                            theme.text_dim,
+                            theme.text_faint,
+                        );
+                        let room = egui::Rect::from_min_max(
+                            inside.min,
+                            egui::pos2(about.left() - 14.0, inside.max.y),
+                        );
+                        ui.painter().with_clip_rect(room).text(
+                            inside.left_center(),
+                            egui::Align2::LEFT_CENTER,
+                            usage,
+                            theme::font(Weight::Regular, 13.5),
+                            theme.text,
                         );
                         if row.clicked() {
                             clicked = Some(index);
                         }
                     }
-                    ui.add_space(4.0);
-                    let keys =
-                        tr("↑ ↓ to choose  ·  Tab to complete  ·  Enter to run  ·  Esc to close");
-                    let hint = RichText::new(keys)
-                        .font(theme::font(Weight::Regular, 11.5))
-                        .color(theme.text_faint);
-                    ui.horizontal(|ui| {
-                        ui.add_space(10.0);
-                        ui.add(Label::new(hint).selectable(false));
-                    });
                 });
             });
-        // It stays for as long as the pointer is over it, to be read.
-        if area.response.contains_pointer() && self.command_answer.is_some() {
-            self.command_answer_at = Some(now);
-        }
         if let Some(index) = clicked {
-            self.input.clone_from(&items[index].insert);
-            self.palette_chosen = 0;
-            self.cursor_to_end = true;
+            let item = items[index].clone();
+            self.palette_focus = true;
+            return self.choose(&item, false);
         }
-        if dismissed {
-            self.command_answer = None;
+        // A click anywhere else closes it.
+        if area.response.clicked_elsewhere() {
+            self.close_palette();
         }
     }
 
-    /// What the last command answered, with the command above it and a
-    /// cross to put it away. Returns whether it was put away.
-    fn answer_rows(&mut self, ui: &mut egui::Ui) -> bool {
+    /// What the last command said in a line, while it is to be shown,
+    /// and the colour to show it in: for a moment, fading at the end.
+    pub(super) fn bar_said(&mut self, ui: &egui::Ui) -> Option<(String, egui::Color32)> {
         let theme = theme::current();
-        let Some((command, lines)) = &self.command_answer else {
-            return false;
+        let now = ui.input(|input| input.time);
+        let note = self.bar_note.as_mut()?;
+        let since = *note.since.get_or_insert(now);
+        // A problem stays to be read; the rest goes by itself, sooner the
+        // less it says.
+        let mut fading = 1.0;
+        if !note.problem {
+            let lasts = (2.0 + 0.05 * note.text.chars().count() as f64).min(7.0);
+            let left = since + lasts - now;
+            if left <= 0.0 {
+                self.bar_note = None;
+                return None;
+            }
+            if left < 0.4 {
+                fading = (left / 0.4) as f32;
+                ui.ctx().request_repaint();
+            } else {
+                ui.ctx()
+                    .request_repaint_after(std::time::Duration::from_secs_f64(left - 0.4));
+            }
+        }
+        let colour = if note.problem {
+            theme.danger
+        } else {
+            theme.text_dim
         };
-        let mut closed = false;
-        ui.horizontal(|ui| {
-            ui.add_space(8.0);
-            ui.add(
-                Label::new(
-                    RichText::new(command)
-                        .font(egui::FontId::monospace(12.5))
-                        .color(theme.text_faint),
-                )
-                .selectable(false),
-            );
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                closed = crate::widgets::close_button(ui, tr("Close"), 22.0).clicked();
-            });
-        });
-        egui::ScrollArea::vertical()
-            .max_height(260.0)
-            .show(ui, |ui| {
-                for line in lines {
-                    ui.horizontal(|ui| {
-                        ui.add_space(8.0);
-                        ui.add(
-                            Label::new(
-                                RichText::new(line)
-                                    .font(egui::FontId::monospace(13.0))
-                                    .color(theme.text),
-                            )
-                            .wrap(),
-                        );
-                    });
-                }
-            });
-        closed
+        Some((note.text.clone(), colour.gamma_multiply(fading)))
     }
 }
 
@@ -406,14 +555,18 @@ mod tests {
         assert_eq!(usages("/group "), ["/group Combat", "/group Social"]);
         assert_eq!(usages("/group so"), ["/group Social"]);
         assert_eq!(usages("/plugin enable "), ["/plugin enable mapper"]);
-        // What choosing one puts in the line leaves room for what it takes.
+        // What choosing one puts in the line leaves room for what it
+        // cannot do without, and only then is it not run as it is.
         let walk = offered("/map wa", &[], &[]).remove(0);
-        assert_eq!(walk.insert, "/map walk ");
-        assert!(!whole("/map wa", &walk) && whole("/map walk Temple", &walk));
-        // A name typed in full is run, not completed once more.
-        let combat = offered("/group Combat", &[("Combat".to_owned(), true)], &[]).remove(0);
-        assert!(whole("/group Combat", &combat) && !whole("/group Com", &combat));
+        assert_eq!((walk.insert.as_str(), walk.more), ("/map walk ", true));
         let stop = offered("/map st", &[], &[]).remove(0);
-        assert!(!whole("/map st", &stop) && whole("/map stop", &stop));
+        assert_eq!((stop.insert.as_str(), stop.more), ("/map stop", false));
+        let avoid = offered("/map av", &[], &[]).remove(0);
+        assert_eq!((avoid.insert.as_str(), avoid.more), ("/map avoid", false));
+        let combat = offered("/group Com", &[("Combat".to_owned(), true)], &[]).remove(0);
+        assert_eq!(
+            (combat.insert.as_str(), combat.more),
+            ("/group Combat", false)
+        );
     }
 }

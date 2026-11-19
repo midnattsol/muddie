@@ -15,6 +15,8 @@ impl Tab {
             self.bound_keys(ui);
         }
         self.connection_window(ui.ctx());
+        // The palette of commands, over whichever view is shown.
+        self.palette(ui.ctx());
         // The automation view takes the place of the game while open.
         if self.rules_open {
             return self.automation_page(ui);
@@ -449,7 +451,7 @@ impl Tab {
                 widgets::caption(ui, tr("Profile"));
                 widgets::group(ui, |ui| {
                     widgets::setting_row(ui, tr("Profile name"), &mut |ui| {
-                        save = ui.button(tr("Save profile")).clicked();
+                        save = crate::widgets::button(ui, tr("Save profile")).clicked();
                         widgets::row_field(ui, &mut self.profile_name, "", 150.0)
                     });
                 });

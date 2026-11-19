@@ -48,6 +48,9 @@ msgstr ""
 msgid "Help"
 msgstr ""
 
+msgid "Commands…"
+msgstr ""
+
 msgid "Keyboard shortcuts"
 msgstr ""
 
@@ -103,6 +106,9 @@ msgid "The same, for the chat"
 msgstr ""
 
 msgid "Read the gauges"
+msgstr ""
+
+msgid "Commands"
 msgstr ""
 
 msgid "Switch between the game and the editor"
@@ -773,9 +779,6 @@ msgstr ""
 msgid "Do"
 msgstr ""
 
-msgid "Commands"
-msgstr ""
-
 msgid "Lua"
 msgstr ""
 
@@ -894,7 +897,7 @@ msgstr ""
 msgid "Nothing here yet. A trigger can show lines in this panel, and so can a script."
 msgstr ""
 
-msgid "↑ ↓ to choose  ·  Tab to complete  ·  Enter to run  ·  Esc to close"
+msgid "Choose one, or type a command"
 msgstr ""
 
 msgid "What the MUD sends"
@@ -1161,9 +1164,6 @@ msgstr ""
 msgid "Walk stopped: the last move had no effect."
 msgstr ""
 
-msgid "Commands of the client, typed like any other:"
-msgstr ""
-
 msgid "There are no groups. Give a rule a group in the editor."
 msgstr ""
 
@@ -1179,9 +1179,6 @@ msgid "{0} (#{1}) in {2}. Exits: {3}."
 msgstr ""
 
 msgid "No room matches."
-msgstr ""
-
-msgid "Several rooms match; use /map walk with a room number:"
 msgstr ""
 
 #, python-brace-format

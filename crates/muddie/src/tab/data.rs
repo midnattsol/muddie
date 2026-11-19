@@ -291,10 +291,10 @@ look at it to know what a gauge can follow or a script can use.");
         widgets::group(ui, |ui| {
             for leaf in &all {
                 widgets::setting_row(ui, &leaf.path, &mut |ui| {
-                    if leaf.gauge && ui.button(tr("Make a gauge")).clicked() {
+                    if leaf.gauge && crate::widgets::button(ui, tr("Make a gauge")).clicked() {
                         gauge = Some(leaf.path.clone());
                     }
-                    let copy = ui.button(tr("Copy the path"));
+                    let copy = crate::widgets::button(ui, tr("Copy the path"));
                     if copy.clicked() {
                         ui.ctx().copy_text(leaf.path.clone());
                     }

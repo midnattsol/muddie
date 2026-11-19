@@ -426,7 +426,7 @@ impl Tab {
                             .color(theme.text_dim);
                         ui.add(Label::new(label).selectable(false))
                             .on_hover_text(corners);
-                        let add = ui.button(tr("Add a panel"));
+                        let add = crate::widgets::button(ui, tr("Add a panel"));
                         egui::Popup::menu(&add).show(|ui| {
                             widgets::menu_width(ui);
                             let kinds = [
@@ -1067,7 +1067,7 @@ impl Tab {
                     );
                 }
             });
-            if spec.kind == Kind::Gauges && ui.button(tr("Gauges…")).clicked() {
+            if spec.kind == Kind::Gauges && crate::widgets::button(ui, tr("Gauges…")).clicked() {
                 self.open_gauges(spec.id);
             }
             if earlier || later {
