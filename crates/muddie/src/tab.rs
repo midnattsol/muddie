@@ -34,6 +34,7 @@ use crate::voice::Voice;
 use muddie_sound::{self as sound, Msp, Player};
 
 mod automation;
+mod data;
 mod layout;
 mod plugins;
 mod view;
@@ -85,6 +86,7 @@ pub struct Tab {
     removed_panel: Option<usize>,
     /// The dialog of the gauges, and the one chosen in it.
     gauges_open: bool,
+    gauges_panel: u32,
     gauge_selected: usize,
     /// Stands in for the channels when no panel shows them.
     no_chat: Output,
@@ -133,7 +135,7 @@ pub struct Tab {
     /// screen; `None` until read, and again after one is saved.
     welcome_profiles: Option<Vec<(String, String)>>,
     /// The rule selected in each section of the automation window.
-    rules_selected: [usize; 6],
+    rules_selected: [usize; 7],
     /// The script files that can be edited, and the one being edited:
     /// its file, its name as typed, its text, and that text as saved.
     script_files: Vec<PathBuf>,
@@ -153,6 +155,8 @@ pub struct Tab {
     rules_sample: String,
     /// The next key pressed becomes the selected macro's key.
     recording_key: bool,
+    /// What the MUD has sent besides text, by name, to look at.
+    data_seen: Vec<data::Seen>,
     /// The session has no saved profile to keep its variables in, so
     /// they are carried from one start of the scripts to the next.
     variables_passing: bool,
@@ -297,7 +301,8 @@ impl Tab {
             panel_rects: Vec::new(),
             removed_panel: None,
             gauges_open: false,
-            gauge_selected: 0,
+            gauges_panel: 0,
+            gauge_selected: usize::MAX,
             no_chat: Output::default(),
             dispatched: None,
             map,
@@ -321,7 +326,7 @@ impl Tab {
             connection_open: false,
             started: false,
             welcome_profiles: None,
-            rules_selected: [0; 6],
+            rules_selected: [0; 7],
             script_files: Vec::new(),
             script_loaded: None,
             script_name: String::new(),
@@ -334,6 +339,7 @@ impl Tab {
             rules_changed_at: None,
             rules_sample: String::new(),
             recording_key: false,
+            data_seen: Vec::new(),
             variables_passing: false,
             variable_loaded: None,
             variable_name: String::new(),
@@ -949,6 +955,7 @@ impl Tab {
                     {
                         self.entered_room(&data);
                     }
+                    self.saw_data(&package, false, &data);
                     self.scripts.on_gmcp(&package, &data);
                     self.run_actions();
                 }
@@ -959,6 +966,7 @@ impl Tab {
                     if variable == "ROOM" && self.scripts.native_map() {
                         self.entered_room(&data);
                     }
+                    self.saw_data(&variable, true, &data);
                     self.scripts.on_msdp(&variable, &data);
                     self.run_actions();
                 }
@@ -2766,6 +2774,72 @@ mod tests {
     }
 
     #[test]
+    fn what_the_mud_sends_is_kept_to_look_at_and_made_into_gauges() {
+        let mut harness = window(None);
+        let (events, _sent) = fake_connection(harness.state_mut().tab_mut());
+        let vitals = |hp: u32| Event::Gmcp {
+            package: "Char.Vitals".into(),
+            data: format!(r#"{{"health": {{"current": {hp}, "max": 100}}}}"#),
+        };
+        events.send(vitals(40)).unwrap();
+        events.send(vitals(62)).unwrap();
+        let hunger = Event::Msdp {
+            variable: "HUNGER".into(),
+            data: "\"7\"".into(),
+        };
+        events.send(hunger).unwrap();
+        harness.run_steps(3);
+        let app = harness.state_mut().tab_mut();
+        let seen: Vec<(&str, bool, u32)> = app
+            .data_seen
+            .iter()
+            .map(|seen| (seen.name.as_str(), seen.msdp, seen.count))
+            .collect();
+        assert_eq!(seen, [("Char.Vitals", false, 2), ("HUNGER", true, 1)]);
+        assert!(
+            app.data_seen[0].json.contains("62") && app.data_seen[0].earlier[0].1.contains("40")
+        );
+        // The editor shows it, and a number there becomes a gauge with
+        // its maximum found, in a panel of gauges.
+        app.open_automation(6);
+        harness.run_steps(3);
+        assert!(
+            harness
+                .query_by_label("Char.Vitals.health.current")
+                .is_some()
+        );
+        harness
+            .get_all_by_label("Make a gauge")
+            .next()
+            .unwrap()
+            .click();
+        harness.run_steps(3);
+        let app = harness.state_mut().tab_mut();
+        let made = app
+            .rules_draft
+            .gauges
+            .last()
+            .expect("a gauge was made")
+            .clone();
+        assert_eq!(
+            (made.name.as_str(), made.value.as_str(), made.max.as_str()),
+            (
+                "health",
+                "Char.Vitals.health.current",
+                "Char.Vitals.health.max"
+            )
+        );
+        assert!(app.gauges_open);
+        // Saved, it follows the value, in the panel it was put in.
+        app.close_automation();
+        events.send(vitals(55)).unwrap();
+        harness.run_steps(3);
+        let app = harness.state().tab();
+        assert!(app.gauge_is_in("health", made.panel));
+        assert!(app.gauges.summary().contains("health 55 of 100"));
+    }
+
+    #[test]
     fn session_is_logged_when_asked() {
         let dir = std::env::temp_dir().join(format!("muddie-app-log-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
@@ -3226,6 +3300,27 @@ mod tests {
         app.rules_selected[4] = 1;
         rules.run_steps(3);
         save(&mut rules, "variables");
+        let app = rules.state_mut().tab_mut();
+        app.saw_data(
+            "Char.Vitals",
+            false,
+            r#"{"health": {"current": 40, "max": 100}}"#,
+        );
+        app.saw_data("Char.Vitals", false, r#"{"health": {"current": 62, "max": 100}, "stamina": {"current": 80, "max": 90}, "focus": {"current": 12, "max": 30}}"#);
+        app.saw_data(
+            "Map.Render",
+            false,
+            r##"{"width": 5, "height": 3, "lines": ["  #  ", "#-@-#", "  #  "]}"##,
+        );
+        app.saw_data(
+            "Room.Info",
+            false,
+            r#"{"num": 2, "name": "Plaza Mayor", "exits": {"n": 5, "e": 3}}"#,
+        );
+        app.rules_section = 6;
+        app.rules_selected[6] = 0;
+        rules.run_steps(3);
+        save(&mut rules, "data");
         // The menus, as someone using Spanish sees them.
         for menu in ["Sesión", "Preferencias"] {
             let mut menus = connected_demo_window();
@@ -3258,7 +3353,14 @@ mod tests {
         layout.run_steps(4);
         save(&mut layout, "layout");
         let app = layout.state_mut().tab_mut();
-        app.open_gauges();
+        let gauges = app
+            .layout
+            .panels
+            .iter()
+            .find(|panel| panel.kind == layout::Kind::Gauges)
+            .unwrap()
+            .id;
+        app.open_gauges(gauges);
         app.rules_draft.gauges.push(crate::rules::Gauge {
             name: "Salud".into(),
             enabled: true,
@@ -3267,6 +3369,7 @@ mod tests {
             colour: "red".into(),
             segments: true,
             low: 30,
+            panel: 0,
         });
         layout.run_steps(4);
         save(&mut layout, "gauges");

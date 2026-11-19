@@ -161,6 +161,21 @@ pub struct Gauge {
     pub segments: bool,
     /// The percentage under which the numbers turn to a warning colour.
     pub low: u8,
+    /// The panel of gauges it is shown in, by the panel's id; none shows
+    /// it in the first there is.
+    pub panel: u32,
+}
+
+impl Gauge {
+    /// What the gauge is called on screen: its name, or failing that
+    /// where its value is.
+    pub fn shown_name(&self) -> &str {
+        if self.name.trim().is_empty() {
+            self.value.trim()
+        } else {
+            self.name.trim()
+        }
+    }
 }
 
 impl Trigger {
@@ -770,6 +785,7 @@ mod tests {
             colour: "red".into(),
             segments: true,
             low: 30,
+            panel: 0,
         };
         let rules = Rules {
             gauges: vec![
@@ -1055,6 +1071,7 @@ mod tests {
                 colour: "red".into(),
                 segments: true,
                 low: 30,
+                panel: 0,
             }],
         };
         rules.save(&path).unwrap();

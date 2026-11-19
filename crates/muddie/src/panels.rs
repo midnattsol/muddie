@@ -78,10 +78,6 @@ impl Gauges {
         self.0.clear();
     }
 
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-
     /// All gauges as a sentence for speech, e.g. "HP 80 of 100, MP 5 of 50".
     pub fn summary(&self) -> String {
         let parts: Vec<String> = (self.0.iter())
@@ -90,14 +86,20 @@ impl Gauges {
         parts.join(", ")
     }
 
-    /// Draws the gauges in a row that wraps.
-    pub fn show(&self, ui: &mut Ui) {
+    /// Draws, in a row that wraps, the gauges `wanted` says yes to by
+    /// their names. Returns whether there were any.
+    pub fn show(&self, ui: &mut Ui, wanted: impl Fn(&str) -> bool) -> bool {
+        let chosen: Vec<&Gauge> = self.0.iter().filter(|gauge| wanted(&gauge.name)).collect();
+        if chosen.is_empty() {
+            return false;
+        }
         ui.horizontal_wrapped(|ui| {
-            ui.spacing_mut().item_spacing.x = 22.0;
-            for gauge in &self.0 {
+            ui.spacing_mut().item_spacing = vec2(22.0, 8.0);
+            for gauge in chosen {
                 draw_gauge(ui, &gauge.name, gauge.value, gauge.max, &gauge.look);
             }
         });
+        true
     }
 }
 

@@ -15,6 +15,7 @@ impl Tab {
             self.bound_keys(ui);
         }
         self.connection_window(ui.ctx());
+        self.gauges_dialog(ui.ctx());
         // The automation view takes the place of the game while open.
         if self.rules_open {
             return self.automation_page(ui);

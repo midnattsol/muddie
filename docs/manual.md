@@ -127,6 +127,14 @@ reads and changes it as `vars.name`. They belong to the session: with a saved
 profile they are kept with it, and without one they last until the session
 is closed, going into the profile if it is then saved.
 
+**MUD data**, the last section of the editor, shows what the MUD sends
+besides text, with GMCP or MSDP, as it comes: each package or variable with
+its values one by one, the message as it came, and those before it. It is
+where to look before writing a gauge or a script. **Copy the path** takes
+what leads to a value, such as `Char.Vitals.health.current`, and **Make a
+gauge** makes one that follows a number, with the maximum that goes with it
+if there is one beside it.
+
 A mistake in one rule or script is reported with its name and does not stop
 the others. Triggers and aliases have a box to try them out: paste a line
 from the MUD, or type a command, and it says whether it matches and what it
@@ -144,7 +152,8 @@ right and the gauges below. **Preferences** lists them, each to show or hide.
 **Preferences > Edit the layout…** is where they are made and placed, on the game
 itself:
 
-- **Add a panel** makes one: of text, the map, or the gauges.
+- **Add a panel** makes one: of text, the map, or gauges. There is one map;
+  of the others, as many as wanted.
 - Drag a panel by its handle (the six dots) to another side of the window, or
   press one of the four small pictures beside its name. Drag its edge to size
   it.
@@ -164,7 +173,9 @@ write to one with `panel_add(name, text)`, or put a whole text in it with
 `panel(name, text)`. A panel can also be told to show the MUD's channels,
 from the dots beside its name in the layout mode.
 
-The **gauges** are set up from their panel, in the layout mode. A gauge is a
+The **gauges** are set up from their panel, in the layout mode; each panel
+of gauges has its own, so that yours can be below and an enemy's beside the
+map. A gauge is a
 bar that follows a number the MUD reports, such as your health. Say where the
 value and its maximum are: a GMCP package and the fields inside it
 (`Char.Vitals.health.current`), or the name of a MSDP variable. Choose its

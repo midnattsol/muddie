@@ -1148,9 +1148,6 @@ msgstr "Indicadores…"
 msgid "Remove {0}"
 msgstr "Quitar {0}"
 
-msgid "No gauges yet. They appear when the MUD reports your health and the like."
-msgstr "Aún no hay indicadores. Aparecen cuando el MUD informa de tu vida y cosas así."
-
 msgid "Set them up…"
 msgstr "Configurarlos…"
 
@@ -1240,3 +1237,57 @@ msgstr "Mover a la izquierda"
 
 msgid "Move right"
 msgstr "Mover a la derecha"
+
+
+msgid "No gauges here yet."
+msgstr "Aún no hay indicadores aquí."
+
+msgid "Add a gauge"
+msgstr "Añadir un indicador"
+
+msgid "What the MUD sends is under MUD data, in the editor: a gauge can be made from a number there."
+msgstr "Lo que envía el MUD está en Datos del MUD, en el editor: allí se puede crear un indicador a partir de un número."
+
+msgid "Shown in"
+msgstr "Se muestra en"
+
+msgid "MUD data"
+msgstr "Datos del MUD"
+
+msgid ""
+"Nothing received yet. What the MUD sends besides text, with GMCP or MSDP,\n"
+"appears here as it comes, to see what there is to follow or to script."
+msgstr ""
+"Aún no se ha recibido nada. Lo que el MUD envía además del texto, con GMCP o MSDP,\n"
+"aparece aquí según llega, para ver qué se puede seguir o usar en scripts."
+
+msgid "Nothing received yet."
+msgstr "Aún no se ha recibido nada."
+
+#, python-brace-format
+msgid "received {0} time"
+msgid_plural "received {0} times"
+msgstr[0] "recibido {0} vez"
+msgstr[1] "recibido {0} veces"
+
+msgid "Values"
+msgstr "Valores"
+
+msgid "It came with nothing in it."
+msgstr "Llegó sin nada dentro."
+
+msgid "Make a gauge"
+msgstr "Crear un indicador"
+
+msgid "Copy the path"
+msgstr "Copiar la ruta"
+
+msgid "A path is what a gauge follows, and what a script reads after gmcp(\"…\")."
+msgstr "Una ruta es lo que sigue un indicador, y lo que un script lee tras gmcp(\"…\")."
+
+msgid "As it came"
+msgstr "Tal como llegó"
+
+msgid "Before that"
+msgstr "Antes de eso"
+

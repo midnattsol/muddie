@@ -16,6 +16,7 @@ const MACROS: usize = 2;
 const TIMERS: usize = 3;
 const VARIABLES: usize = 4;
 pub(super) const SCRIPTS: usize = 5;
+pub(super) const DATA: usize = 6;
 
 /// Scripts to start from: what each is for, its file name, its text.
 const EXAMPLES: [(&str, &str, &str); 5] = [
@@ -237,6 +238,7 @@ impl Tab {
             self.rules_draft.timers.len(),
             self.scripts.variables().len(),
             self.script_files.len(),
+            self.data_seen.len(),
         ];
         let names = [
             tr("Triggers"),
@@ -245,6 +247,7 @@ impl Tab {
             tr("Timers"),
             tr("Variables"),
             tr("Scripts"),
+            tr("MUD data"),
         ];
         for (section, name) in names.into_iter().enumerate() {
             let selected = self.rules_section == section;
@@ -435,6 +438,9 @@ impl Tab {
             VARIABLES => (self.scripts.variables().into_iter())
                 .map(|(name, value)| (name, shown_value(&value).replace('\n', " "), true))
                 .collect(),
+            DATA => (self.data_seen.iter())
+                .map(|seen| (seen.name.clone(), seen.summary(), true))
+                .collect(),
             _ => (self.script_files.iter())
                 .map(|file| {
                     let name = file
@@ -523,34 +529,40 @@ impl Tab {
     }
 
     fn automation_list(&mut self, ui: &mut egui::Ui) {
-        ui.horizontal(|ui| {
-            let add = widgets::primary_button(ui, "+");
-            ui.ctx().accesskit_node_builder(add.id, |node| {
-                node.set_label(tr("Add"));
-            });
-            let add = add.on_hover_text(tr("Add"));
-            if self.rules_section == SCRIPTS {
-                // A script can start empty or from an example.
-                egui::Popup::menu(&add).show(|ui| {
-                    widgets::menu_width(ui);
-                    if widgets::menu_item(ui, tr("Empty script"), "").clicked() {
-                        self.add_script(None);
-                        ui.close();
-                    }
-                    widgets::menu_separator(ui);
-                    widgets::menu_heading(ui, tr("From an example"));
-                    for (title, name, text) in EXAMPLES {
-                        if widgets::menu_item(ui, tr(title), "").clicked() {
-                            self.add_script(Some((name, text)));
+        // What the MUD sends is looked at, not made.
+        if self.rules_section == DATA {
+            ui.horizontal(|ui| widgets::text_box(ui, &mut self.rules_filter, tr("Search")));
+        }
+        if self.rules_section != DATA {
+            ui.horizontal(|ui| {
+                let add = widgets::primary_button(ui, "+");
+                ui.ctx().accesskit_node_builder(add.id, |node| {
+                    node.set_label(tr("Add"));
+                });
+                let add = add.on_hover_text(tr("Add"));
+                if self.rules_section == SCRIPTS {
+                    // A script can start empty or from an example.
+                    egui::Popup::menu(&add).show(|ui| {
+                        widgets::menu_width(ui);
+                        if widgets::menu_item(ui, tr("Empty script"), "").clicked() {
+                            self.add_script(None);
                             ui.close();
                         }
-                    }
-                });
-            } else if add.clicked() {
-                self.add_rule();
-            }
-            widgets::text_box(ui, &mut self.rules_filter, tr("Search"));
-        });
+                        widgets::menu_separator(ui);
+                        widgets::menu_heading(ui, tr("From an example"));
+                        for (title, name, text) in EXAMPLES {
+                            if widgets::menu_item(ui, tr(title), "").clicked() {
+                                self.add_script(Some((name, text)));
+                                ui.close();
+                            }
+                        }
+                    });
+                } else if add.clicked() {
+                    self.add_rule();
+                }
+                widgets::text_box(ui, &mut self.rules_filter, tr("Search"));
+            });
+        }
         ui.add_space(4.0);
         let rows = self.automation_rows();
         let filter = self.rules_filter.trim().to_lowercase();
@@ -561,8 +573,12 @@ impl Tab {
                 ui.spacing_mut().item_spacing.y = 2.0;
                 if rows.is_empty() {
                     ui.add_space(24.0);
-                    let hint = RichText::new(tr("Nothing here yet.\nPress + to make one."))
-                        .color(theme::current().text_faint);
+                    let none = if section == DATA {
+                        tr("Nothing received yet.")
+                    } else {
+                        tr("Nothing here yet.\nPress + to make one.")
+                    };
+                    let hint = RichText::new(none).color(theme::current().text_faint);
                     ui.vertical_centered(|ui| ui.label(hint));
                 }
                 // Under the name of their group, those that have one last.
@@ -707,6 +723,7 @@ impl Tab {
                 draft.timers.len() - 1
             }
             VARIABLES => return self.add_variable(),
+            DATA => return,
             _ => return self.add_script(None),
         };
         self.rules_selected[self.rules_section] = index;
@@ -772,6 +789,9 @@ impl Tab {
                 VARIABLES => tr(
                     "A variable is a value with a name, kept from one session to the next:\nwho you are hunting, what you carry, how many you have killed.",
                 ),
+                DATA => tr(
+                    "Nothing received yet. What the MUD sends besides text, with GMCP or MSDP,\nappears here as it comes, to see what there is to follow or to script.",
+                ),
                 _ => tr(
                     "Scripts are Luau code that is always loaded: what no rule can do,\nsuch as building the map or acting on what your MUD reports.",
                 ),
@@ -788,6 +808,7 @@ impl Tab {
             MACROS => self.macro_detail(ui, index),
             TIMERS => self.timer_detail(ui, index),
             VARIABLES => self.variable_detail(ui, index),
+            DATA => self.data_detail(ui, index),
             _ => self.script_detail(ui, index),
         };
         if delete {
@@ -806,6 +827,7 @@ impl Tab {
                     }
                     self.variable_loaded = None;
                 }
+                DATA => {}
                 _ => {
                     let path = self.script_files[index].clone();
                     self.script_loaded = None;

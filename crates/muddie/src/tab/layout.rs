@@ -370,8 +370,8 @@ impl Tab {
                                 ),
                             ];
                             for (kind, name, about) in kinds {
-                                // There is one map and one set of gauges.
-                                let free = kind == Kind::Text || !self.layout.has(kind);
+                                // There is one map.
+                                let free = kind != Kind::Map || !self.layout.has(kind);
                                 let item = ui
                                     .add_enabled_ui(free, |ui| widgets::menu_item(ui, name, ""))
                                     .inner;
@@ -386,21 +386,23 @@ impl Tab {
             });
     }
 
-    fn add_panel(&mut self, kind: Kind) {
+    pub(super) fn add_panel(&mut self, kind: Kind) {
         let id = self.layout.next_id();
+        // A name not taken: the plain one, then numbered.
+        let free = |base: &str, first: bool| -> String {
+            let taken = |name: &String| self.layout.panels.iter().any(|panel| panel.name == *name);
+            let plain = first.then(|| base.to_owned()).into_iter();
+            let numbered = (if first { 2 } else { 1 }..).map(|number| format!("{base} {number}"));
+            plain
+                .chain(numbered)
+                .take(300)
+                .find(|name| !taken(name))
+                .unwrap_or_default()
+        };
         let (name, side, size) = match kind {
-            Kind::Text => {
-                let taken =
-                    |name: &String| self.layout.panels.iter().any(|panel| panel.name == *name);
-                let names = (1..).map(|number| format!("{} {number}", tr("Panel")));
-                let name = names
-                    .take(200)
-                    .find(|name| !taken(name))
-                    .unwrap_or_default();
-                (name, Side::Right, 280.0)
-            }
+            Kind::Text => (free(tr("Panel"), false), Side::Right, 280.0),
             Kind::Map => (tr("Map").to_owned(), Side::Right, 330.0),
-            Kind::Gauges => (tr("Gauges").to_owned(), Side::Bottom, 56.0),
+            Kind::Gauges => (free(tr("Gauges"), true), Side::Bottom, 56.0),
         };
         self.layout.panels.push(PanelSpec {
             id,
@@ -473,7 +475,6 @@ impl Tab {
             let gone = self.layout.panels.remove(index);
             self.panel_text.retain(|(id, _)| *id != gone.id);
         }
-        self.gauges_dialog(ui.ctx());
         self.keep_layout(ui);
         asked
     }
@@ -723,7 +724,7 @@ impl Tab {
         match spec.kind {
             Kind::Map => self.map_body(ui, spec.id),
             Kind::Gauges => {
-                self.gauges_body(ui);
+                self.gauges_body(ui, spec.id);
                 None
             }
             Kind::Text => {
@@ -828,7 +829,7 @@ impl Tab {
                 }
             });
             if spec.kind == Kind::Gauges && ui.button(tr("Gauges…")).clicked() {
-                self.open_gauges();
+                self.open_gauges(spec.id);
             }
             if earlier || later {
                 self.shift_panel(index, if earlier { -1 } else { 1 });
@@ -843,22 +844,40 @@ impl Tab {
         ui.add_space(2.0);
     }
 
-    /// The gauges in a row, or how to get some.
-    fn gauges_body(&mut self, ui: &mut egui::Ui) {
-        if !self.gauges.is_empty() {
-            return self.gauges.show(ui);
+    /// Whether the gauge called `name` belongs in the panel `id`: the
+    /// one it was put in, or the first of the gauges' panels if it was put
+    /// in none, as those the MUD's vitals and scripts make are.
+    pub(super) fn gauge_is_in(&self, name: &str, id: u32) -> bool {
+        let panels: Vec<u32> = (self.layout.panels.iter())
+            .filter(|panel| panel.kind == Kind::Gauges)
+            .map(|panel| panel.id)
+            .collect();
+        let made = self
+            .rules
+            .gauges
+            .iter()
+            .find(|gauge| gauge.shown_name() == name);
+        let home = made
+            .map(|gauge| gauge.panel)
+            .filter(|panel| panels.contains(panel));
+        home.or(panels.first().copied()) == Some(id)
+    }
+
+    /// The gauges of a panel in a row, or how to get some.
+    fn gauges_body(&mut self, ui: &mut egui::Ui, id: u32) {
+        if self.gauges.show(ui, |name| self.gauge_is_in(name, id)) {
+            return;
         }
         let theme = theme::current();
-        ui.horizontal(|ui| {
-            let none =
-                tr("No gauges yet. They appear when the MUD reports your health and the like.");
+        ui.horizontal_wrapped(|ui| {
+            let none = tr("No gauges here yet.");
             ui.label(
                 RichText::new(none)
                     .font(theme::font(Weight::Regular, 12.5))
                     .color(theme.text_faint),
             );
             if widgets::quiet_button(ui, tr("Set them up…")).clicked() {
-                self.open_gauges();
+                self.open_gauges(id);
             }
         });
     }
@@ -915,63 +934,113 @@ impl Tab {
         false
     }
 
-    /// Opens the gauges to make and change them.
-    pub(super) fn open_gauges(&mut self) {
+    /// Opens the gauges of a panel to make and change them.
+    pub(super) fn open_gauges(&mut self, panel: u32) {
         if !self.rules_open {
             self.rules_draft = self.rules.clone();
             self.rules_seen = self.rules.clone();
         }
         self.gauges_open = true;
+        self.gauges_panel = panel;
+        self.gauge_selected = usize::MAX;
     }
 
-    /// The gauges, in a dialog: the list, and the one chosen.
-    fn gauges_dialog(&mut self, ctx: &egui::Context) {
+    /// The gauges of a panel, in a dialog: the list, and the one chosen.
+    pub(super) fn gauges_dialog(&mut self, ctx: &egui::Context) {
         if !self.gauges_open {
             return;
         }
+        let theme = theme::current();
+        let panel = self.gauges_panel;
+        let panels: Vec<(u32, String)> = (self.layout.panels.iter())
+            .filter(|spec| spec.kind == Kind::Gauges)
+            .map(|spec| (spec.id, spec.name.clone()))
+            .collect();
+        let first = panels.first().map(|(id, _)| *id);
+        let title = panels
+            .iter()
+            .find(|(id, _)| *id == panel)
+            .map_or_else(|| tr("Gauges").to_owned(), |(_, name)| name.clone());
+        // Those put in this panel, and in the first one those put in none.
+        let here = |gauge: &crate::rules::Gauge| {
+            let home = Some(gauge.panel)
+                .filter(|id| panels.iter().any(|(known, _)| known == id))
+                .or(first);
+            home == Some(panel)
+        };
+        let members: Vec<usize> = (0..self.rules_draft.gauges.len())
+            .filter(|&index| here(&self.rules_draft.gauges[index]))
+            .collect();
+        if !members.contains(&self.gauge_selected) {
+            self.gauge_selected = members.first().copied().unwrap_or(usize::MAX);
+        }
         let mut open = true;
-        widgets::dialog(ctx, "gauges", tr("Gauges"), &mut open, 720.0, |ui| {
+        widgets::dialog(ctx, "gauges", &title, &mut open, 740.0, |ui| {
             ui.horizontal_top(|ui| {
                 ui.vertical(|ui| {
-                    ui.set_width(220.0);
+                    ui.set_width(230.0);
                     ui.spacing_mut().item_spacing.y = 2.0;
-                    let add = widgets::primary_button(ui, "+");
-                    ui.ctx().accesskit_node_builder(add.id, |node| {
-                        node.set_label(tr("Add"));
-                    });
-                    if add.on_hover_text(tr("Add")).clicked() {
-                        self.rules_draft.gauges.push(crate::rules::Gauge {
-                            enabled: true,
-                            segments: true,
-                            low: 30,
-                            ..crate::rules::Gauge::default()
-                        });
-                        self.gauge_selected = self.rules_draft.gauges.len() - 1;
-                    }
-                    ui.add_space(6.0);
-                    for (index, gauge) in self.rules_draft.gauges.iter().enumerate() {
+                    for &index in &members {
+                        let gauge = &self.rules_draft.gauges[index];
                         let title = if gauge.name.trim().is_empty() { tr("New gauge") } else { gauge.name.trim() };
                         if widgets::list_row(ui, self.gauge_selected == index, title, &gauge.value, gauge.enabled).clicked() {
                             self.gauge_selected = index;
                         }
                     }
+                    if !members.is_empty() {
+                        ui.add_space(8.0);
+                    }
+                    // As wide as the list, and saying what it does.
+                    let add = egui::Button::new(tr("Add a gauge")).min_size(egui::vec2(ui.available_width(), 32.0));
+                    if ui.add(add).clicked() {
+                        self.rules_draft.gauges.push(crate::rules::Gauge {
+                            enabled: true,
+                            segments: true,
+                            low: 30,
+                            panel,
+                            ..crate::rules::Gauge::default()
+                        });
+                        self.gauge_selected = self.rules_draft.gauges.len() - 1;
+                    }
+                    ui.add_space(6.0);
+                    let from_data = tr("What the MUD sends is under MUD data, in the editor: a gauge can be made from a number there.");
+                    ui.label(RichText::new(from_data).font(theme::font(Weight::Regular, 11.5)).color(theme.text_faint));
                 });
                 ui.add_space(14.0);
                 ui.vertical(|ui| {
-                    ui.set_min_height(380.0);
+                    ui.set_min_height(400.0);
                     ui.spacing_mut().item_spacing.y = 10.0;
                     let index = self.gauge_selected;
                     if index >= self.rules_draft.gauges.len() {
-                        let theme = theme::current();
                         ui.add_space(40.0);
                         let about = tr("A gauge is a bar that follows a number the MUD reports,\nsuch as your health.");
                         ui.label(RichText::new(about).color(theme.text_faint));
-                    } else if self.gauge_detail(ui, index) {
+                        return;
+                    }
+                    if self.gauge_detail(ui, index) {
                         // Take the bar off the screen too.
                         let gone = self.rules_draft.gauges.remove(index);
-                        let name = if gone.name.trim().is_empty() { gone.value } else { gone.name };
-                        self.gauges.set(name.trim(), None);
-                        self.gauge_selected = index.saturating_sub(1);
+                        self.gauges.set(gone.shown_name(), None);
+                        self.gauge_selected = usize::MAX;
+                        return;
+                    }
+                    // With more than one panel of gauges, which it is in.
+                    if panels.len() > 1 {
+                        ui.horizontal(|ui| {
+                            let label = ui.label(RichText::new(tr("Shown in")).color(theme.text_dim));
+                            let gauge = &mut self.rules_draft.gauges[index];
+                            let current = panels.iter().find(|(id, _)| *id == panel).map_or("", |(_, name)| name.as_str());
+                            egui::ComboBox::from_id_salt("gauge panel")
+                                .selected_text(current.to_owned())
+                                .width(200.0)
+                                .show_ui(ui, |ui| {
+                                    for (id, name) in &panels {
+                                        ui.selectable_value(&mut gauge.panel, *id, name);
+                                    }
+                                })
+                                .response
+                                .labelled_by(label.id);
+                        });
                     }
                 });
             });
