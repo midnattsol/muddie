@@ -54,6 +54,9 @@ msgstr ""
 msgid "Settings"
 msgstr ""
 
+msgid "General"
+msgstr ""
+
 msgid "Appearance"
 msgstr ""
 
@@ -66,37 +69,7 @@ msgstr ""
 msgid "Speech"
 msgstr ""
 
-msgid "Theme"
-msgstr ""
-
-msgid "Dark"
-msgstr ""
-
-msgid "Dusk"
-msgstr ""
-
-msgid "Graphite"
-msgstr ""
-
-msgid "Light"
-msgstr ""
-
-msgid "High contrast"
-msgstr ""
-
-msgid "Language"
-msgstr ""
-
-msgid "System"
-msgstr ""
-
-msgid "Text size"
-msgstr ""
-
-msgid "Font file"
-msgstr ""
-
-msgid "Built-in font"
+msgid "Plugins"
 msgstr ""
 
 msgid "Typing"
@@ -144,6 +117,51 @@ msgstr ""
 
 #, python-brace-format
 msgid "Could not save the settings: {0}"
+msgstr ""
+
+msgid "Language"
+msgstr ""
+
+msgid "Same as the system"
+msgstr ""
+
+msgid "Interface size"
+msgstr ""
+
+msgid "More languages can be added as gettext catalogues in the locale folder of the configuration."
+msgstr ""
+
+msgid "Theme"
+msgstr ""
+
+msgid "Dark"
+msgstr ""
+
+msgid "Graphite"
+msgstr ""
+
+msgid "Dusk"
+msgstr ""
+
+msgid "Light"
+msgstr ""
+
+msgid "High contrast"
+msgstr ""
+
+msgid "Text of the MUD"
+msgstr ""
+
+msgid "Font"
+msgstr ""
+
+msgid "JetBrains Mono (built in)"
+msgstr ""
+
+msgid "Size"
+msgstr ""
+
+msgid "Line spacing"
 msgstr ""
 
 msgid "No map yet: the server has not reported a room."
@@ -623,6 +641,36 @@ msgstr ""
 msgid "Matches:"
 msgstr ""
 
+msgid "Plugins need a configuration folder, and none was found."
+msgstr ""
+
+msgid "No plugins yet. A plugin is a set of scripts someone made for a MUD: a mapper, triggers, gauges."
+msgstr ""
+
+msgid "Update"
+msgstr ""
+
+msgid "Remove"
+msgstr ""
+
+msgid "Plugins are enabled per profile: save or choose a profile first."
+msgstr ""
+
+msgid "Install a plugin"
+msgstr ""
+
+msgid "Git address"
+msgstr ""
+
+msgid "Install"
+msgstr ""
+
+msgid "It is downloaded with git into the configuration's packages folder. Only install what you trust: a plugin can send commands as you."
+msgstr ""
+
+msgid "Working…"
+msgstr ""
+
 msgid "Speech on."
 msgstr ""
 
@@ -765,9 +813,6 @@ msgstr ""
 msgid "Not connected."
 msgstr ""
 
-msgid "Plugins are enabled per profile: save or choose a profile first."
-msgstr ""
-
 #, python-brace-format
 msgid "Plugin {0} enabled."
 msgstr ""
@@ -874,9 +919,6 @@ msgstr ""
 
 #, python-brace-format
 msgid "Installing {0}..."
-msgstr ""
-
-msgid "Plugins need a configuration folder, and none was found."
 msgstr ""
 
 msgid "Give the plugin a name after the address: letters, digits, - and _."

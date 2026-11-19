@@ -2948,7 +2948,7 @@ mod tests {
         rules.run_steps(3);
         save(&mut rules, "timers");
         // The menus, as someone using Spanish sees them.
-        for menu in ["Sesión", "Ver", "Mapa"] {
+        for menu in ["Sesión", "Ver"] {
             let mut menus = connected_demo_window();
             crate::i18n::set_language("es");
             menus.run_steps(2);

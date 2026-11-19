@@ -171,17 +171,23 @@ folder and then in `sounds` in the configuration folder.
 
 ## Settings
 
-**View > Settings…**, in sections: appearance (theme, language, text size and
-font; the themes are Dark, Graphite, Mocha, Dusk, Tokyo Night, Nord, Light and
-High contrast), output (lines kept, timestamps), sessions (logging, reconnection,
-keep-alive) and speech (rate, language, screen reader). They are saved in
-`settings.toml`, which also remembers whether the chat and map panels are
-shown.
+**View > Settings…**, in sections:
 
-## Protocols
+- **General**: the language, and the size the interface is drawn at.
+- **Appearance**: the theme (Dark, Graphite, Mocha, Dusk, Tokyo Night, Nord,
+  Light, High contrast), and for the text of the MUD its font, chosen among
+  the monospaced fonts installed, its size and its line spacing, with a sample.
+- **Output**: lines kept, timestamps.
+- **Sessions**: whether a sent command stays in the command line, logging,
+  reconnection, keep-alive.
+- **Speech**: rate, language, screen reader.
+- **Plugins**: sets of scripts made by others. Install one from the address
+  of its git repository; each has a switch that enables it in the profile of
+  the session, and can be updated or removed. Only install what you trust: a
+  plugin can send commands as you.
 
-Telnet with NAWS, TTYPE/MTTS, CHARSET and EOR/GA prompts; GMCP, MSDP and
-MSSP; MCCP2 and MCCP3 compression; MXP formatting and links; MSP sounds; TLS.
+They are saved in `settings.toml`, which also remembers whether the chat and
+map panels are shown.
 
 ## Languages
 
