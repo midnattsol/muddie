@@ -24,6 +24,8 @@ const TTYPE_SEND: u8 = 1;
 const CHARSET_REQUEST: u8 = 1;
 const CHARSET_ACCEPTED: u8 = 2;
 const CHARSET_REJECTED: u8 = 3;
+const CHARSET_TTABLE_IS: u8 = 4;
+const CHARSET_TTABLE_REJECTED: u8 = 5;
 
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -76,7 +78,7 @@ impl Default for Config {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Signal {
     /// The server took over echoing (true) or gave it back (false). While it
     /// echoes, typed input is normally a password and must be hidden.
@@ -87,6 +89,8 @@ pub enum Signal {
     CompressOutgoing,
     /// The server will send MXP markup.
     Mxp,
+    /// The encoding agreed with the server, which what arrives is in.
+    Charset(String),
 }
 
 pub struct Negotiator {
@@ -121,10 +125,7 @@ impl Negotiator {
             Event::Command(telnet::GA | telnet::EOR) => Some(Signal::Prompt),
             Event::Command(_) => None,
             Event::Negotiate(verb, option) => self.negotiate(verb, option, reply),
-            Event::Subneg(option, ref payload) => {
-                self.subneg(option, payload, reply);
-                None
-            }
+            Event::Subneg(option, ref payload) => self.subneg(option, payload, reply),
         }
     }
 
@@ -162,8 +163,13 @@ impl Negotiator {
                     if option == opt::GMCP {
                         self.write_gmcp_hello(reply);
                     }
-                    if option == opt::MSDP && !self.config.msdp_report.is_empty() {
-                        msdp::write("REPORT", &self.config.msdp_report, reply);
+                    if option == opt::MSDP {
+                        // The usual ones at once, and a list of all the
+                        // server can report, to ask for the rest.
+                        if !self.config.msdp_report.is_empty() {
+                            msdp::write("REPORT", &self.config.msdp_report, reply);
+                        }
+                        msdp::write("LIST", &["REPORTABLE_VARIABLES".to_owned()], reply);
                     }
                     if option == opt::MCCP3 {
                         telnet::write_subneg(opt::MCCP3, &[], reply);
@@ -201,6 +207,19 @@ impl Negotiator {
                     if option == opt::NAWS {
                         self.write_naws(reply);
                     }
+                    // Asked to say which encoding to use: the one the
+                    // user chose, or UTF-8.
+                    if option == opt::CHARSET {
+                        let chosen = self.config.encoding.trim();
+                        let wanted = match chosen.is_empty() || chosen.eq_ignore_ascii_case("auto")
+                        {
+                            true => "UTF-8",
+                            false => chosen,
+                        };
+                        let mut body = vec![CHARSET_REQUEST, b';'];
+                        body.extend_from_slice(wanted.as_bytes());
+                        telnet::write_subneg(opt::CHARSET, &body, reply);
+                    }
                     if option == opt::MXP {
                         return Some(Signal::Mxp);
                     }
@@ -229,7 +248,7 @@ impl Negotiator {
         ]
     }
 
-    fn subneg(&mut self, option: u8, payload: &[u8], reply: &mut Vec<u8>) {
+    fn subneg(&mut self, option: u8, payload: &[u8], reply: &mut Vec<u8>) -> Option<Signal> {
         match option {
             // `SEND` with the names wanted, each after `VAR` or `USERVAR`;
             // with none, all there are. Answered with `IS`, each name
@@ -263,33 +282,54 @@ impl Negotiator {
                 body.extend_from_slice(name.as_bytes());
                 telnet::write_subneg(opt::TTYPE, &body, reply);
             }
+            // The server names the encodings it can use. The one the
+            // user chose is taken if it is among them, and none other;
+            // with none chosen, UTF-8, or failing that the first of them
+            // this client knows, which what arrives is then read as.
             opt::CHARSET if payload.first() == Some(&CHARSET_REQUEST) => {
                 let mut list = &payload[1..];
                 if let Some(rest) = list.strip_prefix(b"[TTABLE]") {
                     list = rest.get(1..).unwrap_or_default();
                 }
-                // The encoding the user chose, if any; else UTF-8.
-                let chosen = self.config.encoding.trim();
-                let wanted = if chosen.is_empty() || chosen.eq_ignore_ascii_case("auto") {
-                    "UTF-8"
-                } else {
-                    chosen
+                let names: Vec<&[u8]> = match list.split_first() {
+                    Some((sep, names)) => names.split(|byte| byte == sep).collect(),
+                    None => Vec::new(),
                 };
-                let offered = list.split_first().and_then(|(sep, names)| {
-                    names
-                        .split(|b| b == sep)
+                let named = |wanted: &str| {
+                    (names.iter().copied())
                         .find(|name| name.eq_ignore_ascii_case(wanted.as_bytes()))
-                });
-                if let Some(name) = offered {
+                };
+                let chosen = self.config.encoding.trim();
+                let taken = if chosen.is_empty() || chosen.eq_ignore_ascii_case("auto") {
+                    named("UTF-8").or_else(|| {
+                        (names.iter().copied()).find(|name| {
+                            let label = String::from_utf8_lossy(name);
+                            !name.is_empty() && crate::decode::Decoder::for_label(&label).is_some()
+                        })
+                    })
+                } else {
+                    named(chosen)
+                };
+                if let Some(name) = taken {
                     let mut body = vec![CHARSET_ACCEPTED];
                     body.extend_from_slice(name);
                     telnet::write_subneg(opt::CHARSET, &body, reply);
-                } else {
-                    telnet::write_subneg(opt::CHARSET, &[CHARSET_REJECTED], reply);
+                    return Some(Signal::Charset(String::from_utf8_lossy(name).into_owned()));
                 }
+                telnet::write_subneg(opt::CHARSET, &[CHARSET_REJECTED], reply);
+            }
+            // The server took the encoding this client asked for.
+            opt::CHARSET if payload.first() == Some(&CHARSET_ACCEPTED) => {
+                let name = String::from_utf8_lossy(&payload[1..]).trim().to_owned();
+                return Some(Signal::Charset(name));
+            }
+            // A table to translate by is not something this client takes.
+            opt::CHARSET if payload.first() == Some(&CHARSET_TTABLE_IS) => {
+                telnet::write_subneg(opt::CHARSET, &[CHARSET_TTABLE_REJECTED], reply);
             }
             _ => {}
         }
+        None
     }
 
     /// Whether the server agreed to exchange GMCP messages.
@@ -472,6 +512,12 @@ mod tests {
         let (reply, _) = handle(&mut n, Event::Negotiate(Verb::Will, opt::MSDP));
         let mut expected = vec![IAC, DO, opt::MSDP];
         telnet::write_subneg(opt::MSDP, b"\x01REPORT\x02HEALTH\x02ROOM", &mut expected);
+        // And with it, a request for the list of all there are.
+        telnet::write_subneg(
+            opt::MSDP,
+            b"\x01LIST\x02REPORTABLE_VARIABLES",
+            &mut expected,
+        );
         assert_eq!(reply, expected);
         assert!(n.msdp_enabled());
         let (reply, _) = handle(&mut n, Event::Negotiate(Verb::Will, opt::MSSP));
@@ -479,26 +525,55 @@ mod tests {
     }
 
     #[test]
-    fn charset_accepts_utf8_only() {
+    fn charset_is_agreed_and_told() {
         let mut n = negotiator();
         let request = |names: &[u8]| {
             let mut payload = vec![CHARSET_REQUEST];
             payload.extend_from_slice(names);
             Event::Subneg(opt::CHARSET, payload)
         };
-        let (reply, _) = handle(&mut n, request(b";ISO-8859-1;utf-8"));
+        // With none chosen, UTF-8 if it is offered.
+        let (reply, signal) = handle(&mut n, request(b";ISO-8859-1;utf-8"));
         assert_eq!(reply[3], CHARSET_ACCEPTED);
         assert_eq!(&reply[4..9], b"utf-8");
+        assert_eq!(signal, Some(Signal::Charset("utf-8".into())));
+        // Without it, the first offered that this client knows, which
+        // what arrives is then read as.
+        let (reply, signal) = handle(&mut n, request(b" KLINGON ISO-8859-1"));
+        assert_eq!(
+            &reply[3..14],
+            [&[CHARSET_ACCEPTED][..], b"ISO-8859-1"].concat()
+        );
+        assert_eq!(signal, Some(Signal::Charset("ISO-8859-1".into())));
+        let (reply, signal) = handle(&mut n, request(b" KLINGON"));
+        assert_eq!(reply, [IAC, SB, opt::CHARSET, CHARSET_REJECTED, IAC, SE]);
+        assert_eq!(signal, None);
+        // The one the user chose, or none.
         let mut chosen = Negotiator::new(Config {
             encoding: "big5".into(),
             ..Config::default()
         });
         let (reply, _) = handle(&mut chosen, request(b";UTF-8;BIG5"));
         assert_eq!(&reply[3..8], [&[CHARSET_ACCEPTED][..], b"BIG5"].concat());
-        let (reply, _) = handle(&mut chosen, request(b";UTF-8"));
-        assert_eq!(reply[3], CHARSET_REJECTED);
-        let (reply, _) = handle(&mut n, request(b" ISO-8859-1"));
-        assert_eq!(reply, [IAC, SB, opt::CHARSET, CHARSET_REJECTED, IAC, SE]);
+        let (reply, signal) = handle(&mut chosen, request(b";UTF-8"));
+        assert_eq!((reply[3], signal), (CHARSET_REJECTED, None));
+        // Asked to say which, the client asks for its own, and is told
+        // that it was taken.
+        let (reply, _) = handle(&mut chosen, Event::Negotiate(Verb::Do, opt::CHARSET));
+        let mut asked = vec![IAC, WILL, opt::CHARSET];
+        telnet::write_subneg(opt::CHARSET, b"\x01;big5", &mut asked);
+        assert_eq!(reply, asked);
+        let taken = Event::Subneg(opt::CHARSET, [&[CHARSET_ACCEPTED][..], b"big5"].concat());
+        assert_eq!(
+            handle(&mut chosen, taken).1,
+            Some(Signal::Charset("big5".into()))
+        );
+        // A table to translate by is refused.
+        let (reply, _) = handle(
+            &mut n,
+            Event::Subneg(opt::CHARSET, vec![CHARSET_TTABLE_IS, 1]),
+        );
+        assert_eq!(reply[3], CHARSET_TTABLE_REJECTED);
     }
 
     #[test]

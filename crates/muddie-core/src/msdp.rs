@@ -87,6 +87,15 @@ impl Reader<'_> {
     }
 }
 
+/// The names in a list of them as [`parse`] gives it: `["A","B"]`, or one
+/// alone as `"A"`. Names of variables have neither quotes nor commas.
+pub fn names(json: &str) -> Vec<String> {
+    (json.trim_matches(['[', ']']).split(','))
+        .map(|name| name.trim().trim_matches('"').to_owned())
+        .filter(|name| !name.is_empty())
+        .collect()
+}
+
 /// Appends the MSDP message `variable = values...` to `out`, for example
 /// `REPORT` with the names of the variables to report.
 pub fn write(variable: &str, values: &[String], out: &mut Vec<u8>) {

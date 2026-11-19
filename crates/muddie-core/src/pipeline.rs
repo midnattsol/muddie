@@ -64,6 +64,9 @@ const INFLATE_BUFFER: usize = 16 * 1024;
 pub struct Pipeline {
     /// Whether what is otherwise made nothing of is told, for debugging.
     trace: bool,
+    /// Whether the server has been asked for all the MSDP variables it
+    /// said it can report.
+    msdp_asked: bool,
     parser: Parser,
     negotiator: Negotiator,
     decoder: Decoder,
@@ -86,6 +89,7 @@ impl Pipeline {
     pub fn new(config: Config) -> Self {
         Self {
             trace: false,
+            msdp_asked: false,
             parser: Parser::new(),
             decoder: Decoder::for_label(&config.encoding).unwrap_or_default(),
             negotiator: Negotiator::new(config),
@@ -241,7 +245,20 @@ impl Pipeline {
                     continue;
                 }
                 telnet::Event::Subneg(opt::MSDP, payload) => {
-                    let variables = msdp::parse(payload).into_iter();
+                    let variables = msdp::parse(payload);
+                    // Told which variables it can report, the server is
+                    // asked for them all, once: nothing has to be set up
+                    // to have what a MUD offers.
+                    let listed = (variables.iter())
+                        .find(|(variable, _)| variable == "REPORTABLE_VARIABLES")
+                        .map(|(_, data)| msdp::names(data));
+                    if let (Some(names), false) = (listed, self.msdp_asked) {
+                        self.msdp_asked = true;
+                        if !names.is_empty() {
+                            msdp::write("REPORT", &names, reply);
+                        }
+                    }
+                    let variables = variables.into_iter();
                     events.extend(variables.map(|(variable, data)| Event::Msdp { variable, data }));
                     continue;
                 }
@@ -289,6 +306,13 @@ impl Pipeline {
                     self.deflate_from = Some(reply.len());
                 }
                 Some(Signal::Mxp) => self.assembler.enable_mxp(),
+                // What arrives from here on is in the encoding agreed.
+                Some(Signal::Charset(name)) => {
+                    if let Some(decoder) = Decoder::for_label(&name) {
+                        self.decoder.flush(&mut self.text);
+                        self.decoder = decoder;
+                    }
+                }
                 None => {}
             }
         }
@@ -380,6 +404,47 @@ mod tests {
         let (mut reply, mut events) = (Vec::new(), Vec::new());
         pipeline.receive(input, &mut reply, &mut events).unwrap();
         (reply, events)
+    }
+
+    #[test]
+    fn all_the_variables_a_server_can_report_are_asked_for() {
+        let mut pipeline = Pipeline::new(Config::default());
+        // On agreeing to MSDP the server is asked which there are...
+        let (reply, _) = receive(&mut pipeline, &[IAC, WILL, opt::MSDP]);
+        let mut list = Vec::new();
+        msdp::write("LIST", &["REPORTABLE_VARIABLES".to_owned()], &mut list);
+        assert!(reply.ends_with(&list));
+        // ...and for them all once it says, and not again.
+        let mut input = Vec::new();
+        telnet::write_subneg(
+            opt::MSDP,
+            b"\x01REPORTABLE_VARIABLES\x02\x05\x02GOLD\x02LEVEL\x06",
+            &mut input,
+        );
+        let (reply, events) = receive(&mut pipeline, &input);
+        let mut report = Vec::new();
+        msdp::write(
+            "REPORT",
+            &["GOLD".to_owned(), "LEVEL".to_owned()],
+            &mut report,
+        );
+        assert_eq!(reply, report);
+        assert_eq!(events.len(), 1);
+        let (reply, _) = receive(&mut pipeline, &input);
+        assert_eq!(reply, []);
+    }
+
+    #[test]
+    fn text_is_read_in_the_encoding_agreed() {
+        let mut pipeline = Pipeline::new(Config::default());
+        // The server offers one encoding, which is taken.
+        let mut input = vec![IAC, WILL, opt::CHARSET];
+        telnet::write_subneg(opt::CHARSET, b"\x01;KOI8-R", &mut input);
+        // "мир" in KOI8-R, which read as UTF-8 or Latin-1 is something else.
+        input.extend_from_slice(b"\xcd\xc9\xd2\r\n");
+        let (_, events) = receive(&mut pipeline, &input);
+        let seen: Vec<String> = events.iter().map(text).collect();
+        assert_eq!(seen, ["line:мир"]);
     }
 
     #[test]

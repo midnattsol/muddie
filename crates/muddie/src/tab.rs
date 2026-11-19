@@ -3468,8 +3468,9 @@ mod tests {
             measured > 0 && measured <= share + 100,
             "{measured} rows measured in a frame"
         );
-        // The view follows to the end, where the newest already are.
-        harness.step();
+        // The view follows to the end, where the newest already are; a
+        // frame or two later, as the size of what it holds settles.
+        harness.run_steps(3);
         assert!(harness.query_by_label("Latest lines").is_none());
         harness.get_by_label("line 5999 of a burst of text");
         // The rest follow, and the end stays in view meanwhile.
