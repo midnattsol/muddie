@@ -1430,3 +1430,8 @@ msgstr "El MUD pide continuar en {0}, puerto {1}."
 
 msgid "Run."
 msgstr "Ejecutado."
+
+
+msgid "Reconnect"
+msgstr "Reconectar"
+

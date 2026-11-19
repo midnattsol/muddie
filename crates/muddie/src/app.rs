@@ -418,6 +418,7 @@ impl App {
                         &[
                             ("Ctrl+T", tr("New session")),
                             ("Ctrl+W", tr("Close session")),
+                            ("Alt+R", tr("Reconnect")),
                             ("Ctrl+K", tr("Commands")),
                             ("Ctrl+E", tr("Switch between the game and the editor")),
                             (

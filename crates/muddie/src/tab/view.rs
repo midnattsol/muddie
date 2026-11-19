@@ -352,13 +352,14 @@ impl Tab {
 
     /// The session's entries of the Session menu.
     pub fn session_menu(&mut self, ui: &mut egui::Ui) {
-        if self.connection.is_some() {
-            if widgets::menu_item(ui, tr("Disconnect"), "").clicked() {
-                self.disconnect();
-                ui.close();
-            }
-        } else if widgets::menu_item(ui, tr("Connect"), "").clicked() {
-            self.connect(&ui.ctx().clone());
+        // Connecting again is always there: with a connection it closes
+        // it first, and without one it is how to connect.
+        if widgets::menu_item(ui, tr("Reconnect"), "Alt+R").clicked() {
+            self.reconnect(&ui.ctx().clone());
+            ui.close();
+        }
+        if self.connection.is_some() && widgets::menu_item(ui, tr("Disconnect"), "").clicked() {
+            self.disconnect();
             ui.close();
         }
         let offline = self.connection.is_none();

@@ -163,6 +163,8 @@ pub struct Tab {
     /// The protocols the MUD has offered in this connection, and whether
     /// each is in use.
     protocols: Vec<(String, bool)>,
+    /// The connection is being closed to be opened again.
+    reconnect_wanted: bool,
     palette_open: bool,
     palette_query: String,
     /// The palette's field is to take the keyboard, or its cursor to go
@@ -430,6 +432,7 @@ impl Tab {
             gauge_dragged: None,
             palette_chosen: 0,
             protocols: Vec::new(),
+            reconnect_wanted: false,
             palette_open: false,
             palette_query: String::new(),
             palette_focus: false,
@@ -938,6 +941,20 @@ impl Tab {
         }
     }
 
+    /// Connects again: at once if there is no connection, and if there
+    /// is one, once it has been closed.
+    pub(super) fn reconnect(&mut self, ctx: &egui::Context) {
+        if self.host.trim().is_empty() {
+            return;
+        }
+        if self.connection.is_some() {
+            self.disconnect();
+            self.reconnect_wanted = true;
+        } else {
+            self.connect(ctx);
+        }
+    }
+
     /// Shows and speaks a message from the client itself.
     pub fn note(&mut self, text: &str) {
         // What a command typed with `/` says is its answer, shown at the
@@ -1362,6 +1379,10 @@ impl Tab {
                         ));
                     }
                     self.log = None;
+                    // Closed to be opened again: as soon as can be.
+                    if std::mem::take(&mut self.reconnect_wanted) {
+                        self.reconnect_at = Some(Instant::now());
+                    }
                 }
             }
         }
@@ -1826,6 +1847,9 @@ impl Tab {
     /// Runs the binding of any key pressed with Ctrl or Alt, or of a
     /// function key, before anything else gets to use the key.
     fn bound_keys(&mut self, ui: &mut egui::Ui) {
+        if ui.input_mut(|input| input.consume_key(Modifiers::ALT, Key::R)) {
+            self.reconnect(&ui.ctx().clone());
+        }
         if ui.input_mut(|input| input.consume_key(Modifiers::COMMAND, Key::M)) {
             let shown = self.map_shown();
             self.set_map_shown(!shown);
@@ -4086,6 +4110,27 @@ mod tests {
         // A link that prompts puts its command in the command line.
         app.link_clicked(crate::output::Clicked::Prompt("tell guard".into()));
         assert_eq!(app.input, "tell guard ");
+    }
+
+    #[test]
+    fn reconnecting_closes_the_connection_and_opens_it_again() {
+        let mut harness = window(None);
+        let app = harness.state_mut().tab_mut();
+        app.host = "127.0.0.1".into();
+        app.port = "1".into();
+        let (events, mut sent) = fake_connection(app);
+        // Alt+R asks the connection to close...
+        harness.key_press_modifiers(egui::Modifiers::ALT, Key::R);
+        harness.run_steps(2);
+        assert_eq!(sent.try_recv().ok(), Some(Command::Disconnect));
+        assert!(harness.state().tab().reconnect_wanted);
+        // ...and once it has, it is to connect again at once, though it
+        // was the user who closed it.
+        events.send(Event::Disconnected(None)).unwrap();
+        let app = harness.state_mut().tab_mut();
+        app.handle_events();
+        assert!(!app.reconnect_wanted && app.connection.is_none());
+        assert!(app.reconnect_at.is_some_and(|at| at <= Instant::now()));
     }
 
     #[test]
