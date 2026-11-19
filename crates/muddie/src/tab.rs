@@ -1029,7 +1029,7 @@ impl Tab {
     fn set_package(&mut self, name: &str, enable: bool) {
         let Some(profile) = self.profile.clone() else {
             return self.note(tr(
-                "Packages are enabled per profile: save or choose a profile first.",
+                "Plugins are enabled per profile: save or choose a profile first.",
             ));
         };
         self.packages.retain(|package| package != name);
@@ -1040,10 +1040,36 @@ impl Tab {
         self.save_profile();
         self.load_scripts();
         self.note(&if enable {
-            trf("Package {0} enabled.", &[name])
+            trf("Plugin {0} enabled.", &[name])
         } else {
-            trf("Package {0} disabled.", &[name])
+            trf("Plugin {0} disabled.", &[name])
         });
+    }
+
+    /// Deletes an installed plugin, in every profile's eyes.
+    fn remove_plugin(&mut self, name: &str) {
+        let folder = self.profiles.as_ref().map(Profiles::packages_dir);
+        let installed = self
+            .profiles
+            .as_ref()
+            .map(Profiles::packages)
+            .unwrap_or_default();
+        let Some(folder) = folder.filter(|_| installed.iter().any(|plugin| plugin == name)) else {
+            return self.note(tr("No such plugin is installed; see /plugin list."));
+        };
+        // Its name came from the list of folders there, so this is one.
+        match std::fs::remove_dir_all(folder.join(name)) {
+            Ok(()) => {
+                self.note(&trf("Plugin {0} removed.", &[name]));
+                if self.packages.iter().any(|plugin| plugin == name) {
+                    self.set_package(name, false);
+                }
+            }
+            Err(error) => self.note(&trf(
+                "The plugin could not be removed: {0}",
+                &[&error.to_string()],
+            )),
+        }
     }
 
     /// Reports package installs and updates that have ended.
@@ -1064,15 +1090,15 @@ impl Tab {
         for (outcome, enable) in ended {
             match outcome {
                 Ok(name) if enable => {
-                    self.note(&trf("Package {0} installed.", &[&name]));
+                    self.note(&trf("Plugin {0} installed.", &[&name]));
                     self.set_package(&name, true);
                 }
                 Ok(name) => {
-                    self.note(&trf("Package {0} updated.", &[&name]));
+                    self.note(&trf("Plugin {0} updated.", &[&name]));
                     self.load_scripts();
                 }
                 Err(error) => self.note(&trf(
-                    "The package could not be installed or updated: {0}",
+                    "The plugin could not be installed or updated: {0}",
                     &[&error],
                 )),
             }
@@ -1111,6 +1137,9 @@ impl Tab {
     /// Runs the binding of any key pressed with Ctrl or Alt, or of a
     /// function key, before anything else gets to use the key.
     fn bound_keys(&mut self, ui: &mut egui::Ui) {
+        if ui.input_mut(|input| input.consume_key(Modifiers::COMMAND, Key::M)) {
+            self.show_map = !self.show_map;
+        }
         let pressed: Vec<(Key, Modifiers)> = ui.input(|input| {
             let keys = input.events.iter().filter_map(|event| match event {
                 egui::Event::Key {
@@ -1388,9 +1417,28 @@ impl Tab {
     /// Handles the client's own map commands. Returns false if `line` is
     /// not one of them.
     fn map_command(&mut self, line: &str) -> bool {
-        let (command, argument) = line.split_once(' ').unwrap_or((line, ""));
-        let argument = argument.trim();
+        let Some((command, argument)) = client_command(line) else {
+            return false;
+        };
+        let argument = argument.as_str();
         match command {
+            "/help" => {
+                self.note(tr("Commands of the client, typed like any other:"));
+                for (usage, about) in COMMANDS {
+                    self.note(&format!("  {usage}  —  {}", tr(about)));
+                }
+            }
+            // A group without what to do in it: say what there is.
+            "/map" | "/plugin" => {
+                for (usage, about) in COMMANDS
+                    .iter()
+                    .filter(|(usage, _)| usage.starts_with(command))
+                {
+                    self.note(&format!("  {usage}  —  {}", tr(about)));
+                }
+            }
+            "/map-show" | "/map-hide" => self.show_map = command == "/map-show",
+            "/remove" if !argument.is_empty() => self.remove_plugin(argument),
             "/where" => {
                 let place = self.map.borrow().current().map(|room| {
                     let exits: Vec<&str> = room.exits.keys().map(String::as_str).collect();
@@ -1427,7 +1475,7 @@ impl Tab {
                         [] => self.note(tr("No room matches.")),
                         [room] => self.walk_to(room),
                         _ => {
-                            self.note(tr("Several rooms match; use /go with a room number:"));
+                            self.note(tr("Several rooms match; use /map walk with a room number:"));
                             let rooms = self.matching_rooms(argument);
                             rooms.iter().for_each(|room| self.note(room));
                         }
@@ -1460,7 +1508,7 @@ impl Tab {
                     Some((Err(error), ..)) => {
                         self.note(&trf("Could not save the map: {0}", &[&error.to_string()]))
                     }
-                    None => self.note(tr("No such room; use /avoid with a room number.")),
+                    None => self.note(tr("No such room; use /map avoid with a room number.")),
                 }
             }
             // Toggles whether routes may use an exit of the current room.
@@ -1503,14 +1551,14 @@ impl Tab {
                     .unwrap_or_default();
                 if installed.is_empty() {
                     self.note(tr(
-                        "No script packages are installed. Use /install with a git address.",
+                        "No plugins are installed. Use /plugin install with a git address.",
                     ));
                 }
                 for package in installed {
                     let state = if self.packages.contains(&package) {
                         tr("enabled in this profile")
                     } else {
-                        tr("not enabled; use /enable")
+                        tr("not enabled; use /plugin enable")
                     };
                     self.note(&format!("{package}: {state}"));
                 }
@@ -1530,10 +1578,10 @@ impl Tab {
                         self.package_jobs.push((job, true));
                     }
                     (None, _) => self.note(tr(
-                        "Packages need a configuration folder, and none was found.",
+                        "Plugins need a configuration folder, and none was found.",
                     )),
                     (_, None) => self.note(tr(
-                        "Give the package a name after the address: letters, digits, - and _.",
+                        "Give the plugin a name after the address: letters, digits, - and _.",
                     )),
                 }
             }
@@ -1545,7 +1593,7 @@ impl Tab {
                         self.package_jobs.push((job, false));
                     }
                     None => self.note(tr(
-                        "Packages need a configuration folder, and none was found.",
+                        "Plugins need a configuration folder, and none was found.",
                     )),
                 }
             }
@@ -1557,7 +1605,7 @@ impl Tab {
                     .map(Profiles::packages)
                     .unwrap_or_default();
                 if enable && !installed.iter().any(|package| package == argument) {
-                    self.note(tr("No such package is installed; see /packages."));
+                    self.note(tr("No such plugin is installed; see /plugin list."));
                 } else {
                     self.set_package(argument, enable);
                 }
@@ -1694,6 +1742,10 @@ impl Tab {
             ui.label(RichText::new(about).font(theme::font(theme::Weight::Regular, 12.5)).color(theme.text_dim));
             ui.add_space(12.0);
             scripts = ui.button(tr("Set up a mapper…")).clicked();
+            ui.add_space(4.0);
+            if crate::widgets::quiet_button(ui, tr("Hide the map")).clicked() {
+                self.show_map = false;
+            }
         });
         scripts.then_some(MapAction::Scripts)
     }
@@ -1753,8 +1805,29 @@ impl Tab {
                 .flat_map(|entry| complete::words(entry));
             let given =
                 (self.completions.iter()).flat_map(|(_, words)| words.iter().map(String::as_str));
-            self.completion
-                .complete(&mut self.input, seen.into_iter().chain(typed).chain(given));
+            if self.input.starts_with('/') {
+                // A command of the client: its own words, and nothing else.
+                let group = self
+                    .input
+                    .split_whitespace()
+                    .next()
+                    .unwrap_or_default()
+                    .to_owned();
+                let first = !self.input.contains(' ');
+                let words = COMMANDS.iter().filter_map(|(usage, _)| {
+                    let mut parts = usage.split_whitespace();
+                    let head = parts.next()?;
+                    if first {
+                        Some(head)
+                    } else {
+                        parts.next().filter(|_| head == group)
+                    }
+                });
+                self.completion.complete(&mut self.input, words);
+            } else {
+                self.completion
+                    .complete(&mut self.input, seen.into_iter().chain(typed).chain(given));
+            }
         }
         let has_text = !self.input.is_empty();
         let theme = theme::current();
@@ -1899,6 +1972,79 @@ impl Tab {
         }
         self.unread = !on_screen && (self.unread || self.output.total_pushed() != lines_before);
     }
+}
+
+/// The client's own commands, as they are typed, and what each is for.
+/// They are in English whatever the language of the interface, like the
+/// words of a programming language.
+const COMMANDS: [(&str, &str); 19] = [
+    ("/map where", "Says where you are"),
+    (
+        "/map find <text>",
+        "Lists the rooms whose name contains the text",
+    ),
+    ("/map walk <room>", "Walks to a room, by name or number"),
+    ("/map stop", "Stops walking"),
+    (
+        "/map avoid [number]",
+        "Keeps routes out of a room, or lets them in again",
+    ),
+    (
+        "/map lock <direction>",
+        "Keeps routes from an exit of this room, or lets them use it again",
+    ),
+    ("/map tidy", "Draws this area again from scratch"),
+    ("/map show", "Shows the map panel"),
+    ("/map hide", "Hides the map panel"),
+    ("/plugin list", "Lists the installed plugins"),
+    (
+        "/plugin install <git address> [name]",
+        "Installs a plugin and enables it",
+    ),
+    ("/plugin update <name>", "Brings a plugin up to date"),
+    ("/plugin enable <name>", "Enables a plugin in this profile"),
+    (
+        "/plugin disable <name>",
+        "Disables a plugin in this profile",
+    ),
+    ("/plugin remove <name>", "Deletes a plugin"),
+    ("/log", "Starts or stops logging the session"),
+    ("/reload", "Runs the scripts and rules again"),
+    ("/lua <code>", "Runs a line of Luau"),
+    ("/help", "Lists these commands"),
+];
+
+/// Reads a line as a command of the client: what it does, under the name
+/// the code knows it by, and what it was given. Anything else is for the
+/// MUD.
+fn client_command(line: &str) -> Option<(&'static str, String)> {
+    let mut words = line.split_whitespace();
+    let (group, what) = (words.next()?, words.next().unwrap_or_default());
+    let rest = words.collect::<Vec<_>>().join(" ");
+    let command = match (group, what) {
+        ("/map", "where") => "/where",
+        ("/map", "find") => "/find",
+        ("/map", "walk") => "/go",
+        ("/map", "stop") => "/stop",
+        ("/map", "avoid") => "/avoid",
+        ("/map", "lock") => "/lock",
+        ("/map", "tidy") => "/tidy",
+        ("/map", "show") => "/map-show",
+        ("/map", "hide") => "/map-hide",
+        ("/map", _) => "/map",
+        ("/plugin", "list") => "/packages",
+        ("/plugin", "install") => "/install",
+        ("/plugin", "update") => "/update",
+        ("/plugin", "enable") => "/enable",
+        ("/plugin", "disable") => "/disable",
+        ("/plugin", "remove") => "/remove",
+        ("/plugin", _) => "/plugin",
+        ("/log", _) => "/log",
+        ("/reload", _) => "/reload",
+        ("/help", _) => "/help",
+        _ => return None,
+    };
+    Some((command, rest))
 }
 
 #[cfg(test)]
@@ -2297,6 +2443,47 @@ mod tests {
         harness.run_steps(3);
         assert_eq!(sent.try_recv().unwrap(), send("south"));
         assert_eq!(harness.state().tab().input, "");
+    }
+
+    #[test]
+    fn client_commands_are_grouped_and_complete_with_tab() {
+        let read = |line| client_command(line).map(|(command, rest)| format!("{command} {rest}"));
+        assert_eq!(
+            read("/map walk Temple of Mota").unwrap(),
+            "/go Temple of Mota"
+        );
+        assert_eq!(
+            read("/plugin install https://example.org/x.git mine").unwrap(),
+            "/install https://example.org/x.git mine"
+        );
+        assert_eq!(read("/map").unwrap(), "/map ");
+        // The names of before are gone, and what is not ours is the MUD's.
+        assert_eq!(read("/where"), None);
+        assert_eq!(read("/say hello"), None);
+        assert_eq!(read("north"), None);
+
+        let mut harness = window(None);
+        let app = harness.state_mut().tab_mut();
+        assert!(app.map_command("/map hide") && !app.show_map);
+        assert!(app.map_command("/map show") && app.show_map);
+        assert!(app.map_command("/help"));
+        assert!(
+            output_lines(app)
+                .iter()
+                .any(|line| line.contains("/plugin install"))
+        );
+        // An incomplete group lists what it has instead of going to the MUD.
+        assert!(app.map_command("/map dance"));
+        app.input = "/pl".into();
+        harness.run_steps(2);
+        harness.key_press(Key::Tab);
+        harness.run_steps(2);
+        assert_eq!(harness.state().tab().input, "/plugin");
+        harness.state_mut().tab_mut().input = "/map wh".into();
+        harness.run_steps(2);
+        harness.key_press(Key::Tab);
+        harness.run_steps(2);
+        assert_eq!(harness.state().tab().input, "/map where");
     }
 
     #[test]

@@ -101,6 +101,7 @@ impl MapView {
         let palette = theme::current();
         // The map's own tools sit on its title's line.
         let (mut locate, mut tidy, mut stop) = (false, false, false);
+        let (mut avoid, mut hide) = (false, false);
         ui.horizontal(|ui| {
             widgets::caption(ui, tr("Map"));
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -109,16 +110,21 @@ impl MapView {
                     stop = widgets::icon_button(ui, widgets::Icon::Stop, tr("Stop walking"), true)
                         .clicked();
                 }
-                if widgets::icon_button(
-                    ui,
-                    widgets::Icon::Layers,
-                    tr("Show all areas"),
-                    self.all_areas,
-                )
-                .clicked()
-                {
-                    self.all_areas = !self.all_areas;
-                }
+                // What is asked for less often is behind the dots.
+                let more = widgets::icon_button(ui, widgets::Icon::More, tr("More"), false);
+                egui::Popup::menu(&more).show(|ui| {
+                    widgets::menu_width(ui);
+                    widgets::menu_check(ui, &mut self.all_areas, tr("Show all areas"));
+                    if widgets::menu_item(ui, tr("Avoid this room in routes"), "").clicked() {
+                        avoid = true;
+                        ui.close();
+                    }
+                    widgets::menu_separator(ui);
+                    if widgets::menu_item(ui, tr("Hide the map"), "Ctrl+M").clicked() {
+                        hide = true;
+                        ui.close();
+                    }
+                });
                 tidy = widgets::icon_button(ui, widgets::Icon::Tidy, tr("Tidy this area"), false)
                     .clicked();
                 locate = widgets::icon_button(ui, widgets::Icon::Locate, tr("Where am I?"), false)
@@ -357,12 +363,16 @@ impl MapView {
             self.menu_room = pointed.map(|room| room.id);
         }
         let mut chosen = None;
-        if stop {
-            chosen = Some(MapAction::Command("/stop"));
+        if hide {
+            chosen = Some(MapAction::Command("/map hide"));
+        } else if avoid {
+            chosen = Some(MapAction::Command("/map avoid"));
+        } else if stop {
+            chosen = Some(MapAction::Command("/map stop"));
         } else if tidy {
             chosen = Some(MapAction::Tidy(area.clone()));
         } else if locate {
-            chosen = Some(MapAction::Command("/where"));
+            chosen = Some(MapAction::Command("/map where"));
         }
         response.context_menu(|ui| {
             widgets::menu_width(ui);

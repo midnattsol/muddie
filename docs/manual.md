@@ -56,20 +56,26 @@ anything else is sent to the MUD.
 
 | Command | What it does |
 |---|---|
+| `/help` | Lists these commands |
 | `/lua <code>` | Runs a line of Luau |
-| `/reload` | Starts the scripts and rules afresh |
+| `/reload` | Runs the scripts and rules again |
 | `/log` | Starts or stops logging the session to a file |
-| `/where` | Says where the map has you, and the exits |
-| `/find <text>` | Lists rooms whose name contains the text |
-| `/go <number or name>` | Walks to a room |
-| `/stop` | Stops walking |
-| `/avoid [number]` | Keeps routes out of a room (the current one), or allows them again |
-| `/lock <direction>` | Keeps routes off an exit of this room, or allows it again |
-| `/tidy` | Draws the current area again from scratch |
-| `/packages` | Lists installed script packages |
-| `/install <git address> [name]` | Installs a package and enables it in this profile |
-| `/update <name>` | Updates a package |
-| `/enable <name>`, `/disable <name>` | Switches a package on or off in this profile |
+| `/map where` | Says where the map has you, and the exits |
+| `/map find <text>` | Lists rooms whose name contains the text |
+| `/map walk <number or name>` | Walks to a room |
+| `/map stop` | Stops walking |
+| `/map avoid [number]` | Keeps routes out of a room (the current one), or allows them again |
+| `/map lock <direction>` | Keeps routes off an exit of this room, or allows it again |
+| `/map tidy` | Draws the current area again from scratch |
+| `/map show`, `/map hide` | Shows or hides the map panel |
+| `/plugin list` | Lists the installed plugins |
+| `/plugin install <git address> [name]` | Installs a plugin and enables it in this profile |
+| `/plugin update <name>` | Brings a plugin up to date |
+| `/plugin enable <name>`, `/plugin disable <name>` | Switches a plugin on or off in this profile |
+| `/plugin remove <name>` | Deletes a plugin |
+
+These are in English whatever the language of the interface, and Tab
+completes them.
 
 ## Triggers, aliases and keys without scripting
 
@@ -83,7 +89,7 @@ A trigger, an alias, a macro and a timer differ in what sets them off; what
 they then do is the same choice for all four:
 
 - **Commands**: what to send, one command per line.
-- **Lua script**: a few lines of Luau instead, in an editor that numbers the
+- **Lua**: a few lines of Luau instead, in an editor that numbers the
   lines, colours the code and marks the line of a mistake with what is wrong.
 
 The three, and what else there is:
@@ -103,7 +109,7 @@ The three, and what else there is:
   fields inside it (`Char.Vitals.health.current`), or the name of a MSDP
   variable. Choose its colour, whether it is drawn as a row of cells, and the
   level under which its numbers turn red. Alt+0 reads the gauges aloud.
-- **Modules** are Luau code that is always loaded, for what no rule can do:
+- **Scripts** are Luau code that is always loaded, for what no rule can do:
   building the map, acting on what the MUD reports. They are the profile's
   `.luau` files. The `+` offers examples to start from: a map the MUD draws
   itself, a map it sends whole, a map read from the room descriptions, words
@@ -129,7 +135,7 @@ or MSDP, and is saved per profile. Scripts can map other servers.
 | Drag | Moves the view; the wheel zooms |
 | Shift+drag a room | Moves it to another cell |
 | The area list, − and + | Looks at another area or level; **Back to me** returns |
-| The buttons beside the map's title | Find where you are, tidy the area, show every area on the level, stop walking |
+| The buttons beside the map's title | Find where you are, tidy the area, stop walking; the dots hold the rest: show every area, avoid this room, hide the map |
 
 A room marked to avoid is never walked through, and a locked exit is never
 used. Both are kept when the server reports the room again.
@@ -176,3 +182,13 @@ shown.
 
 Telnet with NAWS, TTYPE/MTTS, CHARSET and EOR/GA prompts; GMCP, MSDP and
 MSSP; MCCP2 and MCCP3 compression; MXP formatting and links; MSP sounds; TLS.
+
+## Languages
+
+The interface follows the language of the system; **Settings** can fix it.
+English and Spanish come with the program. Translations are gettext
+catalogues: to add a language, copy `po/muddie.pot` from the sources to
+`<language code>.po` (`fr.po`, `pt_BR.po`), translate it with any gettext
+editor such as Poedit, and put it in the `locale` folder of the configuration
+(`~/.config/muddie/locale`). It then appears among the languages. A file there
+also replaces a built-in translation of the same code.

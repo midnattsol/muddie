@@ -254,6 +254,24 @@ pub fn menu_check(ui: &mut Ui, on: &mut bool, text: &str) -> Response {
     response
 }
 
+/// A choice in a menu that is on or off and has a keyboard shortcut.
+pub fn menu_row_with_shortcut(ui: &mut Ui, on: &mut bool, text: &str, shortcut: &str) -> Response {
+    // The tick goes with the text, so that the shortcut keeps the right.
+    let shown = if *on {
+        format!("✓  {text}")
+    } else {
+        format!("     {text}")
+    };
+    let mut response = menu_row(ui, None, &shown, shortcut);
+    response
+        .widget_info(|| WidgetInfo::selected(Role::MenuItemCheckBox, ui.is_enabled(), *on, text));
+    if response.clicked() {
+        *on = !*on;
+        response.mark_changed();
+    }
+    response
+}
+
 fn menu_row(ui: &mut Ui, checked: Option<bool>, text: &str, shortcut: &str) -> Response {
     let theme = theme::current();
     let font = theme::font(Weight::Regular, 13.5);
@@ -566,10 +584,10 @@ pub enum Icon {
     Locate,
     /// Four tiles: put in order.
     Tidy,
-    /// Stacked sheets: everything at once.
-    Layers,
     /// A square: stop.
     Stop,
+    /// Three dots: more.
+    More,
 }
 
 /// A small button with a picture. `label` says what it does, to screen
@@ -627,22 +645,14 @@ pub fn icon_button(ui: &mut Ui, icon: Icon, label: &str, on: bool) -> Response {
                     );
                 }
             }
-            Icon::Layers => {
-                for (step, strength) in [(4.5, 0.45), (0.0, 0.7), (-4.5, 1.0)] {
-                    let middle = centre + vec2(0.0, step);
-                    let sheet = vec![
-                        middle + vec2(-7.0, 0.0),
-                        middle + vec2(0.0, -3.2),
-                        middle + vec2(7.0, 0.0),
-                        middle + vec2(0.0, 3.2),
-                    ];
-                    let stroke = Stroke::new(1.4, colour.gamma_multiply(strength));
-                    painter.add(egui::Shape::closed_line(sheet, stroke));
-                }
-            }
             Icon::Stop => {
                 let square = egui::Rect::from_center_size(centre, Vec2::splat(9.0));
                 painter.rect_filled(square, CornerRadius::same(2), colour);
+            }
+            Icon::More => {
+                for step in [-5.0, 0.0, 5.0] {
+                    painter.circle_filled(centre + vec2(step, 0.0), 1.5, colour);
+                }
             }
         }
     }

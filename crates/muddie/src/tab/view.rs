@@ -399,30 +399,15 @@ impl Tab {
     /// The session's entries of the View menu.
     pub fn view_menu(&mut self, ui: &mut egui::Ui) {
         widgets::menu_check(ui, &mut self.show_chat, tr("Chat panel"));
-        widgets::menu_check(ui, &mut self.show_map, tr("Show the map"));
+        let mut shown = self.show_map;
+        if widgets::menu_row_with_shortcut(ui, &mut shown, tr("Show the map"), "Ctrl+M").changed() {
+            self.show_map = shown;
+        }
         widgets::menu_separator(ui);
         if widgets::menu_item(ui, tr("Find…"), "Ctrl+F").clicked() {
             self.find_open = true;
             self.find_wants_focus = true;
             ui.close();
-        }
-    }
-
-    /// The Map menu.
-    pub fn map_menu(&mut self, ui: &mut egui::Ui) {
-        widgets::menu_check(ui, &mut self.show_map, tr("Show the map"));
-        widgets::menu_check(ui, &mut self.map_view.all_areas, tr("Show all areas"));
-        widgets::menu_separator(ui);
-        for (name, command) in [
-            (tr("Where am I?"), "/where"),
-            (tr("Tidy this area"), "/tidy"),
-            (tr("Avoid this room in routes"), "/avoid"),
-            (tr("Stop walking"), "/stop"),
-        ] {
-            if widgets::menu_item(ui, name, "").clicked() {
-                self.map_command(command);
-                ui.close();
-            }
         }
     }
 

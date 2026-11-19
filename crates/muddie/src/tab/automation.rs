@@ -240,7 +240,7 @@ impl Tab {
             tr("Macros"),
             tr("Timers"),
             tr("Gauges"),
-            tr("Modules"),
+            tr("Scripts"),
         ];
         for (section, name) in names.into_iter().enumerate() {
             let selected = self.rules_section == section;
@@ -257,7 +257,7 @@ impl Tab {
             let again = widgets::quiet_button(ui, tr("Run everything again"));
             if again
                 .on_hover_text(tr(
-                    "Loads the modules and the rules afresh, as when connecting.",
+                    "Loads the scripts and the rules afresh, as when connecting.",
                 ))
                 .clicked()
             {
@@ -601,7 +601,7 @@ impl Tab {
                     "A gauge is a bar that follows a number the MUD reports,\nsuch as your health.",
                 ),
                 _ => tr(
-                    "Modules are Luau code that is always loaded: what no rule can do,\nsuch as building the map or acting on what your MUD reports.",
+                    "Scripts are Luau code that is always loaded: what no rule can do,\nsuch as building the map or acting on what your MUD reports.",
                 ),
             };
             ui.vertical_centered(|ui| {
@@ -1057,7 +1057,7 @@ impl Tab {
         let mistake = self.scripts.check(&self.script_text);
         widgets::code_editor(
             ui,
-            tr("Module"),
+            tr("Script"),
             &mut self.script_text,
             hint,
             rows,
@@ -1187,7 +1187,7 @@ fn action_block(
         widgets::caption(ui, tr("Do"));
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             let current = usize::from(*action.lua);
-            match widgets::segmented(ui, &[tr("Commands"), tr("Lua script")], current) {
+            match widgets::segmented(ui, &[tr("Commands"), tr("Lua")], current) {
                 Some(0) => *action.lua = false,
                 Some(_) => {
                     *action.lua = true;
@@ -1204,7 +1204,7 @@ fn action_block(
     if *action.lua {
         widgets::code_editor(
             ui,
-            tr("Lua script"),
+            tr("Lua"),
             action.script,
             action.script_hint,
             rows,

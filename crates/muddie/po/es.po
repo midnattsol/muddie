@@ -70,9 +70,6 @@ msgstr "Salida"
 msgid "Show the time of each line"
 msgstr "Mostrar la hora de cada línea"
 
-msgid "Log"
-msgstr "Registro"
-
 msgid "Log every session"
 msgstr "Registrar todas las sesiones"
 
@@ -162,12 +159,6 @@ msgstr "Volver al final"
 msgid "Could not load the rules: {0}"
 msgstr "No se pudieron cargar las reglas: {0}"
 
-msgid "The rules cannot be saved: no configuration folder was found."
-msgstr "No se pueden guardar las reglas: no hay carpeta de configuración."
-
-msgid "Rules saved."
-msgstr "Reglas guardadas."
-
 #, python-brace-format
 msgid "Could not save the rules: {0}"
 msgstr "No se pudieron guardar las reglas: {0}"
@@ -193,9 +184,6 @@ msgstr "Mapa"
 msgid "Chat"
 msgstr "Chat"
 
-msgid "Triggers"
-msgstr "Triggers"
-
 msgid "Character"
 msgstr "Personaje"
 
@@ -208,47 +196,17 @@ msgstr "sin cambios"
 msgid "Kept in the system's keyring when the profile is saved."
 msgstr "Se guarda en el llavero del sistema al guardar el perfil."
 
-msgid "Triggers, aliases and keys"
-msgstr "Triggers, alias y teclas"
-
-msgid "Aliases"
-msgstr "Alias"
-
-msgid "Keys"
-msgstr "Teclas"
-
 msgid "Add"
 msgstr "Añadir"
-
-msgid "Save"
-msgstr "Guardar"
-
-msgid "Unsaved changes"
-msgstr "Cambios sin guardar"
-
-msgid "Nothing here yet. Use Add to make one."
-msgstr "Aún no hay nada. Usa Añadir para crear uno."
 
 msgid "Delete"
 msgstr "Borrar"
 
-msgid "On"
-msgstr "Activo"
-
-msgid "When a line has"
-msgstr "Cuando una línea contiene"
-
 msgid "Regular expression"
 msgstr "Expresión regular"
 
-msgid "Send"
-msgstr "Enviar"
-
 msgid "Say"
 msgstr "Decir"
-
-msgid "Play"
-msgstr "Sonido"
 
 msgid "Colour"
 msgstr "Color"
@@ -259,9 +217,6 @@ msgstr "Ocultar la línea"
 msgid "Typing"
 msgstr "Al escribir"
 
-msgid "Sends"
-msgstr "Envía"
-
 msgid "Key"
 msgstr "Tecla"
 
@@ -269,66 +224,22 @@ msgstr "Tecla"
 msgid "Unknown text encoding {0}; using the automatic one."
 msgstr "Codificación de texto {0} desconocida; se usa la automática."
 
-msgid "Encoding"
-msgstr "Codificación"
-
 msgid "Only for servers that do not use UTF-8 or Latin-1, e.g. big5 or koi8-r."
 msgstr "Solo para servidores que no usan UTF-8 ni Latin-1, p. ej. big5 o koi8-r."
 
-msgid "No script packages are installed. Use /install with a git address."
-msgstr "No hay paquetes de scripts instalados. Usa /install con una dirección git."
-
 msgid "enabled in this profile"
 msgstr "activo en este perfil"
-
-msgid "not enabled; use /enable"
-msgstr "inactivo; usa /enable"
 
 #, python-brace-format
 msgid "Installing {0}..."
 msgstr "Instalando {0}..."
 
-msgid "Packages need a configuration folder, and none was found."
-msgstr "Los paquetes necesitan una carpeta de configuración y no se encontró ninguna."
-
-msgid "Give the package a name after the address: letters, digits, - and _."
-msgstr "Indica un nombre para el paquete tras la dirección: letras, dígitos, - y _."
-
 #, python-brace-format
 msgid "Updating {0}..."
 msgstr "Actualizando {0}..."
 
-msgid "No such package is installed; see /packages."
-msgstr "No hay ningún paquete instalado con ese nombre; mira /packages."
-
-msgid "Packages are enabled per profile: save or choose a profile first."
-msgstr "Los paquetes se activan por perfil: guarda o elige un perfil primero."
-
-#, python-brace-format
-msgid "Package {0} enabled."
-msgstr "Paquete {0} activado."
-
-#, python-brace-format
-msgid "Package {0} disabled."
-msgstr "Paquete {0} desactivado."
-
-#, python-brace-format
-msgid "Package {0} installed."
-msgstr "Paquete {0} instalado."
-
-#, python-brace-format
-msgid "Package {0} updated."
-msgstr "Paquete {0} actualizado."
-
-#, python-brace-format
-msgid "The package could not be installed or updated: {0}"
-msgstr "No se pudo instalar o actualizar el paquete: {0}"
-
 msgid "Profile"
 msgstr "Perfil"
-
-msgid "(none)"
-msgstr "(ninguno)"
 
 msgid "Disconnect"
 msgstr "Desconectar"
@@ -344,9 +255,6 @@ msgstr "Servidor"
 
 msgid "Port"
 msgstr "Puerto"
-
-msgid "Security"
-msgstr "Seguridad"
 
 msgid "Verify certificate"
 msgstr "Verificar certificado"
@@ -380,9 +288,6 @@ msgstr "Subir"
 
 msgid "Back to me"
 msgstr "Volver a mí"
-
-msgid "All areas"
-msgstr "Todas las zonas"
 
 msgid "Map view"
 msgstr "Vista del mapa"
@@ -452,9 +357,6 @@ msgstr "Recorrido detenido: el último paso no tuvo efecto."
 msgid "No room matches."
 msgstr "Ninguna sala coincide."
 
-msgid "Several rooms match; use /go with a room number:"
-msgstr "Coinciden varias salas; usa /go con un número de sala:"
-
 #, python-brace-format
 msgid "Routes will avoid {0}."
 msgstr "Las rutas evitarán {0}."
@@ -462,9 +364,6 @@ msgstr "Las rutas evitarán {0}."
 #, python-brace-format
 msgid "Routes may pass through {0} again."
 msgstr "Las rutas pueden volver a pasar por {0}."
-
-msgid "No such room; use /avoid with a room number."
-msgstr "No existe esa sala; usa /avoid con un número de sala."
 
 msgid "Routes will not use that exit."
 msgstr "Las rutas no usarán esa salida."
@@ -513,9 +412,6 @@ msgstr "sistema"
 
 msgid "A language code such as es or en, so the text is read with the right voice."
 msgstr "Un código de idioma como es o en, para que el texto se lea con la voz adecuada."
-
-msgid "Screen reader"
-msgstr "Lector de pantalla"
 
 msgid "Voice through the screen reader (also braille)"
 msgstr "Leer a través del lector de pantalla (también braille)"
@@ -590,9 +486,6 @@ msgstr "¿Dónde quieres jugar?"
 msgid "Your profiles"
 msgstr "Tus perfiles"
 
-msgid "New connection"
-msgstr "Conexión nueva"
-
 msgid "Secure connection (TLS)"
 msgstr "Conexión segura (TLS)"
 
@@ -625,26 +518,8 @@ msgstr "Registrar esta sesión"
 msgid "Chat panel"
 msgstr "Panel de chat"
 
-msgid "Map panel"
-msgstr "Panel del mapa"
-
 msgid "Find…"
 msgstr "Buscar…"
-
-msgid "Triggers…"
-msgstr "Triggers…"
-
-msgid "Aliases…"
-msgstr "Alias…"
-
-msgid "Macros…"
-msgstr "Macros…"
-
-msgid "Reload scripts"
-msgstr "Recargar scripts"
-
-msgid "List script packages"
-msgstr "Listar paquetes de scripts"
 
 msgid "Where am I?"
 msgstr "¿Dónde estoy?"
@@ -664,9 +539,6 @@ msgstr "Codificación del texto"
 msgid "Log in automatically"
 msgstr "Entrar automáticamente"
 
-msgid "Macros"
-msgstr "Macros"
-
 msgid "All changes saved"
 msgstr "Todos los cambios guardados"
 
@@ -684,13 +556,6 @@ msgstr ""
 "Pulsa + para crear uno."
 
 msgid ""
-"A trigger reacts to what the MUD sends:\n"
-"it can answer, speak, play a sound, colour or hide the line."
-msgstr ""
-"Un trigger reacciona a lo que envía el MUD:\n"
-"puede responder, hablar, reproducir un sonido, colorear u ocultar la línea."
-
-msgid ""
 "An alias turns a short command you type\n"
 "into the commands you mean."
 msgstr ""
@@ -699,9 +564,6 @@ msgstr ""
 
 msgid "A macro sends commands at the press of a key."
 msgstr "Una macro envía comandos al pulsar una tecla."
-
-msgid "Name this trigger"
-msgstr "Ponle nombre a este trigger"
 
 msgid "When"
 msgstr "Cuando"
@@ -717,9 +579,6 @@ msgstr "te dice"
 
 msgid "Do"
 msgstr "Hacer"
-
-msgid "Send commands"
-msgstr "Enviar comandos"
 
 msgid "%1 is here"
 msgstr "%1 está aquí"
@@ -750,12 +609,6 @@ msgstr "Lo que escribes cumple esta expresión regular"
 
 msgid "You type this word, alone or followed by more"
 msgstr "Escribes esta palabra, sola o seguida de más"
-
-msgid "Send instead"
-msgstr "Enviar en su lugar"
-
-msgid "%1 stands for what follows the word. Separate several commands with ;"
-msgstr "%1 es lo que sigue a la palabra. Separa varios comandos con ;"
 
 msgid "Name this macro"
 msgstr "Ponle nombre a esta macro"
@@ -823,18 +676,6 @@ msgstr "cian"
 msgid "white"
 msgstr "blanco"
 
-msgid "Gauges…"
-msgstr "Indicadores…"
-
-msgid "Scripts…"
-msgstr "Scripts…"
-
-msgid "Gauges"
-msgstr "Indicadores"
-
-msgid "Scripts"
-msgstr "Scripts"
-
 msgid "In every session"
 msgstr "En todas las sesiones"
 
@@ -855,34 +696,9 @@ msgstr ""
 "Un indicador es una barra que sigue un número que da el MUD,\n"
 "como tu vida."
 
-msgid ""
-"Scripts are Luau programs: for what triggers cannot do,\n"
-"such as building the map from what your MUD sends."
-msgstr ""
-"Los scripts son programas en Luau: para lo que los triggers no pueden,\n"
-"como construir el mapa con lo que envía tu MUD."
-
 #, python-brace-format
 msgid "Could not delete the script: {0}"
 msgstr "No se pudo borrar el script: {0}"
-
-msgid "Send commands, one per line"
-msgstr "Enviar comandos, uno por línea"
-
-msgid "Run a script (Luau): m holds the match, line the whole line"
-msgstr "Ejecutar un script (Luau): m es la coincidencia, line la línea entera"
-
-msgid "Send instead, one command per line"
-msgstr "Enviar en su lugar, un comando por línea"
-
-msgid "%1 stands for what follows the word."
-msgstr "%1 es lo que sigue a la palabra."
-
-msgid "Run a script (Luau): m holds the match, input what was typed"
-msgstr "Ejecutar un script (Luau): m es la coincidencia, input lo que escribiste"
-
-msgid "Run a script (Luau)"
-msgstr "Ejecutar un script (Luau)"
 
 msgid "Name this gauge"
 msgstr "Ponle nombre a este indicador"
@@ -913,9 +729,6 @@ msgstr "Vista previa"
 
 msgid "Gauge"
 msgstr "Indicador"
-
-msgid "Script"
-msgstr "Script"
 
 msgid "Game"
 msgstr "Juego"
@@ -950,15 +763,6 @@ msgstr "Grafito"
 msgid "Resize"
 msgstr "Redimensionar"
 
-msgid "Luau, run after the rest. m holds the match, line the whole line."
-msgstr "Luau; se ejecuta después de lo demás. m es la coincidencia, line la línea entera."
-
-msgid "Luau, run after the rest. m holds the match, input what was typed."
-msgstr "Luau; se ejecuta después de lo demás. m es la coincidencia, input lo que escribiste."
-
-msgid "Luau, run when the key is pressed."
-msgstr "Luau; se ejecuta al pulsar la tecla."
-
 msgid "Show the map"
 msgstr "Mostrar el mapa"
 
@@ -983,21 +787,8 @@ msgstr "Dejar el comando tras enviarlo"
 msgid "It stays selected: Enter sends it again, and typing replaces it."
 msgstr "Queda seleccionado: Enter lo envía otra vez y escribir lo sustituye."
 
-msgid "Modules"
-msgstr "Módulos"
-
 msgid "Run everything again"
 msgstr "Ejecutar todo de nuevo"
-
-msgid "Loads the modules and the rules afresh, as when connecting."
-msgstr "Carga de nuevo los módulos y las reglas, como al conectar."
-
-msgid ""
-"Modules are Luau code that is always loaded: what no rule can do,\n"
-"such as building the map or acting on what your MUD reports."
-msgstr ""
-"Los módulos son código Luau que está siempre cargado: lo que ninguna regla puede hacer,\n"
-"como construir el mapa o reaccionar a lo que informa tu MUD."
 
 msgid "One command per line. %1, %2… are the groups of the pattern."
 msgstr "Un comando por línea. %1, %2… son los grupos del patrón."
@@ -1023,17 +814,8 @@ msgstr "Un comando por línea, enviados como si los hubieras escrito."
 msgid "Run when the key is pressed."
 msgstr "Se ejecuta al pulsar la tecla."
 
-msgid "Module"
-msgstr "Módulo"
-
 msgid "Commands"
 msgstr "Comandos"
-
-msgid "Lua script"
-msgstr "Script Lua"
-
-msgid "Timers"
-msgstr "Temporizadores"
 
 msgid "every"
 msgstr "cada"
@@ -1077,3 +859,166 @@ msgid "Reconnecting in {0} second."
 msgid_plural "Reconnecting in {0} seconds."
 msgstr[0] "Reconectando en {0} segundo."
 msgstr[1] "Reconectando en {0} segundos."
+
+
+msgid "More"
+msgstr "Más"
+
+msgid "Hide the map"
+msgstr "Ocultar el mapa"
+
+msgid "Plugins are enabled per profile: save or choose a profile first."
+msgstr "Los complementos se activan por perfil: guarda o elige un perfil primero."
+
+#, python-brace-format
+msgid "Plugin {0} enabled."
+msgstr "Complemento {0} activado."
+
+#, python-brace-format
+msgid "Plugin {0} disabled."
+msgstr "Complemento {0} desactivado."
+
+msgid "No such plugin is installed; see /plugin list."
+msgstr "No hay ningún complemento instalado con ese nombre; consulta /plugin list."
+
+#, python-brace-format
+msgid "Plugin {0} removed."
+msgstr "Complemento {0} eliminado."
+
+#, python-brace-format
+msgid "The plugin could not be removed: {0}"
+msgstr "No se pudo eliminar el complemento: {0}"
+
+#, python-brace-format
+msgid "Plugin {0} installed."
+msgstr "Complemento {0} instalado."
+
+#, python-brace-format
+msgid "Plugin {0} updated."
+msgstr "Complemento {0} actualizado."
+
+#, python-brace-format
+msgid "The plugin could not be installed or updated: {0}"
+msgstr "No se pudo instalar o actualizar el complemento: {0}"
+
+msgid "Commands of the client, typed like any other:"
+msgstr "Comandos del cliente, que se escriben como cualquier otro:"
+
+msgid "Several rooms match; use /map walk with a room number:"
+msgstr "Coinciden varias salas; usa /map walk con un número de sala:"
+
+msgid "No such room; use /map avoid with a room number."
+msgstr "No existe esa sala; usa /map avoid con un número de sala."
+
+msgid "No plugins are installed. Use /plugin install with a git address."
+msgstr "No hay complementos instalados. Usa /plugin install con una dirección git."
+
+msgid "not enabled; use /plugin enable"
+msgstr "sin activar; usa /plugin enable"
+
+msgid "Plugins need a configuration folder, and none was found."
+msgstr "Los complementos necesitan una carpeta de configuración, y no se encontró ninguna."
+
+msgid "Give the plugin a name after the address: letters, digits, - and _."
+msgstr "Dale un nombre al complemento tras la dirección: letras, cifras, - y _."
+
+msgid "Says where you are"
+msgstr "Dice dónde estás"
+
+msgid "Lists the rooms whose name contains the text"
+msgstr "Lista las salas cuyo nombre contiene el texto"
+
+msgid "Walks to a room, by name or number"
+msgstr "Camina hasta una sala, por nombre o número"
+
+msgid "Stops walking"
+msgstr "Deja de caminar"
+
+msgid "Keeps routes out of a room, or lets them in again"
+msgstr "Aparta las rutas de una sala, o las vuelve a permitir"
+
+msgid "Keeps routes from an exit of this room, or lets them use it again"
+msgstr "Impide que las rutas usen una salida de esta sala, o lo vuelve a permitir"
+
+msgid "Draws this area again from scratch"
+msgstr "Vuelve a dibujar esta zona desde cero"
+
+msgid "Shows the map panel"
+msgstr "Muestra el panel del mapa"
+
+msgid "Hides the map panel"
+msgstr "Oculta el panel del mapa"
+
+msgid "Lists the installed plugins"
+msgstr "Lista los complementos instalados"
+
+msgid "Installs a plugin and enables it"
+msgstr "Instala un complemento y lo activa"
+
+msgid "Brings a plugin up to date"
+msgstr "Actualiza un complemento"
+
+msgid "Enables a plugin in this profile"
+msgstr "Activa un complemento en este perfil"
+
+msgid "Disables a plugin in this profile"
+msgstr "Desactiva un complemento en este perfil"
+
+msgid "Deletes a plugin"
+msgstr "Elimina un complemento"
+
+msgid "Starts or stops logging the session"
+msgstr "Empieza o deja de registrar la sesión"
+
+msgid "Runs the scripts and rules again"
+msgstr "Vuelve a ejecutar los scripts y las reglas"
+
+msgid "Lists these commands"
+msgstr "Lista estos comandos"
+
+msgid ""
+"Scripts are Luau code that is always loaded: what no rule can do,\n"
+"such as building the map or acting on what your MUD reports."
+msgstr ""
+"Los scripts son código Luau que está siempre cargado: lo que ninguna regla puede hacer,\n"
+"como construir el mapa o reaccionar a lo que informa tu MUD."
+
+msgid "Lua"
+msgstr "Lua"
+
+msgid "Script"
+msgstr "Script"
+
+msgid "Scripts"
+msgstr "Scripts"
+
+msgid "Loads the scripts and the rules afresh, as when connecting."
+msgstr "Carga de nuevo los scripts y las reglas, como al conectar."
+
+msgid "Triggers"
+msgstr "Disparadores"
+
+msgid "Name this trigger"
+msgstr "Pon un nombre a este disparador"
+
+msgid ""
+"A trigger reacts to what the MUD sends:\n"
+"it can answer, speak, play a sound, colour or hide the line."
+msgstr ""
+"Un disparador reacciona a lo que envía el MUD:\n"
+"puede responder, hablar, reproducir un sonido, colorear u ocultar la línea."
+
+msgid "Gauges"
+msgstr "Indicadores"
+
+msgid "Timers"
+msgstr "Temporizadores"
+
+msgid "Aliases"
+msgstr "Alias"
+
+msgid "Macros"
+msgstr "Macros"
+
+msgid "Runs a line of Luau"
+msgstr "Ejecuta una línea de Luau"

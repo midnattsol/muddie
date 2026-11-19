@@ -281,10 +281,6 @@ impl App {
                 ui.close();
             }
         });
-        ui.menu_button(tr("Map"), |ui| {
-            widgets::menu_width(ui);
-            self.tabs[active].map_menu(ui);
-        });
         ui.menu_button(tr("Help"), |ui| {
             widgets::menu_width(ui);
             if widgets::menu_item(ui, tr("Keyboard shortcuts"), "").clicked() {

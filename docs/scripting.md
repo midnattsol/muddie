@@ -14,7 +14,7 @@ All paths are under the configuration folder: `~/.config/muddie` on Linux,
 | File | When it runs |
 |---|---|
 | `init.luau` | In every session |
-| `packages/<name>/init.luau` | In profiles that enable the package |
+| `packages/<name>/init.luau` | In profiles that enable that plugin |
 | `profiles/<profile>/scripts/*.luau` | In that profile, in name order |
 | files given with `--script` | In every session, last |
 

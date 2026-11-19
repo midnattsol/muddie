@@ -42,9 +42,6 @@ msgstr ""
 msgid "Settings…"
 msgstr ""
 
-msgid "Map"
-msgstr ""
-
 msgid "Help"
 msgstr ""
 
@@ -152,10 +149,22 @@ msgstr ""
 msgid "No map yet: the server has not reported a room."
 msgstr ""
 
+msgid "Map"
+msgstr ""
+
 msgid "Stop walking"
 msgstr ""
 
+msgid "More"
+msgstr ""
+
 msgid "Show all areas"
+msgstr ""
+
+msgid "Avoid this room in routes"
+msgstr ""
+
+msgid "Hide the map"
 msgstr ""
 
 msgid "Tidy this area"
@@ -276,9 +285,6 @@ msgstr ""
 msgid "Find…"
 msgstr ""
 
-msgid "Avoid this room in routes"
-msgstr ""
-
 msgid "Connection"
 msgstr ""
 
@@ -342,13 +348,13 @@ msgstr ""
 msgid "Gauges"
 msgstr ""
 
-msgid "Modules"
+msgid "Scripts"
 msgstr ""
 
 msgid "Run everything again"
 msgstr ""
 
-msgid "Loads the modules and the rules afresh, as when connecting."
+msgid "Loads the scripts and the rules afresh, as when connecting."
 msgstr ""
 
 msgid "All changes saved"
@@ -417,7 +423,7 @@ msgid ""
 msgstr ""
 
 msgid ""
-"Modules are Luau code that is always loaded: what no rule can do,\n"
+"Scripts are Luau code that is always loaded: what no rule can do,\n"
 "such as building the map or acting on what your MUD reports."
 msgstr ""
 
@@ -590,7 +596,7 @@ msgstr ""
 msgid "Name"
 msgstr ""
 
-msgid "Module"
+msgid "Script"
 msgstr ""
 
 msgid "Do"
@@ -599,7 +605,7 @@ msgstr ""
 msgid "Commands"
 msgstr ""
 
-msgid "Lua script"
+msgid "Lua"
 msgstr ""
 
 msgid "Enabled"
@@ -759,27 +765,38 @@ msgstr ""
 msgid "Not connected."
 msgstr ""
 
-msgid "Packages are enabled per profile: save or choose a profile first."
+msgid "Plugins are enabled per profile: save or choose a profile first."
 msgstr ""
 
 #, python-brace-format
-msgid "Package {0} enabled."
+msgid "Plugin {0} enabled."
 msgstr ""
 
 #, python-brace-format
-msgid "Package {0} disabled."
+msgid "Plugin {0} disabled."
+msgstr ""
+
+msgid "No such plugin is installed; see /plugin list."
 msgstr ""
 
 #, python-brace-format
-msgid "Package {0} installed."
+msgid "Plugin {0} removed."
 msgstr ""
 
 #, python-brace-format
-msgid "Package {0} updated."
+msgid "The plugin could not be removed: {0}"
 msgstr ""
 
 #, python-brace-format
-msgid "The package could not be installed or updated: {0}"
+msgid "Plugin {0} installed."
+msgstr ""
+
+#, python-brace-format
+msgid "Plugin {0} updated."
+msgstr ""
+
+#, python-brace-format
+msgid "The plugin could not be installed or updated: {0}"
 msgstr ""
 
 msgid "Find"
@@ -813,6 +830,9 @@ msgstr ""
 msgid "Walk stopped: the last move had no effect."
 msgstr ""
 
+msgid "Commands of the client, typed like any other:"
+msgstr ""
+
 #, python-brace-format
 msgid "{0} (#{1}) in {2}. Exits: {3}."
 msgstr ""
@@ -820,7 +840,7 @@ msgstr ""
 msgid "No room matches."
 msgstr ""
 
-msgid "Several rooms match; use /go with a room number:"
+msgid "Several rooms match; use /map walk with a room number:"
 msgstr ""
 
 #, python-brace-format
@@ -831,7 +851,7 @@ msgstr ""
 msgid "Routes may pass through {0} again."
 msgstr ""
 
-msgid "No such room; use /avoid with a room number."
+msgid "No such room; use /map avoid with a room number."
 msgstr ""
 
 msgid "Routes will not use that exit."
@@ -843,30 +863,27 @@ msgstr ""
 msgid "This room has no such exit."
 msgstr ""
 
-msgid "No script packages are installed. Use /install with a git address."
+msgid "No plugins are installed. Use /plugin install with a git address."
 msgstr ""
 
 msgid "enabled in this profile"
 msgstr ""
 
-msgid "not enabled; use /enable"
+msgid "not enabled; use /plugin enable"
 msgstr ""
 
 #, python-brace-format
 msgid "Installing {0}..."
 msgstr ""
 
-msgid "Packages need a configuration folder, and none was found."
+msgid "Plugins need a configuration folder, and none was found."
 msgstr ""
 
-msgid "Give the package a name after the address: letters, digits, - and _."
+msgid "Give the plugin a name after the address: letters, digits, - and _."
 msgstr ""
 
 #, python-brace-format
 msgid "Updating {0}..."
-msgstr ""
-
-msgid "No such package is installed; see /packages."
 msgstr ""
 
 msgid "Scripts reloaded."
