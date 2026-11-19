@@ -1037,18 +1037,7 @@ impl Tab {
                         }
                         self.output.clear_partial();
                         self.pending_partial = None;
-                        match request {
-                            Msp::Stop => self.sound.stop_all(),
-                            Msp::Play {
-                                file,
-                                volume,
-                                looped,
-                            } => {
-                                let path = self.sound_file(&file);
-                                // A sound the user does not have is no error.
-                                let _ = self.sound.play(&path, volume, looped);
-                            }
-                        }
+                        self.msp(request);
                         continue;
                     }
                     self.pending_partial = None;
@@ -1449,31 +1438,139 @@ impl Tab {
                     self.media_fetch(address, None);
                 }
             }
-            Media::Play(play) => {
-                let same = |label: &muddie_sound::Label| label.name == play.name;
-                // Music that is playing goes on, unless told otherwise.
-                if play.keep_going
-                    && self
-                        .sound
-                        .is_playing(|label| same(label) && label.kind == "music")
-                {
-                    return;
-                }
-                // Under a key there is one thing at a time.
-                if !play.key.is_empty() {
-                    let key = play.key.clone();
-                    self.sound
-                        .stop_where(|label| label.key == key && !same(label));
-                }
-                match self.media_file(&play.name, play.url.as_deref()) {
-                    Some((_, Some(path))) => self.media_start(&path, &play),
-                    Some((address, None)) => self.media_fetch(address, Some(play)),
-                    None => {}
-                }
-            }
+            Media::Play(play) => self.media_play(play),
             Media::Stop(stop) => self
                 .sound
                 .stop_where(|label| stop.matches(&label.name, &label.kind, &label.tag, &label.key)),
+        }
+    }
+
+    /// Carries out a request of the MUD Sound Protocol, which says the
+    /// same things in its own way: a sound of a kind, with a priority,
+    /// or the one music there is at a time.
+    fn msp(&mut self, request: Msp) {
+        let kind_of = |music: bool| if music { "music" } else { "sound" };
+        match request {
+            Msp::Stop { music, url } => {
+                if let Some(url) = url {
+                    self.media_base = Some(url);
+                }
+                let kind = kind_of(music);
+                self.sound.stop_where(|label| label.kind == kind);
+            }
+            Msp::Play {
+                music,
+                file,
+                volume,
+                times,
+                priority,
+                keep_going,
+                kind,
+                url,
+            } => {
+                // A sound of a kind may be in the folder of that kind.
+                let inside = (!kind.is_empty()).then(|| format!("{kind}/{file}"));
+                let names = inside.into_iter().chain([file.clone()]);
+                // One that stands for several is one of those there are.
+                let name = (names.clone())
+                    .find_map(|name| self.sound_among(&name))
+                    .or_else(|| names.clone().next())
+                    .unwrap_or(file);
+                // An address may be of the folder, or of the file itself.
+                let url = url.map(|url| match url.rsplit_once('/') {
+                    Some((folder, last)) if crate::media::safe_name(last) => folder.to_owned(),
+                    _ => url,
+                });
+                self.media_play(crate::media::Play {
+                    name,
+                    url,
+                    kind: kind_of(music).to_owned(),
+                    tag: kind,
+                    // There is one music at a time.
+                    key: if music {
+                        "msp music".to_owned()
+                    } else {
+                        String::new()
+                    },
+                    volume,
+                    loops: times,
+                    keep_going,
+                    priority,
+                    start: 0,
+                    finish: None,
+                    fade_in: 0,
+                    fade_out: 0,
+                });
+            }
+        }
+    }
+
+    /// The sound among the player's own that `name` stands for, if it has
+    /// `*` or `?` in it: one of those there are, a different one each
+    /// time. `None` if it has neither, or there is none.
+    fn sound_among(&self, name: &str) -> Option<String> {
+        if !name.contains(['*', '?']) || !crate::media::safe_name(&name.replace(['*', '?'], "x")) {
+            return None;
+        }
+        let (folder, pattern) = match name.rsplit_once('/') {
+            Some((folder, pattern)) => (folder, pattern),
+            None => ("", name),
+        };
+        let dirs = (self.profiles.as_ref())
+            .map(|profiles| profiles.sound_dirs(self.profile.as_deref()))
+            .unwrap_or_default();
+        let mut found: Vec<String> = (dirs.iter())
+            .filter_map(|dir| std::fs::read_dir(dir.join(folder)).ok())
+            .flat_map(|entries| entries.flatten())
+            .filter_map(|entry| entry.file_name().into_string().ok())
+            .filter(|file| muddie_sound::name_matches(pattern, file))
+            .collect();
+        found.sort();
+        found.dedup();
+        if found.is_empty() {
+            return None;
+        }
+        // Whichever the clock says: no two in a row need be alike.
+        let turn = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |since| since.subsec_nanos() as usize);
+        let file = found.swap_remove(turn % found.len());
+        Some(if folder.is_empty() {
+            file
+        } else {
+            format!("{folder}/{file}")
+        })
+    }
+
+    /// Plays a sound or music asked for by name, from the player's own
+    /// or the web, as its priority and its key allow.
+    fn media_play(&mut self, play: crate::media::Play) {
+        let same = |label: &muddie_sound::Label| label.name == play.name;
+        // Music that is playing goes on, unless told otherwise.
+        let music = |label: &muddie_sound::Label| same(label) && label.kind == "music";
+        if play.keep_going && self.sound.is_playing(music) {
+            return;
+        }
+        // Under a key there is one thing at a time.
+        if !play.key.is_empty() {
+            let key = play.key.clone();
+            self.sound
+                .stop_where(|label| label.key == key && !same(label));
+        }
+        // What matters more is not played over, and stops what matters
+        // less; what was given no priority does neither.
+        if play.priority > 0 {
+            let priority = play.priority;
+            if self.sound.is_playing(|label| label.priority > priority) {
+                return;
+            }
+            self.sound
+                .stop_where(|label| label.priority > 0 && label.priority < priority);
+        }
+        match self.media_file(&play.name, play.url.as_deref()) {
+            Some((_, Some(path))) => self.media_start(&path, &play),
+            Some((address, None)) => self.media_fetch(address, Some(play)),
+            None => {}
         }
     }
 
@@ -1545,9 +1642,18 @@ impl Tab {
             kind: play.kind.clone(),
             tag: play.tag.clone(),
             key: play.key.clone(),
+            priority: play.priority,
         };
-        // A sound that cannot be played is no error, as with MSP.
-        let _ = self.sound.play_as(path, play.volume, play.loops, label);
+        let options = muddie_sound::Options {
+            volume: play.volume,
+            times: play.loops,
+            start: play.start,
+            finish: play.finish,
+            fade_in: play.fade_in,
+            fade_out: play.fade_out,
+        };
+        // A sound that cannot be played is no error.
+        let _ = self.sound.play_with(path, options, label);
     }
 
     /// Runs the binding of any key pressed with Ctrl or Alt, or of a
@@ -3674,6 +3780,43 @@ mod tests {
         app.media_missing.push(address.clone());
         app.media_fetch(address, None);
         assert!(app.media_jobs.is_empty());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_sound_of_the_sound_protocol_is_found_by_kind_and_by_pattern() {
+        let dir = std::env::temp_dir().join(format!("muddie-msp-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let profiles = Profiles::at(dir.clone());
+        let sounds = profiles.sound_dirs(None).remove(0);
+        std::fs::create_dir_all(sounds.join("combat")).unwrap();
+        for name in [
+            "combat/hit1.wav",
+            "combat/hit2.wav",
+            "combat/miss.wav",
+            "door.wav",
+        ] {
+            std::fs::write(sounds.join(name), b"RIFF").unwrap();
+        }
+        let mut harness = window(Some(profiles));
+        let app = harness.state_mut().tab_mut();
+        // A name with a star is one of the files it stands for.
+        let found = app.sound_among("combat/hit*.wav").unwrap();
+        assert!(
+            ["combat/hit1.wav", "combat/hit2.wav"].contains(&found.as_str()),
+            "{found}"
+        );
+        assert_eq!(app.sound_among("d??r.wav").as_deref(), Some("door.wav"));
+        assert_eq!(app.sound_among("combat/parry*.wav"), None);
+        // One without is looked for as it is, and none out of the folder.
+        assert_eq!(app.sound_among("door.wav"), None);
+        assert_eq!(app.sound_among("../*.wav"), None);
+        // Stopping may say where files are fetched from when none is given.
+        app.msp(Msp::Stop {
+            music: true,
+            url: Some("http://mud.example/m/".into()),
+        });
+        assert_eq!(app.media_base.as_deref(), Some("http://mud.example/m/"));
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

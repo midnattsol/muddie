@@ -12,7 +12,9 @@ use std::time::Duration;
 use serde_json::Value;
 
 /// The kinds of file fetched and played, by how their names end.
-const KINDS: [&str; 8] = ["wav", "ogg", "oga", "mp3", "flac", "opus", "m4a", "aac"];
+const KINDS: [&str; 10] = [
+    "wav", "ogg", "oga", "mp3", "flac", "opus", "m4a", "aac", "mid", "midi",
+];
 
 /// The largest file fetched.
 const LARGEST: u64 = 25 * 1024 * 1024;
@@ -33,6 +35,15 @@ pub struct Play {
     pub loops: Option<u32>,
     /// Music that is already playing goes on rather than starting again.
     pub keep_going: bool,
+    /// From 1 to 100: it stops what has less, and is not played over
+    /// what has more. 0 for none, which neither stops nor is kept out.
+    pub priority: u8,
+    /// Where in it to start, and to end if before its own end; and how
+    /// long it takes to come up and to die away. In milliseconds.
+    pub start: u32,
+    pub finish: Option<u32>,
+    pub fade_in: u32,
+    pub fade_out: u32,
 }
 
 /// What to stop: what matches all that is given; all, if nothing is.
@@ -106,6 +117,11 @@ pub fn parse(package: &str, data: &str) -> Option<Media> {
             // Music goes on unless told to start again.
             keep_going: kind == "music"
                 && value.get("continue").and_then(Value::as_bool) != Some(false),
+            priority: number("priority").map_or(0, |priority| priority.clamp(0.0, 100.0) as u8),
+            start: number("start").map_or(0, |at| at.max(0.0) as u32),
+            finish: number("finish").map(|at| at.max(0.0) as u32),
+            fade_in: number("fadein").map_or(0, |lasting| lasting.max(0.0) as u32),
+            fade_out: number("fadeout").map_or(0, |lasting| lasting.max(0.0) as u32),
             kind,
         })),
         "stop" => Some(Media::Stop(Stop {
@@ -227,6 +243,24 @@ mod tests {
             (0.8, None, true)
         );
         assert_eq!((play.tag.as_str(), play.key.as_str()), ("area", "bg"));
+        assert_eq!(
+            (play.priority, play.start, play.finish, play.fade_in),
+            (0, 0, None, 0)
+        );
+        let shaped = r#"{"name": "a.ogg", "priority": 80, "start": 1000, "finish": 9000, "fadein": 500, "fadeout": 700}"#;
+        let Some(Media::Play(play)) = parse("Client.Media.Play", shaped) else {
+            panic!("a sound to play");
+        };
+        assert_eq!(
+            (
+                play.priority,
+                play.start,
+                play.finish,
+                play.fade_in,
+                play.fade_out
+            ),
+            (80, 1000, Some(9000), 500, 700)
+        );
         // Video is not played, and what is not of Client.Media is not read.
         assert_eq!(
             parse("Client.Media.Play", r#"{"name": "a.mp4", "type": "video"}"#),
