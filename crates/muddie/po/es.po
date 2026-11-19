@@ -1421,3 +1421,8 @@ msgstr "No se pudo descargar un sonido: {0}"
 
 msgid "Download the sounds a MUD asks to play"
 msgstr "Descargar los sonidos que un MUD pide reproducir"
+
+
+#, python-brace-format
+msgid "The MUD asks to go on at {0}, port {1}."
+msgstr "El MUD pide continuar en {0}, puerto {1}."

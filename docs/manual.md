@@ -280,18 +280,53 @@ the MUD, so its text is read with the right voice.
 
 ## Sound
 
-Scripts and triggers can play sound files, and requests of the MUD Sound
-Protocol are played. Sounds are looked for by name in the profile's `sounds`
-folder and then in `sounds` in the configuration folder.
+Scripts and triggers can play sound files. A MUD can ask for sounds and music
+too, in three ways that go the same: the MUD Sound Protocol (`!!SOUND`,
+`!!MUSIC`), the `sound` and `music` tags of MXP, and GMCP's `Client.Media`.
+Sounds are looked for by name in the profile's `sounds` folder and then in
+`sounds` in the configuration folder; one of a kind (`T=combat`) may be in the
+folder of that kind, and a name with `*` or `?` in it is any of the files it
+stands for.
 
-A MUD can also ask for sounds and music with GMCP (`Client.Media`), naming a
-file and where on the web to fetch it. One you already have, in those
-folders, is played from there. One you do not is fetched, kept in the cache
-folder (`~/.cache/muddie/media`) and played; next time it is already there.
-Only sound files are fetched, only over HTTP or HTTPS, and none larger than
-25 MB. Fetching reaches a server the MUD names, as a web page does;
-**Settings > Download the sounds a MUD asks to play** switches it off, and
-then only the sounds you have are played.
+A sound you do not have is fetched from where the MUD says it is on the web,
+kept in the cache folder (`~/.cache/muddie/media`) and played; next time it is
+already there. Only sound files are fetched, only over HTTP or HTTPS, and none
+larger than 25 MB. Fetching reaches a server the MUD names, as a web page
+does; **Settings > Download the sounds a MUD asks to play** switches it off,
+and then only the sounds you have are played.
+
+A sound with more priority stops those with less, and is not played over one
+with more. There is one music at a time, which goes on if it is asked for
+again. A sound can be played several times or until stopped, and stopped by
+name, kind, tag or key. Starting part way in, ending early, and coming up or
+dying away are done where `ffplay` is installed; otherwise the sound is played
+whole.
+
+## What a MUD can do: the protocols
+
+Muddie agrees with a MUD on what both can do when it connects; **Debug** shows
+what was agreed. Nothing here needs setting up.
+
+- **GMCP**, **MSDP**, **MSSP**: data beside the text, which gauges, the map
+  and scripts use. With MSDP, the MUD is asked which variables it has and then
+  for all of them.
+- **MXP**: text the MUD marks up. Links to click: one that sends a command,
+  one that puts it in the command line to be finished, one to the web, and
+  one that offers several commands, of which a click sends the first and the
+  other button shows them all; pointing at a link says what it is for. Bold,
+  italics, colours, rules and paragraphs. The tags and names a MUD defines
+  for itself. Values it names, which scripts hear as the `"mxp"` event with
+  `{name, value}`; gauges that follow them, shown with the others; frames,
+  which are text panels by their name, and text sent to them; sounds; and the
+  name and password of the profile when the MUD asks for them. A picture is
+  shown as its name, which opens it. Where a MUD asks to go on at another
+  address, that is said and left to you.
+- **CHARSET**: the encoding of the text, agreed with the MUD and then used to
+  read it. The one set in the profile is asked for if there is one.
+- **MCCP** compresses what is sent each way; **NAWS** tells the MUD how much
+  text fits, and again when that changes; **MTTS** and **MNES** tell it what
+  the client is: its name, version, colours, and whether a screen reader is
+  in use.
 
 ## Settings
 

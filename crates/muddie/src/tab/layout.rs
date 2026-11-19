@@ -1180,8 +1180,8 @@ impl Tab {
         }
         if self.text_of(id).log.len() > 0 {
             let clicked = self.text_of(id).log.show(ui, &format!("panel {id}"));
-            if let Some(command) = clicked {
-                self.send(command);
+            if let Some(clicked) = clicked {
+                self.link_clicked(clicked);
             }
             return true;
         }

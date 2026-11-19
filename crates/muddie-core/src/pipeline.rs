@@ -48,6 +48,8 @@ pub enum Event {
         name: String,
         data: String,
     },
+    /// An MXP tag asked something of the client besides showing text.
+    Mxp(crate::ansi::Mxp),
     /// The server offered a protocol, or withdrew it; `on` says whether
     /// it is now in use.
     Protocol {
@@ -214,6 +216,7 @@ impl Pipeline {
                     self.assembler.feed(&self.text, &mut self.lines);
                     self.text.clear();
                     events.extend(self.lines.drain(..).map(Event::Line));
+                    events.extend(self.assembler.take_asked().into_iter().map(Event::Mxp));
                     if self.trace {
                         events.extend(self.assembler.take_tags().into_iter().map(|tag| {
                             let name = tag.trim_start_matches('/').split_whitespace().next();

@@ -11,6 +11,7 @@ pub mod session;
 pub mod telnet;
 pub mod text;
 
+pub use ansi::Mxp;
 pub use negotiate::Config;
 pub use pipeline::Event;
 pub use session::{Command, Session, Target, connect};

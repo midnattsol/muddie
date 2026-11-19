@@ -30,6 +30,25 @@ enum Content {
     Local(String),
 }
 
+/// A part of a row that can be clicked: where, what it does, what it is
+/// for, and the name the server can take it away by.
+#[derive(Debug, Clone, PartialEq)]
+struct RowLink {
+    range: Range<usize>,
+    target: LinkTarget,
+    hint: String,
+    name: String,
+}
+
+/// What clicking a link of the server's asks for.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Clicked {
+    /// A command to send.
+    Send(String),
+    /// A command to put in the command line, to be finished there.
+    Prompt(String),
+}
+
 struct Row {
     content: Content,
     /// The row without styling, for search, review and logs.
@@ -38,7 +57,7 @@ struct Row {
     time: String,
     /// Parts of `text` that can be clicked: web addresses found in it, and
     /// links the server marked.
-    links: Vec<(Range<usize>, LinkTarget)>,
+    links: Vec<RowLink>,
     /// Height when wrapped to `Output::width`; `None` until measured.
     height: Option<f32>,
 }
@@ -54,8 +73,8 @@ impl Row {
             Content::Server(line) => {
                 let accent = theme::current().accent;
                 let mut line = line.clone();
-                for (link, _) in &self.links {
-                    line.restyle(link.clone(), |style| {
+                for link in &self.links {
+                    line.restyle(link.range.clone(), |style| {
                         style.underline = true;
                         style.fg = Color::Rgb(accent.r(), accent.g(), accent.b());
                     });
@@ -72,7 +91,8 @@ impl Row {
     }
 
     /// The link at a character offset into the row as drawn, if any.
-    fn link_at(&self, char_index: usize, timestamps: bool) -> Option<&LinkTarget> {
+    /// The link at a character of the row as it is shown.
+    fn link(&self, char_index: usize, timestamps: bool) -> Option<&RowLink> {
         let prefix = if timestamps {
             self.time.chars().count() + 1
         } else {
@@ -80,8 +100,12 @@ impl Row {
         };
         let char_index = char_index.checked_sub(prefix)?;
         let (byte, _) = self.text.char_indices().nth(char_index)?;
-        let (_, target) = self.links.iter().find(|(link, _)| link.contains(&byte))?;
-        Some(target)
+        self.links.iter().find(|link| link.range.contains(&byte))
+    }
+
+    #[cfg(test)]
+    fn link_at(&self, char_index: usize, timestamps: bool) -> Option<&LinkTarget> {
+        self.link(char_index, timestamps).map(|link| &link.target)
     }
 }
 
@@ -131,6 +155,9 @@ pub struct Output {
     jump_to_end: bool,
     /// Row marked as the current search result.
     found: Option<usize>,
+    /// The commands a link offers, and the row they are of, while its
+    /// menu is asked for.
+    menu: Option<(u64, Vec<(String, String)>)>,
 }
 
 impl Default for Output {
@@ -149,6 +176,7 @@ impl Default for Output {
             scroll_to: None,
             jump_to_end: false,
             found: None,
+            menu: None,
         }
     }
 }
@@ -157,10 +185,12 @@ impl Output {
     /// Appends a completed server line, replacing any partial text.
     pub fn push(&mut self, line: &Line) {
         self.partial = None;
-        let marked = line
-            .links
-            .iter()
-            .map(|link| (link.range.clone(), link.target.clone()));
+        let marked = line.links.iter().map(|link| RowLink {
+            range: link.range.clone(),
+            target: link.target.clone(),
+            hint: link.hint.clone(),
+            name: link.name.clone(),
+        });
         self.push_row(Content::Server(line.clone()), line.text(), marked.collect());
     }
 
@@ -178,19 +208,16 @@ impl Output {
         self.partial = Some(line.clone());
     }
 
-    fn push_row(
-        &mut self,
-        content: Content,
-        text: String,
-        marked: Vec<(Range<usize>, LinkTarget)>,
-    ) {
+    fn push_row(&mut self, content: Content, text: String, marked: Vec<RowLink>) {
         while self.rows.len() >= self.capacity.max(1) {
             self.drop_oldest();
         }
         self.pushed += 1;
-        let found = links(&text).into_iter().map(|range| {
-            let address = LinkTarget::Url(text[range.clone()].to_owned());
-            (range, address)
+        let found = links(&text).into_iter().map(|range| RowLink {
+            target: LinkTarget::Url(text[range.clone()].to_owned()),
+            range,
+            hint: String::new(),
+            name: String::new(),
         });
         self.rows.push_back(Row {
             links: found.chain(marked).collect(),
@@ -286,7 +313,7 @@ impl Output {
     /// Draws the scrollback in `ui`. `name` tells this output's panels
     /// apart from another's. Returns the command of a link the user
     /// clicked, for the caller to send.
-    pub fn show(&mut self, ui: &mut Ui, name: &str) -> Option<String> {
+    pub fn show(&mut self, ui: &mut Ui, name: &str) -> Option<Clicked> {
         let theme = theme::current();
         // While scrolled back, the latest lines stay in view below.
         if !self.at_end && !self.rows.is_empty() {
@@ -325,7 +352,24 @@ impl Output {
             .inner
     }
 
-    fn show_rows(&mut self, ui: &mut Ui, viewport: Rect) -> Option<String> {
+    /// Takes away the links the server named `name`, which are no
+    /// longer to be followed: with no name, all those it named.
+    pub fn expire(&mut self, name: &str) {
+        for row in &mut self.rows {
+            row.links.retain(|link| {
+                link.name.is_empty() || !(name.is_empty() || link.name.eq_ignore_ascii_case(name))
+            });
+        }
+    }
+
+    /// Empties it.
+    pub fn clear(&mut self) {
+        self.rows.clear();
+        self.partial = None;
+        (self.found, self.scroll_to, self.stale) = (None, None, 0);
+    }
+
+    fn show_rows(&mut self, ui: &mut Ui, viewport: Rect) -> Option<Clicked> {
         ui.spacing_mut().item_spacing.y = 0.0;
         let width = ui.available_width();
         if width != self.width {
@@ -439,6 +483,10 @@ impl Output {
         );
         let found = self.found;
         let mut command = None;
+        // The commands a link offers, shown by the other button, and
+        // the row they are of: it is the row's menu while it is open.
+        let first_serial = self.pushed - self.rows.len() as u64;
+        let mut menu = self.menu.clone();
         // Rows drawn before their turn to be measured: what they turned
         // out to be, kept once they are drawn.
         let mut learned: Vec<(usize, f32)> = Vec::new();
@@ -465,17 +513,57 @@ impl Output {
                     ui.painter()
                         .rect_filled(response.rect.expand2(vec2(2.0, 0.0)), 2.0, mark);
                 }
+                let link_under = |pointer: eframe::egui::Pos2| {
+                    let cursor = galley.cursor_from_pos(pointer - response.rect.min);
+                    row.link(cursor.index.0, timestamps)
+                };
+                let serial = first_serial + index as u64;
                 if response.clicked()
                     && let Some(pointer) = response.interact_pointer_pos()
                 {
-                    let cursor = galley.cursor_from_pos(pointer - response.rect.min);
-                    match row.link_at(cursor.index.0, timestamps) {
+                    match link_under(pointer).map(|link| &link.target) {
                         Some(LinkTarget::Url(address)) => {
                             ui.ctx().open_url(OpenUrl::new_tab(address))
                         }
-                        Some(LinkTarget::Send(text)) => command = Some(text.clone()),
+                        Some(LinkTarget::Send(text)) => command = Some(Clicked::Send(text.clone())),
+                        Some(LinkTarget::Prompt(text)) => {
+                            command = Some(Clicked::Prompt(text.clone()))
+                        }
+                        // The first of several is the one a click sends.
+                        Some(LinkTarget::Menu(items)) => {
+                            command = items.first().map(|(_, text)| Clicked::Send(text.clone()))
+                        }
                         None => {}
                     }
+                }
+                // The other button shows them all, to choose one.
+                if response.secondary_clicked()
+                    && let Some(pointer) = response.interact_pointer_pos()
+                    && let Some(LinkTarget::Menu(items)) =
+                        link_under(pointer).map(|link| &link.target)
+                {
+                    menu = Some((serial, items.clone()));
+                }
+                if let Some((of, items)) = &menu
+                    && *of == serial
+                {
+                    response.context_menu(|ui| {
+                        crate::widgets::menu_width(ui);
+                        for (called, text) in items {
+                            if crate::widgets::menu_item(ui, called, "").clicked() {
+                                command = Some(Clicked::Send(text.clone()));
+                                ui.close();
+                            }
+                        }
+                    });
+                }
+                // What a link is for, said while it is pointed at.
+                if response.hovered()
+                    && let Some(pointer) = response.hover_pos()
+                    && let Some(link) = link_under(pointer)
+                    && !link.hint.is_empty()
+                {
+                    response.clone().on_hover_text(&link.hint);
                 }
             }
             if let Some(galley) = partial {
@@ -488,6 +576,7 @@ impl Output {
         for (index, height) in learned {
             self.rows[index].height = Some(height);
         }
+        self.menu = menu;
         command
     }
 }
@@ -546,12 +635,19 @@ mod tests {
         line.links.push(muddie_core::LineLink {
             range: 3..8,
             target: LinkTarget::Send("north".into()),
+            hint: String::new(),
+            name: "exits".into(),
         });
         output.push(&line);
         assert_eq!(
             output.rows[0].link_at(4, false),
             Some(&LinkTarget::Send("north".into()))
         );
+        // Named by the server, it can be taken away; the others stay.
+        output.push_local("see https://example.org");
+        output.expire("exits");
+        assert_eq!(output.rows[0].link_at(4, false), None);
+        assert!(output.rows[1].link_at(6, false).is_some());
         assert_eq!(output.rows[0].link_at(0, false), None);
     }
 

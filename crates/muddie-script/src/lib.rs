@@ -2395,6 +2395,7 @@ mod tests {
                 ),
             ],
             links: Vec::new(),
+            dest: None,
         };
         assert_eq!(engine.on_styled_line(&line), Some(line.clone()));
         assert_eq!(
@@ -2459,6 +2460,7 @@ mod tests {
                 style: Style::default(),
             }],
             links: Vec::new(),
+            dest: None,
         };
         let shown = engine.on_styled_line(&plain("An orc!")).unwrap();
         let styles: Vec<(&str, Color, Color)> = (shown.spans.iter())

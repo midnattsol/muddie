@@ -1099,6 +1099,10 @@ msgid "The map will not be saved: no data folder was found."
 msgstr ""
 
 #, python-brace-format
+msgid "The MUD asks to go on at {0}, port {1}."
+msgstr ""
+
+#, python-brace-format
 msgid "Logging stopped: {0}"
 msgstr ""
 

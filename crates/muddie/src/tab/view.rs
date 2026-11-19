@@ -88,8 +88,8 @@ impl Tab {
         });
         self.report_window(ui.ctx());
         // A link the server marked as a command was clicked.
-        if let Some(command) = clicked.inner {
-            self.send(command);
+        if let Some(clicked) = clicked.inner {
+            self.link_clicked(clicked);
         }
     }
 

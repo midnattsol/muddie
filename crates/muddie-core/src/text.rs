@@ -35,6 +35,8 @@ pub struct Line {
     pub spans: Vec<Span>,
     /// Parts of the line that can be clicked, when the server marked any.
     pub links: Vec<LineLink>,
+    /// The frame the server sent the line to, if not among the rest.
+    pub dest: Option<String>,
 }
 
 /// Where a link leads.
@@ -44,6 +46,11 @@ pub enum LinkTarget {
     Send(String),
     /// A web address to open.
     Url(String),
+    /// Several commands to choose from, each with what it is called:
+    /// the first is the one a click sends.
+    Menu(Vec<(String, String)>),
+    /// A command to put in the command line, to be finished there.
+    Prompt(String),
 }
 
 /// A clickable part of a line: a byte range of [].
@@ -51,6 +58,10 @@ pub enum LinkTarget {
 pub struct LineLink {
     pub range: std::ops::Range<usize>,
     pub target: LinkTarget,
+    /// What it is for, to say when pointed at; empty if not said.
+    pub hint: String,
+    /// The name the server can later take it away by; empty if none.
+    pub name: String,
 }
 
 impl Line {

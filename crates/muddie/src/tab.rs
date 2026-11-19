@@ -1,6 +1,7 @@
 //! One session: its connection bar, output, panels and input line.
 
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::mpsc::{Receiver, channel};
@@ -263,6 +264,11 @@ pub struct Tab {
     media_base: Option<String>,
     media_jobs: Vec<MediaJob>,
     media_missing: Vec<String>,
+    /// What the server named with MXP, and the gauges it asked for: what
+    /// each is called, the values it follows, its colour and whether it
+    /// is a bar.
+    mxp_values: HashMap<String, String>,
+    mxp_gauges: Vec<(String, String, String, String, bool)>,
     /// Character to log in as, from the profile.
     character: String,
     /// A new password typed in the bar, saved with the profile.
@@ -478,6 +484,8 @@ impl Tab {
             media_base: None,
             media_jobs: Vec::new(),
             media_missing: Vec::new(),
+            mxp_values: HashMap::new(),
+            mxp_gauges: Vec::new(),
             character: String::new(),
             new_password: String::new(),
             login: Login::Idle,
@@ -959,7 +967,163 @@ impl Tab {
         self.output.len()
     }
 
+    /// Does what a link of the server's that was clicked asks for.
+    pub(super) fn link_clicked(&mut self, clicked: crate::output::Clicked) {
+        match clicked {
+            crate::output::Clicked::Send(command) => self.send(command),
+            // To be finished in the command line, with a space to go on.
+            crate::output::Clicked::Prompt(command) => {
+                self.input = format!("{command} ");
+                self.kept_input = None;
+                self.cursor_to_end = true;
+            }
+        }
+    }
+
+    /// Carries out what an MXP tag asked of the client besides text.
+    fn mxp(&mut self, asked: muddie_core::Mxp, recording: bool) {
+        use muddie_core::Mxp;
+        match asked {
+            // A value by a name: kept, told to the scripts, and followed
+            // by the gauges the server asked for.
+            Mxp::Value { name, value } => {
+                if recording {
+                    self.saw(
+                        "MXP",
+                        &name,
+                        &serde_json::Value::String(value.clone()).to_string(),
+                    );
+                }
+                let told = serde_json::json!({"name": name, "value": value}).to_string();
+                self.scripts.on_event("mxp", &told);
+                self.run_actions();
+                self.mxp_values.insert(name.to_lowercase(), value);
+                self.mxp_gauges_follow();
+            }
+            Mxp::Gauge {
+                entity,
+                max,
+                caption,
+                colour,
+                bar,
+            } => {
+                let called = if caption.is_empty() {
+                    entity.clone()
+                } else {
+                    caption
+                };
+                self.mxp_gauges.retain(|gauge| gauge.0 != called);
+                self.mxp_gauges.push((
+                    called,
+                    entity.to_lowercase(),
+                    max.to_lowercase(),
+                    colour,
+                    bar,
+                ));
+                self.mxp_gauges_follow();
+            }
+            // A frame is a panel of text, by its name.
+            Mxp::Frame {
+                name,
+                open,
+                title: _,
+                align,
+            } => {
+                if name.trim().is_empty() {
+                    return;
+                }
+                let known = (self.layout.panels.iter())
+                    .any(|panel| panel.name.eq_ignore_ascii_case(name.trim()));
+                if !known && !open {
+                    return;
+                }
+                let id = self.panel_called(&name);
+                if let Some(panel) = self.layout.panels.iter_mut().find(|panel| panel.id == id) {
+                    panel.visible = open;
+                    if !known {
+                        panel.side = match align.as_str() {
+                            "left" => layout::Side::Left,
+                            "top" => layout::Side::Top,
+                            "bottom" => layout::Side::Bottom,
+                            _ => layout::Side::Right,
+                        };
+                    }
+                }
+            }
+            Mxp::Clear(name) => {
+                if !name.trim().is_empty() {
+                    let id = self.panel_called(&name);
+                    self.text_of(id).log.clear();
+                }
+            }
+            Mxp::Sound(request) => {
+                if let Some(request) = sound::parse_msp(&request) {
+                    self.msp(request);
+                }
+            }
+            Mxp::Expire(name) => {
+                self.output.expire(&name);
+                let ids: Vec<u32> = self.layout.panels.iter().map(|panel| panel.id).collect();
+                for id in ids {
+                    self.text_of(id).log.expire(&name);
+                }
+            }
+            // Said, not done: where to connect is the player's to choose.
+            Mxp::Relocate { host, port } => {
+                self.note(&trf(
+                    "The MUD asks to go on at {0}, port {1}.",
+                    &[&host, &port],
+                ));
+            }
+            // The name and the password of the profile, as when logging
+            // in by itself.
+            Mxp::User => {
+                let name = self.character.trim().to_owned();
+                if !name.is_empty() {
+                    self.send(name);
+                    self.login = Login::Password(Instant::now());
+                }
+            }
+            Mxp::Password => {
+                if !self.character.trim().is_empty() {
+                    self.login = Login::Password(Instant::now());
+                    self.login_password();
+                }
+            }
+        }
+    }
+
+    /// Sets the gauges the server asked for with MXP to the values they
+    /// follow, as far as those are known and are numbers.
+    fn mxp_gauges_follow(&mut self) {
+        for (called, entity, max, colour, bar) in self.mxp_gauges.clone() {
+            let number = |name: &str| {
+                let known = self
+                    .mxp_values
+                    .get(name)
+                    .map(String::as_str)
+                    .unwrap_or(name);
+                known.trim().parse::<f64>().ok()
+            };
+            let Some(value) = number(&entity) else {
+                continue;
+            };
+            let max = number(&max).unwrap_or(0.0);
+            let look = muddie_script::GaugeLook {
+                colour,
+                kind: if bar && max > 0.0 { "bar" } else { "number" }.to_owned(),
+                ..muddie_script::GaugeLook::default()
+            };
+            self.gauges
+                .set_with(&called, Some((value, max)), Some(look));
+        }
+    }
+
     fn show_line(&mut self, line: &Line) {
+        // What the server sent to a frame goes to the panel of its name.
+        if let Some(frame) = &line.dest {
+            return self.add_to_panel(&frame.clone(), line);
+        }
         self.output.push(line);
         let time = self.output.time(self.output.len() - 1).to_owned();
         self.logged(|log| log.line(&time, line));
@@ -1158,6 +1322,7 @@ impl Tab {
                         );
                     }
                 }
+                Event::Mxp(asked) => self.mxp(asked, recording),
                 Event::Protocol { name, on } => {
                     match self.protocols.iter_mut().find(|(known, _)| *known == name) {
                         Some(known) => known.1 = on,
@@ -1175,6 +1340,8 @@ impl Tab {
                     self.sound.stop_all();
                     self.media_base = None;
                     self.media_jobs.clear();
+                    self.mxp_values.clear();
+                    self.mxp_gauges.clear();
                     self.input_hidden = false;
                     self.connection = None;
                     // A connection lost to an error is worth retrying; one
@@ -3818,6 +3985,80 @@ mod tests {
         });
         assert_eq!(app.media_base.as_deref(), Some("http://mud.example/m/"));
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn what_mxp_asks_for_reaches_the_panels_the_gauges_and_the_command_line() {
+        use muddie_core::Mxp;
+        let mut harness = window(None);
+        let (events, _sent) = fake_connection(harness.state_mut().tab_mut());
+        let send = |event: Event| events.send(event).unwrap();
+        let value = |name: &str, value: &str| {
+            Event::Mxp(Mxp::Value {
+                name: name.into(),
+                value: value.into(),
+            })
+        };
+        // A gauge follows values by name, once they are known.
+        send(Event::Mxp(Mxp::Gauge {
+            entity: "hp".into(),
+            max: "maxhp".into(),
+            caption: "Health".into(),
+            colour: "red".into(),
+            bar: true,
+        }));
+        send(value("hp", "62"));
+        send(value("maxhp", "100"));
+        // A frame is a panel by its name, and what is sent to it goes there.
+        send(Event::Mxp(Mxp::Frame {
+            name: "Scores".into(),
+            open: true,
+            title: String::new(),
+            align: "left".into(),
+        }));
+        let mut line = panels::styled_lines("Ana 12").remove(0);
+        line.dest = Some("Scores".into());
+        send(Event::Line(line.clone()));
+        send(Event::Line(panels::styled_lines("in the game").remove(0)));
+        harness.run_steps(3);
+        let app = harness.state_mut().tab_mut();
+        assert_eq!(app.gauges.summary(), "Health 62 of 100");
+        let panel = (app.layout.panels.iter())
+            .find(|panel| panel.name == "Scores")
+            .cloned()
+            .unwrap();
+        assert!(panel.visible && panel.side == layout::Side::Left);
+        assert_eq!(app.text_of(panel.id).log.text(0), "Ana 12");
+        assert_eq!(output_lines(app), ["in the game"]);
+        // Emptied, and closed, when asked.
+        send(Event::Mxp(Mxp::Clear("Scores".into())));
+        send(Event::Mxp(Mxp::Frame {
+            name: "scores".into(),
+            open: false,
+            title: String::new(),
+            align: String::new(),
+        }));
+        // Where to go on is said, and left to the player.
+        send(Event::Mxp(Mxp::Relocate {
+            host: "mud.example".into(),
+            port: "4001".into(),
+        }));
+        harness.run_steps(3);
+        let app = harness.state_mut().tab_mut();
+        let panel = (app.layout.panels.iter())
+            .find(|panel| panel.name == "Scores")
+            .cloned()
+            .unwrap();
+        assert!(!panel.visible && app.text_of(panel.id).log.len() == 0);
+        assert!(
+            output_lines(app)
+                .iter()
+                .any(|line| line.contains("mud.example, port 4001"))
+        );
+        assert!(app.connection.is_some());
+        // A link that prompts puts its command in the command line.
+        app.link_clicked(crate::output::Clicked::Prompt("tell guard".into()));
+        assert_eq!(app.input, "tell guard ");
     }
 
     #[test]
