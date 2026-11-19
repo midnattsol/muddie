@@ -69,6 +69,11 @@ impl Profiles {
         Self { dir }
     }
 
+    /// Where the settings shared by all profiles are kept.
+    pub fn settings_path(&self) -> PathBuf {
+        self.dir.join("settings.toml")
+    }
+
     /// The script run for every profile, if the user wrote one.
     pub fn init_script(&self) -> Option<PathBuf> {
         let path = self.dir.join("init.luau");

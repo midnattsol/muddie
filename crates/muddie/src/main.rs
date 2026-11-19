@@ -1,17 +1,22 @@
 mod app;
 mod history;
+mod i18n;
+mod i18n_es;
 mod mapview;
 mod output;
 mod palette;
 mod panels;
 mod profile;
+mod settings;
+mod tab;
+mod theme;
 mod voice;
 
 use eframe::egui;
 use muddie_core::Target;
 
-use crate::app::Startup;
 use crate::profile::Profiles;
+use crate::tab::Startup;
 
 const USAGE: &str =
     "usage: muddie [--speech] [--script FILE]... [--profile NAME | HOST PORT [--tls] [--insecure]]";
@@ -73,7 +78,8 @@ fn main() -> eframe::Result {
         viewport: egui::ViewportBuilder::default()
             .with_title("muddie")
             .with_app_id("muddie")
-            .with_inner_size([960.0, 640.0]),
+            .with_inner_size([1180.0, 760.0])
+            .with_min_inner_size([640.0, 400.0]),
         ..Default::default()
     };
     eframe::run_native(

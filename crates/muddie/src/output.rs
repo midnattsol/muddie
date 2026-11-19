@@ -9,36 +9,70 @@ use muddie_core::Line;
 
 use crate::palette;
 
-/// Oldest lines are dropped beyond this.
-const MAX_LINES: usize = 20_000;
+/// What a row shows. Rows are laid out when drawn rather than when added,
+/// so a change of theme or text size reaches the whole scrollback.
+enum Content {
+    /// A line from the server, with its colours.
+    Server(Line),
+    /// A line the client added itself.
+    Local(String),
+}
 
 struct Row {
-    job: LayoutJob,
+    content: Content,
+    /// The row without styling, for search, review and logs.
+    text: String,
     /// Height when wrapped to `Output::width`; `None` until measured.
     height: Option<f32>,
 }
 
-#[derive(Default)]
+impl Row {
+    fn job(&self) -> LayoutJob {
+        match &self.content {
+            Content::Server(line) => server_job(line),
+            Content::Local(text) => {
+                let mut job = LayoutJob::default();
+                job.append(text, 0.0, palette::local_format());
+                job
+            }
+        }
+    }
+}
+
 pub struct Output {
     rows: VecDeque<Row>,
     /// Unterminated text shown after the last row until it is replaced.
-    partial: Option<LayoutJob>,
+    partial: Option<Line>,
     /// Wrap width the cached heights were measured for.
     width: f32,
+    /// Oldest rows are dropped beyond this many.
+    capacity: usize,
+    /// Rows ever added, which keeps counting when old ones are dropped.
+    pushed: u64,
+}
+
+impl Default for Output {
+    fn default() -> Self {
+        Self {
+            rows: VecDeque::new(),
+            partial: None,
+            width: 0.0,
+            capacity: 20_000,
+            pushed: 0,
+        }
+    }
 }
 
 impl Output {
     /// Appends a completed server line, replacing any partial text.
     pub fn push(&mut self, line: &Line) {
         self.partial = None;
-        self.push_job(server_job(line));
+        self.push_row(Content::Server(line.clone()), line.text());
     }
 
     /// Appends a line produced by the client itself.
     pub fn push_local(&mut self, text: &str) {
-        let mut job = LayoutJob::default();
-        job.append(text, 0.0, palette::local_format());
-        self.push_job(job);
+        self.push_row(Content::Local(text.to_owned()), text.to_owned());
     }
 
     /// Drops the partial text without showing a line in its place.
@@ -47,14 +81,31 @@ impl Output {
     }
 
     pub fn set_partial(&mut self, line: &Line) {
-        self.partial = Some(server_job(line));
+        self.partial = Some(line.clone());
     }
 
-    fn push_job(&mut self, job: LayoutJob) {
-        if self.rows.len() == MAX_LINES {
+    fn push_row(&mut self, content: Content, text: String) {
+        while self.rows.len() >= self.capacity.max(1) {
             self.rows.pop_front();
         }
-        self.rows.push_back(Row { job, height: None });
+        self.pushed += 1;
+        self.rows.push_back(Row {
+            content,
+            text,
+            height: None,
+        });
+    }
+
+    /// Lays everything out again, after a change of theme or text size,
+    /// and applies a new limit on the rows kept.
+    pub fn restyle(&mut self, capacity: usize) {
+        self.capacity = capacity.max(100);
+        while self.rows.len() > self.capacity {
+            self.rows.pop_front();
+        }
+        for row in &mut self.rows {
+            row.height = None;
+        }
     }
 
     /// Number of completed rows.
@@ -62,9 +113,14 @@ impl Output {
         self.rows.len()
     }
 
+    /// Rows added since the session started, including dropped ones.
+    pub fn total_pushed(&self) -> u64 {
+        self.pushed
+    }
+
     /// Plain text of a completed row.
     pub fn text(&self, index: usize) -> &str {
-        &self.rows[index].job.text
+        &self.rows[index].text
     }
 
     pub fn show(&mut self, ui: &mut Ui) {
@@ -83,8 +139,7 @@ impl Output {
                 row.height = None;
             }
         }
-        let layout = |ui: &Ui, job: &LayoutJob| -> Arc<Galley> {
-            let mut job = job.clone();
+        let layout = |ui: &Ui, mut job: LayoutJob| -> Arc<Galley> {
             job.wrap.max_width = width;
             ui.painter().layout_job(job)
         };
@@ -93,15 +148,19 @@ impl Output {
         let mut total = 0.0;
         let mut first_visible = None;
         for (index, row) in self.rows.iter_mut().enumerate() {
-            let height = *row
-                .height
-                .get_or_insert_with(|| layout(ui, &row.job).size().y);
+            let height = match row.height {
+                Some(height) => height,
+                None => *row.height.insert(layout(ui, row.job()).size().y),
+            };
             if first_visible.is_none() && total + height > viewport.min.y {
                 first_visible = Some((index, total));
             }
             total += height;
         }
-        let partial = self.partial.as_ref().map(|job| layout(ui, job));
+        let partial = self
+            .partial
+            .as_ref()
+            .map(|line| layout(ui, server_job(line)));
         let partial_top = total;
         total += partial.as_ref().map_or(0.0, |galley| galley.size().y);
         ui.set_height(total);
@@ -120,7 +179,7 @@ impl Output {
                 if y > viewport.max.y {
                     return;
                 }
-                let galley = layout(ui, &row.job);
+                let galley = layout(ui, row.job());
                 y += galley.size().y;
                 ui.add(Label::new(galley));
             }

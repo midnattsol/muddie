@@ -1,0 +1,1273 @@
+//! One session: its connection bar, output, panels and input line.
+
+use std::cell::RefCell;
+use std::path::PathBuf;
+use std::rc::Rc;
+use std::sync::mpsc::{Receiver, channel};
+use std::time::{Duration, Instant};
+
+use eframe::egui::{
+    self, CentralPanel, ComboBox, Key, Label, Modifiers, Panel, RichText, TextEdit,
+};
+use muddie_core::Line;
+use muddie_core::{Command, Config, Event, Session, Target, connect};
+use muddie_mapper::{Map, Progress, RoomId, RoomInfo, Walk};
+use muddie_script::{Action, Engine};
+use tokio::sync::mpsc::UnboundedSender;
+
+use crate::history::History;
+use crate::i18n::tr;
+use crate::mapview::{MapAction, MapView};
+use crate::output::{Output, server_job};
+use crate::palette;
+use crate::panels::{self, Gauges, MsdpVitals};
+use crate::profile::{Profile, Profiles};
+use crate::settings::Settings;
+use crate::theme;
+use crate::voice::Voice;
+
+struct Connection {
+    commands: UnboundedSender<Command>,
+    events: Receiver<Event>,
+}
+
+pub struct Tab {
+    host: String,
+    port: String,
+    tls: bool,
+    verify_certificate: bool,
+    profiles: Option<Profiles>,
+    /// The profile in use, if any.
+    profile: Option<String>,
+    /// Its packages, kept so that saving the profile does not lose them.
+    packages: Vec<String>,
+    /// Name typed in the profile bar, to save the profile under.
+    profile_name: String,
+    /// Scripts given on the command line, run after the profile's.
+    extra_scripts: Vec<PathBuf>,
+    /// Unterminated text waiting to settle before its triggers run.
+    pending_partial: Option<(Line, Instant)>,
+    /// Unterminated text whose triggers already ran, and whether they let
+    /// it show.
+    settled_partial: Option<(String, bool)>,
+    connection: Option<Connection>,
+    output: Output,
+    input: String,
+    input_hidden: bool,
+    history: History,
+    voice: Voice,
+    scripts: Engine,
+    gauges: Gauges,
+    msdp_vitals: MsdpVitals,
+    chat: Output,
+    show_chat: bool,
+    /// Shared with the script engine, which reads and edits it. No borrow
+    /// may be held while calling into `scripts`.
+    map: Rc<RefCell<Map>>,
+    map_view: MapView,
+    show_map: bool,
+    /// Panels of text that scripts filled in, by name, in creation order.
+    text_panels: Vec<(String, Vec<Line>)>,
+    /// The route being followed, if a walk is under way, and when it last
+    /// made progress.
+    walk: Option<(Walk, Instant)>,
+    /// Output arrived while the session was not on screen.
+    unread: bool,
+}
+
+/// How long unterminated text must stay unchanged before triggers see it
+/// as a line. Servers that do not mark their prompts leave them like that.
+const PARTIAL_SETTLE: Duration = Duration::from_millis(400);
+
+/// How long a walk waits for a move to take effect before giving up, as
+/// happens at a closed door.
+const WALK_TIMEOUT: Duration = Duration::from_secs(6);
+
+/// Most rooms listed when a search matches several.
+const MAX_LISTED_ROOMS: usize = 10;
+
+/// Where the map of the MUD at `host:port` is stored, creating the folder.
+fn map_path(host: &str, port: u16) -> Option<PathBuf> {
+    let data_dir = std::env::var_os("XDG_DATA_HOME")
+        .or_else(|| std::env::var_os("APPDATA"))
+        .map(PathBuf::from)
+        .or_else(|| Some(PathBuf::from(std::env::var_os("HOME")?).join(".local/share")))?;
+    let maps = data_dir.join("muddie").join("maps");
+    std::fs::create_dir_all(&maps).ok()?;
+    let safe_host: String = (host.chars())
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || ch == '.' || ch == '-' {
+                ch
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    Some(maps.join(format!("{safe_host}_{port}.sqlite")))
+}
+
+/// What to do when the window opens.
+pub struct Startup {
+    /// The configuration folder, if the system has one.
+    pub profiles: Option<Profiles>,
+    /// Profile to load and connect to right away.
+    pub profile: Option<String>,
+    /// Where to connect right away when no profile is given.
+    pub target: Option<Target>,
+    pub speech: bool,
+    /// Extra script files to run after the profile's, in order.
+    pub scripts: Vec<PathBuf>,
+}
+
+impl Tab {
+    pub fn new(ctx: &egui::Context, startup: Startup, settings: &Settings) -> Self {
+        let map = Rc::new(RefCell::new(Map::in_memory()));
+        let mut app = Self {
+            host: String::new(),
+            port: "23".into(),
+            tls: false,
+            verify_certificate: true,
+            profiles: startup.profiles,
+            profile: None,
+            packages: Vec::new(),
+            profile_name: String::new(),
+            extra_scripts: startup.scripts,
+            pending_partial: None,
+            settled_partial: None,
+            connection: None,
+            output: Output::default(),
+            input: String::new(),
+            input_hidden: false,
+            history: History::default(),
+            voice: Voice::default(),
+            scripts: Engine::new(Rc::clone(&map)).expect("failed to start the script runtime"),
+            gauges: Gauges::default(),
+            msdp_vitals: MsdpVitals::default(),
+            chat: Output::default(),
+            show_chat: true,
+            map,
+            map_view: MapView::default(),
+            show_map: true,
+            text_panels: Vec::new(),
+            walk: None,
+            unread: false,
+        };
+        app.voice.set_enabled(startup.speech);
+        match startup.profile {
+            Some(name) => {
+                if app.select_profile(Some(name)) {
+                    app.connect(ctx);
+                }
+            }
+            None => app.load_scripts(),
+        }
+        if let Some(target) = startup.target {
+            app.host = target.host;
+            app.port = target.port.to_string();
+            app.tls = target.tls;
+            app.verify_certificate = target.verify_certificate;
+            app.connect(ctx);
+        }
+        app.settings_changed(settings);
+        app
+    }
+
+    /// What the session's tab is called: its profile, else its server.
+    pub fn title(&self) -> String {
+        match (&self.profile, self.host.trim()) {
+            (Some(profile), _) => profile.clone(),
+            (None, "") => tr("New session").to_owned(),
+            (None, host) => host.to_owned(),
+        }
+    }
+
+    /// Whether output arrived since the session was last on screen.
+    pub fn has_unread(&self) -> bool {
+        self.unread
+    }
+
+    /// Takes changed settings into account.
+    pub fn settings_changed(&mut self, settings: &Settings) {
+        self.output.restyle(settings.scrollback_lines);
+        self.chat.restyle(settings.scrollback_lines);
+    }
+
+    /// The part of the settings window that belongs to sessions.
+    pub fn settings_ui(_ui: &mut egui::Ui, _settings: &mut Settings) {}
+
+    /// Starts the script runtime afresh and runs the user's scripts: the
+    /// general one, the profile's packages and scripts, and those given on
+    /// the command line.
+    fn load_scripts(&mut self) {
+        self.scripts =
+            Engine::new(Rc::clone(&self.map)).expect("failed to start the script runtime");
+        let mut files = Vec::new();
+        if let Some(profiles) = &self.profiles {
+            files.extend(profiles.init_script());
+            if let Some(name) = &self.profile {
+                let profile = Profile {
+                    packages: self.packages.clone(),
+                    ..Profile::default()
+                };
+                files.extend(profiles.scripts(name, &profile));
+            }
+        }
+        files.extend(self.extra_scripts.iter().cloned());
+        for file in &files {
+            self.scripts.load_file(file);
+        }
+        self.run_actions();
+    }
+
+    /// Switches to a saved profile, or to none. Returns false if the
+    /// profile could not be loaded.
+    fn select_profile(&mut self, name: Option<String>) -> bool {
+        let loaded = match (&name, &self.profiles) {
+            (Some(name), Some(profiles)) => profiles.load(name).map(Some),
+            (Some(_), None) => Err("no configuration folder was found".to_owned()),
+            (None, _) => Ok(None),
+        };
+        let profile = match loaded {
+            Ok(profile) => profile,
+            Err(error) => {
+                self.note(&format!("Could not load the profile: {error}"));
+                return false;
+            }
+        };
+        if let Some(profile) = profile {
+            self.host = profile.host;
+            self.port = profile.port.to_string();
+            self.tls = profile.tls;
+            self.verify_certificate = profile.verify_certificate;
+            self.packages = profile.packages;
+            self.voice.set_enabled(profile.speech);
+        } else {
+            self.packages.clear();
+        }
+        self.profile_name = name.clone().unwrap_or_default();
+        self.profile = name;
+        self.load_scripts();
+        true
+    }
+
+    /// Saves the connection settings as the profile named in the bar.
+    fn save_profile(&mut self) {
+        let name = self.profile_name.trim().to_owned();
+        let Some(profiles) = &self.profiles else {
+            return self.note("Profiles cannot be saved: no configuration folder was found.");
+        };
+        let Ok(port) = self.port.trim().parse::<u16>() else {
+            return self.note("The port must be a number from 1 to 65535.");
+        };
+        let profile = Profile {
+            host: self.host.trim().to_owned(),
+            port,
+            tls: self.tls,
+            verify_certificate: self.verify_certificate,
+            speech: self.voice.enabled(),
+            // A profile saved under a new name starts without packages.
+            packages: if self.profile.as_deref() == Some(&name) {
+                self.packages.clone()
+            } else {
+                Vec::new()
+            },
+        };
+        match profiles.save(&name, &profile) {
+            Ok(()) => {
+                let renamed = self.profile.as_deref() != Some(&name);
+                self.packages = profile.packages;
+                self.profile = Some(name.clone());
+                if renamed {
+                    self.load_scripts();
+                }
+                self.note(&format!("Profile {name} saved."));
+            }
+            Err(error) => self.note(&format!("Could not save the profile: {error}")),
+        }
+    }
+
+    fn connect(&mut self, ctx: &egui::Context) {
+        let host = self.host.trim().to_owned();
+        let Ok(port) = self.port.trim().parse::<u16>() else {
+            self.note("The port must be a number from 1 to 65535.");
+            return;
+        };
+        if host.is_empty() {
+            self.note("Enter a host to connect to.");
+            return;
+        }
+        self.note(&format!("Connecting to {host}:{port}..."));
+        self.walk = None;
+        // A script may have chosen to keep the map in memory only.
+        let stored = if self.scripts.persist_map() {
+            // A profile keeps its map in its own folder.
+            let path = match (&self.profiles, &self.profile) {
+                (Some(profiles), Some(name)) => Some(profiles.map_path(name)),
+                _ => map_path(&host, port),
+            };
+            path.map(|path| Map::open(&path))
+        } else {
+            Some(Ok(Map::in_memory()))
+        };
+        let map = match stored {
+            Some(Ok(map)) => map,
+            Some(Err(error)) => {
+                self.note(&format!("The map will not be saved: {error}"));
+                Map::in_memory()
+            }
+            None => {
+                self.note("The map will not be saved: no data folder was found.");
+                Map::in_memory()
+            }
+        };
+        *self.map.borrow_mut() = map;
+        let target = Target {
+            host,
+            port,
+            tls: self.tls,
+            verify_certificate: self.verify_certificate,
+        };
+        let Session {
+            commands,
+            mut events,
+        } = connect(
+            target,
+            Config {
+                screen_reader: self.voice.enabled(),
+                ..Config::default()
+            },
+        );
+
+        // Forward events to the UI thread and wake it up for each one.
+        let (sender, receiver) = channel();
+        let ctx = ctx.clone();
+        tokio::spawn(async move {
+            while let Some(event) = events.recv().await {
+                if sender.send(event).is_err() {
+                    break;
+                }
+                ctx.request_repaint();
+            }
+        });
+        self.connection = Some(Connection {
+            commands,
+            events: receiver,
+        });
+    }
+
+    fn disconnect(&mut self) {
+        if let Some(connection) = &self.connection {
+            let _ = connection.commands.send(Command::Disconnect);
+        }
+    }
+
+    /// Shows and speaks a message from the client itself.
+    pub fn note(&mut self, text: &str) {
+        self.output.push_local(text);
+        self.voice.say(text);
+    }
+
+    fn handle_events(&mut self) {
+        let Some(connection) = &self.connection else {
+            return;
+        };
+        let events: Vec<Event> = connection.events.try_iter().collect();
+        for event in events {
+            match event {
+                Event::Connected => self.note("Connected."),
+                Event::Line(line) | Event::Prompt(line) => {
+                    let text = line.text();
+                    self.pending_partial = None;
+                    // Text whose triggers already ran while it was
+                    // unterminated keeps that verdict instead of firing twice.
+                    let settled = self
+                        .settled_partial
+                        .take()
+                        .filter(|(fired, _)| *fired == text);
+                    let show = match settled {
+                        Some((_, show)) => show,
+                        None => self.scripts.on_styled_line(&line),
+                    };
+                    if show {
+                        self.output.push(&line);
+                        self.voice.line(&text);
+                    } else {
+                        self.output.clear_partial();
+                        self.voice.skip_line(&text);
+                    }
+                    self.run_actions();
+                }
+                Event::Partial(line) => {
+                    let text = line.text();
+                    let settled =
+                        (self.settled_partial.as_ref()).filter(|(fired, _)| *fired == text);
+                    match settled {
+                        Some((_, false)) => continue,
+                        Some((_, true)) => {}
+                        None => {
+                            self.settled_partial = None;
+                            let waiting = (self.pending_partial.as_ref())
+                                .is_some_and(|(pending, _)| pending.text() == text);
+                            if !waiting {
+                                self.pending_partial = Some((line.clone(), Instant::now()));
+                            }
+                        }
+                    }
+                    self.output.set_partial(&line);
+                    self.voice.partial(&text);
+                }
+                Event::InputHidden(hidden) => self.input_hidden = hidden,
+                // Not spoken: the user has just typed it.
+                Event::Sent(text) => self.output.push_local(&format!("> {text}")),
+                Event::Gmcp { package, data } => {
+                    // Built-in panels first, so scripts can override them.
+                    if package.eq_ignore_ascii_case("Char.Vitals") {
+                        for (name, value, max) in panels::vitals(&data) {
+                            self.gauges.set(name, Some((value, max)));
+                        }
+                    } else if package.eq_ignore_ascii_case("Comm.Channel.Text") {
+                        for line in panels::channel_text(&data) {
+                            self.chat.push(&line);
+                        }
+                    } else if package.eq_ignore_ascii_case("Room.Info") && self.scripts.native_map()
+                    {
+                        self.entered_room(&data);
+                    }
+                    self.scripts.on_gmcp(&package, &data);
+                    self.run_actions();
+                }
+                Event::Msdp { variable, data } => {
+                    if let Some((name, value, max)) = self.msdp_vitals.update(&variable, &data) {
+                        self.gauges.set(name, Some((value, max)));
+                    }
+                    if variable == "ROOM" && self.scripts.native_map() {
+                        self.entered_room(&data);
+                    }
+                    self.scripts.on_msdp(&variable, &data);
+                    self.run_actions();
+                }
+                Event::Mssp(status) => self.scripts.on_mssp(&status),
+                Event::Disconnected(error) => {
+                    self.walk = None;
+                    self.pending_partial = None;
+                    self.settled_partial = None;
+                    self.gauges.clear();
+                    self.msdp_vitals.clear();
+                    self.note(&match error {
+                        Some(error) => format!("Disconnected: {error}"),
+                        None => "Disconnected.".to_owned(),
+                    });
+                    self.input_hidden = false;
+                    self.connection = None;
+                }
+            }
+        }
+    }
+
+    /// Carries out what scripts asked for since the last call.
+    fn run_actions(&mut self) {
+        for action in self.scripts.take_actions() {
+            match action {
+                Action::Send(text) => self.send(text),
+                Action::Echo(text) => text.lines().for_each(|line| self.note(line)),
+                Action::Speak { text, interrupt } => {
+                    if interrupt {
+                        self.voice.stop();
+                    }
+                    self.voice.say(&text);
+                }
+                Action::Gmcp { package, data } => {
+                    if let Some(connection) = &self.connection {
+                        let _ = connection.commands.send(Command::Gmcp { package, data });
+                    }
+                }
+                Action::Msdp { variable, values } => {
+                    if let Some(connection) = &self.connection {
+                        let _ = connection.commands.send(Command::Msdp { variable, values });
+                    }
+                }
+                Action::Gauge { name, level } => self.gauges.set(&name, level),
+                Action::Walk(room) => self.walk_to(room),
+                Action::Entered(room) => self.arrived_in(room),
+                Action::Panel { name, text } => {
+                    let index = self
+                        .text_panels
+                        .iter()
+                        .position(|(panel, _)| *panel == name);
+                    match (index, text) {
+                        (Some(index), Some(text)) => {
+                            self.text_panels[index].1 = panels::styled_lines(&text);
+                        }
+                        (None, Some(text)) => {
+                            self.text_panels.push((name, panels::styled_lines(&text)));
+                        }
+                        (Some(index), None) => {
+                            self.text_panels.remove(index);
+                        }
+                        (None, None) => {}
+                    }
+                }
+                Action::Chat(text) => {
+                    for line in panels::styled_lines(&text) {
+                        self.chat.push(&line);
+                    }
+                }
+                Action::Error(message) => {
+                    let message = format!("Script error: {message}");
+                    message.lines().for_each(|line| self.note(line));
+                }
+            }
+        }
+    }
+
+    fn send(&mut self, line: String) {
+        match &self.connection {
+            Some(connection) => {
+                let _ = connection.commands.send(Command::Send(line));
+            }
+            None => self.note("Not connected."),
+        }
+    }
+
+    /// The server reported the room the player is in.
+    fn entered_room(&mut self, json: &str) {
+        let Some(info) = RoomInfo::from_json(json) else {
+            return;
+        };
+        let room = info.id;
+        let saved = self.map.borrow_mut().visit(info);
+        if let Err(error) = saved {
+            self.note(&format!("Could not save the map: {error}"));
+        }
+        self.arrived_in(room);
+    }
+
+    /// The map now has the player in `room`: continue a walk, if any.
+    fn arrived_in(&mut self, room: RoomId) {
+        if let Some((walk, _)) = &mut self.walk {
+            let progress = walk.entered(room);
+            self.follow(progress);
+        }
+    }
+
+    fn walk_to(&mut self, room: RoomId) {
+        let route = {
+            let map = self.map.borrow();
+            let Some(from) = map.current().map(|current| current.id) else {
+                drop(map);
+                return self.note("The map does not know where you are yet.");
+            };
+            map.route(from, room).map(|route| (from, route))
+        };
+        let Some((from, route)) = route else {
+            return self.note("No known route to that room.");
+        };
+        let walk = Walk::new(from, route);
+        let progress = walk.start();
+        self.walk = Some((walk, Instant::now()));
+        self.follow(progress);
+    }
+
+    fn follow(&mut self, progress: Progress) {
+        match progress {
+            Progress::Go(commands) => {
+                if let Some((_, moved_at)) = &mut self.walk {
+                    *moved_at = Instant::now();
+                }
+                // An exit may need several commands, as in "open door;n".
+                for command in commands.split(';') {
+                    self.send(command.trim().to_owned());
+                }
+            }
+            Progress::Waiting => {}
+            Progress::Arrived => {
+                self.walk = None;
+                self.note("Arrived.");
+            }
+            Progress::Lost => {
+                self.walk = None;
+                self.note("Walk stopped: this is not the room the route expected.");
+            }
+        }
+    }
+
+    /// Runs the triggers on unterminated text that has stopped changing,
+    /// which is how a prompt looks when the server does not mark it.
+    fn check_partial(&mut self, ctx: &egui::Context) {
+        let Some((_, since)) = &self.pending_partial else {
+            return;
+        };
+        let waited = since.elapsed();
+        if waited < PARTIAL_SETTLE {
+            return ctx.request_repaint_after(PARTIAL_SETTLE - waited);
+        }
+        let Some((line, _)) = self.pending_partial.take() else {
+            return;
+        };
+        let text = line.text();
+        let show = self.scripts.on_styled_line(&line);
+        if !show {
+            self.output.clear_partial();
+            self.voice.skip_partial(&text);
+        }
+        self.settled_partial = Some((text, show));
+        self.run_actions();
+    }
+
+    /// Gives up a walk whose last move had no effect for too long.
+    fn check_walk(&mut self, ctx: &egui::Context) {
+        let Some((_, moved_at)) = &self.walk else {
+            return;
+        };
+        let waited = moved_at.elapsed();
+        if waited >= WALK_TIMEOUT {
+            self.walk = None;
+            self.note("Walk stopped: the last move had no effect.");
+        } else {
+            ctx.request_repaint_after(WALK_TIMEOUT - waited);
+        }
+    }
+
+    /// Handles the client's own map commands. Returns false if `line` is
+    /// not one of them.
+    fn map_command(&mut self, line: &str) -> bool {
+        let (command, argument) = line.split_once(' ').unwrap_or((line, ""));
+        let argument = argument.trim();
+        match command {
+            "/where" => {
+                let place = self.map.borrow().current().map(|room| {
+                    let exits: Vec<&str> = room.exits.keys().map(String::as_str).collect();
+                    format!(
+                        "{} (#{}) in {}. Exits: {}.",
+                        room.name,
+                        room.id,
+                        room.area,
+                        exits.join(", ")
+                    )
+                });
+                match place {
+                    Some(place) => self.note(&place),
+                    None => self.note("The map does not know where you are yet."),
+                }
+            }
+            "/find" if !argument.is_empty() => {
+                let rooms = self.matching_rooms(argument);
+                if rooms.is_empty() {
+                    self.note("No room matches.");
+                }
+                rooms.iter().for_each(|room| self.note(room));
+            }
+            "/go" if !argument.is_empty() => {
+                if let Ok(room) = argument.parse::<RoomId>() {
+                    self.walk_to(room);
+                } else {
+                    let found: Vec<RoomId> = (self.map.borrow().find(argument).iter())
+                        .map(|room| room.id)
+                        .collect();
+                    match found[..] {
+                        [] => self.note("No room matches."),
+                        [room] => self.walk_to(room),
+                        _ => {
+                            self.note("Several rooms match; use /go with a room number:");
+                            let rooms = self.matching_rooms(argument);
+                            rooms.iter().for_each(|room| self.note(room));
+                        }
+                    }
+                }
+            }
+            // Toggles whether routes may pass through a room: the given
+            // one, or the current one.
+            "/avoid" => {
+                let toggled = {
+                    let mut map = self.map.borrow_mut();
+                    let room = match argument.parse::<RoomId>() {
+                        Ok(id) => map.room(id),
+                        Err(_) if argument.is_empty() => map.current(),
+                        Err(_) => None,
+                    };
+                    let target = room.map(|room| (room.id, !room.avoid, room.name.clone()));
+                    target.map(|(id, avoid, name)| (map.set_avoid(id, avoid), avoid, name))
+                };
+                match toggled {
+                    Some((Ok(_), true, name)) => self.note(&format!("Routes will avoid {name}.")),
+                    Some((Ok(_), false, name)) => {
+                        self.note(&format!("Routes may pass through {name} again."));
+                    }
+                    Some((Err(error), ..)) => {
+                        self.note(&format!("Could not save the map: {error}"))
+                    }
+                    None => self.note("No such room; use /avoid with a room number."),
+                }
+            }
+            // Toggles whether routes may use an exit of the current room.
+            "/lock" if !argument.is_empty() => {
+                let toggled = {
+                    let mut map = self.map.borrow_mut();
+                    let here = map.current().map(|room| room.id);
+                    let direction = muddie_mapper::canonical_direction(argument);
+                    let exit = here.and_then(|id| map.room(id)?.exits.get(&direction).cloned());
+                    here.zip(exit).map(|(id, exit)| {
+                        let locked = !exit.locked;
+                        (
+                            map.edit_exit(id, &direction, |exit| exit.locked = locked),
+                            locked,
+                        )
+                    })
+                };
+                match toggled {
+                    Some((Ok(_), true)) => self.note("Routes will not use that exit."),
+                    Some((Ok(_), false)) => self.note("Routes may use that exit again."),
+                    Some((Err(error), _)) => self.note(&format!("Could not save the map: {error}")),
+                    None => self.note("This room has no such exit."),
+                }
+            }
+            // Draws the current area again from scratch.
+            "/tidy" => {
+                let area = self.map.borrow().current().map(|room| room.area.clone());
+                match area {
+                    Some(area) => self.tidy(&area),
+                    None => self.note("The map does not know where you are yet."),
+                }
+            }
+            "/packages" => {
+                let installed = self
+                    .profiles
+                    .as_ref()
+                    .map(Profiles::packages)
+                    .unwrap_or_default();
+                if installed.is_empty() {
+                    self.note("No script packages are installed.");
+                }
+                for package in installed {
+                    let state = if self.packages.contains(&package) {
+                        "enabled in this profile"
+                    } else {
+                        "not enabled"
+                    };
+                    self.note(&format!("{package}: {state}"));
+                }
+            }
+            "/stop" => {
+                let stopped = self.walk.take().is_some();
+                self.note(if stopped {
+                    "Walk stopped."
+                } else {
+                    "Not walking."
+                });
+            }
+            _ => return false,
+        }
+        true
+    }
+
+    fn tidy(&mut self, area: &str) {
+        let moved = self.map.borrow_mut().relayout(area);
+        match moved {
+            Ok(moved) => self.note(&format!("Tidied the map: {moved} rooms moved.")),
+            Err(error) => self.note(&format!("Could not save the map: {error}")),
+        }
+    }
+
+    /// The right-hand panel: text panels from scripts, then the map.
+    fn side_panel(&mut self, ui: &mut egui::Ui) -> Option<MapAction> {
+        for (name, lines) in &self.text_panels {
+            ui.label(RichText::new(name).weak());
+            for line in lines {
+                // Never wrapped: this is often a drawing made of characters.
+                ui.add(Label::new(server_job(line)).extend());
+            }
+            ui.separator();
+        }
+        let map = self.map.borrow();
+        if map.current().is_some() {
+            self.map_view.show(ui, &map)
+        } else {
+            None
+        }
+    }
+
+    /// Up to [`MAX_LISTED_ROOMS`] rooms matching `query`, one line each.
+    fn matching_rooms(&self, query: &str) -> Vec<String> {
+        (self.map.borrow().find(query).iter())
+            .take(MAX_LISTED_ROOMS)
+            .map(|room| format!("#{}: {} ({})", room.id, room.name, room.area))
+            .collect()
+    }
+
+    fn submit(&mut self) {
+        let line = std::mem::take(&mut self.input);
+        // What follows answers this command, so drop what was still queued.
+        self.voice.stop();
+        if self.input_hidden {
+            // A password: scripts and the history never see it.
+            self.send(line);
+        } else {
+            self.history.add(&line);
+            if !self.map_command(&line) {
+                self.scripts.on_input(&line);
+                self.run_actions();
+            }
+        }
+    }
+
+    /// The top bar. Its first row is always there: profile, connect and
+    /// the panel switches. The connection's details take a second row only
+    /// while disconnected, which is when they can be changed.
+    fn connection_bar(&mut self, ui: &mut egui::Ui) {
+        let connected = self.connection.is_some();
+        ui.horizontal(|ui| {
+            ui.add_enabled_ui(!connected, |ui| {
+                let names = self
+                    .profiles
+                    .as_ref()
+                    .map(Profiles::names)
+                    .unwrap_or_default();
+                let mut chosen = self.profile.clone();
+                let label = ui.label("Profile");
+                ComboBox::from_id_salt("profile")
+                    .selected_text(chosen.as_deref().unwrap_or("(none)"))
+                    .show_ui(ui, |ui| {
+                        ui.selectable_value(&mut chosen, None, "(none)");
+                        for name in names {
+                            ui.selectable_value(&mut chosen, Some(name.clone()), name);
+                        }
+                    })
+                    .response
+                    .labelled_by(label.id);
+                if chosen != self.profile {
+                    self.select_profile(chosen);
+                }
+            });
+            if connected {
+                if ui.button("Disconnect").clicked() {
+                    self.disconnect();
+                }
+                ui.label(
+                    RichText::new(format!("{}:{}", self.host.trim(), self.port.trim())).weak(),
+                );
+            } else if ui.button("Connect").clicked() {
+                self.connect(ui.ctx());
+            }
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                let mut speech = self.voice.enabled();
+                if ui.checkbox(&mut speech, "Speech").changed() {
+                    self.voice.set_enabled(speech);
+                }
+                ui.checkbox(&mut self.show_map, "Map");
+                ui.checkbox(&mut self.show_chat, "Chat");
+            });
+        });
+        if connected {
+            return;
+        }
+        ui.horizontal_wrapped(|ui| {
+            let label = ui.label("Host");
+            ui.add(TextEdit::singleline(&mut self.host).desired_width(220.0))
+                .labelled_by(label.id);
+            let label = ui.label("Port");
+            ui.add(TextEdit::singleline(&mut self.port).desired_width(52.0))
+                .labelled_by(label.id);
+            ui.checkbox(&mut self.tls, "TLS");
+            if self.tls {
+                ui.checkbox(&mut self.verify_certificate, "Verify certificate");
+            }
+            ui.separator();
+            let label = ui.label("Save as");
+            ui.add(TextEdit::singleline(&mut self.profile_name).desired_width(120.0))
+                .labelled_by(label.id);
+            if ui.button("Save profile").clicked() {
+                self.save_profile();
+            }
+        });
+    }
+
+    fn input_line(&mut self, ui: &mut egui::Ui) {
+        let response = ui.add(
+            TextEdit::singleline(&mut self.input)
+                .font(palette::font())
+                .password(self.input_hidden)
+                .hint_text("Type a command")
+                .desired_width(f32::INFINITY),
+        );
+        ui.ctx().accesskit_node_builder(response.id, |node| {
+            node.set_label("Command");
+        });
+        if response.has_focus() {
+            let (up, down) = ui.input_mut(|input| {
+                (
+                    input.consume_key(Modifiers::NONE, Key::ArrowUp),
+                    input.consume_key(Modifiers::NONE, Key::ArrowDown),
+                )
+            });
+            if up {
+                self.history.older(&mut self.input);
+            } else if down {
+                self.history.newer(&mut self.input);
+            }
+        }
+        let submitted = response.lost_focus() && ui.input(|input| input.key_pressed(Key::Enter));
+        if submitted {
+            self.submit();
+        }
+        // The input owns the keyboard unless the user moved focus elsewhere.
+        if submitted || ui.memory(|memory| memory.focused().is_none()) {
+            response.request_focus();
+        }
+    }
+}
+
+impl Tab {
+    /// Runs the session for a frame, on screen or not: events from the
+    /// server, timers, and anything waiting on the clock.
+    pub fn poll(&mut self, ctx: &egui::Context, _settings: &Settings, on_screen: bool) {
+        let lines_before = self.output.total_pushed();
+        self.handle_events();
+        let now = Instant::now();
+        self.scripts.tick(now);
+        self.run_actions();
+        self.check_walk(ctx);
+        self.check_partial(ctx);
+        if let Some(deadline) = self.scripts.next_deadline() {
+            ctx.request_repaint_after(deadline.saturating_duration_since(now));
+        }
+        self.unread = !on_screen && (self.unread || self.output.total_pushed() != lines_before);
+    }
+
+    /// Draws the session in `ui`.
+    pub fn show(&mut self, ui: &mut egui::Ui, _settings: &Settings) {
+        // Alt+0 reads the gauges aloud.
+        if ui.input_mut(|input| input.consume_key(Modifiers::ALT, Key::Num0)) {
+            self.voice.stop();
+            let summary = self.gauges.summary();
+            self.voice.say(if summary.is_empty() {
+                "No gauges."
+            } else {
+                &summary
+            });
+        }
+        self.voice.update(ui, &self.output, &self.chat);
+        Panel::top("connection").show(ui, |ui| self.connection_bar(ui));
+        if self.show_chat && self.chat.len() > 0 {
+            Panel::top("chat")
+                .resizable(true)
+                .default_size(84.0)
+                .min_size(48.0)
+                .show(ui, |ui| self.chat.show(ui));
+        }
+        Panel::bottom("input").show(ui, |ui| {
+            if !self.gauges.is_empty() {
+                self.gauges.show(ui);
+            }
+            self.input_line(ui);
+        });
+        let has_map = self.map.borrow().current().is_some();
+        if self.show_map && (has_map || !self.text_panels.is_empty()) {
+            let action = Panel::right("map")
+                .resizable(true)
+                .default_size(320.0)
+                .min_size(160.0)
+                .show(ui, |ui| self.side_panel(ui))
+                .inner;
+            match action {
+                Some(MapAction::Walk(room)) => self.walk_to(room),
+                Some(MapAction::Tidy(area)) => self.tidy(&area),
+                Some(MapAction::Avoid(room, avoid)) => {
+                    let saved = self.map.borrow_mut().set_avoid(room, avoid);
+                    if let Err(error) = saved {
+                        self.note(&format!("Could not save the map: {error}"));
+                    }
+                }
+                Some(MapAction::Move(room, pos)) => {
+                    let saved = self.map.borrow_mut().move_room(room, pos);
+                    if let Err(error) = saved {
+                        self.note(&format!("Could not save the map: {error}"));
+                    }
+                }
+                None => {}
+            }
+        }
+        let theme = theme::current();
+        let frame = egui::Frame::new()
+            .fill(theme.background)
+            .inner_margin(egui::Margin::symmetric(10, 6));
+        CentralPanel::default()
+            .frame(frame)
+            .show(ui, |ui| self.output.show(ui));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use egui_kittest::Harness;
+    use egui_kittest::kittest::Queryable;
+    use muddie_mapper::Pos;
+
+    use super::*;
+    use crate::app::App;
+
+    /// A window that is not drawn, using `profiles` as its configuration.
+    fn window<'a>(profiles: Option<Profiles>) -> Harness<'a, App> {
+        Harness::builder().build_eframe(|cc| {
+            let startup = Startup {
+                profiles,
+                profile: None,
+                target: None,
+                speech: false,
+                scripts: Vec::new(),
+            };
+            App::new(cc, startup)
+        })
+    }
+
+    fn output_lines(app: &Tab) -> Vec<String> {
+        (0..app.output.len())
+            .map(|row| app.output.text(row).to_owned())
+            .collect()
+    }
+
+    /// Puts the window in the state of having a live connection, and
+    /// returns the two ends a real session would hold.
+    fn fake_connection(
+        app: &mut Tab,
+    ) -> (
+        std::sync::mpsc::Sender<Event>,
+        tokio::sync::mpsc::UnboundedReceiver<Command>,
+    ) {
+        let (events, receiver) = channel();
+        let (commands, sent) = tokio::sync::mpsc::unbounded_channel();
+        app.connection = Some(Connection {
+            commands,
+            events: receiver,
+        });
+        (events, sent)
+    }
+
+    #[test]
+    fn profile_is_saved_from_the_bar_and_brings_its_scripts() {
+        let dir = std::env::temp_dir().join(format!("muddie-app-profile-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let mut harness = window(Some(Profiles::at(dir.clone())));
+        let app = harness.state_mut().tab_mut();
+        app.host = "mud.example.org".into();
+        app.port = "4000".into();
+        app.tls = true;
+        app.verify_certificate = false;
+        app.profile_name = "Reinos".into();
+        harness.run_steps(2);
+        harness.get_by_label("Save profile").click();
+        harness.run_steps(2);
+        let saved = Profiles::at(dir.clone()).load("Reinos").unwrap();
+        assert_eq!((saved.host.as_str(), saved.port), ("mud.example.org", 4000));
+        assert!(saved.tls && !saved.verify_certificate);
+        assert_eq!(harness.state().tab().profile.as_deref(), Some("Reinos"));
+
+        // Scripts dropped in the profile's folder run when it is selected.
+        std::fs::write(
+            dir.join("profiles/Reinos/scripts/hello.luau"),
+            "echo('hola desde el perfil')",
+        )
+        .unwrap();
+        let app = harness.state_mut().tab_mut();
+        assert!(app.select_profile(None));
+        app.host.clear();
+        assert!(app.select_profile(Some("Reinos".into())));
+        assert_eq!(app.host, "mud.example.org");
+        assert!(output_lines(app).contains(&"hola desde el perfil".to_owned()));
+        assert!(!app.select_profile(Some("Missing".into())));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn typed_commands_are_split_and_reach_the_server() {
+        let mut harness = window(None);
+        let app = harness.state_mut().tab_mut();
+        let (_events, mut sent) = fake_connection(app);
+        app.input = "n;n;look".into();
+        app.submit();
+        let commands: Vec<Command> = std::iter::from_fn(|| sent.try_recv().ok()).collect();
+        let expected = ["n", "n", "look"].map(|command| Command::Send(command.into()));
+        assert_eq!(commands, expected);
+    }
+
+    #[test]
+    fn unmarked_prompt_fires_triggers_once_it_settles() {
+        let mut harness = window(None);
+        let app = harness.state_mut().tab_mut();
+        app.scripts.exec(
+            "test",
+            r#"trigger("^Name: $", function() send("gandalf") end)
+            trigger("^Spam> $", function() gag() end)"#,
+        );
+        let (events, mut sent) = fake_connection(app);
+        let partial = |text: &str| Event::Partial(panels::styled_lines(text).remove(0));
+        events.send(partial("Name: ")).unwrap();
+        harness.run_steps(2);
+        assert!(sent.try_recv().is_err(), "must wait for the text to settle");
+        std::thread::sleep(PARTIAL_SETTLE + Duration::from_millis(50));
+        harness.run_steps(2);
+        assert_eq!(sent.try_recv().unwrap(), Command::Send("gandalf".into()));
+        // The server then closes the same text as a line: no second firing.
+        events
+            .send(Event::Prompt(panels::styled_lines("Name: ").remove(0)))
+            .unwrap();
+        harness.run_steps(2);
+        assert!(sent.try_recv().is_err());
+        assert_eq!(output_lines(harness.state().tab()), ["Name: "]);
+
+        // A gagged prompt disappears and stays hidden when completed.
+        events.send(partial("Spam> ")).unwrap();
+        harness.run_steps(2);
+        std::thread::sleep(PARTIAL_SETTLE + Duration::from_millis(50));
+        harness.run_steps(2);
+        events
+            .send(Event::Prompt(panels::styled_lines("Spam> ").remove(0)))
+            .unwrap();
+        harness.run_steps(2);
+        assert_eq!(output_lines(harness.state().tab()), ["Name: "]);
+    }
+
+    /// A window with every panel in use, as after some minutes of play.
+    fn demo_window<'a>() -> Harness<'a, App> {
+        let mut harness = Harness::builder()
+            .with_size(egui::vec2(1100.0, 700.0))
+            .wgpu()
+            .build_eframe(|cc| {
+                let startup = Startup {
+                    profiles: None,
+                    profile: None,
+                    target: None,
+                    speech: false,
+                    scripts: Vec::new(),
+                };
+                App::new(cc, startup)
+            });
+        let app = harness.state_mut().tab_mut();
+        app.host = "mud.example.org".into();
+        app.port = "4000".into();
+        app.tls = true;
+        app.profile_name = "Reinos".into();
+        app.note("Connected.");
+        let text = "\x1b[1;32mPlaza Mayor\x1b[0m\n\
+            Una plaza amplia con una fuente en el centro. Al norte se alza la \x1b[33mtorre\x1b[0m \
+            del reloj y al este se abre un callejón estrecho que huele a pan recién hecho.\n\
+            \x1b[36mSalidas: norte, este, sur\x1b[0m\n\
+            \x1b[31mUn orco te ataca\x1b[0m con su \x1b[1;35mhacha rúnica\x1b[0m.\n\
+            \x1b[38;5;208mAna te dice: ¿vienes a la torre?\x1b[0m";
+        for line in panels::styled_lines(text) {
+            app.output.push(&line);
+        }
+        app.output.push_local("> matar orco");
+        app.output
+            .set_partial(&panels::styled_lines("HP:80 MP:20> ")[0]);
+        app.gauges.set("HP", Some((80.0, 100.0)));
+        app.gauges.set("MP", Some((20.0, 50.0)));
+        app.gauges.set("MV", Some((140.0, 150.0)));
+        for line in
+            panels::styled_lines("\x1b[33m[ooc] Ana: hola a todos\x1b[0m\n[ooc] Luis: buenas")
+        {
+            app.chat.push(&line);
+        }
+        app.text_panels.push((
+            "Minimapa".into(),
+            panels::styled_lines("  #\n#-\x1b[1;33m@\x1b[0m-#\n  #"),
+        ));
+        app.input = "matar orco".into();
+        {
+            let mut map = app.map.borrow_mut();
+            let room = |id, name: &str, area: &str, exits: &[(&str, RoomId)]| RoomInfo {
+                id,
+                name: name.into(),
+                area: area.into(),
+                exits: (exits.iter())
+                    .map(|(direction, to)| ((*direction).to_owned(), *to))
+                    .collect(),
+                pos: None,
+            };
+            for info in [
+                room(1, "Puerta", "ciudad", &[("n", 2)]),
+                room(
+                    2,
+                    "Plaza Mayor",
+                    "ciudad",
+                    &[("s", 1), ("n", 3), ("e", 4), ("w", 9)],
+                ),
+                room(3, "Torre", "ciudad", &[("s", 2), ("u", 5), ("portal", 20)]),
+                room(4, "Callejón", "ciudad", &[("w", 2), ("e", 6), ("ne", 7)]),
+                room(6, "Panadería", "ciudad", &[("w", 4)]),
+                room(7, "Patio", "ciudad", &[("sw", 4), ("n", 8)]),
+                room(8, "Camino", "afueras", &[("s", 7)]),
+                room(4, "Callejón", "ciudad", &[("w", 2), ("e", 6), ("ne", 7)]),
+                room(
+                    2,
+                    "Plaza Mayor",
+                    "ciudad",
+                    &[("s", 1), ("n", 3), ("e", 4), ("w", 9)],
+                ),
+            ] {
+                map.visit(info).unwrap();
+            }
+            map.set_avoid(6, true).unwrap();
+            map.edit_exit(4, "ne", |exit| exit.locked = true).unwrap();
+        }
+        harness.run_steps(3);
+        harness
+    }
+
+    /// The same window as it looks during play, with the connection open.
+    fn connected_demo_window<'a>() -> Harness<'a, App> {
+        let mut harness = demo_window();
+        // Dropping the far ends is fine: nothing is sent or received here.
+        fake_connection(harness.state_mut().tab_mut());
+        harness.run_steps(3);
+        harness
+    }
+
+    /// Renders the demo window to the PNG named by `MUDDIE_SCREENSHOT`, to
+    /// look at the result. Needs a GPU or software Vulkan, so it is not
+    /// part of the normal test run:
+    /// `MUDDIE_SCREENSHOT=/tmp/muddie.png cargo test -p muddie -- --ignored`
+    #[test]
+    #[ignore = "needs a graphics adapter; writes an image for visual review"]
+    fn screenshot() {
+        let path = std::env::var_os("MUDDIE_SCREENSHOT").map(PathBuf::from);
+        // Before connecting, the bar also shows the connection's details.
+        let image = demo_window().render().expect("rendering failed");
+        if let Some(path) = &path {
+            let path = path.with_extension("disconnected.png");
+            image.save(path).expect("could not write the screenshot");
+        }
+        let mut harness = connected_demo_window();
+        assert!(harness.query_by_label("Save profile").is_none());
+        let image = harness.render().expect("rendering failed");
+        assert_eq!((image.width(), image.height()), (1100, 700));
+        if let Some(path) = &path {
+            image.save(path).expect("could not write the screenshot");
+        }
+        // A second view: every area on the level.
+        harness.get_by_label("All areas").click();
+        harness.run_steps(3);
+        let image = harness.render().expect("rendering failed");
+        if let Some(path) = &path {
+            (image.save(path.with_extension("all-areas.png")))
+                .expect("could not write the screenshot");
+        }
+        // A third: the menu of the room under the pointer. The map is
+        // centred on the player's room, so that is the room it opens on.
+        harness.get_by_label("Map view").click_secondary();
+        harness.run_steps(3);
+        assert!(harness.query_by_label("Avoid in routes").is_some());
+        let image = harness.render().expect("rendering failed");
+        if let Some(path) = &path {
+            let path = path.with_extension("menu.png");
+            image.save(path).expect("could not write the screenshot");
+        }
+        // Choosing to avoid the room marks it on the map.
+        harness.get_by_label("Avoid in routes").click();
+        harness.run_steps(3);
+        assert!(harness.state().tab().map.borrow().room(2).unwrap().avoid);
+        // The map placed the rooms as walked: the patio is north-east of
+        // the alley, one cell east of the square.
+        let map = harness.state().tab().map.borrow();
+        assert_eq!(map.room(7).unwrap().pos, Pos { x: 2, y: 2, z: 0 });
+    }
+}
