@@ -83,6 +83,9 @@ pub struct Settings {
     /// Voice text through the screen reader instead of speaking directly,
     /// so that it also reaches a braille display.
     pub announce_with_screen_reader: bool,
+    /// Fetch from the web the sounds a MUD asks to be played and the
+    /// player does not have.
+    pub media_downloads: bool,
     /// Write everything shown in a session to a log file.
     pub log_sessions: bool,
     pub log_format: LogFormat,
@@ -115,6 +118,7 @@ impl Default for Settings {
             speech_rate: 0,
             speech_language: String::new(),
             announce_with_screen_reader: false,
+            media_downloads: true,
             log_sessions: false,
             log_format: LogFormat::default(),
             timestamps: false,

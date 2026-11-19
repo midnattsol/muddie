@@ -1413,3 +1413,11 @@ msgstr "Módulos GMCP"
 
 msgid "What to ask this MUD for besides the usual: each MUD has its own modules, named in its help. With commas between them. They are asked for on connecting."
 msgstr "Qué pedir a este MUD además de lo habitual: cada MUD tiene sus propios módulos, que nombra en su ayuda. Separados por comas. Se piden al conectar."
+
+
+#, python-brace-format
+msgid "A sound could not be fetched: {0}"
+msgstr "No se pudo descargar un sonido: {0}"
+
+msgid "Download the sounds a MUD asks to play"
+msgstr "Descargar los sonidos que un MUD pide reproducir"

@@ -6,6 +6,7 @@ mod keypad;
 mod logger;
 mod luau;
 mod mapview;
+mod media;
 mod output;
 mod packages;
 mod palette;

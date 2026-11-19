@@ -257,6 +257,12 @@ pub struct Tab {
     /// Package installs and updates under way; the flag says to enable
     /// the package when its job ends well.
     package_jobs: Vec<(Receiver<packages::Outcome>, bool)>,
+    /// Where the MUD said its sounds are fetched from, the ones being
+    /// fetched, each with what to play once it is here, and the ones
+    /// that could not be had, which are not asked for again.
+    media_base: Option<String>,
+    media_jobs: Vec<MediaJob>,
+    media_missing: Vec<String>,
     /// Character to log in as, from the profile.
     character: String,
     /// A new password typed in the bar, saved with the profile.
@@ -337,6 +343,14 @@ fn modules_typed(typed: &str) -> Vec<String> {
         })
         .collect()
 }
+
+/// A sound being fetched: where the result comes, its address, and what
+/// to play once it is here.
+type MediaJob = (
+    Receiver<Result<PathBuf, String>>,
+    String,
+    Option<crate::media::Play>,
+);
 
 impl Tab {
     pub fn new(ctx: &egui::Context, startup: Startup, settings: &Settings) -> Self {
@@ -461,6 +475,9 @@ impl Tab {
             encoding: "auto".into(),
             gmcp_modules: String::new(),
             package_jobs: Vec::new(),
+            media_base: None,
+            media_jobs: Vec::new(),
+            media_missing: Vec::new(),
             character: String::new(),
             new_password: String::new(),
             login: Login::Idle,
@@ -547,6 +564,11 @@ impl Tab {
                 .on_hover_text(tr(
                     "It stays selected: Enter sends it again, and typing replaces it.",
                 ));
+                switch_row(
+                    ui,
+                    &mut settings.media_downloads,
+                    tr("Download the sounds a MUD asks to play"),
+                );
                 switch_row(ui, &mut settings.log_sessions, tr("Log every session"));
                 row(ui, tr("Log format"), &mut |ui| {
                     let name = |format: LogFormat| match format {
@@ -1091,6 +1113,8 @@ impl Tab {
                         for (name, value, max) in panels::vitals(&data) {
                             self.gauges.set(name, Some((value, max)));
                         }
+                    } else if let Some(message) = crate::media::parse(&package, &data) {
+                        self.media(message);
                     } else if package.eq_ignore_ascii_case("Comm.Channel.Text") {
                         for line in panels::channel_text(&data) {
                             self.channel_line(&line);
@@ -1160,6 +1184,8 @@ impl Tab {
                     self.gauges.clear();
                     self.msdp_vitals.clear();
                     self.sound.stop_all();
+                    self.media_base = None;
+                    self.media_jobs.clear();
                     self.input_hidden = false;
                     self.connection = None;
                     // A connection lost to an error is worth retrying; one
@@ -1405,10 +1431,123 @@ impl Tab {
                 ctx.request_repaint_after(keepalive - idle);
             }
         }
+        self.media_fetched();
         self.sound.poll();
-        if self.sound.has_loops() {
+        if self.sound.has_loops() || !self.media_jobs.is_empty() {
             ctx.request_repaint_after(Duration::from_millis(250));
         }
+    }
+
+    /// Carries out a message of `Client.Media`: a sound or music the MUD
+    /// asks for, by name, with where to fetch it if it is not here.
+    fn media(&mut self, message: crate::media::Media) {
+        use crate::media::Media;
+        match message {
+            Media::Default(url) => self.media_base = Some(url),
+            Media::Load { name, url } => {
+                if let Some((address, None)) = self.media_file(&name, url.as_deref()) {
+                    self.media_fetch(address, None);
+                }
+            }
+            Media::Play(play) => {
+                let same = |label: &muddie_sound::Label| label.name == play.name;
+                // Music that is playing goes on, unless told otherwise.
+                if play.keep_going
+                    && self
+                        .sound
+                        .is_playing(|label| same(label) && label.kind == "music")
+                {
+                    return;
+                }
+                // Under a key there is one thing at a time.
+                if !play.key.is_empty() {
+                    let key = play.key.clone();
+                    self.sound
+                        .stop_where(|label| label.key == key && !same(label));
+                }
+                match self.media_file(&play.name, play.url.as_deref()) {
+                    Some((_, Some(path))) => self.media_start(&path, &play),
+                    Some((address, None)) => self.media_fetch(address, Some(play)),
+                    None => {}
+                }
+            }
+            Media::Stop(stop) => self
+                .sound
+                .stop_where(|label| stop.matches(&label.name, &label.kind, &label.tag, &label.key)),
+        }
+    }
+
+    /// Where the sound `name` is: among the player's own sounds, or
+    /// already fetched, which gives its path; or on the web, which gives
+    /// only its address. `None` if it is neither, or not safe to name.
+    fn media_file(&self, name: &str, url: Option<&str>) -> Option<(String, Option<PathBuf>)> {
+        if !crate::media::safe_name(name) {
+            return None;
+        }
+        let own = self.sound_file(name);
+        if own.is_file() {
+            return Some((String::new(), Some(own)));
+        }
+        let address = crate::media::address(url.or(self.media_base.as_deref())?, name)?;
+        let kept = crate::media::kept_at(&crate::media::cache_dir()?, &address);
+        let here = kept.is_file().then_some(kept);
+        Some((address, here))
+    }
+
+    /// Starts fetching a sound, to play `then` once it is here, unless
+    /// fetching is switched off, it is being fetched, or it failed before.
+    fn media_fetch(&mut self, address: String, then: Option<crate::media::Play>) {
+        let busy = self
+            .media_jobs
+            .iter()
+            .any(|(_, known, _)| *known == address);
+        if !self.settings.media_downloads || busy || self.media_missing.contains(&address) {
+            return;
+        }
+        let Some(cache) = crate::media::cache_dir() else {
+            return;
+        };
+        // No more at once than a MUD could reasonably ask for.
+        if self.media_jobs.len() < 8 {
+            let job = crate::media::fetch(&cache, &address);
+            self.media_jobs.push((job, address, then));
+        }
+    }
+
+    /// Plays what has been fetched since the last look, and remembers
+    /// what could not be, saying so once.
+    fn media_fetched(&mut self) {
+        let mut ended = Vec::new();
+        self.media_jobs
+            .retain_mut(|(job, address, then)| match job.try_recv() {
+                Ok(outcome) => {
+                    ended.push((outcome, address.clone(), then.take()));
+                    false
+                }
+                Err(std::sync::mpsc::TryRecvError::Empty) => true,
+                Err(std::sync::mpsc::TryRecvError::Disconnected) => false,
+            });
+        for (outcome, address, then) in ended {
+            match (outcome, then) {
+                (Ok(path), Some(play)) => self.media_start(&path, &play),
+                (Ok(_), None) => {}
+                (Err(error), _) => {
+                    self.media_missing.push(address);
+                    self.note(&trf("A sound could not be fetched: {0}", &[&error]));
+                }
+            }
+        }
+    }
+
+    fn media_start(&mut self, path: &std::path::Path, play: &crate::media::Play) {
+        let label = muddie_sound::Label {
+            name: play.name.clone(),
+            kind: play.kind.clone(),
+            tag: play.tag.clone(),
+            key: play.key.clone(),
+        };
+        // A sound that cannot be played is no error, as with MSP.
+        let _ = self.sound.play_as(path, play.volume, play.loops, label);
     }
 
     /// Runs the binding of any key pressed with Ctrl or Alt, or of a
@@ -3497,6 +3636,44 @@ mod tests {
             ["Comm 1", "Char.Ficha 2", "Char.Stats 1"]
         );
         assert!(modules_typed("  ").is_empty());
+    }
+
+    #[test]
+    fn sounds_a_mud_asks_for_are_played_from_the_players_own_or_fetched() {
+        let dir = std::env::temp_dir().join(format!("muddie-media-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let profiles = Profiles::at(dir.clone());
+        let sounds = profiles.sound_dirs(None).remove(0);
+        std::fs::create_dir_all(&sounds).unwrap();
+        std::fs::write(sounds.join("own.wav"), b"RIFF").unwrap();
+        let mut harness = window(Some(profiles));
+        let app = harness.state_mut().tab_mut();
+        // One the player has is found there, whatever address is given.
+        let found = app.media_file("own.wav", Some("https://mud.example.org/s"));
+        assert_eq!(found, Some((String::new(), Some(sounds.join("own.wav")))));
+        // One they do not have is on the web, at the address the message
+        // gives, or the one given for all of them.
+        assert_eq!(app.media_file("far.wav", None), None);
+        app.media(crate::media::Media::Default(
+            "https://mud.example.org/sounds/".into(),
+        ));
+        let (address, here) = app.media_file("far.wav", None).unwrap();
+        assert_eq!(address, "https://mud.example.org/sounds/far.wav");
+        assert_eq!(here, None);
+        // Nothing is looked for outside its folder, nor that is no sound.
+        assert_eq!(app.media_file("../own.wav", None), None);
+        assert_eq!(app.media_file("/etc/passwd", None), None);
+        assert_eq!(app.media_file("script.sh", None), None);
+        // With fetching switched off, nothing is asked of the web; nor is
+        // what could not be had before.
+        app.settings.media_downloads = false;
+        app.media_fetch(address.clone(), None);
+        assert!(app.media_jobs.is_empty());
+        app.settings.media_downloads = true;
+        app.media_missing.push(address.clone());
+        app.media_fetch(address, None);
+        assert!(app.media_jobs.is_empty());
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]

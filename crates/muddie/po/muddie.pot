@@ -339,6 +339,12 @@ msgstr ""
 msgid "Verify certificate"
 msgstr ""
 
+msgid "GMCP modules"
+msgstr ""
+
+msgid "What to ask this MUD for besides the usual: each MUD has its own modules, named in its help. With commas between them. They are asked for on connecting."
+msgstr ""
+
 msgid "Text encoding"
 msgstr ""
 
@@ -1008,6 +1014,9 @@ msgstr ""
 msgid "It stays selected: Enter sends it again, and typing replaces it."
 msgstr ""
 
+msgid "Download the sounds a MUD asks to play"
+msgstr ""
+
 msgid "Log every session"
 msgstr ""
 
@@ -1158,6 +1167,10 @@ msgstr ""
 
 #, python-brace-format
 msgid "The plugin could not be installed or updated: {0}"
+msgstr ""
+
+#, python-brace-format
+msgid "A sound could not be fetched: {0}"
 msgstr ""
 
 msgid "Find"

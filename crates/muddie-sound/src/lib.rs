@@ -18,6 +18,8 @@ mod system {
     use std::path::Path;
     use std::process::{Child, Command, Stdio};
 
+    use super::Label;
+
     /// Builds a player's arguments for a volume from 0 to 1.
     type VolumeArguments = fn(f32) -> Vec<String>;
 
@@ -43,10 +45,19 @@ mod system {
         ("aplay", |_| vec!["-q".to_owned()]),
     ];
 
+    /// A sound still playing: how to start it again, how many more times
+    /// it is to be played (`None` for until stopped), and its labels.
+    struct Playing {
+        child: Child,
+        file: String,
+        volume: f32,
+        left: Option<u32>,
+        label: Label,
+    }
+
     #[derive(Default)]
     pub struct Player {
-        /// Sounds still playing, with the request to repeat them if looped.
-        playing: Vec<(Child, Option<(String, f32)>)>,
+        playing: Vec<Playing>,
     }
 
     impl Player {
@@ -54,41 +65,78 @@ mod system {
         /// stopped if `looped`. The error says what went wrong, for
         /// instance that no player is installed.
         pub fn play(&mut self, file: &Path, volume: f32, looped: bool) -> Result<(), String> {
+            let times = if looped { None } else { Some(1) };
+            self.play_as(file, volume, times, Label::default())
+        }
+
+        /// The same, so many `times` (`None` for until stopped), under
+        /// labels to stop it by.
+        pub fn play_as(
+            &mut self,
+            file: &Path,
+            volume: f32,
+            times: Option<u32>,
+            label: Label,
+        ) -> Result<(), String> {
             super::check_file(file)?;
             let child = spawn(file, volume)?;
-            let again = looped.then(|| (file.display().to_string(), volume));
-            self.playing.push((child, again));
+            self.playing.push(Playing {
+                child,
+                file: file.display().to_string(),
+                volume,
+                left: times.map(|times| times.saturating_sub(1)),
+                label,
+            });
             Ok(())
         }
 
-        /// Forgets sounds that have ended, and starts looped ones again.
+        /// Forgets sounds that have ended, and starts again those with
+        /// times left to play.
         pub fn poll(&mut self) {
-            let mut restart = Vec::new();
-            self.playing
-                .retain_mut(|(child, again)| match child.try_wait() {
-                    Ok(None) => true,
-                    _ => {
-                        restart.extend(again.take());
-                        false
-                    }
-                });
-            for (file, volume) in restart {
-                if let Ok(child) = spawn(Path::new(&file), volume) {
-                    self.playing.push((child, Some((file, volume))));
+            let mut again = Vec::new();
+            let playing = std::mem::take(&mut self.playing);
+            for mut sound in playing {
+                match sound.child.try_wait() {
+                    Ok(None) => self.playing.push(sound),
+                    _ if sound.left != Some(0) => again.push(sound),
+                    _ => {}
+                }
+            }
+            for mut sound in again {
+                if let Ok(child) = spawn(Path::new(&sound.file), sound.volume) {
+                    sound.child = child;
+                    sound.left = sound.left.map(|left| left - 1);
+                    self.playing.push(sound);
                 }
             }
         }
 
-        /// Whether a looped sound needs [`Self::poll`] to keep it going.
+        /// Whether a sound to be played again needs [`Self::poll`] to
+        /// keep it going.
         pub fn has_loops(&self) -> bool {
-            self.playing.iter().any(|(_, again)| again.is_some())
+            self.playing.iter().any(|sound| sound.left != Some(0))
+        }
+
+        /// Whether a sound whose labels pass `chosen` is playing.
+        pub fn is_playing(&self, chosen: impl Fn(&Label) -> bool) -> bool {
+            self.playing.iter().any(|sound| chosen(&sound.label))
+        }
+
+        /// Stops the sounds whose labels pass `chosen`.
+        pub fn stop_where(&mut self, chosen: impl Fn(&Label) -> bool) {
+            let playing = std::mem::take(&mut self.playing);
+            for mut sound in playing {
+                if chosen(&sound.label) {
+                    let _ = sound.child.kill();
+                    let _ = sound.child.wait();
+                } else {
+                    self.playing.push(sound);
+                }
+            }
         }
 
         pub fn stop_all(&mut self) {
-            for (mut child, _) in self.playing.drain(..) {
-                let _ = child.kill();
-                let _ = child.wait();
-            }
+            self.stop_where(|_| true);
         }
     }
 
@@ -123,17 +171,32 @@ mod library {
 
     use rodio::Source;
 
+    use super::Label;
+
     #[derive(Default)]
     pub struct Player {
         /// The audio output, opened when the first sound is played.
         device: Option<rodio::MixerDeviceSink>,
-        playing: Vec<rodio::Player>,
+        playing: Vec<(rodio::Player, Label)>,
     }
 
     impl Player {
         /// Starts playing `file` at `volume` (0 to 1), repeating it until
         /// stopped if `looped`.
         pub fn play(&mut self, file: &Path, volume: f32, looped: bool) -> Result<(), String> {
+            let times = if looped { None } else { Some(1) };
+            self.play_as(file, volume, times, Label::default())
+        }
+
+        /// The same, so many `times` (`None` for until stopped), under
+        /// labels to stop it by.
+        pub fn play_as(
+            &mut self,
+            file: &Path,
+            volume: f32,
+            times: Option<u32>,
+            label: Label,
+        ) -> Result<(), String> {
             super::check_file(file)?;
             if self.device.is_none() {
                 let opened = rodio::DeviceSinkBuilder::open_default_sink();
@@ -147,31 +210,60 @@ mod library {
                 rodio::Decoder::new(BufReader::new(opened)).map_err(|error| error.to_string())?;
             let player = rodio::Player::connect_new(device.mixer());
             player.set_volume(volume);
-            if looped {
-                player.append(source.buffered().repeat_infinite());
-            } else {
-                player.append(source);
+            match times {
+                None => player.append(source.buffered().repeat_infinite()),
+                Some(times) => {
+                    let source = source.buffered();
+                    for _ in 0..times.max(1) {
+                        player.append(source.clone());
+                    }
+                }
             }
-            self.playing.push(player);
+            self.playing.push((player, label));
             Ok(())
         }
 
         /// Forgets sounds that have ended.
         pub fn poll(&mut self) {
-            self.playing.retain(|player| !player.empty());
+            self.playing.retain(|(player, _)| !player.empty());
         }
 
-        /// Looped sounds repeat by themselves here.
+        /// Sounds are played again by themselves here.
         pub fn has_loops(&self) -> bool {
             false
         }
 
+        /// Whether a sound whose labels pass `chosen` is playing.
+        pub fn is_playing(&self, chosen: impl Fn(&Label) -> bool) -> bool {
+            (self.playing.iter()).any(|(player, label)| !player.empty() && chosen(label))
+        }
+
+        /// Stops the sounds whose labels pass `chosen`.
+        pub fn stop_where(&mut self, chosen: impl Fn(&Label) -> bool) {
+            self.playing.retain(|(player, label)| {
+                let stop = chosen(label);
+                if stop {
+                    player.stop();
+                }
+                !stop
+            });
+        }
+
         pub fn stop_all(&mut self) {
-            for player in self.playing.drain(..) {
-                player.stop();
-            }
+            self.stop_where(|_| true);
         }
     }
+}
+
+/// What a sound is played under, to tell it from the others when some
+/// are to be stopped: its name, whether it is a sound or music, and a tag
+/// and a key that whoever asked for it gave it.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Label {
+    pub name: String,
+    pub kind: String,
+    pub tag: String,
+    pub key: String,
 }
 
 fn check_file(file: &Path) -> Result<(), String> {

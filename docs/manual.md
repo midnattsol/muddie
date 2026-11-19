@@ -32,6 +32,12 @@ With a character name saved, Muddie answers the first prompt with it. The
 password is kept in the system's keyring, never in a file, and is sent when
 the server hides typing.
 
+**GMCP modules** lists what to ask this MUD for besides the usual. A MUD
+sends over GMCP only the modules a client asks for, and each MUD names its
+own: its help says which. Type their names with commas between them, such as
+`Comm, Char.Stats`; they are asked for on connecting. Some MUDs also need
+GMCP switched on from inside the game. **Debug** shows what then comes.
+
 The text encoding is `auto` for nearly every MUD: UTF-8, with Latin-1 for
 anything that is not valid UTF-8. Set it only for servers that use something
 else, such as `big5` or `koi8-r`.
@@ -277,6 +283,15 @@ the MUD, so its text is read with the right voice.
 Scripts and triggers can play sound files, and requests of the MUD Sound
 Protocol are played. Sounds are looked for by name in the profile's `sounds`
 folder and then in `sounds` in the configuration folder.
+
+A MUD can also ask for sounds and music with GMCP (`Client.Media`), naming a
+file and where on the web to fetch it. One you already have, in those
+folders, is played from there. One you do not is fetched, kept in the cache
+folder (`~/.cache/muddie/media`) and played; next time it is already there.
+Only sound files are fetched, only over HTTP or HTTPS, and none larger than
+25 MB. Fetching reaches a server the MUD names, as a web page does;
+**Settings > Download the sounds a MUD asks to play** switches it off, and
+then only the sounds you have are played.
 
 ## Settings
 
