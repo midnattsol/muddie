@@ -84,9 +84,20 @@ themselves; there is no button to press.
 - A **macro** sends commands when a key is pressed. Press **Record a key** and
   then the key: function keys, combinations with Ctrl or Alt, and the keys of
   the numeric keypad can be used.
+- A **gauge** is a bar that follows a number the MUD reports, such as your
+  health. Say where the value and its maximum are: a GMCP package and the
+  fields inside it (`Char.Vitals.health.current`), or the name of a MSDP
+  variable. Choose its colour, whether it is drawn as a row of cells, and the
+  level under which its numbers turn red. Alt+0 reads the gauges aloud.
+- **Scripts** are the profile's Luau files, written right there: for what the
+  rest cannot do, such as building the map from what your MUD sends.
 
-Each has a box to try it out: paste a line from the MUD, or type a command,
-and it says whether it matches and what it would do.
+Commands go one per line. A trigger, alias or macro can also run a few lines
+of Luau of its own, with the match in `m`. A mistake in one is reported with
+its name and does not stop the others.
+
+Triggers and aliases have a box to try them out: paste a line from the MUD,
+or type a command, and it says whether it matches and what it would do.
 
 They are saved in the profile's `rules.toml`. For anything more, see
 [scripting](scripting.md).
@@ -103,7 +114,7 @@ or MSDP, and is saved per profile. Scripts can map other servers.
 | Drag | Moves the view; the wheel zooms |
 | Shift+drag a room | Moves it to another cell |
 | The area list, − and + | Looks at another area or level; **Back to me** returns |
-| Map > Show all areas | Draws every area on the level |
+| The buttons beside the map's title | Find where you are, tidy the area, show every area on the level, stop walking |
 
 A room marked to avoid is never walked through, and a locked exit is never
 used. Both are kept when the server reports the room again.
@@ -139,9 +150,11 @@ folder and then in `sounds` in the configuration folder.
 
 ## Settings
 
-**View > Settings…**: theme (dark, light, high
-contrast), language, text size and font, lines kept, timestamps, logging,
-reconnection, keep-alive, and the rate and language of speech. They are saved in `settings.toml`.
+**View > Settings…**, in sections: appearance (theme, language, text size and
+font), output (lines kept, timestamps), sessions (logging, reconnection,
+keep-alive) and speech (rate, language, screen reader). They are saved in
+`settings.toml`, which also remembers whether the chat and map panels are
+shown.
 
 ## Protocols
 

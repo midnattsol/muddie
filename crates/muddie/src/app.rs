@@ -26,6 +26,8 @@ pub struct App {
     /// Scripts given on the command line, run in every session.
     extra_scripts: Vec<PathBuf>,
     show_settings: bool,
+    /// The section of the settings on screen.
+    settings_section: usize,
     show_shortcuts: bool,
     show_about: bool,
     /// A problem with the settings to show in the settings window.
@@ -68,6 +70,7 @@ impl App {
             profiles,
             extra_scripts,
             show_settings: false,
+            settings_section: 0,
             show_shortcuts: false,
             show_about: false,
             settings_error,
@@ -287,17 +290,33 @@ impl App {
     fn settings_window(&mut self, ctx: &egui::Context) {
         let before = self.settings.clone();
         let mut open = self.show_settings;
-        widgets::dialog(ctx, "settings", tr("Settings"), &mut open, 430.0, |ui| {
-            // On a small window the settings scroll rather than spill.
-            let room = ctx.content_rect().height() - 150.0;
-            egui::ScrollArea::vertical()
-                .max_height(room)
-                .min_scrolled_height(room)
-                .show(ui, |ui| {
-                    ui.spacing_mut().item_spacing.y = 9.0;
-                    let settings = &mut self.settings;
-                    widgets::caption(ui, tr("Appearance"));
-                    let row =
+        widgets::dialog(ctx, "settings", tr("Settings"), &mut open, 660.0, |ui| {
+            ui.horizontal_top(|ui| {
+                // The sections on the left; more can be added as settings grow.
+                ui.vertical(|ui| {
+                    ui.set_width(160.0);
+                    ui.spacing_mut().item_spacing.y = 2.0;
+                    let sections = [tr("Appearance"), tr("Output"), tr("Sessions"), tr("Speech")];
+                    for (index, name) in sections.into_iter().enumerate() {
+                        let selected = self.settings_section == index;
+                        if widgets::nav_item(ui, selected, name, None).clicked() {
+                            self.settings_section = index;
+                        }
+                    }
+                });
+                ui.add_space(12.0);
+                let section = self.settings_section;
+                ui.vertical(|ui| {
+                    ui.set_min_height(300.0);
+                    // On a small window the settings scroll rather than spill.
+                    let room = ctx.content_rect().height() - 150.0;
+                    egui::ScrollArea::vertical()
+                        .max_height(room)
+                        .show(ui, |ui| {
+                            ui.spacing_mut().item_spacing.y = 9.0;
+                            let settings = &mut self.settings;
+                            if section == 0 {
+                                let row =
                         |ui: &mut Ui,
                          label: &str,
                          control: &mut dyn FnMut(&mut Ui) -> egui::Response| {
@@ -311,62 +330,76 @@ impl App {
                                 );
                             });
                         };
-                    row(ui, tr("Theme"), &mut |ui| {
-                        let name = |theme: ThemeName| match theme {
-                            ThemeName::Dark => tr("Dark"),
-                            ThemeName::Light => tr("Light"),
-                            ThemeName::Contrast => tr("High contrast"),
-                        };
-                        egui::ComboBox::from_id_salt("theme")
-                            .selected_text(name(settings.theme))
-                            .width(170.0)
-                            .show_ui(ui, |ui| {
-                                for theme in
-                                    [ThemeName::Dark, ThemeName::Light, ThemeName::Contrast]
-                                {
-                                    ui.selectable_value(&mut settings.theme, theme, name(theme));
-                                }
-                            })
-                            .response
-                    });
-                    row(ui, tr("Language"), &mut |ui| {
-                        let name = |language: Language| match language {
-                            Language::Auto => tr("System"),
-                            Language::English => "English",
-                            Language::Spanish => "Español",
-                        };
-                        egui::ComboBox::from_id_salt("language")
-                            .selected_text(name(settings.language))
-                            .width(170.0)
-                            .show_ui(ui, |ui| {
-                                for language in
-                                    [Language::Auto, Language::English, Language::Spanish]
-                                {
-                                    ui.selectable_value(
-                                        &mut settings.language,
-                                        language,
-                                        name(language),
-                                    );
-                                }
-                            })
-                            .response
-                    });
-                    row(ui, tr("Text size"), &mut |ui| {
-                        ui.add(egui::Slider::new(&mut settings.font_size, 10.0..=28.0).step_by(0.5))
-                    });
-                    row(ui, tr("Font file"), &mut |ui| {
-                        ui.add(
-                            egui::TextEdit::singleline(&mut settings.font_file)
-                                .hint_text(tr("Built-in font"))
-                                .margin(egui::Margin::symmetric(9, 6))
-                                .desired_width(230.0),
-                        )
-                    });
-                    Tab::settings_ui(ui, settings);
-                    if let Some(error) = &self.settings_error {
-                        ui.colored_label(theme::current().danger, error);
-                    }
+                                row(ui, tr("Theme"), &mut |ui| {
+                                    let name = |theme: ThemeName| match theme {
+                                        ThemeName::Dark => tr("Dark"),
+                                        ThemeName::Light => tr("Light"),
+                                        ThemeName::Contrast => tr("High contrast"),
+                                    };
+                                    egui::ComboBox::from_id_salt("theme")
+                                        .selected_text(name(settings.theme))
+                                        .width(170.0)
+                                        .show_ui(ui, |ui| {
+                                            for theme in [
+                                                ThemeName::Dark,
+                                                ThemeName::Light,
+                                                ThemeName::Contrast,
+                                            ] {
+                                                ui.selectable_value(
+                                                    &mut settings.theme,
+                                                    theme,
+                                                    name(theme),
+                                                );
+                                            }
+                                        })
+                                        .response
+                                });
+                                row(ui, tr("Language"), &mut |ui| {
+                                    let name = |language: Language| match language {
+                                        Language::Auto => tr("System"),
+                                        Language::English => "English",
+                                        Language::Spanish => "Español",
+                                    };
+                                    egui::ComboBox::from_id_salt("language")
+                                        .selected_text(name(settings.language))
+                                        .width(170.0)
+                                        .show_ui(ui, |ui| {
+                                            for language in [
+                                                Language::Auto,
+                                                Language::English,
+                                                Language::Spanish,
+                                            ] {
+                                                ui.selectable_value(
+                                                    &mut settings.language,
+                                                    language,
+                                                    name(language),
+                                                );
+                                            }
+                                        })
+                                        .response
+                                });
+                                row(ui, tr("Text size"), &mut |ui| {
+                                    ui.add(
+                                        egui::Slider::new(&mut settings.font_size, 10.0..=28.0)
+                                            .step_by(0.5),
+                                    )
+                                });
+                                row(ui, tr("Font file"), &mut |ui| {
+                                    ui.add(
+                                        egui::TextEdit::singleline(&mut settings.font_file)
+                                            .hint_text(tr("Built-in font"))
+                                            .margin(egui::Margin::symmetric(9, 6))
+                                            .desired_width(230.0),
+                                    )
+                                });
+                            }
+                            Tab::settings_ui(ui, settings, section);
+                            if let Some(error) = &self.settings_error {
+                                ui.colored_label(theme::current().danger, error);
+                            }
+                        });
                 });
+            });
         });
         self.show_settings = open;
         if self.settings != before {
@@ -512,5 +545,15 @@ impl eframe::App for App {
         let pressed = std::mem::take(&mut *self.keypad.lock().expect("keypad lock"));
         self.tabs[active].keypad_pressed.extend(pressed);
         self.tabs[active].show(ui, &self.settings);
+        // Panels switched on or off stay that way the next time.
+        let shown = self.tabs[active].panels_shown();
+        if shown != (self.settings.show_chat, self.settings.show_map) {
+            (self.settings.show_chat, self.settings.show_map) = shown;
+            if let Some(profiles) = &self.profiles
+                && let Err(error) = self.settings.save(&profiles.settings_path())
+            {
+                self.settings_error = Some(trf("Could not save the settings: {0}", &[&error]));
+            }
+        }
     }
 }

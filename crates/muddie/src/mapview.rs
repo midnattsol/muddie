@@ -26,6 +26,8 @@ pub enum MapAction {
     Avoid(RoomId, bool),
     /// Draw this area again from scratch.
     Tidy(String),
+    /// Run one of the client's own commands, such as `/where`.
+    Command(&'static str),
 }
 
 /// The map's colours, taken from the theme.
@@ -88,14 +90,39 @@ impl MapView {
     /// another with the controls on top. Clicking a room asks to walk there,
     /// right-clicking opens its menu, dragging pans, the scroll wheel zooms,
     /// and Shift+drag moves a room to another cell.
-    pub fn show(&mut self, ui: &mut Ui, map: &Map) -> Option<MapAction> {
+    pub fn show(&mut self, ui: &mut Ui, map: &Map, walking: bool) -> Option<MapAction> {
         let Some(current) = map.current() else {
             ui.label(tr("No map yet: the server has not reported a room."));
             return None;
         };
         // Where the player is, as text: for screen readers, and at a glance.
         let palette = theme::current();
-        widgets::caption(ui, tr("Map"));
+        // The map's own tools sit on its title's line.
+        let (mut locate, mut tidy, mut stop) = (false, false, false);
+        ui.horizontal(|ui| {
+            widgets::caption(ui, tr("Map"));
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                ui.spacing_mut().item_spacing.x = 2.0;
+                if walking {
+                    stop = widgets::icon_button(ui, widgets::Icon::Stop, tr("Stop walking"), true)
+                        .clicked();
+                }
+                if widgets::icon_button(
+                    ui,
+                    widgets::Icon::Layers,
+                    tr("Show all areas"),
+                    self.all_areas,
+                )
+                .clicked()
+                {
+                    self.all_areas = !self.all_areas;
+                }
+                tidy = widgets::icon_button(ui, widgets::Icon::Tidy, tr("Tidy this area"), false)
+                    .clicked();
+                locate = widgets::icon_button(ui, widgets::Icon::Locate, tr("Where am I?"), false)
+                    .clicked();
+            });
+        });
         let exits: Vec<&str> = current.exits.keys().map(String::as_str).collect();
         ui.label(
             RichText::new(&current.name)
@@ -118,6 +145,11 @@ impl MapView {
             self.browsing = None;
         }
         let (mut area, mut level) = self.browsing.clone().unwrap_or_else(|| home.clone());
+        if locate {
+            // Back to the player, wherever the view had wandered.
+            (area, level) = home.clone();
+            self.pan = Vec2::ZERO;
+        }
         // One compact row: which area, which level, and the way back.
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = 6.0;
@@ -323,6 +355,13 @@ impl MapView {
             self.menu_room = pointed.map(|room| room.id);
         }
         let mut chosen = None;
+        if stop {
+            chosen = Some(MapAction::Command("/stop"));
+        } else if tidy {
+            chosen = Some(MapAction::Tidy(area.clone()));
+        } else if locate {
+            chosen = Some(MapAction::Command("/where"));
+        }
         response.context_menu(|ui| {
             widgets::menu_width(ui);
             if let Some(room) = self.menu_room.and_then(|id| map.room(id)) {

@@ -34,7 +34,7 @@ the module returns.
 | `speak(text, {interrupt = true})` | Says something through speech. |
 | `chat(text)` | Adds a line to the chat panel. Colour codes are allowed. |
 | `panel(name, text)` | Shows text in a panel of its own beside the map; `panel(name)` removes it. For anything the server sends ready to display, such as a map it draws. |
-| `gauge(name, value, max)` | Shows or updates a bar; `gauge(name)` removes it. |
+| `gauge(name, value, max, options)` | Shows or updates a bar; `gauge(name)` removes it. `options` may give a `colour` (a name or `#rrggbb`), `style = "segments"` for a row of cells, and `low`, the percentage under which the numbers turn red. |
 | `play(file, {volume = 0.8, loop = false})` | Plays a sound, by path or by name in the profile's `sounds` folder. |
 | `stop_sounds()` | Stops every sound. |
 

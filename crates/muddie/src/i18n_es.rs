@@ -451,4 +451,65 @@ pub const SPANISH: &[(&str, &str)] = &[
     ("magenta", "magenta"),
     ("cyan", "cian"),
     ("white", "blanco"),
+    ("Gauges…", "Indicadores…"),
+    ("Scripts…", "Scripts…"),
+    ("Gauges", "Indicadores"),
+    ("Scripts", "Scripts"),
+    ("In every session", "En todas las sesiones"),
+    ("In this profile", "En este perfil"),
+    (
+        "Could not save the script: {0}",
+        "No se pudo guardar el script: {0}",
+    ),
+    (
+        "Scripts of your own are kept per profile: save or choose a profile first.",
+        "Tus scripts se guardan por perfil: guarda o elige un perfil primero.",
+    ),
+    (
+        "A gauge is a bar that follows a number the MUD reports,\nsuch as your health.",
+        "Un indicador es una barra que sigue un número que da el MUD,\ncomo tu vida.",
+    ),
+    (
+        "Scripts are Luau programs: for what triggers cannot do,\nsuch as building the map from what your MUD sends.",
+        "Los scripts son programas en Luau: para lo que los triggers no pueden,\ncomo construir el mapa con lo que envía tu MUD.",
+    ),
+    (
+        "Could not delete the script: {0}",
+        "No se pudo borrar el script: {0}",
+    ),
+    (
+        "Send commands, one per line",
+        "Enviar comandos, uno por línea",
+    ),
+    (
+        "Run a script (Luau): m holds the match, line the whole line",
+        "Ejecutar un script (Luau): m es la coincidencia, line la línea entera",
+    ),
+    (
+        "Send instead, one command per line",
+        "Enviar en su lugar, un comando por línea",
+    ),
+    (
+        "%1 stands for what follows the word.",
+        "%1 es lo que sigue a la palabra.",
+    ),
+    (
+        "Run a script (Luau): m holds the match, input what was typed",
+        "Ejecutar un script (Luau): m es la coincidencia, input lo que escribiste",
+    ),
+    ("Run a script (Luau)", "Ejecutar un script (Luau)"),
+    ("Name this gauge", "Ponle nombre a este indicador"),
+    ("Follows", "Sigue"),
+    ("Value", "Valor"),
+    ("Maximum", "Máximo"),
+    (
+        "Where the MUD reports it: a GMCP package and the fields inside it, such as Char.Vitals.health.current, or the name of a MSDP variable. The maximum can also be a number.",
+        "Dónde lo da el MUD: un paquete GMCP y los campos que lleva dentro, como Char.Vitals.health.current, o el nombre de una variable MSDP. El máximo también puede ser un número.",
+    ),
+    ("Look", "Aspecto"),
+    ("Draw it as cells", "Dibujarlo en casillas"),
+    ("Warn when under", "Avisar por debajo de"),
+    ("Preview", "Vista previa"),
+    ("Gauge", "Indicador"),
+    ("Script", "Script"),
 ];

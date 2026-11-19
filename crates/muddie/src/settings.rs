@@ -65,6 +65,9 @@ pub struct Settings {
     pub reconnect: bool,
     /// Seconds between keep-alive messages while idle; 0 sends none.
     pub keepalive_seconds: u32,
+    /// Whether the chat and the map have their panels, as last chosen.
+    pub show_chat: bool,
+    pub show_map: bool,
 }
 
 impl Default for Settings {
@@ -83,6 +86,8 @@ impl Default for Settings {
             timestamps: false,
             reconnect: true,
             keepalive_seconds: 60,
+            show_chat: true,
+            show_map: true,
         }
     }
 }

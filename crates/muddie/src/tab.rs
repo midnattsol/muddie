@@ -241,10 +241,10 @@ impl Tab {
             gauges: Gauges::default(),
             msdp_vitals: MsdpVitals::default(),
             chat: Output::default(),
-            show_chat: true,
+            show_chat: settings.show_chat,
             map,
             map_view: MapView::default(),
-            show_map: true,
+            show_map: settings.show_map,
             text_panels: Vec::new(),
             walk: None,
             unread: false,
@@ -337,8 +337,8 @@ impl Tab {
     }
 
     /// The part of the settings window that belongs to sessions.
-    pub fn settings_ui(ui: &mut egui::Ui, settings: &mut Settings) {
-        use crate::widgets::{caption, switch_row};
+    pub fn settings_ui(ui: &mut egui::Ui, settings: &mut Settings, section: usize) {
+        use crate::widgets::switch_row;
         let row = |ui: &mut egui::Ui,
                    label: &str,
                    control: &mut dyn FnMut(&mut egui::Ui) -> egui::Response| {
@@ -349,79 +349,77 @@ impl Tab {
                 });
             });
         };
-        ui.add_space(6.0);
-        caption(ui, tr("Output"));
-        row(ui, tr("Lines kept"), &mut |ui| {
-            ui.add(
-                egui::DragValue::new(&mut settings.scrollback_lines)
-                    .range(100..=1_000_000)
-                    .speed(100),
-            )
-        });
-        switch_row(
-            ui,
-            &mut settings.timestamps,
-            tr("Show the time of each line"),
-        );
-
-        ui.add_space(6.0);
-        caption(ui, tr("Sessions"));
-        switch_row(ui, &mut settings.log_sessions, tr("Log every session"));
-        row(ui, tr("Log format"), &mut |ui| {
-            let name = |format: LogFormat| match format {
-                LogFormat::Text => tr("Text"),
-                LogFormat::Html => "HTML",
-            };
-            ComboBox::from_id_salt("log format")
-                .selected_text(name(settings.log_format))
-                .width(110.0)
-                .show_ui(ui, |ui| {
-                    for format in [LogFormat::Text, LogFormat::Html] {
-                        ui.selectable_value(&mut settings.log_format, format, name(format));
-                    }
-                })
-                .response
-        });
-        switch_row(
-            ui,
-            &mut settings.reconnect,
-            tr("Reconnect when the connection is lost"),
-        );
-        row(ui, tr("Keep-alive"), &mut |ui| {
-            ui.add(
-                egui::DragValue::new(&mut settings.keepalive_seconds)
-                    .range(0..=3600)
-                    .suffix(" s"),
+        if section == 1 {
+            row(ui, tr("Lines kept"), &mut |ui| {
+                ui.add(
+                    egui::DragValue::new(&mut settings.scrollback_lines)
+                        .range(100..=1_000_000)
+                        .speed(100),
+                )
+            });
+            switch_row(
+                ui,
+                &mut settings.timestamps,
+                tr("Show the time of each line"),
+            );
+        }
+        if section == 2 {
+            switch_row(ui, &mut settings.log_sessions, tr("Log every session"));
+            row(ui, tr("Log format"), &mut |ui| {
+                let name = |format: LogFormat| match format {
+                    LogFormat::Text => tr("Text"),
+                    LogFormat::Html => "HTML",
+                };
+                ComboBox::from_id_salt("log format")
+                    .selected_text(name(settings.log_format))
+                    .width(110.0)
+                    .show_ui(ui, |ui| {
+                        for format in [LogFormat::Text, LogFormat::Html] {
+                            ui.selectable_value(&mut settings.log_format, format, name(format));
+                        }
+                    })
+                    .response
+            });
+            switch_row(
+                ui,
+                &mut settings.reconnect,
+                tr("Reconnect when the connection is lost"),
+            );
+            row(ui, tr("Keep-alive"), &mut |ui| {
+                ui.add(
+                    egui::DragValue::new(&mut settings.keepalive_seconds)
+                        .range(0..=3600)
+                        .suffix(" s"),
+                )
+                .on_hover_text(tr(
+                    "Seconds of silence before a keep-alive is sent; 0 sends none.",
+                ))
+            });
+        }
+        if section == 3 {
+            row(ui, tr("Speech rate"), &mut |ui| {
+                ui.add(egui::Slider::new(&mut settings.speech_rate, -100..=100))
+            });
+            row(ui, tr("Speech language"), &mut |ui| {
+                ui.add(
+                    TextEdit::singleline(&mut settings.speech_language)
+                        .hint_text(tr("system"))
+                        .margin(egui::Margin::symmetric(9, 6))
+                        .desired_width(110.0),
+                )
+                .on_hover_text(tr(
+                    "A language code such as es or en, so the text is read with the right voice.",
+                ))
+            });
+            switch_row(
+                ui,
+                &mut settings.announce_with_screen_reader,
+                tr("Voice through the screen reader (also braille)"),
             )
             .on_hover_text(tr(
-                "Seconds of silence before a keep-alive is sent; 0 sends none.",
-            ))
-        });
-
-        ui.add_space(6.0);
-        caption(ui, tr("Speech"));
-        row(ui, tr("Speech rate"), &mut |ui| {
-            ui.add(egui::Slider::new(&mut settings.speech_rate, -100..=100))
-        });
-        row(ui, tr("Speech language"), &mut |ui| {
-            ui.add(
-                TextEdit::singleline(&mut settings.speech_language)
-                    .hint_text(tr("system"))
-                    .margin(egui::Margin::symmetric(9, 6))
-                    .desired_width(110.0),
-            )
-            .on_hover_text(tr(
-                "A language code such as es or en, so the text is read with the right voice.",
-            ))
-        });
-        switch_row(
-            ui,
-            &mut settings.announce_with_screen_reader,
-            tr("Voice through the screen reader (also braille)"),
-        )
-        .on_hover_text(tr(
-            "Instead of speaking directly, hand each line to the screen reader to announce.",
-        ));
+                "Instead of speaking directly, hand each line to the screen reader to announce.",
+            ));
+        }
     }
 
     /// Starts the script runtime afresh and runs the user's scripts: the
@@ -1552,7 +1550,7 @@ impl Tab {
         }
         let map = self.map.borrow();
         if map.current().is_some() {
-            self.map_view.show(ui, &map)
+            self.map_view.show(ui, &map, self.walk.is_some())
         } else {
             None
         }

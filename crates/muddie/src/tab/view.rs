@@ -89,6 +89,9 @@ impl Tab {
             match action {
                 Some(MapAction::Walk(room)) => self.walk_to(room),
                 Some(MapAction::Tidy(area)) => self.tidy(&area),
+                Some(MapAction::Command(command)) => {
+                    self.map_command(command);
+                }
                 Some(MapAction::Avoid(room, avoid)) => {
                     let saved = self.map.borrow_mut().set_avoid(room, avoid);
                     if let Err(error) = saved {
@@ -299,6 +302,11 @@ impl Tab {
             self.port = port;
         }
         !self.host.trim().is_empty()
+    }
+
+    /// Which panels are shown: the chat's and the map's.
+    pub fn panels_shown(&self) -> (bool, bool) {
+        (self.show_chat, self.show_map)
     }
 
     /// How the connection is doing: a colour for it, and the words.

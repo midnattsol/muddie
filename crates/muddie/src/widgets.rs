@@ -580,3 +580,93 @@ pub fn swatch(ui: &mut Ui, colour: Color32, selected: bool, label: &str) -> Resp
     }
     response.on_hover_text(label)
 }
+
+/// The pictures of the small buttons of a toolbar.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Icon {
+    /// A target: find where I am.
+    Locate,
+    /// Four tiles: put in order.
+    Tidy,
+    /// Stacked sheets: everything at once.
+    Layers,
+    /// A square: stop.
+    Stop,
+}
+
+/// A small button with a picture. `label` says what it does, to screen
+/// readers and on hover; `on` shows it as switched on.
+pub fn icon_button(ui: &mut Ui, icon: Icon, label: &str, on: bool) -> Response {
+    let theme = theme::current();
+    let (rect, response) = ui.allocate_exact_size(Vec2::splat(28.0), Sense::click());
+    response.widget_info(|| WidgetInfo::selected(Role::Button, ui.is_enabled(), on, label));
+    if ui.is_rect_visible(rect) {
+        let painter = ui.painter();
+        let hovered = response.hovered() || response.has_focus();
+        if on {
+            painter.rect_filled(
+                rect,
+                CornerRadius::same(7),
+                theme.accent.gamma_multiply(0.2),
+            );
+        } else if hovered {
+            painter.rect_filled(rect, CornerRadius::same(7), theme.hover);
+        }
+        let colour = match (on, hovered) {
+            (true, _) => theme.accent,
+            (false, true) => theme.text,
+            (false, false) => theme.text_dim,
+        };
+        let stroke = Stroke::new(1.4, colour);
+        let centre = rect.center();
+        match icon {
+            Icon::Locate => {
+                painter.circle_stroke(centre, 5.0, stroke);
+                painter.circle_filled(centre, 1.6, colour);
+                for direction in [
+                    vec2(1.0, 0.0),
+                    vec2(-1.0, 0.0),
+                    vec2(0.0, 1.0),
+                    vec2(0.0, -1.0),
+                ] {
+                    painter
+                        .line_segment([centre + direction * 5.0, centre + direction * 8.0], stroke);
+                }
+            }
+            Icon::Tidy => {
+                for offset in [
+                    vec2(-3.6, -3.6),
+                    vec2(3.6, -3.6),
+                    vec2(-3.6, 3.6),
+                    vec2(3.6, 3.6),
+                ] {
+                    let tile = egui::Rect::from_center_size(centre + offset, Vec2::splat(5.0));
+                    painter.rect_stroke(
+                        tile,
+                        CornerRadius::same(1),
+                        stroke,
+                        egui::StrokeKind::Middle,
+                    );
+                }
+            }
+            Icon::Layers => {
+                for (step, strength) in [(4.5, 0.45), (0.0, 0.7), (-4.5, 1.0)] {
+                    let middle = centre + vec2(0.0, step);
+                    let sheet = vec![
+                        middle + vec2(-7.0, 0.0),
+                        middle + vec2(0.0, -3.2),
+                        middle + vec2(7.0, 0.0),
+                        middle + vec2(0.0, 3.2),
+                    ];
+                    let stroke = Stroke::new(1.4, colour.gamma_multiply(strength));
+                    painter.add(egui::Shape::closed_line(sheet, stroke));
+                }
+            }
+            Icon::Stop => {
+                let square = egui::Rect::from_center_size(centre, Vec2::splat(9.0));
+                painter.rect_filled(square, CornerRadius::same(2), colour);
+            }
+        }
+    }
+    response.on_hover_text(label)
+}
