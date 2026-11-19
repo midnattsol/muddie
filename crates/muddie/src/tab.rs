@@ -1740,18 +1740,20 @@ impl Tab {
                     // Keeps Tab from moving to the next control while there
                     // is a word to complete.
                     .lock_focus(has_text)
-                    .hint_text(RichText::new(tr("Type a command")).color(theme.text_faint))
+                    .hint_text(
+                        // In the typeface of what will be typed, so it sits
+                        // on the same line.
+                        RichText::new(tr("Type a command"))
+                            .font(palette::font())
+                            .color(theme.text_faint),
+                    )
                     .align(egui::Align2::LEFT_CENTER)
                     .desired_width(f32::INFINITY)
                     .show(ui);
                 // The prompt mark is drawn, not typed, and against the text
                 // itself: level with the middle of its lowercase letters.
-                let galley = &edit.galley;
-                let line = edit.galley_pos.y
-                    + galley
-                        .rows
-                        .first()
-                        .map_or(galley.size().y / 2.0, |row| row.rect().center().y);
+                // The field's own middle: the same with and without text in it.
+                let line = edit.response.rect.center().y;
                 let x_height = ui.fonts_mut(|fonts| fonts.row_height(&palette::font())) * 0.08;
                 let (centre, arm) = (egui::pos2(mark.center().x, line + x_height), 4.0);
                 let chevron = vec![
@@ -2612,6 +2614,11 @@ mod tests {
             save(&mut menus, &format!("menu-{menu}"));
             crate::i18n::set_language(crate::settings::Language::English);
         }
+        // The command line with nothing typed in it.
+        let mut empty = connected_demo_window();
+        empty.state_mut().tab_mut().input.clear();
+        empty.run_steps(3);
+        save(&mut empty, "empty");
         // The find bar and the view of the latest lines while scrolled back.
         let mut find = connected_demo_window();
         let app = find.state_mut().tab_mut();
