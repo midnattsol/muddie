@@ -6,6 +6,7 @@ use std::time::Instant;
 use eframe::egui::{Key, Modifiers, Ui};
 use muddie_speech::{Narrator, Speech};
 
+use crate::i18n::tr;
 use crate::output::Output;
 
 /// Alt plus one of these reads the first to ninth most recent line.
@@ -45,7 +46,7 @@ impl Voice {
         self.speech = enabled.then(Speech::start);
         self.set_rate(self.rate);
         self.narrator = Narrator::default();
-        self.say("Speech on.");
+        self.say(tr("Speech on."));
     }
 
     pub fn set_rate(&mut self, rate: i32) {
@@ -147,7 +148,7 @@ impl Voice {
         if let Some(row) = row {
             let text = output.text(row).trim();
             self.stop();
-            self.say(if text.is_empty() { "Blank." } else { text });
+            self.say(if text.is_empty() { tr("Blank.") } else { text });
         }
     }
 }

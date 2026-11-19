@@ -8,7 +8,8 @@ use std::sync::Arc;
 
 use eframe::egui::text::LayoutJob;
 use eframe::egui::{
-    Frame, Galley, Label, OpenUrl, Panel, Rect, RichText, ScrollArea, Sense, Ui, UiBuilder, vec2,
+    Align, Frame, Galley, Label, OpenUrl, Panel, Rect, RichText, ScrollArea, Sense, Ui, UiBuilder,
+    vec2,
 };
 use muddie_core::{Color, Line, LinkTarget};
 
@@ -298,21 +299,10 @@ impl Output {
                 });
         }
 
-        let mut area = ScrollArea::vertical()
+        let area = ScrollArea::vertical()
             .id_salt(name)
             .auto_shrink(false)
             .stick_to_bottom(true);
-        if std::mem::take(&mut self.jump_to_end) {
-            area = area.vertical_scroll_offset(f32::MAX);
-        } else if let Some(row) = self.scroll_to.take() {
-            // Unmeasured rows are taken as one line high; close enough to
-            // land on the row, which a later frame then corrects.
-            let line_height = ui.fonts_mut(|fonts| fonts.row_height(&palette::font()));
-            let above: f32 = (self.rows.iter().take(row))
-                .map(|row| row.height.unwrap_or(line_height))
-                .sum();
-            area = area.vertical_scroll_offset((above - ui.available_height() / 3.0).max(0.0));
-        }
         area.show_viewport(ui, |ui, viewport| self.show_rows(ui, viewport))
             .inner
     }
@@ -335,6 +325,8 @@ impl Output {
         // Measure new rows, and find the first one inside the viewport.
         let mut total = 0.0;
         let mut first_visible = None;
+        let scroll_to = self.scroll_to.take();
+        let mut target = None;
         for (index, row) in self.rows.iter_mut().enumerate() {
             let height = match row.height {
                 Some(height) => height,
@@ -342,6 +334,9 @@ impl Output {
             };
             if first_visible.is_none() && total + height > viewport.min.y {
                 first_visible = Some((index, total));
+            }
+            if scroll_to == Some(index) {
+                target = Some((total, height));
             }
             total += height;
         }
@@ -353,6 +348,16 @@ impl Output {
         total += partial.as_ref().map_or(0.0, |galley| galley.size().y);
         ui.set_height(total);
         self.at_end = viewport.max.y >= total - 2.0;
+        // Asking the scroll area to show a place is what lets it leave the
+        // end it otherwise sticks to, and go back to it.
+        let origin = ui.max_rect().min;
+        if std::mem::take(&mut self.jump_to_end) {
+            let end = Rect::from_min_size(origin + vec2(0.0, total - 1.0), vec2(1.0, 1.0));
+            ui.scroll_to_rect(end, Some(Align::BOTTOM));
+        } else if let Some((top, height)) = target {
+            let row = Rect::from_min_size(origin + vec2(0.0, top), vec2(1.0, height));
+            ui.scroll_to_rect(row, Some(Align::Center));
+        }
 
         let (first, top) = first_visible.unwrap_or((self.rows.len(), partial_top));
         let max_rect = ui.max_rect();

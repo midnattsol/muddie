@@ -103,6 +103,8 @@ pub struct Tab {
     /// The copy being edited in the rules window.
     rules_draft: Rules,
     rules_open: bool,
+    /// The connection window is showing.
+    connection_open: bool,
     /// Which of triggers, aliases and keys the rules window shows.
     rules_section: usize,
     /// Label of the text encoding the server uses; `auto` for most.
@@ -220,6 +222,7 @@ impl Tab {
             rules: Rules::default(),
             rules_draft: Rules::default(),
             rules_open: false,
+            connection_open: false,
             rules_section: 0,
             encoding: "auto".into(),
             package_jobs: Vec::new(),
@@ -244,6 +247,8 @@ impl Tab {
             app.connect(ctx);
         }
         app.settings_changed(settings);
+        // With nowhere to connect to yet, start by asking.
+        app.connection_open = app.host.trim().is_empty();
         app
     }
 
@@ -401,7 +406,10 @@ impl Tab {
         let profile = match loaded {
             Ok(profile) => profile,
             Err(error) => {
-                self.note(&format!("Could not load the profile: {error}"));
+                self.note(&trf(
+                    "Could not load the profile: {0}",
+                    &[&error.to_string()],
+                ));
                 return false;
             }
         };
@@ -427,10 +435,12 @@ impl Tab {
     fn save_profile(&mut self) {
         let name = self.profile_name.trim().to_owned();
         let Some(profiles) = &self.profiles else {
-            return self.note("Profiles cannot be saved: no configuration folder was found.");
+            return self.note(tr(
+                "Profiles cannot be saved: no configuration folder was found.",
+            ));
         };
         let Ok(port) = self.port.trim().parse::<u16>() else {
-            return self.note("The port must be a number from 1 to 65535.");
+            return self.note(tr("The port must be a number from 1 to 65535."));
         };
         let profile = Profile {
             host: self.host.trim().to_owned(),
@@ -466,18 +476,21 @@ impl Tab {
                     ));
                 }
             }
-            Err(error) => self.note(&format!("Could not save the profile: {error}")),
+            Err(error) => self.note(&trf(
+                "Could not save the profile: {0}",
+                &[&error.to_string()],
+            )),
         }
     }
 
     fn connect(&mut self, ctx: &egui::Context) {
         let host = self.host.trim().to_owned();
         let Ok(port) = self.port.trim().parse::<u16>() else {
-            self.note("The port must be a number from 1 to 65535.");
+            self.note(tr("The port must be a number from 1 to 65535."));
             return;
         };
         if host.is_empty() {
-            self.note("Enter a host to connect to.");
+            self.note(tr("Enter a host to connect to."));
             return;
         }
         if muddie_core::decode::Decoder::for_label(&self.encoding).is_none() {
@@ -489,7 +502,10 @@ impl Tab {
         }
         self.user_disconnected = false;
         self.reconnect_at = None;
-        self.note(&format!("Connecting to {host}:{port}..."));
+        self.note(&trf(
+            "Connecting to {0}:{1}...",
+            &[&host.to_string(), &port.to_string()],
+        ));
         self.walk = None;
         // A script may have chosen to keep the map in memory only.
         let stored = if self.scripts.persist_map() {
@@ -505,11 +521,14 @@ impl Tab {
         let map = match stored {
             Some(Ok(map)) => map,
             Some(Err(error)) => {
-                self.note(&format!("The map will not be saved: {error}"));
+                self.note(&trf(
+                    "The map will not be saved: {0}",
+                    &[&error.to_string()],
+                ));
                 Map::in_memory()
             }
             None => {
-                self.note("The map will not be saved: no data folder was found.");
+                self.note(tr("The map will not be saved: no data folder was found."));
                 Map::in_memory()
             }
         };
@@ -819,7 +838,7 @@ impl Tab {
                 }
                 Action::StopSounds => self.sound.stop_all(),
                 Action::Error(message) => {
-                    let message = format!("Script error: {message}");
+                    let message = trf("Script error: {0}", &[&message]);
                     message.lines().for_each(|line| self.note(line));
                 }
             }
@@ -1085,7 +1104,7 @@ impl Tab {
         let room = info.id;
         let saved = self.map.borrow_mut().visit(info);
         if let Err(error) = saved {
-            self.note(&format!("Could not save the map: {error}"));
+            self.note(&trf("Could not save the map: {0}", &[&error.to_string()]));
         }
         self.arrived_in(room);
     }
@@ -1103,12 +1122,12 @@ impl Tab {
             let map = self.map.borrow();
             let Some(from) = map.current().map(|current| current.id) else {
                 drop(map);
-                return self.note("The map does not know where you are yet.");
+                return self.note(tr("The map does not know where you are yet."));
             };
             map.route(from, room).map(|route| (from, route))
         };
         let Some((from, route)) = route else {
-            return self.note("No known route to that room.");
+            return self.note(tr("No known route to that room."));
         };
         let walk = Walk::new(from, route);
         let progress = walk.start();
@@ -1130,11 +1149,11 @@ impl Tab {
             Progress::Waiting => {}
             Progress::Arrived => {
                 self.walk = None;
-                self.note("Arrived.");
+                self.note(tr("Arrived."));
             }
             Progress::Lost => {
                 self.walk = None;
-                self.note("Walk stopped: this is not the room the route expected.");
+                self.note(tr("Walk stopped: this is not the room the route expected."));
             }
         }
     }
@@ -1212,7 +1231,7 @@ impl Tab {
         let waited = moved_at.elapsed();
         if waited >= WALK_TIMEOUT {
             self.walk = None;
-            self.note("Walk stopped: the last move had no effect.");
+            self.note(tr("Walk stopped: the last move had no effect."));
         } else {
             ctx.request_repaint_after(WALK_TIMEOUT - waited);
         }
@@ -1227,23 +1246,25 @@ impl Tab {
             "/where" => {
                 let place = self.map.borrow().current().map(|room| {
                     let exits: Vec<&str> = room.exits.keys().map(String::as_str).collect();
-                    format!(
-                        "{} (#{}) in {}. Exits: {}.",
-                        room.name,
-                        room.id,
-                        room.area,
-                        exits.join(", ")
+                    trf(
+                        "{0} (#{1}) in {2}. Exits: {3}.",
+                        &[
+                            &room.name,
+                            &room.id.to_string(),
+                            &room.area,
+                            &exits.join(", "),
+                        ],
                     )
                 });
                 match place {
                     Some(place) => self.note(&place),
-                    None => self.note("The map does not know where you are yet."),
+                    None => self.note(tr("The map does not know where you are yet.")),
                 }
             }
             "/find" if !argument.is_empty() => {
                 let rooms = self.matching_rooms(argument);
                 if rooms.is_empty() {
-                    self.note("No room matches.");
+                    self.note(tr("No room matches."));
                 }
                 rooms.iter().for_each(|room| self.note(room));
             }
@@ -1255,10 +1276,10 @@ impl Tab {
                         .map(|room| room.id)
                         .collect();
                     match found[..] {
-                        [] => self.note("No room matches."),
+                        [] => self.note(tr("No room matches.")),
                         [room] => self.walk_to(room),
                         _ => {
-                            self.note("Several rooms match; use /go with a room number:");
+                            self.note(tr("Several rooms match; use /go with a room number:"));
                             let rooms = self.matching_rooms(argument);
                             rooms.iter().for_each(|room| self.note(room));
                         }
@@ -1279,14 +1300,19 @@ impl Tab {
                     target.map(|(id, avoid, name)| (map.set_avoid(id, avoid), avoid, name))
                 };
                 match toggled {
-                    Some((Ok(_), true, name)) => self.note(&format!("Routes will avoid {name}.")),
+                    Some((Ok(_), true, name)) => {
+                        self.note(&trf("Routes will avoid {0}.", &[&name.to_string()]))
+                    }
                     Some((Ok(_), false, name)) => {
-                        self.note(&format!("Routes may pass through {name} again."));
+                        self.note(&trf(
+                            "Routes may pass through {0} again.",
+                            &[&name.to_string()],
+                        ));
                     }
                     Some((Err(error), ..)) => {
-                        self.note(&format!("Could not save the map: {error}"))
+                        self.note(&trf("Could not save the map: {0}", &[&error.to_string()]))
                     }
-                    None => self.note("No such room; use /avoid with a room number."),
+                    None => self.note(tr("No such room; use /avoid with a room number.")),
                 }
             }
             // Toggles whether routes may use an exit of the current room.
@@ -1305,10 +1331,12 @@ impl Tab {
                     })
                 };
                 match toggled {
-                    Some((Ok(_), true)) => self.note("Routes will not use that exit."),
-                    Some((Ok(_), false)) => self.note("Routes may use that exit again."),
-                    Some((Err(error), _)) => self.note(&format!("Could not save the map: {error}")),
-                    None => self.note("This room has no such exit."),
+                    Some((Ok(_), true)) => self.note(tr("Routes will not use that exit.")),
+                    Some((Ok(_), false)) => self.note(tr("Routes may use that exit again.")),
+                    Some((Err(error), _)) => {
+                        self.note(&trf("Could not save the map: {0}", &[&error.to_string()]))
+                    }
+                    None => self.note(tr("This room has no such exit.")),
                 }
             }
             // Draws the current area again from scratch.
@@ -1316,7 +1344,7 @@ impl Tab {
                 let area = self.map.borrow().current().map(|room| room.area.clone());
                 match area {
                     Some(area) => self.tidy(&area),
-                    None => self.note("The map does not know where you are yet."),
+                    None => self.note(tr("The map does not know where you are yet.")),
                 }
             }
             "/packages" => {
@@ -1401,9 +1429,9 @@ impl Tab {
             "/stop" => {
                 let stopped = self.walk.take().is_some();
                 self.note(if stopped {
-                    "Walk stopped."
+                    tr("Walk stopped.")
                 } else {
-                    "Not walking."
+                    tr("Not walking.")
                 });
             }
             _ => return false,
@@ -1414,8 +1442,11 @@ impl Tab {
     fn tidy(&mut self, area: &str) {
         let moved = self.map.borrow_mut().relayout(area);
         match moved {
-            Ok(moved) => self.note(&format!("Tidied the map: {moved} rooms moved.")),
-            Err(error) => self.note(&format!("Could not save the map: {error}")),
+            Ok(moved) => self.note(&trf(
+                "Tidied the map: {0} rooms moved.",
+                &[&moved.to_string()],
+            )),
+            Err(error) => self.note(&trf("Could not save the map: {0}", &[&error.to_string()])),
         }
     }
 
@@ -1461,11 +1492,11 @@ impl Tab {
         }
     }
 
-    /// The top bar. Its first row is always there: profile, connect and
-    /// the panel switches. The connection's details take a second row only
-    /// while disconnected, which is when they can be changed.
+    /// The session's bar: profile, connect and the panel switches. The
+    /// connection's details live in their own window.
     fn connection_bar(&mut self, ui: &mut egui::Ui) {
         let connected = self.connection.is_some();
+        let theme = theme::current();
         ui.horizontal(|ui| {
             ui.add_enabled_ui(!connected, |ui| {
                 let names = self
@@ -1474,11 +1505,11 @@ impl Tab {
                     .map(Profiles::names)
                     .unwrap_or_default();
                 let mut chosen = self.profile.clone();
-                let label = ui.label("Profile");
+                let label = ui.label(RichText::new(tr("Profile")).color(theme.text_dim));
                 ComboBox::from_id_salt("profile")
-                    .selected_text(chosen.as_deref().unwrap_or("(none)"))
+                    .selected_text(chosen.as_deref().unwrap_or(tr("(none)")))
                     .show_ui(ui, |ui| {
-                        ui.selectable_value(&mut chosen, None, "(none)");
+                        ui.selectable_value(&mut chosen, None, tr("(none)"));
                         for name in names {
                             ui.selectable_value(&mut chosen, Some(name.clone()), name);
                         }
@@ -1490,18 +1521,25 @@ impl Tab {
                 }
             });
             if connected {
-                if ui.button("Disconnect").clicked() {
+                if ui.button(tr("Disconnect")).clicked() {
                     self.disconnect();
                 }
-                ui.label(
-                    RichText::new(format!("{}:{}", self.host.trim(), self.port.trim())).weak(),
-                );
-            } else if ui.button("Connect").clicked() {
-                self.connect(ui.ctx());
+            } else {
+                if ui.button(tr("Connect")).clicked() {
+                    self.connect(ui.ctx());
+                }
+                if ui.button(tr("Connection")).clicked() {
+                    self.connection_open = !self.connection_open;
+                }
+            }
+            let host = self.host.trim();
+            if !host.is_empty() {
+                let address = format!("{host}:{}", self.port.trim());
+                ui.label(RichText::new(address).color(theme.text_dim));
             }
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 let mut speech = self.voice.enabled();
-                if ui.checkbox(&mut speech, "Speech").changed() {
+                if ui.checkbox(&mut speech, tr("Speech")).changed() {
                     self.voice.set_enabled(speech);
                 }
                 ui.checkbox(&mut self.show_map, tr("Map"));
@@ -1512,53 +1550,88 @@ impl Tab {
                 }
             });
         });
-        if connected {
+    }
+
+    /// The window with the connection's details: where to connect, how,
+    /// who to log in as, and the profile to keep it all in.
+    fn connection_window(&mut self, ctx: &egui::Context) {
+        if !self.connection_open || self.connection.is_some() {
             return;
         }
-        ui.horizontal_wrapped(|ui| {
-            let label = ui.label("Host");
-            ui.add(TextEdit::singleline(&mut self.host).desired_width(220.0))
-                .labelled_by(label.id);
-            let label = ui.label("Port");
-            ui.add(TextEdit::singleline(&mut self.port).desired_width(52.0))
-                .labelled_by(label.id);
-            ui.checkbox(&mut self.tls, "TLS");
-            if self.tls {
-                ui.checkbox(&mut self.verify_certificate, "Verify certificate");
-            }
-            let label = ui.label(tr("Encoding"));
-            ui.add(
-                TextEdit::singleline(&mut self.encoding)
-                    .hint_text("auto")
-                    .desired_width(70.0),
-            )
-            .on_hover_text(tr(
-                "Only for servers that do not use UTF-8 or Latin-1, e.g. big5 or koi8-r.",
-            ))
-            .labelled_by(label.id);
-            ui.separator();
-            let label = ui.label(tr("Character"));
-            ui.add(TextEdit::singleline(&mut self.character).desired_width(100.0))
-                .labelled_by(label.id);
-            let label = ui.label(tr("Password"));
-            ui.add(
-                TextEdit::singleline(&mut self.new_password)
-                    .password(true)
-                    .hint_text(tr("unchanged"))
-                    .desired_width(100.0),
-            )
-            .on_hover_text(tr(
-                "Kept in the system's keyring when the profile is saved.",
-            ))
-            .labelled_by(label.id);
-            ui.separator();
-            let label = ui.label("Save as");
-            ui.add(TextEdit::singleline(&mut self.profile_name).desired_width(120.0))
-                .labelled_by(label.id);
-            if ui.button("Save profile").clicked() {
-                self.save_profile();
-            }
-        });
+        let (mut open, mut connect, mut save) = (true, false, false);
+        egui::Window::new(tr("Connection"))
+            .open(&mut open)
+            .collapsible(false)
+            .resizable(false)
+            .anchor(egui::Align2::CENTER_CENTER, [0.0, -40.0])
+            .show(ctx, |ui| {
+                egui::Grid::new("connection").num_columns(2).spacing([16.0, 8.0]).show(ui, |ui| {
+                    let label = ui.label(tr("Host"));
+                    ui.add(TextEdit::singleline(&mut self.host).desired_width(260.0))
+                        .labelled_by(label.id);
+                    ui.end_row();
+
+                    let label = ui.label(tr("Port"));
+                    ui.add(TextEdit::singleline(&mut self.port).desired_width(70.0))
+                        .labelled_by(label.id);
+                    ui.end_row();
+
+                    ui.label(tr("Security"));
+                    ui.horizontal(|ui| {
+                        ui.checkbox(&mut self.tls, "TLS");
+                        ui.add_enabled(self.tls, egui::Checkbox::new(&mut self.verify_certificate, tr("Verify certificate")));
+                    });
+                    ui.end_row();
+
+                    let label = ui.label(tr("Encoding"));
+                    ui.add(TextEdit::singleline(&mut self.encoding).hint_text("auto").desired_width(110.0))
+                        .on_hover_text(tr("Only for servers that do not use UTF-8 or Latin-1, e.g. big5 or koi8-r."))
+                        .labelled_by(label.id);
+                    ui.end_row();
+
+                    let label = ui.label(tr("Character"));
+                    ui.add(TextEdit::singleline(&mut self.character).desired_width(180.0))
+                        .labelled_by(label.id);
+                    ui.end_row();
+
+                    let label = ui.label(tr("Password"));
+                    ui.add(
+                        TextEdit::singleline(&mut self.new_password)
+                            .password(true)
+                            .hint_text(tr("unchanged"))
+                            .desired_width(180.0),
+                    )
+                    .on_hover_text(tr("Kept in the system's keyring when the profile is saved."))
+                    .labelled_by(label.id);
+                    ui.end_row();
+
+                    let label = ui.label(tr("Profile name"));
+                    ui.horizontal(|ui| {
+                        ui.add(TextEdit::singleline(&mut self.profile_name).desired_width(180.0))
+                            .labelled_by(label.id);
+                        save = ui.button(tr("Save profile")).clicked();
+                    });
+                    ui.end_row();
+                });
+                ui.add_space(6.0);
+                // A row of its own, so the layout does not stretch down.
+                ui.horizontal(|ui| {
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        let accent = theme::current().accent;
+                        let button = egui::Button::new(RichText::new(tr("Connect")).strong())
+                            .stroke(egui::Stroke::new(1.0, accent));
+                        connect = ui.add(button).clicked();
+                    });
+                });
+            });
+        self.connection_open = open;
+        if save {
+            self.save_profile();
+        }
+        if connect {
+            self.connection_open = false;
+            self.connect(ctx);
+        }
     }
 
     fn input_line(&mut self, ui: &mut egui::Ui) {
@@ -1664,12 +1737,13 @@ impl Tab {
     pub fn show(&mut self, ui: &mut egui::Ui, _settings: &Settings) {
         self.bound_keys(ui);
         self.rules_window(ui.ctx());
+        self.connection_window(ui.ctx());
         // Alt+0 reads the gauges aloud.
         if ui.input_mut(|input| input.consume_key(Modifiers::ALT, Key::Num0)) {
             self.voice.stop();
             let summary = self.gauges.summary();
             self.voice.say(if summary.is_empty() {
-                "No gauges."
+                tr("No gauges.")
             } else {
                 &summary
             });
@@ -1708,13 +1782,13 @@ impl Tab {
                 Some(MapAction::Avoid(room, avoid)) => {
                     let saved = self.map.borrow_mut().set_avoid(room, avoid);
                     if let Err(error) = saved {
-                        self.note(&format!("Could not save the map: {error}"));
+                        self.note(&trf("Could not save the map: {0}", &[&error.to_string()]));
                     }
                 }
                 Some(MapAction::Move(room, pos)) => {
                     let saved = self.map.borrow_mut().move_room(room, pos);
                     if let Err(error) = saved {
-                        self.note(&format!("Could not save the map: {error}"));
+                        self.note(&trf("Could not save the map: {0}", &[&error.to_string()]));
                     }
                 }
                 None => {}
@@ -1741,8 +1815,12 @@ fn rule_field(ui: &mut egui::Ui, label: &'static str, value: &mut String, width:
         .labelled_by(label.id);
 }
 
-/// Lists `rules` for editing, each in its own frame with a delete button.
-fn edit_rules<T>(ui: &mut egui::Ui, rules: &mut Vec<T>, editor: fn(&mut egui::Ui, &mut T)) {
+/// Lays out one rule's fields; the last argument draws its delete button.
+type RuleEditor<T> = fn(&mut egui::Ui, &mut T, &mut dyn FnMut(&mut egui::Ui));
+
+/// Lists `rules` for editing, each in its own frame. An editor lays out a
+/// rule's fields, and puts `delete` where the rule's delete button goes.
+fn edit_rules<T>(ui: &mut egui::Ui, rules: &mut Vec<T>, editor: RuleEditor<T>) {
     if rules.is_empty() {
         ui.label(
             RichText::new(tr("Nothing here yet. Use Add to make one."))
@@ -1753,11 +1831,13 @@ fn edit_rules<T>(ui: &mut egui::Ui, rules: &mut Vec<T>, editor: fn(&mut egui::Ui
     for (index, rule) in rules.iter_mut().enumerate() {
         ui.push_id(index, |ui| {
             egui::Frame::group(ui.style()).show(ui, |ui| {
-                ui.horizontal_wrapped(|ui| {
-                    editor(ui, rule);
-                    if ui.button(tr("Delete")).clicked() {
-                        delete = Some(index);
-                    }
+                ui.set_width(ui.available_width());
+                editor(ui, rule, &mut |ui| {
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        if ui.button(tr("Delete")).clicked() {
+                            delete = Some(index);
+                        }
+                    });
                 });
             });
         });
@@ -1767,35 +1847,45 @@ fn edit_rules<T>(ui: &mut egui::Ui, rules: &mut Vec<T>, editor: fn(&mut egui::Ui
     }
 }
 
-fn trigger_editor(ui: &mut egui::Ui, trigger: &mut Trigger) {
-    ui.checkbox(&mut trigger.enabled, tr("On"));
-    rule_field(ui, "When a line has", &mut trigger.pattern, 250.0);
-    ui.checkbox(&mut trigger.regex, tr("Regular expression"));
-    ui.end_row();
-    rule_field(ui, "Send", &mut trigger.send, 170.0);
-    rule_field(ui, "Say", &mut trigger.speak, 130.0);
-    rule_field(ui, "Play", &mut trigger.sound, 100.0);
-    rule_field(ui, "Colour", &mut trigger.highlight, 70.0);
-    ui.checkbox(&mut trigger.gag, tr("Hide the line"));
+fn trigger_editor(ui: &mut egui::Ui, trigger: &mut Trigger, delete: &mut dyn FnMut(&mut egui::Ui)) {
+    ui.horizontal(|ui| {
+        ui.checkbox(&mut trigger.enabled, tr("On"));
+        rule_field(ui, "When a line has", &mut trigger.pattern, 280.0);
+        ui.checkbox(&mut trigger.regex, tr("Regular expression"));
+        delete(ui);
+    });
+    ui.horizontal(|ui| {
+        rule_field(ui, "Send", &mut trigger.send, 170.0);
+        rule_field(ui, "Say", &mut trigger.speak, 120.0);
+        rule_field(ui, "Play", &mut trigger.sound, 90.0);
+        rule_field(ui, "Colour", &mut trigger.highlight, 64.0);
+        ui.checkbox(&mut trigger.gag, tr("Hide the line"));
+    });
 }
 
-fn alias_editor(ui: &mut egui::Ui, alias: &mut Alias) {
-    ui.checkbox(&mut alias.enabled, tr("On"));
-    rule_field(ui, "Typing", &mut alias.pattern, 150.0);
-    ui.checkbox(&mut alias.regex, tr("Regular expression"));
-    rule_field(ui, "Sends", &mut alias.send, 300.0);
+fn alias_editor(ui: &mut egui::Ui, alias: &mut Alias, delete: &mut dyn FnMut(&mut egui::Ui)) {
+    ui.horizontal(|ui| {
+        ui.checkbox(&mut alias.enabled, tr("On"));
+        rule_field(ui, "Typing", &mut alias.pattern, 150.0);
+        ui.checkbox(&mut alias.regex, tr("Regular expression"));
+        rule_field(ui, "Sends", &mut alias.send, 260.0);
+        delete(ui);
+    });
 }
 
-fn key_editor(ui: &mut egui::Ui, key: &mut KeyBinding) {
-    ui.checkbox(&mut key.enabled, tr("On"));
-    let label = ui.label(RichText::new(tr("Key")).color(theme::current().text_dim));
-    ui.add(
-        TextEdit::singleline(&mut key.key)
-            .hint_text("f5, ctrl+k")
-            .desired_width(110.0),
-    )
-    .labelled_by(label.id);
-    rule_field(ui, "Sends", &mut key.send, 300.0);
+fn key_editor(ui: &mut egui::Ui, key: &mut KeyBinding, delete: &mut dyn FnMut(&mut egui::Ui)) {
+    ui.horizontal(|ui| {
+        ui.checkbox(&mut key.enabled, tr("On"));
+        let label = ui.label(RichText::new(tr("Key")).color(theme::current().text_dim));
+        ui.add(
+            TextEdit::singleline(&mut key.key)
+                .hint_text("f5, ctrl+k")
+                .desired_width(110.0),
+        )
+        .labelled_by(label.id);
+        rule_field(ui, "Sends", &mut key.send, 300.0);
+        delete(ui);
+    });
 }
 
 #[cfg(test)]
@@ -1816,16 +1906,23 @@ mod tests {
             crate::i18n::set_language(crate::settings::Language::English);
             app
         };
-        Harness::builder().build_eframe(|cc| {
-            let startup = Startup {
-                profiles,
-                profile: None,
-                target: None,
-                speech: false,
-                scripts: Vec::new(),
-            };
-            english(cc, startup)
-        })
+        let mut harness = Harness::builder()
+            .with_size(egui::vec2(1100.0, 700.0))
+            .build_eframe(|cc| {
+                let startup = Startup {
+                    profiles,
+                    profile: None,
+                    target: None,
+                    speech: false,
+                    scripts: Vec::new(),
+                };
+                english(cc, startup)
+            });
+        // A new session opens asking where to connect; most tests are
+        // about something else and want that window out of the way.
+        harness.state_mut().tab_mut().connection_open = false;
+        harness.run_steps(2);
+        harness
     }
 
     fn output_lines(app: &Tab) -> Vec<String> {
@@ -1852,7 +1949,7 @@ mod tests {
     }
 
     #[test]
-    fn profile_is_saved_from_the_bar_and_brings_its_scripts() {
+    fn profile_is_saved_from_the_connection_window_and_brings_its_scripts() {
         let dir = std::env::temp_dir().join(format!("muddie-app-profile-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let mut harness = window(Some(Profiles::at(dir.clone())));
@@ -1862,7 +1959,8 @@ mod tests {
         app.tls = true;
         app.verify_certificate = false;
         app.profile_name = "Reinos".into();
-        harness.run_steps(2);
+        app.connection_open = true;
+        harness.run_steps(4);
         harness.get_by_label("Save profile").click();
         harness.run_steps(2);
         let saved = Profiles::at(dir.clone()).load("Reinos").unwrap();
@@ -2146,9 +2244,12 @@ mod tests {
                     speech: false,
                     scripts: Vec::new(),
                 };
-                App::new(cc, startup)
+                let app = App::new(cc, startup);
+                crate::i18n::set_language(crate::settings::Language::English);
+                app
             });
         let app = harness.state_mut().tab_mut();
+        app.connection_open = false;
         app.host = "mud.example.org".into();
         app.port = "4000".into();
         app.tls = true;
@@ -2237,14 +2338,71 @@ mod tests {
     #[ignore = "needs a graphics adapter; writes an image for visual review"]
     fn screenshot() {
         let path = std::env::var_os("MUDDIE_SCREENSHOT").map(PathBuf::from);
-        // Before connecting, the bar also shows the connection's details.
-        let image = demo_window().render().expect("rendering failed");
-        if let Some(path) = &path {
-            let path = path.with_extension("disconnected.png");
-            image.save(path).expect("could not write the screenshot");
+        let save = |harness: &mut Harness<'_, App>, name: &str| {
+            let image = harness.render().expect("rendering failed");
+            if let Some(path) = &path {
+                let path = path.with_extension(format!("{name}.png"));
+                image.save(path).expect("could not write the screenshot");
+            }
+        };
+        // Before connecting, the connection's details have their window.
+        let mut disconnected = demo_window();
+        disconnected.state_mut().tab_mut().connection_open = true;
+        disconnected.run_steps(4);
+        save(&mut disconnected, "disconnected");
+        disconnected.state_mut().tab_mut().connection_open = false;
+        disconnected.run_steps(2);
+        disconnected.get_by_label("Settings").click();
+        disconnected.run_steps(4);
+        save(&mut disconnected, "settings");
+        // The rules window, with one rule of each kind to look at.
+        let mut rules = demo_window();
+        let app = rules.state_mut().tab_mut();
+        app.rules.triggers.push(Trigger {
+            enabled: true,
+            pattern: "tells you".into(),
+            speak: "a tell".into(),
+            highlight: "yellow".into(),
+            ..Trigger::default()
+        });
+        app.rules.triggers.push(Trigger {
+            enabled: true,
+            pattern: r"^(\w+) attacks you".into(),
+            regex: true,
+            send: "kill %1".into(),
+            sound: "alert.ogg".into(),
+            ..Trigger::default()
+        });
+        rules.run_steps(2);
+        rules.get_by_label("Triggers").click();
+        rules.run_steps(4);
+        save(&mut rules, "rules");
+        // The find bar and the view of the latest lines while scrolled back.
+        let mut find = connected_demo_window();
+        let app = find.state_mut().tab_mut();
+        (0..60).for_each(|n| app.show_local(&format!("line {n} of filler to scroll through")));
+        app.find_open = true;
+        app.find_query = "orco".into();
+        find.run_steps(3);
+        find.get_by_label("Previous").click();
+        find.run_steps(4);
+        save(&mut find, "find");
+        // The other themes.
+        for (theme, name) in [
+            (crate::settings::ThemeName::Light, "light"),
+            (crate::settings::ThemeName::Contrast, "contrast"),
+        ] {
+            let mut themed = connected_demo_window();
+            let ctx = themed.ctx.clone();
+            themed.state_mut().use_theme(&ctx, theme);
+            themed.run_steps(3);
+            save(&mut themed, name);
         }
+        let ctx = find.ctx.clone();
+        find.state_mut()
+            .use_theme(&ctx, crate::settings::ThemeName::Dark);
         let mut harness = connected_demo_window();
-        assert!(harness.query_by_label("Save profile").is_none());
+        assert!(harness.query_by_label("Connection").is_none());
         let image = harness.render().expect("rendering failed");
         assert_eq!((image.width(), image.height()), (1100, 700));
         if let Some(path) = &path {

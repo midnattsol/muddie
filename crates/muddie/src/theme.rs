@@ -218,8 +218,8 @@ pub fn apply(ctx: &egui::Context, settings: &Settings) -> Result<(), String> {
     set_output_font(ctx, &settings.font_file)
 }
 
-/// Blends `amount` of `other` into `base`.
-fn mix(base: Color32, other: Color32, amount: f32) -> Color32 {
+/// Blends `amount` of `other` into `base`, giving an opaque colour.
+pub fn mix(base: Color32, other: Color32, amount: f32) -> Color32 {
     let channel =
         |a: u8, b: u8| (f32::from(a) + (f32::from(b) - f32::from(a)) * amount).round() as u8;
     Color32::from_rgb(

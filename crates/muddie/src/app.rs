@@ -69,6 +69,13 @@ impl App {
         &mut self.tabs[self.active]
     }
 
+    /// Switches theme as the settings window would, to look at it.
+    #[cfg(test)]
+    pub fn use_theme(&mut self, ctx: &egui::Context, theme: ThemeName) {
+        self.settings.theme = theme;
+        self.apply_settings(ctx);
+    }
+
     fn new_tab(&mut self, ctx: &egui::Context) {
         let startup = Startup {
             profiles: self.profiles.clone(),

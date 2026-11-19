@@ -7,12 +7,8 @@ use eframe::egui::{
 };
 use muddie_mapper::{Map, Pos, Room, RoomId, direction_offset};
 
-const ROOM_FILL: Color32 = Color32::from_rgb(0x4a, 0x52, 0x63);
-const AVOIDED_FILL: Color32 = Color32::from_rgb(0x7a, 0x30, 0x3a);
-const CURRENT_FILL: Color32 = Color32::from_rgb(0xe5, 0xc0, 0x7b);
-const EXIT_LINE: Color32 = Color32::from_rgb(0x6b, 0x72, 0x80);
-const LOCKED_LINE: Color32 = Color32::from_rgb(0xc0, 0x4a, 0x55);
-const MARK: Color32 = Color32::from_rgb(0xc8, 0xcc, 0xd4);
+use crate::i18n::tr;
+use crate::theme::{self, Theme};
 
 /// Distance between neighbouring rooms, in points, at the default zoom.
 const DEFAULT_CELL: f32 = 36.0;
@@ -29,6 +25,30 @@ pub enum MapAction {
     Avoid(RoomId, bool),
     /// Draw this area again from scratch.
     Tidy(String),
+}
+
+/// The map's colours, taken from the theme.
+struct Colours {
+    room: Color32,
+    avoided: Color32,
+    current: Color32,
+    exit: Color32,
+    locked: Color32,
+    mark: Color32,
+}
+
+impl Colours {
+    fn of(theme: Theme) -> Self {
+        Self {
+            // Opaque, so the exit lines do not show through the rooms.
+            room: theme::mix(theme.surface, theme.text_dim, 0.6),
+            avoided: theme::mix(theme.surface, theme.terminal[1], 0.65),
+            current: theme.terminal[3],
+            exit: theme::mix(theme.surface, theme.text_dim, 0.75),
+            locked: theme.terminal[1],
+            mark: theme.text_dim,
+        }
+    }
 }
 
 pub struct MapView {
@@ -69,12 +89,17 @@ impl MapView {
     /// and Shift+drag moves a room to another cell.
     pub fn show(&mut self, ui: &mut Ui, map: &Map) -> Option<MapAction> {
         let Some(current) = map.current() else {
-            ui.label("No map yet: the server has not reported a room.");
+            ui.label(tr("No map yet: the server has not reported a room."));
             return None;
         };
         // The same facts as text, for screen readers and at a glance.
         let exits: Vec<&str> = current.exits.keys().map(String::as_str).collect();
-        ui.label(format!("{} | exits: {}", current.name, exits.join(", ")));
+        ui.label(format!(
+            "{} | {}: {}",
+            current.name,
+            tr("exits"),
+            exits.join(", ")
+        ));
 
         let home = (current.area.clone(), current.pos.z);
         if self.centred_on != Some(current.id) {
@@ -85,7 +110,7 @@ impl MapView {
         }
         let (mut area, mut level) = self.browsing.clone().unwrap_or_else(|| home.clone());
         ui.horizontal_wrapped(|ui| {
-            let label = ui.label("Area");
+            let label = ui.label(tr("Area"));
             ComboBox::from_id_salt("map area")
                 .selected_text(area.as_str())
                 .show_ui(ui, |ui| {
@@ -95,17 +120,17 @@ impl MapView {
                 })
                 .response
                 .labelled_by(label.id);
-            if ui.button("Down").clicked() {
+            if ui.button(tr("Down")).clicked() {
                 level -= 1;
             }
-            ui.label(format!("level {level}"));
-            if ui.button("Up").clicked() {
+            ui.label(format!("{} {level}", tr("level")));
+            if ui.button(tr("Up")).clicked() {
                 level += 1;
             }
-            if self.browsing.is_some() && ui.button("Back to me").clicked() {
+            if self.browsing.is_some() && ui.button(tr("Back to me")).clicked() {
                 (area, level) = home.clone();
             }
-            ui.checkbox(&mut self.all_areas, "All areas");
+            ui.checkbox(&mut self.all_areas, tr("All areas"));
         });
         let shown = (area, level);
         if self.browsing.as_ref().unwrap_or(&home) != &shown {
@@ -114,11 +139,12 @@ impl MapView {
         self.browsing = (shown != home).then(|| shown.clone());
         let (area, level) = shown;
 
-        let hint = "Click a room to walk there, right-click for more, Shift+drag to move it.";
+        let hint = tr("Click a room to walk there, right-click for more, Shift+drag to move it.");
         ui.label(RichText::new(hint).weak().small());
+        let colours = Colours::of(theme::current());
         let (response, painter) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
         ui.ctx().accesskit_node_builder(response.id, |node| {
-            node.set_label("Map view");
+            node.set_label(tr("Map view"));
         });
         if response.hovered() {
             let scroll = ui.input(|input| input.smooth_scroll_delta.y);
@@ -173,7 +199,11 @@ impl MapView {
             let from = on_screen(room.pos);
             let mut other_exits = false;
             for (direction, exit) in &room.exits {
-                let colour = if exit.locked { LOCKED_LINE } else { EXIT_LINE };
+                let colour = if exit.locked {
+                    colours.locked
+                } else {
+                    colours.exit
+                };
                 let line = Stroke::new(1.5, colour);
                 let target = map.room(exit.to).filter(|target| on_level(target));
                 match (target, direction_offset(direction)) {
@@ -188,7 +218,13 @@ impl MapView {
                             ("d", vec2(half, half))
                         };
                         let font = FontId::monospace(cell * 0.36);
-                        painter.text(from + corner * 1.6, Align2::CENTER_CENTER, text, font, MARK);
+                        painter.text(
+                            from + corner * 1.6,
+                            Align2::CENTER_CENTER,
+                            text,
+                            font,
+                            colours.mark,
+                        );
                     }
                     // Unexplored, or in another area: a stub pointing the way.
                     (None, Some((dx, dy, _))) => {
@@ -200,16 +236,16 @@ impl MapView {
                 }
             }
             if other_exits {
-                painter.circle_filled(from + vec2(-half, -half) * 1.5, cell * 0.07, MARK);
+                painter.circle_filled(from + vec2(-half, -half) * 1.5, cell * 0.07, colours.mark);
             }
         }
         for room in &visible {
             let rect = Rect::from_center_size(on_screen(room.pos), Vec2::splat(half * 2.0));
             let is_current = room.id == current.id;
             let fill = match (is_current, room.avoid) {
-                (true, _) => CURRENT_FILL,
-                (false, true) => AVOIDED_FILL,
-                (false, false) => ROOM_FILL,
+                (true, _) => colours.current,
+                (false, true) => colours.avoided,
+                (false, false) => colours.room,
             };
             // With every area on show, the chosen one stands out.
             let fill = if room.area == area {
@@ -219,7 +255,7 @@ impl MapView {
             };
             painter.rect_filled(rect, 3.0, fill);
             if is_current {
-                let ring = Stroke::new(1.5, CURRENT_FILL);
+                let ring = Stroke::new(1.5, colours.current);
                 painter.rect_stroke(rect.expand(3.0), 4.0, ring, StrokeKind::Outside);
             }
         }
@@ -241,7 +277,12 @@ impl MapView {
         if let (Some(_), Some(point)) = (self.moving, pointer) {
             let ghost =
                 Rect::from_center_size(on_screen(cell_under(point)), Vec2::splat(half * 2.0));
-            painter.rect_stroke(ghost, 3.0, Stroke::new(1.5, MARK), StrokeKind::Outside);
+            painter.rect_stroke(
+                ghost,
+                3.0,
+                Stroke::new(1.5, colours.mark),
+                StrokeKind::Outside,
+            );
         }
         if response.drag_stopped()
             && let Some(room) = self.moving.take()
@@ -256,27 +297,27 @@ impl MapView {
         let mut chosen = None;
         response.context_menu(|ui| {
             let Some(room) = self.menu_room.and_then(|id| map.room(id)) else {
-                if ui.button("Tidy this area").clicked() {
+                if ui.button(tr("Tidy this area")).clicked() {
                     chosen = Some(MapAction::Tidy(area.clone()));
                     ui.close();
                 }
                 return;
             };
             ui.label(format!("{} (#{})", room.name, room.id));
-            if ui.button("Walk here").clicked() {
+            if ui.button(tr("Walk here")).clicked() {
                 chosen = Some(MapAction::Walk(room.id));
                 ui.close();
             }
             let toggle = if room.avoid {
-                "Allow in routes"
+                tr("Allow in routes")
             } else {
-                "Avoid in routes"
+                tr("Avoid in routes")
             };
             if ui.button(toggle).clicked() {
                 chosen = Some(MapAction::Avoid(room.id, !room.avoid));
                 ui.close();
             }
-            if ui.button("Tidy this area").clicked() {
+            if ui.button(tr("Tidy this area")).clicked() {
                 chosen = Some(MapAction::Tidy(room.area.clone()));
                 ui.close();
             }
@@ -287,10 +328,10 @@ impl MapView {
         if let Some(room) = pointed {
             let mut text = format!("{} (#{})", room.name, room.id);
             if room.avoid {
-                text.push_str(", avoided");
+                text.push_str(&format!(", {}", tr("avoided")));
             }
             if room.weight > 1 {
-                text.push_str(&format!(", weight {}", room.weight));
+                text.push_str(&format!(", {} {}", tr("weight"), room.weight));
             }
             response.on_hover_text_at_pointer(text);
         }

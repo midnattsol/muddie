@@ -3,10 +3,12 @@
 
 use std::collections::HashMap;
 
-use eframe::egui::{Color32, ProgressBar, Ui};
+use eframe::egui::{Align2, Color32, FontId, Rect, Role, Sense, Ui, WidgetInfo, vec2};
 use muddie_core::Line;
 use muddie_core::ansi::Assembler;
 use serde_json::Value;
+
+use crate::theme;
 
 /// Value and maximum field names of the vitals most MUDs report in
 /// `Char.Vitals`, with the gauge each pair is shown as.
@@ -76,32 +78,58 @@ impl Gauges {
         parts.join(", ")
     }
 
+    /// Draws each gauge as a slim bar with its name and numbers above.
     pub fn show(&self, ui: &mut Ui) {
+        let theme = theme::current();
         ui.horizontal_wrapped(|ui| {
+            ui.spacing_mut().item_spacing.x = 18.0;
             for gauge in &self.0 {
                 let fraction = if gauge.max > 0.0 {
-                    (gauge.value / gauge.max).clamp(0.0, 1.0)
+                    (gauge.value / gauge.max).clamp(0.0, 1.0) as f32
                 } else {
                     0.0
                 };
-                ui.add(
-                    ProgressBar::new(fraction as f32)
-                        .desired_width(170.0)
-                        .fill(color(&gauge.name))
-                        .text(format!("{} {}/{}", gauge.name, gauge.value, gauge.max)),
+                let numbers = format!("{} / {}", gauge.value, gauge.max);
+                let (rect, response) = ui.allocate_exact_size(vec2(150.0, 26.0), Sense::hover());
+                let described = format!("{} {numbers}", gauge.name);
+                response.widget_info(|| {
+                    WidgetInfo::labeled(Role::ProgressIndicator, true, described.as_str())
+                });
+                let painter = ui.painter();
+                let small = FontId::proportional(11.5);
+                painter.text(
+                    rect.left_top(),
+                    Align2::LEFT_TOP,
+                    &gauge.name,
+                    small.clone(),
+                    theme.text_dim,
                 );
+                painter.text(
+                    rect.right_top(),
+                    Align2::RIGHT_TOP,
+                    numbers,
+                    small,
+                    theme.text,
+                );
+                let track =
+                    Rect::from_min_max(rect.left_bottom() - vec2(0.0, 6.0), rect.right_bottom());
+                painter.rect_filled(track, 3.0, theme.raised);
+                let filled =
+                    Rect::from_min_size(track.min, vec2(track.width() * fraction, track.height()));
+                painter.rect_filled(filled, 3.0, color(&gauge.name));
             }
         });
     }
 }
 
-/// Dark enough for the white label on top to stay readable.
+/// The colour of a gauge's bar, from the theme's terminal colours.
 fn color(name: &str) -> Color32 {
+    let theme = theme::current();
     match name.to_lowercase().as_str() {
-        "hp" | "health" => Color32::from_rgb(0xa8, 0x3a, 0x45),
-        "mp" | "mana" | "sp" => Color32::from_rgb(0x2f, 0x62, 0xb0),
-        "mv" | "moves" | "ep" => Color32::from_rgb(0x2e, 0x7d, 0x4f),
-        _ => Color32::from_rgb(0x6a, 0x5a, 0x9c),
+        "hp" | "health" => theme.terminal[1],
+        "mp" | "mana" | "sp" => theme.terminal[4],
+        "mv" | "moves" | "ep" => theme.terminal[2],
+        _ => theme.accent,
     }
 }
 
