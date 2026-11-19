@@ -647,13 +647,6 @@ msgstr "No se pudo guardar el script: {0}"
 msgid "Scripts of your own are kept per profile: save or choose a profile first."
 msgstr "Tus scripts se guardan por perfil: guarda o elige un perfil primero."
 
-msgid ""
-"A gauge is a bar that follows a number the MUD reports,\n"
-"such as your health."
-msgstr ""
-"Un indicador es una barra que sigue un número que da el MUD,\n"
-"como tu vida."
-
 #, python-brace-format
 msgid "Could not delete the script: {0}"
 msgstr "No se pudo borrar el script: {0}"
@@ -1133,9 +1126,6 @@ msgstr "Configurarlos…"
 msgid "Nothing here yet. A trigger can show lines in this panel, and so can a script."
 msgstr "Aún no hay nada. Un disparador puede mostrar líneas en este panel, y también un script."
 
-msgid "New gauge"
-msgstr "Indicador nuevo"
-
 msgid "Text"
 msgstr "Texto"
 
@@ -1205,12 +1195,6 @@ msgstr "Mover a la derecha"
 msgid "No gauges here yet."
 msgstr "Aún no hay indicadores aquí."
 
-msgid "Add a gauge"
-msgstr "Añadir un indicador"
-
-msgid "Shown in"
-msgstr "Se muestra en"
-
 msgid "Nothing received yet."
 msgstr "Aún no se ha recibido nada."
 
@@ -1256,9 +1240,6 @@ msgid ""
 msgstr ""
 "Lo que el MUD envía además del texto, con GMCP o MSDP, aparece aquí según llega:\n"
 "míralo para saber qué puede seguir un indicador o usar un script."
-
-msgid "What the MUD sends is under Debug: a gauge can be made from a number there."
-msgstr "Lo que envía el MUD está en Depuración: allí se puede crear un indicador a partir de un número."
 
 msgid "Looking for them…"
 msgstr "Buscándolas…"
@@ -1365,4 +1346,32 @@ msgstr "Editar los indicadores"
 
 msgid "Colour"
 msgstr "Color"
+
+msgid ""
+"A gauge shows something the MUD reports: a bar for your health,\n"
+"a light for whether you are poisoned, a number for your gold."
+msgstr ""
+"Un indicador muestra algo que informa el MUD: una barra para tu vida,\n"
+"una luz para saber si estás envenenado, un número para tu oro."
+
+msgid "Colour when on"
+msgstr "Color encendida"
+
+msgid "Colour when off"
+msgstr "Color apagada"
+
+msgid "Unlit"
+msgstr "Sin luz"
+
+msgid "With a colour for each, it says which of the two it is: red for poisoned, green for not."
+msgstr "Con un color para cada estado, dice cuál de los dos es: rojo si estás envenenado, verde si no."
+
+msgid "There is no panel of gauges to show it in."
+msgstr "No hay ningún panel de indicadores donde mostrarlo."
+
+msgid "Add a panel of gauges"
+msgstr "Añadir un panel de indicadores"
+
+msgid "Shown in"
+msgstr "Se muestra en"
 

@@ -365,11 +365,9 @@ look at it to know what a gauge can follow or a script can use.");
         let panel = (self.layout.panels.iter())
             .find(|panel| panel.kind == layout::Kind::Gauges)
             .map_or(0, |panel| panel.id);
-        // The gauges are edited over what is saved, as the editor does.
-        if !self.rules_open && !self.gauges_open {
-            self.rules_draft = self.rules.clone();
-            self.rules_seen = self.rules.clone();
-        }
+        // Made in the editor, and shown there to be finished.
+        self.debug_open = false;
+        self.open_automation(automation::GAUGES);
         // Named after what it is: `health`, not the `current` inside it.
         let mut parts = path.rsplit('.');
         let last = parts.next().unwrap_or(path);
@@ -389,9 +387,7 @@ look at it to know what a gauge can follow or a script can use.");
             panel,
             ..crate::rules::Gauge::starter()
         });
-        self.gauges_open = true;
-        self.gauges_panel = panel;
-        self.gauge_selected = self.rules_draft.gauges.len() - 1;
+        self.select_rule(automation::GAUGES, self.rules_draft.gauges.len() - 1);
     }
 }
 

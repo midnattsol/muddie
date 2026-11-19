@@ -206,6 +206,8 @@ pub struct Gauge {
     pub colour: String,
     /// What it is drawn as.
     pub kind: GaugeKind,
+    /// For a light, its colour while it is off; empty leaves it unlit.
+    pub off_colour: String,
     /// The colour it takes under each percentage of its maximum.
     #[serde(rename = "step")]
     pub steps: Vec<Step>,
@@ -645,8 +647,9 @@ impl Rules {
                 .map(|step| format!("{{{}, {}}}", step.under, quoted(step.colour.trim())))
                 .collect();
             let look = format!(
-                "colour = {}, style = {}, steps = {{{}}}",
+                "colour = {}, off = {}, style = {}, steps = {{{}}}",
                 quoted(gauge.colour.trim()),
+                quoted(gauge.off_colour.trim()),
                 quoted(gauge.kind.style()),
                 steps.join(", ")
             );

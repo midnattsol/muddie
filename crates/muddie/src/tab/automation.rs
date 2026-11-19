@@ -14,8 +14,9 @@ const TRIGGERS: usize = 0;
 const ALIASES: usize = 1;
 const MACROS: usize = 2;
 const TIMERS: usize = 3;
-const VARIABLES: usize = 4;
-pub(super) const SCRIPTS: usize = 5;
+pub(super) const GAUGES: usize = 4;
+const VARIABLES: usize = 5;
+pub(super) const SCRIPTS: usize = 6;
 
 /// Scripts to start from: what each is for, its file name, its text.
 const EXAMPLES: [(&str, &str, &str); 5] = [
@@ -56,6 +57,11 @@ impl Tab {
         self.rules_section = section;
         self.rules_open = true;
         self.list_scripts();
+    }
+
+    /// Chooses one of the rules of a section.
+    pub(super) fn select_rule(&mut self, section: usize, index: usize) {
+        self.rules_selected[section] = index;
     }
 
     /// Opens the automation view where it was left.
@@ -230,6 +236,7 @@ impl Tab {
             self.rules_draft.aliases.len(),
             self.rules_draft.keys.len(),
             self.rules_draft.timers.len(),
+            self.rules_draft.gauges.len(),
             self.scripts.variables().len(),
             self.script_files.len(),
         ];
@@ -238,6 +245,7 @@ impl Tab {
             tr("Aliases"),
             tr("Macros"),
             tr("Timers"),
+            tr("Gauges"),
             tr("Variables"),
             tr("Scripts"),
         ];
@@ -422,6 +430,23 @@ impl Tab {
                     let detail = format!("{how} {}  →  {does}", rule.interval());
                     (
                         untitled(&rule.name, &rule.send, "New timer"),
+                        detail,
+                        rule.enabled,
+                    )
+                })
+                .collect(),
+            GAUGES => (draft.gauges.iter())
+                .map(|rule| {
+                    let kind = match rule.kind {
+                        crate::rules::GaugeKind::Bar => tr("Bar"),
+                        crate::rules::GaugeKind::Cells => tr("Cells"),
+                        crate::rules::GaugeKind::Number => tr("Number"),
+                        crate::rules::GaugeKind::Light => tr("Light"),
+                        crate::rules::GaugeKind::Text => tr("Text"),
+                    };
+                    let detail = format!("{kind}  ·  {}", rule.value.trim());
+                    (
+                        untitled(&rule.name, &rule.value, "New gauge"),
                         detail,
                         rule.enabled,
                     )
@@ -706,6 +731,17 @@ impl Tab {
                 draft.timers.push(Timer::default());
                 draft.timers.len() - 1
             }
+            GAUGES => {
+                // In the first panel of gauges there is.
+                let panel = (self.layout.panels.iter())
+                    .find(|panel| panel.kind == super::layout::Kind::Gauges)
+                    .map_or(0, |panel| panel.id);
+                draft.gauges.push(crate::rules::Gauge {
+                    panel,
+                    ..crate::rules::Gauge::starter()
+                });
+                draft.gauges.len() - 1
+            }
             VARIABLES => return self.add_variable(),
             _ => return self.add_script(None),
         };
@@ -769,6 +805,9 @@ impl Tab {
                 }
                 MACROS => tr("A macro sends commands at the press of a key."),
                 TIMERS => tr("A timer does something after a while,\nonce or again and again."),
+                GAUGES => tr(
+                    "A gauge shows something the MUD reports: a bar for your health,\na light for whether you are poisoned, a number for your gold.",
+                ),
                 VARIABLES => tr(
                     "A variable is a value with a name, kept from one session to the next:\nwho you are hunting, what you carry, how many you have killed.",
                 ),
@@ -787,6 +826,7 @@ impl Tab {
             ALIASES => self.alias_detail(ui, index),
             MACROS => self.macro_detail(ui, index),
             TIMERS => self.timer_detail(ui, index),
+            GAUGES => self.gauge_detail(ui, index),
             VARIABLES => self.variable_detail(ui, index),
             _ => self.script_detail(ui, index),
         };
@@ -797,6 +837,11 @@ impl Tab {
                 ALIASES => drop(draft.aliases.remove(index)),
                 MACROS => drop(draft.keys.remove(index)),
                 TIMERS => drop(draft.timers.remove(index)),
+                GAUGES => {
+                    // Take it off the screen too.
+                    let gone = draft.gauges.remove(index);
+                    self.gauges.set(gone.shown_name(), None);
+                }
                 VARIABLES => {
                     if let Some((name, _)) = self.scripts.variables().get(index) {
                         let forgotten = self.scripts.set_variable(name, None);
@@ -1485,9 +1530,15 @@ impl Tab {
         delete
     }
 
-    pub(super) fn gauge_detail(&mut self, ui: &mut egui::Ui, index: usize) -> bool {
+    fn gauge_detail(&mut self, ui: &mut egui::Ui, index: usize) -> bool {
         use crate::rules::{GaugeKind, Step};
         let theme = theme::current();
+        let panels: Vec<(u32, String)> = (self.layout.panels.iter())
+            .filter(|panel| panel.kind == super::layout::Kind::Gauges)
+            .map(|panel| (panel.id, panel.name.clone()))
+            .collect();
+        let mut add_panel = false;
+        ui.set_max_width(ui.available_width().min(760.0));
         let rule = &mut self.rules_draft.gauges[index];
         let delete = rule_header(ui, &mut rule.name, &mut rule.enabled, tr("Name this gauge"));
         // What it is drawn as.
@@ -1556,8 +1607,28 @@ impl Tab {
         };
         note(ui, hint);
         ui.add_space(4.0);
-        widgets::caption(ui, tr("Colour"));
-        swatches(ui, &mut rule.colour);
+        if rule.kind == GaugeKind::Light {
+            widgets::caption(ui, tr("Colour when on"));
+            swatches(ui, &mut rule.colour);
+            ui.add_space(4.0);
+            widgets::caption(ui, tr("Colour when off"));
+            ui.horizontal(|ui| {
+                swatches(ui, &mut rule.off_colour);
+                let unlit = rule.off_colour.trim().is_empty();
+                if ui.selectable_label(unlit, tr("Unlit")).clicked() {
+                    rule.off_colour.clear();
+                }
+            });
+            note(
+                ui,
+                tr(
+                    "With a colour for each, it says which of the two it is: red for poisoned, green for not.",
+                ),
+            );
+        } else {
+            widgets::caption(ui, tr("Colour"));
+            swatches(ui, &mut rule.colour);
+        }
         if rule.kind.has_level() {
             ui.add_space(4.0);
             widgets::caption(ui, tr("Colour by level"));
@@ -1589,6 +1660,12 @@ impl Tab {
             if let Some(place) = removed {
                 rule.steps.remove(place);
             }
+            // Kept in order, highest first, once nothing is being changed.
+            let busy = ui.input(|input| input.pointer.any_down())
+                || ui.memory(|memory| memory.focused().is_some());
+            if !busy {
+                rule.steps.sort_by_key(|step| std::cmp::Reverse(step.under));
+            }
             if ui.button(tr("Add a level")).clicked() {
                 // Under the lowest there is, or a first one at a third.
                 let lowest = rule.steps.iter().map(|step| step.under).min();
@@ -1601,6 +1678,28 @@ impl Tab {
                     colour: colour.to_owned(),
                 });
             }
+        }
+        // Which panel of gauges it is shown in.
+        ui.add_space(4.0);
+        widgets::caption(ui, tr("Shown in"));
+        if panels.is_empty() {
+            ui.horizontal(|ui| {
+                note(ui, tr("There is no panel of gauges to show it in."));
+                add_panel = ui.button(tr("Add a panel of gauges")).clicked();
+            });
+        } else {
+            let home = panels
+                .iter()
+                .find(|(id, _)| *id == rule.panel)
+                .unwrap_or(&panels[0]);
+            egui::ComboBox::from_id_salt("gauge panel")
+                .selected_text(home.1.clone())
+                .width(220.0)
+                .show_ui(ui, |ui| {
+                    for (id, name) in &panels {
+                        ui.selectable_value(&mut rule.panel, *id, name);
+                    }
+                });
         }
         ui.add_space(4.0);
         widgets::caption(ui, tr("Preview"));
@@ -1620,6 +1719,7 @@ impl Tab {
                 .map(|step| (f64::from(step.under), step.colour.clone()))
                 .collect(),
             text: text.to_owned(),
+            off_colour: rule.off_colour.clone(),
             ..muddie_script::GaugeLook::default()
         };
         let name = if rule.name.trim().is_empty() {
@@ -1668,6 +1768,9 @@ impl Tab {
                 }
             });
         });
+        if add_panel {
+            self.add_panel(super::layout::Kind::Gauges);
+        }
         delete
     }
 

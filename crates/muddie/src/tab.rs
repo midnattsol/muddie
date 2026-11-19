@@ -88,10 +88,6 @@ pub struct Tab {
     shown_tabs: Vec<(u32, u32)>,
     unread_tabs: Vec<u32>,
     removed_panel: Option<usize>,
-    /// The dialog of the gauges, and the one chosen in it.
-    gauges_open: bool,
-    gauges_panel: u32,
-    gauge_selected: usize,
     /// Stands in for the channels when no panel shows them.
     no_chat: Output,
     /// The line the triggers were last given, for those that show it in
@@ -139,7 +135,7 @@ pub struct Tab {
     /// screen; `None` until read, and again after one is saved.
     welcome_profiles: Option<Vec<(String, String)>>,
     /// The rule selected in each section of the automation window.
-    rules_selected: [usize; 6],
+    rules_selected: [usize; 7],
     /// The script files that can be edited, and the one being edited:
     /// its file, its name as typed, its text, and that text as saved.
     script_files: Vec<PathBuf>,
@@ -317,9 +313,6 @@ impl Tab {
             shown_tabs: Vec::new(),
             unread_tabs: Vec::new(),
             removed_panel: None,
-            gauges_open: false,
-            gauges_panel: 0,
-            gauge_selected: usize::MAX,
             no_chat: Output::default(),
             dispatched: None,
             map,
@@ -343,7 +336,7 @@ impl Tab {
             connection_open: false,
             started: false,
             welcome_profiles: None,
-            rules_selected: [0; 6],
+            rules_selected: [0; 7],
             script_files: Vec::new(),
             script_loaded: None,
             script_name: String::new(),
@@ -2899,10 +2892,9 @@ mod tests {
                 "Char.Vitals.health.max"
             )
         );
-        assert!(app.gauges_open);
+        assert_eq!(app.view(), 1, "it is shown in the editor to be finished");
         // Saved, it follows the value, in the panel it was put in.
-        app.gauges_open = false;
-        app.save_rules();
+        app.close_automation();
         events.send(vitals(55)).unwrap();
         harness.run_steps(3);
         let app = harness.state().tab();
@@ -2952,7 +2944,7 @@ mod tests {
         app.scripts
             .set_variable("bag", Some(serde_json::json!({"gold": 5})))
             .unwrap();
-        app.open_automation(4);
+        app.open_automation(5);
         harness.run_steps(3);
         // A table: a key and a value a row, added to and typed over.
         harness.get_by_label("Add a field").click();
@@ -3504,11 +3496,11 @@ mod tests {
         app.scripts
             .set_variable("ruta", Some(serde_json::json!(["norte", "norte", "este"])))
             .unwrap();
-        app.rules_section = 4;
-        app.rules_selected[4] = 0;
+        app.rules_section = 5;
+        app.rules_selected[5] = 0;
         rules.run_steps(3);
         save(&mut rules, "variables");
-        rules.state_mut().tab_mut().rules_selected[4] = 3;
+        rules.state_mut().tab_mut().rules_selected[5] = 3;
         rules.run_steps(3);
         save(&mut rules, "variable-array");
         let app = rules.state_mut().tab_mut();

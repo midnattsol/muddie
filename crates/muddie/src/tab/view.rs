@@ -15,7 +15,6 @@ impl Tab {
             self.bound_keys(ui);
         }
         self.connection_window(ui.ctx());
-        self.gauges_dialog(ui.ctx());
         // The automation view takes the place of the game while open.
         if self.rules_open {
             return self.automation_page(ui);
@@ -44,7 +43,6 @@ impl Tab {
         }
         // Escape leaves the layout mode.
         if self.editing_layout
-            && !self.gauges_open
             && ui.input_mut(|input| input.consume_key(Modifiers::NONE, Key::Escape))
         {
             self.editing_layout = false;

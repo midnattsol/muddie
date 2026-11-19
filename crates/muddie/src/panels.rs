@@ -162,17 +162,30 @@ pub fn draw_gauge(ui: &mut Ui, name: &str, value: f64, max: f64, look: &GaugeLoo
             });
             let centre = rect.left_center() + vec2(5.0, 0.0);
             let painter = ui.painter();
-            if on {
-                painter.circle_filled(centre, 7.0, colour.gamma_multiply(0.25));
-                painter.circle_filled(centre, 4.5, colour);
-            } else {
-                painter.circle_stroke(
-                    centre,
-                    4.0,
-                    eframe::egui::Stroke::new(1.2, theme.text_faint),
-                );
+            // Off, it is unlit, unless being off has a colour of its own:
+            // green for not poisoned, say.
+            let off = colour_named(&look.off_colour);
+            match (on, off) {
+                (true, _) => {
+                    painter.circle_filled(centre, 7.0, colour.gamma_multiply(0.25));
+                    painter.circle_filled(centre, 4.5, colour);
+                }
+                (false, Some(off)) => {
+                    painter.circle_filled(centre, 4.5, off);
+                }
+                (false, None) => {
+                    painter.circle_stroke(
+                        centre,
+                        4.0,
+                        eframe::egui::Stroke::new(1.2, theme.text_faint),
+                    );
+                }
             }
-            let text = if on { theme.text } else { theme.text_faint };
+            let text = if on || off.is_some() {
+                theme.text
+            } else {
+                theme.text_faint
+            };
             painter.text(
                 rect.left_center() + vec2(18.0, 0.0),
                 Align2::LEFT_CENTER,

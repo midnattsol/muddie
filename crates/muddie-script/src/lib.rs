@@ -147,6 +147,8 @@ pub struct GaugeLook {
     pub steps: Vec<(f64, String)>,
     /// What a gauge of the `text` kind says.
     pub text: String,
+    /// The colour of a light while it is off; empty leaves it unlit.
+    pub off_colour: String,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1857,6 +1859,7 @@ fn install_api(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
                     };
                     look.low = options.get::<Option<f64>>("low")?.unwrap_or(0.0);
                     look.text = options.get::<Option<String>>("text")?.unwrap_or_default();
+                    look.off_colour = options.get::<Option<String>>("off")?.unwrap_or_default();
                     // `steps = {{30, "red"}, {60, "yellow"}}`
                     if let Some(steps) = options.get::<Option<Vec<mlua::Table>>>("steps")? {
                         for step in steps {
