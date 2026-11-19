@@ -121,6 +121,8 @@ pub struct Output {
     at_end: bool,
     /// How tall the content was when it was last drawn.
     shown_height: f32,
+    /// Rows before this one have a height measured for another width.
+    stale: usize,
     /// Row to bring into view on the next frame.
     scroll_to: Option<usize>,
     /// Go back to the end on the next frame.
@@ -140,6 +142,7 @@ impl Default for Output {
             timestamps: false,
             at_end: true,
             shown_height: 0.0,
+            stale: 0,
             scroll_to: None,
             jump_to_end: false,
             found: None,
@@ -314,10 +317,25 @@ impl Output {
         ui.spacing_mut().item_spacing.y = 0.0;
         let width = ui.available_width();
         if width != self.width {
+            // Every height is now for another width. Measuring them all
+            // again at once would stall each frame of a window being
+            // resized, so it is done a share at a time, newest first.
+            let first = self.width == 0.0;
             self.width = width;
-            for row in &mut self.rows {
-                row.height = None;
+            self.stale = self.rows.len();
+            if first {
+                self.rows.iter_mut().for_each(|row| row.height = None);
+                self.stale = 0;
             }
+        }
+        self.stale = self.stale.min(self.rows.len());
+        let from = self.stale.saturating_sub(REMEASURED_PER_FRAME);
+        for row in self.rows.range_mut(from..self.stale) {
+            row.height = None;
+        }
+        self.stale = from;
+        if self.stale > 0 {
+            ui.ctx().request_repaint();
         }
         let timestamps = self.timestamps;
         let layout = |ui: &Ui, mut job: LayoutJob| -> Arc<Galley> {
@@ -342,6 +360,15 @@ impl Output {
                 target = Some((total, height));
             }
             total += height;
+        }
+        // Rows on screen are never left with a height from another width.
+        if let Some((first, _)) = first_visible
+            && first < self.stale
+        {
+            let end = (first + 200).min(self.stale);
+            for row in self.rows.range_mut(first..end) {
+                row.height = None;
+            }
         }
         let partial = self
             .partial
@@ -421,6 +448,9 @@ fn append_line(job: &mut LayoutJob, line: &Line) {
 }
 
 /// A line of server text laid out with its colours.
+/// How many rows are measured again per frame after the width changed.
+const REMEASURED_PER_FRAME: usize = 300;
+
 pub fn server_job(line: &Line) -> LayoutJob {
     let mut job = LayoutJob::default();
     append_line(&mut job, line);

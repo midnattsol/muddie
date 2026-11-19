@@ -12,3 +12,11 @@ license = "MIT OR Apache-2.0"
 lto = "thin"
 codegen-units = 1
 strip = true
+
+# Text layout and drawing are far too slow unoptimised to judge the
+# interface by, so even development builds optimise them.
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
