@@ -12,7 +12,7 @@ use tokio::sync::mpsc::UnboundedSender;
 use crate::history::History;
 use crate::output::Output;
 use crate::palette;
-use crate::panels::{self, Gauges};
+use crate::panels::{self, Gauges, MsdpVitals};
 use crate::voice::Voice;
 
 struct Connection {
@@ -32,6 +32,7 @@ pub struct App {
     voice: Voice,
     scripts: Engine,
     gauges: Gauges,
+    msdp_vitals: MsdpVitals,
     chat: Output,
     show_chat: bool,
 }
@@ -63,6 +64,7 @@ impl App {
             voice: Voice::default(),
             scripts: Engine::new().expect("failed to start the script runtime"),
             gauges: Gauges::default(),
+            msdp_vitals: MsdpVitals::default(),
             chat: Output::default(),
             show_chat: true,
         };
@@ -176,8 +178,17 @@ impl App {
                     self.scripts.on_gmcp(&package, &data);
                     self.run_actions();
                 }
+                Event::Msdp { variable, data } => {
+                    if let Some((name, value, max)) = self.msdp_vitals.update(&variable, &data) {
+                        self.gauges.set(name, Some((value, max)));
+                    }
+                    self.scripts.on_msdp(&variable, &data);
+                    self.run_actions();
+                }
+                Event::Mssp(status) => self.scripts.on_mssp(&status),
                 Event::Disconnected(error) => {
                     self.gauges.clear();
+                    self.msdp_vitals.clear();
                     self.note(&match error {
                         Some(error) => format!("Disconnected: {error}"),
                         None => "Disconnected.".to_owned(),
@@ -204,6 +215,11 @@ impl App {
                 Action::Gmcp { package, data } => {
                     if let Some(connection) = &self.connection {
                         let _ = connection.commands.send(Command::Gmcp { package, data });
+                    }
+                }
+                Action::Msdp { variable, values } => {
+                    if let Some(connection) = &self.connection {
+                        let _ = connection.commands.send(Command::Msdp { variable, values });
                     }
                 }
                 Action::Gauge { name, level } => self.gauges.set(&name, level),

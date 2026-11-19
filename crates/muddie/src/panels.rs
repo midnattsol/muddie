@@ -1,6 +1,8 @@
 //! The status strip of gauges and the helpers that feed the panels from
 //! GMCP.
 
+use std::collections::HashMap;
+
 use eframe::egui::{Color32, ProgressBar, Ui};
 use muddie_core::Line;
 use muddie_core::ansi::Assembler;
@@ -17,6 +19,14 @@ const VITALS: [(&str, &str, &str); 8] = [
     ("WP", "wp", "maxwp"),
     ("MV", "mv", "maxmv"),
     ("MV", "moves", "maxmoves"),
+];
+
+/// The MSDP variables holding each vital's value and maximum, with the
+/// gauge they are shown as.
+const MSDP_VITALS: [(&str, &str, &str); 3] = [
+    ("HP", "HEALTH", "HEALTH_MAX"),
+    ("MP", "MANA", "MANA_MAX"),
+    ("MV", "MOVEMENT", "MOVEMENT_MAX"),
 ];
 
 struct Gauge {
@@ -111,6 +121,30 @@ pub fn vitals(json: &str) -> Vec<(&'static str, f64, f64)> {
         .collect()
 }
 
+/// Collects vitals from MSDP, which reports a value and its maximum as
+/// separate variables that may arrive at different times.
+#[derive(Default)]
+pub struct MsdpVitals(HashMap<String, f64>);
+
+impl MsdpVitals {
+    /// Records an MSDP variable. If it belongs to a vital whose value and
+    /// maximum are now both known, returns that gauge's new level.
+    pub fn update(&mut self, variable: &str, json: &str) -> Option<(&'static str, f64, f64)> {
+        let (name, value, max) = (MSDP_VITALS.into_iter())
+            .find(|(_, value, max)| variable == *value || variable == *max)?;
+        let Ok(Value::String(text)) = serde_json::from_str(json) else {
+            return None;
+        };
+        self.0
+            .insert(variable.to_owned(), text.trim().parse().ok()?);
+        Some((name, *self.0.get(value)?, *self.0.get(max)?))
+    }
+
+    pub fn clear(&mut self) {
+        self.0.clear();
+    }
+}
+
 /// The lines of a `Comm.Channel.Text` payload, with its colours.
 pub fn channel_text(json: &str) -> Vec<Line> {
     let Ok(Value::Object(fields)) = serde_json::from_str(json) else {
@@ -140,6 +174,23 @@ mod tests {
         let json = r#"{"hp": 80, "maxhp": "100", "mana": "5", "maxmana": 50, "mv": 3, "nl": "9"}"#;
         assert_eq!(vitals(json), [("HP", 80.0, 100.0), ("MP", 5.0, 50.0)]);
         assert_eq!(vitals("[1, 2]"), []);
+    }
+
+    #[test]
+    fn msdp_vitals_wait_for_both_halves() {
+        let mut vitals = MsdpVitals::default();
+        assert_eq!(vitals.update("HEALTH", r#""80""#), None);
+        assert_eq!(vitals.update("MANA_MAX", r#""50""#), None);
+        assert_eq!(
+            vitals.update("HEALTH_MAX", r#""100""#),
+            Some(("HP", 80.0, 100.0))
+        );
+        assert_eq!(
+            vitals.update("HEALTH", r#""75""#),
+            Some(("HP", 75.0, 100.0))
+        );
+        assert_eq!(vitals.update("ROOM", r#"{"VNUM":"7"}"#), None);
+        assert_eq!(vitals.update("MANA", r#""lots""#), None);
     }
 
     #[test]

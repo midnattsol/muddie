@@ -20,6 +20,10 @@
 //!   `Char.Vitals`).
 //! - `gmcp(package)`: the data last received for exactly that package.
 //! - `send_gmcp(package, data)`: send a GMCP message; `data` is optional.
+//! - `on_msdp(variable, fn)`, `msdp(variable)` and
+//!   `send_msdp(command, ...)`: the same for MSDP, e.g.
+//!   `send_msdp("REPORT", "HEALTH")`. Values arrive as strings.
+//! - `mssp()`: the server's MSSP status as a table, empty if it sent none.
 //! - `gauge(name, value, max)`: show or update a bar in the status strip;
 //!   `gauge(name)` removes it.
 //! - `chat(text)`: add a line to the chat panel.
@@ -33,7 +37,7 @@ use std::rc::Rc;
 use std::time::{Duration, Instant};
 
 use mlua::serde::SerializeOptions;
-use mlua::{Function, Lua, LuaOptions, LuaSerdeExt, StdLib, Table, Value, VmState};
+use mlua::{Function, Lua, LuaOptions, LuaSerdeExt, StdLib, Table, Value, Variadic, VmState};
 use regex::Regex;
 
 /// Longest a single script run or callback may take before it is stopped,
@@ -63,6 +67,11 @@ pub enum Action {
     },
     /// Add a line to the chat panel.
     Chat(String),
+    /// Send an MSDP message such as `REPORT` with variable names.
+    Msdp {
+        variable: String,
+        values: Vec<String>,
+    },
     /// A script failed; the message is for the user.
     Error(String),
 }
@@ -81,20 +90,28 @@ struct Timer {
     callback: Function,
 }
 
-struct GmcpHandler {
+/// A callback for GMCP or MSDP data.
+struct DataHandler {
     id: u64,
-    /// Lower-cased package name; also matches packages under it.
-    package: String,
+    /// Key of the data it wants, as produced for the data store. For GMCP it
+    /// also matches packages under it.
+    key: String,
     callback: Function,
 }
 
-impl GmcpHandler {
-    fn covers(&self, package: &str) -> bool {
-        match package.strip_prefix(self.package.as_str()) {
+impl DataHandler {
+    fn covers(&self, key: &str) -> bool {
+        match key.strip_prefix(self.key.as_str()) {
             Some(rest) => rest.is_empty() || rest.starts_with('.'),
             None => false,
         }
     }
+}
+
+/// Store key of an MSDP variable. The space cannot occur in a GMCP package
+/// name, so the two kinds never collide.
+fn msdp_key(variable: &str) -> String {
+    format!("msdp {}", variable.to_lowercase())
 }
 
 /// State shared between the engine and the functions scripts call.
@@ -104,9 +121,11 @@ struct State {
     triggers: Vec<Matcher>,
     aliases: Vec<Matcher>,
     timers: Vec<Timer>,
-    gmcp_handlers: Vec<GmcpHandler>,
-    /// Data last received per GMCP package, keyed by lower-cased name.
-    gmcp_data: HashMap<String, Value>,
+    data_handlers: Vec<DataHandler>,
+    /// Data last received per GMCP package or MSDP variable.
+    data: HashMap<String, Value>,
+    /// The server's MSSP status, as `(name, value)` pairs.
+    mssp: Vec<(String, String)>,
     actions: Vec<Action>,
     /// Set by `gag()` while a line's triggers run.
     gag: bool,
@@ -229,6 +248,23 @@ impl Engine {
     /// Records a GMCP message and runs the handlers for its package.
     /// `json` is the message's payload, empty if it had none.
     pub fn on_gmcp(&mut self, package: &str, json: &str) {
+        self.on_data(package.to_lowercase(), package, json);
+    }
+
+    /// Records an MSDP variable and runs the handlers for it. `json` is the
+    /// value converted to JSON.
+    pub fn on_msdp(&mut self, variable: &str, json: &str) {
+        self.on_data(msdp_key(variable), variable, json);
+    }
+
+    /// Remembers the server's MSSP status for `mssp()`.
+    pub fn on_mssp(&mut self, status: &[(String, String)]) {
+        self.state.borrow_mut().mssp = status.to_vec();
+    }
+
+    /// Stores out-of-band data under `key` and calls the handlers covering
+    /// it with the data and `name`.
+    fn on_data(&mut self, key: String, name: &str, json: &str) {
         let data = if json.is_empty() {
             Value::Nil
         } else {
@@ -244,22 +280,21 @@ impl Engine {
                 });
             match parsed {
                 Ok(data) => data,
-                Err(error) => return self.error(format!("bad GMCP data for {package}: {error}")),
+                Err(error) => return self.error(format!("bad data for {name}: {error}")),
             }
         };
-        let key = package.to_lowercase();
         let callbacks: Vec<(u64, Function)> = {
             let mut state = self.state.borrow_mut();
-            state.gmcp_data.insert(key.clone(), data.clone());
-            (state.gmcp_handlers.iter())
+            state.data.insert(key.clone(), data.clone());
+            (state.data_handlers.iter())
                 .filter(|handler| handler.covers(&key))
                 .map(|handler| (handler.id, handler.callback.clone()))
                 .collect()
         };
         for (id, callback) in callbacks {
-            let still_there = (self.state.borrow().gmcp_handlers.iter()).any(|h| h.id == id);
+            let still_there = (self.state.borrow().data_handlers.iter()).any(|h| h.id == id);
             if still_there {
-                self.guarded(|| callback.call::<()>((data.clone(), package)));
+                self.guarded(|| callback.call::<()>((data.clone(), name)));
             }
         }
     }
@@ -471,27 +506,57 @@ fn install_api(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
         )?;
     }
 
+    // GMCP packages and MSDP variables share one store; the key function
+    // keeps their names apart.
+    type KeyFn = fn(&str) -> String;
+    let gmcp_key: KeyFn = |package| package.to_lowercase();
+    for (name, key) in [("on_gmcp", gmcp_key), ("on_msdp", msdp_key as KeyFn)] {
+        let shared = Rc::clone(state);
+        add(
+            name,
+            lua.create_function(move |_, (source, callback): (String, Function)| {
+                let mut state = shared.borrow_mut();
+                let id = state.next_id();
+                state.data_handlers.push(DataHandler {
+                    id,
+                    key: key(&source),
+                    callback,
+                });
+                Ok(id)
+            })?,
+        )?;
+    }
+    for (name, key) in [("gmcp", gmcp_key), ("msdp", msdp_key as KeyFn)] {
+        let shared = Rc::clone(state);
+        add(
+            name,
+            lua.create_function(move |_, source: String| {
+                Ok(shared.borrow().data.get(&key(&source)).cloned())
+            })?,
+        )?;
+    }
+
     let shared = Rc::clone(state);
     add(
-        "on_gmcp",
-        lua.create_function(move |_, (package, callback): (String, Function)| {
-            let mut state = shared.borrow_mut();
-            let id = state.next_id();
-            state.gmcp_handlers.push(GmcpHandler {
-                id,
-                package: package.to_lowercase(),
-                callback,
+        "send_msdp",
+        lua.create_function(move |_, (variable, values): (String, Variadic<String>)| {
+            (shared.borrow_mut().actions).push(Action::Msdp {
+                variable,
+                values: values.into_iter().collect(),
             });
-            Ok(id)
+            Ok(())
         })?,
     )?;
 
     let shared = Rc::clone(state);
     add(
-        "gmcp",
-        lua.create_function(move |_, package: String| {
-            let state = shared.borrow();
-            Ok(state.gmcp_data.get(&package.to_lowercase()).cloned())
+        "mssp",
+        lua.create_function(move |lua, ()| {
+            let status = lua.create_table()?;
+            for (name, value) in &shared.borrow().mssp {
+                status.set(name.as_str(), value.as_str())?;
+            }
+            Ok(status)
         })?,
     )?;
 
@@ -542,13 +607,13 @@ fn install_api(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
                 state.triggers.len()
                     + state.aliases.len()
                     + state.timers.len()
-                    + state.gmcp_handlers.len()
+                    + state.data_handlers.len()
             };
             let before = count(&state);
             state.triggers.retain(|trigger| trigger.id != id);
             state.aliases.retain(|alias| alias.id != id);
             state.timers.retain(|timer| timer.id != id);
-            state.gmcp_handlers.retain(|handler| handler.id != id);
+            state.data_handlers.retain(|handler| handler.id != id);
             Ok(count(&state) < before)
         })?,
     )?;
@@ -718,7 +783,7 @@ mod tests {
         engine.on_input("/lua echo(`{gmcp('char.vitals').hp} {gmcp('Nope')} {gmcp('Core.Ping')}`)");
         assert_eq!(engine.take_actions(), [Action::Echo("80 nil nil".into())]);
         engine.on_gmcp("Char.Vitals", "{not json");
-        assert!(error_text(&engine.take_actions()).contains("bad GMCP data for Char.Vitals"));
+        assert!(error_text(&engine.take_actions()).contains("bad data for Char.Vitals"));
     }
 
     #[test]
@@ -751,6 +816,33 @@ mod tests {
         );
         engine.exec("test", r#"gauge("HP", 5)"#);
         assert!(error_text(&engine.take_actions()).contains("both a value and a max"));
+    }
+
+    #[test]
+    fn msdp_and_mssp_are_available_to_scripts() {
+        let mut engine = engine(
+            r#"on_msdp("HEALTH", function(value, name) echo(`{name}={value}`) end)
+            on_gmcp("health", function() echo("wrong kind") end)"#,
+        );
+        engine.on_msdp("HEALTH", r#""80""#);
+        engine.on_msdp("ROOM", r#"{"VNUM":"7","EXITS":{"n":"8"}}"#);
+        engine.on_mssp(&[("NAME".into(), "FakeMUD".into())]);
+        assert_eq!(engine.take_actions(), [Action::Echo("HEALTH=80".into())]);
+        engine.exec(
+            "test",
+            r#"echo(`{msdp("room").EXITS.n} {gmcp("room")} {mssp().NAME} {mssp().PLAYERS}`)
+            send_msdp("REPORT", "HEALTH", "MANA")"#,
+        );
+        assert_eq!(
+            engine.take_actions(),
+            [
+                Action::Echo("8 nil FakeMUD nil".into()),
+                Action::Msdp {
+                    variable: "REPORT".into(),
+                    values: vec!["HEALTH".into(), "MANA".into()]
+                },
+            ]
+        );
     }
 
     #[test]

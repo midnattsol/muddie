@@ -4,6 +4,7 @@
 
 pub mod ansi;
 pub mod decode;
+pub mod msdp;
 pub mod negotiate;
 pub mod pipeline;
 pub mod session;

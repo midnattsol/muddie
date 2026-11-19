@@ -32,6 +32,11 @@ pub enum Command {
         package: String,
         data: String,
     },
+    /// Send an MSDP message such as `REPORT` with variable names.
+    Msdp {
+        variable: String,
+        values: Vec<String>,
+    },
     Disconnect,
 }
 
@@ -108,6 +113,9 @@ async fn drive(
                 Some(Command::Resize(w, h)) => pipeline.set_window(w, h, &mut outgoing),
                 Some(Command::Gmcp { package, data }) => {
                     pipeline.send_gmcp(&package, &data, &mut outgoing);
+                }
+                Some(Command::Msdp { variable, values }) => {
+                    pipeline.send_msdp(&variable, &values, &mut outgoing);
                 }
                 Some(Command::Disconnect) | None => {
                     let _ = writer.shutdown().await;

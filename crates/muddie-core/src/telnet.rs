@@ -20,6 +20,7 @@ pub mod opt {
     pub const EOR: u8 = 25;
     pub const NAWS: u8 = 31;
     pub const CHARSET: u8 = 42;
+    pub const MSDP: u8 = 69;
     pub const MSSP: u8 = 70;
     pub const MCCP2: u8 = 86;
     pub const GMCP: u8 = 201;

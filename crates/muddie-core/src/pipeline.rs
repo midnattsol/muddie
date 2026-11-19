@@ -7,6 +7,7 @@ use flate2::{Decompress, FlushDecompress, Status};
 
 use crate::ansi::Assembler;
 use crate::decode::Decoder;
+use crate::msdp;
 use crate::negotiate::{Config, Negotiator, Signal};
 use crate::telnet::{self, Parser, opt};
 use crate::text::Line;
@@ -32,6 +33,13 @@ pub enum Event {
         package: String,
         data: String,
     },
+    /// An MSDP variable was reported; `data` is its value as JSON.
+    Msdp {
+        variable: String,
+        data: String,
+    },
+    /// The server's MSSP status, as `(name, value)` pairs.
+    Mssp(Vec<(String, String)>),
     /// The connection ended; the string is the error, if it was one.
     Disconnected(Option<String>),
 }
@@ -168,6 +176,15 @@ impl Pipeline {
                     });
                     continue;
                 }
+                telnet::Event::Subneg(opt::MSDP, payload) => {
+                    let variables = msdp::parse(payload).into_iter();
+                    events.extend(variables.map(|(variable, data)| Event::Msdp { variable, data }));
+                    continue;
+                }
+                telnet::Event::Subneg(opt::MSSP, payload) => {
+                    events.push(Event::Mssp(msdp::parse_mssp(payload)));
+                    continue;
+                }
                 _ => {}
             }
             match self.negotiator.handle(&telnet_event, reply) {
@@ -202,6 +219,14 @@ impl Pipeline {
             format!("{package} {data}")
         };
         telnet::write_subneg(opt::GMCP, message.as_bytes(), out);
+    }
+
+    /// Encodes an MSDP message such as `REPORT` with variable names.
+    /// Nothing is written if the server did not enable MSDP.
+    pub fn send_msdp(&self, variable: &str, values: &[String], out: &mut Vec<u8>) {
+        if self.negotiator.msdp_enabled() {
+            msdp::write(variable, values, out);
+        }
     }
 
     /// Sends a line of user input: its wire bytes are appended to `out`.
@@ -361,11 +386,42 @@ mod tests {
     #[test]
     fn unsupported_options_are_refused() {
         let mut pipeline = Pipeline::new(Config::default());
-        let (reply, _) = receive(&mut pipeline, &[IAC, WILL, opt::MSSP, IAC, DO, opt::GMCP]);
+        const NEW_ENVIRON: u8 = 39;
+        let (reply, _) = receive(&mut pipeline, &[IAC, WILL, NEW_ENVIRON, IAC, DO, opt::GMCP]);
         assert_eq!(
             reply,
-            [IAC, crate::telnet::DONT, opt::MSSP, IAC, WONT, opt::GMCP]
+            [IAC, crate::telnet::DONT, NEW_ENVIRON, IAC, WONT, opt::GMCP]
         );
+    }
+
+    #[test]
+    fn msdp_and_mssp_become_events() {
+        let mut pipeline = Pipeline::new(Config::default());
+        let mut input = vec![IAC, WILL, opt::MSDP];
+        telnet::write_subneg(
+            opt::MSDP,
+            b"\x01HEALTH\x0280\x01HEALTH_MAX\x02100",
+            &mut input,
+        );
+        telnet::write_subneg(opt::MSSP, b"\x01NAME\x02FakeMUD", &mut input);
+        let (_, events) = receive(&mut pipeline, &input);
+        let msdp = |variable: &str, data: &str| Event::Msdp {
+            variable: variable.into(),
+            data: data.into(),
+        };
+        assert_eq!(
+            events,
+            [
+                msdp("HEALTH", r#""80""#),
+                msdp("HEALTH_MAX", r#""100""#),
+                Event::Mssp(vec![("NAME".into(), "FakeMUD".into())]),
+            ]
+        );
+        let mut out = Vec::new();
+        pipeline.send_msdp("LIST", &["COMMANDS".into()], &mut out);
+        let mut expected = Vec::new();
+        telnet::write_subneg(opt::MSDP, b"\x01LIST\x02COMMANDS", &mut expected);
+        assert_eq!(out, expected);
     }
 
     #[test]

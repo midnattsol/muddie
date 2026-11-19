@@ -1,6 +1,7 @@
 //! Option negotiation policy: decides how the client answers the server's
 //! telnet negotiations and turns the relevant ones into [`Signal`]s.
 
+use crate::msdp;
 use crate::telnet::{self, Event, Verb, opt};
 
 // MTTS capability bits (https://tintin.mudhalla.net/protocols/mtts/).
@@ -28,6 +29,8 @@ pub struct Config {
     pub tls: bool,
     /// GMCP modules announced to the server, as `"Name version"`.
     pub gmcp_supports: Vec<String>,
+    /// MSDP variables the server is asked to report when it enables MSDP.
+    pub msdp_report: Vec<String>,
 }
 
 impl Default for Config {
@@ -41,6 +44,17 @@ impl Default for Config {
             gmcp_supports: ["Core 1", "Char 1", "Room 1", "Comm.Channel 1"]
                 .map(String::from)
                 .to_vec(),
+            msdp_report: [
+                "HEALTH",
+                "HEALTH_MAX",
+                "MANA",
+                "MANA_MAX",
+                "MOVEMENT",
+                "MOVEMENT_MAX",
+                "ROOM",
+            ]
+            .map(String::from)
+            .to_vec(),
         }
     }
 }
@@ -101,7 +115,14 @@ impl Negotiator {
             Verb::Will => {
                 let accept = matches!(
                     option,
-                    opt::ECHO | opt::SGA | opt::EOR | opt::CHARSET | opt::GMCP | opt::MCCP2
+                    opt::ECHO
+                        | opt::SGA
+                        | opt::EOR
+                        | opt::CHARSET
+                        | opt::GMCP
+                        | opt::MCCP2
+                        | opt::MSDP
+                        | opt::MSSP
                 );
                 if !accept {
                     send(reply, Verb::Dont, option);
@@ -110,6 +131,9 @@ impl Negotiator {
                     send(reply, Verb::Do, option);
                     if option == opt::GMCP {
                         self.write_gmcp_hello(reply);
+                    }
+                    if option == opt::MSDP && !self.config.msdp_report.is_empty() {
+                        msdp::write("REPORT", &self.config.msdp_report, reply);
                     }
                     if option == opt::ECHO {
                         return Some(Signal::ServerEcho(true));
@@ -189,6 +213,11 @@ impl Negotiator {
         self.remote[opt::GMCP as usize]
     }
 
+    /// Whether the server agreed to exchange MSDP messages.
+    pub fn msdp_enabled(&self) -> bool {
+        self.remote[opt::MSDP as usize]
+    }
+
     /// Introduces the client and says which GMCP modules it wants.
     fn write_gmcp_hello(&self, reply: &mut Vec<u8>) {
         let hello = format!(
@@ -224,7 +253,7 @@ impl Negotiator {
 }
 
 /// Quotes `text` as a JSON string.
-fn json_string(text: &str) -> String {
+pub(crate) fn json_string(text: &str) -> String {
     let mut out = String::with_capacity(text.len() + 2);
     out.push('"');
     for ch in text.chars() {
@@ -348,6 +377,21 @@ mod tests {
         telnet::write_subneg(opt::GMCP, supports.as_bytes(), &mut expected);
         assert_eq!(reply, expected);
         assert!(n.gmcp_enabled());
+    }
+
+    #[test]
+    fn msdp_is_accepted_with_a_report_request() {
+        let mut n = Negotiator::new(Config {
+            msdp_report: vec!["HEALTH".into(), "ROOM".into()],
+            ..Config::default()
+        });
+        let (reply, _) = handle(&mut n, Event::Negotiate(Verb::Will, opt::MSDP));
+        let mut expected = vec![IAC, DO, opt::MSDP];
+        telnet::write_subneg(opt::MSDP, b"\x01REPORT\x02HEALTH\x02ROOM", &mut expected);
+        assert_eq!(reply, expected);
+        assert!(n.msdp_enabled());
+        let (reply, _) = handle(&mut n, Event::Negotiate(Verb::Will, opt::MSSP));
+        assert_eq!(reply, [IAC, DO, opt::MSSP]);
     }
 
     #[test]
