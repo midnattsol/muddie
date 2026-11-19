@@ -19,6 +19,19 @@ bind("f1", "look")
 bind("f2", "inventory")
 bind("ctrl+h", function() send("cast heal me") end)
 
+-- Walk with the numeric keypad. A bound keypad key stops typing its digit.
+bind("numpad8", "north")
+bind("numpad2", "south")
+bind("numpad4", "west")
+bind("numpad6", "east")
+bind("numpad7", "northwest")
+bind("numpad9", "northeast")
+bind("numpad1", "southwest")
+bind("numpad3", "southeast")
+bind("numpadsubtract", "up")
+bind("numpadadd", "down")
+bind("numpad5", "look")
+
 -- Count kills across sessions.
 trigger("is DEAD!", function()
     local kills = (recall("kills") or 0) + 1

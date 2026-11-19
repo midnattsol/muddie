@@ -8,6 +8,7 @@ use eframe::egui::{
 };
 
 use crate::i18n::{self, tr, trf};
+use crate::keypad;
 use crate::profile::Profiles;
 use crate::settings::{Language, Settings, ThemeName};
 use crate::tab::{Startup, Tab};
@@ -23,10 +24,16 @@ pub struct App {
     show_settings: bool,
     /// A problem with the settings to show in the settings window.
     settings_error: Option<String>,
+    /// Keypad keys noted by the window layer, waiting for the next frame.
+    keypad: keypad::Pressed,
 }
 
 impl App {
-    pub fn new(cc: &eframe::CreationContext<'_>, startup: Startup) -> Self {
+    pub fn new(
+        cc: &eframe::CreationContext<'_>,
+        startup: Startup,
+        keypad: keypad::Pressed,
+    ) -> Self {
         let profiles = startup.profiles.clone();
         let loaded = match &profiles {
             Some(profiles) => Settings::load(&profiles.settings_path()),
@@ -56,6 +63,7 @@ impl App {
             extra_scripts,
             show_settings: false,
             settings_error,
+            keypad,
         }
     }
 
@@ -294,6 +302,9 @@ impl eframe::App for App {
             .show(ui, |ui| self.tab_strip(ui));
         self.settings_window(ui.ctx());
         let active = self.active;
+        // Keypad presses go to the session on screen.
+        let pressed = std::mem::take(&mut *self.keypad.lock().expect("keypad lock"));
+        self.tabs[active].keypad_pressed.extend(pressed);
         self.tabs[active].show(ui, &self.settings);
     }
 }

@@ -73,8 +73,8 @@ The **Triggers** button opens a window to make them. A trigger reacts to a
 line of output: it can send commands, say something, play a sound, colour the
 matched text or hide the line. An alias replaces a typed command; `%1` in what
 it sends is the rest of what was typed. A key sends commands when pressed.
-Function keys and combinations with Ctrl or Alt can be used, such as `f5` or
-`ctrl+k`.
+Function keys, combinations with Ctrl or Alt, and the keys of the numeric
+keypad can be used, such as `f5`, `ctrl+k` or `numpad8`.
 
 They are saved in the profile's `rules.toml`. For anything more, see
 [scripting](scripting.md).
@@ -109,6 +109,11 @@ speech-dispatcher on Linux, the system voices on Windows and macOS.
 | Alt+1 ... Alt+9 | Reads the most recent lines |
 | Alt+Shift with the same keys | The same for the chat panel |
 | Alt+0 | Reads the gauges |
+
+With **Voice through the screen reader** set in the settings, muddie hands
+each line to your screen reader to announce instead of speaking itself. That
+is the way to read the MUD on a braille display, and it uses the screen
+reader's own voice and settings.
 
 Sending a command silences what was still queued. The rate and the language
 of the voice are in the settings; set the language (`es`, `en`...) to that of

@@ -24,8 +24,16 @@ const RECENT_KEYS: [Key; 9] = [
 
 #[derive(Default)]
 pub struct Voice {
-    /// `Some` while speech is turned on.
+    /// Whether new text is voiced at all.
+    on: bool,
+    /// The direct line to the system's speech, while that is how text is
+    /// voiced.
     speech: Option<Speech>,
+    /// Voice through the screen reader instead: text is handed to the
+    /// interface to announce, which also reaches a braille display.
+    announce: bool,
+    /// Text waiting to be announced.
+    announcements: Vec<String>,
     narrator: Narrator,
     /// Rows last read with the review keys: in the output, and in the chat.
     review: [Option<usize>; 2],
@@ -38,19 +46,50 @@ pub struct Voice {
 
 impl Voice {
     pub fn enabled(&self) -> bool {
-        self.speech.is_some()
+        self.on
     }
 
     pub fn set_enabled(&mut self, enabled: bool) {
-        if enabled == self.enabled() {
+        if enabled == self.on {
             return;
         }
-        self.speech = enabled.then(Speech::start);
-        self.set_rate(self.rate);
-        let language = self.language.clone();
-        self.set_language(&language);
+        self.on = enabled;
         self.narrator = Narrator::default();
+        self.open_speech();
         self.say(tr("Speech on."));
+    }
+
+    /// Chooses between speaking directly and announcing through the screen
+    /// reader.
+    pub fn set_announce(&mut self, announce: bool) {
+        if announce != self.announce {
+            self.announce = announce;
+            self.announcements.clear();
+            self.open_speech();
+        }
+    }
+
+    /// Whether text is being announced through the screen reader.
+    pub fn announcing(&self) -> bool {
+        self.on && self.announce
+    }
+
+    /// Takes the text to announce since the last call.
+    pub fn take_announcements(&mut self) -> Vec<String> {
+        std::mem::take(&mut self.announcements)
+    }
+
+    /// Opens or closes the direct line to speech as the settings require.
+    fn open_speech(&mut self) {
+        let wanted = self.on && !self.announce;
+        if wanted && self.speech.is_none() {
+            self.speech = Some(Speech::start());
+            self.set_rate(self.rate);
+            let language = self.language.clone();
+            self.set_language(&language);
+        } else if !wanted {
+            self.speech = None;
+        }
     }
 
     pub fn set_language(&mut self, code: &str) {
@@ -67,14 +106,19 @@ impl Voice {
         }
     }
 
-    /// Speaks `text` after whatever is already queued.
-    pub fn say(&self, text: &str) {
-        if let Some(speech) = &self.speech {
+    /// Voices `text` after whatever is already queued.
+    pub fn say(&mut self, text: &str) {
+        if self.announcing() {
+            self.announcements.push(text.to_owned());
+        } else if let Some(speech) = &self.speech {
             speech.say(text);
         }
     }
 
-    pub fn stop(&self) {
+    /// Silences speech. Announcements belong to the screen reader, which
+    /// has its own key for that.
+    pub fn stop(&mut self) {
+        self.announcements.clear();
         if let Some(speech) = &self.speech {
             speech.stop();
         }

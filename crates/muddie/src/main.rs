@@ -3,6 +3,7 @@ mod complete;
 mod history;
 mod i18n;
 mod i18n_es;
+mod keypad;
 mod logger;
 mod mapview;
 mod output;
@@ -17,8 +18,11 @@ mod tab;
 mod theme;
 mod voice;
 
+use std::sync::{Arc, Mutex};
+
 use eframe::egui;
 use muddie_core::Target;
+use winit::event_loop::EventLoop;
 
 use crate::profile::Profiles;
 use crate::tab::Startup;
@@ -61,7 +65,7 @@ fn parse_args(args: &[String]) -> Result<Startup, String> {
     Ok(startup)
 }
 
-fn main() -> eframe::Result {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let startup = match parse_args(&args) {
         Ok(startup) => startup,
@@ -87,9 +91,21 @@ fn main() -> eframe::Result {
             .with_min_inner_size([640.0, 400.0]),
         ..Default::default()
     };
-    eframe::run_native(
+    // The application runs inside an event loop of our own, so that the
+    // keys of the numeric keypad can be told apart on the way in.
+    let event_loop = EventLoop::<eframe::UserEvent>::with_user_event().build()?;
+    let pressed = keypad::Pressed::default();
+    let ctx = Arc::new(Mutex::new(None));
+    let (for_app, ctx_for_app) = (Arc::clone(&pressed), Arc::clone(&ctx));
+    let app = eframe::create_native(
         "muddie",
         options,
-        Box::new(|cc| Ok(Box::new(app::App::new(cc, startup)))),
-    )
+        Box::new(move |cc| {
+            *ctx_for_app.lock().expect("context lock") = Some(cc.egui_ctx.clone());
+            Ok(Box::new(app::App::new(cc, startup, for_app)))
+        }),
+        &event_loop,
+    );
+    event_loop.run_app(&mut keypad::Watcher { app, pressed, ctx })?;
+    Ok(())
 }

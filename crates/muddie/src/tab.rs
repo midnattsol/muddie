@@ -18,6 +18,7 @@ use tokio::sync::mpsc::UnboundedSender;
 use crate::complete::{self, Completion};
 use crate::history::History;
 use crate::i18n::{tr, trf};
+use crate::keypad;
 use crate::logger::SessionLog;
 use crate::mapview::{MapAction, MapView};
 use crate::output::{Output, server_job};
@@ -117,6 +118,10 @@ pub struct Tab {
     /// A new password typed in the bar, saved with the profile.
     new_password: String,
     login: Login,
+    /// Keypad keys pressed since the last frame, by name.
+    pub keypad_pressed: Vec<&'static str>,
+    /// What the screen reader was last asked to announce.
+    announcement: String,
 }
 
 /// How far an automatic login has got.
@@ -229,6 +234,8 @@ impl Tab {
             character: String::new(),
             new_password: String::new(),
             login: Login::Idle,
+            keypad_pressed: Vec::new(),
+            announcement: String::new(),
         };
         app.voice.set_enabled(startup.speech);
         match startup.profile {
@@ -275,6 +282,8 @@ impl Tab {
             .restyle(settings.scrollback_lines, settings.timestamps);
         self.voice.set_rate(settings.speech_rate);
         self.voice.set_language(&settings.speech_language);
+        self.voice
+            .set_announce(settings.announce_with_screen_reader);
     }
 
     /// The part of the settings window that belongs to sessions.
@@ -338,6 +347,16 @@ impl Tab {
                 let label = ui.label(tr("Speech rate"));
                 ui.add(egui::Slider::new(&mut settings.speech_rate, -100..=100))
                     .labelled_by(label.id);
+                ui.end_row();
+
+                ui.label(tr("Screen reader"));
+                ui.checkbox(
+                    &mut settings.announce_with_screen_reader,
+                    tr("Voice through the screen reader (also braille)"),
+                )
+                .on_hover_text(tr(
+                    "Instead of speaking directly, hand each line to the screen reader to announce.",
+                ));
                 ui.end_row();
 
                 let label = ui.label(tr("Speech language"));
@@ -985,6 +1004,30 @@ impl Tab {
             });
             keys.collect()
         });
+        // Keypad keys come from the window layer, as egui cannot tell them
+        // from the main block's. A bound one must not also type its digit.
+        let held = ui.input(|input| input.modifiers);
+        for name in std::mem::take(&mut self.keypad_pressed) {
+            let mut full = String::new();
+            for (down, modifier) in [
+                (held.ctrl, "ctrl+"),
+                (held.alt, "alt+"),
+                (held.shift, "shift+"),
+            ] {
+                if down {
+                    full.push_str(modifier);
+                }
+            }
+            full.push_str(name);
+            if self.scripts.on_key(&full) {
+                ui.input_mut(|input| {
+                    input
+                        .events
+                        .retain(|event| !keypad::is_event_of(name, event))
+                });
+                self.run_actions();
+            }
+        }
         for (key, modifiers) in pressed {
             let name = key.name().to_lowercase();
             let is_function_key =
@@ -1071,6 +1114,31 @@ impl Tab {
         if save {
             self.save_rules();
         }
+    }
+
+    /// Hands new text to the screen reader: a label too small to see, marked
+    /// as a live region, which screen readers announce when it changes, by
+    /// voice and in braille.
+    fn announce(&mut self, ui: &mut egui::Ui) {
+        if !self.voice.announcing() {
+            return;
+        }
+        let lines = self.voice.take_announcements();
+        if !lines.is_empty() {
+            let mut text = lines.join("\n");
+            // The same text twice running would not count as a change.
+            if text == self.announcement {
+                text.push('\u{200b}');
+            }
+            self.announcement = text;
+        }
+        let label = RichText::new(&self.announcement)
+            .size(1.0)
+            .color(egui::Color32::TRANSPARENT);
+        let response = ui.add(Label::new(label).selectable(false));
+        ui.ctx().accesskit_node_builder(response.id, |node| {
+            node.set_live(egui::accesskit::Live::Polite);
+        });
     }
 
     /// The bar for searching the scrollback, shown above the input line.
@@ -1779,6 +1847,7 @@ impl Tab {
             if self.find_open {
                 self.find_bar(ui);
             }
+            self.announce(ui);
             self.input_line(ui);
         });
         let has_map = self.map.borrow().current().is_some();
@@ -1904,7 +1973,7 @@ fn key_editor(ui: &mut egui::Ui, key: &mut KeyBinding, delete: &mut dyn FnMut(&m
 #[cfg(test)]
 mod tests {
     use egui_kittest::Harness;
-    use egui_kittest::kittest::Queryable;
+    use egui_kittest::kittest::{NodeT, Queryable};
     use muddie_mapper::Pos;
 
     use super::*;
@@ -1915,7 +1984,7 @@ mod tests {
         // Tests read the interface's text, so it must not follow the
         // language of whatever machine they run on.
         let english = |cc: &eframe::CreationContext<'_>, startup| {
-            let app = App::new(cc, startup);
+            let app = App::new(cc, startup, Default::default());
             crate::i18n::set_language(crate::settings::Language::English);
             app
         };
@@ -2113,6 +2182,61 @@ mod tests {
     }
 
     #[test]
+    fn bound_keypad_key_sends_its_command_and_types_nothing() {
+        let mut harness = window(None);
+        let app = harness.state_mut().tab_mut();
+        app.scripts.exec("test", r#"bind("numpad8", "north")"#);
+        let (_events, mut sent) = fake_connection(app);
+        // What the window layer and egui each make of one press of keypad 8.
+        app.keypad_pressed = vec!["numpad8", "numpad2"];
+        harness.event(egui::Event::Text("8".into()));
+        harness.event(egui::Event::Text("2".into()));
+        harness.run_steps(2);
+        assert_eq!(sent.try_recv().unwrap(), Command::Send("north".into()));
+        // The bound key typed nothing; the unbound one typed its digit.
+        assert_eq!(harness.state().tab().input, "2");
+    }
+
+    #[test]
+    fn lines_are_announced_through_a_live_region_when_asked() {
+        let mut harness = window(None);
+        let app = harness.state_mut().tab_mut();
+        app.voice.set_announce(true);
+        app.voice.set_enabled(true);
+        let (events, _sent) = fake_connection(app);
+        // Let the notice that speech is on be announced first.
+        harness.run_steps(2);
+        assert_eq!(harness.state().tab().announcement, "Speech on.");
+        events
+            .send(Event::Line(
+                panels::styled_lines("An orc arrives.").remove(0),
+            ))
+            .unwrap();
+        harness.run_steps(2);
+        // The line is in the scrollback too; the announcement is the node
+        // marked as a live region.
+        let announced = (harness.query_all_by_label("An orc arrives."))
+            .filter(|node| node.accesskit_node().live() == egui::accesskit::Live::Polite)
+            .count();
+        assert_eq!(announced, 1);
+        // The same line again still counts as a change to announce.
+        events
+            .send(Event::Line(
+                panels::styled_lines("An orc arrives.").remove(0),
+            ))
+            .unwrap();
+        harness.run_steps(2);
+        assert_eq!(
+            harness.state().tab().announcement,
+            "An orc arrives.\u{200b}"
+        );
+        // Speaking directly instead leaves nothing to announce.
+        harness.state_mut().tab_mut().voice.set_announce(false);
+        harness.run_steps(2);
+        assert!(!harness.state().tab().voice.announcing());
+    }
+
+    #[test]
     fn tab_completes_from_recent_output() {
         let mut harness = window(None);
         let app = harness.state_mut().tab_mut();
@@ -2257,7 +2381,7 @@ mod tests {
                     speech: false,
                     scripts: Vec::new(),
                 };
-                let app = App::new(cc, startup);
+                let app = App::new(cc, startup, Default::default());
                 crate::i18n::set_language(crate::settings::Language::English);
                 app
             });

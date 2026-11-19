@@ -53,6 +53,9 @@ pub struct Settings {
     /// Language code the voice speaks in, such as `es`; empty for the
     /// system's default.
     pub speech_language: String,
+    /// Voice text through the screen reader instead of speaking directly,
+    /// so that it also reaches a braille display.
+    pub announce_with_screen_reader: bool,
     /// Write everything shown in a session to a log file.
     pub log_sessions: bool,
     pub log_format: LogFormat,
@@ -74,6 +77,7 @@ impl Default for Settings {
             scrollback_lines: 20_000,
             speech_rate: 0,
             speech_language: String::new(),
+            announce_with_screen_reader: false,
             log_sessions: false,
             log_format: LogFormat::default(),
             timestamps: false,

@@ -299,4 +299,13 @@ pub const SPANISH: &[(&str, &str)] = &[
         "A language code such as es or en, so the text is read with the right voice.",
         "Un código de idioma como es o en, para que el texto se lea con la voz adecuada.",
     ),
+    ("Screen reader", "Lector de pantalla"),
+    (
+        "Voice through the screen reader (also braille)",
+        "Leer a través del lector de pantalla (también braille)",
+    ),
+    (
+        "Instead of speaking directly, hand each line to the screen reader to announce.",
+        "En vez de hablar directamente, pasa cada línea al lector de pantalla para que la anuncie.",
+    ),
 ];

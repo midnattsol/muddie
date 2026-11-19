@@ -77,9 +77,24 @@ The options table takes `group` (a name to switch several on and off
 together) and `once` (remove after firing).
 
 Keys are named in lower case with their modifiers in the order `ctrl`, `alt`,
-`shift`: `f1`...`f35`, `ctrl+k`, `alt+shift+arrowup`. Only function keys and
-keys pressed with Ctrl or Alt can be bound, so typing is never intercepted.
-The numeric keypad cannot be told apart from the number row.
+`shift`: `f1`...`f35`, `ctrl+k`, `alt+shift+arrowup`. Of the main block, only
+function keys and keys pressed with Ctrl or Alt can be bound, so typing is
+never intercepted.
+
+The numeric keypad has names of its own, whatever Num Lock says: `numpad0`
+to `numpad9`, `numpadadd`, `numpadsubtract`, `numpadmultiply`,
+`numpaddivide`, `numpaddecimal` and `numpadenter`. A bound keypad key no
+longer types its digit, which makes the keypad a good place for movement:
+
+```lua
+bind("numpad8", "north")
+bind("numpad2", "south")
+bind("numpad4", "west")
+bind("numpad6", "east")
+bind("numpad9", "up")
+bind("numpad3", "down")
+bind("numpad5", "look")
+```
 
 ## Data from the server
 
