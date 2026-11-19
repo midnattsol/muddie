@@ -32,6 +32,9 @@ pub struct Trigger {
     pub speak: String,
     /// Sound file to play.
     pub sound: String,
+    /// A panel of text to show the line in, besides or instead of the
+    /// output; empty for none.
+    pub panel: String,
     /// Luau to run, with the match as `m` and the line as `line`.
     pub script: String,
     /// What it does is the script, not the commands.
@@ -189,6 +192,9 @@ impl Trigger {
         }
         if !self.highlight.trim().is_empty() {
             parts.push(self.highlight.trim().to_owned());
+        }
+        if !self.panel.trim().is_empty() {
+            parts.push(format!("▸ {}", self.panel.trim()));
         }
         if self.gag {
             parts.push("∅".to_owned());
@@ -464,6 +470,9 @@ impl Rules {
             }
             if !trigger.sound.trim().is_empty() {
                 code.push_str(&format!("\tplay({})\n", quoted(trigger.sound.trim())));
+            }
+            if !trigger.panel.trim().is_empty() {
+                code.push_str(&format!("\tto_panel({})\n", quoted(trigger.panel.trim())));
             }
             code.push_str(&format!("end{})\n", grouped(&trigger.group)));
             chunks.push((titled("trigger", &trigger.name, &trigger.pattern), code));

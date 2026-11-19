@@ -509,17 +509,10 @@ impl eframe::App for App {
         self.tabs[active].keypad_pressed.extend(pressed);
         self.tabs[active].show(ui, &self.settings);
         // Panels switched on or off stay that way the next time.
-        let shown = self.tabs[active].panels_shown();
         let panes = self.tabs[active].pane_widths();
-        let was = (
-            self.settings.show_chat,
-            self.settings.show_map,
-            self.settings.automation_panes,
-        );
         // Not while something is being dragged: once it is let go.
         let settled = !ui.input(|input| input.pointer.any_down());
-        if settled && (shown.0, shown.1, panes) != was {
-            (self.settings.show_chat, self.settings.show_map) = shown;
+        if settled && panes != self.settings.automation_panes {
             self.settings.automation_panes = panes;
             if let Some(profiles) = &self.profiles
                 && let Err(error) = self.settings.save(&profiles.settings_path())

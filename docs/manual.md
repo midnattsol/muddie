@@ -78,7 +78,7 @@ anything else is sent to the MUD.
 These are in English whatever the language of the interface, and Tab
 completes them.
 
-## Triggers, aliases and keys without scripting
+## The editor: triggers, aliases, macros, timers and scripts
 
 **Editor**, at the right of the top bar, takes the place of the game
 while you work on it; **Game**, Escape or Ctrl+E goes back, and the session
@@ -97,19 +97,14 @@ The three, and what else there is:
 
 - A **trigger** goes off when a line of output matches. Besides its action
   it can say something, play a sound, colour the matched text or hide the
-  line. `%1`, `%2`… in its commands are the groups of its pattern; a script
-  has them in `m`.
+  line, or show it in a panel. `%1`, `%2`… in its commands are the groups of
+  its pattern; a script has them in `m`.
 - An **alias** goes off when you type a command; `%1` is the rest of what
   was typed.
 - A **macro** goes off when a key is pressed. Press **Record a key** and then
   the key: function keys, combinations with Ctrl or Alt, and the keys of the
   numeric keypad can be used.
 - A **timer** goes off after a while: every so many seconds, or once.
-- A **gauge** is a bar that follows a number the MUD reports, such as your
-  health. Say where the value and its maximum are: a GMCP package and the
-  fields inside it (`Char.Vitals.health.current`), or the name of a MSDP
-  variable. Choose its colour, whether it is drawn as a row of cells, and the
-  level under which its numbers turn red. Alt+0 reads the gauges aloud.
 - **Scripts** are Luau code that is always loaded, for what no rule can do:
   building the map, acting on what the MUD reports. They are the profile's
   `.luau` files. The `+` offers examples to start from: a map the MUD draws
@@ -132,6 +127,37 @@ would do.
 
 They are saved in the profile's `rules.toml`. For anything more, see
 [scripting](scripting.md).
+
+## Panels
+
+Around the output there can be panels: the map, the gauges, and panels of
+text. A profile starts with one for the MUD's channels above, the map at the
+right and the gauges below. **View** lists them, each to show or hide.
+
+**View > Edit the layout…** is where they are made and placed, on the game
+itself:
+
+- **Add a panel** makes one: of text, the map, or the gauges.
+- Drag a panel by its handle (the six dots) to another side of the window, or
+  press one of the four small pictures beside its name. Drag its edge to size
+  it.
+- Its name can be changed there, and the cross removes it.
+- **Done**, or Escape, leaves the layout mode. The layout is kept with the
+  profile.
+
+What a panel of text shows comes from elsewhere. A trigger can show the lines
+it matches in a panel, and hide them from the output so that they are only
+there: that is how tells, or combat, get a panel of their own. A script can
+write to one with `panel_add(name, text)`, or put a whole text in it with
+`panel(name, text)`. A panel can also be told to show the MUD's channels,
+from the dots beside its name in the layout mode.
+
+The **gauges** are set up from their panel, in the layout mode. A gauge is a
+bar that follows a number the MUD reports, such as your health. Say where the
+value and its maximum are: a GMCP package and the fields inside it
+(`Char.Vitals.health.current`), or the name of a MSDP variable. Choose its
+colour, whether it is drawn as a row of cells, and the level under which its
+numbers turn red. Alt+0 reads the gauges aloud.
 
 ## The map
 
@@ -196,8 +222,7 @@ folder and then in `sounds` in the configuration folder.
   the session, and can be updated or removed. Only install what you trust: a
   plugin can send commands as you.
 
-They are saved in `settings.toml`, which also remembers whether the chat and
-map panels are shown.
+They are saved in `settings.toml`.
 
 ## Languages
 

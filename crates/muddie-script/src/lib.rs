@@ -60,6 +60,9 @@
 //!   strip; `gauge(name)` removes it. `options` may give a `colour`, a
 //!   `style` (`"segments"`) and `low`, a percentage to warn under.
 //! - `chat(text)`: add a line to the chat panel.
+//! - `panel_add(name, text)`: add `text` at the end of a panel, which keeps
+//!   what it had, as a log does. In a trigger, `to_panel(name)` adds the
+//!   line being looked at, with its colours.
 //! - `panel(name, text)`: show `text` (several lines, colours allowed) in
 //!   a panel of its own, replacing what it showed before; `panel(name)`
 //!   removes it. For anything the server sends ready to display, such as
@@ -156,6 +159,13 @@ pub enum Action {
     },
     /// Add a line to the chat panel.
     Chat(String),
+    /// Add lines to the end of a panel of text.
+    PanelAdd {
+        name: String,
+        text: String,
+    },
+    /// Add the line a trigger is looking at to a panel, colours and all.
+    ToPanel(String),
     /// Announce these GMCP modules to the server, as `"Name version"`.
     Supports(Vec<String>),
     /// Words to offer when completing, under a name; none removes them.
@@ -1720,6 +1730,24 @@ fn install_api(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
         "panel",
         lua.create_function(move |_, (name, text): (String, Option<String>)| {
             (shared.borrow_mut().actions).push(Action::Panel { name, text });
+            Ok(())
+        })?,
+    )?;
+
+    let shared = Rc::clone(state);
+    add(
+        "panel_add",
+        lua.create_function(move |_, (name, text): (String, String)| {
+            (shared.borrow_mut().actions).push(Action::PanelAdd { name, text });
+            Ok(())
+        })?,
+    )?;
+
+    let shared = Rc::clone(state);
+    add(
+        "to_panel",
+        lua.create_function(move |_, name: String| {
+            (shared.borrow_mut().actions).push(Action::ToPanel(name));
             Ok(())
         })?,
     )?;

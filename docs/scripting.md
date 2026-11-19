@@ -33,7 +33,8 @@ the module returns.
 | `echo(text)` | Shows a line in the output, and speaks it if speech is on. |
 | `speak(text, {interrupt = true})` | Says something through speech. |
 | `chat(text)` | Adds a line to the chat panel. Colour codes are allowed. |
-| `panel(name, text)` | Shows text in a panel of its own beside the map; `panel(name)` removes it. For anything the server sends ready to display, such as a map it draws. |
+| `panel(name, text)` | Puts `text` in a panel, in place of what it showed; `panel(name)` clears it. For anything the server sends ready to display, such as a map it draws. The panel is made, as one of text, if there is none of that name; `"map"` means the map's panel whatever it is called, and `"chat"` the one of the channels. |
+| `panel_add(name, text)` | Adds `text` at the end of a panel, which keeps what it had. In a trigger, `to_panel(name)` adds the line being looked at, with its colours. |
 | `gauge(name, value, max, options)` | Shows or updates a bar; `gauge(name)` removes it. `options` may give a `colour` (a name or `#rrggbb`), `style = "segments"` for a row of cells, and `low`, the percentage under which the numbers turn red. |
 | `play(file, {volume = 0.8, loop = false})` | Plays a sound, by path or by name in the profile's `sounds` folder. |
 | `stop_sounds()` | Stops every sound. |

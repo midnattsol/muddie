@@ -2,7 +2,7 @@
 //! script, in a list on the left with the selected one's details beside it.
 
 use super::*;
-use crate::rules::{Gauge, Timer, fill};
+use crate::rules::{Timer, fill};
 use crate::theme::Weight;
 use crate::widgets;
 
@@ -14,8 +14,7 @@ const TRIGGERS: usize = 0;
 const ALIASES: usize = 1;
 const MACROS: usize = 2;
 const TIMERS: usize = 3;
-const GAUGES: usize = 4;
-pub(super) const SCRIPTS: usize = 5;
+pub(super) const SCRIPTS: usize = 4;
 
 /// Scripts to start from: what each is for, its file name, its text.
 const EXAMPLES: [(&str, &str, &str); 5] = [
@@ -174,8 +173,12 @@ impl Tab {
                     .show(ui, |ui| tab.automation_detail(ui));
             });
         });
-        // Edits are saved by themselves once they stop for a moment, and
-        // when the window closes.
+        self.rules_autosave(ctx, open);
+    }
+
+    /// Saves what is being edited once the edits stop for a moment, and
+    /// at once when what they are made in closes.
+    pub(super) fn rules_autosave(&mut self, ctx: &egui::Context, open: bool) {
         if self.rules_draft != self.rules_seen {
             self.rules_seen = self.rules_draft.clone();
             self.rules_changed_at = Some(Instant::now());
@@ -231,7 +234,6 @@ impl Tab {
             self.rules_draft.aliases.len(),
             self.rules_draft.keys.len(),
             self.rules_draft.timers.len(),
-            self.rules_draft.gauges.len(),
             self.script_files.len(),
         ];
         let names = [
@@ -239,7 +241,6 @@ impl Tab {
             tr("Aliases"),
             tr("Macros"),
             tr("Timers"),
-            tr("Gauges"),
             tr("Scripts"),
         ];
         for (section, name) in names.into_iter().enumerate() {
@@ -424,15 +425,6 @@ impl Tab {
                     (
                         untitled(&rule.name, &rule.send, "New timer"),
                         detail,
-                        rule.enabled,
-                    )
-                })
-                .collect(),
-            GAUGES => (draft.gauges.iter())
-                .map(|rule| {
-                    (
-                        untitled(&rule.name, &rule.value, "New gauge"),
-                        rule.value.clone(),
                         rule.enabled,
                     )
                 })
@@ -708,15 +700,6 @@ impl Tab {
                 draft.timers.push(Timer::default());
                 draft.timers.len() - 1
             }
-            GAUGES => {
-                draft.gauges.push(Gauge {
-                    enabled: true,
-                    segments: true,
-                    low: 30,
-                    ..Gauge::default()
-                });
-                draft.gauges.len() - 1
-            }
             _ => return self.add_script(None),
         };
         self.rules_selected[self.rules_section] = index;
@@ -779,9 +762,6 @@ impl Tab {
                 }
                 MACROS => tr("A macro sends commands at the press of a key."),
                 TIMERS => tr("A timer does something after a while,\nonce or again and again."),
-                GAUGES => tr(
-                    "A gauge is a bar that follows a number the MUD reports,\nsuch as your health.",
-                ),
                 _ => tr(
                     "Scripts are Luau code that is always loaded: what no rule can do,\nsuch as building the map or acting on what your MUD reports.",
                 ),
@@ -797,7 +777,6 @@ impl Tab {
             ALIASES => self.alias_detail(ui, index),
             MACROS => self.macro_detail(ui, index),
             TIMERS => self.timer_detail(ui, index),
-            GAUGES => self.gauge_detail(ui, index),
             _ => self.script_detail(ui, index),
         };
         if delete {
@@ -807,16 +786,6 @@ impl Tab {
                 ALIASES => drop(draft.aliases.remove(index)),
                 MACROS => drop(draft.keys.remove(index)),
                 TIMERS => drop(draft.timers.remove(index)),
-                GAUGES => {
-                    // Take the bar off the screen too.
-                    let gone = draft.gauges.remove(index);
-                    let name = if gone.name.trim().is_empty() {
-                        gone.value
-                    } else {
-                        gone.name
-                    };
-                    self.gauges.set(name.trim(), None);
-                }
                 _ => {
                     let path = self.script_files[index].clone();
                     self.script_loaded = None;
@@ -837,6 +806,10 @@ impl Tab {
     }
 
     fn trigger_detail(&mut self, ui: &mut egui::Ui, index: usize) -> bool {
+        let text_panels: Vec<String> = (self.layout.panels.iter())
+            .filter(|panel| panel.kind == super::layout::Kind::Text)
+            .map(|panel| panel.name.clone())
+            .collect();
         let groups = self.rules_draft.group_names();
         let height = self.detail_height;
         let rule = &mut self.rules_draft.triggers[index];
@@ -902,6 +875,39 @@ impl Tab {
             columns[1].add_space(22.0);
             widgets::switch_row(&mut columns[1], &mut rule.gag, tr("Hide the line"));
         });
+        ui.horizontal(|ui| {
+            let name = ui
+                .label(RichText::new(tr("Show it in the panel")).color(theme::current().text_dim));
+            let shown = if rule.panel.trim().is_empty() {
+                tr("None").to_owned()
+            } else {
+                rule.panel.clone()
+            };
+            egui::ComboBox::from_id_salt("trigger panel")
+                .selected_text(shown)
+                .width(200.0)
+                .show_ui(ui, |ui| {
+                    if ui
+                        .selectable_label(rule.panel.trim().is_empty(), tr("None"))
+                        .clicked()
+                    {
+                        rule.panel.clear();
+                    }
+                    for panel in &text_panels {
+                        if ui.selectable_label(rule.panel == *panel, panel).clicked() {
+                            rule.panel.clone_from(panel);
+                        }
+                    }
+                })
+                .response
+                .labelled_by(name.id);
+        });
+        note(
+            ui,
+            tr(
+                "With the line hidden, it is only in the panel. Panels are made in View, Edit the layout.",
+            ),
+        );
         ui.add_space(6.0);
         widgets::caption(ui, tr("Try it"));
         widgets::text_box(ui, &mut self.rules_sample, tr("Paste a line from the MUD"));
@@ -1121,7 +1127,7 @@ impl Tab {
         delete
     }
 
-    fn gauge_detail(&mut self, ui: &mut egui::Ui, index: usize) -> bool {
+    pub(super) fn gauge_detail(&mut self, ui: &mut egui::Ui, index: usize) -> bool {
         let theme = theme::current();
         let rule = &mut self.rules_draft.gauges[index];
         let delete = rule_header(ui, &mut rule.name, &mut rule.enabled, tr("Name this gauge"));

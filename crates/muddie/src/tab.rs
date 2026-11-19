@@ -34,6 +34,7 @@ use crate::voice::Voice;
 use muddie_sound::{self as sound, Msp, Player};
 
 mod automation;
+mod layout;
 mod plugins;
 mod view;
 
@@ -70,15 +71,28 @@ pub struct Tab {
     scripts: Engine,
     gauges: Gauges,
     msdp_vitals: MsdpVitals,
-    chat: Output,
-    show_chat: bool,
+    /// The panels around the output, as they are and as they were saved.
+    layout: layout::Layout,
+    layout_saved: layout::Layout,
+    /// What each panel was given to show, by the panel's id.
+    panel_text: Vec<(u32, layout::TextContent)>,
+    /// The layout mode: panels are made, moved and removed.
+    editing_layout: bool,
+    /// The panel being dragged to another side, and one to be removed.
+    dragged_panel: Option<u32>,
+    removed_panel: Option<usize>,
+    /// The dialog of the gauges, and the one chosen in it.
+    gauges_open: bool,
+    gauge_selected: usize,
+    /// Stands in for the channels when no panel shows them.
+    no_chat: Output,
+    /// The line the triggers were last given, for those that show it in
+    /// a panel.
+    dispatched: Option<Line>,
     /// Shared with the script engine, which reads and edits it. No borrow
     /// may be held while calling into `scripts`.
     map: Rc<RefCell<Map>>,
     map_view: MapView,
-    show_map: bool,
-    /// Panels of text that scripts filled in, by name, in creation order.
-    text_panels: Vec<(String, Vec<Line>)>,
     /// The route being followed, if a walk is under way, and when it last
     /// made progress.
     walk: Option<(Walk, Instant)>,
@@ -265,12 +279,18 @@ impl Tab {
             scripts: Engine::new(Rc::clone(&map)).expect("failed to start the script runtime"),
             gauges: Gauges::default(),
             msdp_vitals: MsdpVitals::default(),
-            chat: Output::default(),
-            show_chat: settings.show_chat,
+            layout: layout::Layout::default(),
+            layout_saved: layout::Layout::default(),
+            panel_text: Vec::new(),
+            editing_layout: false,
+            dragged_panel: None,
+            removed_panel: None,
+            gauges_open: false,
+            gauge_selected: 0,
+            no_chat: Output::default(),
+            dispatched: None,
             map,
             map_view: MapView::default(),
-            show_map: settings.show_map,
-            text_panels: Vec::new(),
             walk: None,
             unread: false,
             settings: settings.clone(),
@@ -343,6 +363,7 @@ impl Tab {
             app.verify_certificate = target.verify_certificate;
             app.connect(ctx);
         }
+        app.load_layout();
         app.settings_changed(settings);
         app
     }
@@ -366,8 +387,11 @@ impl Tab {
         self.settings = settings.clone();
         self.output
             .restyle(settings.scrollback_lines, settings.timestamps);
-        self.chat
-            .restyle(settings.scrollback_lines, settings.timestamps);
+        for (_, content) in &mut self.panel_text {
+            content
+                .log
+                .restyle(settings.scrollback_lines, settings.timestamps);
+        }
         self.voice.set_rate(settings.speech_rate);
         self.voice.set_language(&settings.speech_language);
         self.voice
@@ -574,6 +598,7 @@ impl Tab {
         }
         self.profile_name = name.clone().unwrap_or_default();
         self.profile = name;
+        self.load_layout();
         self.load_scripts();
         true
     }
@@ -830,7 +855,11 @@ impl Tab {
                         .filter(|(fired, _)| *fired == text);
                     let shown = match settled {
                         Some((_, shown)) => shown,
-                        None => self.scripts.on_styled_line(&line),
+                        None => {
+                            let shown = self.scripts.on_styled_line(&line);
+                            self.dispatched = Some(shown.clone().unwrap_or_else(|| line.clone()));
+                            shown
+                        }
                     };
                     match shown {
                         Some(shown) => {
@@ -881,7 +910,7 @@ impl Tab {
                         }
                     } else if package.eq_ignore_ascii_case("Comm.Channel.Text") {
                         for line in panels::channel_text(&data) {
-                            self.chat.push(&line);
+                            self.channel_line(&line);
                         }
                     } else if package.eq_ignore_ascii_case("Room.Info") && self.scripts.native_map()
                     {
@@ -963,22 +992,15 @@ impl Tab {
                 }
                 Action::Walk(room) => self.walk_to(room),
                 Action::Entered(room) => self.arrived_in(room),
-                Action::Panel { name, text } => {
-                    let index = self
-                        .text_panels
-                        .iter()
-                        .position(|(panel, _)| *panel == name);
-                    match (index, text) {
-                        (Some(index), Some(text)) => {
-                            self.text_panels[index].1 = panels::styled_lines(&text);
-                        }
-                        (None, Some(text)) => {
-                            self.text_panels.push((name, panels::styled_lines(&text)));
-                        }
-                        (Some(index), None) => {
-                            self.text_panels.remove(index);
-                        }
-                        (None, None) => {}
+                Action::Panel { name, text } => self.show_in_panel(&name, text.as_deref()),
+                Action::PanelAdd { name, text } => {
+                    for line in panels::styled_lines(&text) {
+                        self.add_to_panel(&name, &line);
+                    }
+                }
+                Action::ToPanel(name) => {
+                    if let Some(line) = self.dispatched.clone() {
+                        self.add_to_panel(&name, &line);
                     }
                 }
                 Action::Supports(modules) => {
@@ -1006,7 +1028,7 @@ impl Tab {
                 }
                 Action::Chat(text) => {
                     for line in panels::styled_lines(&text) {
-                        self.chat.push(&line);
+                        self.channel_line(&line);
                     }
                 }
                 Action::PlaySound {
@@ -1169,7 +1191,8 @@ impl Tab {
     /// function key, before anything else gets to use the key.
     fn bound_keys(&mut self, ui: &mut egui::Ui) {
         if ui.input_mut(|input| input.consume_key(Modifiers::COMMAND, Key::M)) {
-            self.show_map = !self.show_map;
+            let shown = self.map_shown();
+            self.set_map_shown(!shown);
         }
         let pressed: Vec<(Key, Modifiers)> = ui.input(|input| {
             let keys = input.events.iter().filter_map(|event| match event {
@@ -1381,6 +1404,7 @@ impl Tab {
         };
         let text = line.text();
         let shown = self.scripts.on_styled_line(&line);
+        self.dispatched = Some(shown.clone().unwrap_or_else(|| line.clone()));
         match &shown {
             Some(shown) => self.output.set_partial(shown),
             None => {
@@ -1468,7 +1492,7 @@ impl Tab {
                     self.note(&format!("  {usage}  —  {}", tr(about)));
                 }
             }
-            "/map-show" | "/map-hide" => self.show_map = command == "/map-show",
+            "/map-show" | "/map-hide" => self.set_map_shown(command == "/map-show"),
             // Switches a group for this session, or lists them all.
             "/group" => {
                 let (name, wanted) = match argument.rsplit_once(' ') {
@@ -1753,51 +1777,22 @@ impl Tab {
         }
     }
 
-    /// The right-hand panel: text panels from scripts, then the map.
-    fn side_panel(&mut self, ui: &mut egui::Ui) -> Option<MapAction> {
+    /// What the map's panel shows: the map; failing that, what a script
+    /// put there, such as a map the MUD draws itself; failing that, why
+    /// there is nothing yet.
+    fn map_body(&mut self, ui: &mut egui::Ui, id: u32) -> Option<MapAction> {
         // What a drawing sent by the server has to fit in: the panel, less
         // its title.
         let room = ui.available_size() - egui::vec2(0.0, 22.0);
         self.panel_cells = Self::cells(ui, room);
-        let has_map = self.map.borrow().current().is_some();
-        let alone = self.text_panels.len() == 1 && !has_map;
-        for (index, (name, lines)) in self.text_panels.iter().enumerate() {
-            crate::widgets::caption(ui, name);
-            // Never wrapped: this is often a drawing made of characters,
-            // which is also why it is centred as one block.
-            let galleys: Vec<_> = lines
-                .iter()
-                .map(|line| ui.painter().layout_job(server_job(line)))
-                .collect();
-            let widest = galleys
-                .iter()
-                .map(|galley| galley.size().x)
-                .fold(0.0, f32::max);
-            let height: f32 = galleys.iter().map(|galley| galley.size().y).sum();
-            let left = ((ui.available_width() - widest) / 2.0).max(0.0);
-            if alone {
-                ui.add_space(((ui.available_height() - height) / 2.0).max(0.0));
-            }
-            ui.horizontal(|ui| {
-                ui.add_space(left);
-                ui.vertical(|ui| {
-                    ui.spacing_mut().item_spacing.y = 0.0;
-                    for galley in galleys {
-                        ui.add(Label::new(galley).extend());
-                    }
-                });
-            });
-            if index + 1 < self.text_panels.len() || has_map {
-                ui.add_space(6.0);
-                ui.separator();
-                ui.add_space(2.0);
-            }
-        }
-        let map = self.map.borrow();
-        if map.current().is_some() {
+        if self.map.borrow().current().is_some() {
+            let map = self.map.borrow();
             return self.map_view.show(ui, &map, self.walk.is_some());
         }
-        if !self.text_panels.is_empty() {
+        let drawn = !self.text_of(id).fixed.is_empty() || self.text_of(id).log.len() > 0;
+        if drawn {
+            crate::widgets::caption(ui, tr("Map"));
+            self.text_body(ui, id, true);
             return None;
         }
         // Nothing to show yet: say why, and where to go from here.
@@ -1815,7 +1810,7 @@ impl Tab {
             scripts = ui.button(tr("Set up a mapper…")).clicked();
             ui.add_space(4.0);
             if crate::widgets::quiet_button(ui, tr("Hide the map")).clicked() {
-                self.show_map = false;
+                self.set_map_shown(false);
             }
         });
         scripts.then_some(MapAction::Scripts)
@@ -2449,8 +2444,16 @@ mod tests {
         events.send(render).unwrap();
         harness.run_steps(3);
         let app = harness.state().tab();
-        assert_eq!(app.text_panels[0].0, "Map");
-        assert_eq!(app.text_panels[0].1.len(), 3);
+        // It is the map's own panel that shows it, not one more.
+        assert_eq!(app.layout.panels.len(), 3);
+        let map = app
+            .layout
+            .panels
+            .iter()
+            .find(|panel| panel.kind == layout::Kind::Map)
+            .unwrap();
+        let drawn = app.panel_text.iter().find(|(id, _)| *id == map.id).unwrap();
+        assert_eq!(drawn.1.fixed.len(), 3);
         assert!(harness.query_by_label("#-@-#").is_some());
     }
 
@@ -2547,8 +2550,8 @@ mod tests {
 
         let mut harness = window(None);
         let app = harness.state_mut().tab_mut();
-        assert!(app.map_command("/map hide") && !app.show_map);
-        assert!(app.map_command("/map show") && app.show_map);
+        assert!(app.map_command("/map hide") && !app.map_shown());
+        assert!(app.map_command("/map show") && app.map_shown());
         assert!(app.map_command("/help"));
         // Groups: listed, and switched for the session by name.
         app.scripts
@@ -2574,6 +2577,98 @@ mod tests {
         harness.key_press(Key::Tab);
         harness.run_steps(2);
         assert_eq!(harness.state().tab().input, "/map where");
+    }
+
+    #[test]
+    fn panels_are_kept_fed_by_triggers_and_moved_about() {
+        let dir = std::env::temp_dir().join(format!("muddie-app-panels-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let mut harness = window(Some(Profiles::at(dir.clone())));
+        let app = harness.state_mut().tab_mut();
+        // What a profile starts with.
+        let kinds: Vec<layout::Kind> = app.layout.panels.iter().map(|panel| panel.kind).collect();
+        assert_eq!(
+            kinds,
+            [layout::Kind::Text, layout::Kind::Map, layout::Kind::Gauges]
+        );
+        // A trigger shows its line in a panel, which is made if need be,
+        // and with the line hidden it is only there.
+        app.rules.triggers.push(Trigger {
+            enabled: true,
+            pattern: "tells you".into(),
+            panel: "Tells".into(),
+            gag: true,
+            ..Trigger::default()
+        });
+        for (name, code) in app.rules.chunks() {
+            app.scripts.exec(&name, &code);
+        }
+        let (events, _sent) = fake_connection(app);
+        let line = |text: &str| Event::Line(panels::styled_lines(text).remove(0));
+        events
+            .send(line("\x1b[33mAna tells you: hola\x1b[0m"))
+            .unwrap();
+        events.send(line("A plain line")).unwrap();
+        harness.run_steps(3);
+        let app = harness.state_mut().tab_mut();
+        let tells = app
+            .layout
+            .panels
+            .iter()
+            .find(|panel| panel.name == "Tells")
+            .expect("made")
+            .clone();
+        let content = &app
+            .panel_text
+            .iter()
+            .find(|(id, _)| *id == tells.id)
+            .unwrap()
+            .1;
+        assert_eq!(
+            (content.log.len(), content.log.text(0)),
+            (1, "Ana tells you: hola")
+        );
+        assert_eq!(output_lines(app), ["A plain line"]);
+        // The channels go to the panel that shows them.
+        app.channel_line(&panels::styled_lines("[ooc] Luis: buenas").remove(0));
+        let chat = app.layout.panels[0].id;
+        assert_eq!(
+            app.panel_text
+                .iter()
+                .find(|(id, _)| *id == chat)
+                .unwrap()
+                .1
+                .log
+                .len(),
+            1
+        );
+        // Moved to another side and hidden, it is all there the next time.
+        let index = app
+            .layout
+            .panels
+            .iter()
+            .position(|panel| panel.id == tells.id)
+            .unwrap();
+        app.layout.panels[index].side = layout::Side::Left;
+        app.set_map_shown(false);
+        harness.run_steps(3);
+        assert!(
+            harness.query_by_label("Where am I?").is_none(),
+            "the map is hidden"
+        );
+        let kept = layout::Layout::load(&dir.join("layout.toml")).unwrap();
+        assert_eq!(kept.panels[index].side, layout::Side::Left);
+        assert!(
+            !kept
+                .panels
+                .iter()
+                .any(|panel| panel.kind == layout::Kind::Map && panel.visible)
+        );
+        // Its size is as it was drawn, not a little more each time.
+        let before = harness.state().tab().layout.panels[index].size;
+        harness.run_steps(5);
+        assert_eq!(harness.state().tab().layout.panels[index].size, before);
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
@@ -2828,12 +2923,9 @@ mod tests {
         for line in
             panels::styled_lines("\x1b[33m[ooc] Ana: hola a todos\x1b[0m\n[ooc] Luis: buenas")
         {
-            app.chat.push(&line);
+            app.channel_line(&line);
         }
-        app.text_panels.push((
-            "Minimapa".into(),
-            panels::styled_lines("  #\n#-\x1b[1;33m@\x1b[0m-#\n  #"),
-        ));
+        app.show_in_panel("Minimapa", Some("  #\n#-\x1b[1;33m@\x1b[0m-#\n  #"));
         app.input = "matar orco".into();
         {
             let mut map = app.map.borrow_mut();
@@ -3020,19 +3112,6 @@ mod tests {
         rules.run_steps(3);
         save(&mut rules, "macros");
         let app = rules.state_mut().tab_mut();
-        app.rules_draft.gauges.push(crate::rules::Gauge {
-            name: "Salud".into(),
-            enabled: true,
-            value: "Char.Vitals.health.current".into(),
-            max: "Char.Vitals.health.max".into(),
-            colour: "red".into(),
-            segments: true,
-            low: 30,
-        });
-        app.rules_section = 4;
-        rules.run_steps(3);
-        save(&mut rules, "gauges");
-        let app = rules.state_mut().tab_mut();
         app.rules_draft.timers.push(crate::rules::Timer {
             name: "Guardar".into(),
             tenths: 3000,
@@ -3061,6 +3140,30 @@ mod tests {
             .show_local("Bienvenido a Fimbulvetr.");
         unmapped.run_steps(3);
         save(&mut unmapped, "unmapped");
+        // The layout mode, and the gauges made from it.
+        let mut layout = connected_demo_window();
+        layout.set_size(egui::vec2(1500.0, 900.0));
+        let app = layout.state_mut().tab_mut();
+        app.editing_layout = true;
+        app.add_to_panel(
+            "Combate",
+            &panels::styled_lines("\x1b[31mUn orco te ataca\x1b[0m con su hacha.").remove(0),
+        );
+        layout.run_steps(4);
+        save(&mut layout, "layout");
+        let app = layout.state_mut().tab_mut();
+        app.open_gauges();
+        app.rules_draft.gauges.push(crate::rules::Gauge {
+            name: "Salud".into(),
+            enabled: true,
+            value: "Char.Vitals.health.current".into(),
+            max: "Char.Vitals.health.max".into(),
+            colour: "red".into(),
+            segments: true,
+            low: 30,
+        });
+        layout.run_steps(4);
+        save(&mut layout, "gauges");
         // The command line with nothing typed in it.
         let mut empty = connected_demo_window();
         empty.state_mut().tab_mut().input.clear();

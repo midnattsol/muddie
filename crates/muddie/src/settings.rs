@@ -93,9 +93,6 @@ pub struct Settings {
     /// Leave a command in the command line after sending it, selected:
     /// Enter sends it again, and typing replaces it.
     pub keep_command: bool,
-    /// Whether the chat and the map have their panels, as last chosen.
-    pub show_chat: bool,
-    pub show_map: bool,
     /// The widths of the automation view's first two panes.
     pub automation_panes: [f32; 2],
 }
@@ -121,8 +118,6 @@ impl Default for Settings {
             reconnect: true,
             keepalive_seconds: 60,
             keep_command: true,
-            show_chat: true,
-            show_map: true,
             automation_panes: [190.0, 320.0],
         }
     }

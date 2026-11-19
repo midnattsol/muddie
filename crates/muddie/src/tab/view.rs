@@ -29,95 +29,52 @@ impl Tab {
                 &summary
             });
         }
-        self.voice.update(ui, &self.output, &self.chat);
+        // The channels to read back are those of the panel that shows them.
+        let channels = (self.layout.panels.iter()).find(|panel| panel.channels);
+        let chat = channels
+            .and_then(|panel| self.panel_text.iter().find(|(id, _)| *id == panel.id))
+            .map_or(&self.no_chat, |(_, content)| &content.log);
+        self.voice.update(ui, &self.output, chat);
         if !self.started {
             return self.welcome(ui);
         }
-        let theme = theme::current();
-        // What is read sits in rounded wells on the window's chrome.
-        let well = |left: i8, right: i8| {
-            egui::Frame::new()
-                .fill(theme.background)
-                .corner_radius(egui::CornerRadius::same(12))
-                .inner_margin(egui::Margin::symmetric(14, 10))
-                .outer_margin(egui::Margin {
-                    left,
-                    right,
-                    top: 4,
-                    bottom: 4,
-                })
-        };
+        // Escape leaves the layout mode.
+        if self.editing_layout
+            && !self.gauges_open
+            && ui.input_mut(|input| input.consume_key(Modifiers::NONE, Key::Escape))
+        {
+            self.editing_layout = false;
+        }
+        if self.editing_layout {
+            self.layout_bar(ui);
+        }
         let plain = egui::Frame::new().inner_margin(egui::Margin {
             left: 8,
             right: 8,
             top: 4,
             bottom: 8,
         });
-        if self.show_chat && self.chat.len() > 0 {
-            Panel::top("chat")
-                .frame(well(8, 8))
-                .show_separator_line(false)
-                .resizable(true)
-                .default_size(96.0)
-                .min_size(56.0)
-                .show(ui, |ui| {
-                    widgets::caption(ui, tr("Chat"));
-                    self.chat.show(ui, "chat");
-                });
-        }
+        // The command line is always at the bottom, under any panel.
         Panel::bottom("input")
             .frame(plain)
             .show_separator_line(false)
             .show(ui, |ui| {
-                if !self.gauges.is_empty() {
-                    self.gauges.show(ui);
-                    ui.add_space(2.0);
-                }
                 if self.find_open {
                     self.find_bar(ui);
                 }
                 self.announce(ui);
                 self.input_line(ui);
             });
-        if self.show_map {
-            let action = Panel::right("map")
-                .frame(well(4, 8))
-                .show_separator_line(false)
-                .resizable(true)
-                .default_size(330.0)
-                .min_size(200.0)
-                .show(ui, |ui| self.side_panel(ui))
-                .inner;
-            match action {
-                Some(MapAction::Walk(room)) => self.walk_to(room),
-                Some(MapAction::Tidy(area)) => self.tidy(&area),
-                Some(MapAction::Scripts) => self.open_automation(automation::SCRIPTS),
-                Some(MapAction::Command(command)) => {
-                    self.map_command(command);
-                }
-                Some(MapAction::Avoid(room, avoid)) => {
-                    let saved = self.map.borrow_mut().set_avoid(room, avoid);
-                    if let Err(error) = saved {
-                        self.note(&trf("Could not save the map: {0}", &[&error.to_string()]));
-                    }
-                }
-                Some(MapAction::Move(room, pos)) => {
-                    let saved = self.map.borrow_mut().move_room(room, pos);
-                    if let Err(error) = saved {
-                        self.note(&trf("Could not save the map: {0}", &[&error.to_string()]));
-                    }
-                }
-                None => {}
-            }
-        }
-        if !self.show_map {
-            // No panel yet: what a script would get if it opened one.
-            let room = egui::vec2(330.0 - 28.0, ui.available_height() - 50.0);
-            self.panel_cells = Self::cells(ui, room);
-        }
+        let asked = self.show_panels(ui);
+        self.map_asked(asked);
         self.report_panel(ui.ctx());
-        let right = if self.show_map { 4 } else { 8 };
-        let frame = well(8, right);
+        // The output takes what the panels leave.
+        let sides =
+            |side| (self.layout.panels.iter()).any(|panel| panel.visible && panel.side == side);
+        let frame = layout::well(
+            if sides(layout::Side::Left) { 4 } else { 8 },
+            if sides(layout::Side::Right) { 4 } else { 8 },
+        );
         let clicked = CentralPanel::default()
             .frame(frame)
             .show(ui, |ui| self.output.show(ui, "output"));
@@ -309,9 +266,29 @@ impl Tab {
         !self.host.trim().is_empty()
     }
 
-    /// Which panels are shown: the chat's and the map's.
-    pub fn panels_shown(&self) -> (bool, bool) {
-        (self.show_chat, self.show_map)
+    /// Does what was asked of the map in its panel.
+    fn map_asked(&mut self, asked: Option<MapAction>) {
+        match asked {
+            Some(MapAction::Walk(room)) => self.walk_to(room),
+            Some(MapAction::Tidy(area)) => self.tidy(&area),
+            Some(MapAction::Scripts) => self.open_automation(automation::SCRIPTS),
+            Some(MapAction::Command(command)) => {
+                self.map_command(command);
+            }
+            Some(MapAction::Avoid(room, avoid)) => {
+                let saved = self.map.borrow_mut().set_avoid(room, avoid);
+                if let Err(error) = saved {
+                    self.note(&trf("Could not save the map: {0}", &[&error.to_string()]));
+                }
+            }
+            Some(MapAction::Move(room, pos)) => {
+                let saved = self.map.borrow_mut().move_room(room, pos);
+                if let Err(error) = saved {
+                    self.note(&trf("Could not save the map: {0}", &[&error.to_string()]));
+                }
+            }
+            None => {}
+        }
     }
 
     /// The widths of the automation view's panes, as last dragged.
@@ -398,11 +375,7 @@ impl Tab {
 
     /// The session's entries of the View menu.
     pub fn view_menu(&mut self, ui: &mut egui::Ui) {
-        widgets::menu_check(ui, &mut self.show_chat, tr("Chat panel"));
-        let mut shown = self.show_map;
-        if widgets::menu_row_with_shortcut(ui, &mut shown, tr("Show the map"), "Ctrl+M").changed() {
-            self.show_map = shown;
-        }
+        self.panels_menu(ui);
         widgets::menu_separator(ui);
         if widgets::menu_item(ui, tr("Find…"), "Ctrl+F").clicked() {
             self.find_open = true;

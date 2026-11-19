@@ -200,6 +200,14 @@ impl Profiles {
         }
     }
 
+    /// Where the panels and their places are kept.
+    pub fn layout_path(&self, name: Option<&str>) -> PathBuf {
+        match name {
+            Some(name) => self.profile_dir(name).join("layout.toml"),
+            None => self.dir.join("layout.toml"),
+        }
+    }
+
     /// Where the triggers, aliases and keys made in the interface are kept.
     pub fn rules_path(&self, name: Option<&str>) -> PathBuf {
         match name {

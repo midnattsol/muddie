@@ -61,9 +61,6 @@ msgstr "Mostrar la hora de cada línea"
 msgid "Log every session"
 msgstr "Registrar todas las sesiones"
 
-msgid "Text"
-msgstr "Texto"
-
 msgid "Connection"
 msgstr "Conexión"
 
@@ -165,12 +162,6 @@ msgstr "No se pudo leer la contraseña del llavero: {0}"
 
 msgid "Scripts reloaded."
 msgstr "Scripts recargados."
-
-msgid "Map"
-msgstr "Mapa"
-
-msgid "Chat"
-msgstr "Chat"
 
 msgid "Character"
 msgstr "Personaje"
@@ -500,9 +491,6 @@ msgstr "Conexión…"
 msgid "Log this session"
 msgstr "Registrar esta sesión"
 
-msgid "Chat panel"
-msgstr "Panel de chat"
-
 msgid "Find…"
 msgstr "Buscar…"
 
@@ -748,9 +736,6 @@ msgstr "Grafito"
 msgid "Resize"
 msgstr "Redimensionar"
 
-msgid "Show the map"
-msgstr "Mostrar el mapa"
-
 msgid "No map yet"
 msgstr "Aún no hay mapa"
 
@@ -990,9 +975,6 @@ msgstr ""
 "Un disparador reacciona a lo que envía el MUD:\n"
 "puede responder, hablar, reproducir un sonido, colorear u ocultar la línea."
 
-msgid "Gauges"
-msgstr "Indicadores"
-
 msgid "Timers"
 msgstr "Temporizadores"
 
@@ -1113,4 +1095,95 @@ msgstr "Lista los grupos de reglas y si están activados"
 
 msgid "Switches a group on or off for this session"
 msgstr "Activa o desactiva un grupo durante esta sesión"
+
+msgid "Show it in the panel"
+msgstr "Mostrarla en el panel"
+
+msgid "With the line hidden, it is only in the panel. Panels are made in View, Edit the layout."
+msgstr "Con la línea oculta, solo sale en el panel. Los paneles se crean en Ver, Editar la disposición."
+
+#, python-brace-format
+msgid "Could not load the panels: {0}"
+msgstr "No se pudieron cargar los paneles: {0}"
+
+#, python-brace-format
+msgid "Could not save the panels: {0}"
+msgstr "No se pudieron guardar los paneles: {0}"
+
+msgid "Edit the layout…"
+msgstr "Editar la disposición…"
+
+msgid "Editing the layout"
+msgstr "Editando la disposición"
+
+msgid "Drag a panel by its handle to another side, and its edge to size it."
+msgstr "Arrastra un panel por su tirador a otro lado, y su borde para darle tamaño."
+
+msgid "Done"
+msgstr "Listo"
+
+msgid "Add a panel"
+msgstr "Añadir un panel"
+
+msgid "Lines sent to it by triggers and scripts"
+msgstr "Líneas que le envían los disparadores y los scripts"
+
+msgid "The map of where you are"
+msgstr "El mapa de donde estás"
+
+msgid "Bars that follow your health and the like"
+msgstr "Barras que siguen tu vida y cosas así"
+
+msgid "Panel"
+msgstr "Panel"
+
+#, python-brace-format
+msgid "Move {0}"
+msgstr "Mover {0}"
+
+msgid "At the left"
+msgstr "A la izquierda"
+
+msgid "At the right"
+msgstr "A la derecha"
+
+msgid "Above"
+msgstr "Arriba"
+
+msgid "Below"
+msgstr "Abajo"
+
+msgid "Show the MUD's channels here"
+msgstr "Mostrar aquí los canales del MUD"
+
+msgid "Gauges…"
+msgstr "Indicadores…"
+
+#, python-brace-format
+msgid "Remove {0}"
+msgstr "Quitar {0}"
+
+msgid "No gauges yet. They appear when the MUD reports your health and the like."
+msgstr "Aún no hay indicadores. Aparecen cuando el MUD informa de tu vida y cosas así."
+
+msgid "Set them up…"
+msgstr "Configurarlos…"
+
+msgid "Nothing here yet. A trigger can show lines in this panel, and so can a script."
+msgstr "Aún no hay nada. Un disparador puede mostrar líneas en este panel, y también un script."
+
+msgid "New gauge"
+msgstr "Indicador nuevo"
+
+msgid "Text"
+msgstr "Texto"
+
+msgid "Gauges"
+msgstr "Indicadores"
+
+msgid "Map"
+msgstr "Mapa"
+
+msgid "Chat"
+msgstr "Chat"
 
