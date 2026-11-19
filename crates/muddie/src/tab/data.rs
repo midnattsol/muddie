@@ -461,7 +461,7 @@ look at it to know what a gauge can follow or a script can use.");
             );
         }
         ui.add_space(6.0);
-        widgets::caption(ui, tr("As it came"));
+        widgets::caption(ui, tr("Raw message"));
         let pretty = serde_json::to_string_pretty(&value).unwrap_or_default();
         let mut raw = if seen.json.is_empty() {
             ""
@@ -478,7 +478,7 @@ look at it to know what a gauge can follow or a script can use.");
         );
         if !seen.earlier.is_empty() {
             ui.add_space(6.0);
-            widgets::caption(ui, tr("Before that"));
+            widgets::caption(ui, tr("History"));
             for (at, json) in &seen.earlier {
                 let line = format!("{at}  {json}");
                 ui.add(

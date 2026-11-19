@@ -1207,12 +1207,6 @@ msgstr "Copiar la ruta"
 msgid "A path is what a gauge follows, and what a script reads after gmcp(\"…\")."
 msgstr "Una ruta es lo que sigue un indicador, y lo que un script lee tras gmcp(\"…\")."
 
-msgid "As it came"
-msgstr "Tal como llegó"
-
-msgid "Before that"
-msgstr "Antes de eso"
-
 msgid "Debug"
 msgstr "Depuración"
 
@@ -1403,4 +1397,10 @@ msgstr "Vaciar"
 
 msgid "Nothing has come since this view was opened."
 msgstr "No ha llegado nada desde que se abrió esta vista."
+
+msgid "Raw message"
+msgstr "Mensaje original"
+
+msgid "History"
+msgstr "Historial"
 
