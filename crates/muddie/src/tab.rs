@@ -274,6 +274,7 @@ impl Tab {
         self.chat
             .restyle(settings.scrollback_lines, settings.timestamps);
         self.voice.set_rate(settings.speech_rate);
+        self.voice.set_language(&settings.speech_language);
     }
 
     /// The part of the settings window that belongs to sessions.
@@ -337,6 +338,18 @@ impl Tab {
                 let label = ui.label(tr("Speech rate"));
                 ui.add(egui::Slider::new(&mut settings.speech_rate, -100..=100))
                     .labelled_by(label.id);
+                ui.end_row();
+
+                let label = ui.label(tr("Speech language"));
+                ui.add(
+                    TextEdit::singleline(&mut settings.speech_language)
+                        .hint_text(tr("system"))
+                        .desired_width(70.0),
+                )
+                .on_hover_text(tr(
+                    "A language code such as es or en, so the text is read with the right voice.",
+                ))
+                .labelled_by(label.id);
                 ui.end_row();
             });
     }

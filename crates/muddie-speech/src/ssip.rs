@@ -58,6 +58,10 @@ impl Connection {
         self.command(&format!("SET self RATE {rate}"))
     }
 
+    pub fn set_language(&mut self, code: &str) -> io::Result<()> {
+        self.command(&format!("SET self LANGUAGE {code}"))
+    }
+
     fn command(&mut self, command: &str) -> io::Result<()> {
         self.writer.write_all(format!("{command}\r\n").as_bytes())?;
         self.reply()

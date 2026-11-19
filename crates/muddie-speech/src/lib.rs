@@ -17,6 +17,9 @@ enum Request {
     Stop,
     /// Speech rate from -100 to 100; 0 is the voice's default.
     Rate(i32),
+    /// Language to speak in, as a code such as `es`; empty for the
+    /// system's default.
+    Language(String),
 }
 
 /// Handle to the speech thread. Calls never block; dropping it ends the
@@ -45,6 +48,16 @@ impl Speech {
         let _ = self.requests.send(Request::Rate(rate.clamp(-100, 100)));
     }
 
+    /// Chooses the language to speak in, by its code (`es`, `en-GB`...).
+    /// An empty code goes back to the system's default.
+    pub fn set_language(&self, code: &str) {
+        // Only what a language code can hold, as it goes into a command.
+        let code: String = (code.trim().chars())
+            .filter(|ch| ch.is_ascii_alphanumeric() || *ch == '-')
+            .collect();
+        let _ = self.requests.send(Request::Language(code));
+    }
+
     /// Silences the current and all queued speech.
     pub fn stop(&self) {
         let _ = self.requests.send(Request::Stop);
@@ -66,6 +79,8 @@ fn worker(requests: Receiver<Request>) {
                 Request::Say(text) => open.speak(text)?,
                 Request::Stop => open.cancel()?,
                 Request::Rate(rate) => open.set_rate(*rate)?,
+                Request::Language(code) if code.is_empty() => {}
+                Request::Language(code) => open.set_language(code)?,
             }
             Ok(open)
         });
@@ -106,6 +121,22 @@ fn worker(requests: Receiver<Request>) {
                 };
                 tts.set_rate(normal + span * share).map(drop)
             }
+            Request::Language(code) if code.is_empty() => Ok(()),
+            // The first installed voice of that language, if there is one.
+            Request::Language(code) => tts.voices().and_then(|voices| {
+                let wanted = code.to_lowercase();
+                let voice = (voices.iter()).find(|voice| {
+                    voice
+                        .language()
+                        .to_string()
+                        .to_lowercase()
+                        .starts_with(&wanted)
+                });
+                match voice {
+                    Some(voice) => tts.set_voice(voice),
+                    None => Ok(()),
+                }
+            }),
         };
         if let Err(error) = result {
             eprintln!("muddie: speech unavailable: {error}");

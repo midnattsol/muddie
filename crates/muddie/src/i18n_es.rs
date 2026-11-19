@@ -293,4 +293,10 @@ pub const SPANISH: &[(&str, &str)] = &[
         "{0} (n.º {1}) en {2}. Salidas: {3}.",
     ),
     ("Script error: {0}", "Error de script: {0}"),
+    ("Speech language", "Idioma de la voz"),
+    ("system", "sistema"),
+    (
+        "A language code such as es or en, so the text is read with the right voice.",
+        "Un código de idioma como es o en, para que el texto se lea con la voz adecuada.",
+    ),
 ];

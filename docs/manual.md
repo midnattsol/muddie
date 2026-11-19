@@ -110,8 +110,9 @@ speech-dispatcher on Linux, the system voices on Windows and macOS.
 | Alt+Shift with the same keys | The same for the chat panel |
 | Alt+0 | Reads the gauges |
 
-Sending a command silences what was still queued. The rate is in the
-settings.
+Sending a command silences what was still queued. The rate and the language
+of the voice are in the settings; set the language (`es`, `en`...) to that of
+the MUD, so its text is read with the right voice.
 
 ## Sound
 
@@ -123,7 +124,7 @@ folder and then in `sounds` in the configuration folder.
 
 **Settings**, at the right of the tab strip: theme (dark, light, high
 contrast), language, text size and font, lines kept, timestamps, logging,
-reconnection, keep-alive and speech rate. They are saved in `settings.toml`.
+reconnection, keep-alive, and the rate and language of speech. They are saved in `settings.toml`.
 
 ## Protocols
 

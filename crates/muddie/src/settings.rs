@@ -50,6 +50,9 @@ pub struct Settings {
     /// Speech rate from -100 (slowest) to 100 (fastest); 0 is the voice's
     /// own default.
     pub speech_rate: i32,
+    /// Language code the voice speaks in, such as `es`; empty for the
+    /// system's default.
+    pub speech_language: String,
     /// Write everything shown in a session to a log file.
     pub log_sessions: bool,
     pub log_format: LogFormat,
@@ -70,6 +73,7 @@ impl Default for Settings {
             font_file: String::new(),
             scrollback_lines: 20_000,
             speech_rate: 0,
+            speech_language: String::new(),
             log_sessions: false,
             log_format: LogFormat::default(),
             timestamps: false,

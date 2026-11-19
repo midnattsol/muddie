@@ -32,6 +32,8 @@ pub struct Voice {
     ctrl_was_down: bool,
     /// Speech rate from -100 to 100, applied whenever speech is on.
     rate: i32,
+    /// Language code to speak in; empty for the system's default.
+    language: String,
 }
 
 impl Voice {
@@ -45,8 +47,17 @@ impl Voice {
         }
         self.speech = enabled.then(Speech::start);
         self.set_rate(self.rate);
+        let language = self.language.clone();
+        self.set_language(&language);
         self.narrator = Narrator::default();
         self.say(tr("Speech on."));
+    }
+
+    pub fn set_language(&mut self, code: &str) {
+        self.language = code.to_owned();
+        if let Some(speech) = &self.speech {
+            speech.set_language(code);
+        }
     }
 
     pub fn set_rate(&mut self, rate: i32) {
