@@ -1,5 +1,6 @@
 mod app;
 mod history;
+mod mapview;
 mod output;
 mod palette;
 mod panels;

@@ -6,10 +6,12 @@ use std::time::Instant;
 
 use eframe::egui::{self, CentralPanel, Key, Modifiers, Panel, TextEdit};
 use muddie_core::{Command, Config, Event, Session, Target, connect};
+use muddie_mapper::{Map, Progress, RoomId, RoomInfo, Walk};
 use muddie_script::{Action, Engine};
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::history::History;
+use crate::mapview::MapView;
 use crate::output::Output;
 use crate::palette;
 use crate::panels::{self, Gauges, MsdpVitals};
@@ -35,6 +37,34 @@ pub struct App {
     msdp_vitals: MsdpVitals,
     chat: Output,
     show_chat: bool,
+    map: Map,
+    map_view: MapView,
+    show_map: bool,
+    /// The route being followed, if a walk is under way.
+    walk: Option<Walk>,
+}
+
+/// Most rooms listed when a search matches several.
+const MAX_LISTED_ROOMS: usize = 10;
+
+/// Where the map of the MUD at `host:port` is stored, creating the folder.
+fn map_path(host: &str, port: u16) -> Option<PathBuf> {
+    let data_dir = std::env::var_os("XDG_DATA_HOME")
+        .or_else(|| std::env::var_os("APPDATA"))
+        .map(PathBuf::from)
+        .or_else(|| Some(PathBuf::from(std::env::var_os("HOME")?).join(".local/share")))?;
+    let maps = data_dir.join("muddie").join("maps");
+    std::fs::create_dir_all(&maps).ok()?;
+    let safe_host: String = (host.chars())
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || ch == '.' || ch == '-' {
+                ch
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    Some(maps.join(format!("{safe_host}_{port}.sqlite")))
 }
 
 /// What to do when the window opens.
@@ -67,6 +97,10 @@ impl App {
             msdp_vitals: MsdpVitals::default(),
             chat: Output::default(),
             show_chat: true,
+            map: Map::in_memory(),
+            map_view: MapView::default(),
+            show_map: true,
+            walk: None,
         };
         app.voice.set_enabled(startup.speech);
         for script in &startup.scripts {
@@ -93,6 +127,19 @@ impl App {
             return;
         }
         self.note(&format!("Connecting to {host}:{port}..."));
+        self.walk = None;
+        let stored = map_path(&host, port).map(|path| Map::open(&path));
+        self.map = match stored {
+            Some(Ok(map)) => map,
+            Some(Err(error)) => {
+                self.note(&format!("The map will not be saved: {error}"));
+                Map::in_memory()
+            }
+            None => {
+                self.note("The map will not be saved: no data folder was found.");
+                Map::in_memory()
+            }
+        };
         let target = Target {
             host,
             port,
@@ -174,6 +221,8 @@ impl App {
                         for line in panels::channel_text(&data) {
                             self.chat.push(&line);
                         }
+                    } else if package.eq_ignore_ascii_case("Room.Info") {
+                        self.entered_room(&data);
                     }
                     self.scripts.on_gmcp(&package, &data);
                     self.run_actions();
@@ -182,11 +231,15 @@ impl App {
                     if let Some((name, value, max)) = self.msdp_vitals.update(&variable, &data) {
                         self.gauges.set(name, Some((value, max)));
                     }
+                    if variable == "ROOM" {
+                        self.entered_room(&data);
+                    }
                     self.scripts.on_msdp(&variable, &data);
                     self.run_actions();
                 }
                 Event::Mssp(status) => self.scripts.on_mssp(&status),
                 Event::Disconnected(error) => {
+                    self.walk = None;
                     self.gauges.clear();
                     self.msdp_vitals.clear();
                     self.note(&match error {
@@ -223,6 +276,7 @@ impl App {
                     }
                 }
                 Action::Gauge { name, level } => self.gauges.set(&name, level),
+                Action::Walk(room) => self.walk_to(room),
                 Action::Chat(text) => {
                     for line in panels::styled_lines(&text) {
                         self.chat.push(&line);
@@ -245,6 +299,114 @@ impl App {
         }
     }
 
+    /// The server reported the room the player is in.
+    fn entered_room(&mut self, json: &str) {
+        let Some(info) = RoomInfo::from_json(json) else {
+            return;
+        };
+        let room = info.id;
+        if let Err(error) = self.map.visit(info) {
+            self.note(&format!("Could not save the map: {error}"));
+        }
+        if let Some(walk) = &mut self.walk {
+            let progress = walk.entered(room);
+            self.follow(progress);
+        }
+    }
+
+    fn walk_to(&mut self, room: RoomId) {
+        let Some(from) = self.map.current().map(|current| current.id) else {
+            return self.note("The map does not know where you are yet.");
+        };
+        let Some(route) = self.map.route(from, room) else {
+            return self.note("No known route to that room.");
+        };
+        let walk = Walk::new(route);
+        let progress = walk.start();
+        self.walk = Some(walk);
+        self.follow(progress);
+    }
+
+    fn follow(&mut self, progress: Progress) {
+        match progress {
+            Progress::Go(direction) => self.send(direction),
+            Progress::Arrived => {
+                self.walk = None;
+                self.note("Arrived.");
+            }
+            Progress::Lost => {
+                self.walk = None;
+                self.note("Walk stopped: this is not the room the route expected.");
+            }
+        }
+    }
+
+    /// Handles the client's own map commands. Returns false if `line` is
+    /// not one of them.
+    fn map_command(&mut self, line: &str) -> bool {
+        let (command, argument) = line.split_once(' ').unwrap_or((line, ""));
+        let argument = argument.trim();
+        match command {
+            "/where" => match self.map.current() {
+                Some(room) => {
+                    let exits: Vec<&str> = room.exits.keys().map(String::as_str).collect();
+                    let text = format!(
+                        "{} (#{}) in {}. Exits: {}.",
+                        room.name,
+                        room.id,
+                        room.area,
+                        exits.join(", ")
+                    );
+                    self.note(&text);
+                }
+                None => self.note("The map does not know where you are yet."),
+            },
+            "/find" if !argument.is_empty() => {
+                let rooms = self.matching_rooms(argument);
+                if rooms.is_empty() {
+                    self.note("No room matches.");
+                }
+                rooms.iter().for_each(|room| self.note(room));
+            }
+            "/go" if !argument.is_empty() => {
+                if let Ok(room) = argument.parse::<RoomId>() {
+                    self.walk_to(room);
+                } else {
+                    let found: Vec<RoomId> = (self.map.find(argument).iter())
+                        .map(|room| room.id)
+                        .collect();
+                    match found[..] {
+                        [] => self.note("No room matches."),
+                        [room] => self.walk_to(room),
+                        _ => {
+                            self.note("Several rooms match; use /go with a room number:");
+                            let rooms = self.matching_rooms(argument);
+                            rooms.iter().for_each(|room| self.note(room));
+                        }
+                    }
+                }
+            }
+            "/stop" => {
+                let stopped = self.walk.take().is_some();
+                self.note(if stopped {
+                    "Walk stopped."
+                } else {
+                    "Not walking."
+                });
+            }
+            _ => return false,
+        }
+        true
+    }
+
+    /// Up to [`MAX_LISTED_ROOMS`] rooms matching `query`, one line each.
+    fn matching_rooms(&self, query: &str) -> Vec<String> {
+        (self.map.find(query).iter())
+            .take(MAX_LISTED_ROOMS)
+            .map(|room| format!("#{}: {} ({})", room.id, room.name, room.area))
+            .collect()
+    }
+
     fn submit(&mut self) {
         let line = std::mem::take(&mut self.input);
         // What follows answers this command, so drop what was still queued.
@@ -254,8 +416,10 @@ impl App {
             self.send(line);
         } else {
             self.history.add(&line);
-            self.scripts.on_input(&line);
-            self.run_actions();
+            if !self.map_command(&line) {
+                self.scripts.on_input(&line);
+                self.run_actions();
+            }
         }
     }
 
@@ -279,6 +443,7 @@ impl App {
                 self.connect(ui.ctx());
             }
             ui.checkbox(&mut self.show_chat, "Chat");
+            ui.checkbox(&mut self.show_map, "Map");
             let mut speech = self.voice.enabled();
             if ui.checkbox(&mut speech, "Speech").changed() {
                 self.voice.set_enabled(speech);
@@ -356,6 +521,17 @@ impl eframe::App for App {
             }
             self.input_line(ui);
         });
+        if self.show_map && self.map.current().is_some() {
+            let clicked = Panel::right("map")
+                .resizable(true)
+                .default_size(320.0)
+                .min_size(160.0)
+                .show(ui, |ui| self.map_view.show(ui, &self.map))
+                .inner;
+            if let Some(room) = clicked {
+                self.walk_to(room);
+            }
+        }
         CentralPanel::default().show(ui, |ui| self.output.show(ui));
     }
 }

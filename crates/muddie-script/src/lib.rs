@@ -27,6 +27,7 @@
 //! - `gauge(name, value, max)`: show or update a bar in the status strip;
 //!   `gauge(name)` removes it.
 //! - `chat(text)`: add a line to the chat panel.
+//! - `walk(room)`: walk to the room with that number, using the map.
 //! - `cancel(id)`: remove the trigger, alias, timer or GMCP handler with the
 //!   id that the functions above returned.
 
@@ -67,6 +68,8 @@ pub enum Action {
     },
     /// Add a line to the chat panel.
     Chat(String),
+    /// Walk to the room with this number.
+    Walk(i64),
     /// Send an MSDP message such as `REPORT` with variable names.
     Msdp {
         variable: String,
@@ -591,6 +594,15 @@ fn install_api(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
 
     let shared = Rc::clone(state);
     add(
+        "walk",
+        lua.create_function(move |_, room: i64| {
+            shared.borrow_mut().actions.push(Action::Walk(room));
+            Ok(())
+        })?,
+    )?;
+
+    let shared = Rc::clone(state);
+    add(
         "chat",
         lua.create_function(move |_, text: String| {
             shared.borrow_mut().actions.push(Action::Chat(text));
@@ -795,7 +807,8 @@ mod tests {
             send_gmcp("Core.Supports.Add", {"Char.Items 1"})
             send_gmcp("Char.Login", {name = "ana"})
             gauge("HP")
-            chat("Ana: hola")"#,
+            chat("Ana: hola")
+            walk(42)"#,
         );
         let gmcp = |package: &str, data: &str| Action::Gmcp {
             package: package.into(),
@@ -812,6 +825,7 @@ mod tests {
                     level: None
                 },
                 Action::Chat("Ana: hola".into()),
+                Action::Walk(42),
             ]
         );
         engine.exec("test", r#"gauge("HP", 5)"#);

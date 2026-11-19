@@ -1955,6 +1955,7 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "muddie-core",
+ "muddie-mapper",
  "muddie-script",
  "muddie-speech",
  "serde_json",
