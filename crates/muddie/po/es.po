@@ -1078,3 +1078,39 @@ msgstr "Con muddie"
 msgid "Installed on this computer"
 msgstr "Instaladas en este equipo"
 
+msgid "There are no groups. Give a rule a group in the editor."
+msgstr "No hay grupos. Asigna un grupo a una regla en el editor."
+
+msgid "on"
+msgstr "activado"
+
+msgid "off"
+msgstr "desactivado"
+
+#, python-brace-format
+msgid "Group {0} on."
+msgstr "Grupo {0} activado."
+
+#, python-brace-format
+msgid "Group {0} off."
+msgstr "Grupo {0} desactivado."
+
+#, python-brace-format
+msgid "There is no group called {0}; /group lists them."
+msgstr "No hay ningún grupo llamado {0}; /group los lista."
+
+msgid "Groups"
+msgstr "Grupos"
+
+msgid "Group"
+msgstr "Grupo"
+
+msgid "Choose a group"
+msgstr "Elegir un grupo"
+
+msgid "Lists the groups of rules and whether they are on"
+msgstr "Lista los grupos de reglas y si están activados"
+
+msgid "Switches a group on or off for this session"
+msgstr "Activa o desactiva un grupo durante esta sesión"
+

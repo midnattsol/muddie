@@ -66,10 +66,12 @@ after(5, function() cancel(id) end)
 | `gag()` | In a trigger: hides the line. |
 | `highlight(fg, bg)` | In a trigger: recolours the matched text. A colour is a name (`"red"`, `"bright blue"`), `"#rrggbb"` or a palette number. |
 | `line_spans()` | In a trigger: the line as runs of text with `fg`, `bg`, `bold`, `italic`, `underline` and `inverse`. |
-| `enable(group, enabled)` | Switches a group of triggers and aliases on or off. |
-| `after(seconds, fn)`, `every(seconds, fn)` | Timers. |
+| `group.enable(name)`, `group.disable(name)`, `group.toggle(name)` | Switch a group on or off: its triggers, aliases, key bindings and timers, whether made in a script or in the editor. For the session; what is saved is what the editor says. |
+| `group.enabled(name)`, `group.list()` | Whether a group is on; the groups there are. |
+| `enable(group, enabled)` | The same switch, as one function. |
+| `after(seconds, fn, options)`, `every(seconds, fn, options)` | Timers. `{group = name}` makes one pass its turn while the group is off. |
 | `cancel(id)` | Removes whatever the id belongs to; every function above returns one. |
-| `bind(key, action)` | Runs a command or a function when a key is pressed: `bind("f5", "look")`, `bind("ctrl+shift+k", fn)`. `unbind(key)` removes it. |
+| `bind(key, action, options)` | Runs a command or a function when a key is pressed: `bind("f5", "look")`, `bind("ctrl+shift+k", fn)`. With `{group = name}` the key does that only while the group is on, and can do something else in another group. `unbind(key)` removes it. |
 | `separator(text)` | The text that separates commands typed on one line (`;` by default; doubled, it is typed literally). `nil` turns splitting off. |
 | `remember(key, value)`, `recall(key)` | Values kept between sessions, per profile. |
 

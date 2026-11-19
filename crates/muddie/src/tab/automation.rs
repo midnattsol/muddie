@@ -251,6 +251,7 @@ impl Tab {
                 self.recording_key = false;
             }
         }
+        self.sidebar_groups(ui);
         ui.add_space(14.0);
         ui.horizontal(|ui| {
             ui.add_space(2.0);
@@ -279,6 +280,76 @@ impl Tab {
                     .color(theme::current().text_faint),
             );
         });
+    }
+
+    /// The groups under the sections: each with the switch of how it
+    /// starts a session. Choosing one narrows the lists to it.
+    fn sidebar_groups(&mut self, ui: &mut egui::Ui) {
+        let names = self.rules_draft.group_names();
+        if names.is_empty() {
+            self.group_filter = None;
+            return;
+        }
+        let theme = theme::current();
+        ui.add_space(18.0);
+        ui.horizontal(|ui| {
+            ui.add_space(12.0);
+            widgets::caption(ui, tr("Groups"));
+        });
+        ui.add_space(2.0);
+        if self
+            .group_filter
+            .as_ref()
+            .is_some_and(|chosen| !names.contains(chosen))
+        {
+            self.group_filter = None;
+        }
+        for name in names {
+            let chosen = self.group_filter.as_ref() == Some(&name);
+            let mut on = self.rules_draft.group_enabled(&name);
+            let (rect, row) = ui
+                .allocate_exact_size(egui::vec2(ui.available_width(), 34.0), egui::Sense::click());
+            row.widget_info(|| {
+                egui::WidgetInfo::selected(egui::Role::Tab, true, chosen, name.as_str())
+            });
+            if chosen {
+                ui.painter()
+                    .rect_filled(rect, egui::CornerRadius::same(7), theme.raised);
+            } else if row.hovered() {
+                ui.painter().rect_filled(
+                    rect,
+                    egui::CornerRadius::same(7),
+                    theme.raised.gamma_multiply(0.6),
+                );
+            }
+            let colour = if on { theme.text_dim } else { theme.text_faint };
+            let text = ui
+                .painter()
+                .with_clip_rect(rect.with_max_x(rect.right() - 48.0));
+            text.text(
+                rect.left_center() + egui::vec2(12.0, 0.0),
+                egui::Align2::LEFT_CENTER,
+                &name,
+                theme::font(Weight::Regular, 13.5),
+                if chosen { theme.text } else { colour },
+            );
+            if row.clicked() {
+                self.group_filter = (!chosen).then(|| name.clone());
+            }
+            // The switch, over the right end of the row.
+            let place = egui::Rect::from_center_size(
+                rect.right_center() - egui::vec2(27.0, 0.0),
+                egui::vec2(34.0, 20.0),
+            );
+            let mut slot = ui.new_child(
+                egui::UiBuilder::new()
+                    .id_salt(("group switch", name.as_str()))
+                    .max_rect(place),
+            );
+            if widgets::switch(&mut slot, &mut on, &name).changed() {
+                self.rules_draft.set_group_enabled(&name, on);
+            }
+        }
     }
 
     /// The titles and details of the rules of the current section.
@@ -385,6 +456,22 @@ impl Tab {
         }
     }
 
+    /// The group of each rule of the current section, in their order.
+    fn row_groups(&self) -> Vec<String> {
+        let draft = &self.rules_draft;
+        let groups: Vec<&String> = match self.rules_section {
+            TRIGGERS => draft.triggers.iter().map(|rule| &rule.group).collect(),
+            ALIASES => draft.aliases.iter().map(|rule| &rule.group).collect(),
+            MACROS => draft.keys.iter().map(|rule| &rule.group).collect(),
+            TIMERS => draft.timers.iter().map(|rule| &rule.group).collect(),
+            _ => Vec::new(),
+        };
+        groups
+            .into_iter()
+            .map(|group| group.trim().to_owned())
+            .collect()
+    }
+
     /// Looks again for the script files that can be edited.
     fn list_scripts(&mut self) {
         self.script_files = match &self.profiles {
@@ -480,18 +567,113 @@ impl Tab {
                         .color(theme::current().text_faint);
                     ui.vertical_centered(|ui| ui.label(hint));
                 }
-                for (index, (title, detail, enabled)) in rows.iter().enumerate() {
-                    let matches = filter.is_empty()
-                        || title.to_lowercase().contains(&filter)
-                        || detail.to_lowercase().contains(&filter);
-                    if !matches {
+                // Under the name of their group, those that have one last.
+                let groups = self.row_groups();
+                let group_of = |index: usize| groups.get(index).cloned().unwrap_or_default();
+                let mut names: Vec<String> = groups
+                    .iter()
+                    .filter(|group| !group.is_empty())
+                    .cloned()
+                    .collect();
+                names.sort_by_key(|name| name.to_lowercase());
+                names.dedup();
+                names.insert(0, String::new());
+                let theme = theme::current();
+                for name in names {
+                    if self
+                        .group_filter
+                        .as_ref()
+                        .is_some_and(|wanted| *wanted != name)
+                    {
                         continue;
                     }
-                    let selected = self.rules_selected[section] == index;
-                    if widgets::list_row(ui, selected, title, detail, *enabled).clicked() {
-                        self.rules_selected[section] = index;
-                        self.rules_sample.clear();
-                        self.recording_key = false;
+                    let members: Vec<usize> = (0..rows.len())
+                        .filter(|&index| group_of(index) == name)
+                        .filter(|&index| {
+                            let (title, detail, _) = &rows[index];
+                            filter.is_empty()
+                                || title.to_lowercase().contains(&filter)
+                                || detail.to_lowercase().contains(&filter)
+                        })
+                        .collect();
+                    if members.is_empty() {
+                        continue;
+                    }
+                    let on = name.is_empty() || self.rules_draft.group_enabled(&name);
+                    if !name.is_empty() {
+                        let folded = self.folded_groups.contains(&name);
+                        ui.add_space(8.0);
+                        let (rect, header) = ui.allocate_exact_size(
+                            egui::vec2(ui.available_width(), 24.0),
+                            egui::Sense::click(),
+                        );
+                        header.widget_info(|| {
+                            egui::WidgetInfo::selected(
+                                egui::Role::Button,
+                                true,
+                                !folded,
+                                name.as_str(),
+                            )
+                        });
+                        // A small arrow that points down when open.
+                        let tip = rect.left_center() + egui::vec2(14.0, 0.0);
+                        let arrow = if folded {
+                            vec![
+                                tip + egui::vec2(-2.0, -4.0),
+                                tip + egui::vec2(2.0, 0.0),
+                                tip + egui::vec2(-2.0, 4.0),
+                            ]
+                        } else {
+                            vec![
+                                tip + egui::vec2(-4.0, -2.0),
+                                tip + egui::vec2(0.0, 2.0),
+                                tip + egui::vec2(4.0, -2.0),
+                            ]
+                        };
+                        ui.painter().add(egui::Shape::line(
+                            arrow,
+                            egui::Stroke::new(1.4, theme.text_faint),
+                        ));
+                        let colour = if on { theme.text_dim } else { theme.text_faint };
+                        let label = if on {
+                            name.to_uppercase()
+                        } else {
+                            format!("{} · {}", name.to_uppercase(), tr("off"))
+                        };
+                        ui.painter().text(
+                            rect.left_center() + egui::vec2(26.0, 0.0),
+                            egui::Align2::LEFT_CENTER,
+                            label,
+                            theme::font(Weight::Medium, 10.5),
+                            colour,
+                        );
+                        ui.painter().text(
+                            rect.right_center() - egui::vec2(12.0, 0.0),
+                            egui::Align2::RIGHT_CENTER,
+                            members.len().to_string(),
+                            theme::font(Weight::Regular, 11.5),
+                            theme.text_faint,
+                        );
+                        if header.clicked() {
+                            if folded {
+                                self.folded_groups.retain(|known| *known != name);
+                            } else {
+                                self.folded_groups.push(name.clone());
+                            }
+                        }
+                        if folded {
+                            continue;
+                        }
+                    }
+                    for index in members {
+                        let (title, detail, enabled) = &rows[index];
+                        let selected = self.rules_selected[section] == index;
+                        if widgets::list_row(ui, selected, title, detail, *enabled && on).clicked()
+                        {
+                            self.rules_selected[section] = index;
+                            self.rules_sample.clear();
+                            self.recording_key = false;
+                        }
                     }
                 }
             });
@@ -655,6 +837,7 @@ impl Tab {
     }
 
     fn trigger_detail(&mut self, ui: &mut egui::Ui, index: usize) -> bool {
+        let groups = self.rules_draft.group_names();
         let height = self.detail_height;
         let rule = &mut self.rules_draft.triggers[index];
         let delete = rule_header(
@@ -663,6 +846,7 @@ impl Tab {
             &mut rule.enabled,
             tr("Name this trigger"),
         );
+        group_row(ui, &mut rule.group, &groups);
         widgets::caption(ui, tr("When"));
         let label = if rule.regex {
             tr("A line matches this regular expression")
@@ -746,9 +930,11 @@ impl Tab {
     }
 
     fn alias_detail(&mut self, ui: &mut egui::Ui, index: usize) -> bool {
+        let groups = self.rules_draft.group_names();
         let height = self.detail_height;
         let rule = &mut self.rules_draft.aliases[index];
         let delete = rule_header(ui, &mut rule.name, &mut rule.enabled, tr("Name this alias"));
+        group_row(ui, &mut rule.group, &groups);
         widgets::caption(ui, tr("When"));
         let label = if rule.regex {
             tr("What you type matches this regular expression")
@@ -796,12 +982,14 @@ impl Tab {
     }
 
     fn macro_detail(&mut self, ui: &mut egui::Ui, index: usize) -> bool {
+        let groups = self.rules_draft.group_names();
         let theme = theme::current();
         let height = self.detail_height;
         let recording = self.recording_key;
         let mut toggle = false;
         let rule = &mut self.rules_draft.keys[index];
         let delete = rule_header(ui, &mut rule.name, &mut rule.enabled, tr("Name this macro"));
+        group_row(ui, &mut rule.group, &groups);
         widgets::caption(ui, tr("Key"));
         ui.horizontal(|ui| {
             let shown = if recording {
@@ -867,10 +1055,12 @@ impl Tab {
     }
 
     fn timer_detail(&mut self, ui: &mut egui::Ui, index: usize) -> bool {
+        let groups = self.rules_draft.group_names();
         let theme = theme::current();
         let height = self.detail_height;
         let rule = &mut self.rules_draft.timers[index];
         let delete = rule_header(ui, &mut rule.name, &mut rule.enabled, tr("Name this timer"));
+        group_row(ui, &mut rule.group, &groups);
         widgets::caption(ui, tr("When"));
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = 10.0;
@@ -1119,6 +1309,39 @@ impl Tab {
             ui.input_mut(|input| input.events.clear());
         }
     }
+}
+
+/// The group a rule belongs to: typed, or picked among those there are.
+fn group_row(ui: &mut egui::Ui, group: &mut String, known: &[String]) {
+    let theme = theme::current();
+    ui.horizontal(|ui| {
+        let name = ui.label(RichText::new(tr("Group")).color(theme.text_dim));
+        let field = ui.add(
+            TextEdit::singleline(group)
+                .hint_text(RichText::new(tr("None")).color(theme.text_faint))
+                .margin(egui::Margin::symmetric(9, 5))
+                .desired_width(200.0),
+        );
+        field.labelled_by(name.id);
+        if !known.is_empty() {
+            let pick = widgets::icon_button(ui, widgets::Icon::More, tr("Choose a group"), false);
+            egui::Popup::menu(&pick).show(|ui| {
+                widgets::menu_width(ui);
+                if widgets::menu_item(ui, tr("None"), "").clicked() {
+                    group.clear();
+                    ui.close();
+                }
+                widgets::menu_separator(ui);
+                for name in known {
+                    if widgets::menu_item(ui, name, "").clicked() {
+                        group.clone_from(name);
+                        ui.close();
+                    }
+                }
+            });
+        }
+    });
+    ui.add_space(2.0);
 }
 
 /// The regions of the details: one column, or two side by side when there

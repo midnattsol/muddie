@@ -60,6 +60,7 @@ anything else is sent to the MUD.
 | `/lua <code>` | Runs a line of Luau |
 | `/reload` | Runs the scripts and rules again |
 | `/log` | Starts or stops logging the session to a file |
+| `/group`, `/group <name> [on\|off]` | Lists the groups of rules; switches one on or off for this session |
 | `/map where` | Says where the map has you, and the exits |
 | `/map find <text>` | Lists rooms whose name contains the text |
 | `/map walk <number or name>` | Walks to a room |
@@ -79,7 +80,7 @@ completes them.
 
 ## Triggers, aliases and keys without scripting
 
-**Automation**, at the right of the top bar, takes the place of the game
+**Editor**, at the right of the top bar, takes the place of the game
 while you work on it; **Game**, Escape or Ctrl+E goes back, and the session
 keeps running meanwhile. The sections are on the left, then the list of the
 current one and the selected item's details; drag the gap between those two
@@ -114,6 +115,15 @@ The three, and what else there is:
   `.luau` files. The `+` offers examples to start from: a map the MUD draws
   itself, a map it sends whole, a map read from the room descriptions, words
   to complete given by the MUD, and gauges.
+
+Rules can be put in **groups**, to switch a whole way of playing on and off
+at once: a group holds triggers, aliases, macros and timers alike. Give a
+rule its group in its details; the groups are listed under the sections, each
+with the switch of how it starts a session, and choosing one narrows the lists
+to it. `/group <name> on` and `/group <name> off` switch one for the session
+in course, as a script does with `group.enable(name)` and its like, without
+changing what is saved. The same key can be bound once per group, so that it
+does one thing in one mode and another in another.
 
 A mistake in one rule or module is reported with its name and does not stop
 the others. Triggers and aliases have a box to try them out: paste a line

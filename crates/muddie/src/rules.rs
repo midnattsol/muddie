@@ -36,6 +36,8 @@ pub struct Trigger {
     pub script: String,
     /// What it does is the script, not the commands.
     pub lua: bool,
+    /// The group it is switched on and off with; empty for none.
+    pub group: String,
 }
 
 /// Replaces a typed command.
@@ -56,6 +58,8 @@ pub struct Alias {
     pub script: String,
     /// What it does is the script, not the commands.
     pub lua: bool,
+    /// The group it is switched on and off with; empty for none.
+    pub group: String,
 }
 
 /// Sends commands when a key is pressed.
@@ -72,6 +76,8 @@ pub struct KeyBinding {
     pub script: String,
     /// What it does is the script, not the commands.
     pub lua: bool,
+    /// The group it is switched on and off with; empty for none.
+    pub group: String,
 }
 
 /// Does something after a while, once or again and again.
@@ -88,6 +94,8 @@ pub struct Timer {
     pub script: String,
     /// What it does is the script, not the commands.
     pub lua: bool,
+    /// The group it is switched on and off with; empty for none.
+    pub group: String,
 }
 
 impl Default for Timer {
@@ -100,6 +108,7 @@ impl Default for Timer {
             send: String::new(),
             script: String::new(),
             lua: false,
+            group: String::new(),
         }
     }
 }
@@ -120,6 +129,15 @@ impl Timer {
             format!("{seconds} s")
         }
     }
+}
+
+/// Whether a group of rules starts a session switched on. A group that
+/// has no entry does.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Group {
+    pub name: String,
+    pub enabled: bool,
 }
 
 /// A bar that follows a value the server reports.
@@ -219,6 +237,8 @@ pub struct Rules {
     pub keys: Vec<KeyBinding>,
     #[serde(rename = "timer")]
     pub timers: Vec<Timer>,
+    #[serde(rename = "group")]
+    pub groups: Vec<Group>,
     #[serde(rename = "gauge")]
     pub gauges: Vec<Gauge>,
 }
@@ -326,6 +346,43 @@ impl Rules {
         }
     }
 
+    /// The groups there are, in alphabetical order: those a rule is in
+    /// and those with a state of their own.
+    pub fn group_names(&self) -> Vec<String> {
+        let rules = (self.triggers.iter().map(|rule| &rule.group))
+            .chain(self.aliases.iter().map(|rule| &rule.group))
+            .chain(self.keys.iter().map(|rule| &rule.group))
+            .chain(self.timers.iter().map(|rule| &rule.group));
+        let mut names: Vec<String> = rules
+            .chain(self.groups.iter().map(|group| &group.name))
+            .cloned()
+            .collect();
+        names.retain(|name| !name.trim().is_empty());
+        names.sort_by_key(|name| name.to_lowercase());
+        names.dedup();
+        names
+    }
+
+    /// Whether a group starts a session switched on.
+    pub fn group_enabled(&self, name: &str) -> bool {
+        self.groups
+            .iter()
+            .find(|group| group.name == name)
+            .is_none_or(|group| group.enabled)
+    }
+
+    /// Sets whether a group starts a session switched on.
+    pub fn set_group_enabled(&mut self, name: &str, enabled: bool) {
+        self.groups.retain(|group| group.name != name);
+        // Only what differs from the usual is worth keeping.
+        if !enabled {
+            self.groups.push(Group {
+                name: name.to_owned(),
+                enabled,
+            });
+        }
+    }
+
     /// The rules as one Luau script.
     #[cfg(test)]
     pub fn to_luau(&self) -> String {
@@ -361,7 +418,23 @@ impl Rules {
             };
             format!("{kind} {}", name.trim())
         };
+        // How a rule says which group it is in.
+        let grouped = |group: &str| -> String {
+            if group.trim().is_empty() {
+                String::new()
+            } else {
+                format!(", {{group = {}}}", quoted(group.trim()))
+            }
+        };
         let mut chunks = Vec::new();
+        // The groups that start switched off, before anything is in them.
+        let off: String = (self.groups.iter())
+            .filter(|group| !group.enabled)
+            .map(|group| format!("group.disable({})\n", quoted(group.name.trim())))
+            .collect();
+        if !off.is_empty() {
+            chunks.push(("groups".to_owned(), off));
+        }
         for trigger in
             (self.triggers.iter()).filter(|rule| rule.enabled && !rule.pattern.is_empty())
         {
@@ -392,7 +465,7 @@ impl Rules {
             if !trigger.sound.trim().is_empty() {
                 code.push_str(&format!("\tplay({})\n", quoted(trigger.sound.trim())));
             }
-            code.push_str("end)\n");
+            code.push_str(&format!("end{})\n", grouped(&trigger.group)));
             chunks.push((titled("trigger", &trigger.name, &trigger.pattern), code));
         }
         for alias in
@@ -404,19 +477,24 @@ impl Rules {
                 sends(&alias.send)
             };
             let code = format!(
-                "{PRELUDE}alias({}, function(m, input)\n{action}end)\n",
-                quoted(&alias.regex_source())
+                "{PRELUDE}alias({}, function(m, input)\n{action}end{})\n",
+                quoted(&alias.regex_source()),
+                grouped(&alias.group)
             );
             chunks.push((titled("alias", &alias.name, &alias.pattern), code));
         }
         for key in (self.keys.iter()).filter(|rule| rule.enabled && !rule.key.trim().is_empty()) {
             let name = quoted(key.key.trim());
             let code = if key.lua {
-                format!("bind({name}, function()\n{}end)\n", script(&key.script))
+                format!(
+                    "bind({name}, function()\n{}end{})\n",
+                    script(&key.script),
+                    grouped(&key.group)
+                )
             } else {
                 // What it sends goes through aliases, as if typed.
                 let typed = commands(&key.send).collect::<Vec<_>>().join(";");
-                format!("bind({name}, {})\n", quoted(&typed))
+                format!("bind({name}, {}{})\n", quoted(&typed), grouped(&key.group))
             };
             chunks.push((titled("macro", &key.name, &key.key), code));
         }
@@ -430,7 +508,10 @@ impl Rules {
             };
             let how = if timer.repeat { "every" } else { "after" };
             let seconds = f64::from(timer.tenths) / 10.0;
-            let code = format!("{how}({seconds}, function()\n{action}end)\n");
+            let code = format!(
+                "{how}({seconds}, function()\n{action}end{})\n",
+                grouped(&timer.group)
+            );
             chunks.push((titled("timer", &timer.name, &timer.interval()), code));
         }
         for gauge in
@@ -829,6 +910,66 @@ mod tests {
     }
 
     #[test]
+    fn rules_of_a_group_are_switched_together_whatever_their_kind() {
+        let mut rules = Rules {
+            triggers: vec![Trigger {
+                enabled: true,
+                pattern: "attacks".into(),
+                send: "parry".into(),
+                group: "Combat".into(),
+                ..Trigger::default()
+            }],
+            aliases: vec![Alias {
+                enabled: true,
+                pattern: "k".into(),
+                send: "kill %1".into(),
+                group: "Combat".into(),
+                ..Alias::default()
+            }],
+            keys: vec![
+                KeyBinding {
+                    enabled: true,
+                    key: "f1".into(),
+                    send: "kick".into(),
+                    group: "Combat".into(),
+                    ..KeyBinding::default()
+                },
+                KeyBinding {
+                    enabled: true,
+                    key: "f1".into(),
+                    send: "look".into(),
+                    group: "Explore".into(),
+                    ..KeyBinding::default()
+                },
+            ],
+            ..Rules::default()
+        };
+        assert_eq!(rules.group_names(), ["Combat", "Explore"]);
+        assert!(rules.group_enabled("Combat"));
+        // Saved as off, it starts off: nothing of the group takes part.
+        rules.set_group_enabled("Combat", false);
+        let mut engine = run(&rules);
+        engine.on_line("An orc attacks");
+        engine.on_input("k orc");
+        engine.on_key("f1");
+        assert_eq!(engine.take_actions(), ["k orc", "look"].map(send));
+        // Switched on for the session, all of it does.
+        engine.set_group("Combat", true);
+        engine.on_line("An orc attacks");
+        engine.on_input("k orc");
+        engine.on_key("f1");
+        assert_eq!(
+            engine.take_actions(),
+            ["parry", "kill orc", "kick"].map(send)
+        );
+        rules.set_group_enabled("Combat", true);
+        assert!(
+            rules.groups.is_empty(),
+            "the usual state is not written down"
+        );
+    }
+
+    #[test]
     fn rules_round_trip_through_their_file() {
         let path =
             std::env::temp_dir().join(format!("muddie-rules-{}/rules.toml", std::process::id()));
@@ -852,6 +993,10 @@ mod tests {
                 key: "ctrl+k".into(),
                 send: "kick".into(),
                 ..KeyBinding::default()
+            }],
+            groups: vec![Group {
+                name: "Combat".into(),
+                enabled: false,
             }],
             timers: vec![Timer {
                 name: "Save".into(),

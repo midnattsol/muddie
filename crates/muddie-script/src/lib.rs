@@ -23,6 +23,10 @@
 //!   palette number; `nil` leaves that colour as it is.
 //! - `alias(pattern, fn, options)`: call `fn(m, input)` instead of sending
 //!   typed input that matches; same options as `trigger`.
+//! - `group.enable(name)`, `group.disable(name)`, `group.toggle(name)`,
+//!   `group.enabled(name)`, `group.list()`: groups of triggers, aliases,
+//!   key bindings and timers, switched on and off together. `bind`,
+//!   `after` and `every` take `{group = name}` as triggers and aliases do.
 //! - `enable(group, enabled)`: switch a group of triggers and aliases on
 //!   or off.
 //! - `separator(text)`: the text that separates several commands typed on
@@ -201,6 +205,8 @@ enum Binding {
 
 struct Timer {
     id: u64,
+    /// The group it belongs to; it is passed over while that is off.
+    group: Option<String>,
     due: Instant,
     /// `Some` for repeating timers.
     period: Option<Duration>,
@@ -261,7 +267,8 @@ struct State {
     /// Byte range of the text the running trigger matched.
     current_match: Option<(usize, usize)>,
     /// What to do for each bound key, by normalised key name.
-    bindings: HashMap<String, Binding>,
+    /// What each key does, once per group it is bound in.
+    bindings: HashMap<String, Vec<(Option<String>, Binding)>>,
     /// Values kept between sessions, and the file they are saved in.
     memory: serde_json::Map<String, serde_json::Value>,
     memory_file: Option<PathBuf>,
@@ -283,6 +290,27 @@ impl State {
     fn next_id(&mut self) -> u64 {
         self.last_id += 1;
         self.last_id
+    }
+
+    /// The groups there are, in alphabetical order.
+    fn group_names(&self) -> Vec<String> {
+        let matchers = self
+            .triggers
+            .iter()
+            .chain(&self.aliases)
+            .map(|matcher| &matcher.group);
+        let timers = self.timers.iter().map(|timer| &timer.group);
+        let bindings = self.bindings.values().flatten().map(|(group, _)| group);
+        let mut names: Vec<String> = matchers
+            .chain(timers)
+            .chain(bindings)
+            .flatten()
+            .cloned()
+            .collect();
+        names.extend(self.disabled_groups.iter().cloned());
+        names.sort();
+        names.dedup();
+        names
     }
 }
 
@@ -415,10 +443,21 @@ impl Engine {
     /// Handles a key press, named as in `bind` (see [`key_name`]). Returns
     /// whether the key was bound, in which case nothing else should use it.
     pub fn on_key(&mut self, key: &str) -> bool {
-        let action = match self.state.borrow().bindings.get(&key_name(key)) {
-            Some(Binding::Command(command)) => Ok(command.clone()),
-            Some(Binding::Function(function)) => Err(function.clone()),
-            None => return false,
+        // A key can be bound once per group, so that it does one thing in
+        // one mode and another in another: the first whose group is on.
+        let action = {
+            let state = self.state.borrow();
+            let bound = state.bindings.get(&key_name(key));
+            let live = bound.into_iter().flatten().find(|(group, _)| {
+                group
+                    .as_ref()
+                    .is_none_or(|group| !state.disabled_groups.contains(group))
+            });
+            match live {
+                Some((_, Binding::Command(command))) => Ok(command.clone()),
+                Some((_, Binding::Function(function))) => Err(function.clone()),
+                None => return false,
+            }
         };
         match action {
             Ok(command) => self.on_input(&command),
@@ -557,12 +596,22 @@ impl Engine {
 
     /// Runs the timers that are due at `now`.
     pub fn tick(&mut self, now: Instant) {
-        let due: Vec<(u64, Function)> = (self.state.borrow().timers.iter())
-            .filter(|timer| timer.due <= now)
-            .map(|timer| (timer.id, timer.callback.clone()))
-            .collect();
-        for (id, callback) in due {
-            let ok = self.guarded(|| callback.call::<()>(()));
+        let due: Vec<(u64, Function, bool)> = {
+            let state = self.state.borrow();
+            let off = |timer: &Timer| {
+                timer
+                    .group
+                    .as_ref()
+                    .is_some_and(|group| state.disabled_groups.contains(group))
+            };
+            (state.timers.iter())
+                .filter(|timer| timer.due <= now)
+                .map(|timer| (timer.id, timer.callback.clone(), off(timer)))
+                .collect()
+        };
+        for (id, callback, off) in due {
+            // One whose group is off lets its turn pass.
+            let ok = off || self.guarded(|| callback.call::<()>(()));
             let mut state = self.state.borrow_mut();
             // The callback may have cancelled its own timer.
             let Some(index) = state.timers.iter().position(|timer| timer.id == id) else {
@@ -575,6 +624,27 @@ impl Engine {
                     state.timers.remove(index);
                 }
             }
+        }
+    }
+
+    /// The groups there are: those anything belongs to, and those
+    /// switched off.
+    pub fn groups(&self) -> Vec<String> {
+        self.state.borrow().group_names()
+    }
+
+    /// Whether a group is on, as every group is until it is switched off.
+    pub fn group_enabled(&self, group: &str) -> bool {
+        !self.state.borrow().disabled_groups.contains(group)
+    }
+
+    /// Switches a group on or off.
+    pub fn set_group(&mut self, group: &str, enabled: bool) {
+        let disabled = &mut self.state.borrow_mut().disabled_groups;
+        if enabled {
+            disabled.remove(group);
+        } else {
+            disabled.insert(group.to_owned());
         }
     }
 
@@ -1252,6 +1322,42 @@ fn install_api(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
         })?,
     )?;
 
+    // The same switch, and what goes with it, under one name.
+    let groups = lua.create_table()?;
+    let shared = Rc::clone(state);
+    groups.set(
+        "enabled",
+        lua.create_function(move |_, group: String| {
+            Ok(!shared.borrow().disabled_groups.contains(&group))
+        })?,
+    )?;
+    for (name, wanted) in [
+        ("enable", Some(true)),
+        ("disable", Some(false)),
+        ("toggle", None),
+    ] {
+        let shared = Rc::clone(state);
+        groups.set(
+            name,
+            lua.create_function(move |_, group: String| {
+                let disabled = &mut shared.borrow_mut().disabled_groups;
+                let on = wanted.unwrap_or(disabled.contains(&group));
+                if on {
+                    disabled.remove(&group);
+                } else {
+                    disabled.insert(group);
+                }
+                Ok(on)
+            })?,
+        )?;
+    }
+    let shared = Rc::clone(state);
+    groups.set(
+        "list",
+        lua.create_function(move |_, ()| Ok(shared.borrow().group_names()))?,
+    )?;
+    globals.set("group", groups)?;
+
     let shared = Rc::clone(state);
     add(
         "separator",
@@ -1304,15 +1410,25 @@ fn install_api(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     let shared = Rc::clone(state);
     add(
         "bind",
-        lua.create_function(move |_, (key, action): (String, Value)| {
-            let binding = match action {
-                Value::String(command) => Binding::Command(command.to_string_lossy()),
-                Value::Function(function) => Binding::Function(function),
-                _ => return Err(mlua::Error::runtime("bind needs a command or a function")),
-            };
-            shared.borrow_mut().bindings.insert(key_name(&key), binding);
-            Ok(())
-        })?,
+        lua.create_function(
+            move |_, (key, action, options): (String, Value, Option<mlua::Table>)| {
+                let binding = match action {
+                    Value::String(command) => Binding::Command(command.to_string_lossy()),
+                    Value::Function(function) => Binding::Function(function),
+                    _ => return Err(mlua::Error::runtime("bind needs a command or a function")),
+                };
+                let group: Option<String> = match options {
+                    Some(options) => options.get("group")?,
+                    None => None,
+                };
+                let mut state = shared.borrow_mut();
+                let bound = state.bindings.entry(key_name(&key)).or_default();
+                // Binding a key again replaces what it did in that group.
+                bound.retain(|(known, _)| *known != group);
+                bound.push((group, binding));
+                Ok(())
+            },
+        )?,
     )?;
 
     let shared = Rc::clone(state);
@@ -1443,20 +1559,27 @@ fn install_api(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
         let shared = Rc::clone(state);
         add(
             name,
-            lua.create_function(move |_, (seconds, callback): (f64, Function)| {
-                let delay = Duration::try_from_secs_f64(seconds)
-                    .map_err(|_| mlua::Error::runtime("the time must be a positive number"))?
-                    .max(MIN_TIMER_INTERVAL);
-                let mut state = shared.borrow_mut();
-                let id = state.next_id();
-                state.timers.push(Timer {
-                    id,
-                    due: Instant::now() + delay,
-                    period: repeats.then_some(delay),
-                    callback,
-                });
-                Ok(id)
-            })?,
+            lua.create_function(
+                move |_, (seconds, callback, options): (f64, Function, Option<mlua::Table>)| {
+                    let group: Option<String> = match options {
+                        Some(options) => options.get("group")?,
+                        None => None,
+                    };
+                    let delay = Duration::try_from_secs_f64(seconds)
+                        .map_err(|_| mlua::Error::runtime("the time must be a positive number"))?
+                        .max(MIN_TIMER_INTERVAL);
+                    let mut state = shared.borrow_mut();
+                    let id = state.next_id();
+                    state.timers.push(Timer {
+                        id,
+                        group,
+                        due: Instant::now() + delay,
+                        period: repeats.then_some(delay),
+                        callback,
+                    });
+                    Ok(id)
+                },
+            )?,
         )?;
     }
 
@@ -2349,6 +2472,42 @@ mod tests {
         let mut engine = engine;
         engine.check("send(\"north\")");
         assert_eq!(engine.take_actions(), []);
+    }
+
+    #[test]
+    fn groups_cover_keys_and_timers_and_are_told_about() {
+        let mut engine = engine(
+            r#"
+            trigger("hit", function() send("flee") end, {group = "combat"})
+            bind("f1", "kick", {group = "combat"})
+            bind("f1", "look", {group = "explore"})
+            bind("f2", "score")
+            every(1, function() send("tick") end, {group = "combat"})
+            group.disable("combat")
+            "#,
+        );
+        assert_eq!(engine.groups(), ["combat", "explore"]);
+        assert!(!engine.group_enabled("combat") && engine.group_enabled("explore"));
+        // The same key does what its live group says, or nothing at all.
+        assert!(engine.on_key("f1"));
+        assert_eq!(engine.take_actions(), [send("look")]);
+        engine.set_group("explore", false);
+        assert!(!engine.on_key("f1"), "the key is left to be typed");
+        assert!(engine.on_key("f2"));
+        engine.take_actions();
+        // A timer whose group is off lets its turns pass, and comes back.
+        let start = Instant::now();
+        engine.tick(start + Duration::from_millis(1100));
+        assert_eq!(engine.take_actions(), []);
+        engine.exec(
+            "t",
+            r#"echo(tostring(group.toggle("combat")) .. tostring(group.enabled("combat")))"#,
+        );
+        assert_eq!(engine.take_actions(), [Action::Echo("truetrue".into())]);
+        engine.tick(start + Duration::from_millis(2200));
+        assert_eq!(engine.take_actions(), [send("tick")]);
+        assert!(engine.on_key("f1"));
+        assert_eq!(engine.take_actions(), [send("kick")]);
     }
 
     #[test]

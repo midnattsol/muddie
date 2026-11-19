@@ -137,6 +137,9 @@ pub struct Tab {
     rules_sample: String,
     /// The next key pressed becomes the selected macro's key.
     recording_key: bool,
+    /// The group the editor's lists are narrowed to, and those folded.
+    group_filter: Option<String>,
+    folded_groups: Vec<String>,
     /// The address being typed to install a plugin from, and the row of
     /// the output from which the answers to the settings' plugins are.
     plugin_address: String,
@@ -300,6 +303,8 @@ impl Tab {
             rules_changed_at: None,
             rules_sample: String::new(),
             recording_key: false,
+            group_filter: None,
+            folded_groups: Vec::new(),
             plugin_address: String::new(),
             plugin_said: 0,
             kept_input: None,
@@ -463,6 +468,16 @@ impl Tab {
     /// general one, the profile's packages and scripts, and those given on
     /// the command line.
     fn load_scripts(&mut self) {
+        // Groups switched for the session keep how they were left, unless
+        // what is saved for them is what changed.
+        let saved_before: Vec<(String, bool)> = (self.rules.group_names().into_iter())
+            .map(|name| (self.rules.group_enabled(&name), name))
+            .map(|(on, name)| (name, on))
+            .collect();
+        let session: Vec<(String, bool)> = (self.scripts.groups().into_iter())
+            .map(|name| (self.scripts.group_enabled(&name), name))
+            .map(|(on, name)| (name, on))
+            .collect();
         // The scripts say again what they want announced and are told
         // again how big the panel is.
         self.supports.clear();
@@ -498,6 +513,15 @@ impl Tab {
         // Each on its own, so a mistake in one says which and spares the rest.
         for (name, code) in self.rules.chunks() {
             self.scripts.exec(&name, &code);
+        }
+        for (name, on) in session {
+            let before = saved_before
+                .iter()
+                .find(|(known, _)| *known == name)
+                .is_none_or(|(_, on)| *on);
+            if before == self.rules.group_enabled(&name) {
+                self.scripts.set_group(&name, on);
+            }
         }
         self.run_actions();
     }
@@ -1445,6 +1469,46 @@ impl Tab {
                 }
             }
             "/map-show" | "/map-hide" => self.show_map = command == "/map-show",
+            // Switches a group for this session, or lists them all.
+            "/group" => {
+                let (name, wanted) = match argument.rsplit_once(' ') {
+                    Some((name, "on")) => (name.trim(), Some(true)),
+                    Some((name, "off")) => (name.trim(), Some(false)),
+                    _ => (argument, None),
+                };
+                let known = self.scripts.groups();
+                if name.is_empty() {
+                    if known.is_empty() {
+                        self.note(tr(
+                            "There are no groups. Give a rule a group in the editor.",
+                        ));
+                    }
+                    for group in known {
+                        let state = if self.scripts.group_enabled(&group) {
+                            tr("on")
+                        } else {
+                            tr("off")
+                        };
+                        self.note(&format!("{group}: {state}"));
+                    }
+                } else if let Some(group) =
+                    known.iter().find(|group| group.eq_ignore_ascii_case(name))
+                {
+                    let on = wanted.unwrap_or(!self.scripts.group_enabled(group));
+                    self.scripts.set_group(group, on);
+                    let said = if on {
+                        "Group {0} on."
+                    } else {
+                        "Group {0} off."
+                    };
+                    self.note(&trf(said, &[group]));
+                } else {
+                    self.note(&trf(
+                        "There is no group called {0}; /group lists them.",
+                        &[name],
+                    ));
+                }
+            }
             "/remove" if !argument.is_empty() => self.remove_plugin(argument),
             "/where" => {
                 let place = self.map.borrow().current().map(|room| {
@@ -1984,7 +2048,7 @@ impl Tab {
 /// The client's own commands, as they are typed, and what each is for.
 /// They are in English whatever the language of the interface, like the
 /// words of a programming language.
-const COMMANDS: [(&str, &str); 19] = [
+const COMMANDS: [(&str, &str); 21] = [
     ("/map where", "Says where you are"),
     (
         "/map find <text>",
@@ -2015,6 +2079,14 @@ const COMMANDS: [(&str, &str); 19] = [
         "Disables a plugin in this profile",
     ),
     ("/plugin remove <name>", "Deletes a plugin"),
+    (
+        "/group",
+        "Lists the groups of rules and whether they are on",
+    ),
+    (
+        "/group <name> [on|off]",
+        "Switches a group on or off for this session",
+    ),
     ("/log", "Starts or stops logging the session"),
     ("/reload", "Runs the scripts and rules again"),
     ("/lua <code>", "Runs a line of Luau"),
@@ -2046,6 +2118,10 @@ fn client_command(line: &str) -> Option<(&'static str, String)> {
         ("/plugin", "disable") => "/disable",
         ("/plugin", "remove") => "/remove",
         ("/plugin", _) => "/plugin",
+        ("/group", _) => {
+            let after = line.trim_start().strip_prefix("/group").unwrap_or_default();
+            return Some(("/group", after.trim().to_owned()));
+        }
         ("/log", _) => "/log",
         ("/reload", _) => "/reload",
         ("/help", _) => "/help",
@@ -2474,6 +2550,13 @@ mod tests {
         assert!(app.map_command("/map hide") && !app.show_map);
         assert!(app.map_command("/map show") && app.show_map);
         assert!(app.map_command("/help"));
+        // Groups: listed, and switched for the session by name.
+        app.scripts
+            .exec("t", r#"bind("f9", "kick", {group = "Combat"})"#);
+        assert!(app.map_command("/group combat off") && !app.scripts.group_enabled("Combat"));
+        assert!(app.map_command("/group Combat") && app.scripts.group_enabled("Combat"));
+        assert!(app.map_command("/group"));
+        assert!(output_lines(app).iter().any(|line| line == "Combat: on"));
         assert!(
             output_lines(app)
                 .iter()
@@ -2882,6 +2965,7 @@ mod tests {
         let app = rules.state_mut().tab_mut();
         app.rules.triggers.push(Trigger {
             name: "Tells".into(),
+            group: "Social".into(),
             enabled: true,
             pattern: "tells you".into(),
             speak: "a tell".into(),
@@ -2890,6 +2974,7 @@ mod tests {
         });
         app.rules.triggers.push(Trigger {
             name: "Fight back".into(),
+            group: "Combat".into(),
             enabled: true,
             pattern: r"^(\w+) attacks you".into(),
             regex: true,
