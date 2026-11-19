@@ -79,9 +79,14 @@ impl Tab {
             if sides(layout::Side::Left) { 4 } else { 8 },
             if sides(layout::Side::Right) { 4 } else { 8 },
         );
-        let clicked = CentralPanel::default()
-            .frame(frame)
-            .show(ui, |ui| self.output.show(ui, "output"));
+        let clicked = CentralPanel::default().frame(frame).show(ui, |ui| {
+            // What fits in it is what the server is told, less the
+            // place of the scroll bar.
+            let room = ui.available_size() - egui::vec2(12.0, 0.0);
+            self.window_cells = Self::cells(ui, room);
+            self.output.show(ui, "output")
+        });
+        self.report_window(ui.ctx());
         // A link the server marked as a command was clicked.
         if let Some(command) = clicked.inner {
             self.send(command);

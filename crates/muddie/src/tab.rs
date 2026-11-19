@@ -232,6 +232,16 @@ pub struct Tab {
     panel_cells: (u32, u32),
     panel_reported: Option<(u32, u32)>,
     panel_settling: Option<((u32, u32), Instant)>,
+    /// How many characters fit across and down the text of the game,
+    /// what the server was last told of it, and since when it has been
+    /// as it is.
+    window_cells: (u32, u32),
+    window_reported: Option<(u32, u32)>,
+    window_settling: Option<((u32, u32), Instant)>,
+    /// Tests of what is sent to the server are not about its size: they
+    /// switch the telling of it off.
+    #[cfg(test)]
+    window_untold: bool,
     /// The address typed on the welcome screen.
     address: String,
     /// Whether the region for announcements was in the accessibility tree
@@ -424,6 +434,11 @@ impl Tab {
             panel_cells: (0, 0),
             panel_reported: None,
             panel_settling: None,
+            window_cells: (0, 0),
+            window_reported: None,
+            window_settling: None,
+            #[cfg(test)]
+            window_untold: false,
             address: String::new(),
             announce_ready: false,
             rules_section: 0,
@@ -954,8 +969,10 @@ impl Tab {
                         self.start_log();
                     }
                     self.note(tr("Connected."));
-                    // The server has yet to hear how big the panel is.
+                    // The server has yet to hear how big the panel is, and
+                    // the text of the game.
                     self.panel_reported = None;
+                    self.window_reported = None;
                     self.scripts.on_event("connect", "");
                     self.run_actions();
                     self.login = if self.character.trim().is_empty() {
@@ -1955,6 +1972,37 @@ impl Tab {
         }
     }
 
+    /// Tells the server how many characters fit across and down the text
+    /// of the game (NAWS), on connecting and once a change of size has
+    /// settled, so that it wraps and pages what it sends to fit.
+    pub(super) fn report_window(&mut self, ctx: &egui::Context) {
+        const SETTLED: Duration = Duration::from_millis(250);
+        let cells = self.window_cells;
+        #[cfg(test)]
+        if self.window_untold {
+            return;
+        }
+        let Some(connection) = &self.connection else {
+            return self.window_settling = None;
+        };
+        if self.window_reported == Some(cells) || cells.0 == 0 || cells.1 == 0 {
+            return self.window_settling = None;
+        }
+        match self.window_settling {
+            Some((settling, since)) if settling == cells && since.elapsed() >= SETTLED => {
+                self.window_settling = None;
+                self.window_reported = Some(cells);
+                let size = |cells: u32| u16::try_from(cells).unwrap_or(u16::MAX);
+                let _ = (connection.commands).send(Command::Resize(size(cells.0), size(cells.1)));
+            }
+            Some((settling, _)) if settling == cells => ctx.request_repaint_after(SETTLED),
+            _ => {
+                self.window_settling = Some((cells, Instant::now()));
+                ctx.request_repaint_after(SETTLED);
+            }
+        }
+    }
+
     /// What the map's panel shows: the map; failing that, what a script
     /// put there, such as a map the MUD draws itself; failing that, why
     /// there is nothing yet.
@@ -2370,6 +2418,7 @@ mod tests {
     ) {
         let (events, receiver) = channel();
         let (commands, sent) = tokio::sync::mpsc::unbounded_channel();
+        app.window_untold = true;
         app.connection = Some(Connection {
             commands,
             events: receiver,
@@ -3382,6 +3431,39 @@ mod tests {
         events.send(vitals()).unwrap();
         harness.run_steps(3);
         assert_eq!(harness.state().tab().data_seen[0].count, 2);
+    }
+
+    #[test]
+    fn the_server_is_told_how_much_text_fits() {
+        let mut harness = window(None);
+        harness.set_size(egui::vec2(1100.0, 700.0));
+        let (_events, mut sent) = fake_connection(harness.state_mut().tab_mut());
+        harness.state_mut().tab_mut().window_untold = false;
+        // Once the size has been the same for a moment, it is told.
+        let mut told = |harness: &mut Harness<'_, App>| {
+            for _ in 0..40 {
+                harness.run_steps(2);
+                while let Ok(command) = sent.try_recv() {
+                    if let Command::Resize(wide, tall) = command {
+                        return (wide, tall);
+                    }
+                }
+                std::thread::sleep(Duration::from_millis(50));
+            }
+            panic!("the size was not told");
+        };
+        let first = told(&mut harness);
+        assert!(
+            first.0 > 40 && first.1 > 10,
+            "{first:?} is not the size of the text"
+        );
+        // A wider and shorter window fits more across and less down.
+        harness.set_size(egui::vec2(1500.0, 500.0));
+        let second = told(&mut harness);
+        assert!(
+            second.0 > first.0 && second.1 < first.1,
+            "{first:?} then {second:?}"
+        );
     }
 
     #[test]
