@@ -47,6 +47,11 @@
 //!   `send_msdp(command, ...)`: the same for MSDP, e.g.
 //!   `send_msdp("REPORT", "HEALTH")`. Values arrive as strings.
 //! - `mssp()`: the server's MSSP status as a table, empty if it sent none.
+//! - `on_event(name, fn)`: call `fn` when something happens in the client:
+//!   `"connect"`, `"disconnect"`, or `"panel"` with the size in characters
+//!   of the panel beside the output.
+//! - `supports(module, ...)`: announce GMCP modules to the server.
+//! - `completions(name, words)`: words for Tab to offer.
 //! - `gauge(name, value, max, options)`: show or update a bar in the status
 //!   strip; `gauge(name)` removes it. `options` may give a `colour`, a
 //!   `style` (`"segments"`) and `low`, a percentage to warn under.
@@ -147,6 +152,13 @@ pub enum Action {
     },
     /// Add a line to the chat panel.
     Chat(String),
+    /// Announce these GMCP modules to the server, as `"Name version"`.
+    Supports(Vec<String>),
+    /// Words to offer when completing, under a name; none removes them.
+    Completions {
+        name: String,
+        words: Vec<String>,
+    },
     /// Set the text of the named panel, or remove the panel.
     Panel {
         name: String,
@@ -211,6 +223,12 @@ impl DataHandler {
             None => false,
         }
     }
+}
+
+/// Store key of a client event; like [`msdp_key`], it cannot collide with
+/// a GMCP package.
+fn event_key(name: &str) -> String {
+    format!("event {}", name.to_lowercase())
 }
 
 /// Store key of an MSDP variable. The space cannot occur in a GMCP package
@@ -467,6 +485,13 @@ impl Engine {
     /// value converted to JSON.
     pub fn on_msdp(&mut self, variable: &str, json: &str) {
         self.on_data(msdp_key(variable), variable, json);
+    }
+
+    /// Tells scripts of something that happened in the client itself,
+    /// such as `connect` or the `panel` changing size. `json` is what
+    /// their handlers are given, empty for nothing.
+    pub fn on_event(&mut self, name: &str, json: &str) {
+        self.on_data(event_key(name), name, json);
     }
 
     /// Remembers the server's MSSP status for `mssp()`.
@@ -1485,6 +1510,40 @@ fn install_api(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
 
     let shared = Rc::clone(state);
     add(
+        "on_event",
+        lua.create_function(move |_, (name, callback): (String, Function)| {
+            let mut state = shared.borrow_mut();
+            let id = state.next_id();
+            state.data_handlers.push(DataHandler {
+                id,
+                key: event_key(&name),
+                callback,
+            });
+            Ok(id)
+        })?,
+    )?;
+
+    let shared = Rc::clone(state);
+    add(
+        "supports",
+        lua.create_function(move |_, modules: mlua::Variadic<String>| {
+            (shared.borrow_mut().actions).push(Action::Supports(modules.into_iter().collect()));
+            Ok(())
+        })?,
+    )?;
+
+    let shared = Rc::clone(state);
+    add(
+        "completions",
+        lua.create_function(move |_, (name, words): (String, Option<Vec<String>>)| {
+            let words = words.unwrap_or_default();
+            (shared.borrow_mut().actions).push(Action::Completions { name, words });
+            Ok(())
+        })?,
+    )?;
+
+    let shared = Rc::clone(state);
+    add(
         "gauge",
         lua.create_function(
             move |_,
@@ -2190,14 +2249,18 @@ mod tests {
             .collect();
         files.sort();
         assert!(
-            files.len() >= 4,
+            files.len() >= 6,
             "examples not found in {}",
             folder.display()
         );
         for file in files {
             let mut engine = Engine::new(Rc::default()).unwrap();
             engine.load_file(&file);
-            assert_eq!(engine.take_actions(), [], "{}", file.display());
+            // Announcing a module is all an example may do on loading:
+            // anything else would be an error it reported.
+            let mut actions = engine.take_actions();
+            actions.retain(|action| !matches!(action, Action::Supports(_)));
+            assert_eq!(actions, [], "{}", file.display());
         }
     }
 
@@ -2212,6 +2275,42 @@ mod tests {
         let map = engine.map.borrow();
         let room = map.current().unwrap();
         assert_eq!((room.name.as_str(), room.exits.len()), ("Market Square", 2));
+    }
+
+    #[test]
+    fn client_events_modules_and_completions() {
+        let mut engine = Engine::new(Rc::default()).unwrap();
+        engine.exec(
+            "test",
+            r#"
+            supports("Map.Render 1", "Dev 1")
+            on_event("panel", function(size) echo(size.columns .. "x" .. size.rows) end)
+            on_event("connect", function() echo("in") end)
+            completions("cmds", {"north", "look"})
+            completions("cmds")
+            "#,
+        );
+        engine.on_event("panel", r#"{"columns": 40, "rows": 30}"#);
+        engine.on_event("connect", "");
+        assert_eq!(
+            engine.take_actions(),
+            [
+                Action::Supports(vec!["Map.Render 1".into(), "Dev 1".into()]),
+                Action::Completions {
+                    name: "cmds".into(),
+                    words: vec!["north".into(), "look".into()]
+                },
+                Action::Completions {
+                    name: "cmds".into(),
+                    words: Vec::new()
+                },
+                Action::Echo("40x30".into()),
+                Action::Echo("in".into()),
+            ]
+        );
+        // A package of the same name from the server is not the event.
+        engine.on_gmcp("panel", r#"{"columns": 1, "rows": 1}"#);
+        assert_eq!(engine.take_actions(), []);
     }
 
     #[test]

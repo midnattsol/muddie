@@ -16,6 +16,35 @@ const MACROS: usize = 2;
 const GAUGES: usize = 3;
 const SCRIPTS: usize = 4;
 
+/// Scripts to start from: what each is for, its file name, its text.
+const EXAMPLES: [(&str, &str, &str); 5] = [
+    (
+        "A map the MUD draws itself",
+        "drawn-map",
+        include_str!("../../../../examples/scripts/drawn-map.luau"),
+    ),
+    (
+        "A map the MUD sends whole",
+        "server-map",
+        include_str!("../../../../examples/scripts/server-map.luau"),
+    ),
+    (
+        "A map read from the room descriptions",
+        "text-mapper",
+        include_str!("../../../../examples/scripts/text-mapper.luau"),
+    ),
+    (
+        "Words to complete, given by the MUD",
+        "completions",
+        include_str!("../../../../examples/scripts/completions.luau"),
+    ),
+    (
+        "Gauges from the MUD's vitals",
+        "vitals-gmcp",
+        include_str!("../../../../examples/scripts/vitals-gmcp.luau"),
+    ),
+];
+
 impl Tab {
     /// Opens the automation window on one of its sections.
     pub fn open_automation(&mut self, section: usize) {
@@ -304,7 +333,25 @@ impl Tab {
             ui.ctx().accesskit_node_builder(add.id, |node| {
                 node.set_label(tr("Add"));
             });
-            if add.on_hover_text(tr("Add")).clicked() {
+            let add = add.on_hover_text(tr("Add"));
+            if self.rules_section == SCRIPTS {
+                // A script can start empty or from an example.
+                egui::Popup::menu(&add).show(|ui| {
+                    widgets::menu_width(ui);
+                    if widgets::menu_item(ui, tr("Empty script"), "").clicked() {
+                        self.add_script(None);
+                        ui.close();
+                    }
+                    widgets::menu_separator(ui);
+                    widgets::menu_heading(ui, tr("From an example"));
+                    for (title, name, text) in EXAMPLES {
+                        if widgets::menu_item(ui, tr(title), "").clicked() {
+                            self.add_script(Some((name, text)));
+                            ui.close();
+                        }
+                    }
+                });
+            } else if add.clicked() {
                 self.add_rule();
             }
             widgets::text_box(ui, &mut self.rules_filter, tr("Search"));
@@ -374,7 +421,7 @@ impl Tab {
                 });
                 draft.gauges.len() - 1
             }
-            _ => return self.add_script(),
+            _ => return self.add_script(None),
         };
         self.rules_selected[self.rules_section] = index;
         self.rules_filter.clear();
@@ -382,8 +429,9 @@ impl Tab {
     }
 
     /// Makes an empty script file for the profile and selects it.
-    fn add_script(&mut self) {
+    pub(super) fn add_script(&mut self, example: Option<(&str, &str)>) {
         self.flush_script();
+        let (stem, text) = example.unwrap_or(("script", ""));
         let (Some(profiles), Some(profile)) = (&self.profiles, &self.profile) else {
             return self.note(tr(
                 "Scripts of your own are kept per profile: save or choose a profile first.",
@@ -392,9 +440,9 @@ impl Tab {
         let dir = profiles.scripts_dir(profile);
         let free = (1..).map(|n| {
             dir.join(if n == 1 {
-                "script.luau".to_owned()
+                format!("{stem}.luau")
             } else {
-                format!("script-{n}.luau")
+                format!("{stem}-{n}.luau")
             })
         });
         let path = free.take(500).find(|path| !path.exists());
@@ -402,7 +450,7 @@ impl Tab {
             .ok_or_else(|| "too many scripts".to_owned())
             .and_then(|path| {
                 std::fs::create_dir_all(&dir)
-                    .and_then(|()| std::fs::write(&path, ""))
+                    .and_then(|()| std::fs::write(&path, text))
                     .map(|()| path)
                     .map_err(|error| error.to_string())
             });
@@ -412,6 +460,9 @@ impl Tab {
                 let index = self.script_files.iter().position(|file| *file == path);
                 self.rules_selected[SCRIPTS] = index.unwrap_or(0);
                 self.rules_filter.clear();
+                if !text.is_empty() {
+                    self.load_scripts();
+                }
             }
             Err(error) => self.note(&trf("Could not save the script: {0}", &[&error])),
         }

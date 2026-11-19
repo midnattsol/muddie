@@ -110,6 +110,12 @@ impl Tab {
                 None => {}
             }
         }
+        if !(self.show_map && (has_map || !self.text_panels.is_empty())) {
+            // No panel yet: what a script would get if it opened one.
+            let room = egui::vec2(330.0 - 28.0, ui.available_height() - 50.0);
+            self.panel_cells = Self::cells(ui, room);
+        }
+        self.report_panel(ui.ctx());
         let right = if self.show_map && (has_map || !self.text_panels.is_empty()) {
             4
         } else {

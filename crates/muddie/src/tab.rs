@@ -136,6 +136,15 @@ pub struct Tab {
     rules_sample: String,
     /// The next key pressed becomes the selected macro's key.
     recording_key: bool,
+    /// GMCP modules scripts asked to announce, besides the usual ones.
+    supports: Vec<String>,
+    /// Words scripts gave to complete with, under the name of each list.
+    completions: Vec<(String, Vec<String>)>,
+    /// The size in characters of the panel beside the output: as it is,
+    /// as scripts were last told, and since when it has been as it is.
+    panel_cells: (u32, u32),
+    panel_reported: Option<(u32, u32)>,
+    panel_settling: Option<((u32, u32), Instant)>,
     /// The address typed on the welcome screen.
     address: String,
     /// Whether the region for announcements was in the accessibility tree
@@ -278,6 +287,11 @@ impl Tab {
             rules_changed_at: None,
             rules_sample: String::new(),
             recording_key: false,
+            supports: Vec::new(),
+            completions: Vec::new(),
+            panel_cells: (0, 0),
+            panel_reported: None,
+            panel_settling: None,
             address: String::new(),
             announce_ready: false,
             rules_section: 0,
@@ -426,6 +440,11 @@ impl Tab {
     /// general one, the profile's packages and scripts, and those given on
     /// the command line.
     fn load_scripts(&mut self) {
+        // The scripts say again what they want announced and are told
+        // again how big the panel is.
+        self.supports.clear();
+        self.completions.clear();
+        self.panel_reported = None;
         self.scripts =
             Engine::new(Rc::clone(&self.map)).expect("failed to start the script runtime");
         if let Some(profiles) = &self.profiles {
@@ -626,14 +645,15 @@ impl Tab {
         let Session {
             commands,
             mut events,
-        } = connect(
-            target,
-            Config {
+        } = connect(target, {
+            let mut config = Config {
                 screen_reader: self.voice.enabled(),
                 encoding: self.encoding.clone(),
                 ..Config::default()
-            },
-        );
+            };
+            config.gmcp_supports.extend(self.supports.iter().cloned());
+            config
+        });
 
         // Forward events to the UI thread and wake it up for each one.
         let (sender, receiver) = channel();
@@ -724,6 +744,10 @@ impl Tab {
                         self.start_log();
                     }
                     self.note(tr("Connected."));
+                    // The server has yet to hear how big the panel is.
+                    self.panel_reported = None;
+                    self.scripts.on_event("connect", "");
+                    self.run_actions();
                     self.login = if self.character.trim().is_empty() {
                         Login::Idle
                     } else {
@@ -831,6 +855,8 @@ impl Tab {
                 }
                 Event::Mssp(status) => self.scripts.on_mssp(&status),
                 Event::Disconnected(error) => {
+                    self.scripts.on_event("disconnect", "");
+                    self.run_actions();
                     self.walk = None;
                     self.pending_partial = None;
                     self.settled_partial = None;
@@ -906,6 +932,29 @@ impl Tab {
                             self.text_panels.remove(index);
                         }
                         (None, None) => {}
+                    }
+                }
+                Action::Supports(modules) => {
+                    let new: Vec<String> = modules
+                        .into_iter()
+                        .filter(|module| !self.supports.contains(module))
+                        .collect();
+                    // Already connected: the server is told of the additions.
+                    if let (Some(connection), false) = (&self.connection, new.is_empty()) {
+                        let data = serde_json::to_string(&new).unwrap_or_default();
+                        let package = "Core.Supports.Add".to_owned();
+                        let _ = connection.commands.send(Command::Gmcp { package, data });
+                    }
+                    self.supports.extend(new);
+                }
+                Action::Completions { name, words } => {
+                    // A list keeps its place when a newer one replaces it.
+                    let known = self.completions.iter().position(|(list, _)| *list == name);
+                    match (known, words.is_empty()) {
+                        (Some(index), true) => drop(self.completions.remove(index)),
+                        (Some(index), false) => self.completions[index].1 = words,
+                        (None, false) => self.completions.push((name, words)),
+                        (None, true) => {}
                     }
                 }
                 Action::Chat(text) => {
@@ -1533,20 +1582,81 @@ impl Tab {
         }
     }
 
+    /// The size in characters of a panel `size` points wide and tall, in
+    /// the output's typeface.
+    fn cells(ui: &egui::Ui, size: egui::Vec2) -> (u32, u32) {
+        let font = palette::font();
+        let (wide, tall) =
+            ui.fonts_mut(|fonts| (fonts.glyph_width(&font, 'm'), fonts.row_height(&font)));
+        (
+            (size.x / wide).floor().max(0.0) as u32,
+            (size.y / tall).floor().max(0.0) as u32,
+        )
+    }
+
+    /// Tells scripts how big the panel is once it has stopped changing,
+    /// so a window being resized does not flood the server.
+    pub(super) fn report_panel(&mut self, ctx: &egui::Context) {
+        const SETTLED: Duration = Duration::from_millis(250);
+        let cells = self.panel_cells;
+        if self.panel_reported == Some(cells) || cells.0 == 0 {
+            return self.panel_settling = None;
+        }
+        match self.panel_settling {
+            Some((settling, since)) if settling == cells && since.elapsed() >= SETTLED => {
+                self.panel_settling = None;
+                self.panel_reported = Some(cells);
+                let size = format!(r#"{{"columns": {}, "rows": {}}}"#, cells.0, cells.1);
+                self.scripts.on_event("panel", &size);
+                self.run_actions();
+            }
+            Some((settling, _)) if settling == cells => ctx.request_repaint_after(SETTLED),
+            _ => {
+                self.panel_settling = Some((cells, Instant::now()));
+                ctx.request_repaint_after(SETTLED);
+            }
+        }
+    }
+
     /// The right-hand panel: text panels from scripts, then the map.
     fn side_panel(&mut self, ui: &mut egui::Ui) -> Option<MapAction> {
-        for (name, lines) in &self.text_panels {
+        // What a drawing sent by the server has to fit in: the panel, less
+        // its title.
+        let room = ui.available_size() - egui::vec2(0.0, 22.0);
+        self.panel_cells = Self::cells(ui, room);
+        let has_map = self.map.borrow().current().is_some();
+        let alone = self.text_panels.len() == 1 && !has_map;
+        for (index, (name, lines)) in self.text_panels.iter().enumerate() {
             crate::widgets::caption(ui, name);
-            ui.scope(|ui| {
-                ui.spacing_mut().item_spacing.y = 0.0;
-                for line in lines {
-                    // Never wrapped: this is often a drawing made of characters.
-                    ui.add(Label::new(server_job(line)).extend());
-                }
+            // Never wrapped: this is often a drawing made of characters,
+            // which is also why it is centred as one block.
+            let galleys: Vec<_> = lines
+                .iter()
+                .map(|line| ui.painter().layout_job(server_job(line)))
+                .collect();
+            let widest = galleys
+                .iter()
+                .map(|galley| galley.size().x)
+                .fold(0.0, f32::max);
+            let height: f32 = galleys.iter().map(|galley| galley.size().y).sum();
+            let left = ((ui.available_width() - widest) / 2.0).max(0.0);
+            if alone {
+                ui.add_space(((ui.available_height() - height) / 2.0).max(0.0));
+            }
+            ui.horizontal(|ui| {
+                ui.add_space(left);
+                ui.vertical(|ui| {
+                    ui.spacing_mut().item_spacing.y = 0.0;
+                    for galley in galleys {
+                        ui.add(Label::new(galley).extend());
+                    }
+                });
             });
-            ui.add_space(6.0);
-            ui.separator();
-            ui.add_space(2.0);
+            if index + 1 < self.text_panels.len() || has_map {
+                ui.add_space(6.0);
+                ui.separator();
+                ui.add_space(2.0);
+            }
         }
         let map = self.map.borrow();
         if map.current().is_some() {
@@ -1601,8 +1711,10 @@ impl Tab {
                 .iter()
                 .rev()
                 .flat_map(|entry| complete::words(entry));
+            let given =
+                (self.completions.iter()).flat_map(|(_, words)| words.iter().map(String::as_str));
             self.completion
-                .complete(&mut self.input, seen.into_iter().chain(typed));
+                .complete(&mut self.input, seen.into_iter().chain(typed).chain(given));
         }
         let has_text = !self.input.is_empty();
         let theme = theme::current();
@@ -1984,6 +2096,87 @@ mod tests {
         harness.key_press(Key::Tab);
         harness.run_steps(2);
         assert_eq!(harness.state().tab().input, "kill golden");
+    }
+
+    #[test]
+    fn map_drawn_by_the_server_is_asked_for_at_the_panels_size_and_shown() {
+        let mut harness = window(None);
+        let app = harness.state_mut().tab_mut();
+        let example = include_str!("../../../examples/scripts/drawn-map.luau");
+        app.scripts.exec("drawn-map", example);
+        app.run_actions();
+        assert_eq!(app.supports, ["Map.Render 1"]);
+        let (events, mut sent) = fake_connection(app);
+        events.send(Event::Connected).unwrap();
+        // The size goes out once the panel has kept it for a moment.
+        harness.run_steps(2);
+        assert!(sent.try_recv().is_err());
+        std::thread::sleep(Duration::from_millis(300));
+        harness.run_steps(2);
+        let Ok(Command::Gmcp { package, data }) = sent.try_recv() else {
+            panic!("the panel's size was not sent");
+        };
+        assert_eq!(package, "Map.Render.Size");
+        let size: serde_json::Value = serde_json::from_str(&data).unwrap();
+        let (width, height) = (
+            size["width"].as_u64().unwrap(),
+            size["height"].as_u64().unwrap(),
+        );
+        assert!(
+            (20..80).contains(&width) && (5..=60).contains(&height),
+            "{data}"
+        );
+        assert!(sent.try_recv().is_err(), "sent once");
+
+        let drawing = r##"{"width": 5, "height": 3, "lines": ["  #  ", "#-@-#", "  #  "]}"##;
+        let render = Event::Gmcp {
+            package: "Map.Render".into(),
+            data: drawing.into(),
+        };
+        events.send(render).unwrap();
+        harness.run_steps(3);
+        let app = harness.state().tab();
+        assert_eq!(app.text_panels[0].0, "Map");
+        assert_eq!(app.text_panels[0].1.len(), 3);
+        assert!(harness.query_by_label("#-@-#").is_some());
+    }
+
+    #[test]
+    fn tab_completes_with_words_the_server_gives() {
+        let mut harness = window(None);
+        let app = harness.state_mut().tab_mut();
+        let example = include_str!("../../../examples/scripts/completions.luau");
+        app.scripts.exec("completions", example);
+        app.run_actions();
+        let (events, _sent) = fake_connection(app);
+        let words = |package: &str, data: &str| Event::Gmcp {
+            package: package.into(),
+            data: data.into(),
+        };
+        events
+            .send(words(
+                "Dev.Completions",
+                r#"{"words": ["teleport", "tell"]}"#,
+            ))
+            .unwrap();
+        events
+            .send(words(
+                "Dev.Completions.Ids",
+                r#"{"words": ["temple_guard"]}"#,
+            ))
+            .unwrap();
+        // A newer list replaces the one of the same package only.
+        events
+            .send(words("Dev.Completions", r#"{"words": ["teleport"]}"#))
+            .unwrap();
+        harness.run_steps(2);
+        harness.state_mut().tab_mut().input = "te".into();
+        harness.run_steps(2);
+        for expected in ["teleport", "temple_guard", "te"] {
+            harness.key_press(Key::Tab);
+            harness.run_steps(2);
+            assert_eq!(harness.state().tab().input, expected);
+        }
     }
 
     #[test]
