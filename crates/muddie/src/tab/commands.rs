@@ -193,7 +193,18 @@ impl Tab {
         self.palette_chosen = 0;
         self.answer.clear();
         (self.answering, self.answer_failed) = (true, false);
-        let ours = self.map_command(line);
+        let mut ours = self.map_command(line);
+        // A line of Lua is a command of the client too, carried out by
+        // the scripts: what it prints is its answer, and if it prints
+        // nothing, that it was run is.
+        if !ours && (line == "/lua" || line.starts_with("/lua ")) {
+            self.scripts.on_input(line);
+            self.run_actions();
+            if self.answer.is_empty() {
+                self.note(tr("Run."));
+            }
+            ours = true;
+        }
         self.answering = false;
         let mut said = std::mem::take(&mut self.answer);
         match said.len() {

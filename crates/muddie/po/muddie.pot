@@ -903,6 +903,9 @@ msgstr ""
 msgid "Nothing here yet. A trigger can show lines in this panel, and so can a script."
 msgstr ""
 
+msgid "Run."
+msgstr ""
+
 msgid "Choose one, or type a command"
 msgstr ""
 

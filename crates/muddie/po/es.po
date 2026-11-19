@@ -1426,3 +1426,7 @@ msgstr "Descargar los sonidos que un MUD pide reproducir"
 #, python-brace-format
 msgid "The MUD asks to go on at {0}, port {1}."
 msgstr "El MUD pide continuar en {0}, puerto {1}."
+
+
+msgid "Run."
+msgstr "Ejecutado."

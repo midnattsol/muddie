@@ -1447,7 +1447,7 @@ impl Tab {
                 Action::StopSounds => self.sound.stop_all(),
                 Action::Error(message) => {
                     let message = trf("Script error: {0}", &[&message]);
-                    message.lines().for_each(|line| self.note(line));
+                    message.lines().for_each(|line| self.refuse(line));
                 }
             }
         }
@@ -3316,6 +3316,33 @@ mod tests {
         // Left alone, it goes by itself after a moment.
         harness.run_steps(40);
         assert!(harness.state().tab().bar_note.is_none());
+        // A line of Lua is run from the palette as from the command line:
+        // what it prints is its answer, and so is that it was run, or
+        // that it could not be.
+        let run = |harness: &mut Harness<'_, App>, code: &str| {
+            let app = harness.state_mut().tab_mut();
+            app.toggle_palette();
+            app.palette_query = format!("lua {code}");
+            harness.run_steps(2);
+            harness.key_press(Key::Enter);
+            harness.run_steps(3);
+            let app = harness.state().tab();
+            assert!(!app.palette_open);
+            let note = app.bar_note.clone().expect("an answer");
+            (note.text, note.problem)
+        };
+        assert_eq!(
+            run(&mut harness, r#"supports("Comm 1")"#),
+            ("Run.".to_owned(), false)
+        );
+        assert_eq!(harness.state().tab().supports, ["Comm 1"]);
+        assert_eq!(
+            run(&mut harness, r#"echo("two")"#),
+            ("two".to_owned(), false)
+        );
+        let (said, problem) = run(&mut harness, "error('boom')");
+        assert!(said.contains("boom") && problem, "{said}");
+        assert_eq!(output_lines(harness.state().tab()).len(), before);
         // What a command lists stays in the palette, to choose from:
         // Enter on a group switches it.
         let app = harness.state_mut().tab_mut();
