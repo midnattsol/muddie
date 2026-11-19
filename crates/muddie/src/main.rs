@@ -17,6 +17,7 @@ mod settings;
 mod tab;
 mod theme;
 mod voice;
+mod widgets;
 
 use std::sync::{Arc, Mutex};
 

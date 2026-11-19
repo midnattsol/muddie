@@ -2,13 +2,14 @@
 //! mark or move rooms.
 
 use eframe::egui::{
-    Align2, Color32, ComboBox, FontId, Pos2, Rect, RichText, Sense, Stroke, StrokeKind, Ui, Vec2,
-    vec2,
+    self, Align2, Color32, ComboBox, FontId, Pos2, Rect, RichText, Sense, Stroke, StrokeKind, Ui,
+    Vec2, vec2,
 };
 use muddie_mapper::{Map, Pos, Room, RoomId, direction_offset};
 
 use crate::i18n::tr;
-use crate::theme::{self, Theme};
+use crate::theme::{self, Theme, Weight};
+use crate::widgets;
 
 /// Distance between neighbouring rooms, in points, at the default zoom.
 const DEFAULT_CELL: f32 = 36.0;
@@ -61,7 +62,7 @@ pub struct MapView {
     /// player is; `None` follows the player.
     browsing: Option<(String, i32)>,
     /// Draw the rooms of every area on the level, not just the chosen one.
-    all_areas: bool,
+    pub all_areas: bool,
     /// Room being repositioned with Shift+drag.
     moving: Option<RoomId>,
     /// Room the context menu was opened on.
@@ -92,14 +93,22 @@ impl MapView {
             ui.label(tr("No map yet: the server has not reported a room."));
             return None;
         };
-        // The same facts as text, for screen readers and at a glance.
+        // Where the player is, as text: for screen readers, and at a glance.
+        let palette = theme::current();
+        widgets::caption(ui, tr("Map"));
         let exits: Vec<&str> = current.exits.keys().map(String::as_str).collect();
-        ui.label(format!(
-            "{} | {}: {}",
-            current.name,
-            tr("exits"),
-            exits.join(", ")
-        ));
+        ui.label(
+            RichText::new(&current.name)
+                .font(theme::font(Weight::Medium, 14.0))
+                .color(palette.text),
+        );
+        let leading = format!("{}: {}", tr("exits"), exits.join(", "));
+        ui.label(
+            RichText::new(leading)
+                .font(theme::font(Weight::Regular, 12.0))
+                .color(palette.text_dim),
+        );
+        ui.add_space(4.0);
 
         let home = (current.area.clone(), current.pos.z);
         if self.centred_on != Some(current.id) {
@@ -109,28 +118,48 @@ impl MapView {
             self.browsing = None;
         }
         let (mut area, mut level) = self.browsing.clone().unwrap_or_else(|| home.clone());
-        ui.horizontal_wrapped(|ui| {
-            let label = ui.label(tr("Area"));
-            ComboBox::from_id_salt("map area")
+        // One compact row: which area, which level, and the way back.
+        ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing.x = 6.0;
+            let chooser = ComboBox::from_id_salt("map area")
                 .selected_text(area.as_str())
+                .width(130.0)
                 .show_ui(ui, |ui| {
                     for name in map.areas() {
                         ui.selectable_value(&mut area, name.to_owned(), name);
                     }
                 })
-                .response
-                .labelled_by(label.id);
-            if ui.button(tr("Down")).clicked() {
+                .response;
+            ui.ctx().accesskit_node_builder(chooser.id, |node| {
+                node.set_label(tr("Area"));
+            });
+            let down = ui
+                .add(egui::Button::new("−").min_size(vec2(26.0, 26.0)))
+                .on_hover_text(tr("Down"));
+            ui.ctx().accesskit_node_builder(down.id, |node| {
+                node.set_label(tr("Down"));
+            });
+            if down.clicked() {
                 level -= 1;
             }
-            ui.label(format!("{} {level}", tr("level")));
-            if ui.button(tr("Up")).clicked() {
+            let shown_level = format!("{} {level}", tr("level"));
+            ui.label(
+                RichText::new(shown_level)
+                    .font(theme::font(Weight::Regular, 12.5))
+                    .color(palette.text_dim),
+            );
+            let up = ui
+                .add(egui::Button::new("+").min_size(vec2(26.0, 26.0)))
+                .on_hover_text(tr("Up"));
+            ui.ctx().accesskit_node_builder(up.id, |node| {
+                node.set_label(tr("Up"));
+            });
+            if up.clicked() {
                 level += 1;
             }
             if self.browsing.is_some() && ui.button(tr("Back to me")).clicked() {
                 (area, level) = home.clone();
             }
-            ui.checkbox(&mut self.all_areas, tr("All areas"));
         });
         let shown = (area, level);
         if self.browsing.as_ref().unwrap_or(&home) != &shown {
@@ -140,7 +169,6 @@ impl MapView {
         let (area, level) = shown;
 
         let hint = tr("Click a room to walk there, right-click for more, Shift+drag to move it.");
-        ui.label(RichText::new(hint).weak().small());
         let colours = Colours::of(theme::current());
         let (response, painter) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
         ui.ctx().accesskit_node_builder(response.id, |node| {
@@ -296,6 +324,8 @@ impl MapView {
         }
         let mut chosen = None;
         response.context_menu(|ui| {
+            ui.checkbox(&mut self.all_areas, tr("Show all areas"));
+            ui.separator();
             let Some(room) = self.menu_room.and_then(|id| map.room(id)) else {
                 if ui.button(tr("Tidy this area")).clicked() {
                     chosen = Some(MapAction::Tidy(area.clone()));
@@ -324,6 +354,10 @@ impl MapView {
         });
         if chosen.is_none() && response.clicked() {
             chosen = pointed.map(|room| MapAction::Walk(room.id));
+        }
+        // Over empty space the map says how it is used; over a room, which.
+        if pointed.is_none() && response.hovered() && !response.dragged() {
+            response.clone().on_hover_text_at_pointer(hint);
         }
         if let Some(room) = pointed {
             let mut text = format!("{} (#{})", room.name, room.id);

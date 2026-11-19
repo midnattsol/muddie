@@ -14,6 +14,8 @@ fn yes() -> bool {
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Trigger {
+    /// What the user calls it; shown in lists instead of the pattern.
+    pub name: String,
     #[serde(default = "yes")]
     pub enabled: bool,
     /// Text the line must contain, or a regular expression if `regex`.
@@ -36,6 +38,7 @@ pub struct Trigger {
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Alias {
+    pub name: String,
     #[serde(default = "yes")]
     pub enabled: bool,
     /// The word that starts the command, or a regular expression matched
@@ -51,11 +54,72 @@ pub struct Alias {
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct KeyBinding {
+    pub name: String,
     #[serde(default = "yes")]
     pub enabled: bool,
     /// The key as `bind` names it, such as `f5` or `ctrl+k`.
     pub key: String,
     pub send: String,
+}
+
+impl Trigger {
+    /// The regular expression the trigger matches lines with.
+    pub fn regex_source(&self) -> String {
+        if self.regex {
+            self.pattern.clone()
+        } else {
+            regex_escape(&self.pattern)
+        }
+    }
+
+    /// A line saying what the trigger does, for lists.
+    pub fn summary(&self) -> String {
+        let mut parts = Vec::new();
+        if !self.send.trim().is_empty() {
+            parts.push(format!("→ {}", self.send.trim()));
+        }
+        if !self.speak.trim().is_empty() {
+            parts.push(format!("“{}”", self.speak.trim()));
+        }
+        if !self.sound.trim().is_empty() {
+            parts.push(format!("♪ {}", self.sound.trim()));
+        }
+        if !self.highlight.trim().is_empty() {
+            parts.push(self.highlight.trim().to_owned());
+        }
+        if self.gag {
+            parts.push("∅".to_owned());
+        }
+        parts.join("  ·  ")
+    }
+}
+
+impl Alias {
+    /// The regular expression the alias matches typed commands with.
+    pub fn regex_source(&self) -> String {
+        if self.regex {
+            self.pattern.clone()
+        } else {
+            // The word alone, or followed by arguments, which are %1.
+            format!("^{}(?:\\s+(.*))?$", regex_escape(self.pattern.trim()))
+        }
+    }
+}
+
+/// Puts a match's groups into a template: `%1`... become the groups.
+pub fn fill(template: &str, captures: &regex::Captures) -> String {
+    let mut filled = String::with_capacity(template.len());
+    let mut chars = template.chars().peekable();
+    while let Some(ch) = chars.next() {
+        match (ch, chars.peek().and_then(|next| next.to_digit(10))) {
+            ('%', Some(group)) => {
+                chars.next();
+                filled.push_str(captures.get(group as usize).map_or("", |m| m.as_str()));
+            }
+            _ => filled.push(ch),
+        }
+    }
+    filled
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -112,12 +176,10 @@ impl Rules {
             .iter()
             .filter(|trigger| trigger.enabled && !trigger.pattern.is_empty())
         {
-            let pattern = if trigger.regex {
-                trigger.pattern.clone()
-            } else {
-                regex_escape(&trigger.pattern)
-            };
-            code.push_str(&format!("trigger({}, function(m)\n", quoted(&pattern)));
+            code.push_str(&format!(
+                "trigger({}, function(m)\n",
+                quoted(&trigger.regex_source())
+            ));
             if !trigger.highlight.trim().is_empty() {
                 code.push_str(&format!(
                     "\thighlight({})\n",
@@ -144,15 +206,9 @@ impl Rules {
             .iter()
             .filter(|alias| alias.enabled && !alias.pattern.trim().is_empty())
         {
-            let pattern = if alias.regex {
-                alias.pattern.clone()
-            } else {
-                // The word alone, or followed by arguments, which are %1.
-                format!("^{}(?:\\s+(.*))?$", regex_escape(alias.pattern.trim()))
-            };
             code.push_str(&format!(
                 "alias({}, function(m)\n{}end)\n",
-                quoted(&pattern),
+                quoted(&alias.regex_source()),
                 sends(&alias.send)
             ));
         }
@@ -307,6 +363,7 @@ mod tests {
                     pattern: r"^g (\w+) (\w+)$".into(),
                     regex: true,
                     send: "give %1 to %2".into(),
+                    ..Alias::default()
                 },
             ],
             keys: vec![
@@ -314,11 +371,13 @@ mod tests {
                     enabled: true,
                     key: "F5".into(),
                     send: "look".into(),
+                    ..KeyBinding::default()
                 },
                 KeyBinding {
                     enabled: false,
                     key: "f6".into(),
                     send: "never".into(),
+                    ..KeyBinding::default()
                 },
             ],
             ..Rules::default()
@@ -344,6 +403,29 @@ mod tests {
     }
 
     #[test]
+    fn templates_are_filled_from_a_match() {
+        let alias = Alias {
+            pattern: "k".into(),
+            ..Alias::default()
+        };
+        let regex = regex::Regex::new(&alias.regex_source()).unwrap();
+        let captures = regex.captures("k orc chief").unwrap();
+        assert_eq!(
+            fill("kill %1; say 100%% of %1 %9", &captures),
+            "kill orc chief; say 100%% of orc chief "
+        );
+        assert!(regex.captures("kick").is_none());
+        let trigger = Trigger {
+            pattern: "a (b)?".into(),
+            send: "x".into(),
+            gag: true,
+            ..Trigger::default()
+        };
+        assert_eq!(trigger.regex_source(), "a \\(b\\)\\?");
+        assert_eq!(trigger.summary(), "→ x  ·  ∅");
+    }
+
+    #[test]
     fn rules_round_trip_through_their_file() {
         let path =
             std::env::temp_dir().join(format!("muddie-rules-{}/rules.toml", std::process::id()));
@@ -362,6 +444,7 @@ mod tests {
                 ..Alias::default()
             }],
             keys: vec![KeyBinding {
+                name: "Kick".into(),
                 enabled: true,
                 key: "ctrl+k".into(),
                 send: "kick".into(),

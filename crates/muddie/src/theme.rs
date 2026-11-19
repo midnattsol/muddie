@@ -1,10 +1,13 @@
-//! The look of the interface: colours, spacing and type for each theme.
+//! The look of the interface: colours, type and spacing for each theme.
+//!
+//! The interface is set in Inter and the output in JetBrains Mono, both
+//! built in so that it looks the same everywhere.
 
 use std::sync::RwLock;
 
 use eframe::egui::{
-    self, Color32, CornerRadius, FontData, FontDefinitions, FontFamily, FontId, Stroke, TextStyle,
-    Vec2,
+    self, Color32, CornerRadius, FontData, FontDefinitions, FontFamily, FontId, Margin, Shadow,
+    Stroke, TextStyle, Vec2,
 };
 
 use crate::settings::{Settings, ThemeName};
@@ -15,16 +18,25 @@ pub struct Theme {
     pub dark: bool,
     /// Behind the output and the map.
     pub background: Color32,
-    /// Bars and side panels.
+    /// Bars, side panels and windows.
     pub surface: Color32,
-    /// Inputs, buttons and anything raised from a surface.
+    /// Controls, and anything raised from a surface.
     pub raised: Color32,
+    /// A control under the pointer.
+    pub hover: Color32,
+    /// Hairlines between areas and around fields.
     pub border: Color32,
     pub text: Color32,
-    /// Secondary text: labels, hints, lines the client adds itself.
+    /// Secondary text: labels, lines the client adds itself.
     pub text_dim: Color32,
-    /// Selection, focus and the player's place on the map.
+    /// Captions and hints.
+    pub text_faint: Color32,
+    /// The one colour that marks what is selected, focused or primary.
     pub accent: Color32,
+    /// Text on top of the accent.
+    pub on_accent: Color32,
+    pub good: Color32,
+    pub danger: Color32,
     /// The 16 base terminal colours, tuned to read well on `background`.
     pub terminal: [Color32; 16],
 }
@@ -33,49 +45,60 @@ const fn rgb(hex: u32) -> Color32 {
     Color32::from_rgb((hex >> 16) as u8, (hex >> 8) as u8, hex as u8)
 }
 
+/// Graphite: near-black neutrals with a single blue accent.
 const DARK: Theme = Theme {
     dark: true,
-    background: rgb(0x0f1116),
-    surface: rgb(0x151821),
-    raised: rgb(0x1e2230),
-    border: rgb(0x272c3b),
-    text: rgb(0xe2e5ee),
-    text_dim: rgb(0x8a92a8),
-    accent: rgb(0x8aa9ff),
+    background: rgb(0x0c0d0f),
+    surface: rgb(0x131416),
+    raised: rgb(0x1c1d21),
+    hover: rgb(0x26282d),
+    border: rgb(0x232429),
+    text: rgb(0xececee),
+    text_dim: rgb(0x9a9ca4),
+    text_faint: rgb(0x62656d),
+    accent: rgb(0x4c8dff),
+    on_accent: rgb(0xffffff),
+    good: rgb(0x3ecf8e),
+    danger: rgb(0xff6369),
     terminal: [
-        rgb(0x2b2f3a),
-        rgb(0xe8707a),
-        rgb(0x9ccf7e),
-        rgb(0xe9c582),
-        rgb(0x6cb2f2),
-        rgb(0xc98be6),
-        rgb(0x5fc1cc),
-        rgb(0xcbd0da),
-        rgb(0x6c7385),
-        rgb(0xff8791),
-        rgb(0xb8ec95),
-        rgb(0xffdc8f),
-        rgb(0x8ccaff),
-        rgb(0xe3a5f8),
-        rgb(0x88e0ea),
+        rgb(0x2a2c31),
+        rgb(0xf0767e),
+        rgb(0x8fd68a),
+        rgb(0xebc983),
+        rgb(0x6fb1f5),
+        rgb(0xc792ea),
+        rgb(0x63c7d1),
+        rgb(0xcfd2d9),
+        rgb(0x6d717b),
+        rgb(0xff8b94),
+        rgb(0xaeeb9c),
+        rgb(0xffdd93),
+        rgb(0x8fc8ff),
+        rgb(0xe0a8fa),
+        rgb(0x8ae3ec),
         rgb(0xffffff),
     ],
 };
 
 const LIGHT: Theme = Theme {
     dark: false,
-    background: rgb(0xfcfcfe),
-    surface: rgb(0xf2f3f7),
-    raised: rgb(0xffffff),
-    border: rgb(0xd8dbe5),
-    text: rgb(0x1c2030),
-    text_dim: rgb(0x687089),
-    accent: rgb(0x3d5bd9),
+    background: rgb(0xffffff),
+    surface: rgb(0xf5f5f7),
+    raised: rgb(0xe9e9ed),
+    hover: rgb(0xdddde3),
+    border: rgb(0xdcdce1),
+    text: rgb(0x1d1d1f),
+    text_dim: rgb(0x62636b),
+    text_faint: rgb(0x9a9ba3),
+    accent: rgb(0x0a6cff),
+    on_accent: rgb(0xffffff),
+    good: rgb(0x1f9d63),
+    danger: rgb(0xd92d36),
     terminal: [
-        rgb(0x1c2030),
+        rgb(0x1d1d1f),
         rgb(0xc4323f),
         rgb(0x2f8a3b),
-        rgb(0x9a6b00),
+        rgb(0x946500),
         rgb(0x1f66c9),
         rgb(0x9340b8),
         rgb(0x12808e),
@@ -95,11 +118,16 @@ const CONTRAST: Theme = Theme {
     dark: true,
     background: rgb(0x000000),
     surface: rgb(0x000000),
-    raised: rgb(0x1a1a1a),
+    raised: rgb(0x1c1c1c),
+    hover: rgb(0x333333),
     border: rgb(0xffffff),
     text: rgb(0xffffff),
-    text_dim: rgb(0xe0e0e0),
+    text_dim: rgb(0xe6e6e6),
+    text_faint: rgb(0xcccccc),
     accent: rgb(0xffe600),
+    on_accent: rgb(0x000000),
+    good: rgb(0x55ff55),
+    danger: rgb(0xff5555),
     terminal: [
         rgb(0x000000),
         rgb(0xff5555),
@@ -150,6 +178,24 @@ pub fn output_font() -> FontId {
     FontId::monospace(CURRENT.read().expect("theme lock").output_size)
 }
 
+/// The weights the interface's typeface comes in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Weight {
+    Regular,
+    Medium,
+    Semibold,
+}
+
+/// The interface's typeface at a weight and size.
+pub fn font(weight: Weight, size: f32) -> FontId {
+    let family = match weight {
+        Weight::Regular => FontFamily::Proportional,
+        Weight::Medium => FontFamily::Name("medium".into()),
+        Weight::Semibold => FontFamily::Name("semibold".into()),
+    };
+    FontId::new(size, family)
+}
+
 /// Makes the interface look as the settings say. Returns an error if the
 /// chosen font file cannot be used; the built-in font is kept then.
 pub fn apply(ctx: &egui::Context, settings: &Settings) -> Result<(), String> {
@@ -168,54 +214,77 @@ pub fn apply(ctx: &egui::Context, settings: &Settings) -> Result<(), String> {
         visuals.panel_fill = theme.surface;
         visuals.window_fill = theme.surface;
         visuals.extreme_bg_color = theme.background;
+        visuals.text_edit_bg_color = Some(theme.background);
         visuals.faint_bg_color = theme.raised;
         visuals.window_stroke = Stroke::new(1.0, theme.border);
-        visuals.window_corner_radius = CornerRadius::same(10);
-        visuals.menu_corner_radius = CornerRadius::same(8);
-        visuals.selection.bg_fill = theme.accent.gamma_multiply(0.35);
+        visuals.window_corner_radius = CornerRadius::same(12);
+        visuals.menu_corner_radius = CornerRadius::same(9);
+        visuals.window_shadow = Shadow {
+            offset: [0, 12],
+            blur: 36,
+            spread: 0,
+            color: Color32::from_black_alpha(if theme.dark { 130 } else { 50 }),
+        };
+        visuals.popup_shadow = Shadow {
+            offset: [0, 6],
+            blur: 18,
+            spread: 0,
+            color: Color32::from_black_alpha(if theme.dark { 110 } else { 40 }),
+        };
+        visuals.selection.bg_fill = theme.accent.gamma_multiply(0.38);
         visuals.selection.stroke = Stroke::new(1.0, theme.accent);
         visuals.hyperlink_color = theme.accent;
         visuals.override_text_color = None;
+        visuals.weak_text_color = Some(theme.text_faint);
+        visuals.button_frame = true;
+        visuals.slider_trailing_fill = true;
+        visuals.indent_has_left_vline = false;
 
-        let radius = CornerRadius::same(6);
+        // Controls have no outline of their own: they are told apart from
+        // the surface by their fill, and from each other by spacing.
+        let radius = CornerRadius::same(7);
         let widgets = &mut visuals.widgets;
         widgets.noninteractive.bg_fill = theme.surface;
+        widgets.noninteractive.weak_bg_fill = theme.surface;
         widgets.noninteractive.bg_stroke = Stroke::new(1.0, theme.border);
         widgets.noninteractive.fg_stroke = Stroke::new(1.0, theme.text_dim);
         widgets.noninteractive.corner_radius = radius;
-        for (widget, lift) in [
-            (&mut widgets.inactive, 0.0),
-            (&mut widgets.hovered, 0.08),
-            (&mut widgets.active, 0.16),
-            (&mut widgets.open, 0.08),
+        for (widget, fill) in [
+            (&mut widgets.inactive, theme.raised),
+            (&mut widgets.hovered, theme.hover),
+            (&mut widgets.active, mix(theme.hover, theme.text, 0.12)),
+            (&mut widgets.open, theme.hover),
         ] {
-            let fill = mix(theme.raised, theme.text, lift);
             widget.bg_fill = fill;
             widget.weak_bg_fill = fill;
-            widget.bg_stroke = Stroke::new(1.0, mix(theme.border, theme.text, lift));
+            widget.bg_stroke = Stroke::new(1.0, mix(fill, theme.text, 0.06));
             widget.fg_stroke = Stroke::new(1.0, theme.text);
             widget.corner_radius = radius;
             widget.expansion = 0.0;
         }
-        widgets.hovered.bg_stroke = Stroke::new(1.0, theme.accent.gamma_multiply(0.7));
         widgets.active.bg_stroke = Stroke::new(1.0, theme.accent);
 
         let spacing = &mut style.spacing;
-        spacing.item_spacing = Vec2::new(8.0, 6.0);
-        spacing.button_padding = Vec2::new(10.0, 4.0);
-        spacing.interact_size.y = 26.0;
-        spacing.menu_margin = egui::Margin::same(6);
+        spacing.item_spacing = Vec2::new(8.0, 8.0);
+        spacing.button_padding = Vec2::new(12.0, 5.0);
+        spacing.interact_size.y = 28.0;
+        spacing.menu_margin = Margin::same(6);
+        spacing.window_margin = Margin::same(16);
+        spacing.combo_width = 120.0;
+        spacing.icon_width = 16.0;
+        spacing.scroll.bar_width = 8.0;
+        spacing.scroll.floating = true;
 
         style.text_styles = [
-            (TextStyle::Heading, FontId::proportional(19.0)),
-            (TextStyle::Body, FontId::proportional(14.0)),
-            (TextStyle::Button, FontId::proportional(14.0)),
-            (TextStyle::Small, FontId::proportional(11.5)),
-            (TextStyle::Monospace, FontId::monospace(13.5)),
+            (TextStyle::Heading, font(Weight::Semibold, 20.0)),
+            (TextStyle::Body, font(Weight::Regular, 13.5)),
+            (TextStyle::Button, font(Weight::Regular, 13.5)),
+            (TextStyle::Small, font(Weight::Regular, 11.5)),
+            (TextStyle::Monospace, FontId::monospace(13.0)),
         ]
         .into();
     });
-    set_output_font(ctx, &settings.font_file)
+    install_fonts(ctx, &settings.font_file)
 }
 
 /// Blends `amount` of `other` into `base`, giving an opaque colour.
@@ -229,10 +298,46 @@ pub fn mix(base: Color32, other: Color32, amount: f32) -> Color32 {
     )
 }
 
-/// Uses the font in `file` for monospace text, or the built-in one if
-/// `file` is empty.
-fn set_output_font(ctx: &egui::Context, file: &str) -> Result<(), String> {
+/// Installs the built-in typefaces, and the user's output font if `file`
+/// names one.
+fn install_fonts(ctx: &egui::Context, file: &str) -> Result<(), String> {
     let mut fonts = FontDefinitions::default();
+    let built_in: [(&str, &'static [u8]); 4] = [
+        ("inter", include_bytes!("../assets/fonts/Inter-Regular.ttf")),
+        (
+            "inter-medium",
+            include_bytes!("../assets/fonts/Inter-Medium.ttf"),
+        ),
+        (
+            "inter-semibold",
+            include_bytes!("../assets/fonts/Inter-SemiBold.ttf"),
+        ),
+        (
+            "jetbrains-mono",
+            include_bytes!("../assets/fonts/JetBrainsMono-Regular.ttf"),
+        ),
+    ];
+    for (name, bytes) in built_in {
+        (fonts.font_data).insert(name.to_owned(), FontData::from_static(bytes).into());
+    }
+    // egui's own fonts stay behind ours, for symbols ours lack.
+    let fallbacks = fonts
+        .families
+        .get(&FontFamily::Proportional)
+        .cloned()
+        .unwrap_or_default();
+    for (family, first) in [
+        (FontFamily::Proportional, "inter"),
+        (FontFamily::Name("medium".into()), "inter-medium"),
+        (FontFamily::Name("semibold".into()), "inter-semibold"),
+    ] {
+        let mut names = vec![first.to_owned()];
+        names.extend(fallbacks.iter().cloned());
+        fonts.families.insert(family, names);
+    }
+    let monospace = fonts.families.entry(FontFamily::Monospace).or_default();
+    monospace.insert(0, "jetbrains-mono".to_owned());
+
     let mut result = Ok(());
     if !file.is_empty() {
         match std::fs::read(file) {

@@ -14,6 +14,7 @@ muddie-mapper = { version = "0.1.0", path = "../muddie-mapper" }
 muddie-script = { version = "0.1.0", path = "../muddie-script" }
 muddie-sound = { version = "0.1.0", path = "../muddie-sound" }
 muddie-speech = { version = "0.1.0", path = "../muddie-speech" }
+regex = "1.13.2"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 tokio = { version = "1.54.1", features = ["rt-multi-thread", "sync"] }

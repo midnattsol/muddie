@@ -33,6 +33,9 @@ use crate::theme;
 use crate::voice::Voice;
 use muddie_sound::{self as sound, Msp, Player};
 
+mod automation;
+mod view;
+
 struct Connection {
     commands: UnboundedSender<Command>,
     events: Receiver<Event>,
@@ -106,6 +109,24 @@ pub struct Tab {
     rules_open: bool,
     /// The connection window is showing.
     connection_open: bool,
+    /// A connection has been asked for at least once; until then the
+    /// session shows the welcome screen.
+    started: bool,
+    /// The saved profiles with where each connects, for the welcome
+    /// screen; `None` until read, and again after one is saved.
+    welcome_profiles: Option<Vec<(String, String)>>,
+    /// The rule selected in each section of the automation window.
+    rules_selected: [usize; 3],
+    /// What the automation window's search box holds.
+    rules_filter: String,
+    /// The draft as last seen, and when it last changed: edits are saved
+    /// once they stop for a moment.
+    rules_seen: Rules,
+    rules_changed_at: Option<Instant>,
+    /// A sample line or command to try the selected rule on.
+    rules_sample: String,
+    /// The next key pressed becomes the selected macro's key.
+    recording_key: bool,
     /// Which of triggers, aliases and keys the rules window shows.
     rules_section: usize,
     /// Label of the text encoding the server uses; `auto` for most.
@@ -228,6 +249,14 @@ impl Tab {
             rules_draft: Rules::default(),
             rules_open: false,
             connection_open: false,
+            started: false,
+            welcome_profiles: None,
+            rules_selected: [0; 3],
+            rules_filter: String::new(),
+            rules_seen: Rules::default(),
+            rules_changed_at: None,
+            rules_sample: String::new(),
+            recording_key: false,
             rules_section: 0,
             encoding: "auto".into(),
             package_jobs: Vec::new(),
@@ -254,8 +283,6 @@ impl Tab {
             app.connect(ctx);
         }
         app.settings_changed(settings);
-        // With nowhere to connect to yet, start by asking.
-        app.connection_open = app.host.trim().is_empty();
         app
     }
 
@@ -288,89 +315,90 @@ impl Tab {
 
     /// The part of the settings window that belongs to sessions.
     pub fn settings_ui(ui: &mut egui::Ui, settings: &mut Settings) {
-        ui.add_space(10.0);
-        ui.label(RichText::new(tr("Sessions")).strong());
-        egui::Grid::new("sessions")
-            .num_columns(2)
-            .spacing([16.0, 8.0])
-            .show(ui, |ui| {
-                let label = ui.label(tr("Lines kept"));
-                ui.add(
-                    egui::DragValue::new(&mut settings.scrollback_lines)
-                        .range(100..=1_000_000)
-                        .speed(100),
-                )
-                .labelled_by(label.id);
-                ui.end_row();
-
-                ui.label(tr("Output"));
-                ui.checkbox(&mut settings.timestamps, tr("Show the time of each line"));
-                ui.end_row();
-
-                ui.label(tr("Log"));
-                ui.horizontal(|ui| {
-                    ui.checkbox(&mut settings.log_sessions, tr("Log every session"));
-                    let name = |format: LogFormat| match format {
-                        LogFormat::Text => tr("Text"),
-                        LogFormat::Html => "HTML",
-                    };
-                    ComboBox::from_id_salt("log format")
-                        .selected_text(name(settings.log_format))
-                        .width(70.0)
-                        .show_ui(ui, |ui| {
-                            for format in [LogFormat::Text, LogFormat::Html] {
-                                ui.selectable_value(&mut settings.log_format, format, name(format));
-                            }
-                        });
+        use crate::widgets::{caption, switch_row};
+        let row = |ui: &mut egui::Ui,
+                   label: &str,
+                   control: &mut dyn FnMut(&mut egui::Ui) -> egui::Response| {
+            ui.horizontal(|ui| {
+                let name = ui.label(label);
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    control(ui).labelled_by(name.id);
                 });
-                ui.end_row();
-
-                ui.label(tr("Connection"));
-                ui.checkbox(
-                    &mut settings.reconnect,
-                    tr("Reconnect when the connection is lost"),
-                );
-                ui.end_row();
-
-                let label = ui.label(tr("Keep-alive"));
-                ui.add(
-                    egui::DragValue::new(&mut settings.keepalive_seconds)
-                        .range(0..=3600)
-                        .suffix(" s"),
-                )
-                .on_hover_text(tr(
-                    "Seconds of silence before a keep-alive is sent; 0 sends none.",
-                ))
-                .labelled_by(label.id);
-                ui.end_row();
-
-                let label = ui.label(tr("Speech rate"));
-                ui.add(egui::Slider::new(&mut settings.speech_rate, -100..=100))
-                    .labelled_by(label.id);
-                ui.end_row();
-
-                ui.label(tr("Screen reader"));
-                ui.checkbox(
-                    &mut settings.announce_with_screen_reader,
-                    tr("Voice through the screen reader (also braille)"),
-                )
-                .on_hover_text(tr(
-                    "Instead of speaking directly, hand each line to the screen reader to announce.",
-                ));
-                ui.end_row();
-
-                let label = ui.label(tr("Speech language"));
-                ui.add(
-                    TextEdit::singleline(&mut settings.speech_language)
-                        .hint_text(tr("system"))
-                        .desired_width(70.0),
-                )
-                .on_hover_text(tr(
-                    "A language code such as es or en, so the text is read with the right voice.",
-                ))
-                .labelled_by(label.id);
-                ui.end_row();
             });
+        };
+        ui.add_space(6.0);
+        caption(ui, tr("Output"));
+        row(ui, tr("Lines kept"), &mut |ui| {
+            ui.add(
+                egui::DragValue::new(&mut settings.scrollback_lines)
+                    .range(100..=1_000_000)
+                    .speed(100),
+            )
+        });
+        switch_row(
+            ui,
+            &mut settings.timestamps,
+            tr("Show the time of each line"),
+        );
+
+        ui.add_space(6.0);
+        caption(ui, tr("Sessions"));
+        switch_row(ui, &mut settings.log_sessions, tr("Log every session"));
+        row(ui, tr("Log format"), &mut |ui| {
+            let name = |format: LogFormat| match format {
+                LogFormat::Text => tr("Text"),
+                LogFormat::Html => "HTML",
+            };
+            ComboBox::from_id_salt("log format")
+                .selected_text(name(settings.log_format))
+                .width(110.0)
+                .show_ui(ui, |ui| {
+                    for format in [LogFormat::Text, LogFormat::Html] {
+                        ui.selectable_value(&mut settings.log_format, format, name(format));
+                    }
+                })
+                .response
+        });
+        switch_row(
+            ui,
+            &mut settings.reconnect,
+            tr("Reconnect when the connection is lost"),
+        );
+        row(ui, tr("Keep-alive"), &mut |ui| {
+            ui.add(
+                egui::DragValue::new(&mut settings.keepalive_seconds)
+                    .range(0..=3600)
+                    .suffix(" s"),
+            )
+            .on_hover_text(tr(
+                "Seconds of silence before a keep-alive is sent; 0 sends none.",
+            ))
+        });
+
+        ui.add_space(6.0);
+        caption(ui, tr("Speech"));
+        row(ui, tr("Speech rate"), &mut |ui| {
+            ui.add(egui::Slider::new(&mut settings.speech_rate, -100..=100))
+        });
+        row(ui, tr("Speech language"), &mut |ui| {
+            ui.add(
+                TextEdit::singleline(&mut settings.speech_language)
+                    .hint_text(tr("system"))
+                    .margin(egui::Margin::symmetric(9, 6))
+                    .desired_width(110.0),
+            )
+            .on_hover_text(tr(
+                "A language code such as es or en, so the text is read with the right voice.",
+            ))
+        });
+        switch_row(
+            ui,
+            &mut settings.announce_with_screen_reader,
+            tr("Voice through the screen reader (also braille)"),
+        )
+        .on_hover_text(tr(
+            "Instead of speaking directly, hand each line to the screen reader to announce.",
+        ));
     }
 
     /// Starts the script runtime afresh and runs the user's scripts: the
@@ -411,18 +439,15 @@ impl Tab {
     /// Saves the rules edited in the rules window and puts them to work.
     fn save_rules(&mut self) {
         let Some(profiles) = &self.profiles else {
-            return self.note(tr(
-                "The rules cannot be saved: no configuration folder was found.",
-            ));
+            // Nowhere to keep them: they still work for this session.
+            self.rules = self.rules_draft.clone();
+            return self.load_scripts();
         };
-        match self
+        let saved = self
             .rules_draft
-            .save(&profiles.rules_path(self.profile.as_deref()))
-        {
-            Ok(()) => {
-                self.load_scripts();
-                self.note(tr("Rules saved."));
-            }
+            .save(&profiles.rules_path(self.profile.as_deref()));
+        match saved {
+            Ok(()) => self.load_scripts(),
             Err(error) => self.note(&trf("Could not save the rules: {0}", &[&error])),
         }
     }
@@ -497,6 +522,7 @@ impl Tab {
                 if renamed {
                     self.load_scripts();
                 }
+                self.welcome_profiles = None;
                 self.note(&trf("Profile {0} saved.", &[&name]));
                 let password = std::mem::take(&mut self.new_password);
                 if !password.is_empty()
@@ -534,6 +560,8 @@ impl Tab {
         }
         self.user_disconnected = false;
         self.reconnect_at = None;
+        self.started = true;
+        self.connection_open = false;
         self.note(&trf(
             "Connecting to {0}:{1}...",
             &[&host.to_string(), &port.to_string()],
@@ -1053,69 +1081,6 @@ impl Tab {
         }
     }
 
-    /// The window for editing triggers, aliases and keys without a script.
-    fn rules_window(&mut self, ctx: &egui::Context) {
-        if !self.rules_open {
-            return;
-        }
-        let theme = theme::current();
-        let (mut open, mut save) = (true, false);
-        egui::Window::new(tr("Triggers, aliases and keys"))
-            .open(&mut open)
-            .collapsible(false)
-            .default_size([780.0, 460.0])
-            .show(ctx, |ui| {
-                ui.horizontal(|ui| {
-                    for (section, name) in [tr("Triggers"), tr("Aliases"), tr("Keys")]
-                        .into_iter()
-                        .enumerate()
-                    {
-                        ui.selectable_value(&mut self.rules_section, section, name);
-                    }
-                });
-                ui.separator();
-                let draft = &mut self.rules_draft;
-                egui::ScrollArea::vertical()
-                    .max_height(340.0)
-                    .auto_shrink(false)
-                    .show(ui, |ui| match self.rules_section {
-                        0 => edit_rules(ui, &mut draft.triggers, trigger_editor),
-                        1 => edit_rules(ui, &mut draft.aliases, alias_editor),
-                        _ => edit_rules(ui, &mut draft.keys, key_editor),
-                    });
-                ui.separator();
-                ui.horizontal(|ui| {
-                    if ui.button(tr("Add")).clicked() {
-                        match self.rules_section {
-                            0 => draft.triggers.push(Trigger {
-                                enabled: true,
-                                ..Trigger::default()
-                            }),
-                            1 => draft.aliases.push(Alias {
-                                enabled: true,
-                                ..Alias::default()
-                            }),
-                            _ => draft.keys.push(KeyBinding {
-                                enabled: true,
-                                ..KeyBinding::default()
-                            }),
-                        }
-                    }
-                    let changed = *draft != self.rules;
-                    save = ui
-                        .add_enabled(changed, egui::Button::new(tr("Save")))
-                        .clicked();
-                    if changed {
-                        ui.label(RichText::new(tr("Unsaved changes")).color(theme.text_dim));
-                    }
-                });
-            });
-        self.rules_open = open;
-        if save {
-            self.save_rules();
-        }
-    }
-
     /// Hands new text to the screen reader: a label too small to see, marked
     /// as a live region, which screen readers announce when it changes, by
     /// voice and in braille.
@@ -1534,12 +1499,17 @@ impl Tab {
     /// The right-hand panel: text panels from scripts, then the map.
     fn side_panel(&mut self, ui: &mut egui::Ui) -> Option<MapAction> {
         for (name, lines) in &self.text_panels {
-            ui.label(RichText::new(name).weak());
-            for line in lines {
-                // Never wrapped: this is often a drawing made of characters.
-                ui.add(Label::new(server_job(line)).extend());
-            }
+            crate::widgets::caption(ui, name);
+            ui.scope(|ui| {
+                ui.spacing_mut().item_spacing.y = 0.0;
+                for line in lines {
+                    // Never wrapped: this is often a drawing made of characters.
+                    ui.add(Label::new(server_job(line)).extend());
+                }
+            });
+            ui.add_space(6.0);
             ui.separator();
+            ui.add_space(2.0);
         }
         let map = self.map.borrow();
         if map.current().is_some() {
@@ -1570,148 +1540,6 @@ impl Tab {
                 self.scripts.on_input(&line);
                 self.run_actions();
             }
-        }
-    }
-
-    /// The session's bar: profile, connect and the panel switches. The
-    /// connection's details live in their own window.
-    fn connection_bar(&mut self, ui: &mut egui::Ui) {
-        let connected = self.connection.is_some();
-        let theme = theme::current();
-        ui.horizontal(|ui| {
-            ui.add_enabled_ui(!connected, |ui| {
-                let names = self
-                    .profiles
-                    .as_ref()
-                    .map(Profiles::names)
-                    .unwrap_or_default();
-                let mut chosen = self.profile.clone();
-                let label = ui.label(RichText::new(tr("Profile")).color(theme.text_dim));
-                ComboBox::from_id_salt("profile")
-                    .selected_text(chosen.as_deref().unwrap_or(tr("(none)")))
-                    .show_ui(ui, |ui| {
-                        ui.selectable_value(&mut chosen, None, tr("(none)"));
-                        for name in names {
-                            ui.selectable_value(&mut chosen, Some(name.clone()), name);
-                        }
-                    })
-                    .response
-                    .labelled_by(label.id);
-                if chosen != self.profile {
-                    self.select_profile(chosen);
-                }
-            });
-            if connected {
-                if ui.button(tr("Disconnect")).clicked() {
-                    self.disconnect();
-                }
-            } else {
-                if ui.button(tr("Connect")).clicked() {
-                    self.connect(ui.ctx());
-                }
-                if ui.button(tr("Connection")).clicked() {
-                    self.connection_open = !self.connection_open;
-                }
-            }
-            let host = self.host.trim();
-            if !host.is_empty() {
-                let address = format!("{host}:{}", self.port.trim());
-                ui.label(RichText::new(address).color(theme.text_dim));
-            }
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                let mut speech = self.voice.enabled();
-                if ui.checkbox(&mut speech, tr("Speech")).changed() {
-                    self.voice.set_enabled(speech);
-                }
-                ui.checkbox(&mut self.show_map, tr("Map"));
-                ui.checkbox(&mut self.show_chat, tr("Chat"));
-                if ui.button(tr("Triggers")).clicked() {
-                    self.rules_draft = self.rules.clone();
-                    self.rules_open = true;
-                }
-            });
-        });
-    }
-
-    /// The window with the connection's details: where to connect, how,
-    /// who to log in as, and the profile to keep it all in.
-    fn connection_window(&mut self, ctx: &egui::Context) {
-        if !self.connection_open || self.connection.is_some() {
-            return;
-        }
-        let (mut open, mut connect, mut save) = (true, false, false);
-        egui::Window::new(tr("Connection"))
-            .open(&mut open)
-            .collapsible(false)
-            .resizable(false)
-            .anchor(egui::Align2::CENTER_CENTER, [0.0, -40.0])
-            .show(ctx, |ui| {
-                egui::Grid::new("connection").num_columns(2).spacing([16.0, 8.0]).show(ui, |ui| {
-                    let label = ui.label(tr("Host"));
-                    ui.add(TextEdit::singleline(&mut self.host).desired_width(260.0))
-                        .labelled_by(label.id);
-                    ui.end_row();
-
-                    let label = ui.label(tr("Port"));
-                    ui.add(TextEdit::singleline(&mut self.port).desired_width(70.0))
-                        .labelled_by(label.id);
-                    ui.end_row();
-
-                    ui.label(tr("Security"));
-                    ui.horizontal(|ui| {
-                        ui.checkbox(&mut self.tls, "TLS");
-                        ui.add_enabled(self.tls, egui::Checkbox::new(&mut self.verify_certificate, tr("Verify certificate")));
-                    });
-                    ui.end_row();
-
-                    let label = ui.label(tr("Encoding"));
-                    ui.add(TextEdit::singleline(&mut self.encoding).hint_text("auto").desired_width(110.0))
-                        .on_hover_text(tr("Only for servers that do not use UTF-8 or Latin-1, e.g. big5 or koi8-r."))
-                        .labelled_by(label.id);
-                    ui.end_row();
-
-                    let label = ui.label(tr("Character"));
-                    ui.add(TextEdit::singleline(&mut self.character).desired_width(180.0))
-                        .labelled_by(label.id);
-                    ui.end_row();
-
-                    let label = ui.label(tr("Password"));
-                    ui.add(
-                        TextEdit::singleline(&mut self.new_password)
-                            .password(true)
-                            .hint_text(tr("unchanged"))
-                            .desired_width(180.0),
-                    )
-                    .on_hover_text(tr("Kept in the system's keyring when the profile is saved."))
-                    .labelled_by(label.id);
-                    ui.end_row();
-
-                    let label = ui.label(tr("Profile name"));
-                    ui.horizontal(|ui| {
-                        ui.add(TextEdit::singleline(&mut self.profile_name).desired_width(180.0))
-                            .labelled_by(label.id);
-                        save = ui.button(tr("Save profile")).clicked();
-                    });
-                    ui.end_row();
-                });
-                ui.add_space(6.0);
-                // A row of its own, so the layout does not stretch down.
-                ui.horizontal(|ui| {
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        let accent = theme::current().accent;
-                        let button = egui::Button::new(RichText::new(tr("Connect")).strong())
-                            .stroke(egui::Stroke::new(1.0, accent));
-                        connect = ui.add(button).clicked();
-                    });
-                });
-            });
-        self.connection_open = open;
-        if save {
-            self.save_profile();
-        }
-        if connect {
-            self.connection_open = false;
-            self.connect(ctx);
         }
     }
 
@@ -1813,161 +1641,6 @@ impl Tab {
         }
         self.unread = !on_screen && (self.unread || self.output.total_pushed() != lines_before);
     }
-
-    /// Draws the session in `ui`.
-    pub fn show(&mut self, ui: &mut egui::Ui, _settings: &Settings) {
-        self.bound_keys(ui);
-        self.rules_window(ui.ctx());
-        self.connection_window(ui.ctx());
-        // Alt+0 reads the gauges aloud.
-        if ui.input_mut(|input| input.consume_key(Modifiers::ALT, Key::Num0)) {
-            self.voice.stop();
-            let summary = self.gauges.summary();
-            self.voice.say(if summary.is_empty() {
-                tr("No gauges.")
-            } else {
-                &summary
-            });
-        }
-        self.voice.update(ui, &self.output, &self.chat);
-        Panel::top("connection").show(ui, |ui| self.connection_bar(ui));
-        if self.show_chat && self.chat.len() > 0 {
-            Panel::top("chat")
-                .resizable(true)
-                .default_size(84.0)
-                .min_size(48.0)
-                .show(ui, |ui| {
-                    self.chat.show(ui, "chat");
-                });
-        }
-        Panel::bottom("input").show(ui, |ui| {
-            if !self.gauges.is_empty() {
-                self.gauges.show(ui);
-            }
-            if self.find_open {
-                self.find_bar(ui);
-            }
-            self.announce(ui);
-            self.input_line(ui);
-        });
-        let has_map = self.map.borrow().current().is_some();
-        if self.show_map && (has_map || !self.text_panels.is_empty()) {
-            let action = Panel::right("map")
-                .resizable(true)
-                .default_size(320.0)
-                .min_size(160.0)
-                .show(ui, |ui| self.side_panel(ui))
-                .inner;
-            match action {
-                Some(MapAction::Walk(room)) => self.walk_to(room),
-                Some(MapAction::Tidy(area)) => self.tidy(&area),
-                Some(MapAction::Avoid(room, avoid)) => {
-                    let saved = self.map.borrow_mut().set_avoid(room, avoid);
-                    if let Err(error) = saved {
-                        self.note(&trf("Could not save the map: {0}", &[&error.to_string()]));
-                    }
-                }
-                Some(MapAction::Move(room, pos)) => {
-                    let saved = self.map.borrow_mut().move_room(room, pos);
-                    if let Err(error) = saved {
-                        self.note(&trf("Could not save the map: {0}", &[&error.to_string()]));
-                    }
-                }
-                None => {}
-            }
-        }
-        let theme = theme::current();
-        let frame = egui::Frame::new()
-            .fill(theme.background)
-            .inner_margin(egui::Margin::symmetric(10, 6));
-        let clicked = CentralPanel::default()
-            .frame(frame)
-            .show(ui, |ui| self.output.show(ui, "output"));
-        // A link the server marked as a command was clicked.
-        if let Some(command) = clicked.inner {
-            self.send(command);
-        }
-    }
-}
-
-/// A labelled text field for the rules window.
-fn rule_field(ui: &mut egui::Ui, label: &'static str, value: &mut String, width: f32) {
-    let label = ui.label(RichText::new(tr(label)).color(theme::current().text_dim));
-    ui.add(TextEdit::singleline(value).desired_width(width))
-        .labelled_by(label.id);
-}
-
-/// Lays out one rule's fields; the last argument draws its delete button.
-type RuleEditor<T> = fn(&mut egui::Ui, &mut T, &mut dyn FnMut(&mut egui::Ui));
-
-/// Lists `rules` for editing, each in its own frame. An editor lays out a
-/// rule's fields, and puts `delete` where the rule's delete button goes.
-fn edit_rules<T>(ui: &mut egui::Ui, rules: &mut Vec<T>, editor: RuleEditor<T>) {
-    if rules.is_empty() {
-        ui.label(
-            RichText::new(tr("Nothing here yet. Use Add to make one."))
-                .color(theme::current().text_dim),
-        );
-    }
-    let mut delete = None;
-    for (index, rule) in rules.iter_mut().enumerate() {
-        ui.push_id(index, |ui| {
-            egui::Frame::group(ui.style()).show(ui, |ui| {
-                ui.set_width(ui.available_width());
-                editor(ui, rule, &mut |ui| {
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        if ui.button(tr("Delete")).clicked() {
-                            delete = Some(index);
-                        }
-                    });
-                });
-            });
-        });
-    }
-    if let Some(index) = delete {
-        rules.remove(index);
-    }
-}
-
-fn trigger_editor(ui: &mut egui::Ui, trigger: &mut Trigger, delete: &mut dyn FnMut(&mut egui::Ui)) {
-    ui.horizontal(|ui| {
-        ui.checkbox(&mut trigger.enabled, tr("On"));
-        rule_field(ui, "When a line has", &mut trigger.pattern, 280.0);
-        ui.checkbox(&mut trigger.regex, tr("Regular expression"));
-        delete(ui);
-    });
-    ui.horizontal(|ui| {
-        rule_field(ui, "Send", &mut trigger.send, 170.0);
-        rule_field(ui, "Say", &mut trigger.speak, 120.0);
-        rule_field(ui, "Play", &mut trigger.sound, 90.0);
-        rule_field(ui, "Colour", &mut trigger.highlight, 64.0);
-        ui.checkbox(&mut trigger.gag, tr("Hide the line"));
-    });
-}
-
-fn alias_editor(ui: &mut egui::Ui, alias: &mut Alias, delete: &mut dyn FnMut(&mut egui::Ui)) {
-    ui.horizontal(|ui| {
-        ui.checkbox(&mut alias.enabled, tr("On"));
-        rule_field(ui, "Typing", &mut alias.pattern, 150.0);
-        ui.checkbox(&mut alias.regex, tr("Regular expression"));
-        rule_field(ui, "Sends", &mut alias.send, 260.0);
-        delete(ui);
-    });
-}
-
-fn key_editor(ui: &mut egui::Ui, key: &mut KeyBinding, delete: &mut dyn FnMut(&mut egui::Ui)) {
-    ui.horizontal(|ui| {
-        ui.checkbox(&mut key.enabled, tr("On"));
-        let label = ui.label(RichText::new(tr("Key")).color(theme::current().text_dim));
-        ui.add(
-            TextEdit::singleline(&mut key.key)
-                .hint_text("f5, ctrl+k")
-                .desired_width(110.0),
-        )
-        .labelled_by(label.id);
-        rule_field(ui, "Sends", &mut key.send, 300.0);
-        delete(ui);
-    });
 }
 
 #[cfg(test)]
@@ -2000,9 +1673,9 @@ mod tests {
                 };
                 english(cc, startup)
             });
-        // A new session opens asking where to connect; most tests are
-        // about something else and want that window out of the way.
-        harness.state_mut().tab_mut().connection_open = false;
+        // A new session opens on the welcome screen; most tests are about
+        // a session in use.
+        harness.state_mut().tab_mut().started = true;
         harness.run_steps(2);
         harness
     }
@@ -2280,23 +1953,29 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("muddie-app-rules-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let mut harness = window(Some(Profiles::at(dir.clone())));
-        harness.get_by_label("Triggers").click();
+        harness.state_mut().tab_mut().open_automation(0);
         harness.run_steps(4);
-        assert!(
-            harness.state().tab().rules_open,
-            "the button opens the window"
-        );
         harness.get_by_label("Add").click();
         harness.run_steps(2);
         let app = harness.state_mut().tab_mut();
         app.rules_draft.triggers[0].pattern = "you are hungry".into();
         app.rules_draft.triggers[0].send = "eat bread".into();
+        // Edits are saved once they stop for a moment, with no button.
         harness.run_steps(2);
-        harness.get_by_label("Save").click();
+        assert!(!dir.join("rules.toml").exists(), "not while still editing");
+        std::thread::sleep(Duration::from_millis(1000));
         harness.run_steps(2);
         assert_eq!(
             Rules::load(&dir.join("rules.toml")).unwrap().triggers.len(),
             1
+        );
+        // Closing the window saves at once.
+        let app = harness.state_mut().tab_mut();
+        app.rules_draft.triggers[0].name = "Hunger".into();
+        app.close_automation();
+        assert_eq!(
+            Rules::load(&dir.join("rules.toml")).unwrap().triggers[0].name,
+            "Hunger"
         );
 
         let app = harness.state_mut().tab_mut();
@@ -2317,6 +1996,76 @@ mod tests {
             .unwrap();
         harness.run_steps(2);
         assert_eq!(sent.try_recv().unwrap(), Command::Send("eat bread".into()));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn macro_key_is_recorded_from_the_next_key_pressed() {
+        let mut harness = window(None);
+        let app = harness.state_mut().tab_mut();
+        app.open_automation(2);
+        app.rules_draft.keys.push(KeyBinding {
+            enabled: true,
+            send: "look".into(),
+            ..KeyBinding::default()
+        });
+        app.recording_key = true;
+        harness.run_steps(3);
+        // A plain letter cannot be bound, so it is not taken.
+        harness.key_press(Key::A);
+        harness.run_steps(2);
+        assert!(harness.state().tab().recording_key);
+        harness.key_press_modifiers(Modifiers::CTRL | Modifiers::SHIFT, Key::K);
+        harness.run_steps(2);
+        let app = harness.state_mut().tab_mut();
+        assert_eq!(app.rules_draft.keys[0].key, "ctrl+shift+k");
+        assert!(!app.recording_key);
+        // The keypad is recorded by its own names.
+        app.recording_key = true;
+        app.keypad_pressed = vec!["numpad8"];
+        harness.run_steps(2);
+        assert_eq!(harness.state().tab().rules_draft.keys[0].key, "numpad8");
+        // Escape leaves the key as it was.
+        harness.state_mut().tab_mut().recording_key = true;
+        harness.key_press(Key::Escape);
+        harness.run_steps(2);
+        let app = harness.state().tab();
+        assert_eq!(
+            (app.rules_draft.keys[0].key.as_str(), app.recording_key),
+            ("numpad8", false)
+        );
+    }
+
+    #[test]
+    fn welcome_screen_lists_the_profiles_and_gives_way_once_connecting() {
+        let dir = std::env::temp_dir().join(format!("muddie-app-welcome-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let profiles = Profiles::at(dir.clone());
+        let profile = Profile {
+            host: "reinos.example.org".into(),
+            port: 4000,
+            ..Profile::default()
+        };
+        profiles.save("Reinos", &profile).unwrap();
+        let mut harness = window(Some(profiles));
+        harness.state_mut().tab_mut().started = false;
+        harness.run_steps(3);
+        assert!(harness.query_by_label("Reinos").is_some());
+        assert!(
+            harness
+                .query_by_label("Where do you want to play?")
+                .is_some()
+        );
+        // The session's own controls are not there yet.
+        assert!(harness.query_by_label("Command").is_none());
+        harness.state_mut().tab_mut().started = true;
+        harness.run_steps(3);
+        assert!(harness.query_by_label("Command").is_some());
+        assert!(
+            harness
+                .query_by_label("Where do you want to play?")
+                .is_none()
+        );
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
@@ -2386,7 +2135,7 @@ mod tests {
                 app
             });
         let app = harness.state_mut().tab_mut();
-        app.connection_open = false;
+        app.started = true;
         app.host = "mud.example.org".into();
         app.port = "4000".into();
         app.tls = true;
@@ -2482,20 +2231,40 @@ mod tests {
                 image.save(path).expect("could not write the screenshot");
             }
         };
-        // Before connecting, the connection's details have their window.
-        let mut disconnected = demo_window();
-        disconnected.state_mut().tab_mut().connection_open = true;
-        disconnected.run_steps(4);
-        save(&mut disconnected, "disconnected");
-        disconnected.state_mut().tab_mut().connection_open = false;
-        disconnected.run_steps(2);
-        disconnected.get_by_label("Settings").click();
-        disconnected.run_steps(4);
-        save(&mut disconnected, "settings");
-        // The rules window, with one rule of each kind to look at.
+        // What a new session opens on.
+        let dir = std::env::temp_dir().join(format!("muddie-shot-welcome-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let profiles = Profiles::at(dir.clone());
+        for (name, host, port) in [
+            ("Reinos de Leyenda", "rlmud.org", 23),
+            ("Aardwolf", "aardmud.org", 4000),
+            ("Discworld", "discworld.starturtle.net", 4242),
+        ] {
+            let profile = Profile {
+                host: host.into(),
+                port,
+                ..Profile::default()
+            };
+            profiles.save(name, &profile).unwrap();
+        }
+        let mut welcome = window(Some(profiles));
+        welcome.state_mut().tab_mut().started = false;
+        welcome.run_steps(3);
+        save(&mut welcome, "welcome");
+        welcome.state_mut().tab_mut().connection_open = true;
+        welcome.run_steps(4);
+        save(&mut welcome, "connection");
+        std::fs::remove_dir_all(&dir).unwrap();
+
+        let mut settings = demo_window();
+        settings.state_mut().open_settings();
+        settings.run_steps(4);
+        save(&mut settings, "settings");
+        // The automation window, with rules of each kind to look at.
         let mut rules = demo_window();
         let app = rules.state_mut().tab_mut();
         app.rules.triggers.push(Trigger {
+            name: "Tells".into(),
             enabled: true,
             pattern: "tells you".into(),
             speak: "a tell".into(),
@@ -2503,17 +2272,35 @@ mod tests {
             ..Trigger::default()
         });
         app.rules.triggers.push(Trigger {
+            name: "Fight back".into(),
             enabled: true,
             pattern: r"^(\w+) attacks you".into(),
             regex: true,
-            send: "kill %1".into(),
+            send: "kill %1; shield".into(),
             sound: "alert.ogg".into(),
             ..Trigger::default()
         });
-        rules.run_steps(2);
-        rules.get_by_label("Triggers").click();
+        app.rules.triggers.push(Trigger {
+            enabled: false,
+            pattern: "The wind howls".into(),
+            gag: true,
+            ..Trigger::default()
+        });
+        app.rules.keys.push(KeyBinding {
+            name: "North".into(),
+            enabled: true,
+            key: "numpad8".into(),
+            send: "north".into(),
+        });
+        app.open_automation(0);
+        app.rules_selected[0] = 1;
+        app.rules_sample = "Orc attacks you with a rusty axe!".into();
         rules.run_steps(4);
-        save(&mut rules, "rules");
+        save(&mut rules, "automation");
+        let app = rules.state_mut().tab_mut();
+        app.rules_section = 2;
+        rules.run_steps(3);
+        save(&mut rules, "macros");
         // The find bar and the view of the latest lines while scrolled back.
         let mut find = connected_demo_window();
         let app = find.state_mut().tab_mut();
@@ -2546,7 +2333,7 @@ mod tests {
             image.save(path).expect("could not write the screenshot");
         }
         // A second view: every area on the level.
-        harness.get_by_label("All areas").click();
+        harness.state_mut().tab_mut().map_view.all_areas = true;
         harness.run_steps(3);
         let image = harness.render().expect("rendering failed");
         if let Some(path) = &path {

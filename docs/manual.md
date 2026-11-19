@@ -13,14 +13,15 @@ repeated), and `--insecure` accepts a self-signed TLS certificate.
 
 ## Sessions and profiles
 
-Each tab is a session with its own connection, scripts and map. The `+` on
-the tab strip opens another; sessions in the background keep running and
-mark their tab when something arrives.
+Each tab is a session with its own connection, scripts and map. The `+`
+beside the tabs, or **Session > New session**, opens another; sessions in the
+background keep running and mark their tab when something arrives.
 
-The **Connection** window holds where to connect and how: host, port, TLS,
-text encoding, and the character to log in as. Type a profile name and press
-**Save profile** to keep it; saved profiles are chosen from the **Profile**
-list. A profile also has its own scripts, triggers, map and remembered values,
+A new session opens on a welcome screen: your saved profiles, one click from
+playing, and a short form to connect somewhere new. **More options…** there,
+or **Session > Connection…**, opens the window with everything about a
+connection: host, port, TLS, text encoding, and the character to log in as.
+Type a profile name and press **Save profile** to keep it. A profile also has its own scripts, triggers, map and remembered values,
 all under `profiles/<name>/` in the configuration folder (`~/.config/muddie`
 on Linux, `%APPDATA%\muddie` on Windows).
 
@@ -69,12 +70,20 @@ anything else is sent to the MUD.
 
 ## Triggers, aliases and keys without scripting
 
-The **Triggers** button opens a window to make them. A trigger reacts to a
-line of output: it can send commands, say something, play a sound, colour the
-matched text or hide the line. An alias replaces a typed command; `%1` in what
-it sends is the rest of what was typed. A key sends commands when pressed.
-Function keys, combinations with Ctrl or Alt, and the keys of the numeric
-keypad can be used, such as `f5`, `ctrl+k` or `numpad8`.
+The **Automation** menu opens a window to make them, with the list on the
+left and the selected one's details beside it. Changes are saved by
+themselves; there is no button to press.
+
+- A **trigger** reacts to a line of output: it can send commands, say
+  something, play a sound, colour the matched text or hide the line.
+- An **alias** replaces a typed command; `%1` in what it sends is the rest of
+  what was typed.
+- A **macro** sends commands when a key is pressed. Press **Record a key** and
+  then the key: function keys, combinations with Ctrl or Alt, and the keys of
+  the numeric keypad can be used.
+
+Each has a box to try it out: paste a line from the MUD, or type a command,
+and it says whether it matches and what it would do.
 
 They are saved in the profile's `rules.toml`. For anything more, see
 [scripting](scripting.md).
@@ -90,8 +99,8 @@ or MSDP, and is saved per profile. Scripts can map other servers.
 | Right-click a room | Walk here, avoid in routes, tidy the area |
 | Drag | Moves the view; the wheel zooms |
 | Shift+drag a room | Moves it to another cell |
-| Area, Down, Up | Looks at another area or level; **Back to me** returns |
-| All areas | Draws every area on the level |
+| The area list, − and + | Looks at another area or level; **Back to me** returns |
+| Map > Show all areas | Draws every area on the level |
 
 A room marked to avoid is never walked through, and a locked exit is never
 used. Both are kept when the server reports the room again.
@@ -127,7 +136,7 @@ folder and then in `sounds` in the configuration folder.
 
 ## Settings
 
-**Settings**, at the right of the tab strip: theme (dark, light, high
+**View > Settings…**: theme (dark, light, high
 contrast), language, text size and font, lines kept, timestamps, logging,
 reconnection, keep-alive, and the rate and language of speech. They are saved in `settings.toml`.
 

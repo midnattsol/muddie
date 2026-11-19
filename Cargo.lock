@@ -2619,6 +2619,7 @@ dependencies = [
  "muddie-script",
  "muddie-sound",
  "muddie-speech",
+ "regex",
  "serde",
  "serde_json",
  "tokio",
