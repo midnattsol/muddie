@@ -24,7 +24,10 @@ msgstr ""
 msgid "Game"
 msgstr ""
 
-msgid "Automation"
+msgid "Editor"
+msgstr ""
+
+msgid "Debug"
 msgstr ""
 
 msgid "Close session"
@@ -36,7 +39,7 @@ msgstr ""
 msgid "Session"
 msgstr ""
 
-msgid "View"
+msgid "Preferences"
 msgstr ""
 
 msgid "Settings…"
@@ -48,7 +51,7 @@ msgstr ""
 msgid "Keyboard shortcuts"
 msgstr ""
 
-msgid "About muddie"
+msgid "About Muddie"
 msgstr ""
 
 msgid "Settings"
@@ -102,7 +105,10 @@ msgstr ""
 msgid "Read the gauges"
 msgstr ""
 
-msgid "Switch between the game and automation"
+msgid "Switch between the game and the editor"
+msgstr ""
+
+msgid "Switch between the game and the debugging view"
 msgstr ""
 
 #, python-brace-format
@@ -152,10 +158,28 @@ msgstr ""
 msgid "Text of the MUD"
 msgstr ""
 
+msgid "Colours"
+msgstr ""
+
+msgid "Vivid"
+msgstr ""
+
+msgid "Soft, to go with the theme"
+msgstr ""
+
+msgid "Classic terminal"
+msgstr ""
+
 msgid "Font"
 msgstr ""
 
-msgid "JetBrains Mono (built in)"
+msgid "With Muddie"
+msgstr ""
+
+msgid "Installed on this computer"
+msgstr ""
+
+msgid "Looking for them…"
 msgstr ""
 
 msgid "Size"
@@ -239,13 +263,6 @@ msgstr ""
 msgid "No gauges."
 msgstr ""
 
-msgid "Chat"
-msgstr ""
-
-#, python-brace-format
-msgid "Could not save the map: {0}"
-msgstr ""
-
 msgid "Where do you want to play?"
 msgstr ""
 
@@ -262,6 +279,10 @@ msgid "More options…"
 msgstr ""
 
 msgid "Your profiles"
+msgstr ""
+
+#, python-brace-format
+msgid "Could not save the map: {0}"
 msgstr ""
 
 #, python-brace-format
@@ -292,12 +313,6 @@ msgid "Connection…"
 msgstr ""
 
 msgid "Log this session"
-msgstr ""
-
-msgid "Chat panel"
-msgstr ""
-
-msgid "Show the map"
 msgstr ""
 
 msgid "Find…"
@@ -366,6 +381,9 @@ msgstr ""
 msgid "Gauges"
 msgstr ""
 
+msgid "Variables"
+msgstr ""
+
 msgid "Scripts"
 msgstr ""
 
@@ -381,10 +399,25 @@ msgstr ""
 msgid "Saving…"
 msgstr ""
 
+msgid "Groups"
+msgstr ""
+
 msgid "every"
 msgstr ""
 
 msgid "after"
+msgstr ""
+
+msgid "Bar"
+msgstr ""
+
+msgid "Cells"
+msgstr ""
+
+msgid "Number"
+msgstr ""
+
+msgid "Text"
 msgstr ""
 
 msgid "In every session"
@@ -414,6 +447,9 @@ msgid ""
 "Press + to make one."
 msgstr ""
 
+msgid "off"
+msgstr ""
+
 msgid "Scripts of your own are kept per profile: save or choose a profile first."
 msgstr ""
 
@@ -436,8 +472,13 @@ msgid ""
 msgstr ""
 
 msgid ""
-"A gauge is a bar that follows a number the MUD reports,\n"
-"such as your health."
+"A gauge shows something the MUD reports: a bar for your health,\n"
+"a light for whether you are poisoned, a number for your gold."
+msgstr ""
+
+msgid ""
+"A variable is a value with a name, kept from one session to the next:\n"
+"who you are hunting, what you carry, how many you have killed."
 msgstr ""
 
 msgid ""
@@ -491,6 +532,15 @@ msgstr ""
 msgid "Hide the line"
 msgstr ""
 
+msgid "Show it in the panel"
+msgstr ""
+
+msgid "None"
+msgstr ""
+
+msgid "With the line hidden, it is only in the panel. Panels are made in Preferences, Edit the layout."
+msgstr ""
+
 msgid "Try it"
 msgstr ""
 
@@ -533,9 +583,6 @@ msgstr ""
 msgid "Press the key…"
 msgstr ""
 
-msgid "None"
-msgstr ""
-
 msgid "Cancel"
 msgstr ""
 
@@ -575,31 +622,131 @@ msgstr ""
 msgid "Run each time the timer goes off."
 msgstr ""
 
-msgid "Name this gauge"
+msgid "Delete"
 msgstr ""
 
-msgid "Follows"
+msgid "Name"
+msgstr ""
+
+msgid "A name is made of letters, digits and _, and does not start with a digit."
+msgstr ""
+
+msgid "There is already a variable of that name."
+msgstr ""
+
+msgid "Type"
 msgstr ""
 
 msgid "Value"
 msgstr ""
 
+msgid "Drag it, or click it to type."
+msgstr ""
+
+msgid "No fields yet."
+msgstr ""
+
+msgid "No items yet."
+msgstr ""
+
+msgid "Remove"
+msgstr ""
+
+msgid "Add a field"
+msgstr ""
+
+msgid "Add an item"
+msgstr ""
+
+msgid "What reads as a number, true or false is kept as that; the rest as a string. A table inside is written as JSON."
+msgstr ""
+
+msgid "Using it"
+msgstr ""
+
+msgid "In the commands of a rule"
+msgstr ""
+
+msgid "In a script"
+msgstr ""
+
+msgid "Copy"
+msgstr ""
+
+#, python-brace-format
+msgid "Kept with the profile {0}."
+msgstr ""
+
+msgid "This session has no saved profile, so its variables last until it is closed. Save the profile, in Session, Connection, to keep them."
+msgstr ""
+
+msgid "Name this gauge"
+msgstr ""
+
+msgid "Kind"
+msgstr ""
+
+msgid "How full something is, of its maximum."
+msgstr ""
+
+msgid "A number as it is: gold, level, experience."
+msgstr ""
+
+msgid "On or off, for what is so or is not: hidden, poisoned, in combat."
+msgstr ""
+
+msgid "What the MUD says, as words: a stance, a target, a place."
+msgstr ""
+
+msgid "Follows"
+msgstr ""
+
+msgid "none"
+msgstr ""
+
 msgid "Maximum"
 msgstr ""
 
-msgid "Where the MUD reports it: a GMCP package and the fields inside it, such as Char.Vitals.health.current, or the name of a MSDP variable. The maximum can also be a number."
+msgid "It is on when the value is true, a number other than 0, or words other than no, false or off."
 msgstr ""
 
-msgid "Look"
+msgid "Where the MUD reports it: a GMCP package and the fields inside it, such as Char.Vitals.health.current, or the name of a MSDP variable. The maximum can also be a number. Debug shows what there is."
+msgstr ""
+
+msgid "Colour when on"
+msgstr ""
+
+msgid "Colour when off"
+msgstr ""
+
+msgid "Unlit"
+msgstr ""
+
+msgid "With a colour for each, it says which of the two it is: red for poisoned, green for not."
 msgstr ""
 
 msgid "Colour"
 msgstr ""
 
-msgid "Draw it as cells"
+msgid "Colour by level"
 msgstr ""
 
-msgid "Warn when under"
+msgid "It can turn another colour as it gets low: yellow under 60 %, red under 30 %."
+msgstr ""
+
+msgid "Under"
+msgstr ""
+
+msgid "Add a level"
+msgstr ""
+
+msgid "Shown in"
+msgstr ""
+
+msgid "There is no panel of gauges to show it in."
+msgstr ""
+
+msgid "Add a panel of gauges"
 msgstr ""
 
 msgid "Preview"
@@ -608,13 +755,16 @@ msgstr ""
 msgid "Gauge"
 msgstr ""
 
-msgid "Delete"
-msgstr ""
-
-msgid "Name"
+msgid "standing"
 msgstr ""
 
 msgid "Script"
+msgstr ""
+
+msgid "Group"
+msgstr ""
+
+msgid "Choose a group"
 msgstr ""
 
 msgid "Do"
@@ -641,6 +791,145 @@ msgstr ""
 msgid "Matches:"
 msgstr ""
 
+msgid "Chat"
+msgstr ""
+
+#, python-brace-format
+msgid "Could not load the panels: {0}"
+msgstr ""
+
+#, python-brace-format
+msgid "Could not save the panels: {0}"
+msgstr ""
+
+msgid "Gauges…"
+msgstr ""
+
+msgid "Edit the layout…"
+msgstr ""
+
+msgid "Editing the layout"
+msgstr ""
+
+msgid "Drag a panel by its handle to another side, and its edge to size it."
+msgstr ""
+
+msgid "Done"
+msgstr ""
+
+msgid "Side panels reach the top and the bottom"
+msgstr ""
+
+msgid "Tall sides"
+msgstr ""
+
+msgid "Add a panel"
+msgstr ""
+
+msgid "Lines sent to it by triggers and scripts"
+msgstr ""
+
+msgid "The map of where you are"
+msgstr ""
+
+msgid "Bars that follow your health and the like"
+msgstr ""
+
+msgid "Panel"
+msgstr ""
+
+#, python-brace-format
+msgid "Move {0}"
+msgstr ""
+
+msgid "At the left"
+msgstr ""
+
+msgid "At the right"
+msgstr ""
+
+msgid "Above"
+msgstr ""
+
+msgid "Below"
+msgstr ""
+
+msgid "Move up"
+msgstr ""
+
+msgid "Move down"
+msgstr ""
+
+msgid "Move left"
+msgstr ""
+
+msgid "Move right"
+msgstr ""
+
+msgid "Share the place of the one before, as tabs"
+msgstr ""
+
+msgid "Take out of the tabs"
+msgstr ""
+
+msgid "Show the MUD's channels here"
+msgstr ""
+
+#, python-brace-format
+msgid "Remove {0}"
+msgstr ""
+
+msgid "Edit the gauges"
+msgstr ""
+
+msgid "No gauges here yet."
+msgstr ""
+
+msgid "Set them up…"
+msgstr ""
+
+msgid "Nothing here yet. A trigger can show lines in this panel, and so can a script."
+msgstr ""
+
+msgid "↑ ↓ to choose  ·  Tab to complete  ·  Enter to run  ·  Esc to close"
+msgstr ""
+
+msgid "What the MUD sends"
+msgstr ""
+
+msgid "Nothing received yet."
+msgstr ""
+
+msgid ""
+"What the MUD sends besides text, with GMCP or MSDP, appears here as it comes:\n"
+"look at it to know what a gauge can follow or a script can use."
+msgstr ""
+
+#, python-brace-format
+msgid "received {0} time"
+msgstr ""
+
+msgid "Values"
+msgstr ""
+
+msgid "It came with nothing in it."
+msgstr ""
+
+msgid "Make a gauge"
+msgstr ""
+
+msgid "Copy the path"
+msgstr ""
+
+msgid "A path is what a gauge follows, and what a script reads after gmcp(\"…\")."
+msgstr ""
+
+msgid "As it came"
+msgstr ""
+
+msgid "Before that"
+msgstr ""
+
 msgid "Plugins need a configuration folder, and none was found."
 msgstr ""
 
@@ -648,9 +937,6 @@ msgid "No plugins yet. A plugin is a set of scripts someone made for a MUD: a ma
 msgstr ""
 
 msgid "Update"
-msgstr ""
-
-msgid "Remove"
 msgstr ""
 
 msgid "Plugins are enabled per profile: save or choose a profile first."
@@ -693,9 +979,6 @@ msgid "Log every session"
 msgstr ""
 
 msgid "Log format"
-msgstr ""
-
-msgid "Text"
 msgstr ""
 
 msgid "Reconnect when the connection is lost"
@@ -876,6 +1159,16 @@ msgid "Walk stopped: the last move had no effect."
 msgstr ""
 
 msgid "Commands of the client, typed like any other:"
+msgstr ""
+
+msgid "There are no groups. Give a rule a group in the editor."
+msgstr ""
+
+msgid "on"
+msgstr ""
+
+#, python-brace-format
+msgid "There is no group called {0}; /group lists them."
 msgstr ""
 
 #, python-brace-format

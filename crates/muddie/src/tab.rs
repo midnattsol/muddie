@@ -34,6 +34,7 @@ use crate::voice::Voice;
 use muddie_sound::{self as sound, Msp, Player};
 
 mod automation;
+mod commands;
 mod data;
 mod layout;
 mod plugins;
@@ -155,6 +156,20 @@ pub struct Tab {
     rules_sample: String,
     /// The next key pressed becomes the selected macro's key.
     recording_key: bool,
+    /// The palette of commands: which one is chosen, and the text it was
+    /// put away over, so that it stays away until that changes.
+    palette_chosen: usize,
+    palette_put_away: Option<String>,
+    palette_cache: Option<(String, Vec<commands::Item>)>,
+    /// What the last command of the client answered, and the command:
+    /// shown over the command line, not among the lines of the game.
+    command_answer: Option<(String, Vec<String>)>,
+    /// A command is being carried out, and what it says is its answer.
+    answering: bool,
+    /// Where the command line was drawn, and whether its cursor is to go
+    /// to the end of what was put in it.
+    input_rect: egui::Rect,
+    cursor_to_end: bool,
     /// What checking the scripts being edited said.
     checks: automation::Checks,
     /// What the MUD has sent besides text, by name, to look at.
@@ -349,6 +364,13 @@ impl Tab {
             rules_changed_at: None,
             rules_sample: String::new(),
             recording_key: false,
+            palette_chosen: 0,
+            palette_put_away: None,
+            palette_cache: None,
+            command_answer: None,
+            answering: false,
+            input_rect: egui::Rect::NOTHING,
+            cursor_to_end: false,
             checks: automation::Checks::default(),
             data_seen: Vec::new(),
             debug_open: false,
@@ -811,7 +833,12 @@ impl Tab {
 
     /// Shows and speaks a message from the client itself.
     pub fn note(&mut self, text: &str) {
-        self.show_local(text);
+        // What a command typed with `/` says is its answer, shown over the
+        // command line; anything else is a line of the client's.
+        match &mut self.command_answer {
+            Some((_, lines)) if self.answering => lines.push(text.to_owned()),
+            _ => self.show_local(text),
+        }
         self.voice.say(text);
     }
 
@@ -1900,7 +1927,20 @@ impl Tab {
             self.send(line);
         } else {
             self.history.add(&line);
-            if !self.map_command(&line) {
+            // A command of the client answers over the command line.
+            self.palette_cache = None;
+            self.command_answer = line.starts_with('/').then(|| (line.clone(), Vec::new()));
+            self.answering = true;
+            let ours = self.map_command(&line);
+            self.answering = false;
+            if self
+                .command_answer
+                .as_ref()
+                .is_some_and(|(_, lines)| lines.is_empty())
+            {
+                self.command_answer = None;
+            }
+            if !ours {
                 self.scripts.on_input(&line);
                 self.run_actions();
             }
@@ -1912,6 +1952,32 @@ impl Tab {
         // Tab completes the word being typed. With nothing typed it is
         // left alone, to move between controls as usual.
         let focused = ui.memory(|memory| memory.has_focus(id));
+        // The palette of commands, while a `/` command is being typed.
+        if self
+            .palette_put_away
+            .as_ref()
+            .is_some_and(|over| *over != self.input)
+        {
+            self.palette_put_away = None;
+        }
+        // Escape takes the focus from the line before it gets here, and
+        // the line takes it back: it is the line's while nothing else has it.
+        let ours = focused || ui.memory(|memory| memory.focused().is_none());
+        let offered = if ours {
+            self.palette_items()
+        } else {
+            Vec::new()
+        };
+        if self.palette_keys(ui, &offered) {
+            self.cursor_to_end = true;
+        }
+        // Escape puts away what the last command answered.
+        if offered.is_empty()
+            && self.command_answer.is_some()
+            && ui.input_mut(|input| input.consume_key(Modifiers::NONE, Key::Escape))
+        {
+            self.command_answer = None;
+        }
         let completing = focused
             && !self.input.is_empty()
             && !self.input_hidden
@@ -1930,29 +1996,8 @@ impl Tab {
                 .flat_map(|entry| complete::words(entry));
             let given =
                 (self.completions.iter()).flat_map(|(_, words)| words.iter().map(String::as_str));
-            if self.input.starts_with('/') {
-                // A command of the client: its own words, and nothing else.
-                let group = self
-                    .input
-                    .split_whitespace()
-                    .next()
-                    .unwrap_or_default()
-                    .to_owned();
-                let first = !self.input.contains(' ');
-                let words = COMMANDS.iter().filter_map(|(usage, _)| {
-                    let mut parts = usage.split_whitespace();
-                    let head = parts.next()?;
-                    if first {
-                        Some(head)
-                    } else {
-                        parts.next().filter(|_| head == group)
-                    }
-                });
-                self.completion.complete(&mut self.input, words);
-            } else {
-                self.completion
-                    .complete(&mut self.input, seen.into_iter().chain(typed).chain(given));
-            }
+            self.completion
+                .complete(&mut self.input, seen.into_iter().chain(typed).chain(given));
         }
         let has_text = !self.input.is_empty();
         let theme = theme::current();
@@ -2026,7 +2071,7 @@ impl Tab {
         {
             self.kept_input = None;
         }
-        if completing {
+        if completing || std::mem::take(&mut self.cursor_to_end) {
             // Put the cursor after the completed word.
             let end = egui::text::CCursor::new(self.input.chars().count());
             output
@@ -2068,6 +2113,13 @@ impl Tab {
                 self.find_wants_focus = true;
             }
         }
+        self.input_rect = shown.response.rect;
+        let offered = if response.has_focus() || ours {
+            self.palette_items()
+        } else {
+            Vec::new()
+        };
+        self.palette_card(ui, &offered, shown.response.rect);
         let submitted = response.lost_focus() && ui.input(|input| input.key_pressed(Key::Enter));
         if submitted {
             self.submit();
@@ -2634,16 +2686,60 @@ mod tests {
         );
         // An incomplete group lists what it has instead of going to the MUD.
         assert!(app.map_command("/map dance"));
-        app.input = "/pl".into();
-        harness.run_steps(2);
-        harness.key_press(Key::Tab);
-        harness.run_steps(2);
-        assert_eq!(harness.state().tab().input, "/plugin");
-        harness.state_mut().tab_mut().input = "/map wh".into();
+        app.input = "/map wh".into();
         harness.run_steps(2);
         harness.key_press(Key::Tab);
         harness.run_steps(2);
         assert_eq!(harness.state().tab().input, "/map where");
+    }
+
+    #[test]
+    fn commands_are_chosen_from_a_palette_and_answer_over_the_line() {
+        let mut harness = window(None);
+        harness.run_steps(2);
+        let before = output_lines(harness.state().tab()).len();
+        // A slash offers the commands, each said for what it is.
+        harness.state_mut().tab_mut().input = "/pl".into();
+        harness.run_steps(3);
+        harness.get_by_label_contains("/plugin install");
+        // The arrows choose, and do not walk the history meanwhile.
+        harness.key_press(Key::ArrowDown);
+        harness.run_steps(2);
+        assert_eq!(harness.state().tab().input, "/pl");
+        // Enter completes what is not yet a whole command...
+        harness.key_press(Key::Enter);
+        harness.run_steps(2);
+        assert_eq!(harness.state().tab().input, "/plugin install ");
+        // ...and Escape puts the palette away, until more is typed.
+        harness.key_press(Key::Escape);
+        harness.run_steps(2);
+        assert!(
+            harness
+                .query_by_label_contains("/plugin install <git")
+                .is_none()
+        );
+        // A whole command is run by Enter, and answers over the command
+        // line, leaving the lines of the game as they were.
+        let app = harness.state_mut().tab_mut();
+        app.settings.keep_command = false;
+        app.scripts
+            .exec("t", r#"bind("f9", "kick", {group = "Combat"})"#);
+        app.input = "/group".into();
+        harness.run_steps(2);
+        harness.key_press(Key::Enter);
+        harness.run_steps(3);
+        let app = harness.state().tab();
+        assert_eq!(output_lines(app).len(), before);
+        let (command, lines) = app.command_answer.clone().expect("an answer");
+        assert_eq!(
+            (command.as_str(), lines.as_slice()),
+            ("/group", ["Combat: on".to_owned()].as_slice())
+        );
+        harness.get_by_label("Combat: on");
+        // Escape puts the answer away, and so does the next command sent.
+        harness.key_press(Key::Escape);
+        harness.run_steps(2);
+        assert!(harness.state().tab().command_answer.is_none());
     }
 
     #[test]
@@ -2918,19 +3014,11 @@ mod tests {
         let ctx = harness.ctx.clone();
         crate::theme::apply(&ctx, &settings).unwrap();
         harness.state_mut().tab_mut().settings_changed(&settings);
-        let started = Instant::now();
         harness.step();
-        let first = started.elapsed();
-        // Whatever the machine, one frame must not pay for six thousand
-        // rows: the same work done at once takes many times longer.
-        harness.state_mut().tab_mut().output.measure_all_for_test();
-        let started = Instant::now();
-        harness.step();
-        let all = started.elapsed();
-        assert!(
-            first < all,
-            "a frame after the change took {first:?}, laying all out {all:?}"
-        );
+        // One frame does not pay for six thousand rows: it lays out a
+        // share, and what is on the screen.
+        let measured = harness.state().tab().output.measured();
+        assert!(measured < 3000, "{measured} rows were laid out in a frame");
         // And the end stays in view while the rest catches up.
         harness.run_steps(40);
         assert!(harness.query_by_label("Latest lines").is_none());
@@ -3028,6 +3116,34 @@ mod tests {
         }
         app.set_view(2);
         cost(&mut harness, "debug with 120 packages");
+    }
+
+    #[test]
+    fn a_burst_of_lines_is_measured_a_share_a_frame() {
+        let mut harness = window(None);
+        harness.run_steps(2);
+        let app = harness.state_mut().tab_mut();
+        (0..6000).for_each(|n| app.show_local(&format!("line {n} of a burst of text")));
+        // Laid out all at once, each row would hold its laid out text for
+        // the frame; a share is, the newest, which are the ones in view.
+        harness.step();
+        let share = crate::output::REMEASURED_PER_FRAME;
+        let measured = harness.state().tab().output.measured();
+        assert!(
+            measured > 0 && measured <= share + 100,
+            "{measured} rows measured in a frame"
+        );
+        // The view follows to the end, where the newest already are.
+        harness.step();
+        assert!(harness.query_by_label("Latest lines").is_none());
+        harness.get_by_label("line 5999 of a burst of text");
+        // The rest follow, and the end stays in view meanwhile.
+        harness.run_steps(6000 / share + 2);
+        assert_eq!(
+            harness.state().tab().output.measured(),
+            harness.state().tab().output.len()
+        );
+        assert!(harness.query_by_label("Latest lines").is_none());
     }
 
     #[test]
@@ -3595,8 +3711,37 @@ mod tests {
             ],
             ..crate::rules::Gauge::starter()
         });
+        app.rules_draft.gauges.push(crate::rules::Gauge {
+            name: "Envenenado".into(),
+            value: "Char.Status.poisoned".into(),
+            kind: crate::rules::GaugeKind::Light,
+            colour: "red".into(),
+            off_colour: "green".into(),
+            ..crate::rules::Gauge::starter()
+        });
+        app.rules_selected[4] = 0;
         layout.run_steps(4);
         save(&mut layout, "gauges");
+        layout.state_mut().tab_mut().rules_selected[4] = 1;
+        layout.run_steps(4);
+        save(&mut layout, "gauge-light");
+        // The palette of commands over the command line, and an answer.
+        let mut palette = connected_demo_window();
+        let app = palette.state_mut().tab_mut();
+        app.scripts.exec(
+            "t",
+            r#"bind("f9", "kick", {group = "Combate"}) bind("f8", "hi", {group = "Social"})"#,
+        );
+        app.kept_input = None;
+        app.input = "/map".into();
+        palette.run_steps(12);
+        save(&mut palette, "palette");
+        let app = palette.state_mut().tab_mut();
+        app.input = "/group".into();
+        palette.run_steps(3);
+        palette.key_press(Key::Enter);
+        palette.run_steps(12);
+        save(&mut palette, "answer");
         // The command line with nothing typed in it.
         let mut empty = connected_demo_window();
         empty.state_mut().tab_mut().input.clear();

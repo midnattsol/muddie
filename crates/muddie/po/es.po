@@ -1375,3 +1375,5 @@ msgstr "Añadir un panel de indicadores"
 msgid "Shown in"
 msgstr "Se muestra en"
 
+msgid "↑ ↓ to choose  ·  Tab to complete  ·  Enter to run  ·  Esc to close"
+msgstr "↑ ↓ para elegir  ·  Tab para completar  ·  Intro para ejecutar  ·  Esc para cerrar"

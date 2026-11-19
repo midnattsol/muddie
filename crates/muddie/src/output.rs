@@ -123,6 +123,8 @@ pub struct Output {
     shown_height: f32,
     /// Rows before this one have a height measured for another width.
     stale: usize,
+    /// How tall a row of one line of text is, as last measured.
+    unit: f32,
     /// Row to bring into view on the next frame.
     scroll_to: Option<usize>,
     /// Go back to the end on the next frame.
@@ -143,6 +145,7 @@ impl Default for Output {
             at_end: true,
             shown_height: 0.0,
             stale: 0,
+            unit: 0.0,
             scroll_to: None,
             jump_to_end: false,
             found: None,
@@ -211,10 +214,10 @@ impl Output {
     /// Forgets every height at once, as was done before they were
     /// measured a share per frame: what that costs is what a test
     /// compares against.
+    /// How many rows have had their height measured.
     #[cfg(test)]
-    pub fn measure_all_for_test(&mut self) {
-        self.rows.iter_mut().for_each(|row| row.height = None);
-        self.stale = 0;
+    pub fn measured(&self) -> usize {
+        self.rows.iter().filter(|row| row.height.is_some()).count()
     }
 
     pub fn restyle(&mut self, capacity: usize, timestamps: bool) {
@@ -352,16 +355,43 @@ impl Output {
             ui.painter().layout_job(job)
         };
 
-        // Measure new rows, and find the first one inside the viewport.
+        // Rows whose height is not known are laid out to learn it a share
+        // a frame, newest first. All at once, a burst of text or a whole
+        // scrollback would hold a laid out copy of every row for a frame:
+        // hundreds of megabytes that the system does not get back.
+        let mut budget = REMEASURED_PER_FRAME;
+        for row in self.rows.iter_mut().rev() {
+            if budget == 0 {
+                ui.ctx().request_repaint();
+                break;
+            }
+            if row.height.is_none() {
+                let galley = layout(ui, row.job(timestamps));
+                if galley.rows.len() == 1 {
+                    self.unit = galley.size().y;
+                }
+                row.height = Some(galley.size().y);
+                budget -= 1;
+            }
+        }
+        // Until its turn comes a row goes by a guess: as many rows of text
+        // as its characters fill at this width.
+        let font = palette::font();
+        let (glyph, plain) =
+            ui.fonts_mut(|fonts| (fonts.glyph_width(&font, 'm'), fonts.row_height(&font)));
+        let unit = if self.unit > 0.0 { self.unit } else { plain };
+        let guess = |row: &Row| {
+            let characters = row.text.chars().count() + if timestamps { 9 } else { 0 };
+            unit * (characters as f32 * glyph / width.max(1.0)).ceil().max(1.0)
+        };
+
+        // Find the first row inside the viewport.
         let mut total = 0.0;
         let mut first_visible = None;
         let scroll_to = self.scroll_to.take();
         let mut target = None;
-        for (index, row) in self.rows.iter_mut().enumerate() {
-            let height = match row.height {
-                Some(height) => height,
-                None => *row.height.insert(layout(ui, row.job(timestamps)).size().y),
-            };
+        for (index, row) in self.rows.iter().enumerate() {
+            let height = row.height.unwrap_or_else(|| guess(row));
             if first_visible.is_none() && total + height > viewport.min.y {
                 first_visible = Some((index, total));
             }
@@ -409,6 +439,9 @@ impl Output {
         );
         let found = self.found;
         let mut command = None;
+        // Rows drawn before their turn to be measured: what they turned
+        // out to be, kept once they are drawn.
+        let mut learned: Vec<(usize, f32)> = Vec::new();
         ui.scope_builder(UiBuilder::new().max_rect(rect), |ui| {
             // Keep widget ids stable while scrolling.
             ui.skip_ahead_auto_ids(first);
@@ -419,6 +452,9 @@ impl Output {
                 }
                 let galley = layout(ui, row.job(timestamps));
                 y += galley.size().y;
+                if row.height.is_none() {
+                    learned.push((index, galley.size().y));
+                }
                 let mut label = Label::new(Arc::clone(&galley));
                 if !row.links.is_empty() {
                     label = label.sense(Sense::click());
@@ -446,6 +482,12 @@ impl Output {
                 ui.add(Label::new(galley));
             }
         });
+        if !learned.is_empty() {
+            ui.ctx().request_repaint();
+        }
+        for (index, height) in learned {
+            self.rows[index].height = Some(height);
+        }
         command
     }
 }
@@ -456,10 +498,11 @@ fn append_line(job: &mut LayoutJob, line: &Line) {
     }
 }
 
-/// A line of server text laid out with its colours.
-/// How many rows are measured again per frame after the width changed.
-const REMEASURED_PER_FRAME: usize = 300;
+/// How many rows are laid out per frame only to learn their height: new
+/// ones, and after the width changed, the ones measured for the old one.
+pub const REMEASURED_PER_FRAME: usize = 300;
 
+/// A line of server text laid out with its colours.
 pub fn server_job(line: &Line) -> LayoutJob {
     let mut job = LayoutJob::default();
     append_line(&mut job, line);

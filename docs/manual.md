@@ -54,6 +54,14 @@ addresses in the output can be clicked, as can links the server marks.
 Lines starting with `/` and one of these words are for Muddie itself;
 anything else is sent to the MUD.
 
+As soon as a `/` is typed, the commands that begin so are listed over the
+command line, each with what it does. Up and Down choose one, which is also
+read aloud; Tab completes it, Enter completes it too and runs it once it is
+whole, and Escape puts the list away. The commands that take the name of a
+group or a plugin list the ones there are. What a command answers is shown in
+the same place, not among the lines of the game, until Escape or the next
+command.
+
 | Command | What it does |
 |---|---|
 | `/help` | Lists these commands |
@@ -175,9 +183,10 @@ write to one with `panel_add(name, text)`, or put a whole text in it with
 `panel(name, text)`. A panel can also be told to show the MUD's channels,
 from the dots beside its name in the layout mode.
 
-The **gauges** of a panel are set up from the dots at its corner, from
-**Preferences > Gauges…**, or in the layout mode; each panel of gauges has
-its own, so that yours can be below and an enemy's beside the map. A gauge
+The **gauges** are made and changed in the editor, under **Gauges**; the
+dots at the corner of a panel of gauges and **Preferences > Gauges…** lead
+there. Each gauge says which panel it is shown in, so that yours can be below
+and an enemy's beside the map. A gauge
 follows something the MUD reports, and is one of these kinds:
 
 - **Bar** and **Cells**: how full something is, of its maximum.
@@ -189,7 +198,9 @@ Say where the value is, and the maximum for those that have one: a GMCP
 package and the fields inside it (`Char.Vitals.health.current`), or the name
 of a MSDP variable; **Debug** shows what there is. Choose its colour, and for
 those with a maximum the colours it takes as it gets low: yellow under 60 %,
-red under 30 %, as many levels as wanted. Alt+0 reads the gauges aloud.
+red under 30 %, as many levels as wanted, kept in order. A light can have a
+colour for when it is off as well, to say which of two things is so: red for
+poisoned, green for not. Alt+0 reads the gauges aloud.
 
 ## Debugging: what the MUD sends
 
