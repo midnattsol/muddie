@@ -359,6 +359,20 @@ impl Tab {
         if !self.layout.panels.is_empty() {
             widgets::menu_separator(ui);
         }
+        if widgets::menu_item(ui, tr("Gauges…"), "").clicked() {
+            // Those of the first panel of gauges, made if there is none.
+            if !self.layout.has(Kind::Gauges) {
+                self.add_panel(Kind::Gauges);
+            }
+            let panel = self
+                .layout
+                .panels
+                .iter()
+                .find(|panel| panel.kind == Kind::Gauges)
+                .map_or(0, |panel| panel.id);
+            self.open_gauges(panel);
+            ui.close();
+        }
         if widgets::menu_item(ui, tr("Edit the layout…"), "").clicked() {
             self.editing_layout = true;
             self.started = true;
@@ -1093,7 +1107,24 @@ impl Tab {
 
     /// The gauges of a panel in a row, or how to get some.
     fn gauges_body(&mut self, ui: &mut egui::Ui, id: u32) {
+        let full = ui.max_rect();
         if self.gauges.show(ui, |name| self.gauge_is_in(name, id)) {
+            // The way to change them, at the corner, out of their way.
+            if !self.editing_layout {
+                let corner = egui::Rect::from_min_size(
+                    egui::pos2(full.right() - 28.0, full.top()),
+                    egui::vec2(28.0, 28.0),
+                );
+                let builder = egui::UiBuilder::new()
+                    .id_salt(("gauges of", id))
+                    .max_rect(corner);
+                let edit = ui.scope_builder(builder, |ui| {
+                    widgets::icon_button(ui, widgets::Icon::More, tr("Edit the gauges"), false)
+                });
+                if edit.inner.clicked() {
+                    self.open_gauges(id);
+                }
+            }
             return;
         }
         let theme = theme::current();
@@ -1222,11 +1253,8 @@ impl Tab {
                     let add = egui::Button::new(tr("Add a gauge")).min_size(egui::vec2(ui.available_width(), 32.0));
                     if ui.add(add).clicked() {
                         self.rules_draft.gauges.push(crate::rules::Gauge {
-                            enabled: true,
-                            segments: true,
-                            low: 30,
                             panel,
-                            ..crate::rules::Gauge::default()
+                            ..crate::rules::Gauge::starter()
                         });
                         self.gauge_selected = self.rules_draft.gauges.len() - 1;
                     }

@@ -121,11 +121,15 @@ changing what is saved. The same key can be bound once per group, so that it
 does one thing in one mode and another in another.
 
 **Variables** are values with a name that are kept: who you are hunting, how
-many you have killed. They are listed and changed in the editor. In the
-commands of a rule or a macro, `$name` is replaced by the value; a script
+many you have killed. They are listed and changed in the editor, each with
+its type, by the name a script knows it by: `string`, `number`, `boolean`,
+`array` or `table`. Each type is edited as what it is: a switch for a
+boolean, a row per item of an array, a key and a value per field of a table.
+In the commands of a rule or a macro, `$name` is replaced by the value, and
+`$name.key` or `$name.1` by what is inside a table or an array; a script
 reads and changes it as `vars.name`. They belong to the session: with a saved
-profile they are kept with it, and without one they last until the session
-is closed, going into the profile if it is then saved.
+profile they are kept with it, and without one they last until the session is
+closed, going into the profile if it is then saved.
 
 A mistake in one rule or script is reported with its name and does not stop
 the others. Triggers and aliases have a box to try them out: paste a line
@@ -171,14 +175,21 @@ write to one with `panel_add(name, text)`, or put a whole text in it with
 `panel(name, text)`. A panel can also be told to show the MUD's channels,
 from the dots beside its name in the layout mode.
 
-The **gauges** are set up from their panel, in the layout mode; each panel
-of gauges has its own, so that yours can be below and an enemy's beside the
-map. A gauge is a
-bar that follows a number the MUD reports, such as your health. Say where the
-value and its maximum are: a GMCP package and the fields inside it
-(`Char.Vitals.health.current`), or the name of a MSDP variable. Choose its
-colour, whether it is drawn as a row of cells, and the level under which its
-numbers turn red. Alt+0 reads the gauges aloud.
+The **gauges** of a panel are set up from the dots at its corner, from
+**Preferences > Gauges…**, or in the layout mode; each panel of gauges has
+its own, so that yours can be below and an enemy's beside the map. A gauge
+follows something the MUD reports, and is one of these kinds:
+
+- **Bar** and **Cells**: how full something is, of its maximum.
+- **Number**: a number as it is, such as gold or level.
+- **Light**: on or off, for what is so or is not: hidden, poisoned.
+- **Text**: what the MUD says, as words: a stance, a target.
+
+Say where the value is, and the maximum for those that have one: a GMCP
+package and the fields inside it (`Char.Vitals.health.current`), or the name
+of a MSDP variable; **Debug** shows what there is. Choose its colour, and for
+those with a maximum the colours it takes as it gets low: yellow under 60 %,
+red under 30 %, as many levels as wanted. Alt+0 reads the gauges aloud.
 
 ## Debugging: what the MUD sends
 

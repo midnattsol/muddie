@@ -428,7 +428,10 @@ impl Tab {
                 })
                 .collect(),
             VARIABLES => (self.scripts.variables().into_iter())
-                .map(|(name, value)| (name, shown_value(&value).replace('\n', " "), true))
+                .map(|(name, value)| {
+                    let held = shown_value(&value).replace('\n', " ");
+                    (name, format!("{}  ·  {held}", TYPES[kind_of(&value)]), true)
+                })
                 .collect(),
             _ => (self.script_files.iter())
                 .map(|file| {
@@ -1177,6 +1180,64 @@ impl Tab {
         self.rules_filter.clear();
     }
 
+    /// Fills what a variable is edited through from its value.
+    fn load_variable(&mut self, value: &serde_json::Value) {
+        use serde_json::Value;
+        self.variable_kind = kind_of(value);
+        self.variable_text = match value {
+            Value::String(text) => text.clone(),
+            _ => String::new(),
+        };
+        self.variable_number = value.as_f64().unwrap_or(0.0);
+        self.variable_flag = value.as_bool().unwrap_or(false);
+        // The items of an array by their place, the fields of a table by
+        // their key.
+        self.variable_items = match value {
+            Value::Array(items) => items
+                .iter()
+                .map(|item| (String::new(), shown_value(item)))
+                .collect(),
+            Value::Object(fields) => fields
+                .iter()
+                .map(|(key, item)| (key.clone(), shown_value(item)))
+                .collect(),
+            _ => Vec::new(),
+        };
+    }
+
+    /// The value that what is being edited stands for.
+    fn edited_variable(&self) -> serde_json::Value {
+        use serde_json::Value;
+        match self.variable_kind {
+            NUMBER => {
+                serde_json::Number::from_f64(self.variable_number).map_or(Value::Null, |number| {
+                    // A whole number is kept as one, not as 3.0.
+                    let whole =
+                        self.variable_number.fract() == 0.0 && self.variable_number.abs() < 9e15;
+                    if whole {
+                        Value::from(self.variable_number as i64)
+                    } else {
+                        Value::Number(number)
+                    }
+                })
+            }
+            BOOLEAN => Value::Bool(self.variable_flag),
+            ARRAY => Value::Array(
+                self.variable_items
+                    .iter()
+                    .map(|(_, text)| read_value(text))
+                    .collect(),
+            ),
+            TABLE => {
+                let fields = (self.variable_items.iter())
+                    .filter(|(key, _)| !key.trim().is_empty())
+                    .map(|(key, text)| (key.trim().to_owned(), read_value(text)));
+                Value::Object(fields.collect())
+            }
+            _ => Value::String(self.variable_text.clone()),
+        }
+    }
+
     fn variable_detail(&mut self, ui: &mut egui::Ui, index: usize) -> bool {
         let theme = theme::current();
         let variables = self.scripts.variables();
@@ -1186,7 +1247,7 @@ impl Tab {
         if self.variable_loaded.as_ref() != Some(&name) {
             self.variable_loaded = Some(name.clone());
             self.variable_name.clone_from(&name);
-            self.variable_text = shown_value(&value);
+            self.load_variable(&value);
         }
         let mut delete = false;
         let mut renamed = false;
@@ -1197,7 +1258,7 @@ impl Tab {
                     .add(egui::Button::new(label).fill(egui::Color32::TRANSPARENT))
                     .clicked();
                 let title = TextEdit::singleline(&mut self.variable_name)
-                    .font(theme::font(Weight::Semibold, 20.0))
+                    .font(egui::FontId::monospace(19.0))
                     .frame(egui::Frame::NONE)
                     .desired_width(f32::INFINITY);
                 let field = ui.add(title);
@@ -1237,135 +1298,376 @@ impl Tab {
             self.rules_selected[VARIABLES] = place.unwrap_or(0);
             return false;
         }
-        widgets::caption(ui, tr("Value"));
-        let before = self.variable_text.clone();
-        let editor = ui.add(
-            TextEdit::multiline(&mut self.variable_text)
-                .font(egui::FontId::monospace(13.0))
-                .margin(egui::Margin::symmetric(12, 10))
-                .desired_rows(6)
-                .desired_width(f32::INFINITY),
-        );
-        ui.ctx().accesskit_node_builder(editor.id, |node| {
-            node.set_label(tr("Value"));
+
+        // Its type, by the name a script knows it by.
+        ui.horizontal(|ui| {
+            widgets::caption(ui, tr("Type"));
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if let Some(kind) = widgets::segmented(ui, &TYPES, self.variable_kind) {
+                    // What it held is kept, as far as the new type can hold it.
+                    let held = self.edited_variable();
+                    self.load_variable(&converted(&held, kind));
+                    self.variable_kind = kind;
+                }
+            });
         });
-        if self.variable_text != before {
-            let kept = self
-                .scripts
-                .set_variable(&name, Some(read_value(&self.variable_text)));
-            if let Err(error) = kept {
-                self.note(&error);
+        ui.add_space(2.0);
+        widgets::caption(ui, tr("Value"));
+        match self.variable_kind {
+            NUMBER => {
+                let field = ui.add(
+                    egui::DragValue::new(&mut self.variable_number)
+                        .speed(1.0)
+                        .max_decimals(6)
+                        .min_decimals(0)
+                        .update_while_editing(false),
+                );
+                ui.ctx().accesskit_node_builder(field.id, |node| {
+                    node.set_label(tr("Value"));
+                });
+                note(ui, tr("Drag it, or click it to type."));
+            }
+            BOOLEAN => {
+                ui.horizontal(|ui| {
+                    widgets::switch(ui, &mut self.variable_flag, tr("Value"));
+                    let said = if self.variable_flag { "true" } else { "false" };
+                    ui.label(
+                        RichText::new(said)
+                            .font(egui::FontId::monospace(13.5))
+                            .color(theme.text),
+                    );
+                });
+            }
+            ARRAY | TABLE => {
+                let keyed = self.variable_kind == TABLE;
+                let mut removed = None;
+                if self.variable_items.is_empty() {
+                    note(
+                        ui,
+                        if keyed {
+                            tr("No fields yet.")
+                        } else {
+                            tr("No items yet.")
+                        },
+                    );
+                }
+                widgets::group(ui, |ui| {
+                    for (place, (key, text)) in self.variable_items.iter_mut().enumerate() {
+                        ui.horizontal(|ui| {
+                            ui.set_min_height(40.0);
+                            if keyed {
+                                let field = ui.add(
+                                    TextEdit::singleline(key)
+                                        .font(egui::FontId::monospace(13.0))
+                                        .hint_text(RichText::new("key").color(theme.text_faint))
+                                        .margin(egui::Margin::symmetric(9, 6))
+                                        .desired_width(150.0),
+                                );
+                                ui.ctx().accesskit_node_builder(field.id, |node| {
+                                    node.set_label(tr("Key"));
+                                });
+                                ui.label(
+                                    RichText::new("=")
+                                        .font(egui::FontId::monospace(13.0))
+                                        .color(theme.text_faint),
+                                );
+                            } else {
+                                // Counted from one, as a script counts them.
+                                let number = RichText::new(format!("{:>2}", place + 1))
+                                    .font(egui::FontId::monospace(12.5))
+                                    .color(theme.text_faint);
+                                ui.add(Label::new(number).selectable(false));
+                            }
+                            ui.with_layout(
+                                egui::Layout::right_to_left(egui::Align::Center),
+                                |ui| {
+                                    if widgets::close_button(ui, tr("Remove"), 22.0).clicked() {
+                                        removed = Some(place);
+                                    }
+                                    let field = ui.add(
+                                        TextEdit::singleline(text)
+                                            .font(egui::FontId::monospace(13.0))
+                                            .hint_text(
+                                                RichText::new("value").color(theme.text_faint),
+                                            )
+                                            .margin(egui::Margin::symmetric(9, 6))
+                                            .desired_width(f32::INFINITY),
+                                    );
+                                    ui.ctx().accesskit_node_builder(field.id, |node| {
+                                        node.set_label(tr("Value"));
+                                    });
+                                },
+                            );
+                        });
+                    }
+                });
+                if let Some(place) = removed {
+                    self.variable_items.remove(place);
+                }
+                let add = if keyed {
+                    tr("Add a field")
+                } else {
+                    tr("Add an item")
+                };
+                if ui.button(add).clicked() {
+                    self.variable_items.push((String::new(), String::new()));
+                }
+                note(
+                    ui,
+                    tr(
+                        "What reads as a number, true or false is kept as that; the rest as a string. A table inside is written as JSON.",
+                    ),
+                );
+            }
+            _ => {
+                // As tall as what it holds, within reason.
+                let rows = self.variable_text.lines().count().clamp(1, 10);
+                let field = ui.add(
+                    TextEdit::multiline(&mut self.variable_text)
+                        .font(egui::FontId::monospace(13.0))
+                        .margin(egui::Margin::symmetric(12, 9))
+                        .desired_rows(rows)
+                        .desired_width(f32::INFINITY),
+                );
+                ui.ctx().accesskit_node_builder(field.id, |node| {
+                    node.set_label(tr("Value"));
+                });
             }
         }
-        let kind = match read_value(&self.variable_text) {
-            serde_json::Value::Number(_) => tr("A number."),
-            serde_json::Value::Bool(_) => tr("True or false."),
-            serde_json::Value::Array(_) | serde_json::Value::Object(_) => {
-                tr("A table, written as JSON.")
+        // Kept as soon as it is other than what is kept.
+        let after = self.edited_variable();
+        if after != value
+            && let Err(error) = self.scripts.set_variable(&name, Some(after))
+        {
+            self.note(&error);
+        }
+        ui.add_space(8.0);
+        widgets::caption(ui, tr("Using it"));
+        // As it is written, in each of the two places.
+        let (in_commands, in_scripts) = match self.variable_kind {
+            ARRAY => (format!("${name}.1"), format!("vars.{name}[1]")),
+            TABLE => {
+                let key = self
+                    .variable_items
+                    .first()
+                    .map(|(key, _)| key.trim())
+                    .filter(|key| !key.is_empty())
+                    .unwrap_or("key");
+                (format!("${name}.{key}"), format!("vars.{name}.{key}"))
             }
-            _ => tr("Text."),
+            _ => (format!("${name}"), format!("vars.{name}")),
         };
-        note(ui, kind);
-        ui.add_space(6.0);
+        widgets::group(ui, |ui| {
+            for (place, written) in [
+                (tr("In the commands of a rule"), in_commands),
+                (tr("In a script"), in_scripts),
+            ] {
+                widgets::setting_row(ui, place, &mut |ui| {
+                    let copy = ui.button(tr("Copy"));
+                    if copy.clicked() {
+                        ui.ctx().copy_text(written.clone());
+                    }
+                    ui.label(
+                        RichText::new(&written)
+                            .font(egui::FontId::monospace(13.0))
+                            .color(theme.text),
+                    );
+                    copy
+                });
+            }
+        });
         // Where it is kept, which is with the session's profile or nowhere.
         let kept = match &self.profile {
             Some(profile) => trf("Kept with the profile {0}.", &[profile]),
             None => tr("This session has no saved profile, so its variables last until it is closed. Save the profile, in Session, Connection, to keep them.").to_owned(),
         };
         note(ui, &kept);
-        ui.add_space(6.0);
-        widgets::caption(ui, tr("Using it"));
-        let uses = trf(
-            "In the commands of a rule, ${0} is replaced by its value. In a script it is vars.{0}, to read it and to change it.",
-            &[&name],
-        );
-        ui.label(
-            RichText::new(uses)
-                .font(theme::font(Weight::Regular, 12.5))
-                .color(theme.text_dim),
-        );
         delete
     }
 
     pub(super) fn gauge_detail(&mut self, ui: &mut egui::Ui, index: usize) -> bool {
+        use crate::rules::{GaugeKind, Step};
         let theme = theme::current();
         let rule = &mut self.rules_draft.gauges[index];
         let delete = rule_header(ui, &mut rule.name, &mut rule.enabled, tr("Name this gauge"));
-        let (left, right) = detail_columns(ui);
-        let mut first = column(ui, left, "first");
-        {
-            let ui = &mut first;
-            widgets::caption(ui, tr("Follows"));
-            widgets::field(ui, tr("Value"), &mut rule.value, "Char.Vitals.hp");
-            widgets::field(ui, tr("Maximum"), &mut rule.max, "Char.Vitals.maxhp");
-            note(
-                ui,
-                tr(
-                    "Where the MUD reports it: a GMCP package and the fields inside it, such as Char.Vitals.health.current, or the name of a MSDP variable. The maximum can also be a number.",
-                ),
-            );
-            ui.add_space(6.0);
-            widgets::caption(ui, tr("Look"));
-            ui.horizontal(|ui| {
-                ui.spacing_mut().item_spacing.x = 4.0;
-                ui.label(RichText::new(tr("Colour")).color(theme.text_dim));
-                ui.add_space(8.0);
-                for name in crate::panels::GAUGE_COLOURS {
-                    let colour = crate::panels::colour_named(name).unwrap_or(theme.accent);
-                    if widgets::swatch(ui, colour, rule.colour == name, tr(name)).clicked() {
-                        rule.colour = name.to_owned();
-                    }
+        // What it is drawn as.
+        let kinds = [
+            GaugeKind::Bar,
+            GaugeKind::Cells,
+            GaugeKind::Number,
+            GaugeKind::Light,
+            GaugeKind::Text,
+        ];
+        ui.horizontal(|ui| {
+            widgets::caption(ui, tr("Kind"));
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                let names = [
+                    tr("Bar"),
+                    tr("Cells"),
+                    tr("Number"),
+                    tr("Light"),
+                    tr("Text"),
+                ];
+                let current = kinds
+                    .iter()
+                    .position(|kind| *kind == rule.kind)
+                    .unwrap_or(0);
+                if let Some(chosen) = widgets::segmented(ui, &names, current) {
+                    rule.kind = kinds[chosen];
                 }
             });
-            widgets::switch_row(ui, &mut rule.segments, tr("Draw it as cells"));
-            ui.horizontal(|ui| {
-                let label = ui.label(tr("Warn when under"));
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+        });
+        let about = match rule.kind {
+            GaugeKind::Bar | GaugeKind::Cells => tr("How full something is, of its maximum."),
+            GaugeKind::Number => tr("A number as it is: gold, level, experience."),
+            GaugeKind::Light => {
+                tr("On or off, for what is so or is not: hidden, poisoned, in combat.")
+            }
+            GaugeKind::Text => tr("What the MUD says, as words: a stance, a target, a place."),
+        };
+        note(ui, about);
+        ui.add_space(4.0);
+        widgets::caption(ui, tr("Follows"));
+        if rule.kind.has_level() {
+            ui.columns(2, |columns| {
+                widgets::field(
+                    &mut columns[0],
+                    tr("Value"),
+                    &mut rule.value,
+                    "Char.Vitals.hp",
+                );
+                let none = if rule.kind == GaugeKind::Number {
+                    tr("none")
+                } else {
+                    "100"
+                };
+                widgets::field(&mut columns[1], tr("Maximum"), &mut rule.max, none);
+            });
+        } else {
+            widgets::field(ui, tr("Value"), &mut rule.value, "Char.Status.poisoned");
+        }
+        let hint = match rule.kind {
+            GaugeKind::Light => tr(
+                "It is on when the value is true, a number other than 0, or words other than no, false or off.",
+            ),
+            _ => tr(
+                "Where the MUD reports it: a GMCP package and the fields inside it, such as Char.Vitals.health.current, or the name of a MSDP variable. The maximum can also be a number. Debug shows what there is.",
+            ),
+        };
+        note(ui, hint);
+        ui.add_space(4.0);
+        widgets::caption(ui, tr("Colour"));
+        swatches(ui, &mut rule.colour);
+        if rule.kind.has_level() {
+            ui.add_space(4.0);
+            widgets::caption(ui, tr("Colour by level"));
+            if rule.steps.is_empty() {
+                note(
+                    ui,
+                    tr(
+                        "It can turn another colour as it gets low: yellow under 60 %, red under 30 %.",
+                    ),
+                );
+            }
+            let mut removed = None;
+            for (place, step) in rule.steps.iter_mut().enumerate() {
+                ui.horizontal(|ui| {
+                    let label = ui.label(RichText::new(tr("Under")).color(theme.text_dim));
                     ui.add(
-                        egui::DragValue::new(&mut rule.low)
-                            .range(0..=100)
+                        egui::DragValue::new(&mut step.under)
+                            .range(1..=100)
                             .suffix(" %"),
                     )
                     .labelled_by(label.id);
-                });
-            });
-        }
-        let used = first.min_rect();
-        let mut second = match right {
-            Some(right) => column(ui, right, "second"),
-            None => first,
-        };
-        {
-            let ui = &mut second;
-            if right.is_none() {
-                ui.add_space(6.0);
-            }
-            widgets::caption(ui, tr("Preview"));
-            let look = muddie_script::GaugeLook {
-                colour: rule.colour.clone(),
-                segments: rule.segments,
-                low: f64::from(rule.low),
-            };
-            let name = if rule.name.trim().is_empty() {
-                tr("Gauge")
-            } else {
-                rule.name.trim()
-            };
-            // As it will sit under the output: full, half and nearly empty.
-            let strip = egui::Frame::new()
-                .fill(theme.background)
-                .corner_radius(egui::CornerRadius::same(12))
-                .inner_margin(egui::Margin::symmetric(16, 14));
-            strip.show(ui, |ui| {
-                ui.horizontal_wrapped(|ui| {
-                    ui.spacing_mut().item_spacing = egui::vec2(22.0, 12.0);
-                    for value in [100.0, 64.0, 18.0] {
-                        crate::panels::draw_gauge(ui, name, value, 100.0, &look);
+                    ui.add_space(6.0);
+                    ui.push_id(place, |ui| swatches(ui, &mut step.colour));
+                    if widgets::close_button(ui, tr("Remove"), 22.0).clicked() {
+                        removed = Some(place);
                     }
                 });
-            });
+            }
+            if let Some(place) = removed {
+                rule.steps.remove(place);
+            }
+            if ui.button(tr("Add a level")).clicked() {
+                // Under the lowest there is, or a first one at a third.
+                let lowest = rule.steps.iter().map(|step| step.under).min();
+                let (under, colour) = match lowest {
+                    None => (60, "yellow"),
+                    Some(lowest) => (lowest / 2, "red"),
+                };
+                rule.steps.push(Step {
+                    under: under.max(1),
+                    colour: colour.to_owned(),
+                });
+            }
         }
-        ui.allocate_rect(used.union(second.min_rect()), egui::Sense::hover());
+        ui.add_space(4.0);
+        widgets::caption(ui, tr("Preview"));
+        let look = |text: &str| muddie_script::GaugeLook {
+            colour: rule.colour.clone(),
+            kind: match rule.kind {
+                GaugeKind::Bar => "bar",
+                GaugeKind::Cells => "cells",
+                GaugeKind::Number => "number",
+                GaugeKind::Light => "light",
+                GaugeKind::Text => "text",
+            }
+            .to_owned(),
+            steps: rule
+                .steps
+                .iter()
+                .map(|step| (f64::from(step.under), step.colour.clone()))
+                .collect(),
+            text: text.to_owned(),
+            ..muddie_script::GaugeLook::default()
+        };
+        let name = if rule.name.trim().is_empty() {
+            tr("Gauge")
+        } else {
+            rule.name.trim()
+        };
+        // As it will sit under the output, at the levels that matter.
+        let strip = egui::Frame::new()
+            .fill(theme.background)
+            .corner_radius(egui::CornerRadius::same(12))
+            .inner_margin(egui::Margin::symmetric(16, 14));
+        strip.show(ui, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.spacing_mut().item_spacing = egui::vec2(22.0, 12.0);
+                match rule.kind {
+                    GaugeKind::Light => {
+                        crate::panels::draw_gauge(ui, name, 1.0, 1.0, &look(""));
+                        crate::panels::draw_gauge(ui, name, 0.0, 1.0, &look(""));
+                    }
+                    GaugeKind::Text => {
+                        crate::panels::draw_gauge(ui, name, 0.0, 0.0, &look(tr("standing")))
+                    }
+                    GaugeKind::Number if rule.max.trim().is_empty() => {
+                        crate::panels::draw_gauge(ui, name, 1250.0, 0.0, &look(""));
+                    }
+                    _ => {
+                        // Full, and just under each level it changes at.
+                        let mut levels: Vec<f64> = vec![100.0];
+                        let mut under: Vec<u8> = rule.steps.iter().map(|step| step.under).collect();
+                        under.sort_unstable_by(|a, b| b.cmp(a));
+                        under.dedup();
+                        levels.extend(
+                            under
+                                .iter()
+                                .take(3)
+                                .map(|under| (f64::from(*under) - 8.0).max(1.0)),
+                        );
+                        if levels.len() == 1 {
+                            levels.extend([64.0, 18.0]);
+                        }
+                        for value in levels {
+                            crate::panels::draw_gauge(ui, name, value.round(), 100.0, &look(""));
+                        }
+                    }
+                }
+            });
+        });
         delete
     }
 
@@ -1535,30 +1837,92 @@ fn group_row(ui: &mut egui::Ui, group: &mut String, known: &[String]) {
     ui.add_space(2.0);
 }
 
-/// The regions of the details: one column, or two side by side when there
-/// is room, so that a rule's script can stand beside the rest of it.
-fn detail_columns(ui: &egui::Ui) -> (egui::Rect, Option<egui::Rect>) {
-    let full = ui.available_rect_before_wrap();
-    if full.width() < 820.0 {
-        return (full, None);
+/// The types a variable can be, by the names a script knows them by,
+/// which are the same in every language.
+const TYPES: [&str; 5] = ["string", "number", "boolean", "array", "table"];
+const NUMBER: usize = 1;
+const BOOLEAN: usize = 2;
+const ARRAY: usize = 3;
+const TABLE: usize = 4;
+
+/// Which of [`TYPES`] a value is.
+fn kind_of(value: &serde_json::Value) -> usize {
+    use serde_json::Value;
+    match value {
+        Value::Number(_) => NUMBER,
+        Value::Bool(_) => BOOLEAN,
+        Value::Array(_) => ARRAY,
+        Value::Object(_) => TABLE,
+        Value::String(_) | Value::Null => 0,
     }
-    let (mut left, mut right) = (full, full);
-    left.set_width((full.width() * 0.4).clamp(360.0, 520.0));
-    right.min.x = left.max.x + 32.0;
-    (left, Some(right))
 }
 
-/// A column of the details, laid out from the top of `rect`.
-fn column(ui: &mut egui::Ui, rect: egui::Rect, name: &str) -> egui::Ui {
-    // Named, so that what is in one column is not taken for what is
-    // in the other.
-    let builder = egui::UiBuilder::new()
-        .id_salt(name)
-        .max_rect(rect)
-        .layout(egui::Layout::top_down(egui::Align::Min));
-    let mut column = ui.new_child(builder);
-    column.spacing_mut().item_spacing.y = 10.0;
-    column
+/// A value as another type, keeping of it what that type can hold.
+fn converted(value: &serde_json::Value, kind: usize) -> serde_json::Value {
+    use serde_json::Value;
+    let truthy = |value: &Value| match value {
+        Value::Bool(flag) => *flag,
+        Value::Number(number) => number.as_f64() != Some(0.0),
+        Value::String(text) => !matches!(
+            text.trim().to_lowercase().as_str(),
+            "" | "0" | "false" | "no" | "off"
+        ),
+        Value::Array(items) => !items.is_empty(),
+        Value::Object(fields) => !fields.is_empty(),
+        Value::Null => false,
+    };
+    let empty =
+        |value: &Value| matches!(value, Value::String(text) if text.is_empty()) || value.is_null();
+    match kind {
+        NUMBER => {
+            let number = match value {
+                Value::Number(number) => number.as_f64(),
+                Value::String(text) => text.trim().parse().ok(),
+                Value::Bool(flag) => Some(f64::from(u8::from(*flag))),
+                _ => None,
+            };
+            read_value(
+                &number
+                    .filter(|number| number.is_finite())
+                    .unwrap_or(0.0)
+                    .to_string(),
+            )
+        }
+        BOOLEAN => Value::Bool(truthy(value)),
+        ARRAY => match value {
+            Value::Array(_) => value.clone(),
+            Value::Object(fields) => Value::Array(fields.values().cloned().collect()),
+            other if empty(other) => Value::Array(Vec::new()),
+            other => Value::Array(vec![other.clone()]),
+        },
+        TABLE => match value {
+            Value::Object(_) => value.clone(),
+            Value::Array(items) => {
+                let numbered = items
+                    .iter()
+                    .enumerate()
+                    .map(|(place, item)| ((place + 1).to_string(), item.clone()));
+                Value::Object(numbered.collect())
+            }
+            other if empty(other) => Value::Object(serde_json::Map::new()),
+            other => Value::Object([("value".to_owned(), other.clone())].into_iter().collect()),
+        },
+        _ => Value::String(shown_value(value)),
+    }
+}
+
+/// The colours to choose among, as a row of swatches.
+fn swatches(ui: &mut egui::Ui, colour: &mut String) {
+    let theme = theme::current();
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = 4.0;
+        for name in crate::panels::GAUGE_COLOURS {
+            let shown = crate::panels::colour_named(name).unwrap_or(theme.accent);
+            if widgets::swatch(ui, shown, *colour == name, tr(name)).clicked() {
+                *colour = name.to_owned();
+            }
+        }
+    });
 }
 
 /// How many rows of code fit in a view `height` tall once `taken` of it
@@ -1775,6 +2139,30 @@ mod tests {
         // And what is shown reads back as what it was.
         for value in [json!(42), json!(true), json!("orc"), json!({"a": [1, 2]})] {
             assert_eq!(read_value(&shown_value(&value)), value);
+        }
+    }
+
+    #[test]
+    fn a_variable_changes_type_keeping_what_the_new_one_can_hold() {
+        use serde_json::json;
+        let to = |value: serde_json::Value, kind: usize| converted(&value, kind);
+        assert_eq!(to(json!("12"), NUMBER), json!(12));
+        assert_eq!(to(json!("orc"), NUMBER), json!(0));
+        assert_eq!(to(json!(true), NUMBER), json!(1));
+        assert_eq!(to(json!(7.5), 0), json!("7.5"));
+        assert_eq!(to(json!("no"), BOOLEAN), json!(false));
+        assert_eq!(to(json!("yes"), BOOLEAN), json!(true));
+        assert_eq!(to(json!(0), BOOLEAN), json!(false));
+        assert_eq!(to(json!("orc"), ARRAY), json!(["orc"]));
+        assert_eq!(to(json!(""), ARRAY), json!([]));
+        assert_eq!(to(json!({"a": 1, "b": 2}), ARRAY), json!([1, 2]));
+        assert_eq!(to(json!(["axe", 3]), TABLE), json!({"1": "axe", "2": 3}));
+        assert_eq!(to(json!(5), TABLE), json!({"value": 5}));
+        // Each is the type it was made into, and stays so made again.
+        for kind in 0..TYPES.len() {
+            let made = to(json!("12"), kind);
+            assert_eq!(kind_of(&made), kind);
+            assert_eq!(to(made.clone(), kind), made);
         }
     }
 

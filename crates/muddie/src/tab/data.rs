@@ -384,13 +384,10 @@ look at it to know what a gauge can follow or a script can use.");
         };
         self.rules_draft.gauges.push(crate::rules::Gauge {
             name: name.to_owned(),
-            enabled: true,
             value: path.to_owned(),
             max: likely_max(path, all).unwrap_or_default(),
-            segments: true,
-            low: 30,
             panel,
-            ..crate::rules::Gauge::default()
+            ..crate::rules::Gauge::starter()
         });
         self.gauges_open = true;
         self.gauges_panel = panel;

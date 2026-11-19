@@ -140,6 +140,13 @@ pub struct GaugeLook {
     pub segments: bool,
     /// The percentage under which the numbers turn to a warning colour.
     pub low: f64,
+    /// What it is drawn as: `bar`, `cells`, `number`, `light` or `text`;
+    /// empty for a bar, or cells if `segments`.
+    pub kind: String,
+    /// The colour it takes under each percentage, whatever its order.
+    pub steps: Vec<(f64, String)>,
+    /// What a gauge of the `text` kind says.
+    pub text: String,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -334,15 +341,49 @@ impl State {
             let name = &after[..end];
             let starts_as_a_name =
                 name.starts_with(|ch: char| ch.is_ascii_alphabetic() || ch == '_');
-            match self.memory.get(name).filter(|_| starts_as_a_name) {
-                Some(serde_json::Value::String(value)) => expanded.push_str(value),
-                Some(value) => expanded.push_str(&value.to_string()),
-                None => {
-                    expanded.push('$');
-                    expanded.push_str(name);
-                }
+            let Some(mut value) = self.memory.get(name).filter(|_| starts_as_a_name) else {
+                expanded.push('$');
+                expanded.push_str(name);
+                rest = &after[end..];
+                continue;
+            };
+            // `$name.key` goes into a table, and `$name.2` into a list,
+            // for as long as there is something of that name in it.
+            let mut used = end;
+            while let Some(inside) = after[used..].strip_prefix('.') {
+                let key_end = inside
+                    .find(|ch: char| !(ch.is_alphanumeric() || ch == '_'))
+                    .unwrap_or(inside.len());
+                let key = &inside[..key_end];
+                let found = match value {
+                    serde_json::Value::Object(fields) => fields.get(key),
+                    serde_json::Value::Array(items) => key
+                        .parse::<usize>()
+                        .ok()
+                        .and_then(|place| items.get(place.checked_sub(1)?)),
+                    _ => None,
+                };
+                let Some(found) = found.filter(|_| !key.is_empty()) else {
+                    break;
+                };
+                value = found;
+                used += 1 + key_end;
             }
-            rest = &after[end..];
+            match value {
+                serde_json::Value::String(text) => expanded.push_str(text),
+                // A list as its items, one after another.
+                serde_json::Value::Array(items) => {
+                    let shown: Vec<String> = (items.iter())
+                        .map(|item| {
+                            item.as_str()
+                                .map_or_else(|| item.to_string(), str::to_owned)
+                        })
+                        .collect();
+                    expanded.push_str(&shown.join(" "));
+                }
+                other => expanded.push_str(&other.to_string()),
+            }
+            rest = &after[used..];
         }
         expanded.push_str(rest);
         expanded
@@ -1809,7 +1850,19 @@ fn install_api(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
                     look.colour = colour.or(color).unwrap_or_default();
                     let style: Option<String> = options.get("style")?;
                     look.segments = style.as_deref() == Some("segments");
+                    look.kind = match style.as_deref() {
+                        Some("segments") => "cells".to_owned(),
+                        Some(kind) => kind.to_owned(),
+                        None => String::new(),
+                    };
                     look.low = options.get::<Option<f64>>("low")?.unwrap_or(0.0);
+                    look.text = options.get::<Option<String>>("text")?.unwrap_or_default();
+                    // `steps = {{30, "red"}, {60, "yellow"}}`
+                    if let Some(steps) = options.get::<Option<Vec<mlua::Table>>>("steps")? {
+                        for step in steps {
+                            look.steps.push((step.get(1)?, step.get(2)?));
+                        }
+                    }
                 }
                 (shared.borrow_mut().actions).push(Action::Gauge { name, level, look });
                 Ok(())
@@ -2658,6 +2711,24 @@ mod tests {
             engine.take_actions(),
             [send("kill orc"), send("say 2 down, $5 left, $nothing")]
         );
+        // Into tables and lists, as far as there is something there.
+        engine.exec(
+            "test",
+            r#"
+            vars.enemy = {name = "troll", bag = {"axe", "gold"}}
+            echo(expand("hit $enemy.name with $enemy.bag.1; loot $enemy.bag; $enemy.none.x"))
+            "#,
+        );
+        let said = engine.take_actions();
+        let Action::Echo(said) = &said[0] else {
+            panic!("{said:?}")
+        };
+        assert!(
+            said.starts_with("hit troll with axe; loot axe gold; {"),
+            "{said}"
+        );
+        assert!(said.ends_with(".none.x"), "{said}");
+        engine.set_variable("enemy", None).unwrap();
         // The editor reads and changes the same values.
         assert_eq!(
             engine.variables()[0],

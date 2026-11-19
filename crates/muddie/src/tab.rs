@@ -176,6 +176,10 @@ pub struct Tab {
     variable_loaded: Option<String>,
     variable_name: String,
     variable_text: String,
+    variable_kind: usize,
+    variable_number: f64,
+    variable_flag: bool,
+    variable_items: Vec<(String, String)>,
     /// The group the editor's lists are narrowed to, and those folded.
     group_filter: Option<String>,
     folded_groups: Vec<String>,
@@ -361,6 +365,10 @@ impl Tab {
             variable_loaded: None,
             variable_name: String::new(),
             variable_text: String::new(),
+            variable_kind: 0,
+            variable_number: 0.0,
+            variable_flag: false,
+            variable_items: Vec::new(),
             group_filter: None,
             folded_groups: Vec::new(),
             plugin_address: String::new(),
@@ -2937,6 +2945,40 @@ mod tests {
     }
 
     #[test]
+    fn a_variable_is_edited_as_its_type() {
+        let mut harness = window(None);
+        harness.set_size(egui::vec2(1400.0, 800.0));
+        let app = harness.state_mut().tab_mut();
+        app.scripts
+            .set_variable("bag", Some(serde_json::json!({"gold": 5})))
+            .unwrap();
+        app.open_automation(4);
+        harness.run_steps(3);
+        // A table: a key and a value a row, added to and typed over.
+        harness.get_by_label("Add a field").click();
+        harness.run_steps(2);
+        let app = harness.state_mut().tab_mut();
+        app.variable_items[1] = ("keys".into(), "3".into());
+        harness.run_steps(2);
+        let kept = |app: &Tab| app.scripts.variables()[0].1.clone();
+        assert_eq!(
+            kept(harness.state().tab()),
+            serde_json::json!({"gold": 5, "keys": 3})
+        );
+        // Made an array, it keeps its values and loses their keys.
+        harness.get_by_label("array").click();
+        harness.run_steps(3);
+        assert_eq!(kept(harness.state().tab()), serde_json::json!([5, 3]));
+        // A boolean is a switch.
+        harness.get_by_label("boolean").click();
+        harness.run_steps(3);
+        assert_eq!(kept(harness.state().tab()), serde_json::json!(true));
+        harness.get_by_label("Value").click();
+        harness.run_steps(3);
+        assert_eq!(kept(harness.state().tab()), serde_json::json!(false));
+    }
+
+    #[test]
     fn session_is_logged_when_asked() {
         let dir = std::env::temp_dir().join(format!("muddie-app-log-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
@@ -3393,10 +3435,22 @@ mod tests {
         app.scripts
             .set_variable("muertes", Some(serde_json::json!(12)))
             .unwrap();
+        app.scripts
+            .set_variable(
+                "enemigo",
+                Some(serde_json::json!({"nombre": "troll", "vida": 340, "jefe": true})),
+            )
+            .unwrap();
+        app.scripts
+            .set_variable("ruta", Some(serde_json::json!(["norte", "norte", "este"])))
+            .unwrap();
         app.rules_section = 4;
-        app.rules_selected[4] = 1;
+        app.rules_selected[4] = 0;
         rules.run_steps(3);
         save(&mut rules, "variables");
+        rules.state_mut().tab_mut().rules_selected[4] = 3;
+        rules.run_steps(3);
+        save(&mut rules, "variable-array");
         let app = rules.state_mut().tab_mut();
         app.saw_data(
             "Char.Vitals",
@@ -3474,13 +3528,20 @@ mod tests {
         app.open_gauges(gauges);
         app.rules_draft.gauges.push(crate::rules::Gauge {
             name: "Salud".into(),
-            enabled: true,
             value: "Char.Vitals.health.current".into(),
             max: "Char.Vitals.health.max".into(),
-            colour: "red".into(),
-            segments: true,
-            low: 30,
-            panel: 0,
+            colour: "green".into(),
+            steps: vec![
+                crate::rules::Step {
+                    under: 60,
+                    colour: "yellow".into(),
+                },
+                crate::rules::Step {
+                    under: 30,
+                    colour: "red".into(),
+                },
+            ],
+            ..crate::rules::Gauge::starter()
         });
         layout.run_steps(4);
         save(&mut layout, "gauges");

@@ -143,6 +143,53 @@ pub struct Group {
     pub enabled: bool,
 }
 
+fn is_zero(number: &u8) -> bool {
+    *number == 0
+}
+
+/// What a gauge is drawn as.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum GaugeKind {
+    /// A bar that fills.
+    #[default]
+    Bar,
+    /// A row of ten cells.
+    Cells,
+    /// Its number, with no bar.
+    Number,
+    /// A light that is on or off: for what is so or is not.
+    Light,
+    /// What the MUD says, as text.
+    Text,
+}
+
+impl GaugeKind {
+    /// Whether it shows how full something is, and so has a maximum and
+    /// can change colour by level.
+    pub fn has_level(self) -> bool {
+        matches!(self, Self::Bar | Self::Cells | Self::Number)
+    }
+
+    fn style(self) -> &'static str {
+        match self {
+            Self::Bar => "bar",
+            Self::Cells => "cells",
+            Self::Number => "number",
+            Self::Light => "light",
+            Self::Text => "text",
+        }
+    }
+}
+
+/// A colour a gauge takes while it is under a percentage of its maximum.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Step {
+    pub under: u8,
+    pub colour: String,
+}
+
 /// A bar that follows a value the server reports.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(default)]
@@ -157,9 +204,16 @@ pub struct Gauge {
     pub max: String,
     /// A colour name or `#rrggbb`; empty to let the client choose.
     pub colour: String,
-    /// Drawn as a row of cells instead of a continuous bar.
+    /// What it is drawn as.
+    pub kind: GaugeKind,
+    /// The colour it takes under each percentage of its maximum.
+    #[serde(rename = "step")]
+    pub steps: Vec<Step>,
+    /// As earlier versions kept the two above; read, and brought up to
+    /// date by [`Rules::migrate`].
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub segments: bool,
-    /// The percentage under which the numbers turn to a warning colour.
+    #[serde(skip_serializing_if = "is_zero")]
     pub low: u8,
     /// The panel of gauges it is shown in, by the panel's id; none shows
     /// it in the first there is.
@@ -167,6 +221,19 @@ pub struct Gauge {
 }
 
 impl Gauge {
+    /// A gauge as one starts: cells, red when low.
+    pub fn starter() -> Self {
+        Self {
+            enabled: true,
+            kind: GaugeKind::Cells,
+            steps: vec![Step {
+                under: 30,
+                colour: "red".to_owned(),
+            }],
+            ..Self::default()
+        }
+    }
+
     /// What the gauge is called on screen: its name, or failing that
     /// where its value is.
     pub fn shown_name(&self) -> &str {
@@ -303,9 +370,7 @@ pub fn commands_as_lua(send: &str, matched: bool) -> String {
 const PRELUDE: &str = r#"local function fill(template, m)
 	return expand((template:gsub("%%(%d)", function(n) return m[tonumber(n)] or "" end)))
 end
-local function dig(path)
-	local number = tonumber(path)
-	if number then return number end
+local function raw(path)
 	local parts = string.split(path, ".")
 	for n = #parts, 1, -1 do
 		local data = gmcp(table.concat(parts, ".", 1, n))
@@ -314,10 +379,20 @@ local function dig(path)
 				if type(data) ~= "table" then return nil end
 				data = data[parts[i]]
 			end
-			return tonumber(data)
+			return data
 		end
 	end
-	return tonumber(msdp(path))
+	return msdp(path)
+end
+local function dig(path)
+	return tonumber(path) or tonumber(raw(path))
+end
+local function lit(value)
+	if type(value) == "string" then
+		local word = string.lower(value)
+		return tonumber(value) ~= 0 and word ~= "" and word ~= "false" and word ~= "no" and word ~= "off"
+	end
+	return value == true or (type(value) == "number" and value ~= 0) or type(value) == "table"
 end
 "#;
 
@@ -364,6 +439,19 @@ impl Rules {
         }
         for rule in &mut self.keys {
             merge(&mut rule.send, &mut rule.script, &mut rule.lua, false);
+        }
+        // Gauges had a switch for cells and one level to warn under.
+        for gauge in &mut self.gauges {
+            if std::mem::take(&mut gauge.segments) && gauge.kind == GaugeKind::Bar {
+                gauge.kind = GaugeKind::Cells;
+            }
+            let low = std::mem::take(&mut gauge.low);
+            if low > 0 && gauge.steps.is_empty() {
+                gauge.steps.push(Step {
+                    under: low,
+                    colour: "red".to_owned(),
+                });
+            }
         }
     }
 
@@ -546,28 +634,51 @@ impl Rules {
             } else {
                 gauge.name.trim()
             };
-            let max = if gauge.max.trim().is_empty() {
-                "100"
-            } else {
-                gauge.max.trim()
+            // A number alone has no maximum unless it is given one.
+            let max = match (gauge.max.trim(), gauge.kind) {
+                ("", GaugeKind::Number) => "0",
+                ("", _) => "100",
+                (max, _) => max,
             };
-            let style = if gauge.segments { "segments" } else { "bar" };
+            let steps: Vec<String> = (gauge.steps.iter())
+                .filter(|step| !step.colour.trim().is_empty())
+                .map(|step| format!("{{{}, {}}}", step.under, quoted(step.colour.trim())))
+                .collect();
+            let look = format!(
+                "colour = {}, style = {}, steps = {{{}}}",
+                quoted(gauge.colour.trim()),
+                quoted(gauge.kind.style()),
+                steps.join(", ")
+            );
+            let shown = match gauge.kind {
+                GaugeKind::Light => format!(
+                    "\tgauge({name}, lit(raw({value})) and 1 or 0, 1, {{{look}}})\n",
+                    name = quoted(name),
+                    value = quoted(gauge.value.trim()),
+                ),
+                GaugeKind::Text => format!(
+                    "\tlocal said = raw({value})\n\
+                     \tif said ~= nil and type(said) ~= \"table\" then\n\
+                     \t\tgauge({name}, 0, 0, {{{look}, text = tostring(said)}})\n\
+                     \tend\n",
+                    name = quoted(name),
+                    value = quoted(gauge.value.trim()),
+                ),
+                _ => format!(
+                    "\tlocal value, max = dig({value}), dig({max})\n\
+                     \tif value and max then\n\
+                     \t\tgauge({name}, value, max, {{{look}}})\n\
+                     \tend\n",
+                    name = quoted(name),
+                    value = quoted(gauge.value.trim()),
+                    max = quoted(max),
+                ),
+            };
             let root = gauge.value.trim().split('.').next().unwrap_or_default();
             let code = format!(
-                "{PRELUDE}local function update()\n\
-                 \tlocal value, max = dig({value}), dig({max})\n\
-                 \tif value and max then\n\
-                 \t\tgauge({name}, value, max, {{colour = {colour}, style = {style}, low = {low}}})\n\
-                 \tend\n\
-                 end\n\
+                "{PRELUDE}local function update()\n{shown}end\n\
                  on_gmcp({root}, update)\n\
                  on_msdp({variable}, update)\n",
-                value = quoted(gauge.value.trim()),
-                max = quoted(max),
-                name = quoted(name),
-                colour = quoted(gauge.colour.trim()),
-                style = quoted(style),
-                low = gauge.low,
                 root = quoted(root),
                 variable = quoted(gauge.value.trim()),
             );
@@ -779,13 +890,10 @@ mod tests {
     fn gauges_follow_values_the_server_reports() {
         let gauge = |value: &str, max: &str| Gauge {
             name: "Salud".into(),
-            enabled: true,
             value: value.into(),
             max: max.into(),
-            colour: "red".into(),
-            segments: true,
-            low: 30,
-            panel: 0,
+            colour: "green".into(),
+            ..Gauge::starter()
         };
         let rules = Rules {
             gauges: vec![
@@ -803,9 +911,10 @@ mod tests {
             r#"{"health": {"current": 25, "max": "100"}}"#,
         );
         let look = muddie_script::GaugeLook {
-            colour: "red".into(),
-            segments: true,
-            low: 30.0,
+            colour: "green".into(),
+            kind: "cells".into(),
+            steps: vec![(30.0, "red".into())],
+            ..muddie_script::GaugeLook::default()
         };
         assert_eq!(
             engine.take_actions(),
@@ -1028,6 +1137,71 @@ mod tests {
     }
 
     #[test]
+    fn gauges_come_in_kinds_and_change_colour_by_level() {
+        let gauge = |name: &str, kind, value: &str| Gauge {
+            name: name.into(),
+            enabled: true,
+            kind,
+            value: value.into(),
+            ..Gauge::default()
+        };
+        let rules = Rules {
+            gauges: vec![
+                gauge("Poisoned", GaugeKind::Light, "Char.Status.poisoned"),
+                gauge("Stance", GaugeKind::Text, "Char.Status.stance"),
+                gauge("Gold", GaugeKind::Number, "Char.Status.gold"),
+            ],
+            ..Rules::default()
+        };
+        let mut engine = run(&rules);
+        engine.on_gmcp(
+            "Char.Status",
+            r#"{"poisoned": "yes", "stance": "defensive", "gold": 40}"#,
+        );
+        let actions = engine.take_actions();
+        type Seen<'a> = (&'a str, Option<(f64, f64)>, &'a str, &'a str);
+        let seen: Vec<Seen> = (actions.iter())
+            .map(|action| match action {
+                Action::Gauge { name, level, look } => (
+                    name.as_str(),
+                    *level,
+                    look.kind.as_str(),
+                    look.text.as_str(),
+                ),
+                other => panic!("{other:?}"),
+            })
+            .collect();
+        assert_eq!(
+            seen,
+            [
+                ("Poisoned", Some((1.0, 1.0)), "light", ""),
+                ("Stance", Some((0.0, 0.0)), "text", "defensive"),
+                ("Gold", Some((40.0, 0.0)), "number", ""),
+            ]
+        );
+        // What is not so puts the light out, whichever way it is said.
+        for off in ["false", "0", "\"no\"", "\"\""] {
+            engine.on_gmcp("Char.Status", &format!(r#"{{"poisoned": {off}}}"#));
+            let Some(Action::Gauge { level, .. }) = engine.take_actions().into_iter().next() else {
+                panic!("no gauge for {off}");
+            };
+            assert_eq!(level, Some((0.0, 1.0)), "{off}");
+        }
+        // As earlier versions kept them, they are read and brought up to date.
+        let old: Rules =
+            toml::from_str("[[gauge]]\nname = \"HP\"\nvalue = \"x\"\nsegments = true\nlow = 25\n")
+                .unwrap();
+        let mut old = old;
+        old.migrate();
+        let hp = &old.gauges[0];
+        assert_eq!(
+            (hp.kind, hp.steps[0].under, hp.steps[0].colour.as_str()),
+            (GaugeKind::Cells, 25, "red")
+        );
+        assert!(!toml::to_string(&old).unwrap().contains("segments"));
+    }
+
+    #[test]
     fn rules_round_trip_through_their_file() {
         let path =
             std::env::temp_dir().join(format!("muddie-rules-{}/rules.toml", std::process::id()));
@@ -1065,13 +1239,10 @@ mod tests {
             }],
             gauges: vec![Gauge {
                 name: "Salud".into(),
-                enabled: true,
                 value: "Char.Vitals.health.current".into(),
                 max: "Char.Vitals.health.max".into(),
                 colour: "red".into(),
-                segments: true,
-                low: 30,
-                panel: 0,
+                ..Gauge::starter()
             }],
         };
         rules.save(&path).unwrap();

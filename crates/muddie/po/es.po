@@ -29,9 +29,6 @@ msgstr "Tema"
 msgid "Dark"
 msgstr "Oscuro"
 
-msgid "Light"
-msgstr "Claro"
-
 msgid "High contrast"
 msgstr "Alto contraste"
 
@@ -187,17 +184,11 @@ msgstr "Expresión regular"
 msgid "Say"
 msgstr "Decir"
 
-msgid "Colour"
-msgstr "Color"
-
 msgid "Hide the line"
 msgstr "Ocultar la línea"
 
 msgid "Typing"
 msgstr "Al escribir"
-
-msgid "Key"
-msgstr "Tecla"
 
 #, python-brace-format
 msgid "Unknown text encoding {0}; using the automatic one."
@@ -675,18 +666,6 @@ msgstr "Sigue"
 
 msgid "Maximum"
 msgstr "Máximo"
-
-msgid "Where the MUD reports it: a GMCP package and the fields inside it, such as Char.Vitals.health.current, or the name of a MSDP variable. The maximum can also be a number."
-msgstr "Dónde lo da el MUD: un paquete GMCP y los campos que lleva dentro, como Char.Vitals.health.current, o el nombre de una variable MSDP. El máximo también puede ser un número."
-
-msgid "Look"
-msgstr "Aspecto"
-
-msgid "Draw it as cells"
-msgstr "Dibujarlo en casillas"
-
-msgid "Warn when under"
-msgstr "Avisar por debajo de"
 
 msgid "Preview"
 msgstr "Vista previa"
@@ -1188,24 +1167,8 @@ msgstr "Ya hay una variable con ese nombre."
 msgid "Value"
 msgstr "Valor"
 
-msgid "A number."
-msgstr "Un número."
-
-msgid "True or false."
-msgstr "Verdadero o falso."
-
-msgid "A table, written as JSON."
-msgstr "Una tabla, escrita en JSON."
-
-msgid "Text."
-msgstr "Texto."
-
 msgid "Using it"
 msgstr "Cómo usarla"
-
-#, python-brace-format
-msgid "In the commands of a rule, ${0} is replaced by its value. In a script it is vars.{0}, to read it and to change it."
-msgstr "En los comandos de una regla, ${0} se sustituye por su valor. En un script es vars.{0}, para leerla y para cambiarla."
 
 msgid "About Muddie"
 msgstr "Acerca de Muddie"
@@ -1311,3 +1274,95 @@ msgstr "Compartir el hueco del anterior, en pestañas"
 
 msgid "Take out of the tabs"
 msgstr "Sacar de las pestañas"
+
+
+msgid "Type"
+msgstr "Tipo"
+
+msgid "Drag it, or click it to type."
+msgstr "Arrástralo, o haz clic para escribir."
+
+msgid "No fields yet."
+msgstr "Aún no hay campos."
+
+msgid "No items yet."
+msgstr "Aún no hay elementos."
+
+msgid "Add a field"
+msgstr "Añadir un campo"
+
+msgid "Add an item"
+msgstr "Añadir un elemento"
+
+msgid "What reads as a number, true or false is kept as that; the rest as a string. A table inside is written as JSON."
+msgstr "Lo que se lee como number, true o false se guarda como tal; lo demás, como string. Una tabla dentro se escribe en JSON."
+
+msgid "In the commands of a rule"
+msgstr "En los comandos de una regla"
+
+msgid "In a script"
+msgstr "En un script"
+
+msgid "Copy"
+msgstr "Copiar"
+
+msgid "Kind"
+msgstr "Clase"
+
+msgid "Bar"
+msgstr "Barra"
+
+msgid "Cells"
+msgstr "Casillas"
+
+msgid "Number"
+msgstr "Número"
+
+msgid "Light"
+msgstr "Luz"
+
+msgid "Key"
+msgstr "Clave"
+
+msgid "How full something is, of its maximum."
+msgstr "Cuánto queda de algo, respecto a su máximo."
+
+msgid "A number as it is: gold, level, experience."
+msgstr "Un número tal cual: oro, nivel, experiencia."
+
+msgid "On or off, for what is so or is not: hidden, poisoned, in combat."
+msgstr "Encendida o apagada, para lo que es o no es: oculto, envenenado, en combate."
+
+msgid "What the MUD says, as words: a stance, a target, a place."
+msgstr "Lo que dice el MUD, en palabras: una postura, un objetivo, un lugar."
+
+msgid "none"
+msgstr "ninguno"
+
+msgid "It is on when the value is true, a number other than 0, or words other than no, false or off."
+msgstr "Se enciende cuando el valor es true, un número distinto de 0, o palabras distintas de no, false u off."
+
+msgid "Where the MUD reports it: a GMCP package and the fields inside it, such as Char.Vitals.health.current, or the name of a MSDP variable. The maximum can also be a number. Debug shows what there is."
+msgstr "Dónde lo da el MUD: un paquete GMCP y los campos que lleva dentro, como Char.Vitals.health.current, o el nombre de una variable MSDP. El máximo también puede ser un número. Depuración muestra lo que hay."
+
+msgid "Colour by level"
+msgstr "Color según el nivel"
+
+msgid "It can turn another colour as it gets low: yellow under 60 %, red under 30 %."
+msgstr "Puede cambiar de color al bajar: amarillo por debajo del 60 %, rojo por debajo del 30 %."
+
+msgid "Under"
+msgstr "Por debajo de"
+
+msgid "Add a level"
+msgstr "Añadir un nivel"
+
+msgid "standing"
+msgstr "de pie"
+
+msgid "Edit the gauges"
+msgstr "Editar los indicadores"
+
+msgid "Colour"
+msgstr "Color"
+

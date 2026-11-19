@@ -35,7 +35,7 @@ the module returns.
 | `chat(text)` | Adds a line to the chat panel. Colour codes are allowed. |
 | `panel(name, text)` | Puts `text` in a panel, in place of what it showed; `panel(name)` clears it. For anything the server sends ready to display, such as a map it draws. The panel is made, as one of text, if there is none of that name; `"map"` means the map's panel whatever it is called, and `"chat"` the one of the channels. |
 | `panel_add(name, text)` | Adds `text` at the end of a panel, which keeps what it had. In a trigger, `to_panel(name)` adds the line being looked at, with its colours. |
-| `gauge(name, value, max, options)` | Shows or updates a bar; `gauge(name)` removes it. `options` may give a `colour` (a name or `#rrggbb`), `style = "segments"` for a row of cells, and `low`, the percentage under which the numbers turn red. |
+| `gauge(name, value, max, options)` | Shows or updates a gauge; `gauge(name)` removes it. `options` may give a `colour` (a name or `#rrggbb`), a `style` (`"bar"`, `"cells"`, `"number"`, `"light"`, which is on when `value` is not 0, or `"text"`, which shows `options.text`), and `steps`, the colours it takes under each percentage: `{{60, "yellow"}, {30, "red"}}`. |
 | `play(file, {volume = 0.8, loop = false})` | Plays a sound, by path or by name in the profile's `sounds` folder. |
 | `stop_sounds()` | Stops every sound. |
 
@@ -75,7 +75,7 @@ after(5, function() cancel(id) end)
 | `bind(key, action, options)` | Runs a command or a function when a key is pressed: `bind("f5", "look")`, `bind("ctrl+shift+k", fn)`. With `{group = name}` the key does that only while the group is on, and can do something else in another group. `unbind(key)` removes it. |
 | `separator(text)` | The text that separates commands typed on one line (`;` by default; doubled, it is typed literally). `nil` turns splitting off. |
 | `vars` | The variables, as a table: `vars.target = "orc"` keeps a value, `vars.target` reads it, `vars.target = nil` forgets it, and `for name, value in vars do` goes through them. They are those of the editor, kept with the session's profile. A table kept in one must be assigned whole to be kept: `local bag = vars.bag; bag.gold = 5; vars.bag = bag`. |
-| `expand(text)` | `text` with each `$name` replaced by that variable's value, as the commands of rules and key bindings are. |
+| `expand(text)` | `text` with each `$name` replaced by that variable's value, `$name.key` by a field of a table and `$name.1` by an item of an array, as the commands of rules and key bindings are. |
 | `remember(key, value)`, `recall(key)` | The same values, as functions. |
 
 The options table takes `group` (a name to switch several on and off
