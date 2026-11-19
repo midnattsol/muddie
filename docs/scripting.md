@@ -74,7 +74,9 @@ after(5, function() cancel(id) end)
 | `cancel(id)` | Removes whatever the id belongs to; every function above returns one. |
 | `bind(key, action, options)` | Runs a command or a function when a key is pressed: `bind("f5", "look")`, `bind("ctrl+shift+k", fn)`. With `{group = name}` the key does that only while the group is on, and can do something else in another group. `unbind(key)` removes it. |
 | `separator(text)` | The text that separates commands typed on one line (`;` by default; doubled, it is typed literally). `nil` turns splitting off. |
-| `remember(key, value)`, `recall(key)` | Values kept between sessions, per profile. |
+| `vars` | The variables, as a table: `vars.target = "orc"` keeps a value, `vars.target` reads it, `vars.target = nil` forgets it, and `for name, value in vars do` goes through them. They are those of the editor, kept with the session's profile. A table kept in one must be assigned whole to be kept: `local bag = vars.bag; bag.gold = 5; vars.bag = bag`. |
+| `expand(text)` | `text` with each `$name` replaced by that variable's value, as the commands of rules and key bindings are. |
+| `remember(key, value)`, `recall(key)` | The same values, as functions. |
 
 The options table takes `group` (a name to switch several on and off
 together) and `once` (remove after firing).

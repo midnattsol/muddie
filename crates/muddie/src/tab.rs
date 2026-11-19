@@ -80,6 +80,8 @@ pub struct Tab {
     editing_layout: bool,
     /// The panel being dragged to another side, and one to be removed.
     dragged_panel: Option<u32>,
+    /// Where each panel was drawn, to drop another before or after it.
+    panel_rects: Vec<(u32, egui::Rect)>,
     removed_panel: Option<usize>,
     /// The dialog of the gauges, and the one chosen in it.
     gauges_open: bool,
@@ -292,6 +294,7 @@ impl Tab {
             panel_text: Vec::new(),
             editing_layout: false,
             dragged_panel: None,
+            panel_rects: Vec::new(),
             removed_panel: None,
             gauges_open: false,
             gauge_selected: 0,
@@ -2694,6 +2697,31 @@ mod tests {
                 .iter()
                 .any(|panel| panel.kind == layout::Kind::Map && panel.visible)
         );
+        // Two panels on one side share it, each with its part.
+        let app = harness.state_mut().tab_mut();
+        app.set_map_shown(true);
+        let map = app
+            .layout
+            .panels
+            .iter()
+            .position(|panel| panel.kind == layout::Kind::Map)
+            .unwrap();
+        app.layout.panels[index].side = app.layout.panels[map].side;
+        harness.run_steps(3);
+        let app = harness.state().tab();
+        let rect = |id| {
+            app.panel_rects
+                .iter()
+                .find(|(known, _)| *known == id)
+                .unwrap()
+                .1
+        };
+        let (above, below) = (rect(app.layout.panels[map].id), rect(tells.id));
+        assert!((above.width() - below.width()).abs() < 1.0 && above.bottom() < below.top());
+        assert!(
+            (above.height() - below.height()).abs() < 2.0,
+            "equal weights, equal parts"
+        );
         // Its size is as it was drawn, not a little more each time.
         let before = harness.state().tab().layout.panels[index].size;
         harness.run_steps(5);
@@ -3199,7 +3227,7 @@ mod tests {
         rules.run_steps(3);
         save(&mut rules, "variables");
         // The menus, as someone using Spanish sees them.
-        for menu in ["Sesión", "Ver"] {
+        for menu in ["Sesión", "Preferencias"] {
             let mut menus = connected_demo_window();
             crate::i18n::set_language("es");
             menus.run_steps(2);
@@ -3222,10 +3250,11 @@ mod tests {
         layout.set_size(egui::vec2(1500.0, 900.0));
         let app = layout.state_mut().tab_mut();
         app.editing_layout = true;
-        app.add_to_panel(
-            "Combate",
-            &panels::styled_lines("\x1b[31mUn orco te ataca\x1b[0m con su hacha.").remove(0),
-        );
+        // The chat at the right, under the map, sharing its side.
+        let mut chat = app.layout.panels.remove(0);
+        chat.side = layout::Side::Right;
+        app.layout.panels.push(chat);
+        app.layout.panels.retain(|panel| panel.name != "Minimapa");
         layout.run_steps(4);
         save(&mut layout, "layout");
         let app = layout.state_mut().tab_mut();

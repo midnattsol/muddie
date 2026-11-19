@@ -52,6 +52,8 @@ pub struct PanelSpec {
     pub visible: bool,
     /// A panel of text that shows what is said on the MUD's channels.
     pub channels: bool,
+    /// Its share of the side it is on, among the panels there.
+    pub weight: f32,
 }
 
 impl Default for PanelSpec {
@@ -64,6 +66,7 @@ impl Default for PanelSpec {
             size: 300.0,
             visible: true,
             channels: false,
+            weight: 1.0,
         }
     }
 }
@@ -87,6 +90,7 @@ impl Default for Layout {
             size,
             visible: true,
             channels,
+            weight: 1.0,
         };
         Self {
             panels: vec![
@@ -409,49 +413,59 @@ impl Tab {
     }
 
     /// Draws the panels around the output, which takes what is left.
+    /// Each side is one strip that the panels on it share: those beside
+    /// the output are stacked, those above or below it stand in a row.
     /// Returns what was asked of the map, if anything.
     pub(super) fn show_panels(&mut self, ui: &mut egui::Ui) -> Option<MapAction> {
         let mut asked = None;
+        self.panel_rects.clear();
         // Those above and below first, so that they span the window.
-        let across = (0..self.layout.panels.len())
-            .filter(|&index| !self.layout.panels[index].side.is_beside());
-        let beside = (0..self.layout.panels.len())
-            .filter(|&index| self.layout.panels[index].side.is_beside());
-        let order: Vec<usize> = across.chain(beside).collect();
-        for index in order {
-            let spec = self.layout.panels[index].clone();
-            if !spec.visible {
+        for side in [Side::Top, Side::Bottom, Side::Left, Side::Right] {
+            let members: Vec<usize> = (0..self.layout.panels.len())
+                .filter(|&index| {
+                    self.layout.panels[index].visible && self.layout.panels[index].side == side
+                })
+                .collect();
+            let Some(&first) = members.first() else {
                 continue;
-            }
-            let id = ui.make_persistent_id(("panel", spec.id, spec.side as u8));
-            let (frame, least) = match spec.side {
-                Side::Left => (well(8, 4), 160.0),
-                Side::Right => (well(4, 8), 160.0),
-                Side::Top | Side::Bottom => (well(8, 8), 44.0),
             };
-            let panel = match spec.side {
+            let id = ui.make_persistent_id(("dock", side as u8));
+            let (left, right, least) = match side {
+                Side::Left => (8, 4, 160.0),
+                Side::Right => (4, 8, 160.0),
+                // In the layout mode each panel also has its handle's row.
+                Side::Top | Side::Bottom if self.editing_layout => (8, 8, 108.0),
+                Side::Top | Side::Bottom => (8, 8, 44.0),
+            };
+            let around = egui::Frame::new().inner_margin(egui::Margin {
+                left,
+                right,
+                top: 4,
+                bottom: 4,
+            });
+            let strip = match side {
                 Side::Left => Panel::left(id),
                 Side::Right => Panel::right(id),
                 Side::Top => Panel::top(id),
                 Side::Bottom => Panel::bottom(id),
             };
-            let shown = panel
-                .frame(frame)
+            let shown = strip
+                .frame(around)
                 .show_separator_line(false)
                 .resizable(true)
-                .default_size(spec.size)
+                .default_size(self.layout.panels[first].size)
                 .min_size(least)
-                .show(ui, |ui| self.panel_body(ui, index, &spec));
+                .show(ui, |ui| self.strip(ui, side, &members));
             asked = asked.or(shown.inner);
             // As it was left, to be the same the next time.
             let rect = shown.response.rect;
-            let size = if spec.side.is_beside() {
+            let size = if side.is_beside() {
                 rect.width()
             } else {
                 rect.height()
             };
-            if let Some(panel) = self.layout.panels.get_mut(index) {
-                panel.size = size.round();
+            for index in members {
+                self.layout.panels[index].size = size.round();
             }
         }
         self.finish_drag(ui);
@@ -464,8 +478,113 @@ impl Tab {
         asked
     }
 
+    /// The panels of one side, sharing its length by their weights, with
+    /// an edge to drag between each two.
+    fn strip(&mut self, ui: &mut egui::Ui, side: Side, members: &[usize]) -> Option<MapAction> {
+        const GAP: f32 = 8.0;
+        let theme = theme::current();
+        let full = ui.max_rect();
+        let stacked = side.is_beside();
+        let along = |rect: egui::Rect| if stacked { rect.height() } else { rect.width() };
+        let length = (along(full) - GAP * (members.len() - 1) as f32).max(1.0);
+        let total: f32 = members
+            .iter()
+            .map(|&index| self.layout.panels[index].weight.max(0.05))
+            .sum();
+        let mut asked = None;
+        let mut at = if stacked { full.top() } else { full.left() };
+        for (place, &index) in members.iter().enumerate() {
+            let spec = self.layout.panels[index].clone();
+            let share = length * spec.weight.max(0.05) / total;
+            let rect = if stacked {
+                egui::Rect::from_min_max(
+                    egui::pos2(full.left(), at),
+                    egui::pos2(full.right(), at + share),
+                )
+            } else {
+                egui::Rect::from_min_max(
+                    egui::pos2(at, full.top()),
+                    egui::pos2(at + share, full.bottom()),
+                )
+            };
+            self.panel_rects.push((spec.id, rect));
+            ui.painter()
+                .rect_filled(rect, egui::CornerRadius::same(12), theme.background);
+            let inner = rect.shrink2(egui::vec2(14.0, 10.0));
+            let builder = egui::UiBuilder::new()
+                .id_salt(("panel", spec.id))
+                .max_rect(inner)
+                .layout(egui::Layout::top_down(egui::Align::Min));
+            let got = ui.scope_builder(builder, |ui| {
+                ui.set_clip_rect(inner.intersect(ui.clip_rect()));
+                self.panel_body(ui, index, &spec)
+            });
+            asked = asked.or(got.inner);
+            at += share;
+            let Some(&next) = members.get(place + 1) else {
+                continue;
+            };
+            // The edge between this panel and the next, to trade room.
+            let edge = if stacked {
+                egui::Rect::from_min_max(
+                    egui::pos2(full.left(), at),
+                    egui::pos2(full.right(), at + GAP),
+                )
+            } else {
+                egui::Rect::from_min_max(
+                    egui::pos2(at, full.top()),
+                    egui::pos2(at + GAP, full.bottom()),
+                )
+            };
+            let cursor = if stacked {
+                egui::CursorIcon::ResizeVertical
+            } else {
+                egui::CursorIcon::ResizeHorizontal
+            };
+            let handle = ui
+                .interact(
+                    edge,
+                    ui.make_persistent_id(("panel edge", spec.id)),
+                    egui::Sense::drag(),
+                )
+                .on_hover_cursor(cursor);
+            handle.widget_info(|| {
+                egui::WidgetInfo::labeled(egui::Role::Splitter, true, tr("Resize"))
+            });
+            if handle.dragged() {
+                let moved = if stacked {
+                    handle.drag_delta().y
+                } else {
+                    handle.drag_delta().x
+                };
+                // Neither gives up its last stretch.
+                let least = total * 48.0 / length;
+                let give = (moved * total / length)
+                    .min(self.layout.panels[next].weight - least)
+                    .max(least - self.layout.panels[index].weight);
+                self.layout.panels[index].weight += give;
+                self.layout.panels[next].weight -= give;
+                ui.ctx().set_cursor_icon(cursor);
+            }
+            if handle.hovered() || handle.dragged() {
+                let reach = if stacked {
+                    egui::vec2(18.0, 0.0)
+                } else {
+                    egui::vec2(0.0, 18.0)
+                };
+                let stroke = egui::Stroke::new(3.0, theme.accent);
+                ui.painter()
+                    .line_segment([edge.center() - reach, edge.center() + reach], stroke);
+            }
+            at += GAP;
+        }
+        ui.allocate_rect(full, egui::Sense::hover());
+        asked
+    }
+
     /// While a panel is dragged by its handle, shows where it would go;
-    /// once it is let go, puts it there.
+    /// once it is let go, puts it there: before or after the panel it is
+    /// over, or at the end of the side it is nearest to.
     fn finish_drag(&mut self, ui: &egui::Ui) {
         let Some(id) = self.dragged_panel else {
             return;
@@ -475,51 +594,118 @@ impl Tab {
             self.dragged_panel = None;
             return;
         };
-        // The side the pointer is nearest to, each way in its own measure.
+        // Over another panel: its side, before or after it.
+        let over = (self.panel_rects.iter())
+            .find(|(other, rect)| *other != id && rect.contains(pointer))
+            .copied();
+        let onto = over.and_then(|(other, rect)| {
+            let side = self
+                .layout
+                .panels
+                .iter()
+                .find(|panel| panel.id == other)?
+                .side;
+            let before = if side.is_beside() {
+                pointer.y < rect.center().y
+            } else {
+                pointer.x < rect.center().x
+            };
+            let half = match (side.is_beside(), before) {
+                (true, true) => rect.with_max_y(rect.center().y),
+                (true, false) => rect.with_min_y(rect.center().y),
+                (false, true) => rect.with_max_x(rect.center().x),
+                (false, false) => rect.with_min_x(rect.center().x),
+            };
+            Some((other, side, before, half))
+        });
+        // Over nothing: the side the pointer is nearest to, each way in
+        // its own measure.
         let reach = [
             (Side::Left, (pointer.x - area.left()) / area.width()),
             (Side::Right, (area.right() - pointer.x) / area.width()),
             (Side::Top, (pointer.y - area.top()) / area.height()),
             (Side::Bottom, (area.bottom() - pointer.y) / area.height()),
         ];
-        let side = reach
+        let nearest = reach
             .into_iter()
             .min_by(|a, b| a.1.total_cmp(&b.1))
             .map_or(Side::Right, |(side, _)| side);
         if ui.input(|input| input.pointer.any_down()) {
-            let band = match side {
-                Side::Left => area.with_max_x(area.left() + area.width() * 0.28),
-                Side::Right => area.with_min_x(area.right() - area.width() * 0.28),
-                Side::Top => area.with_max_y(area.top() + area.height() * 0.28),
-                Side::Bottom => area.with_min_y(area.bottom() - area.height() * 0.28),
+            let band = match (onto, nearest) {
+                (Some((.., half)), _) => half,
+                (None, Side::Left) => area.with_max_x(area.left() + area.width() * 0.28),
+                (None, Side::Right) => area.with_min_x(area.right() - area.width() * 0.28),
+                (None, Side::Top) => area.with_max_y(area.top() + area.height() * 0.28),
+                (None, Side::Bottom) => area.with_min_y(area.bottom() - area.height() * 0.28),
             };
             let theme = theme::current();
             let layer =
                 egui::LayerId::new(egui::Order::Foreground, ui.make_persistent_id("panel drop"));
             let painter = ui.ctx().layer_painter(layer);
-            let band = band.shrink(10.0);
+            let band = band.shrink(6.0);
             painter.rect_filled(
                 band,
-                egui::CornerRadius::same(14),
+                egui::CornerRadius::same(12),
                 theme.accent.gamma_multiply(0.14),
             );
+            let edge = egui::Stroke::new(1.5, theme.accent.gamma_multiply(0.7));
             painter.rect_stroke(
                 band,
-                egui::CornerRadius::same(14),
-                egui::Stroke::new(1.5, theme.accent.gamma_multiply(0.7)),
+                egui::CornerRadius::same(12),
+                edge,
                 egui::StrokeKind::Inside,
             );
             ui.ctx().set_cursor_icon(egui::CursorIcon::Grabbing);
-        } else {
-            if let Some(panel) = self.layout.panels.iter_mut().find(|panel| panel.id == id) {
-                // A panel that changes between beside and across takes a
-                // size that suits its new place.
-                if panel.side.is_beside() != side.is_beside() {
-                    panel.size = if side.is_beside() { 300.0 } else { 120.0 };
-                }
-                panel.side = side;
+            return;
+        }
+        self.dragged_panel = None;
+        let Some(from) = self.layout.panels.iter().position(|panel| panel.id == id) else {
+            return;
+        };
+        let mut moved = self.layout.panels.remove(from);
+        let side = onto.map_or(nearest, |(_, side, ..)| side);
+        // It takes the size of the side it joins, or one that suits it.
+        let there = self
+            .layout
+            .panels
+            .iter()
+            .find(|panel| panel.visible && panel.side == side);
+        moved.size = match there {
+            Some(panel) => panel.size,
+            None if moved.side.is_beside() == side.is_beside() => moved.size,
+            None if side.is_beside() => 300.0,
+            None => 120.0,
+        };
+        moved.side = side;
+        moved.weight = 1.0;
+        let to = match onto {
+            Some((other, _, before, _)) => {
+                let place = self
+                    .layout
+                    .panels
+                    .iter()
+                    .position(|panel| panel.id == other)
+                    .unwrap_or(0);
+                if before { place } else { place + 1 }
             }
-            self.dragged_panel = None;
+            None => self.layout.panels.len(),
+        };
+        self.layout.panels.insert(to, moved);
+    }
+
+    /// Moves a panel one place among those of its side: `-1` earlier,
+    /// `1` later.
+    fn shift_panel(&mut self, index: usize, by: isize) {
+        let side = self.layout.panels[index].side;
+        let same: Vec<usize> = (0..self.layout.panels.len())
+            .filter(|&other| self.layout.panels[other].side == side)
+            .collect();
+        let place = same.iter().position(|&other| other == index).unwrap_or(0);
+        if let Some(&other) = place
+            .checked_add_signed(by)
+            .and_then(|wanted| same.get(wanted))
+        {
+            self.layout.panels.swap(index, other);
         }
     }
 
@@ -581,10 +767,20 @@ impl Tab {
                 self.dragged_panel = Some(spec.id);
             }
             let panel = &mut self.layout.panels[index];
+            // As wide as leaves the rest of the row beside it.
+            // Four sides, the dots and the cross, with the gaps between;
+            // and the gauges' button where there is one.
+            let beside = 4.0 * 24.0 + 28.0 + 22.0 + 7.0 * 6.0 + 44.0;
+            let button = if spec.kind == Kind::Gauges {
+                104.0
+            } else {
+                0.0
+            };
+            let spare = ui.available_width() - beside - button;
             let name = ui.add(
                 TextEdit::singleline(&mut panel.name)
                     .margin(egui::Margin::symmetric(8, 4))
-                    .desired_width(120.0),
+                    .desired_width(spare.clamp(56.0, 170.0)),
             );
             ui.ctx().accesskit_node_builder(name.id, |node| {
                 node.set_label(tr("Name"));
@@ -604,24 +800,38 @@ impl Tab {
                     panel.side = side;
                 }
             }
-            match spec.kind {
-                Kind::Text => {
-                    let more = widgets::icon_button(ui, widgets::Icon::More, tr("More"), false);
-                    egui::Popup::menu(&more).show(|ui| {
-                        widgets::menu_width(ui);
-                        widgets::menu_check(
-                            ui,
-                            &mut panel.channels,
-                            tr("Show the MUD's channels here"),
-                        );
-                    });
+            let (mut earlier, mut later) = (false, false);
+            let more = widgets::icon_button(ui, widgets::Icon::More, tr("More"), false);
+            egui::Popup::menu(&more).show(|ui| {
+                widgets::menu_width(ui);
+                // For those who would rather not drag.
+                let (before, after) = if panel.side.is_beside() {
+                    (tr("Move up"), tr("Move down"))
+                } else {
+                    (tr("Move left"), tr("Move right"))
+                };
+                if widgets::menu_item(ui, before, "").clicked() {
+                    earlier = true;
+                    ui.close();
                 }
-                Kind::Gauges => {
-                    if ui.button(tr("Gauges…")).clicked() {
-                        self.open_gauges();
-                    }
+                if widgets::menu_item(ui, after, "").clicked() {
+                    later = true;
+                    ui.close();
                 }
-                Kind::Map => {}
+                if spec.kind == Kind::Text {
+                    widgets::menu_separator(ui);
+                    widgets::menu_check(
+                        ui,
+                        &mut panel.channels,
+                        tr("Show the MUD's channels here"),
+                    );
+                }
+            });
+            if spec.kind == Kind::Gauges && ui.button(tr("Gauges…")).clicked() {
+                self.open_gauges();
+            }
+            if earlier || later {
+                self.shift_panel(index, if earlier { -1 } else { 1 });
             }
             // Beside the rest, not at the far end: a narrow panel has
             // no far end to spare.

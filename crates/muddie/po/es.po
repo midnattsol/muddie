@@ -1229,3 +1229,14 @@ msgstr "Se guarda con el perfil {0}."
 msgid "This session has no saved profile, so its variables last until it is closed. Save the profile, in Session, Connection, to keep them."
 msgstr "Esta sesión no tiene un perfil guardado, así que sus variables duran hasta que se cierre. Guarda el perfil, en Sesión, Conexión, para conservarlas."
 
+msgid "Move up"
+msgstr "Subir"
+
+msgid "Move down"
+msgstr "Bajar"
+
+msgid "Move left"
+msgstr "Mover a la izquierda"
+
+msgid "Move right"
+msgstr "Mover a la derecha"

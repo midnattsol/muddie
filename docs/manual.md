@@ -120,7 +120,14 @@ in course, as a script does with `group.enable(name)` and its like, without
 changing what is saved. The same key can be bound once per group, so that it
 does one thing in one mode and another in another.
 
-A mistake in one rule or module is reported with its name and does not stop
+**Variables** are values with a name that are kept: who you are hunting, how
+many you have killed. They are listed and changed in the editor. In the
+commands of a rule or a macro, `$name` is replaced by the value; a script
+reads and changes it as `vars.name`. They belong to the session: with a saved
+profile they are kept with it, and without one they last until the session
+is closed, going into the profile if it is then saved.
+
+A mistake in one rule or script is reported with its name and does not stop
 the others. Triggers and aliases have a box to try them out: paste a line
 from the MUD, or type a command, and it says whether it matches and what it
 would do.
@@ -141,6 +148,11 @@ itself:
 - Drag a panel by its handle (the six dots) to another side of the window, or
   press one of the four small pictures beside its name. Drag its edge to size
   it.
+- Several panels can share a side: those beside the output are stacked, those
+  above or below it stand in a row. Drop a panel on the upper or lower half of
+  another (the left or right half, above and below the output) to put it
+  before or after it, and drag the edge between two to give one more room.
+  The dots beside the name move it too, for those who would rather not drag.
 - Its name can be changed there, and the cross removes it.
 - **Done**, or Escape, leaves the layout mode. The layout is kept with the
   profile.
