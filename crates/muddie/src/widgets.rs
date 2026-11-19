@@ -94,6 +94,46 @@ pub fn slider<N: egui::emath::Numeric>(
     egui::Slider::new(value, range)
 }
 
+/// The button that runs something: a triangle, as on a player, and what
+/// it runs.
+pub fn run_button(ui: &mut Ui, text: &str) -> Response {
+    let theme = theme::current();
+    let font = theme::font(Weight::Medium, 13.5);
+    let galley = ui
+        .painter()
+        .layout_no_wrap(text.to_owned(), font, theme.text);
+    let size = vec2(galley.size().x + 40.0, 30.0);
+    let (rect, response) = ui.allocate_exact_size(size, Sense::click());
+    response.widget_info(|| WidgetInfo::labeled(Role::Button, ui.is_enabled(), text));
+    if ui.is_rect_visible(rect) {
+        let fill = match (response.is_pointer_button_down_on(), response.hovered()) {
+            (true, _) => theme::mix(theme.raised, theme.text, 0.16),
+            (false, true) => theme::mix(theme.raised, theme.text, 0.1),
+            (false, false) => theme::mix(theme.raised, theme.text, 0.035),
+        };
+        let painter = ui.painter();
+        painter.rect_filled(rect, CornerRadius::same(8), fill);
+        if response.has_focus() {
+            painter.rect_stroke(
+                rect,
+                CornerRadius::same(8),
+                Stroke::new(1.0, theme.accent),
+                egui::StrokeKind::Inside,
+            );
+        }
+        let tip = rect.left_center() + vec2(22.0, 0.0);
+        let triangle = vec![tip + vec2(-8.0, -5.5), tip, tip + vec2(-8.0, 5.5)];
+        painter.add(egui::Shape::convex_polygon(
+            triangle,
+            theme.good,
+            Stroke::NONE,
+        ));
+        let at = egui::pos2(rect.left() + 30.0, rect.center().y - galley.size().y / 2.0);
+        painter.galley(at, galley, theme.text);
+    }
+    response
+}
+
 /// The button for the main thing to do in a view, filled with the accent.
 pub fn primary_button(ui: &mut Ui, text: &str) -> Response {
     let theme = theme::current();

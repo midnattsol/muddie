@@ -541,7 +541,32 @@ impl Tab {
             }
         }
         if changed {
-            self.load_scripts();
+            self.run_scripts();
+        }
+    }
+
+    /// Runs the scripts and the rules afresh, as when connecting, and
+    /// keeps whether that went well, to say so beside the script.
+    pub(super) fn run_scripts(&mut self) {
+        // Saved first, if what is being typed has not been yet.
+        if self.script_loaded.is_some() && self.script_text != self.script_saved {
+            return self.flush_script();
+        }
+        self.answer.clear();
+        (self.answering, self.answer_failed) = (true, false);
+        self.load_scripts();
+        self.answering = false;
+        let said = std::mem::take(&mut self.answer);
+        let at = chrono::Local::now().format("%H:%M:%S").to_string();
+        if self.answer_failed {
+            let error: Vec<String> = said.into_iter().map(|said| said.text).collect();
+            self.script_ran = Some((at, Some(error.join("\n"))));
+        } else {
+            // What it printed is shown where such things are.
+            for said in said {
+                self.show_local(&said.text);
+            }
+            self.script_ran = Some((at, None));
         }
     }
 
@@ -1863,7 +1888,7 @@ impl Tab {
             self.script_loaded = Some(path.clone());
         }
         let own = path.parent().is_some_and(|dir| dir.ends_with("scripts"));
-        let mut delete = false;
+        let (mut delete, mut run) = (false, false);
         ui.horizontal(|ui| {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 if own {
@@ -1872,6 +1897,11 @@ impl Tab {
                         .add(egui::Button::new(label).fill(egui::Color32::TRANSPARENT))
                         .clicked();
                 }
+                run = widgets::run_button(ui, tr("Run"))
+                    .on_hover_text(tr(
+                        "Saves it and runs it now, with the other scripts and the rules, which share what they keep.",
+                    ))
+                    .clicked();
                 let title = TextEdit::singleline(&mut self.script_name)
                     .font(theme::font(Weight::Semibold, 20.0))
                     .frame(egui::Frame::NONE)
@@ -1884,8 +1914,25 @@ impl Tab {
             });
         });
         note(ui, &path.display().to_string());
+        if run {
+            self.run_scripts();
+        }
+        // Whether it ran, and when; or what kept it from running.
+        match &self.script_ran {
+            Some((_, Some(error))) => {
+                let said = RichText::new(error)
+                    .font(theme::font(Weight::Regular, 11.5))
+                    .color(theme.danger);
+                ui.add(Label::new(said).wrap());
+            }
+            Some((at, None)) => note(ui, &trf("Run at {0}.", &[at])),
+            None => note(
+                ui,
+                tr("It runs when it is saved, a moment after you stop typing."),
+            ),
+        }
         // The editor is the whole of the view.
-        let rows = script_rows(self.detail_height, 96.0);
+        let rows = script_rows(self.detail_height, 118.0);
         let hint = "-- Luau\non_gmcp(\"Room.Info\", function(room)\n\tmap.visit({id = room.num, name = room.name, exits = room.exits})\nend)";
         let mistake = self.checks.of(&self.scripts, &self.script_text);
         widgets::code_editor(

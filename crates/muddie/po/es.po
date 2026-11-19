@@ -1435,3 +1435,15 @@ msgstr "Ejecutado."
 msgid "Reconnect"
 msgstr "Reconectar"
 
+msgid "Run"
+msgstr "Ejecutar"
+
+msgid "Saves it and runs it now, with the other scripts and the rules, which share what they keep."
+msgstr "Lo guarda y lo ejecuta ahora, junto con los demás scripts y las reglas, que comparten lo que guardan."
+
+#, python-brace-format
+msgid "Run at {0}."
+msgstr "Ejecutado a las {0}."
+
+msgid "It runs when it is saved, a moment after you stop typing."
+msgstr "Se ejecuta al guardarse, un momento después de que dejes de escribir."

@@ -163,6 +163,9 @@ pub struct Tab {
     /// The protocols the MUD has offered in this connection, and whether
     /// each is in use.
     protocols: Vec<(String, bool)>,
+    /// When the scripts were last run from the editor, and what kept
+    /// them from running, if anything did.
+    script_ran: Option<(String, Option<String>)>,
     /// The connection is being closed to be opened again.
     reconnect_wanted: bool,
     palette_open: bool,
@@ -432,6 +435,7 @@ impl Tab {
             gauge_dragged: None,
             palette_chosen: 0,
             protocols: Vec::new(),
+            script_ran: None,
             reconnect_wanted: false,
             palette_open: false,
             palette_query: String::new(),
@@ -4134,6 +4138,50 @@ mod tests {
     }
 
     #[test]
+    fn a_script_is_run_from_its_button_and_says_how_it_went() {
+        let dir = std::env::temp_dir().join(format!("muddie-run-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let profiles = Profiles::at(dir.clone());
+        profiles
+            .save("Test", &crate::profile::Profile::default())
+            .unwrap();
+        let mut harness = window(Some(profiles));
+        harness.set_size(egui::vec2(1400.0, 800.0));
+        let app = harness.state_mut().tab_mut();
+        assert!(app.select_profile(Some("Test".into())));
+        app.open_automation(automation::SCRIPTS);
+        app.add_script(None);
+        harness.run_steps(3);
+        // Typed, and run at once from its button: it takes effect...
+        harness.state_mut().tab_mut().script_text = r#"bind("f9", "kick")"#.into();
+        harness.run_steps(2);
+        harness.get_by_label("Run").click();
+        harness.run_steps(3);
+        let app = harness.state().tab();
+        assert!(
+            matches!(&app.script_ran, Some((_, None))),
+            "{:?}",
+            app.script_ran
+        );
+        assert_eq!(app.script_saved, r#"bind("f9", "kick")"#);
+        harness.get_by_label_contains("Run at ");
+        // ...and one that fails says why, there, not among the lines of
+        // the game.
+        let before = output_lines(harness.state().tab()).len();
+        harness.state_mut().tab_mut().script_text = "error('boom')".into();
+        harness.run_steps(2);
+        harness.get_by_label("Run").click();
+        harness.run_steps(3);
+        let app = harness.state().tab();
+        let Some((_, Some(error))) = &app.script_ran else {
+            panic!("the error was not kept: {:?}", app.script_ran);
+        };
+        assert!(error.contains("boom"), "{error}");
+        assert_eq!(output_lines(app).len(), before);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
     fn session_is_logged_when_asked() {
         let dir = std::env::temp_dir().join(format!("muddie-app-log-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
@@ -4477,6 +4525,32 @@ mod tests {
         welcome.state_mut().tab_mut().connection_open = true;
         welcome.run_steps(4);
         save(&mut welcome, "connection");
+        std::fs::remove_dir_all(&dir).unwrap();
+
+        // A script, run from its button, and one that fails.
+        let dir = std::env::temp_dir().join(format!("muddie-shot-script-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let profiles = Profiles::at(dir.clone());
+        profiles
+            .save("Reinos", &crate::profile::Profile::default())
+            .unwrap();
+        let mut script = window(Some(profiles));
+        script.set_size(egui::vec2(1500.0, 900.0));
+        let app = script.state_mut().tab_mut();
+        app.select_profile(Some("Reinos".into()));
+        app.open_automation(automation::SCRIPTS);
+        app.add_script(None);
+        script.run_steps(3);
+        script.state_mut().tab_mut().script_text = "supports(\"Comm 1\")\n\non_gmcp(\"Comm.MensajeCanal\", function(data)\n\tpanel_add(data.canal, data.mensaje)\nend)\n".into();
+        script.run_steps(2);
+        script.get_by_label("Run").click();
+        script.run_steps(4);
+        save(&mut script, "script");
+        script.state_mut().tab_mut().script_text = "supports(\"Comm 1\")\nerror(\"boom\")\n".into();
+        script.run_steps(2);
+        script.get_by_label("Run").click();
+        script.run_steps(4);
+        save(&mut script, "script-error");
         std::fs::remove_dir_all(&dir).unwrap();
 
         let mut settings = demo_window();
