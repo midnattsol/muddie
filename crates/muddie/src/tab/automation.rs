@@ -218,7 +218,7 @@ impl Tab {
 
     fn automation_sections(&mut self, ui: &mut egui::Ui) {
         ui.spacing_mut().item_spacing.y = 4.0;
-        let heading = RichText::new(tr("Automation"))
+        let heading = RichText::new(tr("Editor"))
             .font(theme::font(Weight::Semibold, 17.0))
             .color(theme::current().text);
         ui.horizontal(|ui| {

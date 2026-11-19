@@ -13,7 +13,7 @@ pub fn font() -> FontId {
 /// Resolves an xterm 256-colour palette index.
 fn indexed(index: u8) -> Color32 {
     match index {
-        0..16 => theme::current().terminal[index as usize],
+        0..16 => theme::mud_colours()[index as usize],
         16..232 => {
             let level = |n: u8| if n == 0 { 0 } else { 55 + 40 * n };
             let i = index - 16;

@@ -419,9 +419,6 @@ msgstr "Ver"
 msgid "Settings…"
 msgstr "Ajustes…"
 
-msgid "Automation"
-msgstr "Automatización"
-
 msgid "Help"
 msgstr "Ayuda"
 
@@ -763,9 +760,6 @@ msgstr "Se dibuja al caminar, si el MUD dice en qué sala estás. Si el tuyo lo 
 msgid "Set up a mapper…"
 msgstr "Configurar un mapper…"
 
-msgid "Switch between the game and automation"
-msgstr "Cambiar entre el juego y la automatización"
-
 msgid "Line"
 msgstr "Línea"
 
@@ -1062,4 +1056,22 @@ msgstr "Se descarga con git en la carpeta packages de la configuración. Instala
 
 msgid "Working…"
 msgstr "Trabajando…"
+
+msgid "Editor"
+msgstr "Editor"
+
+msgid "Switch between the game and the editor"
+msgstr "Cambiar entre el juego y el editor"
+
+msgid "Colours"
+msgstr "Colores"
+
+msgid "Vivid"
+msgstr "Vivos"
+
+msgid "Soft, to go with the theme"
+msgstr "Suaves, a juego con el tema"
+
+msgid "Classic terminal"
+msgstr "Terminal clásico"
 

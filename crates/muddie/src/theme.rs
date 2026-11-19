@@ -354,14 +354,57 @@ impl Theme {
     }
 }
 
+/// Saturated colours for the MUD's text, as a game's are meant to look.
+const VIVID: [Color32; 16] = [
+    rgb(0x45454a),
+    rgb(0xff5555),
+    rgb(0x50fa7b),
+    rgb(0xffd54a),
+    rgb(0x4aa5ff),
+    rgb(0xff5fd2),
+    rgb(0x3fe8e8),
+    rgb(0xe6e6e6),
+    rgb(0x7a7a80),
+    rgb(0xff7b7b),
+    rgb(0x7dffa0),
+    rgb(0xffe680),
+    rgb(0x7cc0ff),
+    rgb(0xff8ee0),
+    rgb(0x7ff5f5),
+    rgb(0xffffff),
+];
+
+/// The plain colours of a terminal, as xterm has them.
+const CLASSIC: [Color32; 16] = [
+    rgb(0x000000),
+    rgb(0xcd0000),
+    rgb(0x00cd00),
+    rgb(0xcdcd00),
+    rgb(0x0000ee),
+    rgb(0xcd00cd),
+    rgb(0x00cdcd),
+    rgb(0xe5e5e5),
+    rgb(0x7f7f7f),
+    rgb(0xff0000),
+    rgb(0x00ff00),
+    rgb(0xffff00),
+    rgb(0x5c5cff),
+    rgb(0xff00ff),
+    rgb(0x00ffff),
+    rgb(0xffffff),
+];
+
 struct Current {
     theme: Theme,
+    /// The sixteen colours of the MUD's text.
+    mud: [Color32; 16],
     output_size: f32,
     line_spacing: f32,
 }
 
 static CURRENT: RwLock<Current> = RwLock::new(Current {
     theme: DARK,
+    mud: VIVID,
     output_size: 15.0,
     line_spacing: 1.0,
 });
@@ -417,6 +460,13 @@ pub fn current() -> Theme {
     CURRENT.read().expect("theme lock").theme
 }
 
+/// The sixteen base colours the MUD's text is drawn in. They are chosen
+/// apart from the theme: the interface can be sober without the game
+/// being so.
+pub fn mud_colours() -> [Color32; 16] {
+    CURRENT.read().expect("theme lock").mud
+}
+
 /// The font of the output and the input line.
 pub fn output_font() -> FontId {
     FontId::monospace(CURRENT.read().expect("theme lock").output_size)
@@ -446,6 +496,11 @@ pub fn apply(ctx: &egui::Context, settings: &Settings) -> Result<(), String> {
     let theme = Theme::named(settings.theme);
     *CURRENT.write().expect("theme lock") = Current {
         theme,
+        mud: match settings.mud_palette {
+            crate::settings::MudPalette::Vivid => VIVID,
+            crate::settings::MudPalette::Soft => theme.terminal,
+            crate::settings::MudPalette::Classic => CLASSIC,
+        },
         output_size: settings.font_size.clamp(8.0, 40.0),
         line_spacing: settings.line_spacing.clamp(0.8, 2.0),
     };

@@ -4,6 +4,19 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
+/// The sixteen colours the MUD's text is drawn in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum MudPalette {
+    /// Saturated, as a game's colours are meant to look.
+    #[default]
+    Vivid,
+    /// The theme's own, toned down to go with it.
+    Soft,
+    /// The plain colours of a terminal.
+    Classic,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ThemeName {
@@ -43,6 +56,8 @@ pub struct Settings {
     /// The code of the interface's language, such as `es`; `en` for
     /// English, empty to follow the system.
     pub language: String,
+    /// The colours of the MUD's text, whatever the theme.
+    pub mud_palette: MudPalette,
     /// Size of the output's text, in points.
     pub font_size: f32,
     /// A TrueType or OpenType file to use for the output instead of the
@@ -90,6 +105,7 @@ impl Default for Settings {
         Self {
             theme: ThemeName::default(),
             language: String::new(),
+            mud_palette: MudPalette::default(),
             font_size: 15.0,
             font_file: String::new(),
             font_family: String::new(),

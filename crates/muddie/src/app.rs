@@ -10,7 +10,7 @@ use eframe::egui::{
 use crate::i18n::{self, tr, trf};
 use crate::keypad;
 use crate::profile::Profiles;
-use crate::settings::{Settings, ThemeName};
+use crate::settings::{MudPalette, Settings, ThemeName};
 use crate::tab::{Startup, Tab};
 use crate::theme::{self, Weight};
 use crate::widgets;
@@ -152,7 +152,7 @@ impl App {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 let tab = &mut self.tabs[active];
                 let current = usize::from(tab.automation_open());
-                match widgets::segmented(ui, &[tr("Game"), tr("Automation")], current) {
+                match widgets::segmented(ui, &[tr("Game"), tr("Editor")], current) {
                     Some(0) => tab.close_automation(),
                     Some(_) => tab.reopen_automation(),
                     None => {}
@@ -388,7 +388,7 @@ impl App {
                         &[
                             ("Ctrl+T", tr("New session")),
                             ("Ctrl+W", tr("Close session")),
-                            ("Ctrl+E", tr("Switch between the game and automation")),
+                            ("Ctrl+E", tr("Switch between the game and the editor")),
                         ],
                     ),
                 ];
@@ -616,6 +616,22 @@ fn appearance_settings(ui: &mut Ui, settings: &mut Settings) {
     ui.add_space(6.0);
     widgets::caption(ui, tr("Text of the MUD"));
     widgets::group(ui, |ui| {
+        widgets::setting_row(ui, tr("Colours"), &mut |ui| {
+            let name = |palette: MudPalette| match palette {
+                MudPalette::Vivid => tr("Vivid"),
+                MudPalette::Soft => tr("Soft, to go with the theme"),
+                MudPalette::Classic => tr("Classic terminal"),
+            };
+            egui::ComboBox::from_id_salt("mud palette")
+                .selected_text(name(settings.mud_palette))
+                .width(260.0)
+                .show_ui(ui, |ui| {
+                    for palette in [MudPalette::Vivid, MudPalette::Soft, MudPalette::Classic] {
+                        ui.selectable_value(&mut settings.mud_palette, palette, name(palette));
+                    }
+                })
+                .response
+        });
         widgets::setting_row(ui, tr("Font"), &mut |ui| {
             let built_in = tr("JetBrains Mono (built in)");
             let shown = if settings.font_family.is_empty() {
@@ -652,7 +668,7 @@ fn appearance_settings(ui: &mut Ui, settings: &mut Settings) {
         });
     });
     // What the output will look like.
-    let sample = "\x1b[1;32mPlaza Mayor\x1b[0m\nUna plaza amplia con una fuente. Al norte, la \x1b[33mtorre\x1b[0m.\n\x1b[36mSalidas: norte, este, sur\x1b[0m  0O 1lI {}[] <=>";
+    let sample = "\x1b[1;32mPlaza Mayor\x1b[0m\nUna plaza amplia con una fuente. Al norte, la \x1b[33mtorre\x1b[0m.\n\x1b[36mSalidas: norte, este, sur\x1b[0m  0O 1lI {}[] <=>\n\x1b[31mrojo \x1b[32mverde \x1b[33mamarillo \x1b[34mazul \x1b[35mmagenta \x1b[36mcian \x1b[37mblanco \x1b[1;30mgris\x1b[0m\n\x1b[1;31mrojo \x1b[1;32mverde \x1b[1;33mamarillo \x1b[1;34mazul \x1b[1;35mmagenta \x1b[1;36mcian \x1b[1;37mblanco\x1b[0m";
     let well = egui::Frame::new()
         .fill(theme.background)
         .corner_radius(CornerRadius::same(12))
