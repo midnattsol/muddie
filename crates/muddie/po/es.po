@@ -1186,9 +1186,6 @@ msgstr "Mover a la derecha"
 msgid "No gauges here yet."
 msgstr "Aún no hay indicadores aquí."
 
-msgid "Nothing received yet."
-msgstr "Aún no se ha recibido nada."
-
 #, python-brace-format
 msgid "received {0} time"
 msgid_plural "received {0} times"
@@ -1379,4 +1376,31 @@ msgstr "Comandos"
 
 msgid "Commands…"
 msgstr "Comandos…"
+
+msgid "Protocols"
+msgstr "Protocolos"
+
+msgid "In use"
+msgstr "En uso"
+
+msgid "Offered by the MUD, and not used by Muddie"
+msgstr "Lo ofrece el MUD, y Muddie no lo usa"
+
+msgid "Not offered by this MUD"
+msgstr "Este MUD no lo ofrece"
+
+msgid "This MUD offers neither GMCP nor MSDP: all it sends is text, and what it says on its channels comes as lines of the game."
+msgstr "Este MUD no ofrece GMCP ni MSDP: solo manda texto, y lo que se dice en sus canales llega como líneas del juego."
+
+msgid "Showing only this one"
+msgstr "Mostrando solo este"
+
+msgid "Keep recording outside this view"
+msgstr "Seguir grabando fuera de esta vista"
+
+msgid "Clear"
+msgstr "Vaciar"
+
+msgid "Nothing has come since this view was opened."
+msgstr "No ha llegado nada desde que se abrió esta vista."
 

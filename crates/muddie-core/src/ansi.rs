@@ -59,6 +59,9 @@ pub struct Assembler {
     link: Option<(usize, Option<LinkTarget>)>,
     /// Answers to the server's MXP queries, for the caller to send.
     replies: Vec<String>,
+    /// The MXP tags seen, kept only while someone is looking at them.
+    keep_tags: bool,
+    tags: Vec<String>,
 }
 
 impl Default for Assembler {
@@ -75,6 +78,8 @@ impl Default for Assembler {
             style_stack: Vec::new(),
             link: None,
             replies: Vec::new(),
+            keep_tags: false,
+            tags: Vec::new(),
         }
     }
 }
@@ -93,6 +98,20 @@ impl Assembler {
     /// far, each a line to send to the server.
     pub fn take_replies(&mut self) -> Vec<String> {
         std::mem::take(&mut self.replies)
+    }
+
+    /// Starts or stops keeping the MXP tags that arrive, to be shown to
+    /// whoever is debugging; they are not kept otherwise.
+    pub fn keep_tags(&mut self, keep: bool) {
+        self.keep_tags = keep;
+        if !keep {
+            self.tags = Vec::new();
+        }
+    }
+
+    /// Takes the MXP tags kept since they were last taken.
+    pub fn take_tags(&mut self) -> Vec<String> {
+        std::mem::take(&mut self.tags)
     }
 
     /// Consumes `text`, appending each line completed by a newline to `out`.
@@ -254,6 +273,10 @@ impl Assembler {
 
     /// Carries out an MXP tag, given without its angle brackets.
     fn tag(&mut self, tag: &str, out: &mut Vec<Line>) {
+        // No more than a burst of them, if nobody comes to take them.
+        if self.keep_tags && self.tags.len() < 256 {
+            self.tags.push(tag.to_owned());
+        }
         // Definitions and comments (`<!ELEMENT ...>`) change nothing here.
         if tag.starts_with('!') {
             return;

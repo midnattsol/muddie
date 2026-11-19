@@ -95,6 +95,11 @@ impl Negotiator {
         }
     }
 
+    /// Whether an option the server offered is in use.
+    pub fn in_use(&self, option: u8) -> bool {
+        self.remote[option as usize]
+    }
+
     /// Handles one non-data telnet event, appending any answer to `reply`.
     pub fn handle(&mut self, event: &Event, reply: &mut Vec<u8>) -> Option<Signal> {
         match *event {

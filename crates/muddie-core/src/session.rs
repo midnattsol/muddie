@@ -49,6 +49,9 @@ pub enum Command {
     },
     /// Send a telnet no-operation, so an idle connection is not dropped.
     KeepAlive,
+    /// Tell, or stop telling, what arrives of the protocols that are
+    /// otherwise only passed over, for the debugging view.
+    Trace(bool),
     Disconnect,
 }
 
@@ -178,6 +181,7 @@ async fn drive(
                     pipeline.send_msdp(&variable, &values, &mut outgoing);
                 }
                 Some(Command::KeepAlive) => pipeline.keep_alive(&mut outgoing),
+                Some(Command::Trace(on)) => pipeline.set_trace(on),
                 Some(Command::Disconnect) | None => {
                     let _ = writer.shutdown().await;
                     return Ok(());

@@ -40,6 +40,20 @@ pub enum Event {
     },
     /// The server's MSSP status, as `(name, value)` pairs.
     Mssp(Vec<(String, String)>),
+    /// Something of another protocol arrived, told while it is being
+    /// traced: an MXP tag, or what an option this client does not know
+    /// was sent with.
+    Other {
+        protocol: String,
+        name: String,
+        data: String,
+    },
+    /// The server offered a protocol, or withdrew it; `on` says whether
+    /// it is now in use.
+    Protocol {
+        name: String,
+        on: bool,
+    },
     /// The connection ended; the string is the error, if it was one.
     Disconnected(Option<String>),
 }
@@ -48,6 +62,8 @@ pub enum Event {
 const INFLATE_BUFFER: usize = 16 * 1024;
 
 pub struct Pipeline {
+    /// Whether what is otherwise made nothing of is told, for debugging.
+    trace: bool,
     parser: Parser,
     negotiator: Negotiator,
     decoder: Decoder,
@@ -69,6 +85,7 @@ pub struct Pipeline {
 impl Pipeline {
     pub fn new(config: Config) -> Self {
         Self {
+            trace: false,
             parser: Parser::new(),
             decoder: Decoder::for_label(&config.encoding).unwrap_or_default(),
             negotiator: Negotiator::new(config),
@@ -193,6 +210,16 @@ impl Pipeline {
                     self.assembler.feed(&self.text, &mut self.lines);
                     self.text.clear();
                     events.extend(self.lines.drain(..).map(Event::Line));
+                    if self.trace {
+                        events.extend(self.assembler.take_tags().into_iter().map(|tag| {
+                            let name = tag.trim_start_matches('/').split_whitespace().next();
+                            Event::Other {
+                                protocol: "MXP".to_owned(),
+                                name: name.unwrap_or_default().to_lowercase(),
+                                data: format!("<{tag}>"),
+                            }
+                        }));
+                    }
                     // Answers to MXP queries go back as lines.
                     for answer in self.assembler.take_replies() {
                         telnet::escape_iac(&self.decoder.encode(&answer), reply);
@@ -224,7 +251,28 @@ impl Pipeline {
                 }
                 _ => {}
             }
-            match self.negotiator.handle(&telnet_event, reply) {
+            // What comes with an option this client makes nothing of.
+            if self.trace
+                && let telnet::Event::Subneg(option, payload) = &telnet_event
+                && !matches!(*option, opt::TTYPE | opt::CHARSET | opt::NAWS | opt::MCCP3)
+            {
+                events.push(Event::Other {
+                    protocol: opt::name(*option),
+                    name: opt::name(*option),
+                    data: String::from_utf8_lossy(payload).into_owned(),
+                });
+            }
+            let signal = self.negotiator.handle(&telnet_event, reply);
+            // What the server offers is told, taken up or not.
+            if let telnet::Event::Negotiate(telnet::Verb::Will | telnet::Verb::Wont, option) =
+                telnet_event
+            {
+                events.push(Event::Protocol {
+                    name: opt::name(option),
+                    on: self.negotiator.in_use(option),
+                });
+            }
+            match signal {
                 Some(Signal::Prompt) => {
                     self.decoder.flush(&mut self.text);
                     self.assembler.feed(&self.text, &mut self.lines);
@@ -263,6 +311,13 @@ impl Pipeline {
         };
         telnet::write_subneg(opt::GMCP, message.as_bytes(), out);
         self.finish_outgoing(out, start);
+    }
+
+    /// Starts or stops telling what arrives of the protocols this client
+    /// only passes over: it costs nothing while nobody is looking.
+    pub fn set_trace(&mut self, trace: bool) {
+        self.trace = trace;
+        self.assembler.keep_tags(trace);
     }
 
     /// Writes a telnet no-operation, to keep an idle connection alive.
@@ -315,10 +370,69 @@ mod tests {
     use super::*;
     use crate::telnet::{DO, GA, IAC, WILL, WONT, opt};
 
+    /// What `input` makes of the pipeline, without the news of which
+    /// protocols were offered, which have a test of their own.
     fn receive(pipeline: &mut Pipeline, input: &[u8]) -> (Vec<u8>, Vec<Event>) {
+        let (reply, mut events) = receive_all(pipeline, input);
+        events.retain(|event| !matches!(event, Event::Protocol { .. }));
+        (reply, events)
+    }
+
+    fn receive_all(pipeline: &mut Pipeline, input: &[u8]) -> (Vec<u8>, Vec<Event>) {
         let (mut reply, mut events) = (Vec::new(), Vec::new());
         pipeline.receive(input, &mut reply, &mut events).unwrap();
         (reply, events)
+    }
+
+    #[test]
+    fn what_is_offered_is_told_and_the_rest_only_while_traced() {
+        let other = |protocol: &str, name: &str, data: &str| Event::Other {
+            protocol: protocol.into(),
+            name: name.into(),
+            data: data.into(),
+        };
+        let offered = |name: &str, on| Event::Protocol {
+            name: name.into(),
+            on,
+        };
+        // Each protocol the server offers is told, taken up or not.
+        let mut pipeline = Pipeline::new(Config::default());
+        let mut input = vec![IAC, WILL, opt::GMCP, IAC, WILL, 200, IAC, WILL, opt::MXP];
+        telnet::write_subneg(200, b"Room.Brief hall", &mut input);
+        input.extend_from_slice(b"\x1b[1z<send>look</send>\r\n");
+        let (_, events) = receive_all(&mut pipeline, &input);
+        assert_eq!(
+            events[..3],
+            [
+                offered("GMCP", true),
+                offered("ATCP", false),
+                offered("MXP", true)
+            ]
+        );
+        // What this client makes nothing of is passed over...
+        assert!(
+            !events
+                .iter()
+                .any(|event| matches!(event, Event::Other { .. }))
+        );
+        // ...unless it is being traced: the tags of MXP, and what comes
+        // with an option it does not know.
+        pipeline.set_trace(true);
+        let mut input = Vec::new();
+        telnet::write_subneg(200, b"Room.Brief hall", &mut input);
+        input.extend_from_slice(b"\x1b[1z<send href=\"look\">look</send>\r\n");
+        let (_, events) = receive_all(&mut pipeline, &input);
+        let others: Vec<Event> = (events.into_iter())
+            .filter(|event| matches!(event, Event::Other { .. }))
+            .collect();
+        assert_eq!(
+            others,
+            [
+                other("ATCP", "ATCP", "Room.Brief hall"),
+                other("MXP", "send", "<send href=\"look\">"),
+                other("MXP", "send", "</send>"),
+            ]
+        );
     }
 
     fn text(event: &Event) -> String {

@@ -159,6 +159,9 @@ pub struct Tab {
     /// The gauge being dragged to another place in the editor's list.
     gauge_dragged: Option<usize>,
     palette_chosen: usize,
+    /// The protocols the MUD has offered in this connection, and whether
+    /// each is in use.
+    protocols: Vec<(String, bool)>,
     palette_open: bool,
     palette_query: String,
     /// The palette's field is to take the keyboard, or its cursor to go
@@ -187,6 +190,12 @@ pub struct Tab {
     debug_open: bool,
     data_selected: usize,
     data_filter: String,
+    /// The protocol whose data alone is listed, if one was chosen.
+    data_protocol: Option<String>,
+    /// Whether what arrives is kept while the debugging view is closed,
+    /// and what the connection was last told about tracing.
+    data_keep: bool,
+    trace_sent: Option<bool>,
     /// The session has no saved profile to keep its variables in, so
     /// they are carried from one start of the scripts to the next.
     variables_passing: bool,
@@ -374,6 +383,7 @@ impl Tab {
             recording_key: false,
             gauge_dragged: None,
             palette_chosen: 0,
+            protocols: Vec::new(),
             palette_open: false,
             palette_query: String::new(),
             palette_focus: false,
@@ -390,6 +400,9 @@ impl Tab {
             debug_open: false,
             data_selected: 0,
             data_filter: String::new(),
+            data_protocol: None,
+            data_keep: false,
+            trace_sent: Some(false),
             variables_passing: false,
             variable_loaded: None,
             variable_name: String::new(),
@@ -922,6 +935,8 @@ impl Tab {
     }
 
     fn handle_events(&mut self) {
+        self.sync_trace();
+        let recording = self.recording();
         let Some(connection) = &self.connection else {
             return;
         };
@@ -929,6 +944,10 @@ impl Tab {
         for event in events {
             match event {
                 Event::Connected => {
+                    self.protocols.clear();
+                    // A new connection passes over what the last was
+                    // told to say.
+                    self.trace_sent = Some(false);
                     self.reconnect_attempts = 0;
                     self.last_activity = Instant::now();
                     if self.settings.log_sessions && self.log.is_none() {
@@ -949,6 +968,10 @@ impl Tab {
                     let text = line.text();
                     // A sound request is carried out, not shown.
                     if let Some(request) = sound::parse_msp(&text) {
+                        if recording {
+                            let said = serde_json::Value::String(text.clone()).to_string();
+                            self.saw("MSP", "sound", &said);
+                        }
                         self.output.clear_partial();
                         self.pending_partial = None;
                         match request {
@@ -1035,7 +1058,9 @@ impl Tab {
                     {
                         self.entered_room(&data);
                     }
-                    self.saw_data(&package, false, &data);
+                    if recording {
+                        self.saw_data(&package, false, &data);
+                    }
                     self.scripts.on_gmcp(&package, &data);
                     self.run_actions();
                 }
@@ -1046,11 +1071,45 @@ impl Tab {
                     if variable == "ROOM" && self.scripts.native_map() {
                         self.entered_room(&data);
                     }
-                    self.saw_data(&variable, true, &data);
+                    if recording {
+                        self.saw_data(&variable, true, &data);
+                    }
                     self.scripts.on_msdp(&variable, &data);
                     self.run_actions();
                 }
-                Event::Mssp(status) => self.scripts.on_mssp(&status),
+                Event::Mssp(status) => {
+                    // Shown with the rest of what the MUD sends, if looked at.
+                    if recording {
+                        let fields: serde_json::Map<String, serde_json::Value> = (status.iter())
+                            .map(|(name, value)| (name.clone(), value.clone().into()))
+                            .collect();
+                        self.saw(
+                            "MSSP",
+                            "MSSP",
+                            &serde_json::Value::Object(fields).to_string(),
+                        );
+                    }
+                    self.scripts.on_mssp(&status);
+                }
+                Event::Other {
+                    protocol,
+                    name,
+                    data,
+                } => {
+                    if recording {
+                        self.saw(
+                            &protocol,
+                            &name,
+                            &serde_json::Value::String(data).to_string(),
+                        );
+                    }
+                }
+                Event::Protocol { name, on } => {
+                    match self.protocols.iter_mut().find(|(known, _)| *known == name) {
+                        Some(known) => known.1 = on,
+                        None => self.protocols.push((name, on)),
+                    }
+                }
                 Event::Disconnected(error) => {
                     self.scripts.on_event("disconnect", "");
                     self.run_actions();
@@ -2997,6 +3056,9 @@ mod tests {
     fn what_the_mud_sends_is_kept_to_look_at_and_made_into_gauges() {
         let mut harness = window(None);
         let (events, _sent) = fake_connection(harness.state_mut().tab_mut());
+        // Kept from the start, as when it is asked to go on outside the
+        // debugging view.
+        harness.state_mut().tab_mut().data_keep = true;
         let vitals = |hp: u32| Event::Gmcp {
             package: "Char.Vitals".into(),
             data: format!(r#"{{"health": {{"current": {hp}, "max": 100}}}}"#),
@@ -3260,6 +3322,66 @@ mod tests {
             harness.state().tab().gauges.summary(),
             "MP 1 of 2, HP 1 of 2, Gold 1 of 2"
         );
+    }
+
+    #[test]
+    fn what_arrives_is_kept_only_while_it_is_looked_at() {
+        let mut harness = window(None);
+        let (events, mut sent) = fake_connection(harness.state_mut().tab_mut());
+        let vitals = || Event::Gmcp {
+            package: "Char.Vitals".into(),
+            data: r#"{"hp": 5}"#.into(),
+        };
+        // With the debugging view closed, nothing is kept.
+        events.send(vitals()).unwrap();
+        harness.run_steps(3);
+        assert!(harness.state().tab().data_seen.is_empty());
+        // Open, it is: by the protocol each thing came by. The connection
+        // is told to say what it otherwise passes over.
+        harness.state_mut().tab_mut().set_view(2);
+        harness.run_steps(2);
+        let told: Vec<Command> = std::iter::from_fn(|| sent.try_recv().ok()).collect();
+        assert!(matches!(told.last(), Some(Command::Trace(true))));
+        events.send(vitals()).unwrap();
+        let tag = Event::Other {
+            protocol: "MXP".into(),
+            name: "send".into(),
+            data: "<send href=\"look\">".into(),
+        };
+        events.send(tag).unwrap();
+        events
+            .send(Event::Protocol {
+                name: "GMCP".into(),
+                on: true,
+            })
+            .unwrap();
+        harness.run_steps(3);
+        let kept = |app: &Tab| -> Vec<String> {
+            (app.data_seen.iter())
+                .map(|seen| format!("{} {}", seen.protocol, seen.name))
+                .collect()
+        };
+        assert_eq!(
+            kept(harness.state().tab()),
+            ["GMCP Char.Vitals", "MXP send"]
+        );
+        harness.get_by_label("GMCP: In use");
+        // Choosing a protocol lists what came by it alone.
+        harness.get_by_label("MXP: Not offered by this MUD").click();
+        harness.run_steps(3);
+        assert!(harness.query_by_label("Char.Vitals").is_none());
+        // In the list, and laid out beside it.
+        assert!(harness.query_all_by_label("send").count() >= 2);
+        // Closed again, it stops, unless asked to go on.
+        harness.state_mut().tab_mut().set_view(0);
+        harness.run_steps(2);
+        events.send(vitals()).unwrap();
+        harness.run_steps(3);
+        assert_eq!(harness.state().tab().data_seen[0].count, 1);
+        harness.state_mut().tab_mut().data_keep = true;
+        events.send(vitals()).unwrap();
+        harness.run_steps(3);
+        assert_eq!(harness.state().tab().data_seen[0].count, 2);
     }
 
     #[test]
@@ -3752,6 +3874,13 @@ mod tests {
             false,
             r#"{"num": 2, "name": "Plaza Mayor", "exits": {"n": 5, "e": 3}}"#,
         );
+        app.saw("MXP", "send", r#""<send href=\"mirar\">""#);
+        app.protocols = vec![
+            ("GMCP".into(), true),
+            ("MXP".into(), true),
+            ("MSSP".into(), true),
+            ("ATCP".into(), false),
+        ];
         app.set_view(2);
         rules.run_steps(3);
         save(&mut rules, "data");

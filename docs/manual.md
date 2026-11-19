@@ -220,6 +220,18 @@ script. **Copy the path** takes what leads to a value, such as
 `Char.Vitals.health.current`, and **Make a gauge** makes one that follows a
 number, with the maximum that goes with it if there is one beside it.
 
+At the top are the **protocols**: lit, those in use; dim, those the MUD
+offered and Muddie does not use; fainter, those it did not offer. A MUD that
+offers neither GMCP nor MSDP sends only text, and what is said on its
+channels comes as lines of the game, for triggers to pick out. Besides GMCP
+and MSDP, what comes by MSSP, the tags of MXP, the sounds of MSP and what
+comes with an option Muddie does not know are listed too; choosing a protocol
+lists what came by it alone.
+
+Nothing is kept while the view is closed, so that it costs nothing: the list
+starts when it is opened. **Keep recording outside this view** goes on
+keeping it, to see what comes on connecting, and **Clear** empties the list.
+
 ## The map
 
 The map draws itself as you walk, on servers that report rooms through GMCP

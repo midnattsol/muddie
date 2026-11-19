@@ -900,10 +900,34 @@ msgstr ""
 msgid "Choose one, or type a command"
 msgstr ""
 
+msgid "Protocols"
+msgstr ""
+
+msgid "Showing only this one"
+msgstr ""
+
+msgid "In use"
+msgstr ""
+
+msgid "Offered by the MUD, and not used by Muddie"
+msgstr ""
+
+msgid "Not offered by this MUD"
+msgstr ""
+
+msgid "This MUD offers neither GMCP nor MSDP: all it sends is text, and what it says on its channels comes as lines of the game."
+msgstr ""
+
+msgid "Keep recording outside this view"
+msgstr ""
+
+msgid "Clear"
+msgstr ""
+
 msgid "What the MUD sends"
 msgstr ""
 
-msgid "Nothing received yet."
+msgid "Nothing has come since this view was opened."
 msgstr ""
 
 msgid ""

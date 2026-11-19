@@ -28,6 +28,32 @@ pub mod opt {
     pub const MXP: u8 = 91;
     pub const MSP: u8 = 90;
     pub const GMCP: u8 = 201;
+
+    /// What an option is called, for those a MUD is likely to offer.
+    pub fn name(option: u8) -> String {
+        let known = match option {
+            ECHO => "ECHO",
+            SGA => "SGA",
+            TTYPE => "TTYPE",
+            EOR => "EOR",
+            NAWS => "NAWS",
+            CHARSET => "CHARSET",
+            MSDP => "MSDP",
+            MSSP => "MSSP",
+            MCCP2 => "MCCP2",
+            MCCP3 => "MCCP3",
+            MXP => "MXP",
+            MSP => "MSP",
+            GMCP => "GMCP",
+            // Others some MUDs offer, which this client does not take up.
+            85 => "MCCP1",
+            93 => "ZMP",
+            102 => "Aardwolf",
+            200 => "ATCP",
+            other => return format!("option {other}"),
+        };
+        known.to_owned()
+    }
 }
 
 /// Largest subnegotiation payload kept; further bytes are dropped.
