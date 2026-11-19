@@ -3,12 +3,13 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
-use rusqlite::{Connection, Result, params};
+use rusqlite::{Connection, Result, Transaction, params};
 
 use crate::{Pos, Room};
 
 /// Version of the schema below, kept in the database's `user_version`.
-const VERSION: i64 = 1;
+/// Version 1 lacked the `weight` and `avoid` columns.
+const VERSION: i64 = 2;
 
 const SCHEMA: &str = "
     CREATE TABLE IF NOT EXISTS rooms (
@@ -17,7 +18,9 @@ const SCHEMA: &str = "
         area TEXT NOT NULL,
         x INTEGER NOT NULL,
         y INTEGER NOT NULL,
-        z INTEGER NOT NULL
+        z INTEGER NOT NULL,
+        weight INTEGER NOT NULL DEFAULT 1,
+        avoid INTEGER NOT NULL DEFAULT 0
     );
     CREATE TABLE IF NOT EXISTS exits (
         room_id INTEGER NOT NULL,
@@ -25,6 +28,11 @@ const SCHEMA: &str = "
         to_id INTEGER NOT NULL,
         PRIMARY KEY (room_id, direction)
     );
+";
+
+const UPGRADE_FROM_1: &str = "
+    ALTER TABLE rooms ADD COLUMN weight INTEGER NOT NULL DEFAULT 1;
+    ALTER TABLE rooms ADD COLUMN avoid INTEGER NOT NULL DEFAULT 0;
 ";
 
 pub struct Store {
@@ -47,6 +55,9 @@ impl Store {
         connection.pragma_update(None, "journal_mode", "WAL")?;
         connection.pragma_update(None, "synchronous", "NORMAL")?;
         connection.execute_batch(SCHEMA)?;
+        if version == 1 {
+            connection.execute_batch(UPGRADE_FROM_1)?;
+        }
         connection.pragma_update(None, "user_version", VERSION)?;
 
         let mut exits: BTreeMap<i64, BTreeMap<String, i64>> = BTreeMap::new();
@@ -58,7 +69,8 @@ impl Store {
         }
         drop(statement);
 
-        let mut statement = connection.prepare("SELECT id, name, area, x, y, z FROM rooms")?;
+        let mut statement =
+            connection.prepare("SELECT id, name, area, x, y, z, weight, avoid FROM rooms")?;
         let rooms = statement
             .query_map([], |row| {
                 let id = row.get(0)?;
@@ -72,6 +84,8 @@ impl Store {
                         z: row.get(5)?,
                     },
                     exits: exits.remove(&id).unwrap_or_default(),
+                    weight: row.get(6)?,
+                    avoid: row.get(7)?,
                 })
             })?
             .collect::<Result<Vec<Room>>>()?;
@@ -81,8 +95,7 @@ impl Store {
 
     /// Removes every room.
     pub fn clear(&mut self) -> Result<()> {
-        self.connection
-            .execute_batch("BEGIN; DELETE FROM exits; DELETE FROM rooms; COMMIT;")
+        (self.connection).execute_batch("BEGIN; DELETE FROM exits; DELETE FROM rooms; COMMIT;")
     }
 
     /// Removes a room and its exits.
@@ -93,25 +106,84 @@ impl Store {
         transaction.commit()
     }
 
-    /// Inserts or replaces a room and its exits.
-    pub fn save(&mut self, room: &Room) -> Result<()> {
+    /// Inserts or replaces rooms and their exits, all or none.
+    pub fn save<'a>(&mut self, rooms: impl IntoIterator<Item = &'a Room>) -> Result<()> {
         let transaction = self.connection.transaction()?;
-        transaction.execute(
-            "INSERT INTO rooms (id, name, area, x, y, z) VALUES (?1, ?2, ?3, ?4, ?5, ?6)
-             ON CONFLICT(id) DO UPDATE SET
-                 name = excluded.name, area = excluded.area,
-                 x = excluded.x, y = excluded.y, z = excluded.z",
-            params![
-                room.id, room.name, room.area, room.pos.x, room.pos.y, room.pos.z
-            ],
-        )?;
-        transaction.execute("DELETE FROM exits WHERE room_id = ?1", [room.id])?;
-        for (direction, to) in &room.exits {
-            transaction.execute(
-                "INSERT INTO exits (room_id, direction, to_id) VALUES (?1, ?2, ?3)",
-                params![room.id, direction, to],
-            )?;
+        for room in rooms {
+            save_room(&transaction, room)?;
         }
         transaction.commit()
+    }
+}
+
+fn save_room(transaction: &Transaction, room: &Room) -> Result<()> {
+    transaction.execute(
+        "INSERT INTO rooms (id, name, area, x, y, z, weight, avoid)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+         ON CONFLICT(id) DO UPDATE SET
+             name = excluded.name, area = excluded.area,
+             x = excluded.x, y = excluded.y, z = excluded.z,
+             weight = excluded.weight, avoid = excluded.avoid",
+        params![
+            room.id,
+            room.name,
+            room.area,
+            room.pos.x,
+            room.pos.y,
+            room.pos.z,
+            room.weight,
+            room.avoid
+        ],
+    )?;
+    transaction.execute("DELETE FROM exits WHERE room_id = ?1", [room.id])?;
+    for (direction, to) in &room.exits {
+        transaction.execute(
+            "INSERT INTO exits (room_id, direction, to_id) VALUES (?1, ?2, ?3)",
+            params![room.id, direction, to],
+        )?;
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn version_1_file_is_upgraded_and_a_newer_one_refused() {
+        let path =
+            std::env::temp_dir().join(format!("muddie-store-test-{}.sqlite", std::process::id()));
+        let _ = std::fs::remove_file(&path);
+        {
+            let old = Connection::open(&path).unwrap();
+            old.execute_batch(
+                "CREATE TABLE rooms (id INTEGER PRIMARY KEY, name TEXT NOT NULL, area TEXT NOT NULL,
+                     x INTEGER NOT NULL, y INTEGER NOT NULL, z INTEGER NOT NULL);
+                 CREATE TABLE exits (room_id INTEGER NOT NULL, direction TEXT NOT NULL,
+                     to_id INTEGER NOT NULL, PRIMARY KEY (room_id, direction));
+                 INSERT INTO rooms VALUES (1, 'Gate', 'town', 0, 0, 0);
+                 INSERT INTO exits VALUES (1, 'n', 2);
+                 PRAGMA user_version = 1;",
+            )
+            .unwrap();
+        }
+        let (mut store, mut rooms) = Store::open(&path).unwrap();
+        assert_eq!(rooms.len(), 1);
+        assert_eq!((rooms[0].weight, rooms[0].avoid), (1, false));
+        assert_eq!(rooms[0].exits.get("n"), Some(&2));
+        rooms[0].weight = 5;
+        rooms[0].avoid = true;
+        store.save(&rooms).unwrap();
+        drop(store);
+        let (store, rooms) = Store::open(&path).unwrap();
+        assert_eq!((rooms[0].weight, rooms[0].avoid), (5, true));
+
+        store
+            .connection
+            .pragma_update(None, "user_version", VERSION + 1)
+            .unwrap();
+        drop(store);
+        assert!(Store::open(&path).is_err());
+        std::fs::remove_file(&path).unwrap();
     }
 }

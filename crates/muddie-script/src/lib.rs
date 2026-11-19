@@ -50,6 +50,10 @@
 //! - `map.walk(to)`: walk there.
 //! - `map.set_exit(from, direction, to)`, `map.remove_exit(from,
 //!   direction)`, `map.remove_room(id)` and `map.move(id, x, y, z)`.
+//! - `map.set_weight(id, weight)`: how costly routes consider entering the
+//!   room (1 is normal), and `map.avoid(id, true)`: keep routes out of it.
+//!   A room table reports them as `weight` and `avoid`.
+//! - `map.areas()`: the names of all areas.
 //! - `map.id(text)`: the room number used for a text identifier.
 //!
 //! - `cancel(id)`: remove the trigger, alias, timer or GMCP handler with the
@@ -504,6 +508,8 @@ fn room_table(lua: &Lua, room: &Room) -> mlua::Result<Table> {
     table.set("x", room.pos.x)?;
     table.set("y", room.pos.y)?;
     table.set("z", room.pos.z)?;
+    table.set("weight", room.weight)?;
+    table.set("avoid", room.avoid)?;
     let exits = lua.create_table()?;
     for (direction, to) in &room.exits {
         exits.set(direction.as_str(), *to)?;
@@ -674,6 +680,39 @@ fn install_map_api(
             let found = *result.as_ref().unwrap_or(&true);
             saved(result.map(drop))?;
             Ok(found)
+        })?,
+    )?;
+
+    let world = Rc::clone(map);
+    api.set(
+        "set_weight",
+        lua.create_function(move |_, (id, weight): (Value, u32)| {
+            let result = world.borrow_mut().set_weight(id_of(&id)?, weight);
+            let found = *result.as_ref().unwrap_or(&true);
+            saved(result.map(drop))?;
+            Ok(found)
+        })?,
+    )?;
+
+    let world = Rc::clone(map);
+    api.set(
+        "avoid",
+        lua.create_function(move |_, (id, avoid): (Value, bool)| {
+            let result = world.borrow_mut().set_avoid(id_of(&id)?, avoid);
+            let found = *result.as_ref().unwrap_or(&true);
+            saved(result.map(drop))?;
+            Ok(found)
+        })?,
+    )?;
+
+    let world = Rc::clone(map);
+    api.set(
+        "areas",
+        lua.create_function(move |_, ()| {
+            let areas: Vec<String> = (world.borrow().areas().into_iter())
+                .map(str::to_owned)
+                .collect();
+            Ok(areas)
         })?,
     )?;
 
@@ -1235,6 +1274,10 @@ mod tests {
             echo(table.concat(map.path(3, 1), ";"))
             echo(`{map.move(3, 7, 8)} {map.room(3).x},{map.room(3).y},{map.room(3).z}`)
             echo(`{map.remove_exit(2, "enter portal")} {map.remove_room(3)} {map.room(3)}`)
+            map.set_room({id = 4, name = "Detour", area = "wilds", exits = {n = 2}})
+            map.set_exit(1, "e", 4)
+            echo(`{map.avoid(2, true)} {map.room(2).avoid} {map.path(2, 1)[1]} {map.path(4, 1)[1]}`)
+            echo(`{map.set_weight(4, 9)} {map.room(4).weight} {table.concat(map.areas(), "+")}`)
             map.visit({name = "No id"})"#,
         );
         let actions = engine.take_actions();
@@ -1253,9 +1296,11 @@ mod tests {
                 "n;enter portal",
                 "true 7,8,0",
                 "true true nil",
+                "true true n e",
+                "true 9 +wilds",
             ]
         );
-        assert!(error_text(&actions[6..]).contains("a room id must be"));
+        assert!(error_text(&actions[8..]).contains("a room id must be"));
     }
 
     #[test]

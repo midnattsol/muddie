@@ -5,7 +5,8 @@ mod info;
 mod store;
 mod walk;
 
-use std::collections::{BTreeMap, HashMap, VecDeque};
+use std::cmp::Reverse;
+use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, VecDeque};
 use std::path::Path;
 
 pub use info::RoomInfo;
@@ -46,6 +47,23 @@ pub struct Pos {
 }
 
 impl Pos {
+    /// Whether `other` lies one or more whole `step`s away from here.
+    fn in_line_with(self, other: Pos, step: (i32, i32, i32)) -> bool {
+        let gaps = [other.x - self.x, other.y - self.y, other.z - self.z];
+        let steps = [step.0, step.1, step.2];
+        let mut distance = None;
+        for (gap, step) in gaps.into_iter().zip(steps) {
+            if step == 0 {
+                if gap != 0 {
+                    return false;
+                }
+            } else if gap % step != 0 || *distance.get_or_insert(gap / step) != gap / step {
+                return false;
+            }
+        }
+        distance.is_some_and(|distance| distance >= 1)
+    }
+
     fn offset(self, (dx, dy, dz): (i32, i32, i32), sign: i32) -> Self {
         Self {
             x: self.x + dx * sign,
@@ -63,6 +81,12 @@ pub struct Room {
     pub pos: Pos,
     /// Exit direction (see [`canonical_direction`]) to destination room.
     pub exits: BTreeMap<String, RoomId>,
+    /// Cost of entering the room when finding routes; 1 for a normal room.
+    /// Set by the user, so what the server reports never changes it.
+    pub weight: u32,
+    /// Routes never pass through the room, though they may end in it.
+    /// Also set by the user.
+    pub avoid: bool,
 }
 
 /// One move of a route: the command to send and the room it leads to.
@@ -158,9 +182,112 @@ impl Map {
     /// adding or updating it. The map is updated even if saving it fails.
     pub fn visit(&mut self, info: RoomInfo) -> Result<(), Error> {
         let id = info.id;
-        let saved = self.upsert(info, self.current);
+        let came_from = self.current;
+        // Without coordinates from the server, the layout is ours to fix.
+        let free_layout = info.pos.is_none();
+        let saved = self.upsert(info, came_from);
         self.current = Some(id);
-        saved
+        let joined = if free_layout {
+            self.join_islands(came_from, id)
+        } else {
+            Ok(())
+        };
+        saved.and(joined)
+    }
+
+    /// Lines up separately drawn parts of the map that the room just
+    /// entered shows to be connected: the part walked into, and any part an
+    /// exit of this room leads to. A part is only moved when it has no other
+    /// link to the rest, so consistent geometry is never disturbed.
+    fn join_islands(&mut self, came_from: Option<RoomId>, here: RoomId) -> Result<(), Error> {
+        let mut links = Vec::new();
+        if let Some(previous) = came_from.and_then(|id| self.rooms.get(&id)) {
+            let exit = previous.exits.iter().find(|(_, to)| **to == here);
+            links.extend(exit.map(|(direction, _)| (previous.id, direction.clone(), here)));
+        }
+        if let Some(room) = self.rooms.get(&here) {
+            let exits = room.exits.iter();
+            links.extend(exits.map(|(direction, to)| (here, direction.clone(), *to)));
+        }
+        let mut moved = Vec::new();
+        for (anchor, direction, other) in links {
+            moved.extend(self.align(anchor, &direction, other));
+        }
+        let rooms = moved.iter().filter_map(|id| self.rooms.get(id));
+        match &mut self.store {
+            Some(store) => store.save(rooms),
+            None => Ok(()),
+        }
+    }
+
+    /// If `other` sits on a separate island from `anchor`, moves that island
+    /// so `other` is `direction` of `anchor`. Returns the rooms it moved.
+    fn align(&mut self, anchor: RoomId, direction: &str, other: RoomId) -> Vec<RoomId> {
+        let (Some(from), Some(to)) = (self.rooms.get(&anchor), self.rooms.get(&other)) else {
+            return Vec::new();
+        };
+        let Some(step) = direction_offset(direction) else {
+            return Vec::new();
+        };
+        if anchor == other || from.area != to.area || from.pos.in_line_with(to.pos, step) {
+            return Vec::new();
+        }
+        let Some(island) = self.island(other, anchor) else {
+            return Vec::new();
+        };
+        let (start, origin) = (from.pos, to.pos);
+        let elsewhere: HashSet<Pos> = (self.rooms.values())
+            .filter(|room| room.area == to.area && !island.contains(&room.id))
+            .map(|room| room.pos)
+            .collect();
+        let shifted = |pos: Pos, target: Pos| Pos {
+            x: pos.x + target.x - origin.x,
+            y: pos.y + target.y - origin.y,
+            z: pos.z + target.z - origin.z,
+        };
+        // As when placing one room: lengthen the link until nothing overlaps.
+        let fits = |target: &Pos| {
+            (island.iter()).all(|id| !elsewhere.contains(&shifted(self.rooms[id].pos, *target)))
+        };
+        let target = (1..=MAX_STRETCH)
+            .map(|distance| start.offset(step, distance))
+            .find(fits)
+            .unwrap_or(start.offset(step, 1));
+        for id in &island {
+            let room = self.rooms.get_mut(id).expect("island rooms exist");
+            room.pos = shifted(room.pos, target);
+        }
+        island.into_iter().collect()
+    }
+
+    /// The rooms of `start`'s area joined to it by exits in either
+    /// direction, ignoring any direct link to `apart`. `None` if `apart` is
+    /// among them, meaning the two are not on separate islands.
+    fn island(&self, start: RoomId, apart: RoomId) -> Option<HashSet<RoomId>> {
+        let area = &self.rooms.get(&start)?.area;
+        let mut neighbours: HashMap<RoomId, Vec<RoomId>> = HashMap::new();
+        for room in self.rooms.values().filter(|room| &room.area == area) {
+            for to in room.exits.values() {
+                let direct = (room.id, *to) == (start, apart) || (room.id, *to) == (apart, start);
+                if !direct && self.rooms.get(to).is_some_and(|other| &other.area == area) {
+                    neighbours.entry(room.id).or_default().push(*to);
+                    neighbours.entry(*to).or_default().push(room.id);
+                }
+            }
+        }
+        let mut island = HashSet::from([start]);
+        let mut queue = VecDeque::from([start]);
+        while let Some(id) = queue.pop_front() {
+            for next in neighbours.get(&id).into_iter().flatten() {
+                if *next == apart {
+                    return None;
+                }
+                if island.insert(*next) {
+                    queue.push_back(*next);
+                }
+            }
+        }
+        Some(island)
     }
 
     /// Adds or updates a room without moving the player there, for servers
@@ -171,12 +298,15 @@ impl Map {
 
     fn upsert(&mut self, info: RoomInfo, came_from: Option<RoomId>) -> Result<(), Error> {
         let pos = self.place(&info, came_from);
+        let existing = self.rooms.get(&info.id);
         let room = Room {
             id: info.id,
             name: info.name,
             area: info.area,
             pos,
             exits: info.exits,
+            weight: existing.map_or(1, |room| room.weight),
+            avoid: existing.is_some_and(|room| room.avoid),
         };
         if self.rooms.get(&room.id) == Some(&room) {
             return Ok(());
@@ -188,7 +318,7 @@ impl Map {
 
     fn save(&mut self, room: &Room) -> Result<(), Error> {
         match &mut self.store {
-            Some(store) => store.save(room),
+            Some(store) => store.save([room]),
             None => Ok(()),
         }
     }
@@ -246,6 +376,16 @@ impl Map {
         self.edit_room(id, |room| room.pos = pos)
     }
 
+    /// Sets the cost of entering a room when finding routes (at least 1).
+    pub fn set_weight(&mut self, id: RoomId, weight: u32) -> Result<bool, Error> {
+        self.edit_room(id, |room| room.weight = weight.max(1))
+    }
+
+    /// Sets whether routes must keep out of a room.
+    pub fn set_avoid(&mut self, id: RoomId, avoid: bool) -> Result<bool, Error> {
+        self.edit_room(id, |room| room.avoid = avoid)
+    }
+
     /// Adds an exit, or changes where it leads. `direction` is also the
     /// command a walk sends to use it, so it can be any command.
     pub fn set_exit(&mut self, from: RoomId, direction: &str, to: RoomId) -> Result<bool, Error> {
@@ -300,6 +440,12 @@ impl Map {
         self.rooms.values()
     }
 
+    /// The names of all areas, in alphabetical order.
+    pub fn areas(&self) -> Vec<&str> {
+        let areas: BTreeSet<&str> = self.rooms.values().map(|room| room.area.as_str()).collect();
+        areas.into_iter().collect()
+    }
+
     /// Rooms whose name contains `query`, ignoring case, ordered by name.
     pub fn find(&self, query: &str) -> Vec<&Room> {
         let query = query.to_lowercase();
@@ -310,23 +456,39 @@ impl Map {
         found
     }
 
-    /// The shortest known route between two rooms, counting each exit as
-    /// one step. Empty if they are the same room; `None` if there is none.
+    /// The cheapest known route between two rooms: each move costs the
+    /// weight of the room entered, and rooms marked to avoid are only
+    /// entered as the destination. Empty if both are the same room; `None`
+    /// if there is no route.
     pub fn route(&self, from: RoomId, to: RoomId) -> Option<Vec<Step>> {
-        // Breadth-first search, remembering how each room was reached.
+        // Dijkstra's algorithm, remembering how each room was best reached.
+        let mut cost_to: HashMap<RoomId, u64> = HashMap::from([(from, 0)]);
         let mut reached_by: HashMap<RoomId, (RoomId, &str)> = HashMap::new();
-        let mut queue = VecDeque::from([from]);
-        while let Some(id) = queue.pop_front() {
+        let mut queue = BinaryHeap::from([Reverse((0_u64, from))]);
+        while let Some(Reverse((cost, id))) = queue.pop() {
             if id == to {
                 break;
+            }
+            if cost > cost_to[&id] {
+                continue;
             }
             let Some(room) = self.rooms.get(&id) else {
                 continue;
             };
             for (direction, &next) in &room.exits {
-                if next != from && !reached_by.contains_key(&next) {
+                // An unexplored room can be walked into, but not through.
+                let (weight, avoid) = match self.rooms.get(&next) {
+                    Some(room) => (room.weight, room.avoid),
+                    None => (1, false),
+                };
+                if avoid && next != to {
+                    continue;
+                }
+                let next_cost = cost + u64::from(weight);
+                if cost_to.get(&next).is_none_or(|known| next_cost < *known) {
+                    cost_to.insert(next, next_cost);
                     reached_by.insert(next, (id, direction));
-                    queue.push_back(next);
+                    queue.push(Reverse((next_cost, next)));
                 }
             }
         }
@@ -453,6 +615,92 @@ mod tests {
     }
 
     #[test]
+    fn route_prefers_cheap_rooms_and_keeps_out_of_avoided_ones() {
+        // Two ways from 1 to 4: short through 2, long through 5 and 6.
+        let mut map = Map::in_memory();
+        for room in [
+            info(1, "Start", &[("n", 2), ("e", 5)]),
+            info(2, "Swamp", &[("n", 4)]),
+            info(5, "Road", &[("n", 6)]),
+            info(6, "Bridge", &[("w", 4)]),
+            info(4, "End", &[]),
+        ] {
+            map.set_room(room).unwrap();
+        }
+        let via = |map: &Map, to| -> Option<Vec<RoomId>> {
+            Some(map.route(1, to)?.into_iter().map(|step| step.to).collect())
+        };
+        assert_eq!(via(&map, 4).unwrap(), [2, 4]);
+        assert!(map.set_weight(2, 5).unwrap());
+        assert_eq!(via(&map, 4).unwrap(), [5, 6, 4]);
+        assert!(map.set_weight(2, 0).unwrap());
+        assert_eq!(map.room(2).unwrap().weight, 1);
+        assert_eq!(via(&map, 4).unwrap(), [2, 4]);
+
+        assert!(map.set_avoid(2, true).unwrap());
+        assert_eq!(via(&map, 4).unwrap(), [5, 6, 4]);
+        assert_eq!(
+            via(&map, 2).unwrap(),
+            [2],
+            "an avoided room can still be the destination"
+        );
+        map.set_avoid(6, true).unwrap();
+        assert_eq!(via(&map, 4), None);
+
+        // What the server reports later does not undo the user's marks.
+        map.visit(info(2, "Swamp (dry)", &[("n", 4)])).unwrap();
+        assert!(map.room(2).unwrap().avoid);
+    }
+
+    #[test]
+    fn island_is_lined_up_when_its_connection_is_found() {
+        let mut map = Map::in_memory();
+        map.visit(info(1, "Gate", &[("n", 2)])).unwrap();
+        // Teleported: rooms 10 and 11 are drawn apart from the gate.
+        map.visit(info(10, "Dock", &[("e", 11)])).unwrap();
+        map.visit(info(11, "Pier", &[("w", 10)])).unwrap();
+        assert_eq!(map.room(10).unwrap().pos, pos(2, 0, 0));
+        // Back at the gate, then north: room 2 turns out to lead east to
+        // the dock, so the dock's island belongs beside it.
+        map.visit(info(1, "Gate", &[("n", 2)])).unwrap();
+        map.visit(info(2, "Square", &[("s", 1), ("e", 10)]))
+            .unwrap();
+        assert_eq!(map.room(2).unwrap().pos, pos(0, 1, 0));
+        assert_eq!(map.room(10).unwrap().pos, pos(1, 1, 0));
+        assert_eq!(map.room(11).unwrap().pos, pos(2, 1, 0));
+        assert_eq!(map.room(1).unwrap().pos, pos(0, 0, 0));
+    }
+
+    #[test]
+    fn walking_into_an_island_moves_it_but_a_loop_is_left_alone() {
+        let mut map = Map::in_memory();
+        map.visit(info(1, "Gate", &[("n", 2)])).unwrap();
+        map.visit(info(20, "Cave", &[("s", 21)])).unwrap();
+        map.visit(info(21, "Pit", &[("n", 20)])).unwrap();
+        // The gate gains an exit west into the cave: walk through it.
+        map.visit(info(1, "Gate", &[("n", 2), ("w", 20)])).unwrap();
+        map.visit(info(20, "Cave", &[("s", 21), ("e", 1)])).unwrap();
+        assert_eq!(map.room(20).unwrap().pos, pos(-1, 0, 0));
+        assert_eq!(map.room(21).unwrap().pos, pos(-1, -1, 0));
+
+        // A second link between rooms already joined does not move them,
+        // even though it does not fit the grid.
+        map.visit(info(21, "Pit", &[("n", 20), ("e", 1)])).unwrap();
+        map.visit(info(1, "Gate", &[("n", 2), ("w", 20)])).unwrap();
+        assert_eq!(map.room(21).unwrap().pos, pos(-1, -1, 0));
+        assert_eq!(map.room(1).unwrap().pos, pos(0, 0, 0));
+    }
+
+    #[test]
+    fn areas_are_listed_once_in_order() {
+        let mut map = town();
+        let mut other = info(9, "Raft", &[]);
+        other.area = "sea".into();
+        map.set_room(other).unwrap();
+        assert_eq!(map.areas(), ["sea", "town"]);
+    }
+
+    #[test]
     fn text_identifiers_get_stable_ids() {
         assert_eq!(room_id(" 42 "), 42);
         assert_eq!(room_id("-1"), -1);
@@ -530,6 +778,8 @@ mod tests {
             map.visit(info(3, "Doomed", &[("w", 2)])).unwrap();
             assert!(map.remove_room(3).unwrap());
             assert!(map.move_room(1, pos(4, 4, 0)).unwrap());
+            assert!(map.set_weight(1, 3).unwrap());
+            assert!(map.set_avoid(2, true).unwrap());
             assert!(map.is_stored());
             // What happens after storing stops must not reach the file.
             map.stop_storing();
@@ -548,6 +798,10 @@ mod tests {
         assert_eq!(square.pos, pos(0, 1, 0));
         assert_eq!(square.exits, BTreeMap::from([("s".to_owned(), 1)]));
         assert_eq!(map.room(1).unwrap().pos, pos(4, 4, 0));
+        assert_eq!(
+            (map.room(1).unwrap().weight, map.room(2).unwrap().avoid),
+            (3, true)
+        );
 
         let mut map = map;
         map.clear().unwrap();

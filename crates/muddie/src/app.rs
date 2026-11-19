@@ -437,6 +437,30 @@ impl App {
                     }
                 }
             }
+            // Toggles whether routes may pass through a room: the given
+            // one, or the current one.
+            "/avoid" => {
+                let toggled = {
+                    let mut map = self.map.borrow_mut();
+                    let room = match argument.parse::<RoomId>() {
+                        Ok(id) => map.room(id),
+                        Err(_) if argument.is_empty() => map.current(),
+                        Err(_) => None,
+                    };
+                    let target = room.map(|room| (room.id, !room.avoid, room.name.clone()));
+                    target.map(|(id, avoid, name)| (map.set_avoid(id, avoid), avoid, name))
+                };
+                match toggled {
+                    Some((Ok(_), true, name)) => self.note(&format!("Routes will avoid {name}.")),
+                    Some((Ok(_), false, name)) => {
+                        self.note(&format!("Routes may pass through {name} again."));
+                    }
+                    Some((Err(error), ..)) => {
+                        self.note(&format!("Could not save the map: {error}"))
+                    }
+                    None => self.note("No such room; use /avoid with a room number."),
+                }
+            }
             "/stop" => {
                 let stopped = self.walk.take().is_some();
                 self.note(if stopped {
@@ -582,6 +606,12 @@ impl eframe::App for App {
                 .inner;
             match action {
                 Some(MapAction::Walk(room)) => self.walk_to(room),
+                Some(MapAction::Avoid(room, avoid)) => {
+                    let saved = self.map.borrow_mut().set_avoid(room, avoid);
+                    if let Err(error) = saved {
+                        self.note(&format!("Could not save the map: {error}"));
+                    }
+                }
                 Some(MapAction::Move(room, pos)) => {
                     let saved = self.map.borrow_mut().move_room(room, pos);
                     if let Err(error) = saved {
