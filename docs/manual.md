@@ -74,8 +74,10 @@ anything else is sent to the MUD.
 ## Triggers, aliases and keys without scripting
 
 **Automation**, at the right of the top bar or from its menu, takes the place
-of the game while you work on it: the sections on the left, the list of the
-current one, and the selected item's details in the rest of the window.
+of the game while you work on it: the sections on the left, then the list of
+the current one and the selected item's details. Drag the gap between the
+list and the details to trade their widths. On a wide window the details are
+in two columns, with the item's script beside the rest.
 **Game**, or Escape, goes back; the session keeps running meanwhile. Changes
 are saved by themselves; there is no button to press.
 
@@ -156,7 +158,8 @@ folder and then in `sounds` in the configuration folder.
 ## Settings
 
 **View > Settings…**, in sections: appearance (theme, language, text size and
-font), output (lines kept, timestamps), sessions (logging, reconnection,
+font; the themes are Mocha, Dusk, Tokyo Night, Nord, Graphite, Light and
+High contrast), output (lines kept, timestamps), sessions (logging, reconnection,
 keep-alive) and speech (rate, language, screen reader). They are saved in
 `settings.toml`, which also remembers whether the chat and map panels are
 shown.

@@ -703,33 +703,13 @@ pub fn code_editor(
     response
 }
 
-/// A code editor with its label above it.
-pub fn script_field(
-    ui: &mut Ui,
-    label: &str,
-    value: &mut String,
-    hint: &str,
-    rows: usize,
-) -> Response {
-    ui.vertical(|ui| {
-        ui.spacing_mut().item_spacing.y = 4.0;
-        ui.label(
-            RichText::new(label)
-                .font(theme::font(Weight::Regular, 12.0))
-                .color(theme::current().text_dim),
-        );
-        code_editor(ui, label, value, hint, rows)
-    })
-    .inner
-}
-
 /// A choice between a few views, as a row of words with the current one
 /// raised. Returns the one clicked.
 pub fn segmented(ui: &mut Ui, choices: &[&str], current: usize) -> Option<usize> {
     let theme = theme::current();
     let mut chosen = None;
     Frame::new()
-        .fill(theme.background)
+        .fill(theme.field)
         .corner_radius(CornerRadius::same(9))
         .inner_margin(Margin::same(3))
         .show(ui, |ui| {
@@ -790,7 +770,7 @@ pub fn segmented(ui: &mut Ui, choices: &[&str], current: usize) -> Option<usize>
 pub fn group<R>(ui: &mut Ui, add_rows: impl FnOnce(&mut Ui) -> R) -> R {
     let theme = theme::current();
     Frame::new()
-        .fill(theme.background)
+        .fill(theme.field)
         .corner_radius(CornerRadius::same(12))
         .inner_margin(Margin::symmetric(14, 3))
         .show(ui, |ui| {

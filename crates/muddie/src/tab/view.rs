@@ -208,7 +208,7 @@ impl Tab {
                             let focused = ui.memory(|memory| memory.has_focus(id));
                             let edge = if focused { theme.accent } else { theme.border };
                             let pill = egui::Frame::new()
-                                .fill(theme.background)
+                                .fill(theme.field)
                                 .stroke(egui::Stroke::new(1.0, edge))
                                 .corner_radius(egui::CornerRadius::same(26))
                                 .inner_margin(egui::Margin {
@@ -316,6 +316,11 @@ impl Tab {
     /// Which panels are shown: the chat's and the map's.
     pub fn panels_shown(&self) -> (bool, bool) {
         (self.show_chat, self.show_map)
+    }
+
+    /// The widths of the automation view's panes, as last dragged.
+    pub fn pane_widths(&self) -> [f32; 2] {
+        self.panes
     }
 
     /// How the connection is doing: a colour for it, and the words.

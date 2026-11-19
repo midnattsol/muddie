@@ -20,6 +20,9 @@ pub struct Theme {
     pub background: Color32,
     /// Bars, side panels and windows.
     pub surface: Color32,
+    /// Where the interface itself takes text: fields and editors. Between
+    /// `background` and `surface`.
+    pub field: Color32,
     /// Controls, and anything raised from a surface.
     pub raised: Color32,
     /// A control under the pointer.
@@ -45,13 +48,51 @@ const fn rgb(hex: u32) -> Color32 {
     Color32::from_rgb((hex >> 16) as u8, (hex >> 8) as u8, hex as u8)
 }
 
+/// Mocha, after the Catppuccin palette: soft, warm darks and pastel
+/// colours, with mauve as the accent.
+const DARK: Theme = Theme {
+    dark: true,
+    background: rgb(0x11111b),
+    surface: rgb(0x1e1e2e),
+    field: rgb(0x181825),
+    raised: rgb(0x313244),
+    hover: rgb(0x45475a),
+    border: rgb(0x2b2c3f),
+    text: rgb(0xcdd6f4),
+    text_dim: rgb(0xa6adc8),
+    text_faint: rgb(0x6c7086),
+    accent: rgb(0xcba6f7),
+    on_accent: rgb(0x1e1e2e),
+    good: rgb(0xa6e3a1),
+    danger: rgb(0xf38ba8),
+    terminal: [
+        rgb(0x45475a),
+        rgb(0xf38ba8),
+        rgb(0xa6e3a1),
+        rgb(0xf9e2af),
+        rgb(0x89b4fa),
+        rgb(0xf5c2e7),
+        rgb(0x94e2d5),
+        rgb(0xbac2de),
+        rgb(0x585b70),
+        rgb(0xf5a2ba),
+        rgb(0xb9ecb5),
+        rgb(0xfbebc6),
+        rgb(0xa5c6fb),
+        rgb(0xf8d4ee),
+        rgb(0xaeeadf),
+        rgb(0xffffff),
+    ],
+};
+
 /// Dusk: the blue-violet of a sky after sunset, with the amber of the
 /// last light as the one accent. The chrome is the lighter tone, and what
 /// is read or typed sits in darker wells.
-const DARK: Theme = Theme {
+const DUSK: Theme = Theme {
     dark: true,
     background: rgb(0x11121b),
     surface: rgb(0x222436),
+    field: rgb(0x1a1c2a),
     raised: rgb(0x2c2f45),
     hover: rgb(0x383c57),
     border: rgb(0x33364e),
@@ -82,10 +123,119 @@ const DARK: Theme = Theme {
     ],
 };
 
+/// After the Tokyo Night palette: deep blues with a blue accent.
+const TOKYO_NIGHT: Theme = Theme {
+    dark: true,
+    background: rgb(0x16161e),
+    surface: rgb(0x1f2335),
+    field: rgb(0x1a1b26),
+    raised: rgb(0x292e42),
+    hover: rgb(0x343a55),
+    border: rgb(0x2a2f45),
+    text: rgb(0xc0caf5),
+    text_dim: rgb(0xa9b1d6),
+    text_faint: rgb(0x565f89),
+    accent: rgb(0x7aa2f7),
+    on_accent: rgb(0x16161e),
+    good: rgb(0x9ece6a),
+    danger: rgb(0xf7768e),
+    terminal: [
+        rgb(0x414868),
+        rgb(0xf7768e),
+        rgb(0x9ece6a),
+        rgb(0xe0af68),
+        rgb(0x7aa2f7),
+        rgb(0xbb9af7),
+        rgb(0x7dcfff),
+        rgb(0xa9b1d6),
+        rgb(0x565f89),
+        rgb(0xff899d),
+        rgb(0xb9f27c),
+        rgb(0xfaba4a),
+        rgb(0x8db0ff),
+        rgb(0xc7a9ff),
+        rgb(0xa4daff),
+        rgb(0xffffff),
+    ],
+};
+
+/// After the Nord palette: cool blue-greys with a frost accent.
+const NORD: Theme = Theme {
+    dark: true,
+    background: rgb(0x242933),
+    surface: rgb(0x2e3440),
+    field: rgb(0x2a303b),
+    raised: rgb(0x3b4252),
+    hover: rgb(0x434c5e),
+    border: rgb(0x394050),
+    text: rgb(0xeceff4),
+    text_dim: rgb(0xc2c9d6),
+    text_faint: rgb(0x7b88a1),
+    accent: rgb(0x88c0d0),
+    on_accent: rgb(0x2e3440),
+    good: rgb(0xa3be8c),
+    danger: rgb(0xbf616a),
+    terminal: [
+        rgb(0x4c566a),
+        rgb(0xbf616a),
+        rgb(0xa3be8c),
+        rgb(0xebcb8b),
+        rgb(0x81a1c1),
+        rgb(0xb48ead),
+        rgb(0x88c0d0),
+        rgb(0xe5e9f0),
+        rgb(0x616e88),
+        rgb(0xd0737d),
+        rgb(0xb4cf9c),
+        rgb(0xf0d8a4),
+        rgb(0x93b4d4),
+        rgb(0xc6a2bf),
+        rgb(0x8fbcbb),
+        rgb(0xffffff),
+    ],
+};
+
+/// Neutral greys with a blue accent, for those who want no tint.
+const GRAPHITE: Theme = Theme {
+    dark: true,
+    background: rgb(0x161618),
+    surface: rgb(0x232326),
+    field: rgb(0x1c1c1f),
+    raised: rgb(0x2e2e33),
+    hover: rgb(0x3a3a40),
+    border: rgb(0x323237),
+    text: rgb(0xededf0),
+    text_dim: rgb(0xa5a5ad),
+    text_faint: rgb(0x6e6e77),
+    accent: rgb(0x5b9dff),
+    on_accent: rgb(0xffffff),
+    good: rgb(0x3ecf8e),
+    danger: rgb(0xff6369),
+    terminal: [
+        rgb(0x3a3a40),
+        rgb(0xf0767e),
+        rgb(0x8fd68a),
+        rgb(0xebc983),
+        rgb(0x6fb1f5),
+        rgb(0xc792ea),
+        rgb(0x63c7d1),
+        rgb(0xcfd2d9),
+        rgb(0x6d717b),
+        rgb(0xff8b94),
+        rgb(0xaeeb9c),
+        rgb(0xffdd93),
+        rgb(0x8fc8ff),
+        rgb(0xe0a8fa),
+        rgb(0x8ae3ec),
+        rgb(0xffffff),
+    ],
+};
+
 const LIGHT: Theme = Theme {
     dark: false,
     background: rgb(0xffffff),
     surface: rgb(0xf5f5f7),
+    field: rgb(0xffffff),
     raised: rgb(0xe9e9ed),
     hover: rgb(0xdddde3),
     border: rgb(0xdcdce1),
@@ -120,6 +270,7 @@ const CONTRAST: Theme = Theme {
     dark: true,
     background: rgb(0x000000),
     surface: rgb(0x000000),
+    field: rgb(0x000000),
     raised: rgb(0x1c1c1c),
     hover: rgb(0x333333),
     border: rgb(0xffffff),
@@ -154,6 +305,10 @@ impl Theme {
     pub fn named(name: ThemeName) -> Self {
         match name {
             ThemeName::Dark => DARK,
+            ThemeName::Dusk => DUSK,
+            ThemeName::TokyoNight => TOKYO_NIGHT,
+            ThemeName::Nord => NORD,
+            ThemeName::Graphite => GRAPHITE,
             ThemeName::Light => LIGHT,
             ThemeName::Contrast => CONTRAST,
         }
@@ -215,8 +370,8 @@ pub fn apply(ctx: &egui::Context, settings: &Settings) -> Result<(), String> {
         let visuals = &mut style.visuals;
         visuals.panel_fill = theme.surface;
         visuals.window_fill = theme.surface;
-        visuals.extreme_bg_color = theme.background;
-        visuals.text_edit_bg_color = Some(theme.background);
+        visuals.extreme_bg_color = theme.field;
+        visuals.text_edit_bg_color = Some(theme.field);
         visuals.faint_bg_color = theme.raised;
         visuals.window_stroke = Stroke::new(1.0, theme.border);
         visuals.window_corner_radius = CornerRadius::same(12);
@@ -339,6 +494,12 @@ fn install_fonts(ctx: &egui::Context, file: &str) -> Result<(), String> {
     }
     let monospace = fonts.families.entry(FontFamily::Monospace).or_default();
     monospace.insert(0, "jetbrains-mono".to_owned());
+    // The symbol and emoji fonts too: MUDs send them, and code can hold them.
+    for name in &fallbacks {
+        if !monospace.contains(name) {
+            monospace.push(name.clone());
+        }
+    }
 
     let mut result = Ok(());
     if !file.is_empty() {

@@ -7,8 +7,17 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ThemeName {
+    /// The default: soft, warm darks with a mauve accent.
     #[default]
     Dark,
+    /// Blue-violet with an amber accent.
+    Dusk,
+    /// Deep blues with a blue accent.
+    TokyoNight,
+    /// Cool blue-greys with a frost accent.
+    Nord,
+    /// Neutral greys with a blue accent.
+    Graphite,
     Light,
     /// Pure black and white with saturated colours, for low vision.
     Contrast,
@@ -68,6 +77,8 @@ pub struct Settings {
     /// Whether the chat and the map have their panels, as last chosen.
     pub show_chat: bool,
     pub show_map: bool,
+    /// The widths of the automation view's first two panes.
+    pub automation_panes: [f32; 2],
 }
 
 impl Default for Settings {
@@ -88,6 +99,7 @@ impl Default for Settings {
             keepalive_seconds: 60,
             show_chat: true,
             show_map: true,
+            automation_panes: [190.0, 320.0],
         }
     }
 }

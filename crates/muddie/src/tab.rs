@@ -136,6 +136,10 @@ pub struct Tab {
     rules_sample: String,
     /// The next key pressed becomes the selected macro's key.
     recording_key: bool,
+    /// The widths of the automation view's first two panes, and how tall
+    /// its details are.
+    panes: [f32; 2],
+    detail_height: f32,
     /// GMCP modules scripts asked to announce, besides the usual ones.
     supports: Vec<String>,
     /// Words scripts gave to complete with, under the name of each list.
@@ -287,6 +291,8 @@ impl Tab {
             rules_changed_at: None,
             rules_sample: String::new(),
             recording_key: false,
+            panes: settings.automation_panes,
+            detail_height: 600.0,
             supports: Vec::new(),
             completions: Vec::new(),
             panel_cells: (0, 0),
@@ -2550,6 +2556,7 @@ mod tests {
         save(&mut settings, "settings");
         // The automation window, with rules of each kind to look at.
         let mut rules = demo_window();
+        rules.set_size(egui::vec2(1500.0, 900.0));
         let app = rules.state_mut().tab_mut();
         app.rules.triggers.push(Trigger {
             name: "Tells".into(),

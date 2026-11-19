@@ -331,7 +331,11 @@ impl App {
                                     let row = widgets::setting_row;
                                     row(ui, tr("Theme"), &mut |ui| {
                                         let name = |theme: ThemeName| match theme {
-                                            ThemeName::Dark => tr("Dark"),
+                                            ThemeName::Dark => "Mocha",
+                                            ThemeName::Dusk => tr("Dusk"),
+                                            ThemeName::TokyoNight => "Tokyo Night",
+                                            ThemeName::Nord => "Nord",
+                                            ThemeName::Graphite => tr("Graphite"),
                                             ThemeName::Light => tr("Light"),
                                             ThemeName::Contrast => tr("High contrast"),
                                         };
@@ -341,6 +345,10 @@ impl App {
                                             .show_ui(ui, |ui| {
                                                 for theme in [
                                                     ThemeName::Dark,
+                                                    ThemeName::Dusk,
+                                                    ThemeName::TokyoNight,
+                                                    ThemeName::Nord,
+                                                    ThemeName::Graphite,
                                                     ThemeName::Light,
                                                     ThemeName::Contrast,
                                                 ] {
@@ -547,8 +555,17 @@ impl eframe::App for App {
         self.tabs[active].show(ui, &self.settings);
         // Panels switched on or off stay that way the next time.
         let shown = self.tabs[active].panels_shown();
-        if shown != (self.settings.show_chat, self.settings.show_map) {
+        let panes = self.tabs[active].pane_widths();
+        let was = (
+            self.settings.show_chat,
+            self.settings.show_map,
+            self.settings.automation_panes,
+        );
+        // Not while something is being dragged: once it is let go.
+        let settled = !ui.input(|input| input.pointer.any_down());
+        if settled && (shown.0, shown.1, panes) != was {
             (self.settings.show_chat, self.settings.show_map) = shown;
+            self.settings.automation_panes = panes;
             if let Some(profiles) = &self.profiles
                 && let Err(error) = self.settings.save(&profiles.settings_path())
             {

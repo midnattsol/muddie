@@ -82,34 +82,95 @@ impl Tab {
         let page = egui::Frame::new()
             .fill(theme.surface)
             .inner_margin(egui::Margin {
-                left: 12,
-                right: 16,
-                top: 6,
-                bottom: 10,
+                left: 8,
+                right: 8,
+                top: 2,
+                bottom: 8,
             });
         CentralPanel::default().frame(page).show(ui, |ui| {
-            let plain = egui::Frame::new().inner_margin(egui::Margin::symmetric(0, 4));
-            Panel::left("automation sections")
-                .frame(plain)
-                .exact_size(180.0)
-                .show_separator_line(false)
-                .show(ui, |ui| self.automation_sections(ui));
-            let list = egui::Frame::new().inner_margin(egui::Margin::symmetric(14, 4));
-            Panel::left("automation list")
-                .frame(list)
-                .resizable(true)
-                .default_size(320.0)
-                .min_size(240.0)
-                .show(ui, |ui| self.automation_list(ui));
-            let detail = egui::Frame::new().inner_margin(egui::Margin::symmetric(24, 6));
-            CentralPanel::default().frame(detail).show(ui, |ui| {
+            // The sections stand alone at the left, with air after them.
+            // The list and the details are two cards; the gap between
+            // them is the one place worth dragging, to trade their widths.
+            const SECTIONS: f32 = 176.0;
+            const AIR: f32 = 18.0;
+            const HANDLE: f32 = 12.0;
+            let full = ui.available_rect_before_wrap();
+            let most = (full.width() - SECTIONS - AIR - HANDLE - 460.0).max(240.0);
+            self.panes[1] = self.panes[1].clamp(240.0, most);
+            let column = |left: f32, width: f32| {
+                egui::Rect::from_min_max(
+                    egui::pos2(left, full.top()),
+                    egui::pos2(left + width, full.bottom()),
+                )
+            };
+            let sections = column(full.left(), SECTIONS);
+            let list = column(sections.right() + AIR, self.panes[1]);
+            let handle = column(list.right(), HANDLE);
+            let detail = column(handle.right(), full.right() - handle.right());
+
+            let id = ui.make_persistent_id("automation handle");
+            let response = ui
+                .interact(handle, id, egui::Sense::drag())
+                .on_hover_cursor(egui::CursorIcon::ResizeHorizontal);
+            response.widget_info(|| {
+                egui::WidgetInfo::labeled(egui::Role::Splitter, true, tr("Resize"))
+            });
+            if response.dragged() {
+                self.panes[1] += response.drag_delta().x;
+                ui.ctx().set_cursor_icon(egui::CursorIcon::ResizeHorizontal);
+            }
+            if response.hovered() || response.dragged() {
+                // A short grip, only while it can be taken.
+                let grip = handle.center();
+                let stroke = egui::Stroke::new(3.0, theme.accent);
+                ui.painter().line_segment(
+                    [grip - egui::vec2(0.0, 18.0), grip + egui::vec2(0.0, 18.0)],
+                    stroke,
+                );
+            }
+
+            let card = egui::CornerRadius::same(14);
+            ui.painter().rect_filled(list, card, theme.field);
+            ui.painter().rect_filled(detail, card, theme.field);
+            let mut pane =
+                |name: &str,
+                 rect: egui::Rect,
+                 raised: bool,
+                 add: &mut dyn FnMut(&mut Self, &mut egui::Ui)| {
+                    // Each pane under its own name, or what one remembers
+                    // (how far it is scrolled, say) would be the other's too.
+                    let builder = egui::UiBuilder::new()
+                        .id_salt(("automation pane", name))
+                        .max_rect(rect)
+                        .layout(egui::Layout::top_down(egui::Align::Min));
+                    ui.scope_builder(builder, |ui| {
+                        ui.set_clip_rect(rect.intersect(ui.clip_rect()));
+                        if raised {
+                            // On a card, fields stand out from it.
+                            ui.visuals_mut().text_edit_bg_color = Some(theme.surface);
+                            ui.visuals_mut().extreme_bg_color = theme.surface;
+                        }
+                        add(self, ui);
+                    });
+                };
+            pane(
+                "sections",
+                sections.shrink2(egui::vec2(2.0, 8.0)),
+                false,
+                &mut |tab, ui| tab.automation_sections(ui),
+            );
+            pane(
+                "list",
+                list.shrink2(egui::vec2(10.0, 12.0)),
+                true,
+                &mut |tab, ui| tab.automation_list(ui),
+            );
+            let inner = detail.shrink2(egui::vec2(26.0, 18.0));
+            pane("detail", inner, true, &mut |tab, ui| {
+                tab.detail_height = inner.height();
                 egui::ScrollArea::vertical()
                     .auto_shrink(false)
-                    .show(ui, |ui| {
-                        // Lines of text are easier read when not too long.
-                        ui.set_max_width(ui.available_width().min(820.0));
-                        self.automation_detail(ui)
-                    });
+                    .show(ui, |ui| tab.automation_detail(ui));
             });
         });
         // Edits are saved by themselves once they stop for a moment, and
@@ -156,6 +217,14 @@ impl Tab {
 
     fn automation_sections(&mut self, ui: &mut egui::Ui) {
         ui.spacing_mut().item_spacing.y = 2.0;
+        let heading = RichText::new(tr("Automation"))
+            .font(theme::font(Weight::Semibold, 17.0))
+            .color(theme::current().text);
+        ui.horizontal(|ui| {
+            ui.add_space(10.0);
+            ui.add(Label::new(heading).selectable(false));
+        });
+        ui.add_space(12.0);
         let counts = [
             self.rules_draft.triggers.len(),
             self.rules_draft.aliases.len(),
@@ -180,17 +249,20 @@ impl Tab {
             }
         }
         ui.add_space(14.0);
-        let saved = self.rules_draft == self.rules && self.script_text == self.script_saved;
-        let state = if saved {
-            tr("All changes saved")
-        } else {
-            tr("Saving…")
-        };
-        ui.label(
-            RichText::new(state)
-                .font(theme::font(Weight::Regular, 11.5))
-                .color(theme::current().text_faint),
-        );
+        ui.horizontal(|ui| {
+            ui.add_space(10.0);
+            let saved = self.rules_draft == self.rules && self.script_text == self.script_saved;
+            let state = if saved {
+                tr("All changes saved")
+            } else {
+                tr("Saving…")
+            };
+            ui.label(
+                RichText::new(state)
+                    .font(theme::font(Weight::Regular, 11.5))
+                    .color(theme::current().text_faint),
+            );
+        });
     }
 
     /// The titles and details of the rules of the current section.
@@ -538,6 +610,7 @@ impl Tab {
     }
 
     fn trigger_detail(&mut self, ui: &mut egui::Ui, index: usize) -> bool {
+        let height = self.detail_height;
         let rule = &mut self.rules_draft.triggers[index];
         let delete = rule_header(
             ui,
@@ -545,190 +618,249 @@ impl Tab {
             &mut rule.enabled,
             tr("Name this trigger"),
         );
-        widgets::caption(ui, tr("When"));
-        let label = if rule.regex {
-            tr("A line matches this regular expression")
-        } else {
-            tr("A line contains this text")
-        };
-        widgets::field(ui, label, &mut rule.pattern, tr("tells you"));
-        widgets::switch_row(ui, &mut rule.regex, tr("Regular expression"));
-        ui.add_space(4.0);
-        widgets::caption(ui, tr("Do"));
-        widgets::editor(
-            ui,
-            tr("Send commands, one per line"),
-            &mut rule.send,
-            "kill %1\nloot",
-            3,
-        );
-        ui.columns(2, |columns| {
-            widgets::field(
-                &mut columns[0],
-                tr("Say"),
-                &mut rule.speak,
-                tr("%1 is here"),
+        let (left, right) = detail_columns(ui);
+        let mut first = column(ui, left, "first");
+        {
+            let ui = &mut first;
+            widgets::caption(ui, tr("When"));
+            let label = if rule.regex {
+                tr("A line matches this regular expression")
+            } else {
+                tr("A line contains this text")
+            };
+            widgets::field(ui, label, &mut rule.pattern, tr("tells you"));
+            widgets::switch_row(ui, &mut rule.regex, tr("Regular expression"));
+            ui.add_space(6.0);
+            widgets::caption(ui, tr("Do"));
+            widgets::editor(
+                ui,
+                tr("Send commands, one per line"),
+                &mut rule.send,
+                "kill %1\nloot",
+                4,
             );
+            ui.columns(2, |columns| {
+                widgets::field(
+                    &mut columns[0],
+                    tr("Say"),
+                    &mut rule.speak,
+                    tr("%1 is here"),
+                );
+                widgets::field(
+                    &mut columns[1],
+                    tr("Play a sound"),
+                    &mut rule.sound,
+                    "alert.ogg",
+                );
+            });
             widgets::field(
-                &mut columns[1],
-                tr("Play a sound"),
-                &mut rule.sound,
-                "alert.ogg",
-            );
-        });
-        ui.columns(2, |columns| {
-            widgets::field(
-                &mut columns[0],
+                ui,
                 tr("Colour the match"),
                 &mut rule.highlight,
                 "yellow, #ffcc00",
             );
-            columns[1].add_space(22.0);
-            widgets::switch_row(&mut columns[1], &mut rule.gag, tr("Hide the line"));
-        });
-        widgets::script_field(
-            ui,
-            tr("Run a script (Luau): m holds the match, line the whole line"),
-            &mut rule.script,
-            "if m[1] ~= \"you\" then\n\tsend(\"assist \" .. m[1])\nend",
-            6,
-        );
-        ui.add_space(4.0);
-        widgets::caption(ui, tr("Try it"));
-        widgets::text_box(ui, &mut self.rules_sample, tr("Paste a line from the MUD"));
-        let rule = &self.rules_draft.triggers[index];
-        let outcome = try_pattern(&rule.regex_source(), &self.rules_sample, |captures| {
-            let mut effects = Vec::new();
-            if !rule.send.trim().is_empty() {
-                effects.push(format!(
-                    "{} {}",
-                    tr("sends"),
-                    fill(rule.send.trim(), captures)
-                ));
+            widgets::switch_row(ui, &mut rule.gag, tr("Hide the line"));
+        }
+        let used = first.min_rect();
+        let mut second = match right {
+            Some(right) => column(ui, right, "second"),
+            None => first,
+        };
+        {
+            let ui = &mut second;
+            if right.is_none() {
+                ui.add_space(6.0);
             }
-            if !rule.speak.trim().is_empty() {
-                effects.push(format!(
-                    "{} “{}”",
-                    tr("says"),
-                    fill(rule.speak.trim(), captures)
-                ));
-            }
-            effects.join(" · ")
-        });
-        show_outcome(ui, outcome);
+            // Beside the rest, the script takes the height there is.
+            let rows = if right.is_some() {
+                script_rows(height, 250.0)
+            } else {
+                8
+            };
+            script_block(
+                ui,
+                tr("Luau, run after the rest. m holds the match, line the whole line."),
+                &mut rule.script,
+                "if m[1] ~= \"you\" then\n\tsend(\"assist \" .. m[1])\nend",
+                rows,
+            );
+            ui.add_space(6.0);
+            widgets::caption(ui, tr("Try it"));
+            widgets::text_box(ui, &mut self.rules_sample, tr("Paste a line from the MUD"));
+            let rule = &self.rules_draft.triggers[index];
+            let outcome = try_pattern(&rule.regex_source(), &self.rules_sample, |captures| {
+                let mut effects = Vec::new();
+                let sent: Vec<String> = crate::rules::commands(&rule.send)
+                    .map(|command| fill(command, captures))
+                    .collect();
+                if !sent.is_empty() {
+                    effects.push(format!("{} {}", tr("sends"), sent.join("; ")));
+                }
+                if !rule.speak.trim().is_empty() {
+                    effects.push(format!(
+                        "{} “{}”",
+                        tr("says"),
+                        fill(rule.speak.trim(), captures)
+                    ));
+                }
+                effects.join(" · ")
+            });
+            show_outcome(ui, outcome);
+        }
+        ui.allocate_rect(used.union(second.min_rect()), egui::Sense::hover());
         delete
     }
 
     fn alias_detail(&mut self, ui: &mut egui::Ui, index: usize) -> bool {
+        let height = self.detail_height;
         let rule = &mut self.rules_draft.aliases[index];
         let delete = rule_header(ui, &mut rule.name, &mut rule.enabled, tr("Name this alias"));
-        widgets::caption(ui, tr("When"));
-        let label = if rule.regex {
-            tr("What you type matches this regular expression")
-        } else {
-            tr("You type this word, alone or followed by more")
+        let (left, right) = detail_columns(ui);
+        let mut first = column(ui, left, "first");
+        {
+            let ui = &mut first;
+            widgets::caption(ui, tr("When"));
+            let label = if rule.regex {
+                tr("What you type matches this regular expression")
+            } else {
+                tr("You type this word, alone or followed by more")
+            };
+            widgets::field(ui, label, &mut rule.pattern, "k");
+            widgets::switch_row(ui, &mut rule.regex, tr("Regular expression"));
+            ui.add_space(6.0);
+            widgets::caption(ui, tr("Do"));
+            widgets::editor(
+                ui,
+                tr("Send instead, one command per line"),
+                &mut rule.send,
+                "kill %1",
+                4,
+            );
+            note(ui, tr("%1 stands for what follows the word."));
+        }
+        let used = first.min_rect();
+        let mut second = match right {
+            Some(right) => column(ui, right, "second"),
+            None => first,
         };
-        widgets::field(ui, label, &mut rule.pattern, "k");
-        widgets::switch_row(ui, &mut rule.regex, tr("Regular expression"));
-        ui.add_space(4.0);
-        widgets::caption(ui, tr("Do"));
-        widgets::editor(
-            ui,
-            tr("Send instead, one command per line"),
-            &mut rule.send,
-            "kill %1",
-            3,
-        );
-        let hint = tr("%1 stands for what follows the word.");
-        ui.label(
-            RichText::new(hint)
-                .font(theme::font(Weight::Regular, 11.5))
-                .color(theme::current().text_faint),
-        );
-        widgets::script_field(
-            ui,
-            tr("Run a script (Luau): m holds the match, input what was typed"),
-            &mut rule.script,
-            "send(\"say \" .. string.upper(m[1]))",
-            6,
-        );
-        ui.add_space(4.0);
-        widgets::caption(ui, tr("Try it"));
-        widgets::text_box(ui, &mut self.rules_sample, tr("Type a command"));
-        let rule = &self.rules_draft.aliases[index];
-        let outcome = try_pattern(&rule.regex_source(), &self.rules_sample, |captures| {
-            format!("{} {}", tr("sends"), fill(rule.send.trim(), captures))
-        });
-        show_outcome(ui, outcome);
+        {
+            let ui = &mut second;
+            if right.is_none() {
+                ui.add_space(6.0);
+            }
+            let rows = if right.is_some() {
+                script_rows(height, 250.0)
+            } else {
+                8
+            };
+            script_block(
+                ui,
+                tr("Luau, run after the rest. m holds the match, input what was typed."),
+                &mut rule.script,
+                "send(\"say \" .. string.upper(m[1]))",
+                rows,
+            );
+            ui.add_space(6.0);
+            widgets::caption(ui, tr("Try it"));
+            widgets::text_box(ui, &mut self.rules_sample, tr("Type a command"));
+            let rule = &self.rules_draft.aliases[index];
+            let outcome = try_pattern(&rule.regex_source(), &self.rules_sample, |captures| {
+                let sent: Vec<String> = crate::rules::commands(&rule.send)
+                    .map(|command| fill(command, captures))
+                    .collect();
+                format!("{} {}", tr("sends"), sent.join("; "))
+            });
+            show_outcome(ui, outcome);
+        }
+        ui.allocate_rect(used.union(second.min_rect()), egui::Sense::hover());
         delete
     }
 
     fn macro_detail(&mut self, ui: &mut egui::Ui, index: usize) -> bool {
         let theme = theme::current();
+        let height = self.detail_height;
         let recording = self.recording_key;
+        let mut toggle = false;
         let rule = &mut self.rules_draft.keys[index];
         let delete = rule_header(ui, &mut rule.name, &mut rule.enabled, tr("Name this macro"));
-        widgets::caption(ui, tr("Key"));
-        ui.horizontal(|ui| {
-            let shown = if recording {
-                tr("Press the key…").to_owned()
-            } else if rule.key.trim().is_empty() {
-                tr("None").to_owned()
-            } else {
-                rule.key.trim().to_uppercase().replace('+', " + ")
-            };
-            let colour = if recording { theme.accent } else { theme.text };
-            egui::Frame::new()
-                .fill(theme.background)
-                .stroke(egui::Stroke::new(
-                    1.0,
-                    if recording {
-                        theme.accent
-                    } else {
-                        theme.border
-                    },
-                ))
-                .corner_radius(egui::CornerRadius::same(7))
-                .inner_margin(egui::Margin::symmetric(14, 7))
-                .show(ui, |ui| {
-                    ui.label(
-                        RichText::new(shown)
-                            .font(theme::font(Weight::Medium, 13.5))
-                            .color(colour),
-                    );
-                });
-            let label = if recording {
-                tr("Cancel")
-            } else {
-                tr("Record a key")
-            };
-            if ui.button(label).clicked() {
-                self.recording_key = !recording;
+        let (left, right) = detail_columns(ui);
+        let mut first = column(ui, left, "first");
+        {
+            let ui = &mut first;
+            widgets::caption(ui, tr("Key"));
+            ui.horizontal(|ui| {
+                let shown = if recording {
+                    tr("Press the key…").to_owned()
+                } else if rule.key.trim().is_empty() {
+                    tr("None").to_owned()
+                } else {
+                    rule.key.trim().to_uppercase().replace('+', " + ")
+                };
+                let (colour, edge) = if recording {
+                    (theme.accent, theme.accent)
+                } else {
+                    (theme.text, theme.border)
+                };
+                egui::Frame::new()
+                    .fill(theme.field)
+                    .stroke(egui::Stroke::new(1.0, edge))
+                    .corner_radius(egui::CornerRadius::same(8))
+                    .inner_margin(egui::Margin::symmetric(14, 7))
+                    .show(ui, |ui| {
+                        ui.label(
+                            RichText::new(shown)
+                                .font(theme::font(Weight::Medium, 13.5))
+                                .color(colour),
+                        );
+                    });
+                let label = if recording {
+                    tr("Cancel")
+                } else {
+                    tr("Record a key")
+                };
+                toggle = ui.button(label).clicked();
+            });
+            note(
+                ui,
+                tr("Function keys, keys with Ctrl or Alt, and the numeric keypad can be used."),
+            );
+            ui.add_space(6.0);
+            widgets::caption(ui, tr("Do"));
+            widgets::editor(
+                ui,
+                tr("Send commands, one per line"),
+                &mut rule.send,
+                "north",
+                4,
+            );
+        }
+        let used = first.min_rect();
+        let mut second = match right {
+            Some(right) => column(ui, right, "second"),
+            None => first,
+        };
+        {
+            let ui = &mut second;
+            if right.is_none() {
+                ui.add_space(6.0);
             }
-        });
-        let hint = tr("Function keys, keys with Ctrl or Alt, and the numeric keypad can be used.");
-        ui.label(
-            RichText::new(hint)
-                .font(theme::font(Weight::Regular, 11.5))
-                .color(theme.text_faint),
-        );
-        ui.add_space(4.0);
-        widgets::caption(ui, tr("Do"));
-        let rule = &mut self.rules_draft.keys[index];
-        widgets::editor(
-            ui,
-            tr("Send commands, one per line"),
-            &mut rule.send,
-            "north",
-            3,
-        );
-        widgets::script_field(
-            ui,
-            tr("Run a script (Luau)"),
-            &mut rule.script,
-            "map.walk(map.find(\"Temple\")[1].id)",
-            6,
-        );
+            let rows = if right.is_some() {
+                script_rows(height, 150.0)
+            } else {
+                8
+            };
+            script_block(
+                ui,
+                tr("Luau, run when the key is pressed."),
+                &mut rule.script,
+                "map.walk(map.find(\"Temple\")[1].id)",
+                rows,
+            );
+        }
+        ui.allocate_rect(used.union(second.min_rect()), egui::Sense::hover());
+        if toggle {
+            self.recording_key = !recording;
+        }
         delete
     }
 
@@ -736,71 +868,81 @@ impl Tab {
         let theme = theme::current();
         let rule = &mut self.rules_draft.gauges[index];
         let delete = rule_header(ui, &mut rule.name, &mut rule.enabled, tr("Name this gauge"));
-        widgets::caption(ui, tr("Follows"));
-        ui.columns(2, |columns| {
-            widgets::field(
-                &mut columns[0],
-                tr("Value"),
-                &mut rule.value,
-                "Char.Vitals.hp",
+        let (left, right) = detail_columns(ui);
+        let mut first = column(ui, left, "first");
+        {
+            let ui = &mut first;
+            widgets::caption(ui, tr("Follows"));
+            widgets::field(ui, tr("Value"), &mut rule.value, "Char.Vitals.hp");
+            widgets::field(ui, tr("Maximum"), &mut rule.max, "Char.Vitals.maxhp");
+            note(
+                ui,
+                tr(
+                    "Where the MUD reports it: a GMCP package and the fields inside it, such as Char.Vitals.health.current, or the name of a MSDP variable. The maximum can also be a number.",
+                ),
             );
-            widgets::field(
-                &mut columns[1],
-                tr("Maximum"),
-                &mut rule.max,
-                "Char.Vitals.maxhp",
-            );
-        });
-        let hint = tr(
-            "Where the MUD reports it: a GMCP package and the fields inside it, such as Char.Vitals.health.current, or the name of a MSDP variable. The maximum can also be a number.",
-        );
-        ui.label(
-            RichText::new(hint)
-                .font(theme::font(Weight::Regular, 11.5))
-                .color(theme.text_faint),
-        );
-        ui.add_space(4.0);
-        widgets::caption(ui, tr("Look"));
-        ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing.x = 4.0;
-            ui.label(RichText::new(tr("Colour")).color(theme.text_dim));
-            ui.add_space(8.0);
-            for name in crate::panels::GAUGE_COLOURS {
-                let colour = crate::panels::colour_named(name).unwrap_or(theme.accent);
-                if widgets::swatch(ui, colour, rule.colour == name, tr(name)).clicked() {
-                    rule.colour = name.to_owned();
+            ui.add_space(6.0);
+            widgets::caption(ui, tr("Look"));
+            ui.horizontal(|ui| {
+                ui.spacing_mut().item_spacing.x = 4.0;
+                ui.label(RichText::new(tr("Colour")).color(theme.text_dim));
+                ui.add_space(8.0);
+                for name in crate::panels::GAUGE_COLOURS {
+                    let colour = crate::panels::colour_named(name).unwrap_or(theme.accent);
+                    if widgets::swatch(ui, colour, rule.colour == name, tr(name)).clicked() {
+                        rule.colour = name.to_owned();
+                    }
                 }
-            }
-        });
-        widgets::switch_row(ui, &mut rule.segments, tr("Draw it as cells"));
-        ui.horizontal(|ui| {
-            let label = ui.label(tr("Warn when under"));
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                ui.add(
-                    egui::DragValue::new(&mut rule.low)
-                        .range(0..=100)
-                        .suffix(" %"),
-                )
-                .labelled_by(label.id);
             });
-        });
-        ui.add_space(4.0);
-        widgets::caption(ui, tr("Preview"));
-        let look = muddie_script::GaugeLook {
-            colour: rule.colour.clone(),
-            segments: rule.segments,
-            low: f64::from(rule.low),
+            widgets::switch_row(ui, &mut rule.segments, tr("Draw it as cells"));
+            ui.horizontal(|ui| {
+                let label = ui.label(tr("Warn when under"));
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    ui.add(
+                        egui::DragValue::new(&mut rule.low)
+                            .range(0..=100)
+                            .suffix(" %"),
+                    )
+                    .labelled_by(label.id);
+                });
+            });
+        }
+        let used = first.min_rect();
+        let mut second = match right {
+            Some(right) => column(ui, right, "second"),
+            None => first,
         };
-        let name = if rule.name.trim().is_empty() {
-            tr("Gauge")
-        } else {
-            rule.name.trim()
-        };
-        ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing.x = 22.0;
-            crate::panels::draw_gauge(ui, name, 68.0, 100.0, &look);
-            crate::panels::draw_gauge(ui, name, 21.0, 100.0, &look);
-        });
+        {
+            let ui = &mut second;
+            if right.is_none() {
+                ui.add_space(6.0);
+            }
+            widgets::caption(ui, tr("Preview"));
+            let look = muddie_script::GaugeLook {
+                colour: rule.colour.clone(),
+                segments: rule.segments,
+                low: f64::from(rule.low),
+            };
+            let name = if rule.name.trim().is_empty() {
+                tr("Gauge")
+            } else {
+                rule.name.trim()
+            };
+            // As it will sit under the output: full, half and nearly empty.
+            let strip = egui::Frame::new()
+                .fill(theme.background)
+                .corner_radius(egui::CornerRadius::same(12))
+                .inner_margin(egui::Margin::symmetric(16, 14));
+            strip.show(ui, |ui| {
+                ui.horizontal_wrapped(|ui| {
+                    ui.spacing_mut().item_spacing = egui::vec2(22.0, 12.0);
+                    for value in [100.0, 64.0, 18.0] {
+                        crate::panels::draw_gauge(ui, name, value, 100.0, &look);
+                    }
+                });
+            });
+        }
+        ui.allocate_rect(used.union(second.min_rect()), egui::Sense::hover());
         delete
     }
 
@@ -841,11 +983,9 @@ impl Tab {
                 });
             });
         });
-        let place = RichText::new(path.display().to_string())
-            .font(theme::font(Weight::Regular, 11.5))
-            .color(theme.text_faint);
-        ui.label(place);
-        let rows = ((ui.available_height() - 40.0) / 17.0).max(8.0) as usize;
+        note(ui, &path.display().to_string());
+        // The editor is the whole of the view.
+        let rows = script_rows(self.detail_height, 96.0);
         let hint = "-- Luau\non_gmcp(\"Room.Info\", function(room)\n\tmap.visit({id = room.num, name = room.name, exits = room.exits})\nend)";
         widgets::code_editor(ui, tr("Script"), &mut self.script_text, hint, rows);
         delete
@@ -904,6 +1044,53 @@ impl Tab {
             ui.input_mut(|input| input.events.clear());
         }
     }
+}
+
+/// The regions of the details: one column, or two side by side when there
+/// is room, so that a rule's script can stand beside the rest of it.
+fn detail_columns(ui: &egui::Ui) -> (egui::Rect, Option<egui::Rect>) {
+    let full = ui.available_rect_before_wrap();
+    if full.width() < 820.0 {
+        return (full, None);
+    }
+    let (mut left, mut right) = (full, full);
+    left.set_width((full.width() * 0.4).clamp(360.0, 520.0));
+    right.min.x = left.max.x + 32.0;
+    (left, Some(right))
+}
+
+/// A column of the details, laid out from the top of `rect`.
+fn column(ui: &mut egui::Ui, rect: egui::Rect, name: &str) -> egui::Ui {
+    // Named, so that what is in one column is not taken for what is
+    // in the other.
+    let builder = egui::UiBuilder::new()
+        .id_salt(name)
+        .max_rect(rect)
+        .layout(egui::Layout::top_down(egui::Align::Min));
+    let mut column = ui.new_child(builder);
+    column.spacing_mut().item_spacing.y = 10.0;
+    column
+}
+
+/// How many rows of code fit in a view `height` tall once `taken` of it
+/// has gone to what surrounds the editor.
+fn script_rows(height: f32, taken: f32) -> usize {
+    (((height - taken) / 17.0) as usize).max(8)
+}
+
+/// A line of small print under a control.
+fn note(ui: &mut egui::Ui, text: &str) {
+    let small = RichText::new(text)
+        .font(theme::font(Weight::Regular, 11.5))
+        .color(theme::current().text_faint);
+    ui.label(small);
+}
+
+/// A rule's script: its title, what it is given, and the editor.
+fn script_block(ui: &mut egui::Ui, about: &str, script: &mut String, hint: &str, rows: usize) {
+    widgets::caption(ui, tr("Script"));
+    widgets::code_editor(ui, tr("Script"), script, hint, rows);
+    note(ui, about);
 }
 
 /// The top of a rule's details: its name, set large, with the switch that

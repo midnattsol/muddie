@@ -535,4 +535,19 @@ pub const SPANISH: &[(&str, &str)] = &[
         "Gauges from the MUD's vitals",
         "Indicadores a partir de los vitales del MUD",
     ),
+    ("Dusk", "Atardecer"),
+    ("Graphite", "Grafito"),
+    ("Resize", "Redimensionar"),
+    (
+        "Luau, run after the rest. m holds the match, line the whole line.",
+        "Luau; se ejecuta después de lo demás. m es la coincidencia, line la línea entera.",
+    ),
+    (
+        "Luau, run after the rest. m holds the match, input what was typed.",
+        "Luau; se ejecuta después de lo demás. m es la coincidencia, input lo que escribiste.",
+    ),
+    (
+        "Luau, run when the key is pressed.",
+        "Luau; se ejecuta al pulsar la tecla.",
+    ),
 ];
