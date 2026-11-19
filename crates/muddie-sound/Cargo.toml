@@ -2,6 +2,7 @@
 name = "muddie-sound"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
 description = "Sound playback for the muddie MUD client."
 
 [dependencies]

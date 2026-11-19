@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=muddie
+GenericName=MUD Client
+GenericName[es]=Cliente de MUD
+Comment=A modern, accessible MUD client
+Comment[es]=Un cliente de MUD moderno y accesible
+Exec=muddie
+Terminal=false
+Categories=Game;RolePlaying;Network;
+Keywords=mud;telnet;game;

@@ -2,6 +2,7 @@
 name = "muddie-speech"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
 description = "Speech output for the muddie MUD client."
 
 [dependencies]

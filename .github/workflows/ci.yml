@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace
+
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: linux-x86_64
+            binary: muddie
+          - os: windows-latest
+            name: windows-x86_64
+            binary: muddie.exe
+          - os: macos-latest
+            name: macos-aarch64
+            binary: muddie
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release -p muddie
+      - name: Package
+        shell: bash
+        run: |
+          mkdir muddie-${{ matrix.name }}
+          cp target/release/${{ matrix.binary }} README.md README.es.md LICENSE-MIT LICENSE-APACHE muddie-${{ matrix.name }}/
+          cp -r docs examples muddie-${{ matrix.name }}/
+          if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then cp assets/muddie.desktop muddie-${{ matrix.name }}/; fi
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            7z a muddie-${{ matrix.name }}.zip muddie-${{ matrix.name }}
+          else
+            tar czf muddie-${{ matrix.name }}.tar.gz muddie-${{ matrix.name }}
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: muddie-${{ matrix.name }}
+          path: |
+            muddie-${{ matrix.name }}.zip
+            muddie-${{ matrix.name }}.tar.gz
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [test, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            muddie-*.zip
+            muddie-*.tar.gz

@@ -2147,6 +2147,43 @@ mod tests {
         );
     }
 
+    /// The scripts shipped as examples must at least load without error.
+    #[test]
+    fn example_scripts_load() {
+        let folder = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/scripts");
+        let mut files: Vec<PathBuf> = (std::fs::read_dir(&folder).unwrap())
+            .map(|entry| entry.unwrap().path())
+            .filter(|path| {
+                path.extension()
+                    .is_some_and(|extension| extension == "luau")
+            })
+            .collect();
+        files.sort();
+        assert!(
+            files.len() >= 4,
+            "examples not found in {}",
+            folder.display()
+        );
+        for file in files {
+            let mut engine = Engine::new(Rc::default()).unwrap();
+            engine.load_file(&file);
+            assert_eq!(engine.take_actions(), [], "{}", file.display());
+        }
+    }
+
+    /// The text mapper example maps a room given in its expected format.
+    #[test]
+    fn text_mapper_example_maps_rooms() {
+        let folder = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/scripts");
+        let mut engine = Engine::new(Rc::default()).unwrap();
+        engine.load_file(&folder.join("text-mapper.luau"));
+        engine.on_line("[ Market Square ]");
+        engine.on_line("Exits: north=Gate east=Alley");
+        let map = engine.map.borrow();
+        let room = map.current().unwrap();
+        assert_eq!((room.name.as_str(), room.exits.len()), ("Market Square", 2));
+    }
+
     #[test]
     fn failing_repeating_timer_is_dropped() {
         let mut engine = engine(r#"every(1, function() error("bad") end)"#);

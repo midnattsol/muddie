@@ -2,6 +2,7 @@
 name = "muddie-core"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
 description = "Headless core of the muddie MUD client: telnet, ANSI, session."
 
 [dependencies]
