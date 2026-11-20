@@ -1336,9 +1336,15 @@ impl Tab {
     /// Returns whether there was anything.
     pub(super) fn text_body(&mut self, ui: &mut egui::Ui, id: u32, quiet: bool) -> bool {
         let fixed = self.text_of(id).fixed.clone();
+        // What a drawing put in it has to fit in, there or yet to come.
+        // The map's panel is measured where the map is drawn.
+        let map =
+            (self.layout.panels.iter()).any(|panel| panel.id == id && panel.kind == Kind::Map);
+        if !map {
+            let cells = Self::cells(ui, ui.available_size());
+            self.panel_measured(id, cells, !fixed.is_empty());
+        }
         if !fixed.is_empty() {
-            // What a drawing sent by the server has to fit in.
-            self.panel_cells = Self::cells(ui, ui.available_size());
             let galleys: Vec<_> = fixed
                 .iter()
                 .map(|line| ui.painter().layout_job(server_job(line)))

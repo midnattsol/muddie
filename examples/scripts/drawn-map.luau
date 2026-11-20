@@ -6,8 +6,11 @@
 map.native(false)
 supports("Map.Render 1")
 
--- The panel's size in characters, whenever it changes.
+-- The size in characters of the map's panel, whenever it changes.
 on_event("panel", function(size)
+    if not size.map then
+        return
+    end
     send_gmcp("Map.Render.Size", {
         width = size.columns,
         height = math.clamp(size.rows, 5, 60),

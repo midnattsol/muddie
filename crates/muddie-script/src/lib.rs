@@ -58,6 +58,9 @@
 //! - `on_event(name, fn)`: call `fn` when something happens in the client:
 //!   `"connect"`, `"disconnect"`, or `"panel"` with the size in characters
 //!   of the panel beside the output.
+//! - `panel_size(name)`: how many characters fit across and down a panel
+//!   that shows a drawing, as `{columns, rows}`, or `nil` if it is not on
+//!   the screen yet; the map's panel if none is named.
 //! - `supports(module, ...)`: announce GMCP modules to the server.
 //! - `completions(name, words)`: words for Tab to offer.
 //! - `gauge(name, value, max, options)`: show or update a bar in the status
@@ -227,6 +230,8 @@ pub enum Action {
 
 struct Matcher {
     id: u64,
+    /// The script that made it, which takes it away when run again.
+    owner: String,
     regex: Regex,
     callback: Function,
     /// Group it is switched on and off with, if any.
@@ -242,6 +247,7 @@ enum Binding {
 
 struct Timer {
     id: u64,
+    owner: String,
     /// The group it belongs to; it is passed over while that is off.
     group: Option<String>,
     due: Instant,
@@ -253,6 +259,7 @@ struct Timer {
 /// A callback for GMCP or MSDP data.
 struct DataHandler {
     id: u64,
+    owner: String,
     /// Key of the data it wants, as produced for the data store. For GMCP it
     /// also matches packages under it.
     key: String,
@@ -284,6 +291,14 @@ fn msdp_key(variable: &str) -> String {
 #[derive(Default)]
 struct State {
     last_id: u64,
+    /// The script whose code is running: what it makes is its own, to
+    /// be taken away when that script alone is run again.
+    owner: String,
+    /// Who bound each key, in which group.
+    bound_by: Vec<(String, String, Option<String>)>,
+    /// How many characters fit across and down each panel that shows a
+    /// drawing, by its name in lower case.
+    panel_sizes: HashMap<String, (u32, u32)>,
     triggers: Vec<Matcher>,
     aliases: Vec<Matcher>,
     timers: Vec<Timer>,
@@ -431,6 +446,7 @@ impl State {
 /// or remove triggers while a line is being dispatched.
 struct Hit {
     id: u64,
+    owner: String,
     once: bool,
     /// Byte range of the whole match.
     range: (usize, usize),
@@ -517,7 +533,8 @@ impl Engine {
         match std::fs::read_to_string(path) {
             Ok(code) => {
                 let name = path.file_name().unwrap_or(path.as_os_str());
-                self.exec(&name.to_string_lossy(), &code);
+                let owner = path.display().to_string();
+                self.exec_owned(&owner, &name.to_string_lossy(), &code);
             }
             Err(error) => self.error(format!("cannot read {}: {error}", path.display())),
         }
@@ -544,9 +561,68 @@ impl Engine {
     }
 
     pub fn exec(&mut self, name: &str, code: &str) {
+        self.exec_owned(name, name, code);
+    }
+
+    /// Runs a chunk of code as part of `owner`: what it makes, at once or
+    /// later from what it made, is taken away by [`Self::unload`] of that
+    /// owner. `name` identifies the chunk in error messages.
+    pub fn exec_owned(&mut self, owner: &str, name: &str, code: &str) {
         // The "@" makes errors read `name:line: message`.
         let chunk = self.lua.load(code).set_name(format!("@{name}"));
-        self.guarded(|| chunk.exec());
+        self.as_owner(owner, || chunk.exec());
+    }
+
+    /// Takes away what `owner` made: its triggers, aliases, timers, key
+    /// bindings and handlers. What the other scripts made and what they
+    /// keep is left as it is, so that one script can be run again without
+    /// the rest starting over.
+    pub fn unload(&mut self, owner: &str) {
+        let mut state = self.state.borrow_mut();
+        state.triggers.retain(|matcher| matcher.owner != owner);
+        state.aliases.retain(|matcher| matcher.owner != owner);
+        state.timers.retain(|timer| timer.owner != owner);
+        state.data_handlers.retain(|handler| handler.owner != owner);
+        let bound: Vec<(String, Option<String>)> = (state.bound_by.iter())
+            .filter(|(by, ..)| by == owner)
+            .map(|(_, key, group)| (key.clone(), group.clone()))
+            .collect();
+        state.bound_by.retain(|(by, ..)| by != owner);
+        for (key, group) in bound {
+            if let Some(bindings) = state.bindings.get_mut(&key) {
+                bindings.retain(|(known, _)| *known != group);
+                if bindings.is_empty() {
+                    state.bindings.remove(&key);
+                }
+            }
+        }
+        // A module it is asks for it afresh next time.
+        let stem = Path::new(owner)
+            .file_stem()
+            .map(|stem| stem.to_string_lossy().into_owned());
+        if let Some(stem) = stem {
+            state.modules.remove(&stem);
+        }
+    }
+
+    /// Runs a script file again by itself: what it made before is taken
+    /// away first, and the other scripts are not touched.
+    pub fn reload_file(&mut self, path: &Path) {
+        self.unload(&path.display().to_string());
+        self.load_file(path);
+    }
+
+    /// Forgets a script file, taking away what it made.
+    pub fn unload_file(&mut self, path: &Path) {
+        self.unload(&path.display().to_string());
+        self.files.retain(|loaded| loaded != path);
+    }
+
+    /// Tells scripts how many characters fit across and down the panel
+    /// called `name`, for `panel_size`.
+    pub fn set_panel_size(&mut self, name: &str, columns: u32, rows: u32) {
+        let sizes = &mut self.state.borrow_mut().panel_sizes;
+        sizes.insert(name.trim().to_lowercase(), (columns, rows));
     }
 
     /// Offers a completed output line to the triggers. Returns false if a
@@ -576,16 +652,23 @@ impl Engine {
                     .as_ref()
                     .is_none_or(|group| !state.disabled_groups.contains(group))
             });
+            // Whose it is, for what it makes when it runs.
+            let owner = |group: &Option<String>| {
+                let name = key_name(key);
+                let by =
+                    (state.bound_by.iter()).find(|(_, known, of)| *known == name && of == group);
+                by.map(|(owner, ..)| owner.clone()).unwrap_or_default()
+            };
             match live {
                 Some((_, Binding::Command(command))) => Ok(state.expand(command)),
-                Some((_, Binding::Function(function))) => Err(function.clone()),
+                Some((group, Binding::Function(function))) => Err((owner(group), function.clone())),
                 None => return false,
             }
         };
         match action {
             Ok(command) => self.on_input(&command),
-            Err(function) => {
-                self.guarded(|| function.call::<()>(()));
+            Err((owner, function)) => {
+                self.as_owner(&owner, || function.call::<()>(()));
             }
         }
         true
@@ -701,25 +784,25 @@ impl Engine {
                 Err(error) => return self.error(format!("bad data for {name}: {error}")),
             }
         };
-        let callbacks: Vec<(u64, Function)> = {
+        let callbacks: Vec<(u64, String, Function)> = {
             let mut state = self.state.borrow_mut();
             state.data.insert(key.clone(), data.clone());
             (state.data_handlers.iter())
                 .filter(|handler| handler.covers(&key))
-                .map(|handler| (handler.id, handler.callback.clone()))
+                .map(|handler| (handler.id, handler.owner.clone(), handler.callback.clone()))
                 .collect()
         };
-        for (id, callback) in callbacks {
+        for (id, owner, callback) in callbacks {
             let still_there = (self.state.borrow().data_handlers.iter()).any(|h| h.id == id);
             if still_there {
-                self.guarded(|| callback.call::<()>((data.clone(), name)));
+                self.as_owner(&owner, || callback.call::<()>((data.clone(), name)));
             }
         }
     }
 
     /// Runs the timers that are due at `now`.
     pub fn tick(&mut self, now: Instant) {
-        let due: Vec<(u64, Function, bool)> = {
+        let due: Vec<(u64, String, Function, bool)> = {
             let state = self.state.borrow();
             let off = |timer: &Timer| {
                 timer
@@ -729,12 +812,19 @@ impl Engine {
             };
             (state.timers.iter())
                 .filter(|timer| timer.due <= now)
-                .map(|timer| (timer.id, timer.callback.clone(), off(timer)))
+                .map(|timer| {
+                    (
+                        timer.id,
+                        timer.owner.clone(),
+                        timer.callback.clone(),
+                        off(timer),
+                    )
+                })
                 .collect()
         };
-        for (id, callback, off) in due {
+        for (id, owner, callback, off) in due {
             // One whose group is off lets its turn pass.
-            let ok = off || self.guarded(|| callback.call::<()>(()));
+            let ok = off || self.as_owner(&owner, || callback.call::<()>(()));
             let mut state = self.state.borrow_mut();
             // The callback may have cancelled its own timer.
             let Some(index) = state.timers.iter().position(|timer| timer.id == id) else {
@@ -845,6 +935,7 @@ impl Engine {
             let group = |m: regex::Match| m.as_str().to_owned();
             Some(Hit {
                 id: matcher.id,
+                owner: matcher.owner.clone(),
                 once: matcher.once,
                 range: captures.get(0).map_or((0, 0), |m| (m.start(), m.end())),
                 callback: matcher.callback.clone(),
@@ -864,7 +955,7 @@ impl Engine {
             state.triggers.retain(|trigger| trigger.id != hit.id);
             state.aliases.retain(|alias| alias.id != hit.id);
         }
-        self.guarded(|| {
+        self.as_owner(&hit.owner, || {
             let m = self.lua.create_table()?;
             for (index, group) in hit.groups.iter().enumerate() {
                 m.set(index, group.as_deref())?;
@@ -874,6 +965,15 @@ impl Engine {
             }
             hit.callback.call::<()>((m, text))
         });
+    }
+
+    /// Runs script code as `owner`, whose what it makes then is, and
+    /// under the time budget. Returns whether it succeeded.
+    fn as_owner(&self, owner: &str, run: impl FnOnce() -> mlua::Result<()>) -> bool {
+        let before = std::mem::replace(&mut self.state.borrow_mut().owner, owner.to_owned());
+        let ok = self.guarded(run);
+        self.state.borrow_mut().owner = before;
+        ok
     }
 
     /// Runs script code under the time budget, reporting failure as an
@@ -1441,6 +1541,7 @@ fn install_api(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
                     };
                     let mut state = shared.borrow_mut();
                     let id = state.next_id();
+                    let owner = state.owner.clone();
                     let list = if is_alias {
                         &mut state.aliases
                     } else {
@@ -1448,6 +1549,7 @@ fn install_api(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
                     };
                     list.push(Matcher {
                         id,
+                        owner,
                         regex,
                         callback,
                         group,
@@ -1573,7 +1675,12 @@ fn install_api(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
                     None => None,
                 };
                 let mut state = shared.borrow_mut();
-                let bound = state.bindings.entry(key_name(&key)).or_default();
+                let (key, owner) = (key_name(&key), state.owner.clone());
+                state
+                    .bound_by
+                    .retain(|(_, known, of)| *known != key || *of != group);
+                state.bound_by.push((owner, key.clone(), group.clone()));
+                let bound = state.bindings.entry(key).or_default();
                 // Binding a key again replaces what it did in that group.
                 bound.retain(|(known, _)| *known != group);
                 bound.push((group, binding));
@@ -1729,8 +1836,10 @@ fn install_api(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
                         .max(MIN_TIMER_INTERVAL);
                     let mut state = shared.borrow_mut();
                     let id = state.next_id();
+                    let owner = state.owner.clone();
                     state.timers.push(Timer {
                         id,
+                        owner,
                         group,
                         due: Instant::now() + delay,
                         period: repeats.then_some(delay),
@@ -1753,8 +1862,10 @@ fn install_api(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
             lua.create_function(move |_, (source, callback): (String, Function)| {
                 let mut state = shared.borrow_mut();
                 let id = state.next_id();
+                let owner = state.owner.clone();
                 state.data_handlers.push(DataHandler {
                     id,
+                    owner,
                     key: key(&source),
                     callback,
                 });
@@ -1815,8 +1926,10 @@ fn install_api(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
         lua.create_function(move |_, (name, callback): (String, Function)| {
             let mut state = shared.borrow_mut();
             let id = state.next_id();
+            let owner = state.owner.clone();
             state.data_handlers.push(DataHandler {
                 id,
+                owner,
                 key: event_key(&name),
                 callback,
             });
@@ -1911,6 +2024,25 @@ fn install_api(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
         lua.create_function(move |_, name: String| {
             (shared.borrow_mut().actions).push(Action::ToPanel(name));
             Ok(())
+        })?,
+    )?;
+
+    let shared = Rc::clone(state);
+    let made = lua.clone();
+    add(
+        "panel_size",
+        lua.create_function(move |_, name: Option<String>| {
+            let name = name
+                .unwrap_or_else(|| "map".to_owned())
+                .trim()
+                .to_lowercase();
+            let Some((columns, rows)) = shared.borrow().panel_sizes.get(&name).copied() else {
+                return Ok(Value::Nil);
+            };
+            let size = made.create_table()?;
+            size.set("columns", columns)?;
+            size.set("rows", rows)?;
+            Ok(Value::Table(size))
         })?,
     )?;
 
@@ -2817,5 +2949,80 @@ mod tests {
         engine.on_line("hi");
         assert_eq!(engine.take_actions(), [send("v2 nil")]);
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_script_is_run_again_without_the_others_starting_over() {
+        let dir = std::env::temp_dir().join(format!("muddie-script-owner-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let (keeper, edited) = (dir.join("keeper.luau"), dir.join("edited.luau"));
+        // One keeps something it was told; the other is being worked on.
+        std::fs::write(
+            &keeper,
+            r#"canvas = canvas or {}
+            on_gmcp("Map.Canvas", function(data) table.insert(canvas, data.cell) end)
+            alias("^count$", function() send("kept " .. #canvas) end)"#,
+        )
+        .unwrap();
+        std::fs::write(
+            &edited,
+            r#"trigger("orc", function() send("flee v1") end)
+            bind("f9", function() after(0.01, function() send("late v1") end) end)
+            every(0.01, function() send("tick v1") end)"#,
+        )
+        .unwrap();
+        let mut engine = Engine::new(Rc::default()).unwrap();
+        engine.load_file(&keeper);
+        engine.load_file(&edited);
+        engine.on_gmcp("Map.Canvas.Patch", r#"{"cell": "a"}"#);
+        engine.on_gmcp("Map.Canvas.Patch", r#"{"cell": "b"}"#);
+        // The second is changed and run again by itself.
+        std::fs::write(&edited, r#"trigger("orc", function() send("flee v2") end)"#).unwrap();
+        engine.reload_file(&edited);
+        engine.take_actions();
+        // What it made before is gone, what it makes now is there...
+        engine.on_line("an orc");
+        assert_eq!(engine.take_actions(), [send("flee v2")]);
+        assert!(!engine.on_key("f9"));
+        engine.tick(Instant::now() + Duration::from_secs(1));
+        assert_eq!(engine.take_actions(), []);
+        // ...and the first has all it had, and goes on being told.
+        engine.on_gmcp("Map.Canvas.Patch", r#"{"cell": "c"}"#);
+        engine.on_input("count");
+        assert_eq!(engine.take_actions(), [send("kept 3")]);
+        // What a script makes later, from what it made, is its own too.
+        std::fs::write(
+            &edited,
+            r#"bind("f9", function() trigger("troll", function() send("run") end) end)"#,
+        )
+        .unwrap();
+        engine.reload_file(&edited);
+        assert!(engine.on_key("f9"));
+        engine.on_line("a troll");
+        assert_eq!(engine.take_actions(), [send("run")]);
+        engine.unload_file(&edited);
+        engine.on_line("a troll");
+        assert_eq!(engine.take_actions(), []);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn the_size_of_a_panel_can_be_asked_for() {
+        let mut engine = engine(
+            r#"alias("^size (\\S+)$", function(m)
+                local size = panel_size(m[1] ~= "map" and m[1] or nil)
+                send(size and (size.columns .. "x" .. size.rows) or "none")
+            end)"#,
+        );
+        engine.on_input("size map");
+        engine.set_panel_size("Map", 42, 20);
+        engine.set_panel_size("Radar", 12, 6);
+        engine.on_input("size map");
+        engine.on_input("size radar");
+        engine.on_input("size other");
+        assert_eq!(
+            engine.take_actions(),
+            [send("none"), send("42x20"), send("12x6"), send("none")]
+        );
     }
 }

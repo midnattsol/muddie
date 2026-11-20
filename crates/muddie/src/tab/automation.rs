@@ -534,6 +534,8 @@ impl Tab {
         if own && name != current && crate::profile::valid_name(&name) {
             let renamed = path.with_file_name(format!("{name}.luau"));
             if !renamed.exists() && std::fs::rename(&path, &renamed).is_ok() {
+                // What it made under its old name goes with that name.
+                self.scripts.unload_file(&path);
                 // Switched off, it stays so under its new name.
                 let (was, now) = (
                     crate::rules::script_key(&path),
@@ -558,16 +560,25 @@ impl Tab {
         }
     }
 
-    /// Runs the scripts and the rules afresh, as when connecting, and
-    /// keeps whether that went well, to say so beside the script.
+    /// Runs the script being edited again, by itself, and keeps whether
+    /// that went well, to say so beside it. The other scripts and the
+    /// rules go on as they were, with all they keep.
     pub(super) fn run_scripts(&mut self) {
         // Saved first, if what is being typed has not been yet.
         if self.script_loaded.is_some() && self.script_text != self.script_saved {
             return self.flush_script();
         }
+        let Some(path) = self.script_loaded.clone() else {
+            return;
+        };
         self.answer.clear();
         (self.answering, self.answer_failed) = (true, false);
-        self.load_scripts();
+        // Run now whether or not it is switched on: that says whether it
+        // is run by itself when a session starts, not whether it can be.
+        self.scripts.reload_file(&path);
+        // It is told again how big the panels are.
+        self.panels_untold();
+        self.run_actions();
         self.answering = false;
         let said = std::mem::take(&mut self.answer);
         let at = chrono::Local::now().format("%H:%M:%S").to_string();
@@ -874,8 +885,10 @@ impl Tab {
                 let index = self.script_files.iter().position(|file| *file == path);
                 self.rules_selected[SCRIPTS] = index.unwrap_or(0);
                 self.rules_filter.clear();
+                // Run by itself: the others have nothing to start over for.
                 if !text.is_empty() {
-                    self.load_scripts();
+                    self.scripts.load_file(&path);
+                    self.run_actions();
                 }
             }
             Err(error) => self.note(&trf("Could not save the script: {0}", &[&error])),
@@ -954,7 +967,9 @@ impl Tab {
                         ));
                     }
                     self.list_scripts();
-                    self.load_scripts();
+                    // What it made goes with it; the others stay.
+                    self.scripts.unload_file(&path);
+                    self.run_actions();
                 }
             }
             self.rules_selected[section] = index.saturating_sub(1);
@@ -1911,13 +1926,15 @@ impl Tab {
                 // Switched off, it is kept and not run.
                 let key = crate::rules::script_key(&path);
                 let mut on = !self.rules_draft.scripts_off.contains(&key);
-                if widgets::switch(ui, &mut on, tr("Enabled")).changed() {
+                if widgets::switch(ui, &mut on, tr("Enabled"))
+                    .on_hover_text(tr("Enabled"))
+                    .changed()
+                {
                     self.rules_draft.scripts_off.retain(|known| *known != key);
                     if !on {
                         self.rules_draft.scripts_off.push(key);
                     }
                 }
-                ui.label(RichText::new(tr("Enabled")).color(theme.text_dim));
                 let title = TextEdit::singleline(&mut self.script_name)
                     .font(theme::font(Weight::Semibold, 20.0))
                     .frame(egui::Frame::NONE)
@@ -2280,8 +2297,7 @@ fn rule_header(ui: &mut egui::Ui, name: &mut String, enabled: &mut bool, hint: &
     ui.horizontal(|ui| {
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             delete = widgets::icon_button(ui, widgets::Icon::Trash, tr("Delete"), false).clicked();
-            widgets::switch(ui, enabled, tr("Enabled"));
-            ui.label(RichText::new(tr("Enabled")).color(theme.text_dim));
+            widgets::switch(ui, enabled, tr("Enabled")).on_hover_text(tr("Enabled"));
             let title = TextEdit::singleline(name)
                 .font(theme::font(Weight::Semibold, 20.0))
                 .hint_text(RichText::new(hint).color(theme.text_faint))

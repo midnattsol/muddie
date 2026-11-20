@@ -131,9 +131,12 @@ The three, and what else there is:
   `.luau` files. The `+` offers examples to start from: a map the MUD draws
   itself, a map it sends whole, a map read from the room descriptions, words
   to complete given by the MUD, and gauges. A script is saved, and run, a
-  moment after you stop typing; **Run** does it at once, and under its name
-  it says when it ran, or what kept it from running. Switched off with
-  **Enabled**, a script is kept and not run.
+  moment after you stop typing; the triangle does it at once, and under its
+  name it says when it ran, or what kept it from running. Only that script
+  is run again: the others, and the rules, go on with all they keep, and
+  saving a rule does not run the scripts again either. The switch beside it
+  says whether a script is run by itself when a session starts; switched
+  off it is kept, and can still be run by hand with the triangle.
 
 Rules can be put in **groups**, to switch a whole way of playing on and off
 at once: a group holds triggers, aliases, macros and timers alike. Give a

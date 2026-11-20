@@ -27,6 +27,18 @@ the module returns.
 
 ## Sending and showing
 
+### What a script keeps, and when it loses it
+
+What a script holds in its variables lasts while it is loaded. It is kept
+when the connection is lost and made again: scripts are not run again for
+that, only told with `"disconnect"` and `"connect"`. It is kept when another
+script, or a rule, is changed and saved: only what changed is run again. It
+is lost when the script itself is run again, by saving it or with its run
+button, when everything is run again (`/reload`, another profile, a plugin
+switched), and when Muddie is closed. A script that is run again starts
+from its first line with nothing: that is where to ask a MUD for whatever
+it had sent. What must outlast all of this is kept with `remember`.
+
 | Function | What it does |
 |---|---|
 | `send(text)` | Sends a command to the MUD. Aliases are not applied. |
@@ -125,7 +137,8 @@ send_msdp("REPORT", "HEALTH", "MANA")
 | `send_gmcp(package, data)` | Sends a GMCP message. |
 | `on_msdp(variable, fn)`, `msdp(variable)`, `send_msdp(command, ...)` | The same for MSDP. Values arrive as strings. |
 | `supports(module, ...)` | Announces GMCP modules to the server besides the usual ones, as `"Name version"`: `supports("Map.Render 1")`. Some servers only send what was announced. |
-| `on_event(name, fn)` | Calls `fn` when something happens in the client: `"connect"`, `"disconnect"`, `"mxp"` with `{name, value}` when the MUD names a value with MXP (a variable, an entity, or what a flagged element held, such as `RoomName`), or `"panel"` with `{columns, rows}`, the size in characters of the panel beside the output, once it stops changing. For a server that draws its map to fit. |
+| `on_event(name, fn)` | Calls `fn` when something happens in the client: `"connect"`, `"disconnect"`, `"mxp"` with `{name, value}` when the MUD names a value with MXP (a variable, an entity, or what a flagged element held, such as `RoomName`), or `"panel"` with `{name, map, columns, rows}`: the size in characters of a panel that shows a drawing, once it stops changing, after connecting and after the script is run. `map` is true for the map's panel, whatever it is called. |
+| `panel_size(name)` | The size in characters of a panel, as `{columns, rows}`, at once; `nil` if it has not been on the screen. With no name, the map's panel. |
 | `completions(name, words)` | Words for Tab to offer, besides those seen in the output. Each name keeps its own list; `completions(name)` removes it. |
 | `mssp()` | The server's MSSP status as a table. |
 

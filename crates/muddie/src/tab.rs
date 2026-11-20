@@ -240,9 +240,7 @@ pub struct Tab {
     completions: Vec<(String, Vec<String>)>,
     /// The size in characters of the panel beside the output: as it is,
     /// as scripts were last told, and since when it has been as it is.
-    panel_cells: (u32, u32),
-    panel_reported: Option<(u32, u32)>,
-    panel_settling: Option<((u32, u32), Instant)>,
+    panel_sizes: Vec<PanelSize>,
     /// How many characters fit across and down the text of the game,
     /// what the server was last told of it, and since when it has been
     /// as it is.
@@ -368,6 +366,23 @@ type MediaJob = (
     Option<crate::media::Play>,
 );
 
+/// How many characters fit across and down a panel that can show a
+/// drawing, what scripts were last told of it, and since when it has
+/// been as it is.
+struct PanelSize {
+    id: u32,
+    /// Whether it is showing a drawing, or is the map's: only then are
+    /// scripts told when its size changes, though they can always ask.
+    drawing: bool,
+    cells: (u32, u32),
+    told: Option<(u32, u32)>,
+    settling: Option<((u32, u32), Instant)>,
+}
+
+/// What the rules made in the interface are run as: one owner, to take
+/// them away together when they are run again.
+const RULES: &str = "rules";
+
 impl Tab {
     pub fn new(ctx: &egui::Context, startup: Startup, settings: &Settings) -> Self {
         let map = Rc::new(RefCell::new(Map::in_memory()));
@@ -481,9 +496,7 @@ impl Tab {
             detail_height: 600.0,
             supports: Vec::new(),
             completions: Vec::new(),
-            panel_cells: (0, 0),
-            panel_reported: None,
-            panel_settling: None,
+            panel_sizes: Vec::new(),
             window_cells: (0, 0),
             window_reported: None,
             window_settling: None,
@@ -683,13 +696,20 @@ impl Tab {
         // again how big the panel is.
         self.supports.clear();
         self.completions.clear();
-        self.panel_reported = None;
+        self.panels_untold();
         // Variables belong to the session. With a saved profile they are
         // kept with it; without one they last as long as the session, and
         // go with it into a profile if it is then saved as one.
         let passing = std::mem::take(&mut self.variables_passing).then(|| self.scripts.variables());
         self.scripts =
             Engine::new(Rc::clone(&self.map)).expect("failed to start the script runtime");
+        // The new runtime knows as much of the panels as the old one did.
+        let sizes: Vec<(u32, (u32, u32))> = (self.panel_sizes.iter())
+            .map(|size| (size.id, size.cells))
+            .collect();
+        for (id, cells) in sizes {
+            self.panel_size_known(id, cells);
+        }
         match (&self.profiles, &self.profile) {
             (Some(profiles), Some(profile)) => {
                 (self.scripts).use_memory_file(profiles.memory_path(Some(profile)));
@@ -743,9 +763,18 @@ impl Tab {
             self.scripts.load_file(file);
         }
         // The rules run last, as one more script.
+        self.run_rules(&saved_before, session);
+        self.run_actions();
+    }
+
+    /// Runs the rules made in the interface, in place of those that were
+    /// running. Groups switched for the session keep how they were left,
+    /// unless what is saved for them is what changed.
+    fn run_rules(&mut self, saved_before: &[(String, bool)], session: Vec<(String, bool)>) {
+        self.scripts.unload(RULES);
         // Each on its own, so a mistake in one says which and spares the rest.
         for (name, code) in self.rules.chunks() {
-            self.scripts.exec(&name, &code);
+            self.scripts.exec_owned(RULES, &name, &code);
         }
         for (name, on) in session {
             let before = saved_before
@@ -756,21 +785,52 @@ impl Tab {
                 self.scripts.set_group(&name, on);
             }
         }
+    }
+
+    /// Puts the rules as they are now saved to work, without running the
+    /// scripts again: what those keep is not theirs to lose because a
+    /// rule changed. A script switched on or off since is run or stopped.
+    fn reload_rules(&mut self, saved: Option<Rules>) {
+        let saved_before: Vec<(String, bool)> = (self.rules.group_names().into_iter())
+            .map(|name| (self.rules.group_enabled(&name), name))
+            .map(|(on, name)| (name, on))
+            .collect();
+        let session: Vec<(String, bool)> = (self.scripts.groups().into_iter())
+            .map(|name| (self.scripts.group_enabled(&name), name))
+            .map(|(on, name)| (name, on))
+            .collect();
+        let off_before = self.rules.scripts_off.clone();
+        if let Some(rules) = saved {
+            self.rules = rules;
+        }
+        let own: Vec<PathBuf> = (self.profiles.as_ref())
+            .map(|profiles| profiles.editable_scripts(self.profile.as_deref()))
+            .unwrap_or_default();
+        for file in own.iter().filter(|file| file.is_file()) {
+            let key = crate::rules::script_key(file);
+            match (
+                off_before.contains(&key),
+                self.rules.scripts_off.contains(&key),
+            ) {
+                (false, true) => self.scripts.unload_file(file),
+                (true, false) => self.scripts.load_file(file),
+                _ => {}
+            }
+        }
+        self.run_rules(&saved_before, session);
         self.run_actions();
     }
 
     /// Saves the rules edited in the rules window and puts them to work.
     fn save_rules(&mut self) {
+        let draft = self.rules_draft.clone();
         let Some(profiles) = &self.profiles else {
             // Nowhere to keep them: they still work for this session.
-            self.rules = self.rules_draft.clone();
-            return self.load_scripts();
+            return self.reload_rules(Some(draft));
         };
-        let saved = self
-            .rules_draft
-            .save(&profiles.rules_path(self.profile.as_deref()));
+        let saved = draft.save(&profiles.rules_path(self.profile.as_deref()));
         match saved {
-            Ok(()) => self.load_scripts(),
+            Ok(()) => self.reload_rules(Some(draft)),
             Err(error) => self.note(&trf("Could not save the rules: {0}", &[&error])),
         }
     }
@@ -1226,9 +1286,9 @@ impl Tab {
                         self.start_log();
                     }
                     self.note(tr("Connected."));
-                    // The server has yet to hear how big the panel is, and
-                    // the text of the game.
-                    self.panel_reported = None;
+                    // The server has yet to hear how big the panels are,
+                    // and the text of the game.
+                    self.panels_untold();
                     self.window_reported = None;
                     self.scripts.on_event("connect", "");
                     self.run_actions();
@@ -2441,27 +2501,86 @@ impl Tab {
         )
     }
 
-    /// Tells scripts how big the panel is once it has stopped changing,
+    /// Notes how many characters fit in the panel `id`, as it is drawn.
+    /// Scripts can ask for it at once; they are told of a change once it
+    /// has settled.
+    pub(super) fn panel_measured(&mut self, id: u32, cells: (u32, u32), drawing: bool) {
+        match self.panel_sizes.iter_mut().find(|size| size.id == id) {
+            Some(size) => {
+                size.drawing = drawing;
+                if size.cells == cells {
+                    return;
+                }
+                size.cells = cells;
+            }
+            None => self.panel_sizes.push(PanelSize {
+                id,
+                drawing,
+                cells,
+                told: None,
+                settling: None,
+            }),
+        }
+        self.panel_size_known(id, cells);
+    }
+
+    /// Lets scripts ask for the size of the panel `id`, by its name, and
+    /// as `map` if it is the map's.
+    fn panel_size_known(&mut self, id: u32, cells: (u32, u32)) {
+        let Some(panel) = self.layout.panels.iter().find(|panel| panel.id == id) else {
+            return;
+        };
+        self.scripts.set_panel_size(&panel.name, cells.0, cells.1);
+        if panel.kind == layout::Kind::Map {
+            self.scripts.set_panel_size("map", cells.0, cells.1);
+        }
+    }
+
+    /// Scripts are to be told the size of every panel again.
+    fn panels_untold(&mut self) {
+        for size in &mut self.panel_sizes {
+            size.told = None;
+        }
+    }
+
+    /// Tells scripts how big each panel is once it has stopped changing,
     /// so a window being resized does not flood the server.
     pub(super) fn report_panel(&mut self, ctx: &egui::Context) {
         const SETTLED: Duration = Duration::from_millis(250);
-        let cells = self.panel_cells;
-        if self.panel_reported == Some(cells) || cells.0 == 0 {
-            return self.panel_settling = None;
+        let mut settled = Vec::new();
+        for size in &mut self.panel_sizes {
+            let cells = size.cells;
+            if size.told == Some(cells) || cells.0 == 0 || !size.drawing {
+                size.settling = None;
+                continue;
+            }
+            match size.settling {
+                Some((settling, since)) if settling == cells && since.elapsed() >= SETTLED => {
+                    size.settling = None;
+                    size.told = Some(cells);
+                    settled.push((size.id, cells));
+                }
+                Some((settling, _)) if settling == cells => ctx.request_repaint_after(SETTLED),
+                _ => {
+                    size.settling = Some((cells, Instant::now()));
+                    ctx.request_repaint_after(SETTLED);
+                }
+            }
         }
-        match self.panel_settling {
-            Some((settling, since)) if settling == cells && since.elapsed() >= SETTLED => {
-                self.panel_settling = None;
-                self.panel_reported = Some(cells);
-                let size = format!(r#"{{"columns": {}, "rows": {}}}"#, cells.0, cells.1);
-                self.scripts.on_event("panel", &size);
-                self.run_actions();
-            }
-            Some((settling, _)) if settling == cells => ctx.request_repaint_after(SETTLED),
-            _ => {
-                self.panel_settling = Some((cells, Instant::now()));
-                ctx.request_repaint_after(SETTLED);
-            }
+        for (id, cells) in settled {
+            // Which panel it is: by its name, and whether it is the map's,
+            // whatever that one is called.
+            let panel = self.layout.panels.iter().find(|panel| panel.id == id);
+            let name = panel.map(|panel| panel.name.clone()).unwrap_or_default();
+            let map = panel.is_some_and(|panel| panel.kind == layout::Kind::Map);
+            let size = serde_json::json!({
+                "name": name,
+                "map": map,
+                "columns": cells.0,
+                "rows": cells.1,
+            });
+            self.scripts.on_event("panel", &size.to_string());
+            self.run_actions();
         }
     }
 
@@ -2503,7 +2622,8 @@ impl Tab {
         // What a drawing sent by the server has to fit in: the panel, less
         // its title.
         let room = ui.available_size() - egui::vec2(0.0, 22.0);
-        self.panel_cells = Self::cells(ui, room);
+        let cells = Self::cells(ui, room);
+        self.panel_measured(id, cells, true);
         if self.map.borrow().current().is_some() {
             let map = self.map.borrow();
             return self.map_view.show(ui, &map, self.walk.is_some());
@@ -4495,6 +4615,114 @@ end)"#;
         harness.run_steps(3);
         harness.get_by_label("Eva: al norte");
         assert!(harness.query_by_label("Ana: hola").is_none());
+    }
+
+    #[test]
+    fn saving_a_rule_or_a_script_leaves_what_the_other_scripts_keep() {
+        let dir = std::env::temp_dir().join(format!("muddie-partial-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let profiles = Profiles::at(dir.clone());
+        profiles
+            .save("Test", &crate::profile::Profile::default())
+            .unwrap();
+        let scripts = profiles.scripts_dir("Test");
+        std::fs::create_dir_all(&scripts).unwrap();
+        // One script keeps what it is told, as one drawing a map would;
+        // another is the one being worked on.
+        std::fs::write(
+            scripts.join("canvas.luau"),
+            r#"cells = cells or 0
+            on_gmcp("Map.Canvas", function() cells += 1 end)
+            alias("^cells$", function() echo("cells " .. cells) end)"#,
+        )
+        .unwrap();
+        std::fs::write(
+            scripts.join("other.luau"),
+            r#"alias("^v$", function() echo("v1") end)"#,
+        )
+        .unwrap();
+        let mut harness = window(Some(profiles));
+        harness.set_size(egui::vec2(1400.0, 800.0));
+        let app = harness.state_mut().tab_mut();
+        assert!(app.select_profile(Some("Test".into())));
+        let said = |app: &mut Tab, typed: &str| {
+            app.scripts.on_input(typed);
+            app.run_actions();
+            output_lines(app).last().cloned().unwrap_or_default()
+        };
+        app.scripts.on_gmcp("Map.Canvas.Full", "{}");
+        app.scripts.on_gmcp("Map.Canvas.Patch", "{}");
+        assert_eq!(said(app, "cells"), "cells 2");
+        // A rule is made and saved: it takes effect, and the scripts are
+        // not run again for it.
+        app.rules_draft = app.rules.clone();
+        app.rules_draft.aliases.push(Alias {
+            name: "hi".into(),
+            enabled: true,
+            pattern: "hi".into(),
+            send: "say hello".into(),
+            ..Alias::default()
+        });
+        app.save_rules();
+        assert_eq!(said(app, "cells"), "cells 2");
+        let (_events, mut sent) = fake_connection(app);
+        app.scripts.on_input("hi");
+        app.run_actions();
+        assert_eq!(
+            sent.try_recv().ok(),
+            Some(Command::Send("say hello".into()))
+        );
+        // Saved again, the rule is there once, not twice.
+        app.save_rules();
+        app.scripts.on_input("hi");
+        app.run_actions();
+        assert_eq!(
+            sent.try_recv().ok(),
+            Some(Command::Send("say hello".into()))
+        );
+        assert!(sent.try_recv().is_err());
+        // The other script is changed and run again from the editor: it
+        // is the new one, and the first still has what it kept.
+        app.open_automation(automation::SCRIPTS);
+        harness.run_steps(3);
+        let index = (harness.state().tab().script_files.iter())
+            .position(|file| file.ends_with("other.luau"))
+            .unwrap();
+        harness
+            .state_mut()
+            .tab_mut()
+            .select_rule(automation::SCRIPTS, index);
+        harness.run_steps(3);
+        harness.state_mut().tab_mut().script_text =
+            r#"alias("^v$", function() echo("v2") end)"#.into();
+        harness.run_steps(2);
+        harness.get_by_label("Run").click();
+        harness.run_steps(3);
+        let app = harness.state_mut().tab_mut();
+        assert_eq!(said(app, "v"), "v2");
+        assert_eq!(said(app, "cells"), "cells 2");
+        // Switched off, a script is stopped; it can still be run by hand,
+        // and running everything again starts it only if it is on.
+        app.rules_draft = app.rules.clone();
+        app.rules_draft.scripts_off.push("other.luau".into());
+        app.save_rules();
+        let before = output_lines(app).len();
+        app.scripts.on_input("v");
+        app.run_actions();
+        assert_eq!(output_lines(app).len(), before, "it was not stopped");
+        assert_eq!(said(app, "cells"), "cells 2");
+        app.run_scripts();
+        assert_eq!(said(app, "v"), "v2");
+        app.load_scripts();
+        let before = output_lines(app).len();
+        app.scripts.on_input("v");
+        app.run_actions();
+        assert_eq!(
+            output_lines(app).len(),
+            before,
+            "one switched off was started with the rest"
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
