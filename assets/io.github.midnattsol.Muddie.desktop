@@ -1,11 +1,14 @@
 [Desktop Entry]
 Type=Application
-Name=muddie
+Name=Muddie
 GenericName=MUD Client
 GenericName[es]=Cliente de MUD
 Comment=A modern, accessible MUD client
 Comment[es]=Un cliente de MUD moderno y accesible
 Exec=muddie
+Icon=io.github.midnattsol.Muddie
 Terminal=false
-Categories=Game;RolePlaying;Network;
-Keywords=mud;telnet;game;
+StartupNotify=true
+StartupWMClass=io.github.midnattsol.Muddie
+Categories=Game;RolePlaying;
+Keywords=mud;telnet;game;rpg;

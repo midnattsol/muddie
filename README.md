@@ -28,6 +28,19 @@ The binary is `target/release/muddie`. On Linux, speech needs
 speech-dispatcher running, and sound uses `pw-play`, `paplay`, `ffplay` or
 `aplay`, whichever is installed; nothing extra is needed to build.
 
+## Installing on Linux
+
+```
+./install.sh
+```
+
+It builds Muddie and installs it for your user in `~/.local`: the program,
+its entry in the menu of applications, and its icon. `./uninstall.sh` takes
+it away again and keeps your profiles and maps. To install it for everyone:
+`PREFIX=/usr/local sudo -E ./install.sh --no-build` after building.
+
+The icon is made from `assets/icon.png` by `assets/make-icons.sh`.
+
 ## Using
 
 ```

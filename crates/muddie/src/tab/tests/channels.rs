@@ -233,3 +233,21 @@ fn a_channel_goes_to_the_panel_a_script_names() {
     harness.get_by_label("Eva: al norte");
     assert!(harness.query_by_label("Ana: hola").is_none());
 }
+
+#[test]
+fn a_panel_already_called_channels_is_where_the_channels_go() {
+    let mut harness = window(None);
+    let app = harness.state_mut().tab_mut();
+    // Made by a script that sent to it by name, so not marked as the
+    // panel of channels.
+    app.add_to_panel("Channels", &panels::styled_lines("hola").remove(0));
+    app.scripts.exec("t", r#"channel("chat", "Ana: hola")"#);
+    app.run_actions();
+    harness.run_steps(2);
+    let app = harness.state().tab();
+    let text: Vec<(&str, bool)> = (app.layout.panels.iter())
+        .filter(|panel| panel.kind == layout::Kind::Text)
+        .map(|panel| (panel.name.as_str(), panel.channels))
+        .collect();
+    assert_eq!(text, [("Channels", true)], "no Channels 2 is made");
+}

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.midnattsol.Muddie</id>
+  <name>Muddie</name>
+  <summary>A modern, accessible MUD client</summary>
+  <summary xml:lang="es">Un cliente de MUD moderno y accesible</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT OR Apache-2.0</project_license>
+  <developer id="io.github.midnattsol">
+    <name>midnattsol</name>
+  </developer>
+  <description>
+    <p>
+      Muddie plays text games over the network: MUDs. It keeps a map of
+      where you have been, shows what the game sends in panels and gauges,
+      and can be automated with triggers, aliases, timers and Luau scripts.
+    </p>
+    <p>
+      It is made to be used with a screen reader as much as without one.
+    </p>
+    <p xml:lang="es">
+      Muddie sirve para jugar a juegos de texto en red: MUDs. Guarda un mapa
+      de por dónde has pasado, muestra lo que envía el juego en paneles e
+      indicadores, y se puede automatizar con disparadores, alias,
+      temporizadores y scripts en Luau.
+    </p>
+    <p xml:lang="es">
+      Está hecho para usarse con lector de pantalla igual que sin él.
+    </p>
+  </description>
+  <launchable type="desktop-id">io.github.midnattsol.Muddie.desktop</launchable>
+  <url type="homepage">https://github.com/midnattsol/muddie</url>
+  <categories>
+    <category>Game</category>
+    <category>RolePlaying</category>
+  </categories>
+  <content_rating type="oars-1.1"/>
+  <provides>
+    <binary>muddie</binary>
+  </provides>
+  <releases>
+    <release version="0.1.0" date="2026-11-20"/>
+  </releases>
+</component>

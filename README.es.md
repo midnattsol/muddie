@@ -26,6 +26,19 @@ El binario queda en `target/release/muddie`. En Linux la voz necesita
 speech-dispatcher en marcha, y el sonido usa `pw-play`, `paplay`, `ffplay` o
 `aplay`, el que haya instalado; no hace falta nada más para compilar.
 
+## Instalar en Linux
+
+```
+./install.sh
+```
+
+Compila Muddie y lo instala para tu usuario en `~/.local`: el programa, su
+entrada en el menú de aplicaciones y su icono. `./uninstall.sh` lo quita y
+conserva tus perfiles y mapas. Para instalarlo para todos:
+`PREFIX=/usr/local sudo -E ./install.sh --no-build` después de compilar.
+
+El icono se genera a partir de `assets/icon.png` con `assets/make-icons.sh`.
+
 ## Usar
 
 ```

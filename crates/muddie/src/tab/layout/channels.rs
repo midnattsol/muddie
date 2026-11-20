@@ -51,11 +51,18 @@ impl Tab {
         }
     }
 
-    /// With nowhere to show the channels, they are given a panel, under the
-    /// map, as the last of those at its side: one that is hidden is
-    /// somewhere, and is left as it is.
+    /// With nowhere to show the channels, they are given a panel: one of
+    /// text already called Channels, which is then marked to show them, or
+    /// else a new one under the map, as the last of those at its side. One
+    /// that is hidden is somewhere, and is left as it is.
     fn ensure_channels_panel(&mut self) {
         if self.layout.panels.iter().any(|panel| panel.channels) {
+            return;
+        }
+        let named = (self.layout.panels.iter_mut())
+            .find(|panel| panel.kind == Kind::Text && panel.name.eq_ignore_ascii_case("Channels"));
+        if let Some(panel) = named {
+            panel.channels = true;
             return;
         }
         let id = self.layout.next_id();

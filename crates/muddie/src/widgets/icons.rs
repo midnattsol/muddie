@@ -168,33 +168,30 @@ fn draw_trash(painter: &egui::Painter, centre: egui::Pos2, stroke: Stroke) {
     }
 }
 
-/// muddie's mark: the sun on the horizon, and its light on the water.
+/// Muddie's mark: its icon, `size` across. It is only to be looked at;
+/// the name beside it says what it is.
 pub fn logo(ui: &mut Ui, size: f32) {
-    let theme = theme::current();
     let (rect, _) = ui.allocate_exact_size(Vec2::splat(size), Sense::hover());
-    let centre = rect.center();
-    let horizon = centre.y + size * 0.06;
-    let above = egui::Rect::from_min_max(rect.min, egui::pos2(rect.max.x, horizon - size * 0.05));
-    ui.painter().with_clip_rect(above).circle_filled(
-        egui::pos2(centre.x, horizon),
-        size * 0.3,
-        theme.accent,
-    );
-    for (step, (half, strength)) in [(0.46, 1.0), (0.3, 0.6), (0.16, 0.32)]
-        .into_iter()
-        .enumerate()
-    {
-        let y = horizon + size * 0.13 * step as f32;
-        let colour = theme.accent.gamma_multiply(strength);
-        let stroke = Stroke::new((size * 0.055).max(1.5), colour);
-        ui.painter().line_segment(
-            [
-                egui::pos2(centre.x - size * half, y),
-                egui::pos2(centre.x + size * half, y),
-            ],
-            stroke,
-        );
+    let whole = egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0));
+    let texture = logo_texture(ui.ctx());
+    ui.painter()
+        .image(texture.id(), rect, whole, Color32::WHITE);
+}
+
+/// The icon made into a texture once, and kept.
+fn logo_texture(ctx: &egui::Context) -> egui::TextureHandle {
+    let id = egui::Id::unique("muddie logo");
+    if let Some(texture) = ctx.data(|data| data.get_temp::<egui::TextureHandle>(id)) {
+        return texture;
     }
+    let icon =
+        eframe::icon_data::from_png_bytes(crate::brand::ICON_PNG).expect("the icon is a PNG");
+    let size = [icon.width as usize, icon.height as usize];
+    let image = egui::ColorImage::from_rgba_unmultiplied(size, &icon.rgba);
+    let smooth = egui::TextureOptions::LINEAR.with_mipmap_mode(Some(egui::TextureFilter::Linear));
+    let texture = ctx.load_texture("muddie logo", image, smooth);
+    ctx.data_mut(|data| data.insert_temp(id, texture.clone()));
+    texture
 }
 
 /// A soft light that fades out from `centre`, as wide and tall as `radii`.

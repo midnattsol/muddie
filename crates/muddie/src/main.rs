@@ -1,5 +1,6 @@
 mod app;
 mod autosave;
+mod brand;
 mod bundled;
 mod complete;
 mod history;
@@ -91,7 +92,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         viewport: egui::ViewportBuilder::default()
             .with_title("Muddie")
             .with_maximized(true)
-            .with_app_id("muddie")
+            .with_app_id(brand::APP_ID)
+            .with_icon(std::sync::Arc::new(eframe::icon_data::from_png_bytes(
+                brand::ICON_PNG,
+            )?))
             .with_inner_size([1180.0, 760.0])
             .with_min_inner_size([640.0, 400.0]),
         ..Default::default()
