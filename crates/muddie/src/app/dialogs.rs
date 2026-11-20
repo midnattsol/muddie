@@ -73,7 +73,7 @@ impl App {
             &mut self.show_about,
             size::DIALOG_S,
             |ui| {
-                widgets::logo(ui, 64.0);
+                widgets::logo(ui, 80.0);
                 ui.label(
                     RichText::new("Muddie")
                         .font(theme::font(Weight::Semibold, 26.0))

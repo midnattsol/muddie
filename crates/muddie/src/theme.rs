@@ -66,9 +66,11 @@ pub mod size {
     pub const DIALOG_S: f32 = 460.0;
     pub const DIALOG_M: f32 = 620.0;
     pub const DIALOG_L: f32 = 720.0;
-    /// Gaps: inside a group, and between groups.
+    /// Gaps: inside a group, between groups, and between the sections
+    /// of a page.
     pub const GAP_S: f32 = 6.0;
     pub const GAP_M: f32 = 12.0;
+    pub const GAP_L: f32 = 28.0;
 }
 
 /// The contrast text must have with what is behind it to be read: the

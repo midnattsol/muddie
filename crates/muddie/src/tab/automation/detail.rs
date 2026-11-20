@@ -44,23 +44,12 @@ pub(in crate::tab) fn note(ui: &mut egui::Ui, text: &str) {
     ui.label(small);
 }
 
-/// The top of a rule's details: its name, set large, with the switch that
-/// turns it on and the button that deletes it. Returns true to delete.
 /// Beside a switch that is off, that it is: what is not running should
 /// not look as if it were.
 pub(in crate::tab) fn off_badge(ui: &mut egui::Ui, on: bool) {
-    if on {
-        return;
+    if !on {
+        widgets::badge(ui, tr("Disabled"), false);
     }
-    let theme = theme::current();
-    let badge = RichText::new(tr("Disabled"))
-        .font(theme::font(Weight::Medium, 11.5))
-        .color(theme.text_dim);
-    egui::Frame::new()
-        .fill(theme.raised)
-        .corner_radius(egui::CornerRadius::same(6))
-        .inner_margin(egui::Margin::symmetric(7, 2))
-        .show(ui, |ui| ui.add(Label::new(badge).selectable(false)));
 }
 
 /// What a rule does: either the commands it sends or the script it runs.

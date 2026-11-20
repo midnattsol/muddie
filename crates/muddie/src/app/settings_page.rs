@@ -71,11 +71,18 @@ impl App {
                     .min_scrolled_height(height)
                     .auto_shrink([false, false])
                     .show(ui, |ui| {
-                        ui.spacing_mut().item_spacing.y = size::GAP_S;
-                        self.settings_page(ui, ctx);
-                        if let Some(error) = &self.settings_error {
-                            ui.colored_label(theme::current().danger, error);
-                        }
+                        // Room at the right for the bar it scrolls by.
+                        let room = egui::Margin {
+                            right: 14,
+                            ..egui::Margin::ZERO
+                        };
+                        egui::Frame::new().inner_margin(room).show(ui, |ui| {
+                            ui.spacing_mut().item_spacing.y = size::GAP_S;
+                            self.settings_page(ui, ctx);
+                            if let Some(error) = &self.settings_error {
+                                ui.colored_label(theme::current().danger, error);
+                            }
+                        });
                     });
             },
         );
@@ -161,9 +168,7 @@ fn appearance_settings(ui: &mut Ui, settings: &mut Settings) {
             theme_choice(ui, &mut settings.theme)
         });
     });
-    ui.add_space(6.0);
-    widgets::caption(ui, tr("MUD text"));
-    widgets::group(ui, |ui| {
+    widgets::section(ui, tr("MUD text"), |ui| {
         widgets::setting_row(ui, tr("Colours"), &mut |ui| {
             palette_choice(ui, &mut settings.mud_palette)
         });

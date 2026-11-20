@@ -18,8 +18,7 @@ pub(in crate::app) const ENCODINGS: [(&str, &str); 9] = [
 
 /// Where the profile connects to.
 pub(in crate::app) fn server_group(ui: &mut Ui, draft: &mut Profile) {
-    widgets::caption(ui, tr("Server"));
-    widgets::group(ui, |ui| {
+    widgets::section(ui, tr("Server"), |ui| {
         widgets::setting_row(ui, tr("Host"), &mut |ui| {
             widgets::row_field(ui, &mut draft.host, "mud.example.org", size::FIELD_L)
         });
@@ -74,8 +73,7 @@ pub(in crate::app) fn encoding_choice(ui: &mut Ui, encoding: &mut String) -> egu
 
 /// Who to log in as.
 pub(in crate::app) fn login_group(ui: &mut Ui, edit: &mut ProfileEdit) {
-    widgets::caption(ui, tr("Log in"));
-    widgets::group(ui, |ui| {
+    widgets::section(ui, tr("Log in"), |ui| {
         widgets::setting_row(ui, tr("Character"), &mut |ui| {
             widgets::row_field(ui, &mut edit.draft.character, "", size::FIELD_L)
         });
@@ -99,8 +97,7 @@ pub(in crate::app) fn login_group(ui: &mut Ui, edit: &mut ProfileEdit) {
 
 /// Connecting again when the connection drops, and keeping it alive.
 pub(in crate::app) fn keeping_group(ui: &mut Ui, prefs: &mut SessionPrefs) {
-    widgets::caption(ui, tr("Keeping the connection"));
-    widgets::group(ui, |ui| {
+    widgets::section(ui, tr("Keeping the connection"), |ui| {
         widgets::switch_setting(
             ui,
             &mut prefs.reconnect,
@@ -130,8 +127,7 @@ pub(in crate::app) fn keeping_group(ui: &mut Ui, prefs: &mut SessionPrefs) {
 /// The session's log, and the sounds the MUD asks for.
 pub(in crate::app) fn logs_group(ui: &mut Ui, prefs: &mut SessionPrefs) {
     use crate::settings::LogFormat;
-    widgets::caption(ui, tr("Logs and sounds"));
-    widgets::group(ui, |ui| {
+    widgets::section(ui, tr("Logs and sounds"), |ui| {
         widgets::switch_setting(ui, &mut prefs.log_sessions, tr("Log every session"));
         widgets::row_note(
             ui,

@@ -59,9 +59,24 @@ fn shows_welcome() {
         .open_settings(crate::app::Section::Profiles);
     welcome.run_steps(4);
     save(&mut welcome, "profiles");
+    // One in use, under the pointer.
+    welcome.state_mut().tab_mut().profile = Some("Aardwolf".into());
+    welcome.run_steps(2);
+    welcome
+        .get_by_label("Aardwolf, aardmud.org:4000, In use")
+        .hover();
+    welcome.run_steps(3);
+    save(&mut welcome, "profiles-hover");
     welcome.state_mut().edit_profile("Aardwolf");
     welcome.run_steps(4);
     save(&mut welcome, "profile");
+    // Further down: how it is kept, its logs, and its plugins.
+    welcome.get_by_label("Log every session").scroll_to_me();
+    welcome.run_steps(3);
+    save(&mut welcome, "profile-middle");
+    welcome.get_by_label("Install").scroll_to_me();
+    welcome.run_steps(3);
+    save(&mut welcome, "profile-end");
     std::fs::remove_dir_all(&dir).unwrap();
 }
 

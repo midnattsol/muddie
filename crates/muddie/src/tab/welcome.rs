@@ -33,8 +33,8 @@ fn sky(ui: &egui::Ui) {
 fn heading(ui: &mut egui::Ui) {
     let theme = theme::current();
     ui.vertical_centered(|ui| {
-        widgets::logo(ui, 76.0);
-        ui.add_space(4.0);
+        widgets::logo(ui, 104.0);
+        ui.add_space(6.0);
         let name = RichText::new("Muddie")
             .font(theme::font(Weight::Semibold, 32.0))
             .color(theme.text);

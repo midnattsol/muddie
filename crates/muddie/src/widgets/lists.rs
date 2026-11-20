@@ -87,8 +87,9 @@ pub fn list_row(ui: &mut Ui, selected: bool, title: &str, detail: &str, active: 
 }
 
 /// A row of a [`group`] that leads somewhere: its title, what it holds,
-/// a word about it at the right if there is one, and its menu. Returns
-/// the row and the button of its menu.
+/// a word about it in a pill at the right if there is one, and its menu.
+/// The whole row lights up under the pointer or the keyboard's focus.
+/// Returns the row and the button of its menu.
 pub fn link_row(
     ui: &mut Ui,
     title: &str,
@@ -97,56 +98,56 @@ pub fn link_row(
 ) -> (Response, Response) {
     row_start(ui);
     let theme = theme::current();
-    ui.horizontal(|ui| {
-        ui.set_min_height(theme::size::ROW + 6.0);
-        let more = ui
-            .with_layout(Layout::right_to_left(Align::Center), |ui| {
-                let more = icon_button(
-                    ui,
-                    Icon::More,
-                    &crate::i18n::trf("{0} options", &[title]),
-                    false,
-                );
-                if let Some(badge) = badge {
-                    let word = RichText::new(badge)
-                        .font(theme::font(Weight::Medium, 11.5))
-                        .color(theme.accent);
-                    ui.add(egui::Label::new(word).selectable(false));
-                }
-                let (rect, open) = ui.allocate_exact_size(ui.available_size(), Sense::click());
-                open.widget_info(|| {
-                    WidgetInfo::labeled(Role::Button, true, format!("{title}, {detail}"))
-                });
-                if open.hovered() {
-                    ui.painter().rect_filled(
-                        rect.expand2(vec2(8.0, 2.0)),
-                        CornerRadius::same(8),
-                        theme.hover,
-                    );
-                }
-                let painter = ui.painter();
-                let top = rect.left_center() - vec2(0.0, 9.0);
-                painter.text(
-                    top,
-                    egui::Align2::LEFT_CENTER,
-                    title,
-                    theme::font(Weight::Medium, 14.0),
-                    theme.text,
-                );
-                let under = rect.left_center() + vec2(0.0, 9.0);
-                painter.text(
-                    under,
-                    egui::Align2::LEFT_CENTER,
-                    detail,
-                    theme::font(Weight::Regular, 12.0),
-                    theme.text_dim,
-                );
-                (more, open)
-            })
-            .inner;
-        (more.1, more.0)
-    })
-    .inner
+    let height = theme::size::ROW + 14.0;
+    let (rect, open) = ui.allocate_exact_size(vec2(ui.available_width(), height), Sense::click());
+    let said = match badge {
+        Some(badge) => format!("{title}, {detail}, {badge}"),
+        None => format!("{title}, {detail}"),
+    };
+    open.widget_info(|| WidgetInfo::labeled(Role::Button, true, &said));
+    if ui.rect_contains_pointer(rect) || open.has_focus() {
+        let band = rect.expand2(vec2(8.0, -3.0));
+        ui.painter()
+            .rect_filled(band, CornerRadius::same(8), theme.hover);
+    }
+    let painter = ui.painter();
+    let (title_font, detail_font) = (
+        theme::font(Weight::Medium, 14.0),
+        theme::font(Weight::Regular, 12.0),
+    );
+    painter.text(
+        rect.left_center() - vec2(0.0, 9.0),
+        egui::Align2::LEFT_CENTER,
+        title,
+        title_font,
+        theme.text,
+    );
+    painter.text(
+        rect.left_center() + vec2(0.0, 10.0),
+        egui::Align2::LEFT_CENTER,
+        detail,
+        detail_font,
+        theme.text_dim,
+    );
+    let at_right = egui::UiBuilder::new()
+        .max_rect(rect)
+        .layout(Layout::right_to_left(Align::Center));
+    let more = ui
+        .scope_builder(at_right, |ui| {
+            let more = icon_button(
+                ui,
+                Icon::More,
+                &crate::i18n::trf("{0} options", &[title]),
+                false,
+            );
+            if let Some(badge) = badge {
+                ui.add_space(10.0);
+                super::badge(ui, badge, true);
+            }
+            more
+        })
+        .inner;
+    (open, more)
 }
 
 /// A saved profile to pick, as a card: a coloured initial, its name,

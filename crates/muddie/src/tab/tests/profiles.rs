@@ -178,16 +178,16 @@ fn a_profile_keeps_what_is_changed_in_the_settings_as_it_is_changed() {
     );
     harness.state_mut().edit_profile("Reinos");
     harness.run_steps(3);
-    // What depends on the MUD is the profile's, not every session's.
-    (harness.get_by_role_and_label(egui::accesskit::Role::Switch, "Keep the connection alive"))
-        .click();
-    harness.run_steps(2);
     let character = || (egui::accesskit::Role::TextInput, "Character");
     harness
         .get_by_role_and_label(character().0, character().1)
         .focus();
     harness.run_steps(2);
     (harness.get_by_role_and_label(character().0, character().1)).type_text("Naylhena");
+    harness.run_steps(2);
+    // What depends on the MUD is the profile's, not every session's.
+    (harness.get_by_role_and_label(egui::accesskit::Role::Switch, "Keep the connection alive"))
+        .click_accesskit();
     harness.run_steps(2);
     // Closing the settings keeps what was changed, without a button, and
     // the session playing with the profile takes it.

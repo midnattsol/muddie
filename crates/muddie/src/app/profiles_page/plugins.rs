@@ -42,12 +42,9 @@ impl App {
     /// The groups of the plugins: those that come with Muddie, those
     /// installed, and installing one.
     pub(in crate::app) fn plugins_groups(&mut self, ui: &mut Ui) {
-        widgets::caption(ui, tr("Plugins"));
+        widgets::section_caption(ui, tr("Plugins"));
         self.included_group(ui);
-        ui.add_space(size::GAP_S);
         self.installed_group(ui);
-        ui.add_space(size::GAP_S);
-        self.install_group(ui);
     }
 
     /// The plugins that come with Muddie: each with its switch, what it
@@ -89,81 +86,39 @@ impl App {
     }
 
     /// The plugins installed: each with its switch in this profile and
-    /// its menu, and the way to update them all.
+    /// its menu, the way to update them all, and to install another; and
+    /// what the last commands about plugins said.
     pub(in crate::app) fn installed_group(&mut self, ui: &mut Ui) {
-        let installed = self
-            .profiles
-            .as_ref()
+        let installed = (self.profiles.as_ref())
             .map(Profiles::packages)
             .unwrap_or_default();
-        let mut command = None;
-        ui.horizontal(|ui| {
-            widgets::caption(ui, tr("Installed by you"));
-            if !installed.is_empty() {
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if widgets::quiet_button(ui, tr("Update all")).clicked() {
-                        command = Some(
-                            installed
-                                .iter()
-                                .map(|name| format!("/plugin update {name}"))
-                                .collect::<Vec<_>>(),
-                        );
-                    }
-                });
+        let mut commands = Vec::new();
+        widgets::section_caption_with(ui, tr("Installed by you"), |ui| {
+            if !installed.is_empty() && widgets::quiet_button(ui, tr("Update all")).clicked() {
+                commands.extend(
+                    installed
+                        .iter()
+                        .map(|name| format!("/plugin update {name}")),
+                );
             }
         });
         let Some(edit) = self.editing.as_mut() else {
             return;
         };
-        if installed.is_empty() {
-            widgets::row_note(
-                ui,
-                tr(
-                    "No plugins yet. A plugin is a set of scripts someone made for a MUD: a mapper, triggers, gauges.",
-                ),
-            );
-        } else {
-            widgets::group(ui, |ui| {
-                for name in &installed {
-                    if let Some(asked) = installed_row(ui, &mut edit.draft.packages, name) {
-                        command = Some(vec![asked]);
-                    }
-                }
-            });
-        }
-        for command in command.into_iter().flatten() {
-            self.tabs[self.active].plugin_command(&command);
-        }
-    }
-
-    /// Installing a plugin from its address, and what the last commands
-    /// about plugins said.
-    pub(in crate::app) fn install_group(&mut self, ui: &mut Ui) {
-        let mut install = false;
+        let address = &mut self.plugin_address;
         widgets::group(ui, |ui| {
-            widgets::setting_row(ui, tr("Install from"), &mut |ui| {
-                let ready = !self.plugin_address.trim().is_empty();
-                install = ui
-                    .add_enabled_ui(ready, |ui| widgets::button(ui, tr("Install")))
-                    .inner
-                    .clicked();
-                widgets::row_field(
-                    ui,
-                    &mut self.plugin_address,
-                    "https://github.com/…/….git",
-                    size::FIELD_L,
-                )
-            });
-            widgets::row_note(
-                ui,
-                tr(
-                    "The address of the plugin's git repository. Only install what you trust: a plugin can send commands as you.",
-                ),
-            );
+            if installed.is_empty() {
+                ui.add_space(12.0);
+                let none = "No plugins yet. A plugin is a set of scripts someone made for a MUD: a mapper, triggers, gauges.";
+                widgets::row_note(ui, tr(none));
+            }
+            for name in &installed {
+                commands.extend(installed_row(ui, &mut edit.draft.packages, name));
+            }
+            commands.extend(install_row(ui, address));
         });
-        if install {
-            let address = std::mem::take(&mut self.plugin_address);
-            self.tabs[self.active].plugin_command(&format!("/plugin install {}", address.trim()));
+        for command in commands {
+            self.tabs[self.active].plugin_command(&command);
         }
         let (said, busy) = self.tabs[self.active].plugin_answers();
         if busy {
@@ -218,4 +173,25 @@ impl App {
             &[tr(plugin.name), &name],
         ));
     }
+}
+
+/// Installing a plugin from the address of its repository. Returns the
+/// command that installs it, when asked.
+fn install_row(ui: &mut Ui, address: &mut String) -> Option<String> {
+    let mut install = false;
+    widgets::setting_row(ui, tr("Install from"), &mut |ui| {
+        let ready = !address.trim().is_empty();
+        install = ui
+            .add_enabled_ui(ready, |ui| widgets::button(ui, tr("Install")))
+            .inner
+            .clicked();
+        widgets::row_field(ui, address, "https://github.com/…/….git", size::FIELD_L)
+    });
+    widgets::row_note(
+        ui,
+        tr(
+            "The address of the plugin's git repository. Only install what you trust: a plugin can send commands as you.",
+        ),
+    );
+    install.then(|| format!("/plugin install {}", std::mem::take(address).trim()))
 }

@@ -11,6 +11,50 @@ pub fn caption(ui: &mut Ui, text: &str) {
     ui.label(label);
 }
 
+/// A section of a page: its caption, and the card of rows under it.
+pub fn section<R>(ui: &mut Ui, title: &str, add_rows: impl FnOnce(&mut Ui) -> R) -> R {
+    section_caption(ui, title);
+    group(ui, add_rows)
+}
+
+/// The caption of a section of a page, set well apart from what comes
+/// before it, and close to what it names.
+pub fn section_caption(ui: &mut Ui, title: &str) {
+    section_caption_with(ui, title, |_| {});
+}
+
+/// The caption of a section, with something that acts on the whole of it
+/// at the right, such as a quiet button.
+pub fn section_caption_with(ui: &mut Ui, title: &str, right: impl FnOnce(&mut Ui)) {
+    if ui.min_rect().height() > 1.0 {
+        ui.add_space(theme::size::GAP_L - ui.spacing().item_spacing.y);
+    }
+    ui.horizontal(|ui| {
+        caption(ui, title);
+        ui.with_layout(Layout::right_to_left(Align::Center), right);
+    });
+    ui.add_space(2.0);
+}
+
+/// A word about something, in a pill: `strong` in the accent, for what is
+/// so now, or else quiet, for what is not.
+pub fn badge(ui: &mut Ui, text: &str, strong: bool) {
+    let theme = theme::current();
+    let (colour, fill) = match strong {
+        true => (theme.accent, theme.accent.gamma_multiply(0.16)),
+        false => (theme.text_dim, theme.raised),
+    };
+    let galley =
+        ui.painter()
+            .layout_no_wrap(text.to_owned(), theme::font(Weight::Medium, 11.5), colour);
+    let (rect, said) = ui.allocate_exact_size(galley.size() + vec2(16.0, 6.0), Sense::hover());
+    said.widget_info(|| WidgetInfo::labeled(Role::Label, true, text));
+    ui.painter()
+        .rect_filled(rect, CornerRadius::same(u8::MAX), fill);
+    ui.painter()
+        .galley(rect.center() - galley.size() / 2.0, galley, colour);
+}
+
 /// A card holding rows of settings that belong together, in place of a
 /// form: each row names a thing on the left and has its control on the
 /// right, with a hairline between rows.
