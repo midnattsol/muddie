@@ -1,6 +1,6 @@
 //! The panels around the output: what there are, where each one is and
-//! how big, kept per profile. They are made, placed and sized on the game
-//! itself, in its layout mode, not in a form.
+//! how big, kept per profile. They are placed and sized on the game itself,
+//! from their headers, not in a form.
 
 use serde::{Deserialize, Serialize};
 
@@ -244,8 +244,7 @@ pub(super) struct Panels {
     pub(super) saved: layout::Layout,
     /// What each panel was given to show, by the panel's id.
     pub(super) text: Vec<(u32, layout::TextContent)>,
-    /// The layout mode: panels are made, moved and removed.
-    /// The panel being dragged to another side, and one to be removed.
+    /// The panel being dragged to another place.
     pub(super) dragged: Option<u32>,
     /// Where each panel was drawn, to drop another before or after it.
     pub(super) rects: Vec<(u32, egui::Rect)>,

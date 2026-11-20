@@ -31,7 +31,6 @@ impl Tab {
             let (left, right, least) = match side {
                 Side::Left => (8, 4, 160.0),
                 Side::Right => (4, 8, 160.0),
-                // In the layout mode each panel also has its handle's row.
                 // Room for the header and a row of gauges under it.
                 Side::Top | Side::Bottom => (8, 8, 92.0),
             };

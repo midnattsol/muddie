@@ -319,7 +319,8 @@ fn shows_unmapped() {
     save(&mut unmapped, "unmapped");
 }
 
-/// The layout mode, and the gauges made from it.
+/// The panels with their headers, sharing sides and places, and the
+/// gauges made from them.
 fn shows_panels() {
     let mut layout = connected_demo_window();
     layout.set_size(egui::vec2(1500.0, 900.0));

@@ -108,8 +108,8 @@ impl Tab {
         }
     }
 
-    /// The bar of the layout mode: what to do, a way to add a panel, and
-    /// the way out.
+    /// Adds a panel of a kind, under a name not taken, where that kind
+    /// usually goes.
     pub(in crate::tab) fn add_panel(&mut self, kind: Kind) {
         let id = self.layout.next_id();
         // A name not taken: the plain one, then numbered.

@@ -536,13 +536,12 @@ look at it to know what a gauge can follow or a script can use.",
 pub(super) struct DataView {
     /// What the MUD has sent besides text, by name, to look at.
     pub(super) seen: Vec<data::Seen>,
-    /// The debugging view: whether it is on screen, the one chosen in
-    /// its list, and what the list is narrowed to.
+    /// The one chosen in the list, and what the list is narrowed to.
     pub(super) selected: usize,
     pub(super) filter: String,
     /// The protocol whose data alone is listed, if one was chosen.
     pub(super) protocol: Option<String>,
-    /// Whether what arrives is kept while the debugging view is closed,
+    /// Whether what arrives is kept while it is not on screen,
     /// and what the connection was last told about tracing.
     pub(super) keep: bool,
     pub(super) trace_sent: Option<bool>,

@@ -6,8 +6,8 @@ use super::*;
 fn what_the_mud_sends_is_kept_to_look_at_and_made_into_gauges() {
     let mut harness = window(None);
     let (events, _sent) = fake_connection(harness.state_mut().tab_mut());
-    // Kept from the start, as when it is asked to go on outside the
-    // debugging view.
+    // Kept from the start, as when it is asked to go on while it is not
+    // on screen.
     harness.state_mut().tab_mut().data_view.keep = true;
     let vitals = |hp: u32| Event::Gmcp {
         package: "Char.Vitals".into(),
@@ -82,7 +82,7 @@ fn what_arrives_is_kept_only_while_it_is_looked_at() {
         package: "Char.Vitals".into(),
         data: r#"{"hp": 5}"#.into(),
     };
-    // With the debugging view closed, nothing is kept.
+    // With it off the screen, nothing is kept.
     events.send(vitals()).unwrap();
     harness.run_steps(3);
     assert!(harness.state().tab().data_view.seen.is_empty());
