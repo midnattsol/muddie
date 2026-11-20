@@ -195,22 +195,56 @@ impl Tab {
         }
     }
 
+    /// A script's details: its heading, where it is, how it last ran, and
+    /// the editor, which is the whole of the view.
     pub(in crate::tab) fn script_detail(&mut self, ui: &mut egui::Ui, index: usize) -> bool {
-        let theme = theme::current();
         let path = self.editor.script_files[index].clone();
-        if self.editor.script_loaded.as_ref() != Some(&path) {
-            self.flush_script();
-            // A file that is not there yet is an empty script.
-            self.editor.script_text = std::fs::read_to_string(&path).unwrap_or_default();
-            self.editor.script_saved = self.editor.script_text.clone();
-            self.editor.script_seen = self.editor.script_text.clone();
-            self.editor.script_name = path
-                .file_stem()
-                .unwrap_or_default()
-                .to_string_lossy()
-                .into_owned();
-            self.editor.script_loaded = Some(path.clone());
+        self.load_script(&path);
+        let (delete, run) = self.script_heading(ui, &path);
+        note(ui, &path.display().to_string());
+        if run {
+            self.run_scripts();
         }
+        self.script_status(ui);
+        let rows = script_rows(self.editor.detail_height, 118.0);
+        let hint = "-- Luau\non_gmcp(\"Room.Info\", function(room)\n\tmap.visit({id = room.num, name = room.name, exits = room.exits})\nend)";
+        let mistake = self
+            .editor
+            .checks
+            .of(&self.scripts, &self.editor.script_text);
+        widgets::code_editor(
+            ui,
+            tr("Script"),
+            &mut self.editor.script_text,
+            hint,
+            rows,
+            mistake.as_ref(),
+        );
+        delete
+    }
+
+    /// Opens a script to be edited, saving the one that was; a file that
+    /// is not there yet is an empty script.
+    fn load_script(&mut self, path: &std::path::Path) {
+        if self.editor.script_loaded.as_deref() == Some(path) {
+            return;
+        }
+        self.flush_script();
+        self.editor.script_text = std::fs::read_to_string(path).unwrap_or_default();
+        self.editor.script_saved = self.editor.script_text.clone();
+        self.editor.script_seen = self.editor.script_text.clone();
+        self.editor.script_name = path
+            .file_stem()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .into_owned();
+        self.editor.script_loaded = Some(path.to_owned());
+    }
+
+    /// Its name, to change if it is the profile's own, its switch, and the
+    /// buttons that run it and delete it. Switched off, it is kept and not
+    /// run. Returns whether deleting and running were asked.
+    fn script_heading(&mut self, ui: &mut egui::Ui, path: &std::path::Path) -> (bool, bool) {
         let own = path.parent().is_some_and(|dir| dir.ends_with("scripts"));
         let (mut delete, mut run) = (false, false);
         ui.horizontal(|ui| {
@@ -221,8 +255,7 @@ impl Tab {
                 }
                 run = widgets::icon_button(ui, widgets::Icon::Play, tr("Run"), false).clicked();
                 ui.add_space(6.0);
-                // Switched off, it is kept and not run.
-                let key = crate::rules::script_key(&path);
+                let key = crate::rules::script_key(path);
                 let mut on = !self.editor.draft.scripts_off.contains(&key);
                 if widgets::switch(ui, &mut on, tr("Enabled"))
                     .on_hover_text(tr("Enabled"))
@@ -240,42 +273,25 @@ impl Tab {
                     .interactive(own)
                     .desired_width(f32::INFINITY);
                 let field = ui.add(title);
-                ui.ctx().accesskit_node_builder(field.id, |node| {
-                    node.set_label(tr("Name"));
-                });
+                ui.ctx()
+                    .accesskit_node_builder(field.id, |node| node.set_label(tr("Name")));
             });
         });
-        note(ui, &path.display().to_string());
-        if run {
-            self.run_scripts();
-        }
-        // Whether it ran, and when; or what kept it from running.
+        (delete, run)
+    }
+
+    /// Whether it ran, and when; or what kept it from running.
+    fn script_status(&self, ui: &mut egui::Ui) {
         match &self.editor.script_ran {
             Some((_, Some(error))) => {
                 let said = RichText::new(error)
                     .font(theme::font(Weight::Regular, 11.5))
-                    .color(theme.danger);
+                    .color(theme::current().danger);
                 ui.add(Label::new(said).wrap());
             }
             Some((at, None)) => note(ui, &trf("Last run: {0}", &[at])),
             None => note(ui, tr("Runs when saved, shortly after you stop typing.")),
         }
-        // The editor is the whole of the view.
-        let rows = script_rows(self.editor.detail_height, 118.0);
-        let hint = "-- Luau\non_gmcp(\"Room.Info\", function(room)\n\tmap.visit({id = room.num, name = room.name, exits = room.exits})\nend)";
-        let mistake = self
-            .editor
-            .checks
-            .of(&self.scripts, &self.editor.script_text);
-        widgets::code_editor(
-            ui,
-            tr("Script"),
-            &mut self.editor.script_text,
-            hint,
-            rows,
-            mistake.as_ref(),
-        );
-        delete
     }
 }
 
