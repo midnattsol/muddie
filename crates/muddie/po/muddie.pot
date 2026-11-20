@@ -11,6 +11,22 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
+msgid "Line"
+msgstr ""
+
+msgid "Close"
+msgstr ""
+
+#, python-brace-format
+msgid "{0} options"
+msgstr ""
+
+msgid "Search or run a command"
+msgstr ""
+
+msgid "new"
+msgstr ""
+
 msgid "Latest lines"
 msgstr ""
 
@@ -43,28 +59,10 @@ msgstr ""
 msgid "No map yet: the server has not reported a room."
 msgstr ""
 
-msgid "exits"
-msgstr ""
-
-msgid "Area"
-msgstr ""
-
-msgid "Down"
-msgstr ""
-
-msgid "level"
-msgstr ""
-
-msgid "Up"
+msgid "Map view"
 msgstr ""
 
 msgid "Back to me"
-msgstr ""
-
-msgid "Click a room to walk there, right-click for more, Shift+drag to move it."
-msgstr ""
-
-msgid "Map view"
 msgstr ""
 
 msgid "Walk here"
@@ -76,51 +74,23 @@ msgstr ""
 msgid "Avoid in routes"
 msgstr ""
 
-msgid "avoided"
-msgstr ""
-
-msgid "weight"
-msgstr ""
-
 #, python-brace-format
 msgid "Edit {0}"
 msgstr ""
 
-msgid "new"
+msgid "No map yet"
 msgstr ""
 
-msgid "Search or run a command"
+msgid "It is drawn as you walk, if the MUD says which room you are in. If yours tells it another way, or draws the map itself, a script can take it from there."
 msgstr ""
 
-msgid "Close"
+msgid "Set up a mapper"
 msgstr ""
 
-msgid "Line"
-msgstr ""
-
-#, python-brace-format
-msgid "{0} options"
+msgid "Hide the map"
 msgstr ""
 
 msgid "No gauges."
-msgstr ""
-
-msgid "Where do you want to play?"
-msgstr ""
-
-msgid "Connect"
-msgstr ""
-
-msgid "Address"
-msgstr ""
-
-msgid "Secure connection (TLS)"
-msgstr ""
-
-msgid "More options"
-msgstr ""
-
-msgid "Your profiles"
 msgstr ""
 
 #, python-brace-format
@@ -151,25 +121,333 @@ msgstr ""
 msgid "Walking"
 msgstr ""
 
-msgid "Say"
+msgid "The map does not know where you are yet."
 msgstr ""
 
-msgid "Play a sound"
+msgid "No known route to that room."
 msgstr ""
 
-msgid "Colour the match"
+msgid "Arrived."
 msgstr ""
 
-msgid "Hide the line"
+msgid "Walk stopped: this is not the room the route expected."
 msgstr ""
 
-msgid "Show it in the panel"
+msgid "Walk stopped: the last move had no effect."
 msgstr ""
 
-msgid "Resize"
+#, python-brace-format
+msgid "Tidied the map: {0} rooms moved."
+msgstr ""
+
+#, python-brace-format
+msgid "{0} (#{1}) in {2}. Exits: {3}."
+msgstr ""
+
+msgid "No room matches."
+msgstr ""
+
+#, python-brace-format
+msgid "Routes will avoid {0}."
+msgstr ""
+
+#, python-brace-format
+msgid "Routes may pass through {0} again."
+msgstr ""
+
+msgid "No such room; use /map avoid with a room number."
+msgstr ""
+
+msgid "Routes will not use that exit."
+msgstr ""
+
+msgid "Routes may use that exit again."
+msgstr ""
+
+msgid "This room has no such exit."
+msgstr ""
+
+msgid "Walk stopped."
+msgstr ""
+
+msgid "Not walking."
+msgstr ""
+
+msgid "Command"
+msgstr ""
+
+msgid "Type a command"
+msgstr ""
+
+msgid "Find"
+msgstr ""
+
+msgid "Previous"
+msgstr ""
+
+msgid "Next"
+msgstr ""
+
+msgid "Not found."
+msgstr ""
+
+msgid "Connected."
+msgstr ""
+
+#, python-brace-format
+msgid "Disconnected: {0}"
+msgstr ""
+
+msgid "Disconnected."
+msgstr ""
+
+#, python-brace-format
+msgid "Reconnecting in {0} seconds."
+msgstr ""
+
+#, python-brace-format
+msgid "Logging stopped: {0}"
+msgstr ""
+
+msgid "Cannot log: no configuration folder was found."
+msgstr ""
+
+#, python-brace-format
+msgid "Logging to {0}"
+msgstr ""
+
+#, python-brace-format
+msgid "Cannot log: {0}"
+msgstr ""
+
+#, python-brace-format
+msgid "Connecting to {0}:{1}..."
+msgstr ""
+
+msgid "The port must be a number from 1 to 65535."
+msgstr ""
+
+msgid "Enter a host to connect to."
+msgstr ""
+
+#, python-brace-format
+msgid "Unknown text encoding {0}; using the automatic one."
+msgstr ""
+
+#, python-brace-format
+msgid "The map will not be saved: {0}"
+msgstr ""
+
+msgid "The map will not be saved: no data folder was found."
+msgstr ""
+
+msgid "Not connected."
+msgstr ""
+
+#, python-brace-format
+msgid "The password could not be read from the keyring: {0}"
+msgstr ""
+
+#, python-brace-format
+msgid "Could not load the panels: {0}"
+msgstr ""
+
+#, python-brace-format
+msgid "Could not save the panels: {0}"
+msgstr ""
+
+msgid "Scripts reloaded."
+msgstr ""
+
+#, python-brace-format
+msgid "There is no group called {0}; /group lists them."
+msgstr ""
+
+msgid "There are no groups. Give a rule a group in the editor."
+msgstr ""
+
+msgid "on"
+msgstr ""
+
+msgid "off"
+msgstr ""
+
+#, python-brace-format
+msgid "Logging stopped; the log is {0}"
+msgstr ""
+
+msgid "New profile"
+msgstr ""
+
+#, python-brace-format
+msgid "Could not load the profile: {0}"
+msgstr ""
+
+msgid "Profiles cannot be saved: no configuration folder was found."
+msgstr ""
+
+#, python-brace-format
+msgid "Profile {0} saved."
+msgstr ""
+
+#, python-brace-format
+msgid "The password could not be saved in the keyring: {0}"
+msgstr ""
+
+#, python-brace-format
+msgid "Could not save the profile: {0}"
+msgstr ""
+
+msgid "Filtering by this protocol"
+msgstr ""
+
+msgid "In use"
+msgstr ""
+
+msgid "Offered by the MUD, not used by Muddie"
+msgstr ""
+
+msgid "Not offered by this MUD"
+msgstr ""
+
+#, python-brace-format
+msgid "received {0} time"
+msgstr ""
+
+msgid "Values"
+msgstr ""
+
+msgid "Empty message."
+msgstr ""
+
+msgid "Make a gauge"
+msgstr ""
+
+msgid "Copy the path"
+msgstr ""
+
+msgid "A path is what a gauge follows, and what a script reads after gmcp(\"…\")."
+msgstr ""
+
+msgid "Raw message"
+msgstr ""
+
+msgid "History"
+msgstr ""
+
+msgid "Protocols"
+msgstr ""
+
+msgid "Filled: in use. Outlined: offered by the MUD, not used by Muddie. Faint: not offered."
+msgstr ""
+
+msgid "This MUD offers neither GMCP nor MSDP: all it sends is text, and what it says on its channels comes as lines of the game."
+msgstr ""
+
+msgid "Record in the background"
+msgstr ""
+
+msgid "Clear"
+msgstr ""
+
+msgid "Search"
+msgstr ""
+
+msgid "No data received since this view was opened."
+msgstr ""
+
+msgid ""
+"What the MUD sends besides text, with GMCP or MSDP, appears here as it comes:\n"
+"look at it to know what a gauge can follow or a script can use."
+msgstr ""
+
+msgid "Done."
+msgstr ""
+
+msgid "Choose one, or type a command"
+msgstr ""
+
+msgid "Go to, open or run anything"
+msgstr ""
+
+msgid "Settings"
+msgstr ""
+
+msgid "Help"
+msgstr ""
+
+msgid "Keyboard shortcuts"
+msgstr ""
+
+msgid "About Muddie"
+msgstr ""
+
+msgid "Session"
+msgstr ""
+
+msgid "Reconnect"
+msgstr ""
+
+msgid "Disconnect"
+msgstr ""
+
+msgid "New session"
+msgstr ""
+
+msgid "Close session"
+msgstr ""
+
+msgid "Stop logging this session"
+msgstr ""
+
+msgid "Log this session"
+msgstr ""
+
+msgid "Switch speech off"
+msgstr ""
+
+msgid "Switch speech on"
+msgstr ""
+
+msgid "Edit profile"
+msgstr ""
+
+msgid "Save as profile"
+msgstr ""
+
+msgid "Panels"
+msgstr ""
+
+#, python-brace-format
+msgid "Hide {0}"
+msgstr ""
+
+#, python-brace-format
+msgid "Show {0}"
+msgstr ""
+
+msgid "Add a text panel"
+msgstr ""
+
+msgid "Add a panel of gauges"
+msgstr ""
+
+msgid "Add the map"
+msgstr ""
+
+msgid "Connect to profile"
+msgstr ""
+
+msgid "Go to"
+msgstr ""
+
+msgid "Game"
 msgstr ""
 
 msgid "Editor"
+msgstr ""
+
+msgid "Incoming data"
 msgstr ""
 
 msgid "Triggers"
@@ -193,7 +471,112 @@ msgstr ""
 msgid "Scripts"
 msgstr ""
 
-msgid "Incoming data"
+msgid "Where do you want to play?"
+msgstr ""
+
+msgid "Connect"
+msgstr ""
+
+msgid "Address"
+msgstr ""
+
+msgid "Secure connection (TLS)"
+msgstr ""
+
+msgid "More options"
+msgstr ""
+
+msgid "Your profiles"
+msgstr ""
+
+#, python-brace-format
+msgid "Could not load the rules: {0}"
+msgstr ""
+
+#, python-brace-format
+msgid "Could not save the rules: {0}"
+msgstr ""
+
+#, python-brace-format
+msgid "Cannot play the sound: {0}"
+msgstr ""
+
+#, python-brace-format
+msgid "Script error: {0}"
+msgstr ""
+
+#, python-brace-format
+msgid "There is a plugin for {0}. It is offered above the command line."
+msgstr ""
+
+#, python-brace-format
+msgid "There is a plugin for {0}."
+msgstr ""
+
+msgid "Not now"
+msgstr ""
+
+msgid "Enable"
+msgstr ""
+
+msgid "Plugins are enabled per profile: save or choose a profile first."
+msgstr ""
+
+#, python-brace-format
+msgid "Plugin {0} enabled."
+msgstr ""
+
+#, python-brace-format
+msgid "Plugin {0} disabled."
+msgstr ""
+
+msgid "No such plugin is installed; see /plugin list."
+msgstr ""
+
+#, python-brace-format
+msgid "Plugin {0} removed."
+msgstr ""
+
+#, python-brace-format
+msgid "The plugin could not be removed: {0}"
+msgstr ""
+
+#, python-brace-format
+msgid "Plugin {0} installed."
+msgstr ""
+
+#, python-brace-format
+msgid "Plugin {0} updated."
+msgstr ""
+
+#, python-brace-format
+msgid "The plugin could not be installed or updated: {0}"
+msgstr ""
+
+msgid "No plugins are installed. Use /plugin install with a git address."
+msgstr ""
+
+msgid "enabled in this profile"
+msgstr ""
+
+msgid "not enabled; use /plugin enable"
+msgstr ""
+
+#, python-brace-format
+msgid "Installing {0}..."
+msgstr ""
+
+msgid "Plugins need a configuration folder, and none was found."
+msgstr ""
+
+msgid "Give the plugin a name after the address: letters, digits, - and _."
+msgstr ""
+
+#, python-brace-format
+msgid "Updating {0}..."
+msgstr ""
+
+msgid "Resize"
 msgstr ""
 
 msgid "Reload all"
@@ -211,10 +594,10 @@ msgstr ""
 msgid "Groups"
 msgstr ""
 
-msgid "every"
+msgid "Name this gauge"
 msgstr ""
 
-msgid "after"
+msgid "Kind"
 msgstr ""
 
 msgid "Bar"
@@ -232,34 +615,171 @@ msgstr ""
 msgid "Text"
 msgstr ""
 
-msgid "In every session"
+msgid "How full something is, of its maximum."
 msgstr ""
 
-msgid "In this profile"
+msgid "A number as it is: gold, level, experience."
+msgstr ""
+
+msgid "On or off, for what is so or is not: hidden, poisoned, in combat."
+msgstr ""
+
+msgid "What the MUD says, as words: a stance, a target, a place."
+msgstr ""
+
+msgid "Follows"
+msgstr ""
+
+msgid "Value"
+msgstr ""
+
+msgid "none"
+msgstr ""
+
+msgid "Maximum"
+msgstr ""
+
+msgid "It is on when the value is true, a number other than 0, or words other than no, false or off."
+msgstr ""
+
+msgid "Where the MUD reports it: a GMCP package and the fields inside it, such as Char.Vitals.health.current, or the name of a MSDP variable. The maximum can also be a number. Incoming data, in the editor, shows what there is."
+msgstr ""
+
+msgid "Colour"
+msgstr ""
+
+msgid "Colour when on"
+msgstr ""
+
+msgid "Colour when off"
+msgstr ""
+
+msgid "Unlit"
+msgstr ""
+
+msgid "With a colour for each, it says which of the two it is: red for poisoned, green for not."
+msgstr ""
+
+msgid "Colour by level"
+msgstr ""
+
+msgid "It can turn another colour as it gets low: yellow under 60 %, red under 30 %."
+msgstr ""
+
+msgid "Under"
+msgstr ""
+
+msgid "Remove"
+msgstr ""
+
+msgid "Add a level"
+msgstr ""
+
+msgid "Shown in"
+msgstr ""
+
+msgid "There is no panel of gauges to show it in."
+msgstr ""
+
+msgid "In the order of the list: drag a gauge there, or press Alt+Up or Alt+Down, to move it."
+msgstr ""
+
+msgid "Preview"
+msgstr ""
+
+msgid "Gauge"
+msgstr ""
+
+msgid "standing"
+msgstr ""
+
+msgid "Name this alias"
+msgstr ""
+
+msgid "When"
+msgstr ""
+
+msgid "What you type matches this regular expression"
+msgstr ""
+
+msgid "You type this word, alone or followed by more"
+msgstr ""
+
+msgid "Regular expression"
+msgstr ""
+
+msgid "One command per line. %1 stands for what follows the word."
+msgstr ""
+
+msgid "m holds the match, input what was typed."
+msgstr ""
+
+msgid "Try it"
+msgstr ""
+
+msgid "runs the script"
+msgstr ""
+
+msgid "sends"
+msgstr ""
+
+#, python-brace-format
+msgid "Saved in profile {0}."
+msgstr ""
+
+msgid "This session has no profile, so its variables last until it is closed. Save it as a profile, from its tab's menu, to keep them."
+msgstr ""
+
+msgid "Delete"
+msgstr ""
+
+msgid "Name"
+msgstr ""
+
+msgid "A name is made of letters, digits and _, and does not start with a digit."
+msgstr ""
+
+msgid "There is already a variable of that name."
+msgstr ""
+
+msgid "Type"
+msgstr ""
+
+msgid "Drag it, or click it to type."
+msgstr ""
+
+msgid "No fields yet."
+msgstr ""
+
+msgid "No items yet."
+msgstr ""
+
+msgid "Add a field"
+msgstr ""
+
+msgid "Add an item"
+msgstr ""
+
+msgid "What reads as a number, true or false is kept as that; the rest as a string. A table inside is written as JSON."
+msgstr ""
+
+msgid "Usage"
+msgstr ""
+
+msgid "In the commands of a rule"
+msgstr ""
+
+msgid "In a script"
+msgstr ""
+
+msgid "Copy"
+msgstr ""
+
+msgid "Key"
 msgstr ""
 
 #, python-brace-format
 msgid "Could not save the script: {0}"
-msgstr ""
-
-msgid "Add"
-msgstr ""
-
-msgid "Empty script"
-msgstr ""
-
-msgid "From an example"
-msgstr ""
-
-msgid "Search"
-msgstr ""
-
-msgid ""
-"Nothing here yet.\n"
-"Press + to make one."
-msgstr ""
-
-msgid "off"
 msgstr ""
 
 msgid "Deleted."
@@ -272,7 +792,145 @@ msgstr ""
 msgid "Undo"
 msgstr ""
 
+#, python-brace-format
+msgid "Could not delete the script: {0}"
+msgstr ""
+
+msgid "Name this trigger"
+msgstr ""
+
+msgid "One command per line. %1, %2… are the groups of the pattern."
+msgstr ""
+
+msgid "m holds the match, line the whole line."
+msgstr ""
+
+msgid "Contains"
+msgstr ""
+
+msgid "A line matches this regular expression"
+msgstr ""
+
+msgid "A line contains this text"
+msgstr ""
+
+msgid "tells you"
+msgstr ""
+
+msgid "Paste a line from the MUD to try it"
+msgstr ""
+
+msgid "says"
+msgstr ""
+
+msgid "Also"
+msgstr ""
+
+msgid "With the line hidden, it is only in the panel."
+msgstr ""
+
+msgid "+ Add an action"
+msgstr ""
+
+#, python-brace-format
+msgid "Remove “{0}”"
+msgstr ""
+
+msgid "%1 is here"
+msgstr ""
+
+msgid "Choose a panel"
+msgstr ""
+
+msgid "Say"
+msgstr ""
+
+msgid "Play a sound"
+msgstr ""
+
+msgid "Colour the match"
+msgstr ""
+
+msgid "Hide the line"
+msgstr ""
+
+msgid "Show it in the panel"
+msgstr ""
+
 msgid "Scripts of your own are kept per profile: save or choose a profile first."
+msgstr ""
+
+msgid "Script"
+msgstr ""
+
+msgid "Run"
+msgstr ""
+
+msgid "Enabled"
+msgstr ""
+
+#, python-brace-format
+msgid "Last run: {0}"
+msgstr ""
+
+msgid "Runs when saved, shortly after you stop typing."
+msgstr ""
+
+msgid "Name this timer"
+msgstr ""
+
+msgid "Every"
+msgstr ""
+
+msgid "Once, after"
+msgstr ""
+
+msgid "seconds"
+msgstr ""
+
+msgid "Counted from when the session starts or the rules are run again."
+msgstr ""
+
+msgid "Goes off once, that long after the session starts or the rules are run again."
+msgstr ""
+
+msgid "One command per line."
+msgstr ""
+
+msgid "Run each time the timer goes off."
+msgstr ""
+
+msgid "Group"
+msgstr ""
+
+msgid "None"
+msgstr ""
+
+msgid "Choose a group"
+msgstr ""
+
+msgid "Disabled"
+msgstr ""
+
+msgid "Do"
+msgstr ""
+
+msgid "Commands"
+msgstr ""
+
+msgid "Lua"
+msgstr ""
+
+msgid "The pattern is not valid:"
+msgstr ""
+
+msgid "Does not match."
+msgstr ""
+
+msgid "Matches."
+msgstr ""
+
+msgid "Matches:"
 msgstr ""
 
 msgid ""
@@ -308,99 +966,10 @@ msgid ""
 "such as building the map or acting on what your MUD reports."
 msgstr ""
 
-#, python-brace-format
-msgid "Could not delete the script: {0}"
-msgstr ""
-
-msgid "Name this trigger"
-msgstr ""
-
-msgid "When"
-msgstr ""
-
-msgid "Contains"
-msgstr ""
-
-msgid "Regular expression"
-msgstr ""
-
-msgid "A line matches this regular expression"
-msgstr ""
-
-msgid "A line contains this text"
-msgstr ""
-
-msgid "tells you"
-msgstr ""
-
-msgid "Paste a line from the MUD to try it"
-msgstr ""
-
-msgid "runs the script"
-msgstr ""
-
-msgid "sends"
-msgstr ""
-
-msgid "says"
-msgstr ""
-
-msgid "One command per line. %1, %2… are the groups of the pattern."
-msgstr ""
-
-msgid "m holds the match, line the whole line."
-msgstr ""
-
-msgid "Also"
-msgstr ""
-
-#, python-brace-format
-msgid "Remove “{0}”"
-msgstr ""
-
-msgid "%1 is here"
-msgstr ""
-
-msgid "Choose a panel"
-msgstr ""
-
-msgid "With the line hidden, it is only in the panel."
-msgstr ""
-
-msgid "+ Add an action"
-msgstr ""
-
-msgid "Name this alias"
-msgstr ""
-
-msgid "What you type matches this regular expression"
-msgstr ""
-
-msgid "You type this word, alone or followed by more"
-msgstr ""
-
-msgid "One command per line. %1 stands for what follows the word."
-msgstr ""
-
-msgid "m holds the match, input what was typed."
-msgstr ""
-
-msgid "Try it"
-msgstr ""
-
-msgid "Type a command"
-msgstr ""
-
 msgid "Name this macro"
 msgstr ""
 
-msgid "Key"
-msgstr ""
-
 msgid "Press the key…"
-msgstr ""
-
-msgid "None"
 msgstr ""
 
 msgid "Cancel"
@@ -418,228 +987,54 @@ msgstr ""
 msgid "Run when the key is pressed."
 msgstr ""
 
-msgid "Name this timer"
+msgid ""
+"Nothing here yet.\n"
+"Press + to make one."
 msgstr ""
 
-msgid "Every"
+msgid "Add"
 msgstr ""
 
-msgid "Once, after"
+msgid "Empty script"
 msgstr ""
 
-msgid "seconds"
+msgid "From an example"
 msgstr ""
 
-msgid "Counted from when the session starts or the rules are run again."
+msgid "every"
 msgstr ""
 
-msgid "Goes off once, that long after the session starts or the rules are run again."
+msgid "after"
 msgstr ""
 
-msgid "One command per line."
+msgid "In every session"
 msgstr ""
 
-msgid "Run each time the timer goes off."
+msgid "In this profile"
 msgstr ""
 
-msgid "Delete"
+msgid "No gauges here yet."
 msgstr ""
 
-msgid "Name"
+msgid "Add gauges"
 msgstr ""
 
-msgid "A name is made of letters, digits and _, and does not start with a digit."
-msgstr ""
-
-msgid "There is already a variable of that name."
-msgstr ""
-
-msgid "Type"
-msgstr ""
-
-msgid "Value"
-msgstr ""
-
-msgid "Drag it, or click it to type."
-msgstr ""
-
-msgid "No fields yet."
-msgstr ""
-
-msgid "No items yet."
-msgstr ""
-
-msgid "Remove"
-msgstr ""
-
-msgid "Add a field"
-msgstr ""
-
-msgid "Add an item"
-msgstr ""
-
-msgid "What reads as a number, true or false is kept as that; the rest as a string. A table inside is written as JSON."
-msgstr ""
-
-msgid "Usage"
-msgstr ""
-
-msgid "In the commands of a rule"
-msgstr ""
-
-msgid "In a script"
-msgstr ""
-
-msgid "Copy"
-msgstr ""
-
-#, python-brace-format
-msgid "Saved in profile {0}."
-msgstr ""
-
-msgid "This session has no saved profile, so its variables last until it is closed. Save the profile, in Session, Connection, to keep them."
-msgstr ""
-
-msgid "Name this gauge"
-msgstr ""
-
-msgid "Kind"
-msgstr ""
-
-msgid "How full something is, of its maximum."
-msgstr ""
-
-msgid "A number as it is: gold, level, experience."
-msgstr ""
-
-msgid "On or off, for what is so or is not: hidden, poisoned, in combat."
-msgstr ""
-
-msgid "What the MUD says, as words: a stance, a target, a place."
-msgstr ""
-
-msgid "Follows"
-msgstr ""
-
-msgid "none"
-msgstr ""
-
-msgid "Maximum"
-msgstr ""
-
-msgid "It is on when the value is true, a number other than 0, or words other than no, false or off."
-msgstr ""
-
-msgid "Where the MUD reports it: a GMCP package and the fields inside it, such as Char.Vitals.health.current, or the name of a MSDP variable. The maximum can also be a number. Debug shows what there is."
-msgstr ""
-
-msgid "Colour when on"
-msgstr ""
-
-msgid "Colour when off"
-msgstr ""
-
-msgid "Unlit"
-msgstr ""
-
-msgid "With a colour for each, it says which of the two it is: red for poisoned, green for not."
-msgstr ""
-
-msgid "Colour"
-msgstr ""
-
-msgid "Colour by level"
-msgstr ""
-
-msgid "It can turn another colour as it gets low: yellow under 60 %, red under 30 %."
-msgstr ""
-
-msgid "Under"
-msgstr ""
-
-msgid "Add a level"
-msgstr ""
-
-msgid "Shown in"
-msgstr ""
-
-msgid "In the order of the list: drag a gauge there, or press Alt+Up or Alt+Down, to move it."
-msgstr ""
-
-msgid "There is no panel of gauges to show it in."
-msgstr ""
-
-msgid "Add a panel of gauges"
-msgstr ""
-
-msgid "Preview"
-msgstr ""
-
-msgid "Gauge"
-msgstr ""
-
-msgid "standing"
-msgstr ""
-
-msgid "Run"
-msgstr ""
-
-msgid "Enabled"
-msgstr ""
-
-#, python-brace-format
-msgid "Last run: {0}"
-msgstr ""
-
-msgid "Runs when saved, shortly after you stop typing."
-msgstr ""
-
-msgid "Script"
-msgstr ""
-
-msgid "Group"
-msgstr ""
-
-msgid "Choose a group"
-msgstr ""
-
-msgid "Do"
-msgstr ""
-
-msgid "Commands"
-msgstr ""
-
-msgid "Lua"
-msgstr ""
-
-msgid "Disabled"
-msgstr ""
-
-msgid "The pattern is not valid:"
-msgstr ""
-
-msgid "Does not match."
-msgstr ""
-
-msgid "Matches."
-msgstr ""
-
-msgid "Matches:"
-msgstr ""
-
-#, python-brace-format
-msgid "Could not load the panels: {0}"
-msgstr ""
-
-#, python-brace-format
-msgid "Could not save the panels: {0}"
+msgid "Open in the editor"
 msgstr ""
 
 msgid "All"
 msgstr ""
 
-#, python-brace-format
-msgid "Move {0}"
+msgid "Show the MUD's channels here"
+msgstr ""
+
+msgid "Edit the gauges"
+msgstr ""
+
+msgid "Full-height sides"
+msgstr ""
+
+msgid "Side panels reach the top and the bottom"
 msgstr ""
 
 msgid "Place"
@@ -675,178 +1070,23 @@ msgstr ""
 msgid "Detach from tabs"
 msgstr ""
 
-msgid "Show the MUD's channels here"
-msgstr ""
-
-msgid "Edit the gauges"
-msgstr ""
-
-msgid "Full-height sides"
-msgstr ""
-
-msgid "Side panels reach the top and the bottom"
-msgstr ""
-
-#, python-brace-format
-msgid "Hide {0}"
-msgstr ""
-
 #, python-brace-format
 msgid "Remove {0}"
-msgstr ""
-
-msgid "No gauges here yet."
-msgstr ""
-
-msgid "Add gauges"
 msgstr ""
 
 msgid "Nothing here yet. A trigger can show lines in this panel, and so can a script."
 msgstr ""
 
-msgid "Open in the editor"
-msgstr ""
-
-msgid "New profile"
-msgstr ""
-
-msgid "Done."
-msgstr ""
-
-msgid "Go to"
-msgstr ""
-
-msgid "Session"
-msgstr ""
-
-msgid "Panels"
-msgstr ""
-
-msgid "Settings"
-msgstr ""
-
-msgid "Help"
-msgstr ""
-
-msgid "Game"
-msgstr ""
-
-msgid "Reconnect"
-msgstr ""
-
-msgid "Disconnect"
-msgstr ""
-
-msgid "New session"
-msgstr ""
-
-msgid "Close session"
-msgstr ""
-
-msgid "Find"
-msgstr ""
-
-msgid "Stop logging this session"
-msgstr ""
-
-msgid "Log this session"
-msgstr ""
-
-msgid "Switch speech off"
-msgstr ""
-
-msgid "Switch speech on"
-msgstr ""
-
-msgid "Edit profile"
-msgstr ""
-
-msgid "Save as profile"
+#, python-brace-format
+msgid "Move {0}"
 msgstr ""
 
 #, python-brace-format
-msgid "Show {0}"
-msgstr ""
-
-msgid "Add a text panel"
-msgstr ""
-
-msgid "Add the map"
-msgstr ""
-
-msgid "Connect to profile"
-msgstr ""
-
-msgid "Keyboard shortcuts"
-msgstr ""
-
-msgid "About Muddie"
-msgstr ""
-
-msgid "Choose one, or type a command"
-msgstr ""
-
-msgid "Go to, open or run anything"
-msgstr ""
-
-msgid "Protocols"
-msgstr ""
-
-msgid "Filtering by this protocol"
-msgstr ""
-
-msgid "In use"
-msgstr ""
-
-msgid "Offered by the MUD, not used by Muddie"
-msgstr ""
-
-msgid "Not offered by this MUD"
-msgstr ""
-
-msgid "Filled: in use. Outlined: offered by the MUD, not used by Muddie. Faint: not offered."
-msgstr ""
-
-msgid "This MUD offers neither GMCP nor MSDP: all it sends is text, and what it says on its channels comes as lines of the game."
-msgstr ""
-
-msgid "Record in the background"
-msgstr ""
-
-msgid "Clear"
-msgstr ""
-
-msgid "No data received since this view was opened."
-msgstr ""
-
-msgid ""
-"What the MUD sends besides text, with GMCP or MSDP, appears here as it comes:\n"
-"look at it to know what a gauge can follow or a script can use."
+msgid "The MUD asks to go on at {0}, port {1}."
 msgstr ""
 
 #, python-brace-format
-msgid "received {0} time"
-msgstr ""
-
-msgid "Values"
-msgstr ""
-
-msgid "Empty message."
-msgstr ""
-
-msgid "Make a gauge"
-msgstr ""
-
-msgid "Copy the path"
-msgstr ""
-
-msgid "A path is what a gauge follows, and what a script reads after gmcp(\"…\")."
-msgstr ""
-
-msgid "Raw message"
-msgstr ""
-
-msgid "History"
+msgid "A sound could not be fetched: {0}"
 msgstr ""
 
 msgid "General"
@@ -873,6 +1113,21 @@ msgstr ""
 msgid "Theme"
 msgstr ""
 
+msgid "MUD text"
+msgstr ""
+
+msgid "Colours"
+msgstr ""
+
+msgid "Font"
+msgstr ""
+
+msgid "Size"
+msgstr ""
+
+msgid "Line spacing"
+msgstr ""
+
 msgid "Dark"
 msgstr ""
 
@@ -885,12 +1140,6 @@ msgstr ""
 msgid "High contrast"
 msgstr ""
 
-msgid "MUD text"
-msgstr ""
-
-msgid "Colours"
-msgstr ""
-
 msgid "Vivid"
 msgstr ""
 
@@ -900,9 +1149,6 @@ msgstr ""
 msgid "Classic terminal"
 msgstr ""
 
-msgid "Font"
-msgstr ""
-
 msgid "Bundled"
 msgstr ""
 
@@ -910,12 +1156,6 @@ msgid "System fonts"
 msgstr ""
 
 msgid "Loading…"
-msgstr ""
-
-msgid "Size"
-msgstr ""
-
-msgid "Line spacing"
 msgstr ""
 
 msgid "Lines kept"
@@ -999,56 +1239,7 @@ msgstr ""
 msgid "Edit"
 msgstr ""
 
-msgid "Profiles need a configuration folder, and none was found."
-msgstr ""
-
-msgid "No profiles yet. A profile keeps a MUD's connection, scripts, map and layout."
-msgstr ""
-
 msgid "The changes take effect on reconnecting."
-msgstr ""
-
-msgid "Plugins"
-msgstr ""
-
-msgid "Customize"
-msgstr ""
-
-#, python-brace-format
-msgid "Customize {0}"
-msgstr ""
-
-msgid "Installed by you"
-msgstr ""
-
-msgid "Update all"
-msgstr ""
-
-msgid "No plugins yet. A plugin is a set of scripts someone made for a MUD: a mapper, triggers, gauges."
-msgstr ""
-
-msgid "Install from"
-msgstr ""
-
-msgid "Install"
-msgstr ""
-
-msgid "The address of the plugin's git repository. Only install what you trust: a plugin can send commands as you."
-msgstr ""
-
-msgid "Working…"
-msgstr ""
-
-#, python-brace-format
-msgid "{0} is now a script of profile {1}."
-msgstr ""
-
-#, python-brace-format
-msgid "Could not save the profile: {0}"
-msgstr ""
-
-#, python-brace-format
-msgid "The password could not be saved in the keyring: {0}"
 msgstr ""
 
 msgid "Server"
@@ -1132,6 +1323,47 @@ msgstr ""
 msgid "Update"
 msgstr ""
 
+msgid "Plugins"
+msgstr ""
+
+msgid "Customize"
+msgstr ""
+
+#, python-brace-format
+msgid "Customize {0}"
+msgstr ""
+
+msgid "Installed by you"
+msgstr ""
+
+msgid "Update all"
+msgstr ""
+
+msgid "No plugins yet. A plugin is a set of scripts someone made for a MUD: a mapper, triggers, gauges."
+msgstr ""
+
+msgid "Install from"
+msgstr ""
+
+msgid "Install"
+msgstr ""
+
+msgid "The address of the plugin's git repository. Only install what you trust: a plugin can send commands as you."
+msgstr ""
+
+msgid "Working…"
+msgstr ""
+
+#, python-brace-format
+msgid "{0} is now a script of profile {1}."
+msgstr ""
+
+msgid "Profiles need a configuration folder, and none was found."
+msgstr ""
+
+msgid "No profiles yet. A profile keeps a MUD's connection, scripts, map and layout."
+msgstr ""
+
 msgid "Typing"
 msgstr ""
 
@@ -1200,259 +1432,27 @@ msgstr ""
 msgid "Blank."
 msgstr ""
 
-#, python-brace-format
-msgid "Could not load the rules: {0}"
+msgid "exits"
 msgstr ""
 
-#, python-brace-format
-msgid "Could not save the rules: {0}"
+msgid "Area"
 msgstr ""
 
-#, python-brace-format
-msgid "Could not load the profile: {0}"
+msgid "Down"
 msgstr ""
 
-msgid "Profiles cannot be saved: no configuration folder was found."
+msgid "level"
 msgstr ""
 
-msgid "The port must be a number from 1 to 65535."
+msgid "Up"
 msgstr ""
 
-#, python-brace-format
-msgid "Profile {0} saved."
+msgid "Click a room to walk there, right-click for more, Shift+drag to move it."
 msgstr ""
 
-msgid "Enter a host to connect to."
+msgid "avoided"
 msgstr ""
 
-#, python-brace-format
-msgid "Unknown text encoding {0}; using the automatic one."
-msgstr ""
-
-#, python-brace-format
-msgid "Connecting to {0}:{1}..."
-msgstr ""
-
-#, python-brace-format
-msgid "The map will not be saved: {0}"
-msgstr ""
-
-msgid "The map will not be saved: no data folder was found."
-msgstr ""
-
-#, python-brace-format
-msgid "The MUD asks to go on at {0}, port {1}."
-msgstr ""
-
-#, python-brace-format
-msgid "Logging stopped: {0}"
-msgstr ""
-
-msgid "Cannot log: no configuration folder was found."
-msgstr ""
-
-#, python-brace-format
-msgid "Logging to {0}"
-msgstr ""
-
-#, python-brace-format
-msgid "Cannot log: {0}"
-msgstr ""
-
-msgid "Connected."
-msgstr ""
-
-#, python-brace-format
-msgid "Disconnected: {0}"
-msgstr ""
-
-msgid "Disconnected."
-msgstr ""
-
-#, python-brace-format
-msgid "Reconnecting in {0} seconds."
-msgstr ""
-
-#, python-brace-format
-msgid "Cannot play the sound: {0}"
-msgstr ""
-
-#, python-brace-format
-msgid "Script error: {0}"
-msgstr ""
-
-msgid "Not connected."
-msgstr ""
-
-#, python-brace-format
-msgid "There is a plugin for {0}. It is offered above the command line."
-msgstr ""
-
-#, python-brace-format
-msgid "There is a plugin for {0}."
-msgstr ""
-
-msgid "Not now"
-msgstr ""
-
-msgid "Enable"
-msgstr ""
-
-msgid "Plugins are enabled per profile: save or choose a profile first."
-msgstr ""
-
-#, python-brace-format
-msgid "Plugin {0} enabled."
-msgstr ""
-
-#, python-brace-format
-msgid "Plugin {0} disabled."
-msgstr ""
-
-msgid "No such plugin is installed; see /plugin list."
-msgstr ""
-
-#, python-brace-format
-msgid "Plugin {0} removed."
-msgstr ""
-
-#, python-brace-format
-msgid "The plugin could not be removed: {0}"
-msgstr ""
-
-#, python-brace-format
-msgid "Plugin {0} installed."
-msgstr ""
-
-#, python-brace-format
-msgid "Plugin {0} updated."
-msgstr ""
-
-#, python-brace-format
-msgid "The plugin could not be installed or updated: {0}"
-msgstr ""
-
-#, python-brace-format
-msgid "A sound could not be fetched: {0}"
-msgstr ""
-
-msgid "Previous"
-msgstr ""
-
-msgid "Next"
-msgstr ""
-
-msgid "Not found."
-msgstr ""
-
-msgid "The map does not know where you are yet."
-msgstr ""
-
-msgid "No known route to that room."
-msgstr ""
-
-msgid "Arrived."
-msgstr ""
-
-msgid "Walk stopped: this is not the room the route expected."
-msgstr ""
-
-#, python-brace-format
-msgid "The password could not be read from the keyring: {0}"
-msgstr ""
-
-msgid "Walk stopped: the last move had no effect."
-msgstr ""
-
-msgid "There are no groups. Give a rule a group in the editor."
-msgstr ""
-
-msgid "on"
-msgstr ""
-
-#, python-brace-format
-msgid "There is no group called {0}; /group lists them."
-msgstr ""
-
-#, python-brace-format
-msgid "{0} (#{1}) in {2}. Exits: {3}."
-msgstr ""
-
-msgid "No room matches."
-msgstr ""
-
-#, python-brace-format
-msgid "Routes will avoid {0}."
-msgstr ""
-
-#, python-brace-format
-msgid "Routes may pass through {0} again."
-msgstr ""
-
-msgid "No such room; use /map avoid with a room number."
-msgstr ""
-
-msgid "Routes will not use that exit."
-msgstr ""
-
-msgid "Routes may use that exit again."
-msgstr ""
-
-msgid "This room has no such exit."
-msgstr ""
-
-msgid "No plugins are installed. Use /plugin install with a git address."
-msgstr ""
-
-msgid "enabled in this profile"
-msgstr ""
-
-msgid "not enabled; use /plugin enable"
-msgstr ""
-
-#, python-brace-format
-msgid "Installing {0}..."
-msgstr ""
-
-msgid "Plugins need a configuration folder, and none was found."
-msgstr ""
-
-msgid "Give the plugin a name after the address: letters, digits, - and _."
-msgstr ""
-
-#, python-brace-format
-msgid "Updating {0}..."
-msgstr ""
-
-msgid "Scripts reloaded."
-msgstr ""
-
-#, python-brace-format
-msgid "Logging stopped; the log is {0}"
-msgstr ""
-
-msgid "Walk stopped."
-msgstr ""
-
-msgid "Not walking."
-msgstr ""
-
-#, python-brace-format
-msgid "Tidied the map: {0} rooms moved."
-msgstr ""
-
-msgid "No map yet"
-msgstr ""
-
-msgid "It is drawn as you walk, if the MUD says which room you are in. If yours tells it another way, or draws the map itself, a script can take it from there."
-msgstr ""
-
-msgid "Set up a mapper"
-msgstr ""
-
-msgid "Hide the map"
-msgstr ""
-
-msgid "Command"
+msgid "weight"
 msgstr ""
 
