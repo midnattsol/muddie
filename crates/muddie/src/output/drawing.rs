@@ -7,15 +7,6 @@ use super::*;
 /// ones, and after the width changed, the ones measured for the old one.
 pub const REMEASURED_PER_FRAME: usize = 300;
 
-/// Where the rows are: the first inside the viewport and its top, the top
-/// and height of the row asked to be scrolled to, and how tall they all
-/// are.
-pub(super) struct Placed {
-    pub(super) first_visible: Option<(usize, f32)>,
-    pub(super) target: Option<(f32, f32)>,
-    pub(super) height: f32,
-}
-
 /// Lays text out to the width given.
 pub(super) fn lay_out(ui: &Ui, mut job: LayoutJob, width: f32) -> Arc<Galley> {
     job.wrap.max_width = width;
@@ -92,29 +83,31 @@ impl Output {
         let width = ui.available_width();
         self.follow_width(ui, width);
         self.measure_some(ui, width);
-        let guess = self.guesser(ui, width);
+        self.add_up(ui, width);
         let scroll_to = self.scroll_to.take();
-        let Placed {
-            first_visible,
-            target,
-            height: rows_height,
-        } = self.place_rows(viewport, scroll_to, &guess);
+        let first = self.ends.first_below(viewport.min.y).min(self.rows.len());
         // Rows on screen are never left with a height from another width.
-        if let Some((first, _)) = first_visible {
+        if first < self.rows.len() && first < self.stale {
             self.forget_heights_from(first);
+            self.add_up(ui, width);
         }
+        let rows_height = self.ends.total();
         let partial = self
             .partial
             .as_ref()
             .map(|line| lay_out(ui, server_job(line), width));
         let total = rows_height + partial.as_ref().map_or(0.0, |galley| galley.size().y);
         ui.set_height(total);
-        // The viewport was placed against last frame's content: lines that
-        // arrived since do not mean the reader scrolled back.
-        self.at_end = viewport.max.y >= self.shown_height.min(total) - 2.0;
+        self.follow_reading(viewport, total);
         self.shown_height = total;
+        let target = scroll_to.filter(|row| *row < self.rows.len()).map(|row| {
+            (
+                self.ends.top(row),
+                self.ends.top(row + 1) - self.ends.top(row),
+            )
+        });
         self.scroll_as_asked(ui, total, target);
-        let (first, top) = first_visible.unwrap_or((self.rows.len(), rows_height));
+        let top = self.ends.top(first);
         let max_rect = ui.max_rect();
         let rect = Rect::from_min_size(
             max_rect.min + vec2(0.0, top),
@@ -125,9 +118,38 @@ impl Output {
             ui.ctx().request_repaint();
         }
         for (index, height) in learned {
-            self.rows[index].height = Some(height);
+            self.set_height(index, Some(height));
         }
         command
+    }
+
+    /// Whether the reader is reading back: from when they scroll a third
+    /// of the view away from the end, until they are back at it. The
+    /// viewport was placed against last frame's content: lines that
+    /// arrived since do not mean the reader scrolled.
+    fn follow_reading(&mut self, viewport: Rect, total: f32) {
+        let back = self.shown_height.min(total) - viewport.max.y;
+        let far = (viewport.height() / 3.0).max(3.0 * self.unit);
+        if back <= 2.0 {
+            self.reading = false;
+        } else if back > far {
+            self.reading = true;
+        }
+    }
+
+    /// Gives a row its height, or takes it away to be measured again,
+    /// keeping count of those to measure and of where the rows end.
+    pub(super) fn set_height(&mut self, index: usize, height: Option<f32>) {
+        let row = &mut self.rows[index];
+        match (row.height.is_some(), height.is_some()) {
+            (true, false) => self.unmeasured += 1,
+            (false, true) => self.unmeasured -= 1,
+            _ => {}
+        }
+        if row.height != height {
+            row.height = height;
+            self.ends.changed_from(index);
+        }
     }
 
     /// At a new width every height is for another: measuring them all
@@ -139,14 +161,16 @@ impl Output {
             self.width = width;
             self.stale = self.rows.len();
             if first {
-                self.rows.iter_mut().for_each(|row| row.height = None);
+                for index in 0..self.rows.len() {
+                    self.set_height(index, None);
+                }
                 self.stale = 0;
             }
         }
         self.stale = self.stale.min(self.rows.len());
         let from = self.stale.saturating_sub(REMEASURED_PER_FRAME);
-        for row in self.rows.range_mut(from..self.stale) {
-            row.height = None;
+        for index in from..self.stale {
+            self.set_height(index, None);
         }
         self.stale = from;
         if self.stale > 0 {
@@ -159,11 +183,14 @@ impl Output {
     /// scrollback would hold a laid out copy of every row for a frame:
     /// hundreds of megabytes that the system does not get back.
     pub(super) fn measure_some(&mut self, ui: &Ui, width: f32) {
+        if self.unmeasured == 0 {
+            return;
+        }
         let timestamps = self.timestamps;
-        let mut budget = REMEASURED_PER_FRAME;
-        for row in self.rows.iter_mut().rev() {
-            if budget == 0 {
-                ui.ctx().request_repaint();
+        let wanted = self.unmeasured.min(REMEASURED_PER_FRAME);
+        let mut learned = Vec::with_capacity(wanted);
+        for (index, row) in self.rows.iter().enumerate().rev() {
+            if learned.len() == wanted {
                 break;
             }
             if row.height.is_none() {
@@ -171,59 +198,44 @@ impl Output {
                 if galley.rows.len() == 1 {
                     self.unit = galley.size().y;
                 }
-                row.height = Some(galley.size().y);
-                budget -= 1;
+                learned.push((index, galley.size().y));
             }
+        }
+        for (index, height) in learned {
+            self.set_height(index, Some(height));
+        }
+        if self.unmeasured > 0 {
+            ui.ctx().request_repaint();
         }
     }
 
-    /// How tall a row not yet measured is taken to be: as many rows of text
-    /// as its characters fill at this width.
-    pub(super) fn guesser(&self, ui: &Ui, width: f32) -> impl Fn(&Row) -> f32 + use<> {
+    /// Adds up where the rows end again, from the first that changed. Rows
+    /// not yet measured are taken to be as many rows of text as their
+    /// characters fill at this width; when what that guess is made with
+    /// changes, they are all added up again.
+    fn add_up(&mut self, ui: &Ui, width: f32) {
         let font = palette::font();
         let (glyph, plain) =
             ui.fonts_mut(|fonts| (fonts.glyph_width(&font, 'm'), fonts.row_height(&font)));
         let unit = if self.unit > 0.0 { self.unit } else { plain };
+        if self.guessed_with != (unit, width) {
+            self.guessed_with = (unit, width);
+            self.ends.changed_from(0);
+        }
         let timestamps = self.timestamps;
-        move |row: &Row| {
+        let guess = move |row: &Row| {
             let characters = row.text.chars().count() + if timestamps { 9 } else { 0 };
             unit * (characters as f32 * glyph / width.max(1.0)).ceil().max(1.0)
-        }
-    }
-
-    /// Where the rows are, those not yet measured by a guess.
-    pub(super) fn place_rows(
-        &self,
-        viewport: Rect,
-        scroll_to: Option<usize>,
-        guess: &dyn Fn(&Row) -> f32,
-    ) -> Placed {
-        let (mut total, mut first_visible, mut target) = (0.0, None, None);
-        for (index, row) in self.rows.iter().enumerate() {
-            let height = row.height.unwrap_or_else(|| guess(row));
-            if first_visible.is_none() && total + height > viewport.min.y {
-                first_visible = Some((index, total));
-            }
-            if scroll_to == Some(index) {
-                target = Some((total, height));
-            }
-            total += height;
-        }
-        Placed {
-            first_visible,
-            target,
-            height: total,
-        }
+        };
+        self.ends.update(&self.rows, &guess);
     }
 
     /// Forgets the heights from another width of the rows about to be
     /// shown, from `first`.
     pub(super) fn forget_heights_from(&mut self, first: usize) {
-        if first < self.stale {
-            let end = (first + 200).min(self.stale);
-            for row in self.rows.range_mut(first..end) {
-                row.height = None;
-            }
+        let end = (first + 200).min(self.stale);
+        for index in first..end {
+            self.set_height(index, None);
         }
     }
 

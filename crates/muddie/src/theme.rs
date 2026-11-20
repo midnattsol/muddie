@@ -111,6 +111,15 @@ struct Current {
     line_spacing: f32,
 }
 
+/// How many times the look has changed: what is worked out from it is
+/// worked out again when this does.
+static GENERATION: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// Which look is in use, to know when what was worked out from it is old.
+pub fn generation() -> u64 {
+    GENERATION.load(std::sync::atomic::Ordering::Relaxed)
+}
+
 static CURRENT: RwLock<Current> = RwLock::new(Current {
     theme: DARK,
     mud: VIVID,
@@ -174,6 +183,7 @@ pub fn apply(ctx: &egui::Context, settings: &Settings) -> Result<(), String> {
         output_size: settings.font_size.clamp(8.0, 40.0),
         line_spacing: settings.line_spacing.clamp(0.8, 2.0),
     };
+    GENERATION.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     ctx.set_zoom_factor(settings.ui_scale.clamp(0.75, 2.0));
     ctx.set_theme(if theme.dark {
         egui::Theme::Dark

@@ -8,8 +8,7 @@ use std::sync::Arc;
 
 use eframe::egui::text::LayoutJob;
 use eframe::egui::{
-    Align, Frame, Galley, Label, OpenUrl, Panel, Rect, RichText, ScrollArea, Sense, Ui, UiBuilder,
-    vec2,
+    Align, Galley, Label, OpenUrl, Rect, RichText, ScrollArea, Sense, Ui, UiBuilder, vec2,
 };
 use muddie_core::{Color, Line, LinkTarget};
 
@@ -18,16 +17,21 @@ use crate::palette;
 use crate::theme;
 
 mod drawing;
+mod heights;
 mod rows;
 
 #[cfg(test)]
 pub use drawing::REMEASURED_PER_FRAME;
+use heights::Ends;
 use rows::*;
 pub use rows::{clock, links, server_job};
 
-/// Lines shown under the scrollback while it is scrolled away from the
-/// end, so new output is not missed.
+/// Lines shown over the foot of the scrollback while it is read back, so
+/// new output is not missed.
 const TAIL_LINES: usize = 5;
+
+/// How many rows a step of the mouse wheel moves the scrollback.
+const WHEEL_ROWS: f32 = 3.0;
 
 /// What clicking a link of the server's asks for.
 #[derive(Debug, Clone, PartialEq)]
@@ -49,10 +53,18 @@ pub struct Output {
     /// Rows ever added, which keeps counting when old ones are dropped.
     pushed: u64,
     timestamps: bool,
-    /// Whether the view was at the end of the scrollback last frame.
-    at_end: bool,
+    /// Whether the reader has scrolled back from the end, far enough to be
+    /// reading what came before rather than following what comes.
+    reading: bool,
     /// How tall the content was when it was last drawn.
     shown_height: f32,
+    /// Where each row ends, added up.
+    ends: Ends,
+    /// How many rows have no height measured yet.
+    unmeasured: usize,
+    /// The row height and width the guesses of rows not yet measured were
+    /// made with.
+    guessed_with: (f32, f32),
     /// Rows before this one have a height measured for another width.
     stale: usize,
     /// How tall a row of one line of text is, as last measured.
@@ -77,8 +89,11 @@ impl Default for Output {
             capacity: 20_000,
             pushed: 0,
             timestamps: false,
-            at_end: true,
+            reading: false,
             shown_height: 0.0,
+            ends: Ends::default(),
+            unmeasured: 0,
+            guessed_with: (0.0, 0.0),
             stale: 0,
             unit: 0.0,
             scroll_to: None,
@@ -121,6 +136,7 @@ impl Output {
             self.drop_oldest();
         }
         self.pushed += 1;
+        self.unmeasured += 1;
         let found = links(&text).into_iter().map(|range| RowLink {
             target: LinkTarget::Url(text[range.clone()].to_owned()),
             range,
@@ -138,7 +154,14 @@ impl Output {
 
     /// Removes the oldest row, keeping row numbers held elsewhere right.
     fn drop_oldest(&mut self) {
-        self.rows.pop_front();
+        if self
+            .rows
+            .pop_front()
+            .is_some_and(|row| row.height.is_none())
+        {
+            self.unmeasured -= 1;
+        }
+        self.ends.dropped_first();
         let shift = |row: &mut Option<usize>| *row = row.and_then(|row| row.checked_sub(1));
         shift(&mut self.found);
         shift(&mut self.scroll_to);
@@ -164,6 +187,7 @@ impl Output {
         // Every row may now be another height. They are measured again a
         // share per frame, those on screen first, as after a resize.
         self.stale = self.rows.len();
+        self.ends.changed_from(0);
     }
 
     /// Number of completed rows.
@@ -219,45 +243,86 @@ impl Output {
     }
 
     /// Draws the scrollback in `ui`. `name` tells this output's panels
-    /// apart from another's. Returns the command of a link the user
-    /// clicked, for the caller to send.
+    /// apart from another's. While it is read back, the latest lines are
+    /// shown over its foot, which leaves the space it takes as it is: what
+    /// is shown never changes the place of what is scrolled. Returns the
+    /// command of a link the user clicked, for the caller to send.
     pub fn show(&mut self, ui: &mut Ui, name: &str) -> Option<Clicked> {
-        let theme = theme::current();
-        // While scrolled back, the latest lines stay in view below.
-        if !self.at_end && !self.rows.is_empty() {
-            let frame = Frame::new()
-                .fill(theme.background)
-                .inner_margin(vec2(0.0, 4.0));
-            Panel::bottom(format!("{name} tail"))
-                .frame(frame)
-                .show(ui, |ui| {
-                    ui.spacing_mut().item_spacing.y = 0.0;
-                    ui.horizontal(|ui| {
-                        ui.label(
-                            RichText::new(tr("Latest lines"))
-                                .small()
-                                .color(theme.text_dim),
-                        );
-                        if crate::widgets::button(ui, tr("Jump to end")).clicked() {
-                            self.jump_to_end = true;
-                        }
-                    });
-                    let first = self.rows.len().saturating_sub(TAIL_LINES);
-                    for row in self.rows.iter().skip(first) {
-                        ui.add(Label::new(row.job(self.timestamps)).truncate());
-                    }
-                    if let Some(partial) = &self.partial {
-                        ui.add(Label::new(server_job(partial)).truncate());
-                    }
-                });
-        }
-
+        let wheel_line = ui
+            .ctx()
+            .options(|options| options.input_options.line_scroll_speed);
+        let step = WHEEL_ROWS * self.row_height(ui) / wheel_line.max(1.0);
         let area = ScrollArea::vertical()
             .id_salt(name)
             .auto_shrink(false)
-            .stick_to_bottom(true);
-        area.show_viewport(ui, |ui, viewport| self.show_rows(ui, viewport))
-            .inner
+            // Only while following the end: reading back, nothing pulls.
+            .stick_to_bottom(!self.reading)
+            .wheel_scroll_multiplier(vec2(1.0, step));
+        let shown = area.show_viewport(ui, |ui, viewport| self.show_rows(ui, viewport));
+        if self.reading && !self.rows.is_empty() {
+            self.show_tail(ui, shown.inner_rect, name);
+        }
+        shown.inner
+    }
+
+    /// How tall a row of one line is.
+    fn row_height(&self, ui: &Ui) -> f32 {
+        match self.unit {
+            unit if unit > 0.0 => unit,
+            _ => ui.fonts_mut(|fonts| fonts.row_height(&palette::font())),
+        }
+    }
+
+    /// The latest lines, over the foot of the scrollback `area`, with the
+    /// way back to the end; the scroll bar is left clear.
+    fn show_tail(&mut self, ui: &mut Ui, area: Rect, name: &str) {
+        let theme = theme::current();
+        let line = self.row_height(ui);
+        let header = crate::theme::size::CONTROL;
+        let shown = TAIL_LINES.min(self.rows.len()) + usize::from(self.partial.is_some());
+        let height = 8.0 + header + 4.0 + line * shown as f32 + 8.0;
+        let scroll = &ui.spacing().scroll;
+        let bar = scroll.bar_width + scroll.bar_inner_margin + scroll.bar_outer_margin;
+        let rect = Rect::from_min_max(
+            eframe::egui::pos2(area.left(), (area.bottom() - height).max(area.top())),
+            eframe::egui::pos2(area.right() - bar, area.bottom()),
+        );
+        let builder = UiBuilder::new()
+            .id_salt((name, "tail"))
+            .max_rect(rect)
+            .layout(eframe::egui::Layout::top_down(Align::Min));
+        let mut tail = ui.new_child(builder);
+        // What is under it is not to be clicked through it.
+        tail.interact(rect, tail.make_persistent_id("cover"), Sense::click());
+        tail.painter().rect_filled(rect, 0.0, theme.background);
+        tail.painter().hline(
+            rect.x_range(),
+            rect.top(),
+            eframe::egui::Stroke::new(1.0, theme.border),
+        );
+        let inner = rect.shrink2(vec2(0.0, 8.0));
+        tail.scope_builder(UiBuilder::new().max_rect(inner), |ui| {
+            ui.spacing_mut().item_spacing.y = 0.0;
+            ui.horizontal(|ui| {
+                ui.set_min_height(header);
+                ui.label(
+                    RichText::new(tr("Latest lines"))
+                        .small()
+                        .color(theme.text_dim),
+                );
+                if crate::widgets::button(ui, tr("Jump to end")).clicked() {
+                    self.jump_to_end = true;
+                }
+            });
+            ui.add_space(4.0);
+            let first = self.rows.len().saturating_sub(TAIL_LINES);
+            for row in self.rows.iter().skip(first) {
+                ui.add(Label::new(row.job(self.timestamps)).truncate());
+            }
+            if let Some(partial) = &self.partial {
+                ui.add(Label::new(server_job(partial)).truncate());
+            }
+        });
     }
 
     /// Takes away the links the server named `name`, which are no
@@ -274,7 +339,8 @@ impl Output {
     pub fn clear(&mut self) {
         self.rows.clear();
         self.partial = None;
-        (self.found, self.scroll_to, self.stale) = (None, None, 0);
+        self.ends.clear();
+        (self.found, self.scroll_to, self.stale, self.unmeasured) = (None, None, 0, 0);
     }
 }
 

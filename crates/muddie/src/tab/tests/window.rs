@@ -222,6 +222,47 @@ fn arriving_lines_do_not_flash_the_view_of_the_latest_lines() {
     }
 }
 
+#[test]
+fn reading_back_shows_the_latest_lines_over_the_view_without_moving_it() {
+    let mut harness = window(None);
+    harness.set_size(egui::vec2(1100.0, 700.0));
+    let app = harness.state_mut().tab_mut();
+    (0..400).for_each(|n| app.show_local(&format!("line {n} of the scrollback")));
+    harness.run_steps(8);
+    let centre = harness
+        .get_by_label("line 399 of the scrollback")
+        .rect()
+        .center();
+    harness.hover_at(centre);
+    let wheel = |harness: &mut Harness<'_, App>, lines: f32| {
+        harness.event(egui::Event::MouseWheel {
+            unit: egui::MouseWheelUnit::Line,
+            delta: egui::vec2(0.0, lines),
+            phase: egui::TouchPhase::Move,
+            source: egui::MouseWheelSource::Unknown,
+            modifiers: egui::Modifiers::NONE,
+        });
+        harness.run_steps(12);
+    };
+    let shown = |harness: &Harness<'_, App>| harness.query_by_label("Latest lines").is_some();
+    // A step back is still following the end.
+    wheel(&mut harness, 1.0);
+    assert!(!shown(&harness));
+    // Further back, the latest lines are shown over the foot of the view,
+    // and they stay while it is moved up and down near there...
+    wheel(&mut harness, 8.0);
+    assert!(shown(&harness));
+    for _ in 0..6 {
+        wheel(&mut harness, -1.0);
+        wheel(&mut harness, 1.0);
+        assert!(shown(&harness), "the latest lines came and went");
+    }
+    // ...until the view is back at the end.
+    wheel(&mut harness, -40.0);
+    assert!(!shown(&harness));
+    harness.get_by_label("line 399 of the scrollback");
+}
+
 /// Says what a frame costs in the views that could be slow, to look
 /// for what to make faster:
 /// `cargo test -p muddie frame_costs -- --ignored --nocapture`.

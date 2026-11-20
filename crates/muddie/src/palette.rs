@@ -33,7 +33,30 @@ fn resolve(color: Color, default: Color32, brighten: bool) -> Color32 {
     }
 }
 
+/// The format of text in a style. Worked out once per style and look:
+/// it is asked for each run of text drawn, each frame.
 pub fn format(style: Style) -> TextFormat {
+    use std::cell::RefCell;
+    use std::collections::HashMap;
+    thread_local! {
+        static KNOWN: RefCell<(u64, HashMap<Style, TextFormat>)> = RefCell::new((u64::MAX, HashMap::new()));
+    }
+    let generation = theme::generation();
+    KNOWN.with(|known| {
+        let mut known = known.borrow_mut();
+        if known.0 != generation {
+            *known = (generation, HashMap::new());
+        }
+        known
+            .1
+            .entry(style)
+            .or_insert_with(|| worked_out(style))
+            .clone()
+    })
+}
+
+/// The format of text in a style, in the colours of the look in use.
+fn worked_out(style: Style) -> TextFormat {
     let theme = theme::current();
     let mut fg = resolve(style.fg, theme.text, style.bold);
     let mut bg = resolve(style.bg, Color32::TRANSPARENT, false);
