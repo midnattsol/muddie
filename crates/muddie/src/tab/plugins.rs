@@ -15,6 +15,26 @@ impl Tab {
                 .font(theme::font(Weight::Regular, 12.0))
                 .color(theme.text_faint)
         };
+        // Those that come with Muddie: on or off in this session, and
+        // kept so with its profile.
+        widgets::caption(ui, tr("Included with Muddie"));
+        widgets::group(ui, |ui| {
+            for (index, plugin) in crate::bundled::ALL.iter().enumerate() {
+                if index > 0 {
+                    widgets::row_divider(ui);
+                }
+                let mut on = self.included(plugin);
+                let name = tr(plugin.name);
+                let switch =
+                    widgets::setting_row(ui, name, &mut |ui| widgets::switch(ui, &mut on, name));
+                if switch.changed() {
+                    self.set_included(plugin, on);
+                }
+                ui.label(small(tr(plugin.about)));
+            }
+        });
+        ui.add_space(10.0);
+        widgets::caption(ui, tr("Installed by you"));
         let Some(profiles) = self.profiles.clone() else {
             ui.label(small(tr(
                 "Plugins need a configuration folder, and none was found.",

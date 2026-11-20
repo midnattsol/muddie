@@ -1138,15 +1138,6 @@ fn the_server_is_told_how_much_text_fits() {
 }
 
 #[test]
-fn modules_of_gmcp_are_typed_with_commas_and_get_a_version() {
-    assert_eq!(
-        modules_typed("Comm, Char.Ficha 2 ,, Char.Stats"),
-        ["Comm 1", "Char.Ficha 2", "Char.Stats 1"]
-    );
-    assert!(modules_typed("  ").is_empty());
-}
-
-#[test]
 fn sounds_a_mud_asks_for_are_played_from_the_players_own_or_fetched() {
     let dir = std::env::temp_dir().join(format!("muddie-media-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
@@ -1734,6 +1725,121 @@ fn saving_a_rule_or_a_script_leaves_what_the_other_scripts_keep() {
 }
 
 #[test]
+fn a_plugin_for_the_mud_is_offered_and_switched_on_without_the_rest_starting_over() {
+    let dir = std::env::temp_dir().join(format!("muddie-included-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let profiles = Profiles::at(dir.clone());
+    profiles
+        .save("Reinos", &crate::profile::Profile::default())
+        .unwrap();
+    let mut harness = window(Some(profiles.clone()));
+    harness.set_size(egui::vec2(1300.0, 800.0));
+    let app = harness.state_mut().tab_mut();
+    assert!(app.select_profile(Some("Reinos".into())));
+    app.host = "rlmud.org".into();
+    let reinos = crate::bundled::find("reinos-de-leyenda").unwrap();
+    let common = crate::bundled::find(crate::bundled::COMMON).unwrap();
+    // What many MUDs send the same way is on to begin with; the plugin
+    // of one MUD is not.
+    assert!(app.included(common) && !app.included(reinos));
+    app.scripts.exec(
+        "keeps",
+        "kept = 7 alias(\"^kept$\", function() echo(\"kept \" .. kept) end)",
+    );
+    // Connected to that MUD, its plugin is offered over the command line.
+    let (events, _sent) = fake_connection(app);
+    events.send(Event::Connected).unwrap();
+    harness.run_steps(3);
+    harness.get_by_label_contains("There is a plugin for Reinos de Leyenda");
+    // Switched on there, it works at once: what the MUD says on its
+    // channels has a tab, and nothing else was run again.
+    harness.get_by_label("Enable").click();
+    harness.run_steps(3);
+    let gmcp = |package: &str, data: &str| Event::Gmcp {
+        package: package.into(),
+        data: data.into(),
+    };
+    events
+        .send(gmcp(
+            "Comm.MensajeCanal",
+            r#"{"canal": "chat", "mensaje": "[Chat] Ana: hola"}"#,
+        ))
+        .unwrap();
+    harness.run_steps(3);
+    let app = harness.state_mut().tab_mut();
+    assert!(app.included(reinos) && app.plugin_offer.is_none());
+    assert_eq!(app.channels[0].name, "chat");
+    app.scripts.on_input("kept");
+    app.run_actions();
+    assert_eq!(output_lines(app).last().map(String::as_str), Some("kept 7"));
+    // It is kept with the profile, and not offered again.
+    let saved = profiles.load("Reinos").unwrap();
+    assert_eq!(saved.included_on, ["reinos-de-leyenda"]);
+    events.send(Event::Connected).unwrap();
+    harness.run_steps(3);
+    assert!(harness.state().tab().plugin_offer.is_none());
+    // Switched off, what it made is gone.
+    let app = harness.state_mut().tab_mut();
+    app.set_included(reinos, false);
+    let before = app.channels[0].log.len();
+    app.scripts.on_gmcp(
+        "Comm.MensajeCanal",
+        r#"{"canal": "chat", "mensaje": "otra"}"#,
+    );
+    app.run_actions();
+    assert_eq!(app.channels[0].log.len(), before);
+    // Declined instead, it is not offered again in this profile either.
+    app.offer_plugin_for("rlmud.org", "");
+    assert!(app.plugin_offer.is_some());
+    app.decline_plugin();
+    app.offer_plugin_for("", "Reinos de Leyenda");
+    assert!(app.plugin_offer.is_none());
+    assert_eq!(
+        profiles.load("Reinos").unwrap().included_declined,
+        ["reinos-de-leyenda"]
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn what_many_muds_send_alike_is_a_plugin_that_can_be_switched_off() {
+    let mut harness = window(None);
+    let app = harness.state_mut().tab_mut();
+    let common = crate::bundled::find(crate::bundled::COMMON).unwrap();
+    let (events, _sent) = fake_connection(app);
+    let vitals = || Event::Gmcp {
+        package: "Char.Vitals".into(),
+        data: r#"{"hp": 80, "maxhp": 100}"#.into(),
+    };
+    let said = || Event::Gmcp {
+        package: "Comm.Channel.Text".into(),
+        data: r#"{"channel": "ooc", "text": "Ana: hola"}"#.into(),
+    };
+    // On, as it is to begin with: gauges and channels by themselves.
+    events.send(vitals()).unwrap();
+    events.send(said()).unwrap();
+    harness.run_steps(3);
+    let app = harness.state_mut().tab_mut();
+    assert!(app.gauges.summary().contains("80 of 100"));
+    assert_eq!(app.channels.len(), 1);
+    // Off, the client makes nothing of them by itself; scripts still
+    // get them.
+    app.set_included(common, false);
+    app.gauges.clear();
+    app.channels.clear();
+    app.scripts.exec(
+        "t",
+        r#"on_gmcp("Char.Vitals", function(data) echo("hp " .. data.hp) end)"#,
+    );
+    events.send(vitals()).unwrap();
+    events.send(said()).unwrap();
+    harness.run_steps(3);
+    let app = harness.state().tab();
+    assert!(app.gauges.summary().is_empty() && app.channels.is_empty());
+    assert_eq!(output_lines(app).last().map(String::as_str), Some("hp 80"));
+}
+
+#[test]
 fn session_is_logged_when_asked() {
     let dir = std::env::temp_dir().join(format!("muddie-app-log-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
@@ -2076,6 +2182,16 @@ fn screenshot() {
     welcome.run_steps(4);
     save(&mut welcome, "connection");
     std::fs::remove_dir_all(&dir).unwrap();
+
+    // A plugin for the MUD connected to, offered over the command line.
+    let mut offer = connected_demo_window();
+    let app = offer.state_mut().tab_mut();
+    app.offer_plugin_for("rlmud.org", "");
+    offer.run_steps(3);
+    save(&mut offer, "plugin-offer");
+    offer.state_mut().open_settings(5);
+    offer.run_steps(4);
+    save(&mut offer, "plugins-included");
 
     // The channels of the MUD, each with its tab in one panel.
     let mut channels = connected_demo_window();

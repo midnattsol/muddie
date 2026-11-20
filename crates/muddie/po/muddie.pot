@@ -263,6 +263,9 @@ msgstr ""
 msgid "weight"
 msgstr ""
 
+msgid "new"
+msgstr ""
+
 msgid "Close"
 msgstr ""
 
@@ -340,12 +343,6 @@ msgid "Port"
 msgstr ""
 
 msgid "Verify certificate"
-msgstr ""
-
-msgid "GMCP modules"
-msgstr ""
-
-msgid "What to ask this MUD for besides the usual: each MUD has its own modules, named in its help. With commas between them. They are asked for on connecting."
 msgstr ""
 
 msgid "Text encoding"
@@ -833,9 +830,6 @@ msgstr ""
 msgid "All"
 msgstr ""
 
-msgid "new"
-msgstr ""
-
 msgid "Gauges…"
 msgstr ""
 
@@ -992,6 +986,12 @@ msgid "Raw message"
 msgstr ""
 
 msgid "History"
+msgstr ""
+
+msgid "Included with Muddie"
+msgstr ""
+
+msgid "Installed by you"
 msgstr ""
 
 msgid "Plugins need a configuration folder, and none was found."
@@ -1165,6 +1165,20 @@ msgid "Script error: {0}"
 msgstr ""
 
 msgid "Not connected."
+msgstr ""
+
+#, python-brace-format
+msgid "There is a plugin for {0}. It is offered above the command line."
+msgstr ""
+
+#, python-brace-format
+msgid "There is a plugin for {0}."
+msgstr ""
+
+msgid "Not now"
+msgstr ""
+
+msgid "Enable"
 msgstr ""
 
 #, python-brace-format

@@ -260,9 +260,13 @@ pub struct Tab {
     rules_section: usize,
     /// Label of the text encoding the server uses; `auto` for most.
     encoding: String,
-    /// The modules of GMCP to ask this MUD for besides the usual ones, as
-    /// typed: their names, with commas between.
-    gmcp_modules: String,
+    /// The plugins that come with Muddie: those switched on, those
+    /// switched off, those declined for this MUD, and the one being
+    /// offered for it now.
+    included_on: Vec<String>,
+    included_off: Vec<String>,
+    included_declined: Vec<String>,
+    plugin_offer: Option<&'static crate::bundled::Bundled>,
     /// Package installs and updates under way; the flag says to enable
     /// the package when its job ends well.
     package_jobs: Vec<(Receiver<packages::Outcome>, bool)>,
@@ -339,19 +343,6 @@ pub struct Startup {
     pub speech: bool,
     /// Extra script files to run after the profile's, in order.
     pub scripts: Vec<PathBuf>,
-}
-
-/// The modules of GMCP typed in a profile, each as `Name version`: with
-/// commas between them, and version 1 for those given none.
-fn modules_typed(typed: &str) -> Vec<String> {
-    (typed.split(','))
-        .map(str::trim)
-        .filter(|module| !module.is_empty())
-        .map(|module| match module.rsplit_once(' ') {
-            Some((_, version)) if version.parse::<u32>().is_ok() => module.to_owned(),
-            _ => format!("{module} 1"),
-        })
-        .collect()
 }
 
 /// A sound being fetched: where the result comes, its address, and what
@@ -505,7 +496,10 @@ impl Tab {
             announce_ready: false,
             rules_section: 0,
             encoding: "auto".into(),
-            gmcp_modules: String::new(),
+            included_on: Vec::new(),
+            included_off: Vec::new(),
+            included_declined: Vec::new(),
+            plugin_offer: None,
             package_jobs: Vec::new(),
             media_base: None,
             media_jobs: Vec::new(),
@@ -731,6 +725,14 @@ impl Tab {
             }
         }
         files.extend(self.extra_scripts.iter().cloned());
+        // The plugins that come with Muddie and are on, before the
+        // player's own scripts, which may build on them.
+        for plugin in &crate::bundled::ALL {
+            if let (Some(code), true) = (plugin.code, self.included(plugin)) {
+                let name = format!("{}.luau", plugin.id);
+                (self.scripts).exec_owned(&crate::bundled::owner(plugin), &name, code);
+            }
+        }
         // The rules made in the interface, which also say which of the
         // scripts are switched off.
         if let Some(profiles) = &self.profiles {
@@ -865,11 +867,17 @@ impl Tab {
             self.packages = profile.packages;
             self.character = profile.character;
             self.encoding = profile.encoding;
-            self.gmcp_modules = profile.gmcp_modules.join(", ");
+            self.included_on = profile.included_on;
+            self.included_off = profile.included_off;
+            self.included_declined = profile.included_declined;
             self.voice.set_enabled(profile.speech);
         } else {
             self.packages.clear();
+            self.included_on.clear();
+            self.included_off.clear();
+            self.included_declined.clear();
         }
+        self.plugin_offer = None;
         self.profile_name = name.clone().unwrap_or_default();
         self.profile = name;
         self.load_layout();
@@ -896,7 +904,9 @@ impl Tab {
             speech: self.voice.enabled(),
             character: self.character.trim().to_owned(),
             encoding: self.encoding.trim().to_owned(),
-            gmcp_modules: modules_typed(&self.gmcp_modules),
+            included_on: self.included_on.clone(),
+            included_off: self.included_off.clone(),
+            included_declined: self.included_declined.clone(),
             // A profile saved under a new name starts without packages.
             packages: if self.profile.as_deref() == Some(&name) {
                 self.packages.clone()
@@ -998,12 +1008,15 @@ impl Tab {
                 encoding: self.encoding.clone(),
                 ..Config::default()
             };
-            config.gmcp_supports.extend(self.supports.iter().cloned());
-            for module in modules_typed(&self.gmcp_modules) {
-                if !config.gmcp_supports.contains(&module) {
-                    config.gmcp_supports.push(module);
-                }
+            // What many MUDs send the same way is asked for only while
+            // the plugin that makes something of it is on.
+            if !self.conventions() {
+                let ours =
+                    |module: &String| module.starts_with("Core ") || module.starts_with("Client.");
+                config.gmcp_supports.retain(ours);
+                config.msdp_report.clear();
             }
+            config.gmcp_supports.extend(self.supports.iter().cloned());
             config
         });
 
@@ -1280,6 +1293,7 @@ impl Tab {
         for event in events {
             match event {
                 Event::Connected => {
+                    self.offer_plugin_for(&self.host.clone(), "");
                     self.protocols.clear();
                     // A new connection passes over what the last was
                     // told to say.
@@ -1372,17 +1386,21 @@ impl Tab {
                 // Not spoken: the user has just typed it.
                 Event::Sent(text) => self.show_local(&format!("> {text}")),
                 Event::Gmcp { package, data } => {
-                    // Built-in panels first, so scripts can override them.
-                    if package.eq_ignore_ascii_case("Char.Vitals") {
+                    // What many MUDs send the same way first, if its plugin
+                    // is on, so that scripts can override it.
+                    let common = self.conventions();
+                    if common && package.eq_ignore_ascii_case("Char.Vitals") {
                         for (name, value, max) in panels::vitals(&data) {
                             self.gauges.set(name, Some((value, max)));
                         }
                     } else if let Some(message) = crate::media::parse(&package, &data) {
                         self.media(message);
-                    } else if package.eq_ignore_ascii_case("Comm.Channel.Text") {
+                    } else if common && package.eq_ignore_ascii_case("Comm.Channel.Text") {
                         let name = panels::channel_name(&data);
                         self.channel_said(&name, "", panels::channel_text(&data));
-                    } else if package.eq_ignore_ascii_case("Room.Info") && self.scripts.native_map()
+                    } else if common
+                        && package.eq_ignore_ascii_case("Room.Info")
+                        && self.scripts.native_map()
                     {
                         self.entered_room(&data);
                     }
@@ -1393,10 +1411,13 @@ impl Tab {
                     self.run_actions();
                 }
                 Event::Msdp { variable, data } => {
-                    if let Some((name, value, max)) = self.msdp_vitals.update(&variable, &data) {
+                    let common = self.conventions();
+                    if common
+                        && let Some((name, value, max)) = self.msdp_vitals.update(&variable, &data)
+                    {
                         self.gauges.set(name, Some((value, max)));
                     }
-                    if variable == "ROOM" && self.scripts.native_map() {
+                    if common && variable == "ROOM" && self.scripts.native_map() {
                         self.entered_room(&data);
                     }
                     if recording {
@@ -1406,6 +1427,12 @@ impl Tab {
                     self.run_actions();
                 }
                 Event::Mssp(status) => {
+                    let named = status
+                        .iter()
+                        .find(|(field, _)| field.eq_ignore_ascii_case("NAME"));
+                    if let Some((_, name)) = named {
+                        self.offer_plugin_for("", &name.clone());
+                    }
                     // Shown with the rest of what the MUD sends, if looked at.
                     if recording {
                         let fields: serde_json::Map<String, serde_json::Value> = (status.iter())
@@ -1520,19 +1547,7 @@ impl Tab {
                         self.add_to_panel(&name, &line);
                     }
                 }
-                Action::Supports(modules) => {
-                    let new: Vec<String> = modules
-                        .into_iter()
-                        .filter(|module| !self.supports.contains(module))
-                        .collect();
-                    // Already connected: the server is told of the additions.
-                    if let (Some(connection), false) = (&self.connection, new.is_empty()) {
-                        let data = serde_json::to_string(&new).unwrap_or_default();
-                        let package = "Core.Supports.Add".to_owned();
-                        let _ = connection.commands.send(Command::Gmcp { package, data });
-                    }
-                    self.supports.extend(new);
-                }
+                Action::Supports(modules) => self.announce_modules(modules),
                 Action::Completions { name, words } => {
                     // A list keeps its place when a newer one replaces it.
                     let known = self.completions.iter().position(|(list, _)| *list == name);
@@ -1596,6 +1611,145 @@ impl Tab {
             .map(|dir| dir.join(name))
             .find(|path| path.is_file());
         found.unwrap_or(given)
+    }
+
+    /// Whether a plugin that comes with Muddie is on in this session.
+    pub(super) fn included(&self, plugin: &crate::bundled::Bundled) -> bool {
+        let listed = |list: &[String]| list.iter().any(|id| id == plugin.id);
+        match plugin.default_on {
+            true => !listed(&self.included_off),
+            false => listed(&self.included_on),
+        }
+    }
+
+    /// Whether what many MUDs send the same way is made something of.
+    fn conventions(&self) -> bool {
+        crate::bundled::find(crate::bundled::COMMON).is_some_and(|plugin| self.included(plugin))
+    }
+
+    /// Switches a plugin that comes with Muddie on or off, at once and
+    /// without running the other scripts again, and keeps that with the
+    /// profile if there is one.
+    pub(super) fn set_included(&mut self, plugin: &'static crate::bundled::Bundled, on: bool) {
+        let id = plugin.id.to_owned();
+        self.included_on.retain(|known| *known != id);
+        self.included_off.retain(|known| *known != id);
+        match (plugin.default_on, on) {
+            (false, true) => self.included_on.push(id),
+            (true, false) => self.included_off.push(id),
+            _ => {}
+        }
+        if self.plugin_offer == Some(plugin) {
+            self.plugin_offer = None;
+        }
+        let owner = crate::bundled::owner(plugin);
+        self.scripts.unload(&owner);
+        if let (Some(code), true) = (plugin.code, on) {
+            let name = format!("{}.luau", plugin.id);
+            self.scripts.exec_owned(&owner, &name, code);
+        }
+        // The one that is part of the program asks the MUD for its own.
+        if plugin.id == crate::bundled::COMMON && on {
+            let usual = muddie_core::Config::default().gmcp_supports;
+            self.announce_modules(usual);
+        }
+        self.run_actions();
+        self.keep_included();
+    }
+
+    /// Saves which plugins are on with the profile, if there is one;
+    /// without one they are as set for as long as the session lasts.
+    fn keep_included(&mut self) {
+        let (Some(profiles), Some(name)) = (&self.profiles, &self.profile) else {
+            return;
+        };
+        // What is saved of the profile, with only this changed: what is
+        // being typed in the connection's form is not this one's to save.
+        let saved = profiles.load(name).and_then(|mut profile| {
+            profile.included_on.clone_from(&self.included_on);
+            profile.included_off.clone_from(&self.included_off);
+            profile
+                .included_declined
+                .clone_from(&self.included_declined);
+            (profiles.save(name, &profile)).map_err(|error| error.to_string())
+        });
+        if let Err(error) = saved {
+            self.note(&trf("Could not save the profile: {0}", &[&error]));
+        }
+    }
+
+    /// Offers the plugin made for the MUD at `host`, or that gives itself
+    /// `name`, unless it is on already or was declined for this profile.
+    fn offer_plugin_for(&mut self, host: &str, name: &str) {
+        let Some(plugin) = crate::bundled::for_mud(host, name) else {
+            return;
+        };
+        let declined = self.included_declined.iter().any(|id| id == plugin.id);
+        if self.included(plugin) || declined || self.plugin_offer == Some(plugin) {
+            return;
+        }
+        self.plugin_offer = Some(plugin);
+        self.voice.say(&trf(
+            "There is a plugin for {0}. It is offered above the command line.",
+            &[tr(plugin.name)],
+        ));
+    }
+
+    /// The plugin offered for this MUD was declined: it is not offered
+    /// again in this profile, and stays in the settings.
+    fn decline_plugin(&mut self) {
+        if let Some(plugin) = self.plugin_offer.take() {
+            self.included_declined.push(plugin.id.to_owned());
+            self.keep_included();
+        }
+    }
+
+    /// The offer of a plugin for the MUD connected to, over the command
+    /// line: what it does, and a button to switch it on and one not to.
+    pub(super) fn plugin_notice(&mut self, ui: &mut egui::Ui) {
+        let Some(plugin) = self.plugin_offer else {
+            return;
+        };
+        let theme = theme::current();
+        let card = egui::Frame::new()
+            .fill(theme.raised)
+            .stroke(egui::Stroke::new(1.0, theme.border))
+            .corner_radius(egui::CornerRadius::same(10))
+            .inner_margin(egui::Margin::symmetric(12, 6));
+        let (mut enable, mut decline) = (false, false);
+        card.show(ui, |ui| {
+            ui.horizontal(|ui| {
+                let what = trf("There is a plugin for {0}.", &[tr(plugin.name)]);
+                ui.label(RichText::new(what).color(theme.text));
+                ui.label(RichText::new(tr(plugin.about)).color(theme.text_dim));
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    decline = crate::widgets::quiet_button(ui, tr("Not now")).clicked();
+                    enable = crate::widgets::button(ui, tr("Enable")).clicked();
+                });
+            });
+        });
+        ui.add_space(4.0);
+        if enable {
+            self.set_included(plugin, true);
+        }
+        if decline {
+            self.decline_plugin();
+        }
+    }
+
+    /// Tells the MUD of GMCP modules it has not been told of: at once if
+    /// there is a connection, and on connecting.
+    fn announce_modules(&mut self, modules: Vec<String>) {
+        let new: Vec<String> = modules
+            .into_iter()
+            .filter(|module| !self.supports.contains(module))
+            .collect();
+        if let (Some(connection), false) = (&self.connection, new.is_empty()) {
+            let data = serde_json::to_string(&new).unwrap_or_default();
+            let package = "Core.Supports.Add".to_owned();
+            let _ = connection.commands.send(Command::Gmcp { package, data });
+        }
+        self.supports.extend(new);
     }
 
     /// Adds a package to the profile's list, or takes it off, saves the

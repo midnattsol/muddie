@@ -1,4 +1,5 @@
 mod app;
+mod bundled;
 mod complete;
 mod history;
 mod i18n;
