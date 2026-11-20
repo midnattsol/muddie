@@ -64,7 +64,7 @@ impl Tab {
         self.offer_plugin_for(&self.host.clone(), "");
         self.protocols.clear();
         // A new connection passes over what the last was told to say.
-        self.trace_sent = Some(false);
+        self.data_view.trace_sent = Some(false);
         self.reconnect_attempts = 0;
         self.last_activity = Instant::now();
         if self.prefs.log_sessions && self.log.is_none() {
@@ -74,7 +74,7 @@ impl Tab {
         // The server has yet to hear how big the panels are, and the text
         // of the game.
         self.panels_untold();
-        self.window_reported = None;
+        self.sizes.window_reported = None;
         self.scripts.on_event("connect", "");
         self.run_actions();
         self.login = if self.character.trim().is_empty() {
@@ -243,10 +243,10 @@ impl Tab {
         self.gauges.clear();
         self.msdp_vitals.clear();
         self.sound.stop_all();
-        self.media_base = None;
-        self.media_jobs.clear();
-        self.mxp_values.clear();
-        self.mxp_gauges.clear();
+        self.fetching.base = None;
+        self.fetching.jobs.clear();
+        self.mxp_state.values.clear();
+        self.mxp_state.gauges.clear();
         self.input_hidden = false;
         self.connection = None;
     }

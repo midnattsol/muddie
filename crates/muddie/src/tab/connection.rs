@@ -216,7 +216,7 @@ impl Tab {
         }
         self.media_fetched();
         self.sound.poll();
-        if self.sound.has_loops() || !self.media_jobs.is_empty() {
+        if self.sound.has_loops() || !self.fetching.jobs.is_empty() {
             ctx.request_repaint_after(Duration::from_millis(250));
         }
     }

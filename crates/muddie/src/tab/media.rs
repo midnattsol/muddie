@@ -34,7 +34,7 @@ impl Tab {
     pub(super) fn media(&mut self, message: crate::media::Media) {
         use crate::media::Media;
         match message {
-            Media::Default(url) => self.media_base = Some(url),
+            Media::Default(url) => self.fetching.base = Some(url),
             Media::Load { name, url } => {
                 if let Some((address, None)) = self.media_file(&name, url.as_deref()) {
                     self.media_fetch(address, None);
@@ -55,7 +55,7 @@ impl Tab {
         match request {
             Msp::Stop { music, url } => {
                 if let Some(url) = url {
-                    self.media_base = Some(url);
+                    self.fetching.base = Some(url);
                 }
                 let kind = kind_of(music);
                 self.sound.stop_where(|label| label.kind == kind);
@@ -191,7 +191,7 @@ impl Tab {
         if own.is_file() {
             return Some((String::new(), Some(own)));
         }
-        let address = crate::media::address(url.or(self.media_base.as_deref())?, name)?;
+        let address = crate::media::address(url.or(self.fetching.base.as_deref())?, name)?;
         let kept = crate::media::kept_at(&crate::media::cache_dir()?, &address);
         let here = kept.is_file().then_some(kept);
         Some((address, here))
@@ -201,19 +201,20 @@ impl Tab {
     /// fetching is switched off, it is being fetched, or it failed before.
     pub(super) fn media_fetch(&mut self, address: String, then: Option<crate::media::Play>) {
         let busy = self
-            .media_jobs
+            .fetching
+            .jobs
             .iter()
             .any(|(_, known, _)| *known == address);
-        if !self.prefs.media_downloads || busy || self.media_missing.contains(&address) {
+        if !self.prefs.media_downloads || busy || self.fetching.missing.contains(&address) {
             return;
         }
         let Some(cache) = crate::media::cache_dir() else {
             return;
         };
         // No more at once than a MUD could reasonably ask for.
-        if self.media_jobs.len() < 8 {
+        if self.fetching.jobs.len() < 8 {
             let job = crate::media::fetch(&cache, &address);
-            self.media_jobs.push((job, address, then));
+            self.fetching.jobs.push((job, address, then));
         }
     }
 
@@ -221,7 +222,8 @@ impl Tab {
     /// what could not be, saying so once.
     pub(super) fn media_fetched(&mut self) {
         let mut ended = Vec::new();
-        self.media_jobs
+        self.fetching
+            .jobs
             .retain_mut(|(job, address, then)| match job.try_recv() {
                 Ok(outcome) => {
                     ended.push((outcome, address.clone(), then.take()));
@@ -235,7 +237,7 @@ impl Tab {
                 (Ok(path), Some(play)) => self.media_start(&path, &play),
                 (Ok(_), None) => {}
                 (Err(error), _) => {
-                    self.media_missing.push(address);
+                    self.fetching.missing.push(address);
                     self.note(&trf("A sound could not be fetched: {0}", &[&error]));
                 }
             }
@@ -261,4 +263,17 @@ impl Tab {
         // A sound that cannot be played is no error.
         let _ = self.sound.play_with(path, options, label);
     }
+}
+
+/// The sounds being fetched for the MUD, where it said they are, and those
+
+/// that could not be had.
+#[derive(Default)]
+pub(super) struct Fetching {
+    /// Where the MUD said its sounds are fetched from, the ones being
+    /// fetched, each with what to play once it is here, and the ones
+    /// that could not be had, which are not asked for again.
+    pub(super) base: Option<String>,
+    pub(super) jobs: Vec<MediaJob>,
+    pub(super) missing: Vec<String>,
 }

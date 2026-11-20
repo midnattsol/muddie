@@ -34,8 +34,8 @@ impl Tab {
         // The channels to read back are those of the panel that shows them.
         let channels = (self.layout.panels.iter()).find(|panel| panel.channels);
         let chat = channels
-            .and_then(|panel| self.panel_text.iter().find(|(id, _)| *id == panel.id))
-            .map_or(&self.no_chat, |(_, content)| &content.log);
+            .and_then(|panel| self.panels.text.iter().find(|(id, _)| *id == panel.id))
+            .map_or(&self.panels.no_chat, |(_, content)| &content.log);
         self.voice.update(ui, &self.output, chat);
         if !self.started {
             return self.welcome(ui);
@@ -51,7 +51,7 @@ impl Tab {
             .frame(plain)
             .show_separator_line(false)
             .show(ui, |ui| {
-                if self.find_open {
+                if self.find.open {
                     self.find_bar(ui);
                 }
                 self.announce(ui);
@@ -72,7 +72,7 @@ impl Tab {
             // What fits in it is what the server is told, less the
             // place of the scroll bar.
             let room = ui.available_size() - egui::vec2(12.0, 0.0);
-            self.window_cells = Self::cells(ui, room);
+            self.sizes.window = Self::cells(ui, room);
             self.output.show(ui, "output")
         });
         self.report_window(ui.ctx());

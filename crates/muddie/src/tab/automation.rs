@@ -279,7 +279,7 @@ impl Tab {
             tr("Variables"),
             tr("Scripts"),
         ];
-        let data = (DATA, tr("Incoming data"), self.data_seen.len());
+        let data = (DATA, tr("Incoming data"), self.data_view.seen.len());
         let rules = names
             .into_iter()
             .enumerate()
@@ -610,18 +610,18 @@ impl Tab {
         let Some(path) = self.script_loaded.clone() else {
             return;
         };
-        self.answer.clear();
-        (self.answering, self.answer_failed) = (true, false);
+        self.palette.answer.clear();
+        (self.palette.answering, self.palette.answer_failed) = (true, false);
         // Run now whether or not it is switched on: that says whether it
         // is run by itself when a session starts, not whether it can be.
         self.scripts.reload_file(&path);
         // It is told again how big the panels are.
         self.panels_untold();
         self.run_actions();
-        self.answering = false;
-        let said = std::mem::take(&mut self.answer);
+        self.palette.answering = false;
+        let said = std::mem::take(&mut self.palette.answer);
         let at = crate::output::clock();
-        if self.answer_failed {
+        if self.palette.answer_failed {
             let error: Vec<String> = said.into_iter().map(|said| said.text).collect();
             self.script_ran = Some((at, Some(error.join("\n"))));
         } else {

@@ -53,7 +53,7 @@ fn fake_connection(
 ) {
     let (events, receiver) = channel();
     let (commands, sent) = tokio::sync::mpsc::unbounded_channel();
-    app.window_untold = true;
+    app.sizes.window_untold = true;
     app.connection = Some(Connection {
         commands,
         events: receiver,
@@ -336,7 +336,12 @@ fn map_drawn_by_the_server_is_asked_for_at_the_panels_size_and_shown() {
         .iter()
         .find(|panel| panel.kind == layout::Kind::Map)
         .unwrap();
-    let drawn = app.panel_text.iter().find(|(id, _)| *id == map.id).unwrap();
+    let drawn = app
+        .panels
+        .text
+        .iter()
+        .find(|(id, _)| *id == map.id)
+        .unwrap();
     assert_eq!(drawn.1.fixed.len(), 3);
     assert!(harness.query_by_label("#-@-#").is_some());
 }
@@ -439,7 +444,7 @@ fn client_commands_are_grouped() {
     assert!(app.do_client_command("/map hide") && !app.map_shown());
     assert!(app.do_client_command("/map show") && app.map_shown());
     // The palette is the list of the commands: asking for help opens it.
-    assert!(app.do_client_command("/help") && app.palette_open);
+    assert!(app.do_client_command("/help") && app.palette.open);
     app.toggle_palette();
     // Groups: listed, and switched for the session by name.
     app.scripts
@@ -451,7 +456,7 @@ fn client_commands_are_grouped() {
     // An incomplete group opens the palette at what it has, instead
     // of going to the MUD.
     assert!(app.do_client_command("/map dance"));
-    assert!(app.palette_open && app.palette_query == "map ");
+    assert!(app.palette.open && app.palette.query == "map ");
 }
 
 #[test]
@@ -469,11 +474,11 @@ fn commands_are_chosen_from_a_palette_and_answer_at_the_line() {
     harness.state_mut().tab_mut().toggle_palette();
     harness.run_steps(3);
     harness.get_by_label("Incoming data. Go to");
-    harness.state_mut().tab_mut().palette_query = "map".into();
+    harness.state_mut().tab_mut().palette.query = "map".into();
     harness.run_steps(3);
     harness.get_by_label_contains("map where");
     // What it goes to is done there and then: the editor, at a section.
-    harness.state_mut().tab_mut().palette_query = "timers".into();
+    harness.state_mut().tab_mut().palette.query = "timers".into();
     harness.run_steps(3);
     harness.key_press(Key::Enter);
     harness.run_steps(3);
@@ -482,7 +487,7 @@ fn commands_are_chosen_from_a_palette_and_answer_at_the_line() {
     app.set_view(0);
     // And what the window does is asked of it.
     app.toggle_palette();
-    app.palette_query = "about".into();
+    app.palette.query = "about".into();
     harness.run_steps(2);
     harness.key_press(Key::Enter);
     harness.run_steps(3);
@@ -496,7 +501,7 @@ fn commands_are_chosen_from_a_palette_and_answer_at_the_line() {
     harness.state_mut().tab_mut().toggle_palette();
     harness.run_steps(2);
     // A slash puts the commands first, to run with Enter.
-    harness.state_mut().tab_mut().palette_query = "/pl".into();
+    harness.state_mut().tab_mut().palette.query = "/pl".into();
     harness.run_steps(3);
     harness.get_by_label_contains("plugin install");
     assert!(harness.query_by_label_contains("map where").is_none());
@@ -507,12 +512,12 @@ fn commands_are_chosen_from_a_palette_and_answer_at_the_line() {
     harness.key_press(Key::Enter);
     harness.run_steps(2);
     let app = harness.state().tab();
-    assert!(app.palette_open);
-    assert_eq!(app.palette_query, "plugin install ");
+    assert!(app.palette.open);
+    assert_eq!(app.palette.query, "plugin install ");
     // Escape closes it.
     harness.key_press(Key::Escape);
     harness.run_steps(2);
-    assert!(!harness.state().tab().palette_open);
+    assert!(!harness.state().tab().palette.open);
     assert!(harness.query_by_label_contains("plugin install").is_none());
     // One Enter runs what is chosen, typed in full or not, and closes
     // the palette. A line of answer is said in the command line, and
@@ -521,22 +526,22 @@ fn commands_are_chosen_from_a_palette_and_answer_at_the_line() {
     app.scripts
         .exec("t", r#"bind("f9", "kick", {group = "Combat"})"#);
     app.toggle_palette();
-    app.palette_query = "map hi".into();
+    app.palette.query = "map hi".into();
     harness.run_steps(2);
     harness.key_press(Key::Enter);
     harness.run_steps(3);
     let app = harness.state().tab();
-    assert!(!app.map_shown() && !app.palette_open);
+    assert!(!app.map_shown() && !app.palette.open);
     assert_eq!(output_lines(app).len(), before);
     let app = harness.state_mut().tab_mut();
     app.toggle_palette();
-    app.palette_query = "group Com".into();
+    app.palette.query = "group Com".into();
     harness.run_steps(2);
     harness.key_press(Key::Enter);
     harness.run_steps(3);
     let app = harness.state().tab();
     assert!(!app.scripts.group_enabled("Combat"));
-    let note = app.bar_note.clone().expect("a line of answer");
+    let note = app.palette.bar_note.clone().expect("a line of answer");
     assert_eq!(
         (note.text.as_str(), note.problem),
         ("Group Combat off.", false)
@@ -544,20 +549,20 @@ fn commands_are_chosen_from_a_palette_and_answer_at_the_line() {
     assert_eq!(output_lines(app).len(), before);
     // Left alone, it goes by itself after a moment.
     harness.run_steps(40);
-    assert!(harness.state().tab().bar_note.is_none());
+    assert!(harness.state().tab().palette.bar_note.is_none());
     // A line of Lua is run from the palette as from the command line:
     // what it prints is its answer, and so is that it was run, or
     // that it could not be.
     let run = |harness: &mut Harness<'_, App>, code: &str| {
         let app = harness.state_mut().tab_mut();
         app.toggle_palette();
-        app.palette_query = format!("lua {code}");
+        app.palette.query = format!("lua {code}");
         harness.run_steps(2);
         harness.key_press(Key::Enter);
         harness.run_steps(3);
         let app = harness.state().tab();
-        assert!(!app.palette_open);
-        let note = app.bar_note.clone().expect("an answer");
+        assert!(!app.palette.open);
+        let note = app.palette.bar_note.clone().expect("an answer");
         (note.text, note.problem)
     };
     assert_eq!(
@@ -576,17 +581,17 @@ fn commands_are_chosen_from_a_palette_and_answer_at_the_line() {
     // Enter on a group switches it.
     let app = harness.state_mut().tab_mut();
     app.toggle_palette();
-    app.palette_query = "gr".into();
+    app.palette.query = "gr".into();
     harness.run_steps(2);
     harness.key_press(Key::Enter);
     harness.run_steps(3);
     let app = harness.state().tab();
-    assert!(app.palette_open && app.results.is_some());
+    assert!(app.palette.open && app.palette.results.is_some());
     harness.get_by_label("Combat. off");
     harness.key_press(Key::Enter);
     harness.run_steps(3);
     let app = harness.state().tab();
-    assert!(app.scripts.group_enabled("Combat") && !app.palette_open);
+    assert!(app.scripts.group_enabled("Combat") && !app.palette.open);
     // Typed in the command line after a slash, a command is carried
     // out the same, and is not kept there to be sent again. What
     // could not be done stays said, until something is typed.
@@ -596,7 +601,7 @@ fn commands_are_chosen_from_a_palette_and_answer_at_the_line() {
     harness.run_steps(40);
     let app = harness.state().tab();
     assert!(app.input.is_empty());
-    let note = app.bar_note.clone().expect("a refusal");
+    let note = app.palette.bar_note.clone().expect("a refusal");
     assert_eq!(
         (note.text.as_str(), note.problem),
         ("No room matches.", true)
@@ -640,7 +645,8 @@ fn panels_are_kept_fed_by_triggers_and_moved_about() {
         .expect("made")
         .clone();
     let content = &app
-        .panel_text
+        .panels
+        .text
         .iter()
         .find(|(id, _)| *id == tells.id)
         .unwrap()
@@ -656,7 +662,8 @@ fn panels_are_kept_fed_by_triggers_and_moved_about() {
         .for_each(|panel| panel.channels = true);
     app.channel_line(&panels::styled_lines("[ooc] Luis: buenas").remove(0));
     assert_eq!(
-        app.panel_text
+        app.panels
+            .text
             .iter()
             .find(|(id, _)| *id == tells.id)
             .unwrap()
@@ -700,7 +707,8 @@ fn panels_are_kept_fed_by_triggers_and_moved_about() {
     harness.run_steps(3);
     let app = harness.state().tab();
     let rect = |id| {
-        app.panel_rects
+        app.panels
+            .rects
             .iter()
             .find(|(known, _)| *known == id)
             .unwrap()
@@ -720,7 +728,8 @@ fn panels_are_kept_fed_by_triggers_and_moved_about() {
     harness.run_steps(3);
     let app = harness.state_mut().tab_mut();
     let rect = |app: &Tab, id| {
-        app.panel_rects
+        app.panels
+            .rects
             .iter()
             .find(|(known, _)| *known == id)
             .unwrap()
@@ -733,17 +742,19 @@ fn panels_are_kept_fed_by_triggers_and_moved_about() {
     } else {
         tells.id
     };
-    assert!(app.shown_tabs.contains(&(1, first)));
+    assert!(app.panels.shown_tabs.contains(&(1, first)));
     if hidden == tells.id {
         app.add_to_panel(
             "Tells",
             &panels::styled_lines("Luis tells you: eh").remove(0),
         );
-        assert_eq!(app.unread_tabs, [tells.id]);
+        assert_eq!(app.panels.unread_tabs, [tells.id]);
         harness.get_by_label("Tells").click();
         harness.run_steps(3);
         let app = harness.state().tab();
-        assert!(app.shown_tabs.contains(&(1, tells.id)) && app.unread_tabs.is_empty());
+        assert!(
+            app.panels.shown_tabs.contains(&(1, tells.id)) && app.panels.unread_tabs.is_empty()
+        );
     }
     let app = harness.state_mut().tab_mut();
     app.layout.panels[index].stack = 0;
@@ -798,7 +809,7 @@ fn what_the_mud_sends_is_kept_to_look_at_and_made_into_gauges() {
     let (events, _sent) = fake_connection(harness.state_mut().tab_mut());
     // Kept from the start, as when it is asked to go on outside the
     // debugging view.
-    harness.state_mut().tab_mut().data_keep = true;
+    harness.state_mut().tab_mut().data_view.keep = true;
     let vitals = |hp: u32| Event::Gmcp {
         package: "Char.Vitals".into(),
         data: format!(r#"{{"health": {{"current": {hp}, "max": 100}}}}"#),
@@ -813,12 +824,16 @@ fn what_the_mud_sends_is_kept_to_look_at_and_made_into_gauges() {
     harness.run_steps(3);
     let app = harness.state_mut().tab_mut();
     let seen: Vec<(&str, bool, u32)> = app
-        .data_seen
+        .data_view
+        .seen
         .iter()
         .map(|seen| (seen.name.as_str(), seen.msdp, seen.count))
         .collect();
     assert_eq!(seen, [("Char.Vitals", false, 2), ("HUNGER", true, 1)]);
-    assert!(app.data_seen[0].json.contains("62") && app.data_seen[0].earlier[0].1.contains("40"));
+    assert!(
+        app.data_view.seen[0].json.contains("62")
+            && app.data_view.seen[0].earlier[0].1.contains("40")
+    );
     // The editor shows it, and a number there becomes a gauge with
     // its maximum found, in a panel of gauges.
     app.set_view(2);
@@ -1085,7 +1100,7 @@ fn what_arrives_is_kept_only_while_it_is_looked_at() {
     // With the debugging view closed, nothing is kept.
     events.send(vitals()).unwrap();
     harness.run_steps(3);
-    assert!(harness.state().tab().data_seen.is_empty());
+    assert!(harness.state().tab().data_view.seen.is_empty());
     // Open, it is: by the protocol each thing came by. The connection
     // is told to say what it otherwise passes over.
     harness.state_mut().tab_mut().set_view(2);
@@ -1107,7 +1122,7 @@ fn what_arrives_is_kept_only_while_it_is_looked_at() {
         .unwrap();
     harness.run_steps(3);
     let kept = |app: &Tab| -> Vec<String> {
-        (app.data_seen.iter())
+        (app.data_view.seen.iter())
             .map(|seen| format!("{} {}", seen.protocol, seen.name))
             .collect()
     };
@@ -1127,11 +1142,11 @@ fn what_arrives_is_kept_only_while_it_is_looked_at() {
     harness.run_steps(2);
     events.send(vitals()).unwrap();
     harness.run_steps(3);
-    assert_eq!(harness.state().tab().data_seen[0].count, 1);
-    harness.state_mut().tab_mut().data_keep = true;
+    assert_eq!(harness.state().tab().data_view.seen[0].count, 1);
+    harness.state_mut().tab_mut().data_view.keep = true;
     events.send(vitals()).unwrap();
     harness.run_steps(3);
-    assert_eq!(harness.state().tab().data_seen[0].count, 2);
+    assert_eq!(harness.state().tab().data_view.seen[0].count, 2);
 }
 
 #[test]
@@ -1139,7 +1154,7 @@ fn the_server_is_told_how_much_text_fits() {
     let mut harness = window(None);
     harness.set_size(egui::vec2(1100.0, 700.0));
     let (_events, mut sent) = fake_connection(harness.state_mut().tab_mut());
-    harness.state_mut().tab_mut().window_untold = false;
+    harness.state_mut().tab_mut().sizes.window_untold = false;
     // Once the size has been the same for a moment, it is told.
     let mut told = |harness: &mut Harness<'_, App>| {
         for _ in 0..40 {
@@ -1197,11 +1212,11 @@ fn sounds_a_mud_asks_for_are_played_from_the_players_own_or_fetched() {
     // what could not be had before.
     app.prefs.media_downloads = false;
     app.media_fetch(address.clone(), None);
-    assert!(app.media_jobs.is_empty());
+    assert!(app.fetching.jobs.is_empty());
     app.prefs.media_downloads = true;
-    app.media_missing.push(address.clone());
+    app.fetching.missing.push(address.clone());
     app.media_fetch(address, None);
-    assert!(app.media_jobs.is_empty());
+    assert!(app.fetching.jobs.is_empty());
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
@@ -1238,7 +1253,7 @@ fn a_sound_of_the_sound_protocol_is_found_by_kind_and_by_pattern() {
         music: true,
         url: Some("http://mud.example/m/".into()),
     });
-    assert_eq!(app.media_base.as_deref(), Some("http://mud.example/m/"));
+    assert_eq!(app.fetching.base.as_deref(), Some("http://mud.example/m/"));
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
@@ -1405,12 +1420,13 @@ fn channels_have_a_tab_each_in_the_panel_of_channels() {
     harness.run_steps(3);
     let app = harness.state().tab();
     let names: Vec<&str> = app
+        .panels
         .channels
         .iter()
         .map(|channel| channel.name.as_str())
         .collect();
     assert_eq!(names, ["chat", "mercenario", "bando"]);
-    assert_eq!(app.channels[0].log.len(), 2);
+    assert_eq!(app.panels.channels[0].log.len(), 2);
     // One panel, not one for each: the panel of channels shows all
     // of it, and a tab for each channel.
     assert_eq!(
@@ -1434,7 +1450,12 @@ fn channels_have_a_tab_each_in_the_panel_of_channels() {
     app.scripts.exec("t", r#"channel("bando", "Eva: esperad")"#);
     app.run_actions();
     harness.run_steps(2);
-    let unread = |app: &Tab, name: &str| app.channels.iter().any(|c| c.name == name && c.unread);
+    let unread = |app: &Tab, name: &str| {
+        app.panels
+            .channels
+            .iter()
+            .any(|c| c.name == name && c.unread)
+    };
     assert!(unread(harness.state().tab(), "bando") && !unread(harness.state().tab(), "chat"));
     harness.get_by_label("bando, new").click();
     harness.run_steps(3);
@@ -1591,6 +1612,7 @@ end)"#;
     harness.run_steps(4);
     let app = harness.state().tab();
     let mut names: Vec<&str> = app
+        .panels
         .channels
         .iter()
         .map(|channel| channel.name.as_str())
@@ -1644,7 +1666,7 @@ fn a_channel_goes_to_the_panel_a_script_names() {
     assert_eq!(app.text_of(id).log.len(), 2);
     assert_eq!(app.text_of(private.id).log.text(0), "Luis te susurra: ven");
     let tabs = |app: &Tab, panel: &str| -> Vec<String> {
-        (app.channels.iter())
+        (app.panels.channels.iter())
             .filter(|channel| channel.panel.eq_ignore_ascii_case(panel))
             .map(|channel| channel.name.clone())
             .collect()
@@ -1809,7 +1831,7 @@ fn a_plugin_for_the_mud_is_offered_and_switched_on_without_the_rest_starting_ove
     harness.run_steps(3);
     let app = harness.state_mut().tab_mut();
     assert!(app.included(reinos) && app.plugin_offer.is_none());
-    assert_eq!(app.channels[0].name, "chat");
+    assert_eq!(app.panels.channels[0].name, "chat");
     app.scripts.on_input("kept");
     app.run_actions();
     assert_eq!(output_lines(app).last().map(String::as_str), Some("kept 7"));
@@ -1822,13 +1844,13 @@ fn a_plugin_for_the_mud_is_offered_and_switched_on_without_the_rest_starting_ove
     // Switched off, what it made is gone.
     let app = harness.state_mut().tab_mut();
     app.set_included(reinos, false);
-    let before = app.channels[0].log.len();
+    let before = app.panels.channels[0].log.len();
     app.scripts.on_gmcp(
         "Comm.MensajeCanal",
         r#"{"canal": "chat", "mensaje": "otra"}"#,
     );
     app.run_actions();
-    assert_eq!(app.channels[0].log.len(), before);
+    assert_eq!(app.panels.channels[0].log.len(), before);
     // Declined instead, it is not offered again in this profile either.
     app.offer_plugin_for("rlmud.org", "");
     assert!(app.plugin_offer.is_some());
@@ -1862,12 +1884,12 @@ fn what_many_muds_send_alike_is_a_plugin_that_can_be_switched_off() {
     harness.run_steps(3);
     let app = harness.state_mut().tab_mut();
     assert!(app.gauges.summary().contains("80 of 100"));
-    assert_eq!(app.channels.len(), 1);
+    assert_eq!(app.panels.channels.len(), 1);
     // Off, the client makes nothing of them by itself; scripts still
     // get them.
     app.set_included(common, false);
     app.gauges.clear();
-    app.channels.clear();
+    app.panels.channels.clear();
     app.scripts.exec(
         "t",
         r#"on_gmcp("Char.Vitals", function(data) echo("hp " .. data.hp) end)"#,
@@ -1876,7 +1898,7 @@ fn what_many_muds_send_alike_is_a_plugin_that_can_be_switched_off() {
     events.send(said()).unwrap();
     harness.run_steps(3);
     let app = harness.state().tab();
-    assert!(app.gauges.summary().is_empty() && app.channels.is_empty());
+    assert!(app.gauges.summary().is_empty() && app.panels.channels.is_empty());
     assert_eq!(output_lines(app).last().map(String::as_str), Some("hp 80"));
 }
 
@@ -1998,7 +2020,7 @@ fn a_panel_is_arranged_from_its_own_menu_with_no_mode_to_enter() {
     // A panel is added without a mode, from the palette.
     let before = app.layout.panels.len();
     app.toggle_palette();
-    app.palette_query = "add a text panel".into();
+    app.palette.query = "add a text panel".into();
     harness.run_steps(2);
     harness.key_press(Key::Enter);
     harness.run_steps(3);
@@ -2047,7 +2069,7 @@ fn a_panel_is_dragged_by_its_handle_to_another_place() {
             .map(|panel| panel.side)
     };
     assert_eq!(side("Gauges"), Some(layout::Side::Right));
-    assert!(app.dragged_panel.is_none());
+    assert!(app.panels.dragged.is_none());
 }
 
 #[test]
@@ -2108,7 +2130,7 @@ fn the_palette_opens_from_its_field_and_stays_open() {
     for frame in 0..6 {
         harness.step();
         assert!(
-            harness.state().tab().palette_open,
+            harness.state().tab().palette.open,
             "closed again at frame {frame}"
         );
     }
@@ -2116,7 +2138,7 @@ fn the_palette_opens_from_its_field_and_stays_open() {
     // A press anywhere else does close it.
     harness.get_by_label("Menu").click();
     harness.run_steps(3);
-    assert!(!harness.state().tab().palette_open);
+    assert!(!harness.state().tab().palette.open);
 }
 
 #[test]
@@ -2935,10 +2957,10 @@ fn screenshot() {
     app.toggle_palette();
     palette.run_steps(8);
     save(&mut palette, "palette");
-    palette.state_mut().tab_mut().palette_query = "map".into();
+    palette.state_mut().tab_mut().palette.query = "map".into();
     palette.run_steps(4);
     save(&mut palette, "palette-typed");
-    palette.state_mut().tab_mut().palette_query = "gr".into();
+    palette.state_mut().tab_mut().palette.query = "gr".into();
     palette.run_steps(3);
     palette.key_press(Key::Enter);
     palette.run_steps(4);
@@ -2955,8 +2977,8 @@ fn screenshot() {
     let mut find = connected_demo_window();
     let app = find.state_mut().tab_mut();
     (0..60).for_each(|n| app.show_local(&format!("line {n} of filler to scroll through")));
-    app.find_open = true;
-    app.find_query = "orco".into();
+    app.find.open = true;
+    app.find.query = "orco".into();
     find.run_steps(3);
     find.get_by_label("Previous").click();
     find.run_steps(4);

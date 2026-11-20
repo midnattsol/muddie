@@ -128,7 +128,7 @@ impl Tab {
     /// shown, in the editor, or if asked to go on outside it. It is not
     /// otherwise, so that it costs nothing.
     pub(super) fn recording(&self) -> bool {
-        self.data_open() || self.data_keep
+        self.data_open() || self.data_view.keep
     }
 
     /// Whether what the MUD sends is on the screen.
@@ -140,11 +140,11 @@ impl Tab {
     /// when that has changed.
     pub(super) fn sync_trace(&mut self) {
         let wanted = self.recording();
-        if self.trace_sent != Some(wanted)
+        if self.data_view.trace_sent != Some(wanted)
             && let Some(connection) = &self.connection
         {
             let _ = connection.commands.send(Command::Trace(wanted));
-            self.trace_sent = Some(wanted);
+            self.data_view.trace_sent = Some(wanted);
         }
     }
 
@@ -154,7 +154,8 @@ impl Tab {
         let msdp = protocol == "MSDP";
         let at = crate::output::clock();
         match self
-            .data_seen
+            .data_view
+            .seen
             .iter_mut()
             .find(|seen| seen.name == name && seen.protocol == protocol)
         {
@@ -169,10 +170,10 @@ impl Tab {
             }
             None => {
                 // No more names than can be looked through.
-                if self.data_seen.len() >= MOST {
+                if self.data_view.seen.len() >= MOST {
                     return;
                 }
-                self.data_seen.push(Seen {
+                self.data_view.seen.push(Seen {
                     name: name.to_owned(),
                     protocol: protocol.to_owned(),
                     msdp,
@@ -181,7 +182,9 @@ impl Tab {
                     count: 1,
                     earlier: VecDeque::new(),
                 });
-                self.data_seen.sort_by_key(|seen| seen.name.to_lowercase());
+                self.data_view
+                    .seen
+                    .sort_by_key(|seen| seen.name.to_lowercase());
             }
         }
     }
@@ -218,7 +221,7 @@ impl Tab {
         };
         let protocols = self.protocols.clone();
         let state = |name: &str| protocols.iter().find(|(known, _)| known == name);
-        let mut filter = self.data_protocol.clone();
+        let mut filter = self.data_view.protocol.clone();
         // The ones that carry something to see, then whatever else the
         // MUD offered.
         let main = ["GMCP", "MSDP", "MSSP", "MXP", "MSP", "MCCP2", "CHARSET"];
@@ -286,7 +289,7 @@ impl Tab {
                 shown.on_hover_text(about);
             }
         });
-        self.data_protocol = filter;
+        self.data_view.protocol = filter;
         ui.horizontal_wrapped(|ui| {
             let key = tr("Filled: in use. Outlined: offered by the MUD, not used by Muddie. Faint: not offered.");
             ui.add(Label::new(small(key, theme.text_faint)).wrap());
@@ -306,12 +309,12 @@ impl Tab {
         ui.horizontal(|ui| {
             ui.add_space(4.0);
             let keep = tr("Record in the background");
-            widgets::switch(ui, &mut self.data_keep, keep);
+            widgets::switch(ui, &mut self.data_view.keep, keep);
             ui.add(Label::new(small(keep, theme.text_dim)).selectable(false));
         });
-        if !self.data_seen.is_empty() && widgets::quiet_button(ui, tr("Clear")).clicked() {
-            self.data_seen.clear();
-            self.data_selected = 0;
+        if !self.data_view.seen.is_empty() && widgets::quiet_button(ui, tr("Clear")).clicked() {
+            self.data_view.seen.clear();
+            self.data_view.selected = 0;
         }
         ui.add_space(6.0);
     }
@@ -321,14 +324,14 @@ impl Tab {
     pub(super) fn data_list(&mut self, ui: &mut egui::Ui) {
         let theme = theme::current();
         self.protocols_shown(ui);
-        widgets::text_box(ui, &mut self.data_filter, tr("Search"));
+        widgets::text_box(ui, &mut self.data_view.filter, tr("Search"));
         ui.add_space(4.0);
-        let filter = self.data_filter.trim().to_lowercase();
+        let filter = self.data_view.filter.trim().to_lowercase();
         egui::ScrollArea::vertical()
             .auto_shrink(false)
             .show(ui, |ui| {
                 ui.spacing_mut().item_spacing.y = 2.0;
-                if self.data_seen.is_empty() {
+                if self.data_view.seen.is_empty() {
                     ui.add_space(24.0);
                     let none = RichText::new(tr("No data received since this view was opened."))
                         .color(theme.text_faint);
@@ -336,27 +339,33 @@ impl Tab {
                 }
                 // Those that pass what is searched for and the protocol
                 // chosen; the one laid out is among them.
-                let listed: Vec<usize> = (0..self.data_seen.len())
+                let listed: Vec<usize> = (0..self.data_view.seen.len())
                     .filter(|&index| {
-                        let seen = &self.data_seen[index];
+                        let seen = &self.data_view.seen[index];
                         let found = filter.is_empty()
                             || seen.name.to_lowercase().contains(&filter)
                             || seen.json.to_lowercase().contains(&filter);
-                        let by =
-                            (self.data_protocol.as_ref()).is_none_or(|only| *only == seen.protocol);
+                        let by = (self.data_view.protocol.as_ref())
+                            .is_none_or(|only| *only == seen.protocol);
                         found && by
                     })
                     .collect();
-                if !listed.contains(&self.data_selected) {
-                    self.data_selected = listed.first().copied().unwrap_or(usize::MAX);
+                if !listed.contains(&self.data_view.selected) {
+                    self.data_view.selected = listed.first().copied().unwrap_or(usize::MAX);
                 }
                 for index in listed {
-                    let seen = &self.data_seen[index];
+                    let seen = &self.data_view.seen[index];
                     let (name, summary) = (seen.name.clone(), seen.summary());
-                    if widgets::list_row(ui, self.data_selected == index, &name, &summary, true)
-                        .clicked()
+                    if widgets::list_row(
+                        ui,
+                        self.data_view.selected == index,
+                        &name,
+                        &summary,
+                        true,
+                    )
+                    .clicked()
                     {
-                        self.data_selected = index;
+                        self.data_view.selected = index;
                     }
                 }
             });
@@ -366,8 +375,8 @@ impl Tab {
     pub(super) fn data_view(&mut self, ui: &mut egui::Ui) {
         let theme = theme::current();
         ui.spacing_mut().item_spacing.y = 10.0;
-        let index = self.data_selected;
-        if index < self.data_seen.len() {
+        let index = self.data_view.selected;
+        if index < self.data_view.seen.len() {
             return self.data_detail(ui, index);
         }
         ui.add_space(60.0);
@@ -383,7 +392,7 @@ look at it to know what a gauge can follow or a script can use.",
     /// then the message as it came, and those before it.
     fn data_detail(&mut self, ui: &mut egui::Ui, index: usize) {
         let theme = theme::current();
-        let Some(seen) = self.data_seen.get(index).cloned() else {
+        let Some(seen) = self.data_view.seen.get(index).cloned() else {
             return;
         };
         ui.horizontal(|ui| {
@@ -519,6 +528,37 @@ look at it to know what a gauge can follow or a script can use.",
             ..crate::rules::Gauge::starter()
         });
         self.select_rule(automation::GAUGES, self.rules_draft.gauges.len() - 1);
+    }
+}
+
+/// The view of what the MUD sends: what was seen, which is chosen, how it
+
+/// is filtered, and whether it is kept outside the view.
+pub(super) struct DataView {
+    /// What the MUD has sent besides text, by name, to look at.
+    pub(super) seen: Vec<data::Seen>,
+    /// The debugging view: whether it is on screen, the one chosen in
+    /// its list, and what the list is narrowed to.
+    pub(super) selected: usize,
+    pub(super) filter: String,
+    /// The protocol whose data alone is listed, if one was chosen.
+    pub(super) protocol: Option<String>,
+    /// Whether what arrives is kept while the debugging view is closed,
+    /// and what the connection was last told about tracing.
+    pub(super) keep: bool,
+    pub(super) trace_sent: Option<bool>,
+}
+
+impl Default for DataView {
+    fn default() -> Self {
+        Self {
+            seen: Vec::new(),
+            selected: 0,
+            filter: String::new(),
+            protocol: None,
+            keep: false,
+            trace_sent: Some(false),
+        }
     }
 }
 

@@ -19,7 +19,7 @@ pub(super) struct PanelSize {
 impl Tab {
     /// Tells a new script runtime the sizes the old one knew.
     pub(super) fn retell_panel_sizes(&mut self) {
-        let sizes: Vec<(u32, (u32, u32))> = (self.panel_sizes.iter())
+        let sizes: Vec<(u32, (u32, u32))> = (self.sizes.panels.iter())
             .map(|size| (size.id, size.cells))
             .collect();
         for (id, cells) in sizes {
@@ -43,7 +43,7 @@ impl Tab {
     /// Scripts can ask for it at once; they are told of a change once it
     /// has settled.
     pub(super) fn panel_measured(&mut self, id: u32, cells: (u32, u32), drawing: bool) {
-        match self.panel_sizes.iter_mut().find(|size| size.id == id) {
+        match self.sizes.panels.iter_mut().find(|size| size.id == id) {
             Some(size) => {
                 size.drawing = drawing;
                 if size.cells == cells {
@@ -51,7 +51,7 @@ impl Tab {
                 }
                 size.cells = cells;
             }
-            None => self.panel_sizes.push(PanelSize {
+            None => self.sizes.panels.push(PanelSize {
                 id,
                 drawing,
                 cells,
@@ -76,7 +76,7 @@ impl Tab {
 
     /// Scripts are to be told the size of every panel again.
     pub(super) fn panels_untold(&mut self) {
-        for size in &mut self.panel_sizes {
+        for size in &mut self.sizes.panels {
             size.told = None;
         }
     }
@@ -86,7 +86,7 @@ impl Tab {
     pub(super) fn report_panel(&mut self, ctx: &egui::Context) {
         const SETTLED: Duration = Duration::from_millis(250);
         let mut settled = Vec::new();
-        for size in &mut self.panel_sizes {
+        for size in &mut self.sizes.panels {
             let cells = size.cells;
             if size.told == Some(cells) || cells.0 == 0 || !size.drawing {
                 size.settling = None;
@@ -127,27 +127,27 @@ impl Tab {
     /// settled, so that it wraps and pages what it sends to fit.
     pub(super) fn report_window(&mut self, ctx: &egui::Context) {
         const SETTLED: Duration = Duration::from_millis(250);
-        let cells = self.window_cells;
+        let cells = self.sizes.window;
         #[cfg(test)]
-        if self.window_untold {
+        if self.sizes.window_untold {
             return;
         }
         let Some(connection) = &self.connection else {
-            return self.window_settling = None;
+            return self.sizes.window_settling = None;
         };
-        if self.window_reported == Some(cells) || cells.0 == 0 || cells.1 == 0 {
-            return self.window_settling = None;
+        if self.sizes.window_reported == Some(cells) || cells.0 == 0 || cells.1 == 0 {
+            return self.sizes.window_settling = None;
         }
-        match self.window_settling {
+        match self.sizes.window_settling {
             Some((settling, since)) if settling == cells && since.elapsed() >= SETTLED => {
-                self.window_settling = None;
-                self.window_reported = Some(cells);
+                self.sizes.window_settling = None;
+                self.sizes.window_reported = Some(cells);
                 let size = |cells: u32| u16::try_from(cells).unwrap_or(u16::MAX);
                 let _ = (connection.commands).send(Command::Resize(size(cells.0), size(cells.1)));
             }
             Some((settling, _)) if settling == cells => ctx.request_repaint_after(SETTLED),
             _ => {
-                self.window_settling = Some((cells, Instant::now()));
+                self.sizes.window_settling = Some((cells, Instant::now()));
                 ctx.request_repaint_after(SETTLED);
             }
         }
@@ -190,4 +190,24 @@ impl Tab {
         });
         scripts.then_some(MapAction::Scripts)
     }
+}
+
+/// How big the panels and the window are, in characters, and what was told
+
+/// of it.
+#[derive(Default)]
+pub(super) struct Sizes {
+    /// The size in characters of the panel beside the output: as it is,
+    /// as scripts were last told, and since when it has been as it is.
+    pub(super) panels: Vec<PanelSize>,
+    /// How many characters fit across and down the text of the game,
+    /// what the server was last told of it, and since when it has been
+    /// as it is.
+    pub(super) window: (u32, u32),
+    pub(super) window_reported: Option<(u32, u32)>,
+    pub(super) window_settling: Option<((u32, u32), Instant)>,
+    /// Tests of what is sent to the server are not about its size: they
+    /// switch the telling of it off.
+    #[cfg(test)]
+    pub(super) window_untold: bool,
 }

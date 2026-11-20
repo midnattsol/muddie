@@ -33,7 +33,7 @@ impl Tab {
                 let told = serde_json::json!({"name": name, "value": value}).to_string();
                 self.scripts.on_event("mxp", &told);
                 self.run_actions();
-                self.mxp_values.insert(name.to_lowercase(), value);
+                self.mxp_state.values.insert(name.to_lowercase(), value);
                 self.mxp_gauges_follow();
             }
             Mxp::Gauge {
@@ -48,8 +48,8 @@ impl Tab {
                 } else {
                     caption
                 };
-                self.mxp_gauges.retain(|gauge| gauge.0 != called);
-                self.mxp_gauges.push((
+                self.mxp_state.gauges.retain(|gauge| gauge.0 != called);
+                self.mxp_state.gauges.push((
                     called,
                     entity.to_lowercase(),
                     max.to_lowercase(),
@@ -132,10 +132,11 @@ impl Tab {
     /// Sets the gauges the server asked for with MXP to the values they
     /// follow, as far as those are known and are numbers.
     pub(super) fn mxp_gauges_follow(&mut self) {
-        for (called, entity, max, colour, bar) in self.mxp_gauges.clone() {
+        for (called, entity, max, colour, bar) in self.mxp_state.gauges.clone() {
             let number = |name: &str| {
                 let known = self
-                    .mxp_values
+                    .mxp_state
+                    .values
                     .get(name)
                     .map(String::as_str)
                     .unwrap_or(name);
@@ -154,4 +155,14 @@ impl Tab {
                 .set_with(&called, Some((value, max)), Some(look));
         }
     }
+}
+
+/// What the MUD named with MXP, and the gauges that follow those values.
+#[derive(Default)]
+pub(super) struct MxpState {
+    /// What the server named with MXP, and the gauges it asked for: what
+    /// each is called, the values it follows, its colour and whether it
+    /// is a bar.
+    pub(super) values: HashMap<String, String>,
+    pub(super) gauges: Vec<(String, String, String, String, bool)>,
 }

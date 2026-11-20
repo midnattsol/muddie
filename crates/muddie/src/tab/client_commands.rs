@@ -88,10 +88,10 @@ impl Tab {
     /// The palette is the list of commands: opens it, at the group if one
     /// was given.
     fn open_command_list(&mut self, command: &str) {
-        self.palette_open = true;
-        self.palette_focus = true;
-        self.palette_cursor_end = true;
-        self.palette_query = match command {
+        self.palette.open = true;
+        self.palette.focus = true;
+        self.palette.cursor_end = true;
+        self.palette.query = match command {
             "/help" => String::new(),
             group => format!("{} ", &group[1..]),
         };

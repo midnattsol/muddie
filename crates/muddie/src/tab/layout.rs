@@ -234,16 +234,16 @@ impl Tab {
                 self.note(&trf("Could not load the panels: {0}", &[&error]));
             }
         }
-        self.layout_saved = self.layout.clone();
+        self.panels.saved = self.layout.clone();
     }
 
     /// Saves the panels once they have changed and nothing is being
     /// dragged.
     fn keep_layout(&mut self, ui: &egui::Ui) {
-        if self.layout == self.layout_saved || ui.input(|input| input.pointer.any_down()) {
+        if self.layout == self.panels.saved || ui.input(|input| input.pointer.any_down()) {
             return;
         }
-        self.layout_saved = self.layout.clone();
+        self.panels.saved = self.layout.clone();
         if let Some(profiles) = &self.profiles
             && let Err(error) = self
                 .layout
@@ -255,18 +255,18 @@ impl Tab {
 
     /// The content of the panel with this id, made if it had none.
     pub(super) fn text_of(&mut self, id: u32) -> &mut TextContent {
-        let index = match self.panel_text.iter().position(|(known, _)| *known == id) {
+        let index = match self.panels.text.iter().position(|(known, _)| *known == id) {
             Some(index) => index,
             None => {
                 let mut content = TextContent::default();
                 content
                     .log
                     .restyle(self.settings.scrollback_lines, self.settings.timestamps);
-                self.panel_text.push((id, content));
-                self.panel_text.len() - 1
+                self.panels.text.push((id, content));
+                self.panels.text.len() - 1
             }
         };
-        &mut self.panel_text[index].1
+        &mut self.panels.text[index].1
     }
 
     /// The panel a script or a trigger means by `name`, made as a panel
@@ -327,12 +327,16 @@ impl Tab {
     fn note_unread(&mut self, id: u32) {
         let stack = self.layout.panel(id).map_or(0, |panel| panel.stack);
         let shown = self
+            .panels
             .shown_tabs
             .iter()
             .find(|(known, _)| *known == stack)
             .map(|(_, id)| *id);
-        if stack != 0 && shown.is_some_and(|shown| shown != id) && !self.unread_tabs.contains(&id) {
-            self.unread_tabs.push(id);
+        if stack != 0
+            && shown.is_some_and(|shown| shown != id)
+            && !self.panels.unread_tabs.contains(&id)
+        {
+            self.panels.unread_tabs.push(id);
         }
     }
 
@@ -385,22 +389,22 @@ impl Tab {
             // none, and left where it is and as it is if there is.
             self.panel_called(panel);
         }
-        let known = (self.channels.iter()).position(|channel| {
+        let known = (self.panels.channels.iter()).position(|channel| {
             channel.name.eq_ignore_ascii_case(name) && channel.panel.eq_ignore_ascii_case(panel)
         });
         let index = match known {
             Some(index) => Some(index),
-            None if name.is_empty() || self.channels.len() >= MOST_CHANNELS => None,
+            None if name.is_empty() || self.panels.channels.len() >= MOST_CHANNELS => None,
             None => {
                 let mut log = Output::default();
                 log.restyle(self.settings.scrollback_lines, self.settings.timestamps);
-                self.channels.push(Channel {
+                self.panels.channels.push(Channel {
                     name: name.to_owned(),
                     panel: panel.to_owned(),
                     log,
                     unread: false,
                 });
-                Some(self.channels.len() - 1)
+                Some(self.panels.channels.len() - 1)
             }
         };
         if lines.is_empty() {
@@ -413,7 +417,11 @@ impl Tab {
                 true => spec.channels,
                 false => spec.name.eq_ignore_ascii_case(panel),
             };
-            let shown = self.channel_shown.iter().find(|(id, _)| *id == spec.id);
+            let shown = self
+                .panels
+                .channel_shown
+                .iter()
+                .find(|(id, _)| *id == spec.id);
             let on_it =
                 shown.is_none_or(|(_, shown)| shown.is_empty() || shown.eq_ignore_ascii_case(name));
             hosts && spec.visible && on_it
@@ -425,11 +433,11 @@ impl Tab {
                 false => self.add_to_panel(panel, line),
             }
             if let Some(index) = index {
-                self.channels[index].log.push(line);
+                self.panels.channels[index].log.push(line);
             }
         }
         if let Some(index) = index {
-            self.channels[index].unread |= !seen;
+            self.panels.channels[index].unread |= !seen;
         }
     }
 
@@ -437,13 +445,17 @@ impl Tab {
     /// marked if something was said on it that has not been looked at.
     /// Returns the channel chosen; none for all.
     fn channel_tabs(&mut self, ui: &mut egui::Ui, id: u32) -> String {
-        let known = self.channel_shown.iter().find(|(panel, _)| *panel == id);
+        let known = self
+            .panels
+            .channel_shown
+            .iter()
+            .find(|(panel, _)| *panel == id);
         let mut shown = known.map(|(_, shown)| shown.clone()).unwrap_or_default();
         let spec = self.layout.panel(id).cloned();
         let here = |channel: &&Channel| spec.as_ref().is_some_and(|spec| channel.shown_in(spec));
         let names: Vec<(String, bool)> = std::iter::once((String::new(), false))
             .chain(
-                (self.channels.iter())
+                (self.panels.channels.iter())
                     .filter(here)
                     .map(|channel| (channel.name.clone(), channel.unread)),
             )
@@ -462,8 +474,8 @@ impl Tab {
             }
         });
         ui.add_space(2.0);
-        self.channel_shown.retain(|(panel, _)| *panel != id);
-        self.channel_shown.push((id, shown.clone()));
+        self.panels.channel_shown.retain(|(panel, _)| *panel != id);
+        self.panels.channel_shown.push((id, shown.clone()));
         shown
     }
 
@@ -531,7 +543,7 @@ impl Tab {
     /// Returns what was asked of the map, if anything.
     pub(super) fn show_panels(&mut self, ui: &mut egui::Ui) -> Option<MapAction> {
         let mut asked = None;
-        self.panel_rects.clear();
+        self.panels.rects.clear();
         // Those above and below first, so that they span the window.
         // Whichever goes first spans the window; the others fit between.
         let order = if self.layout.columns_full {
@@ -588,9 +600,9 @@ impl Tab {
             }
         }
         self.finish_drag(ui);
-        if let Some(index) = self.removed_panel.take() {
+        if let Some(index) = self.panels.removed.take() {
             let gone = self.layout.panels.remove(index);
-            self.panel_text.retain(|(id, _)| *id != gone.id);
+            self.panels.text.retain(|(id, _)| *id != gone.id);
         }
         self.keep_layout(ui);
         asked
@@ -636,7 +648,7 @@ impl Tab {
                 )
             };
             for &index in place {
-                self.panel_rects.push((self.layout.panels[index].id, rect));
+                self.panels.rects.push((self.layout.panels[index].id, rect));
             }
             ui.painter()
                 .rect_filled(rect, egui::CornerRadius::same(12), theme.background);
@@ -722,6 +734,7 @@ impl Tab {
             .map(|&index| self.layout.panels[index].id)
             .collect();
         let kept = self
+            .panels
             .shown_tabs
             .iter()
             .find(|(known, _)| *known == stack)
@@ -729,14 +742,14 @@ impl Tab {
         let mut shown = kept.filter(|id| ids.contains(id)).unwrap_or(ids[0]);
         for &index in place {
             let panel = &self.layout.panels[index];
-            let unread = self.unread_tabs.contains(&panel.id);
+            let unread = self.panels.unread_tabs.contains(&panel.id);
             if widgets::tab(ui, &panel.name.clone(), panel.id == shown, unread).clicked() {
                 shown = panel.id;
             }
         }
-        self.shown_tabs.retain(|(known, _)| *known != stack);
-        self.shown_tabs.push((stack, shown));
-        self.unread_tabs.retain(|id| *id != shown);
+        self.panels.shown_tabs.retain(|(known, _)| *known != stack);
+        self.panels.shown_tabs.push((stack, shown));
+        self.panels.unread_tabs.retain(|id| *id != shown);
         place[ids.iter().position(|id| *id == shown).unwrap_or(0)]
     }
 
@@ -744,17 +757,17 @@ impl Tab {
     /// once it is let go, puts it there: before or after the panel it is
     /// over, or at the end of the side it is nearest to.
     fn finish_drag(&mut self, ui: &egui::Ui) {
-        let Some(id) = self.dragged_panel else {
+        let Some(id) = self.panels.dragged else {
             return;
         };
         let area = ui.ctx().content_rect();
         let Some(pointer) = ui.ctx().pointer_latest_pos() else {
-            self.dragged_panel = None;
+            self.panels.dragged = None;
             return;
         };
         // Over another panel: its side, and by where on it, before it,
         // after it, or in its place as a tab.
-        let over = (self.panel_rects.iter())
+        let over = (self.panels.rects.iter())
             .find(|(other, rect)| *other != id && rect.contains(pointer))
             .copied();
         let onto = over.and_then(|(other, rect)| {
@@ -823,7 +836,7 @@ impl Tab {
             ui.ctx().set_cursor_icon(egui::CursorIcon::Grabbing);
             return;
         }
-        self.dragged_panel = None;
+        self.panels.dragged = None;
         let Some(from) = self.layout.panels.iter().position(|panel| panel.id == id) else {
             return;
         };
@@ -873,8 +886,8 @@ impl Tab {
                 self.layout.panels[place].stack = joined;
                 moved.stack = joined;
                 moved.weight = self.layout.panels[place].weight;
-                self.shown_tabs.retain(|(known, _)| *known != joined);
-                self.shown_tabs.push((joined, moved.id));
+                self.panels.shown_tabs.retain(|(known, _)| *known != joined);
+                self.panels.shown_tabs.push((joined, moved.id));
                 self.layout.panels.insert(last + 1, moved);
             }
         }
@@ -895,8 +908,8 @@ impl Tab {
         self.layout.panels[before].stack = stack;
         self.layout.panels[index].stack = stack;
         let id = self.layout.panels[index].id;
-        self.shown_tabs.retain(|(known, _)| *known != stack);
-        self.shown_tabs.push((stack, id));
+        self.panels.shown_tabs.retain(|(known, _)| *known != stack);
+        self.panels.shown_tabs.push((stack, id));
     }
 
     /// Moves a panel one place among those of its side: `-1` earlier,
@@ -966,7 +979,7 @@ impl Tab {
                 ui.add(Label::new(caption).selectable(false));
             }
             if handle.drag_started() {
-                self.dragged_panel = Some(self.layout.panels[place[0]].id);
+                self.panels.dragged = Some(self.layout.panels[place[0]].id);
             }
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 self.panel_menu(ui, shown);
@@ -1071,7 +1084,7 @@ impl Tab {
                 ui.close();
             }
             if widgets::menu_item(ui, &trf("Remove {0}", &[&spec.name.clone()]), "").clicked() {
-                self.removed_panel = Some(index);
+                self.panels.removed = Some(index);
                 ui.close();
             }
         });
@@ -1175,9 +1188,9 @@ impl Tab {
         // one alone, or all.
         let spec = self.layout.panel(id).cloned();
         let here = |channel: &Channel| spec.as_ref().is_some_and(|spec| channel.shown_in(spec));
-        if self.channels.iter().any(here) {
+        if self.panels.channels.iter().any(here) {
             let shown = self.channel_tabs(ui, id);
-            let chosen = (self.channels.iter_mut())
+            let chosen = (self.panels.channels.iter_mut())
                 .find(|channel| !shown.is_empty() && channel.name == shown && here(channel));
             match chosen {
                 Some(channel) => {
@@ -1192,7 +1205,7 @@ impl Tab {
                     return true;
                 }
                 // With all of them in view there is nothing unseen.
-                None => (self.channels.iter_mut())
+                None => (self.panels.channels.iter_mut())
                     .filter(|channel| here(channel))
                     .for_each(|channel| channel.unread = false),
             }
@@ -1299,4 +1312,33 @@ impl Tab {
 fn panels_first(layout: &Layout, panel: u32) -> bool {
     let first = layout.panels.iter().find(|spec| spec.kind == Kind::Gauges);
     first.is_some_and(|spec| spec.id == panel)
+}
+
+/// What the panels are doing: what each shows, the one being dragged, where
+
+/// each is, which tab of a place is shown, the channels, and the layout as
+
+/// last saved.
+#[derive(Default)]
+pub(super) struct Panels {
+    pub(super) saved: layout::Layout,
+    /// What each panel was given to show, by the panel's id.
+    pub(super) text: Vec<(u32, layout::TextContent)>,
+    /// The layout mode: panels are made, moved and removed.
+    /// The panel being dragged to another side, and one to be removed.
+    pub(super) dragged: Option<u32>,
+    /// Where each panel was drawn, to drop another before or after it.
+    pub(super) rects: Vec<(u32, egui::Rect)>,
+    /// Of the panels that share a place as tabs, by the place: which is
+    /// on show; and those that got something while they were not.
+    pub(super) shown_tabs: Vec<(u32, u32)>,
+    pub(super) unread_tabs: Vec<u32>,
+    /// The channels of the MUD's that have been heard of: each with what
+    /// was said on it, and whether something was that has not been seen.
+    pub(super) channels: Vec<layout::Channel>,
+    /// The channel each panel of channels is showing; none is all.
+    pub(super) channel_shown: Vec<(u32, String)>,
+    pub(super) removed: Option<usize>,
+    /// Stands in for the channels when no panel shows them.
+    pub(super) no_chat: Output,
 }

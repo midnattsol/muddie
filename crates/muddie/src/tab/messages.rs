@@ -18,11 +18,11 @@ pub(super) const MOST_NOTICES: usize = 200;
 impl Tab {
     /// Shows and speaks a message from the client itself.
     pub fn note(&mut self, text: &str) {
-        self.remember_notice(text, self.answering && self.answer_failed);
+        self.remember_notice(text, self.palette.answering && self.palette.answer_failed);
         // What a command typed with `/` says is its answer, shown at the
         // command line; anything else is a line of the client's.
-        if self.answering {
-            self.answer.push(commands::Said {
+        if self.palette.answering {
+            self.palette.answer.push(commands::Said {
                 text: text.to_owned(),
                 about: String::new(),
                 run: None,
@@ -39,31 +39,31 @@ impl Tab {
         if text.trim().is_empty() {
             return;
         }
-        if self.notices.len() >= MOST_NOTICES {
-            self.notices.remove(0);
+        if self.notices.list.len() >= MOST_NOTICES {
+            self.notices.list.remove(0);
         }
-        self.notices.push(Notice {
+        self.notices.list.push(Notice {
             time: crate::output::clock(),
             text: text.to_owned(),
             problem,
         });
-        self.notices_unread += 1;
+        self.notices.unread += 1;
     }
 
     /// What the client said in this session, newest last, and how many
     /// of them have not been looked at.
     pub fn notices(&self) -> (&[Notice], usize) {
-        (&self.notices, self.notices_unread)
+        (&self.notices.list, self.notices.unread)
     }
 
     /// They have been looked at.
     pub fn notices_read(&mut self) {
-        self.notices_unread = 0;
+        self.notices.unread = 0;
     }
 
     pub fn clear_notices(&mut self) {
-        self.notices.clear();
-        self.notices_unread = 0;
+        self.notices.list.clear();
+        self.notices.unread = 0;
     }
 
     /// Shows a line of the client's own, without speaking it.
@@ -113,4 +113,15 @@ impl Tab {
             ui.ctx().request_repaint_after(Duration::from_millis(250));
         }
     }
+}
+
+/// What the client said, to be read again, and how many of those have not
+
+/// been looked at.
+#[derive(Default)]
+pub(super) struct Notices {
+    /// What the client said, to be read again, and how many of those
+    /// have not been looked at.
+    pub(super) list: Vec<Notice>,
+    pub(super) unread: usize,
 }

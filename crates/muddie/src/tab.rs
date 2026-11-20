@@ -54,9 +54,7 @@ mod view;
 mod walking;
 
 use client_commands::{COMMANDS, client_command};
-use media::MediaJob;
 pub use messages::Notice;
-use panel_sizes::PanelSize;
 
 pub use commands::AppRequest;
 
@@ -95,26 +93,10 @@ pub struct Tab {
     msdp_vitals: MsdpVitals,
     /// The panels around the output, as they are and as they were saved.
     layout: layout::Layout,
-    layout_saved: layout::Layout,
-    /// What each panel was given to show, by the panel's id.
-    panel_text: Vec<(u32, layout::TextContent)>,
-    /// The layout mode: panels are made, moved and removed.
-    /// The panel being dragged to another side, and one to be removed.
-    dragged_panel: Option<u32>,
-    /// Where each panel was drawn, to drop another before or after it.
-    panel_rects: Vec<(u32, egui::Rect)>,
-    /// Of the panels that share a place as tabs, by the place: which is
-    /// on show; and those that got something while they were not.
-    shown_tabs: Vec<(u32, u32)>,
-    unread_tabs: Vec<u32>,
-    /// The channels of the MUD's that have been heard of: each with what
-    /// was said on it, and whether something was that has not been seen.
-    channels: Vec<layout::Channel>,
-    /// The channel each panel of channels is showing; none is all.
-    channel_shown: Vec<(u32, String)>,
-    removed_panel: Option<usize>,
-    /// Stands in for the channels when no panel shows them.
-    no_chat: Output,
+    /// What the panels are doing: what each shows, the one being dragged, where
+    /// each is, which tab of a place is shown, the channels, and the layout as
+    /// last saved.
+    panels: layout::Panels,
     /// The line the triggers were last given, for those that show it in
     /// a panel.
     dispatched: Option<Line>,
@@ -133,11 +115,8 @@ pub struct Tab {
     log: Option<SessionLog>,
     sound: Player,
     completion: Completion,
-    /// The find bar is showing, and what it searches for.
-    find_open: bool,
-    find_query: String,
-    /// Give the find bar the keyboard on the next frame.
-    find_wants_focus: bool,
+    /// Searching the output: whether the bar is open, and what is searched for.
+    find: input::Find,
     /// The user asked to disconnect, so the session must not reconnect.
     user_disconnected: bool,
     /// When to try connecting again after losing the connection, and how
@@ -185,7 +164,9 @@ pub struct Tab {
     /// put away over, so that it stays away until that changes.
     /// The gauge being dragged to another place in the editor's list.
     gauge_dragged: Option<usize>,
-    palette_chosen: usize,
+    /// The palette of commands: whether it is open, what is typed in it, what
+    /// it lists, and what the last command answered.
+    palette: commands::Palette,
     /// The protocols the MUD has offered in this connection, and whether
     /// each is in use.
     protocols: Vec<(String, bool)>,
@@ -199,10 +180,9 @@ pub struct Tab {
     gauge_here: Option<usize>,
     /// What was last deleted in the editor, to have it back.
     undo: Option<automation::Undo>,
-    /// What the client said, to be read again, and how many of those
-    /// have not been looked at.
-    notices: Vec<Notice>,
-    notices_unread: usize,
+    /// What the client said, to be read again, and how many of those have not
+    /// been looked at.
+    notices: messages::Notices,
     /// How its sessions go, kept with the profile: those of the settings
     /// with none.
     prefs: crate::profile::SessionPrefs,
@@ -213,43 +193,16 @@ pub struct Tab {
     connected_with: Option<String>,
     /// The connection is being closed to be opened again.
     reconnect_wanted: bool,
-    palette_open: bool,
-    /// The palette opened in this frame, by a press that is not to close it.
-    palette_fresh: bool,
     /// What the session asked the window to do, for it to take.
     app_request: Option<commands::AppRequest>,
-    palette_query: String,
-    /// The palette's field is to take the keyboard, or its cursor to go
-    /// to the end of what was put in it.
-    palette_focus: bool,
-    palette_cursor_end: bool,
-    palette_cache: Option<(String, Vec<commands::Item>)>,
-    /// What the command being carried out has said so far, and whether
-    /// it said it could not do what was asked.
-    answer: Vec<commands::Said>,
-    answering: bool,
-    answer_failed: bool,
-    /// What the last command said in a line, shown in the command line
-    /// for a moment, and what it listed, shown over it to choose from.
-    bar_note: Option<commands::BarNote>,
-    results: Option<Vec<commands::Item>>,
     /// Whether the command line's cursor is to go to the end of what was
     /// put in it.
     cursor_to_end: bool,
     /// What checking the scripts being edited said.
     checks: automation::Checks,
-    /// What the MUD has sent besides text, by name, to look at.
-    data_seen: Vec<data::Seen>,
-    /// The debugging view: whether it is on screen, the one chosen in
-    /// its list, and what the list is narrowed to.
-    data_selected: usize,
-    data_filter: String,
-    /// The protocol whose data alone is listed, if one was chosen.
-    data_protocol: Option<String>,
-    /// Whether what arrives is kept while the debugging view is closed,
-    /// and what the connection was last told about tracing.
-    data_keep: bool,
-    trace_sent: Option<bool>,
+    /// The view of what the MUD sends: what was seen, which is chosen, how it
+    /// is filtered, and whether it is kept outside the view.
+    data_view: data::DataView,
     /// The session has no saved profile to keep its variables in, so
     /// they are carried from one start of the scripts to the next.
     variables_passing: bool,
@@ -278,19 +231,9 @@ pub struct Tab {
     supports: Vec<String>,
     /// Words scripts gave to complete with, under the name of each list.
     completions: Vec<(String, Vec<String>)>,
-    /// The size in characters of the panel beside the output: as it is,
-    /// as scripts were last told, and since when it has been as it is.
-    panel_sizes: Vec<PanelSize>,
-    /// How many characters fit across and down the text of the game,
-    /// what the server was last told of it, and since when it has been
-    /// as it is.
-    window_cells: (u32, u32),
-    window_reported: Option<(u32, u32)>,
-    window_settling: Option<((u32, u32), Instant)>,
-    /// Tests of what is sent to the server are not about its size: they
-    /// switch the telling of it off.
-    #[cfg(test)]
-    window_untold: bool,
+    /// How big the panels and the window are, in characters, and what was told
+    /// of it.
+    sizes: panel_sizes::Sizes,
     /// The address typed on the welcome screen.
     address: String,
     /// Whether the region for announcements was in the accessibility tree
@@ -310,17 +253,11 @@ pub struct Tab {
     /// Package installs and updates under way; the flag says to enable
     /// the package when its job ends well.
     package_jobs: Vec<(Receiver<packages::Outcome>, bool)>,
-    /// Where the MUD said its sounds are fetched from, the ones being
-    /// fetched, each with what to play once it is here, and the ones
-    /// that could not be had, which are not asked for again.
-    media_base: Option<String>,
-    media_jobs: Vec<MediaJob>,
-    media_missing: Vec<String>,
-    /// What the server named with MXP, and the gauges it asked for: what
-    /// each is called, the values it follows, its colour and whether it
-    /// is a bar.
-    mxp_values: HashMap<String, String>,
-    mxp_gauges: Vec<(String, String, String, String, bool)>,
+    /// The sounds being fetched for the MUD, where it said they are, and those
+    /// that could not be had.
+    fetching: media::Fetching,
+    /// What the MUD named with MXP, and the gauges that follow those values.
+    mxp_state: mxp::MxpState,
     /// Character to log in as, from the profile.
     character: String,
     /// A new password typed in the bar, saved with the profile.
@@ -380,16 +317,7 @@ impl Tab {
             gauges: Gauges::default(),
             msdp_vitals: MsdpVitals::default(),
             layout: layout::Layout::default(),
-            layout_saved: layout::Layout::default(),
-            panel_text: Vec::new(),
-            dragged_panel: None,
-            panel_rects: Vec::new(),
-            shown_tabs: Vec::new(),
-            unread_tabs: Vec::new(),
-            channels: Vec::new(),
-            channel_shown: Vec::new(),
-            removed_panel: None,
-            no_chat: Output::default(),
+            panels: layout::Panels::default(),
             dispatched: None,
             map,
             map_view: MapView::default(),
@@ -399,9 +327,7 @@ impl Tab {
             log: None,
             sound: Player::default(),
             completion: Completion::default(),
-            find_open: false,
-            find_query: String::new(),
-            find_wants_focus: false,
+            find: input::Find::default(),
             user_disconnected: false,
             reconnect_at: None,
             reconnect_attempts: 0,
@@ -425,7 +351,7 @@ impl Tab {
             rules_sample: String::new(),
             recording_key: false,
             gauge_dragged: None,
-            palette_chosen: 0,
+            palette: commands::Palette::default(),
             protocols: Vec::new(),
             script_ran: None,
             reconnect_wanted: false,
@@ -435,28 +361,11 @@ impl Tab {
             undo: None,
             gauge_here: None,
             extras_added: (usize::MAX, Vec::new()),
-            notices: Vec::new(),
-            notices_unread: 0,
-            palette_open: false,
-            palette_fresh: false,
+            notices: messages::Notices::default(),
             app_request: None,
-            palette_query: String::new(),
-            palette_focus: false,
-            palette_cursor_end: false,
-            palette_cache: None,
-            answer: Vec::new(),
-            answering: false,
-            answer_failed: false,
-            bar_note: None,
-            results: None,
             cursor_to_end: false,
             checks: automation::Checks::default(),
-            data_seen: Vec::new(),
-            data_selected: 0,
-            data_filter: String::new(),
-            data_protocol: None,
-            data_keep: false,
-            trace_sent: Some(false),
+            data_view: data::DataView::default(),
             variables_passing: false,
             variable_loaded: None,
             variable_name: String::new(),
@@ -474,12 +383,7 @@ impl Tab {
             detail_height: 600.0,
             supports: Vec::new(),
             completions: Vec::new(),
-            panel_sizes: Vec::new(),
-            window_cells: (0, 0),
-            window_reported: None,
-            window_settling: None,
-            #[cfg(test)]
-            window_untold: false,
+            sizes: panel_sizes::Sizes::default(),
             address: String::new(),
             announce_ready: false,
             rules_section: 0,
@@ -489,11 +393,8 @@ impl Tab {
             included_declined: Vec::new(),
             plugin_offer: None,
             package_jobs: Vec::new(),
-            media_base: None,
-            media_jobs: Vec::new(),
-            media_missing: Vec::new(),
-            mxp_values: HashMap::new(),
-            mxp_gauges: Vec::new(),
+            fetching: media::Fetching::default(),
+            mxp_state: mxp::MxpState::default(),
             character: String::new(),
             new_password: String::new(),
             login: Login::Idle,
@@ -544,12 +445,12 @@ impl Tab {
         }
         self.output
             .restyle(settings.scrollback_lines, settings.timestamps);
-        for (_, content) in &mut self.panel_text {
+        for (_, content) in &mut self.panels.text {
             content
                 .log
                 .restyle(settings.scrollback_lines, settings.timestamps);
         }
-        for channel in &mut self.channels {
+        for channel in &mut self.panels.channels {
             channel
                 .log
                 .restyle(settings.scrollback_lines, settings.timestamps);

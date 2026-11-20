@@ -193,9 +193,9 @@ impl Tab {
     /// chosen: `command` is run by choosing it. Said outside a command, it
     /// is a line like any other.
     pub(super) fn offer(&mut self, text: &str, about: &str, command: &str) {
-        if self.answering {
+        if self.palette.answering {
             self.voice.say(&format!("{text}: {about}"));
-            self.answer.push(Said {
+            self.palette.answer.push(Said {
                 text: text.to_owned(),
                 about: about.to_owned(),
                 run: Some(command.to_owned()),
@@ -207,7 +207,7 @@ impl Tab {
 
     /// Says that what was asked could not be done.
     pub(super) fn refuse(&mut self, text: &str) {
-        self.answer_failed |= self.answering;
+        self.palette.answer_failed |= self.palette.answering;
         self.note(text);
     }
 
@@ -218,7 +218,7 @@ impl Tab {
         if self.input.is_empty() {
             self.remember_notice(text, problem);
             self.voice.say(text);
-            self.bar_note = Some(BarNote {
+            self.palette.bar_note = Some(BarNote {
                 text: text.to_owned(),
                 problem,
                 since: None,
@@ -231,12 +231,12 @@ impl Tab {
     /// Carries out a command of the client and puts what it answers where
     /// it is shown. Returns whether it was one.
     pub(super) fn run_command(&mut self, line: &str) -> bool {
-        self.results = None;
-        self.bar_note = None;
-        self.palette_cache = None;
-        self.palette_chosen = 0;
-        self.answer.clear();
-        (self.answering, self.answer_failed) = (true, false);
+        self.palette.results = None;
+        self.palette.bar_note = None;
+        self.palette.cache = None;
+        self.palette.chosen = 0;
+        self.palette.answer.clear();
+        (self.palette.answering, self.palette.answer_failed) = (true, false);
         let mut ours = self.do_client_command(line);
         // A line of Lua is a command of the client too, carried out by
         // the scripts: what it prints is its answer, and if it prints
@@ -244,20 +244,20 @@ impl Tab {
         if !ours && (line == "/lua" || line.starts_with("/lua ")) {
             self.scripts.on_input(line);
             self.run_actions();
-            if self.answer.is_empty() {
+            if self.palette.answer.is_empty() {
                 self.note(tr("Done."));
             }
             ours = true;
         }
-        self.answering = false;
-        let mut said = std::mem::take(&mut self.answer);
+        self.palette.answering = false;
+        let mut said = std::mem::take(&mut self.palette.answer);
         match said.len() {
             0 => {}
             // A line of text is said in the command line itself.
             1 if said[0].run.is_none() => {
-                self.bar_note = Some(BarNote {
+                self.palette.bar_note = Some(BarNote {
                     text: said.remove(0).text,
-                    problem: self.answer_failed,
+                    problem: self.palette.answer_failed,
                     since: None,
                 });
             }
@@ -270,9 +270,9 @@ impl Tab {
                     more: false,
                     act: None,
                 });
-                self.results = Some(items.collect());
-                self.palette_query.clear();
-                self.palette_open = true;
+                self.palette.results = Some(items.collect());
+                self.palette.query.clear();
+                self.palette.open = true;
             }
         }
         ours
@@ -280,38 +280,38 @@ impl Tab {
 
     /// Opens the palette of commands, or closes it.
     pub fn toggle_palette(&mut self) {
-        self.palette_open = !self.palette_open;
-        self.palette_query.clear();
-        self.palette_chosen = 0;
-        self.results = None;
-        self.palette_focus = self.palette_open;
+        self.palette.open = !self.palette.open;
+        self.palette.query.clear();
+        self.palette.chosen = 0;
+        self.palette.results = None;
+        self.palette.focus = self.palette.open;
         // The press that opened it is not one elsewhere.
-        self.palette_fresh = self.palette_open;
+        self.palette.fresh = self.palette.open;
     }
 
     fn close_palette(&mut self) {
-        self.palette_open = false;
-        self.results = None;
-        self.palette_query.clear();
-        self.palette_chosen = 0;
+        self.palette.open = false;
+        self.palette.results = None;
+        self.palette.query.clear();
+        self.palette.chosen = 0;
     }
 
     /// What the palette offers: what the last command listed, until
     /// something is typed, or the commands that begin as what is typed.
     pub(super) fn palette_items(&mut self) -> Vec<Item> {
-        if self.palette_query.is_empty()
-            && let Some(results) = &self.results
+        if self.palette.query.is_empty()
+            && let Some(results) = &self.palette.results
         {
             return results.clone();
         }
         // Worked out when what is typed changes, not every frame.
-        if let Some((typed, items)) = &self.palette_cache
-            && *typed == self.palette_query
+        if let Some((typed, items)) = &self.palette.cache
+            && *typed == self.palette.query
         {
             return items.clone();
         }
         // As it would be typed in the command line: after a slash.
-        let typed = format!("/{}", self.palette_query.trim_start_matches('/'));
+        let typed = format!("/{}", self.palette.query.trim_start_matches('/'));
         // The groups and the plugins there are, for the commands that
         // take the name of one; the plugins are read from the disk.
         let groups: Vec<(String, bool)> = if typed.starts_with("/group") {
@@ -330,7 +330,7 @@ impl Tab {
         };
         // What can be done, by what it is called, then the commands that
         // begin as what is typed; with nothing typed, the first of both.
-        let query = self.palette_query.trim().to_lowercase();
+        let query = self.palette.query.trim().to_lowercase();
         let acts = self.palette_acts();
         let named = |item: &&Item| {
             let words = format!("{} {}", item.usage, item.about).to_lowercase();
@@ -339,12 +339,12 @@ impl Tab {
         let mut items: Vec<Item> = acts.iter().filter(named).cloned().collect();
         let commands = offered(&typed, &groups, &plugins);
         // One being typed as a command goes first, to run with Enter.
-        if self.palette_query.starts_with('/') || items.is_empty() {
+        if self.palette.query.starts_with('/') || items.is_empty() {
             items.splice(0..0, commands);
         } else {
             items.extend(commands);
         }
-        self.palette_cache = Some((self.palette_query.clone(), items.clone()));
+        self.palette.cache = Some((self.palette.query.clone(), items.clone()));
         items
     }
 
@@ -493,8 +493,8 @@ impl Tab {
                 self.voice.set_enabled(on);
             }
             Act::Find => {
-                self.find_open = true;
-                self.find_wants_focus = true;
+                self.find.open = true;
+                self.find.wants_focus = true;
             }
             Act::AddPanel(kind) => {
                 self.set_view(0);
@@ -532,11 +532,11 @@ impl Tab {
         if item.insert.is_empty() {
             return self.close_palette();
         }
-        let typed = format!("/{}", self.palette_query.trim_start_matches('/'));
+        let typed = format!("/{}", self.palette.query.trim_start_matches('/'));
         if item.more && !typed_more {
-            self.palette_query = item.insert.trim_start_matches('/').to_owned();
-            self.palette_chosen = 0;
-            self.palette_cursor_end = true;
+            self.palette.query = item.insert.trim_start_matches('/').to_owned();
+            self.palette.chosen = 0;
+            self.palette.cursor_end = true;
             return;
         }
         let line = if item.more {
@@ -553,12 +553,12 @@ impl Tab {
     pub(super) fn palette(&mut self, ctx: &egui::Context) {
         let theme = theme::current();
         let shown =
-            ctx.animate_bool_with_time(egui::Id::unique("palette shown"), self.palette_open, 0.1);
-        if !self.palette_open {
+            ctx.animate_bool_with_time(egui::Id::unique("palette shown"), self.palette.open, 0.1);
+        if !self.palette.open {
             return;
         }
         let items = self.palette_items();
-        self.palette_chosen = self.palette_chosen.min(items.len().saturating_sub(1));
+        self.palette.chosen = self.palette.chosen.min(items.len().saturating_sub(1));
         // Its keys, before the field in it gets them.
         let (up, down, tab, escape, enter) = ctx.input_mut(|input| {
             (
@@ -574,30 +574,30 @@ impl Tab {
         }
         if (up || down) && !items.is_empty() {
             let last = items.len() - 1;
-            self.palette_chosen = match (up, self.palette_chosen) {
+            self.palette.chosen = match (up, self.palette.chosen) {
                 (true, 0) => last,
                 (true, chosen) => chosen - 1,
                 (false, chosen) if chosen == last => 0,
                 (false, chosen) => chosen + 1,
             };
             // Said aloud, for those who do not see the list.
-            let chosen = &items[self.palette_chosen];
+            let chosen = &items[self.palette.chosen];
             self.voice.stop();
             self.voice
                 .say(&format!("{}. {}", shown_usage(&chosen.usage), chosen.about));
         }
-        let listed = self.results.is_some() && self.palette_query.is_empty();
-        if let Some(chosen) = items.get(self.palette_chosen).cloned() {
-            let typed = format!("/{}", self.palette_query.trim_start_matches('/'));
+        let listed = self.palette.results.is_some() && self.palette.query.is_empty();
+        if let Some(chosen) = items.get(self.palette.chosen).cloned() {
+            let typed = format!("/{}", self.palette.query.trim_start_matches('/'));
             let typed_more = typed.trim_end().len() > chosen.insert.trim_end().len();
             if enter {
                 return self.choose(&chosen, typed_more, ctx);
             }
             // Tab completes, and there is nothing to complete in a list.
             if tab && !listed && !typed_more {
-                self.palette_query = chosen.insert.trim_start_matches('/').to_owned();
-                self.palette_chosen = 0;
-                self.palette_cursor_end = true;
+                self.palette.query = chosen.insert.trim_start_matches('/').to_owned();
+                self.palette.chosen = 0;
+                self.palette.cursor_end = true;
             }
         }
 
@@ -640,7 +640,7 @@ impl Tab {
                     let edit = egui::Frame::new()
                         .inner_margin(egui::Margin::symmetric(10, 8))
                         .show(ui, |ui| {
-                            TextEdit::singleline(&mut self.palette_query)
+                            TextEdit::singleline(&mut self.palette.query)
                                 .id(field)
                                 .frame(egui::Frame::NONE)
                                 .font(theme::font(Weight::Regular, 14.5))
@@ -651,11 +651,11 @@ impl Tab {
                         })
                         .inner;
                     if edit.response.changed() {
-                        self.palette_chosen = 0;
-                        self.results = None;
+                        self.palette.chosen = 0;
+                        self.palette.results = None;
                     }
-                    if std::mem::take(&mut self.palette_cursor_end) {
-                        let end = egui::text::CCursor::new(self.palette_query.chars().count());
+                    if std::mem::take(&mut self.palette.cursor_end) {
+                        let end = egui::text::CCursor::new(self.palette.query.chars().count());
                         let mut state = edit.state.clone();
                         state
                             .cursor
@@ -663,7 +663,7 @@ impl Tab {
                         state.store(ui.ctx(), field);
                     }
                     // The keyboard is its own while it is open.
-                    if std::mem::take(&mut self.palette_focus) || !edit.response.has_focus() {
+                    if std::mem::take(&mut self.palette.focus) || !edit.response.has_focus() {
                         edit.response.request_focus();
                     }
                     if items.is_empty() {
@@ -677,10 +677,10 @@ impl Tab {
                     );
                     ui.add_space(6.0);
                     // A window of the list around the one chosen.
-                    let first = (self.palette_chosen.saturating_sub(ROWS - 1))
+                    let first = (self.palette.chosen.saturating_sub(ROWS - 1))
                         .min(items.len().saturating_sub(ROWS));
                     for (index, item) in items.iter().enumerate().skip(first).take(ROWS) {
-                        let chosen = index == self.palette_chosen;
+                        let chosen = index == self.palette.chosen;
                         let (rect, row) = ui.allocate_exact_size(
                             egui::vec2(ui.available_width(), ROW),
                             egui::Sense::click(),
@@ -731,12 +731,12 @@ impl Tab {
             });
         if let Some(index) = clicked {
             let item = items[index].clone();
-            self.palette_focus = true;
+            self.palette.focus = true;
             return self.choose(&item, false, ctx);
         }
         // A click anywhere else closes it; not the one that opened it,
         // from the field at the top, in the frame it opened.
-        let fresh = std::mem::take(&mut self.palette_fresh);
+        let fresh = std::mem::take(&mut self.palette.fresh);
         if !fresh && area.response.clicked_elsewhere() {
             self.close_palette();
         }
@@ -747,7 +747,7 @@ impl Tab {
     pub(super) fn bar_said(&mut self, ui: &egui::Ui) -> Option<(String, egui::Color32)> {
         let theme = theme::current();
         let now = ui.input(|input| input.time);
-        let note = self.bar_note.as_mut()?;
+        let note = self.palette.bar_note.as_mut()?;
         let since = *note.since.get_or_insert(now);
         // A problem stays to be read; the rest goes by itself, sooner the
         // less it says.
@@ -756,7 +756,7 @@ impl Tab {
             let lasts = (2.0 + 0.05 * note.text.chars().count() as f64).min(7.0);
             let left = since + lasts - now;
             if left <= 0.0 {
-                self.bar_note = None;
+                self.palette.bar_note = None;
                 return None;
             }
             if left < 0.4 {
@@ -774,6 +774,32 @@ impl Tab {
         };
         Some((note.text.clone(), colour.gamma_multiply(fading)))
     }
+}
+
+/// The palette of commands: whether it is open, what is typed in it, what
+
+/// it lists, and what the last command answered.
+#[derive(Default)]
+pub(super) struct Palette {
+    pub(super) open: bool,
+    /// The palette opened in this frame, by a press that is not to close it.
+    pub(super) fresh: bool,
+    pub(super) query: String,
+    /// The palette's field is to take the keyboard, or its cursor to go
+    /// to the end of what was put in it.
+    pub(super) focus: bool,
+    pub(super) cursor_end: bool,
+    pub(super) cache: Option<(String, Vec<commands::Item>)>,
+    pub(super) chosen: usize,
+    /// What the command being carried out has said so far, and whether
+    /// it said it could not do what was asked.
+    pub(super) answer: Vec<commands::Said>,
+    pub(super) answering: bool,
+    pub(super) answer_failed: bool,
+    /// What the last command said in a line, shown in the command line
+    /// for a moment, and what it listed, shown over it to choose from.
+    pub(super) bar_note: Option<commands::BarNote>,
+    pub(super) results: Option<Vec<commands::Item>>,
 }
 
 #[cfg(test)]
