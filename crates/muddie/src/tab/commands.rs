@@ -209,6 +209,7 @@ impl Tab {
     /// answers some time after it was given.
     pub(super) fn bar(&mut self, text: &str, problem: bool) {
         if self.input.is_empty() {
+            self.remember_notice(text, problem);
             self.voice.say(text);
             self.bar_note = Some(BarNote {
                 text: text.to_owned(),

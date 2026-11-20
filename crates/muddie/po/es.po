@@ -1489,3 +1489,12 @@ msgstr "Déjalo vacío para conservarla"
 msgid "No profile"
 msgstr "Sin perfil"
 
+msgid "Messages"
+msgstr "Mensajes"
+
+#, python-brace-format
+msgid "Messages, {0} new"
+msgstr "Mensajes, {0} nuevos"
+
+msgid "Nothing yet."
+msgstr "Nada todavía."

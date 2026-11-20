@@ -172,6 +172,10 @@ pub struct Tab {
     /// When the scripts were last run from the editor, and what kept
     /// them from running, if anything did.
     script_ran: Option<(String, Option<String>)>,
+    /// What the client said, to be read again, and how many of those
+    /// have not been looked at.
+    notices: Vec<Notice>,
+    notices_unread: usize,
     /// Which page of the profile's window is shown: its connection or its
     /// plugins.
     profile_page: usize,
@@ -378,6 +382,18 @@ const RULES: &str = "rules";
 /// Things by their names, each with whether it is switched on.
 type Switched = Vec<(String, bool)>;
 
+/// Something the client said: when, what, and whether it was that
+/// something could not be done.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Notice {
+    pub time: String,
+    pub text: String,
+    pub problem: bool,
+}
+
+/// How many of the client's messages are kept to be read again.
+const MOST_NOTICES: usize = 200;
+
 impl Tab {
     pub fn new(ctx: &egui::Context, startup: Startup, settings: &Settings) -> Self {
         let map = Rc::new(RefCell::new(Map::in_memory()));
@@ -455,6 +471,8 @@ impl Tab {
             script_ran: None,
             reconnect_wanted: false,
             profile_page: 0,
+            notices: Vec::new(),
+            notices_unread: 0,
             palette_open: false,
             app_request: None,
             palette_query: String::new(),
@@ -1070,6 +1088,7 @@ impl Tab {
 
     /// Shows and speaks a message from the client itself.
     pub fn note(&mut self, text: &str) {
+        self.remember_notice(text, self.answering && self.answer_failed);
         // What a command typed with `/` says is its answer, shown at the
         // command line; anything else is a line of the client's.
         if self.answering {
@@ -1082,6 +1101,39 @@ impl Tab {
             self.show_local(text);
         }
         self.voice.say(text);
+    }
+
+    /// Keeps something the client said, wherever it was shown, to be read
+    /// again: what was shown for a moment is not lost.
+    pub(super) fn remember_notice(&mut self, text: &str, problem: bool) {
+        if text.trim().is_empty() {
+            return;
+        }
+        if self.notices.len() >= MOST_NOTICES {
+            self.notices.remove(0);
+        }
+        self.notices.push(Notice {
+            time: crate::output::clock(),
+            text: text.to_owned(),
+            problem,
+        });
+        self.notices_unread += 1;
+    }
+
+    /// What the client said in this session, newest last, and how many
+    /// of them have not been looked at.
+    pub fn notices(&self) -> (&[Notice], usize) {
+        (&self.notices, self.notices_unread)
+    }
+
+    /// They have been looked at.
+    pub fn notices_read(&mut self) {
+        self.notices_unread = 0;
+    }
+
+    pub fn clear_notices(&mut self) {
+        self.notices.clear();
+        self.notices_unread = 0;
     }
 
     /// Shows a line of the client's own, without speaking it.

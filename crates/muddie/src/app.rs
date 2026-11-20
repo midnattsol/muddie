@@ -262,6 +262,7 @@ impl App {
             }
             let active = self.active;
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                notices(ui, &mut self.tabs[active]);
                 self.tabs[active].status_line(ui);
             });
         });
@@ -602,6 +603,64 @@ impl eframe::App for App {
 }
 
 /// The language and the size of the interface.
+/// The bell of what the client said in a session, marked with how many
+/// have not been looked at, and the list of them when pressed: each with
+/// when it was said, to read again or copy.
+fn notices(ui: &mut Ui, tab: &mut Tab) {
+    let theme = theme::current();
+    let (said, unread) = tab.notices();
+    let label = match unread {
+        0 => tr("Messages").to_owned(),
+        count => trf("Messages, {0} new", &[&count.to_string()]),
+    };
+    let bell = widgets::icon_button(ui, widgets::Icon::Bell, &label, false);
+    if unread > 0 {
+        let at = bell.rect.right_top() + egui::vec2(-7.0, 7.0);
+        ui.painter().circle_filled(at, 3.5, theme.accent);
+    }
+    let said: Vec<_> = said.iter().rev().take(60).cloned().collect();
+    let mut clear = false;
+    let shown = egui::Popup::menu(&bell).width(420.0).show(|ui| {
+        ui.horizontal(|ui| {
+            widgets::menu_heading(ui, tr("Messages"));
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if !said.is_empty() {
+                    clear = widgets::quiet_button(ui, tr("Clear")).clicked();
+                }
+            });
+        });
+        if said.is_empty() {
+            widgets::menu_heading(ui, tr("Nothing yet."));
+            return;
+        }
+        egui::ScrollArea::vertical()
+            .max_height(360.0)
+            .show(ui, |ui| {
+                for notice in &said {
+                    ui.horizontal_top(|ui| {
+                        let time = RichText::new(&notice.time)
+                            .font(egui::FontId::monospace(11.5))
+                            .color(theme.text_faint);
+                        ui.add(egui::Label::new(time).selectable(false));
+                        let colour = if notice.problem {
+                            theme.danger
+                        } else {
+                            theme.text
+                        };
+                        let text = RichText::new(&notice.text).color(colour);
+                        ui.add(egui::Label::new(text).wrap().selectable(true));
+                    });
+                }
+            });
+    });
+    if shown.is_some() {
+        tab.notices_read();
+    }
+    if clear {
+        tab.clear_notices();
+    }
+}
+
 fn general_settings(ui: &mut Ui, settings: &mut Settings, languages: &[(String, String)]) {
     widgets::group(ui, |ui| {
         widgets::setting_row(ui, tr("Language"), &mut |ui| {

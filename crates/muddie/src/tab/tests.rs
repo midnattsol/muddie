@@ -1868,6 +1868,39 @@ fn what_many_muds_send_alike_is_a_plugin_that_can_be_switched_off() {
 }
 
 #[test]
+fn what_the_client_says_can_be_read_again() {
+    let mut harness = window(None);
+    harness.set_size(egui::vec2(1300.0, 800.0));
+    let app = harness.state_mut().tab_mut();
+    app.note("Connected.");
+    // An answer said in the command line for a moment is kept too.
+    app.scripts
+        .exec("t", r#"bind("f9", "kick", {group = "Combat"})"#);
+    app.run_command("/group Combat off");
+    app.run_command("/map find nowhere");
+    harness.run_steps(3);
+    let (said, unread) = harness.state().tab().notices();
+    let texts: Vec<(&str, bool)> = said
+        .iter()
+        .map(|notice| (notice.text.as_str(), notice.problem))
+        .collect();
+    assert_eq!(
+        texts,
+        [
+            ("Connected.", false),
+            ("Group Combat off.", false),
+            ("No room matches.", true)
+        ]
+    );
+    assert_eq!(unread, 3);
+    // The bell says how many are new, and opening it shows them.
+    harness.get_by_label("Messages, 3 new").click();
+    harness.run_steps(3);
+    harness.get_by_label("No room matches.");
+    assert_eq!(harness.state().tab().notices().1, 0);
+}
+
+#[test]
 fn session_is_logged_when_asked() {
     let dir = std::env::temp_dir().join(format!("muddie-app-log-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
