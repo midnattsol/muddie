@@ -55,7 +55,6 @@ impl Tab {
     pub(in crate::tab) fn show_panels(&mut self, ui: &mut egui::Ui) -> Option<MapAction> {
         let mut asked = None;
         self.panels.rects.clear();
-        self.panels.sides.clear();
         // Those above and below first, so that they span the window.
         // Whichever goes first spans the window; the others fit between.
         let order = if self.layout.columns_full {
@@ -71,7 +70,7 @@ impl Tab {
                 })
                 .collect();
             let Some(&first) = members.first() else {
-                self.side_rail(ui, side);
+                self.side_strip(ui, side);
                 continue;
             };
             let id = ui.make_persistent_id(("dock", side as u8));
@@ -103,7 +102,6 @@ impl Tab {
             asked = asked.or(shown.inner);
             // As it was left, to be the same the next time.
             let rect = shown.response.rect;
-            self.panels.sides.push((side, rect));
             let size = if side.is_beside() {
                 rect.width()
             } else {
@@ -328,6 +326,7 @@ impl Tab {
                 self.panels.dragged = Some(self.layout.panels[place[0]].id);
             }
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                self.fold_button(ui, place);
                 self.panel_menu(ui, shown);
                 let kind = self.layout.panels[shown].kind;
                 if kind == Kind::Map && self.map.borrow().current().is_some() {

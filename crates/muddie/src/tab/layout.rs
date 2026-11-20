@@ -306,8 +306,6 @@ pub(super) struct Panels {
     pub(super) dragged: Option<u32>,
     /// Where each panel was drawn, to drop another before or after it.
     pub(super) rects: Vec<(u32, egui::Rect)>,
-    /// Where each side out was drawn, for the tab on its edge.
-    pub(super) sides: Vec<(Side, egui::Rect)>,
     /// Of the panels that share a place as tabs, by the place: which is
     /// on show; and those that got something while they were not.
     pub(super) shown_tabs: Vec<(u32, u32)>,

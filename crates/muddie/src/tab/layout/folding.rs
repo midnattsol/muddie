@@ -1,54 +1,142 @@
-//! Putting away the panels of a whole side, from a tab on the edge between
-//! them and the output, and bringing them back from a thin rail.
+//! Putting away the panels of a whole side, from the header of its first
+//! panel, and bringing them back from the strip of their names it leaves.
 
 use super::*;
 
+/// How thick the strip of a side put away is, card and all.
+const STRIP: f32 = 28.0;
+
 impl Tab {
-    /// The rail a side put away leaves at the edge of the window, with
-    /// the tab that brings it back; nothing for a side with no panels.
-    pub(in crate::tab) fn side_rail(&mut self, ui: &mut egui::Ui, side: Side) {
+    /// The button that puts the side away, in the header of the first
+    /// place of the side only: it is the whole side that goes.
+    pub(in crate::tab) fn fold_button(&mut self, ui: &mut egui::Ui, place: &[usize]) {
+        let side = self.layout.panels[place[0]].side;
+        let first = (self.layout.panels.iter())
+            .position(|panel| self.layout.on_screen(panel) && panel.side == side);
+        if !first.is_some_and(|first| place.contains(&first)) {
+            return;
+        }
+        let icon = widgets::Icon::Fold(side.edge());
+        if widgets::icon_button(ui, icon, side.toggle_label(true), false).clicked() {
+            self.toggle_side(side);
+        }
+    }
+
+    /// The strip a side put away leaves at the edge of the window: the
+    /// names of its panels, any of which brings it back with that one on
+    /// show. Nothing for a side with no panels.
+    pub(in crate::tab) fn side_strip(&mut self, ui: &mut egui::Ui, side: Side) {
         if !self.layout.sides().contains(&(side, false)) {
             return;
         }
-        let id = ui.make_persistent_id(("rail", side as u8));
-        let rail = match side {
+        let panels: Vec<(u32, u32, String)> = (self.layout.panels.iter())
+            .filter(|panel| panel.visible && panel.side == side)
+            .map(|panel| (panel.id, panel.stack, panel.name.clone()))
+            .collect();
+        let (left, right) = match side {
+            Side::Left => (8, 4),
+            Side::Right => (4, 8),
+            Side::Top | Side::Bottom => (8, 8),
+        };
+        let margin = egui::Margin {
+            left,
+            right,
+            top: 4,
+            bottom: 4,
+        };
+        let id = ui.make_persistent_id(("strip", side as u8));
+        let strip = match side {
             Side::Left => Panel::left(id),
             Side::Right => Panel::right(id),
             Side::Top => Panel::top(id),
             Side::Bottom => Panel::bottom(id),
         };
-        let shown = rail
-            .frame(egui::Frame::new())
+        let thickness = STRIP
+            + match side.is_beside() {
+                true => f32::from(left + right),
+                false => 8.0,
+            };
+        let chosen = strip
+            .frame(egui::Frame::new().inner_margin(margin))
             .show_separator_line(false)
             .resizable(false)
-            .exact_size(RAIL)
-            .show(ui, |ui| {
-                let label = side.toggle_label(false);
-                widgets::fold_tab(ui, ui.max_rect().center(), side.edge(), false, label)
-            });
-        if shown.inner.clicked() {
+            .exact_size(thickness)
+            .show(ui, |ui| strip_names(ui, side, &panels))
+            .inner;
+        if let Some((id, stack)) = chosen {
             self.layout.reveal(side);
-        }
-    }
-
-    /// The tab on the edge of each side out, which puts it away: drawn
-    /// over the output and the panels, once both are, so that it is the
-    /// one that takes a click there rather than the edge.
-    pub(in crate::tab) fn fold_tabs(&mut self, ui: &mut egui::Ui) {
-        for (side, rect) in std::mem::take(&mut self.panels.sides) {
-            let edge = match side {
-                Side::Left => rect.right_center(),
-                Side::Right => rect.left_center(),
-                Side::Top => rect.center_bottom(),
-                Side::Bottom => rect.center_top(),
-            };
-            let label = side.toggle_label(true);
-            if widgets::fold_tab(ui, edge, side.edge(), true, label).clicked() {
-                self.toggle_side(side);
+            if stack != 0 {
+                self.panels.shown_tabs.retain(|(known, _)| *known != stack);
+                self.panels.shown_tabs.push((stack, id));
             }
         }
     }
 }
 
-/// How wide the rail of a side put away is.
-const RAIL: f32 = 20.0;
+/// The card of a strip, with the name of each panel along it: down it at
+/// the sides, read toward the output, and across it above and below.
+/// Returns the panel chosen, with its set of tabs.
+fn strip_names(ui: &mut egui::Ui, side: Side, panels: &[(u32, u32, String)]) -> Option<(u32, u32)> {
+    let theme = theme::current();
+    let card = ui.max_rect();
+    ui.painter()
+        .rect_filled(card, egui::CornerRadius::same(10), theme.background);
+    let font = theme::font(Weight::Medium, 10.5);
+    let mut at = 6.0;
+    let mut chosen = None;
+    for (id, stack, name) in panels {
+        let galley =
+            (ui.painter()).layout_no_wrap(name.to_uppercase(), font.clone(), theme.text_dim);
+        let (long, high) = (galley.size().x + 20.0, galley.size().y);
+        let item = match side.is_beside() {
+            true => egui::Rect::from_min_size(
+                card.min + egui::vec2(0.0, at),
+                egui::vec2(card.width(), long),
+            ),
+            false => egui::Rect::from_min_size(
+                card.min + egui::vec2(at, 0.0),
+                egui::vec2(long, card.height()),
+            ),
+        };
+        at += long + 2.0;
+        let response = ui.interact(
+            item,
+            ui.make_persistent_id(("strip name", id)),
+            egui::Sense::click(),
+        );
+        let label = trf("Show {0}", &[name]);
+        response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, &label));
+        let hovered = response.hovered() || response.has_focus();
+        if hovered {
+            ui.painter()
+                .rect_filled(item.shrink(3.0), egui::CornerRadius::same(7), theme.hover);
+        }
+        let ink = if hovered { theme.text } else { theme.text_dim };
+        // Turned a quarter, so that it reads from the top at the right and
+        // from the bottom at the left, as it does in code editors.
+        let (start, angle) = match side {
+            Side::Right => (
+                egui::pos2(item.center().x + high / 2.0, item.top() + 10.0),
+                std::f32::consts::FRAC_PI_2,
+            ),
+            Side::Left => (
+                egui::pos2(item.center().x - high / 2.0, item.bottom() - 10.0),
+                -std::f32::consts::FRAC_PI_2,
+            ),
+            Side::Top | Side::Bottom => (
+                egui::pos2(item.left() + 10.0, item.center().y - high / 2.0),
+                0.0,
+            ),
+        };
+        let text = egui::epaint::TextShape::new(start, galley, ink).with_angle(angle);
+        ui.painter().add(text);
+        let response = response
+            .on_hover_cursor(egui::CursorIcon::PointingHand)
+            .on_hover_text(side.toggle_label(false));
+        if response.clicked() {
+            chosen = Some((*id, *stack));
+        }
+    }
+    ui.allocate_rect(card, egui::Sense::hover());
+    chosen
+}

@@ -21,6 +21,8 @@ pub enum Icon {
     Menu,
     /// A bell: what the client said.
     Bell,
+    /// An arrow to a bar at this edge: put away that way.
+    Fold(Edge),
 }
 
 /// A side of the window.
@@ -53,53 +55,6 @@ pub fn icon_button(ui: &mut Ui, icon: Icon, label: &str, on: bool) -> Response {
         draw_icon(painter, icon, rect.center(), icon_colour(icon, on, hovered));
     }
     response.on_hover_text(label)
-}
-
-/// The tab on the edge between the output and the panels of a side, at
-/// `centre`: its arrow points the way they go, away when they are `out`
-/// and back when they are not.
-pub fn fold_tab(ui: &mut Ui, centre: egui::Pos2, edge: Edge, out: bool, label: &str) -> Response {
-    let theme = theme::current();
-    let (outward, size) = match edge {
-        Edge::Left => (vec2(-1.0, 0.0), vec2(14.0, 36.0)),
-        Edge::Right => (vec2(1.0, 0.0), vec2(14.0, 36.0)),
-        Edge::Top => (vec2(0.0, -1.0), vec2(36.0, 14.0)),
-        Edge::Bottom => (vec2(0.0, 1.0), vec2(36.0, 14.0)),
-    };
-    let rect = egui::Rect::from_center_size(centre, size);
-    let response = ui.interact(
-        rect,
-        ui.make_persistent_id(("fold tab", edge, out)),
-        Sense::click(),
-    );
-    response.widget_info(|| WidgetInfo::labeled(Role::Button, ui.is_enabled(), label));
-    let hovered = response.hovered() || response.has_focus();
-    let (fill, ink) = match hovered {
-        true => (theme.hover, theme.text),
-        false => (theme.raised, theme.text_dim),
-    };
-    let painter = ui.painter();
-    let border = Stroke::new(1.0, theme.border);
-    painter.rect(
-        rect,
-        CornerRadius::same(7),
-        fill,
-        border,
-        egui::StrokeKind::Inside,
-    );
-    // A chevron, its point the way the panels go.
-    let way = if out { outward } else { -outward };
-    let across = vec2(way.y, way.x);
-    let middle = rect.center();
-    let arms = vec![
-        middle - way * 2.0 + across * 3.5,
-        middle + way * 2.0,
-        middle - way * 2.0 - across * 3.5,
-    ];
-    painter.add(egui::Shape::line(arms, Stroke::new(1.5, ink)));
-    response
-        .on_hover_cursor(egui::CursorIcon::PointingHand)
-        .on_hover_text(label)
 }
 
 /// The colour an icon is drawn in: running is green and deleting red, as
@@ -147,8 +102,26 @@ fn draw_icon(painter: &egui::Painter, icon: Icon, centre: egui::Pos2, colour: Co
             }
         }
         Icon::Bell => draw_bell(painter, centre, stroke),
+        Icon::Fold(edge) => draw_fold(painter, centre, stroke, edge),
         Icon::Trash => draw_trash(painter, centre, stroke),
     }
+}
+
+/// An arrow to a bar at an edge, as ⇥ is for the right.
+fn draw_fold(painter: &egui::Painter, centre: egui::Pos2, stroke: Stroke, edge: Edge) {
+    let way = match edge {
+        Edge::Left => vec2(-1.0, 0.0),
+        Edge::Right => vec2(1.0, 0.0),
+        Edge::Top => vec2(0.0, -1.0),
+        Edge::Bottom => vec2(0.0, 1.0),
+    };
+    let across = vec2(way.y, way.x);
+    let tip = centre + way * 2.5;
+    painter.line_segment([centre - way * 6.0, tip], stroke);
+    painter.line_segment([tip, tip - way * 3.5 + across * 3.5], stroke);
+    painter.line_segment([tip, tip - way * 3.5 - across * 3.5], stroke);
+    let bar = centre + way * 6.0;
+    painter.line_segment([bar + across * 6.0, bar - across * 6.0], stroke);
 }
 
 /// A target: a ring, its centre, and four ticks.

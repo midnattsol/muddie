@@ -224,11 +224,11 @@ menu (the three dots). There is no mode to enter to arrange them.
 - Its **menu** has its name, what goes with its kind (the channels for one
   of text, editing the gauges, the areas of the map), hiding it and removing
   it.
-- **A whole side** can be put away, with all its panels, from the small
-  tab in the middle of its edge with the output: the arrow points the way
-  they go. A thin rail stays at the edge of the window, with a tab to bring
-  them back as they were. A panel shown or added on a side put away brings
-  the side back; **Ctrl+M** shows or hides the map alone.
+- **A whole side** can be put away, with all its panels, from the arrow
+  to the edge in the header of its first panel. It leaves a thin strip
+  with the names of its panels: any of them brings the side back as it
+  was, with that panel on show. A panel shown or added on a side put away
+  brings the side back too; **Ctrl+M** shows or hides the map alone.
 - **Side panels at full height**, in the palette, decides who gets the
   corners: with it, the panels beside the output reach the top and the
   bottom of the window.

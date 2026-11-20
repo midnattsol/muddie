@@ -76,7 +76,6 @@ impl Tab {
             self.sizes.window = Self::cells(ui, room);
             self.output.show(ui, "output")
         });
-        self.fold_tabs(ui);
         self.report_window(ui.ctx());
         // A link the server marked as a command was clicked.
         if let Some(clicked) = clicked.inner {
