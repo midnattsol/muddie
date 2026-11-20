@@ -160,9 +160,6 @@ msgstr "Personaje"
 msgid "Password"
 msgstr "Contraseña"
 
-msgid "unchanged"
-msgstr "sin cambios"
-
 msgid "Kept in the system's keyring when the profile is saved."
 msgstr "Se guarda en el llavero del sistema al guardar el perfil."
 
@@ -1100,9 +1097,6 @@ msgstr "Valor"
 msgid "About Muddie"
 msgstr "Acerca de Muddie"
 
-msgid "Preferences"
-msgstr "Preferencias"
-
 msgid "With the line hidden, it is only in the panel. Panels are made in Preferences, Edit the layout."
 msgstr "Con la línea oculta, solo sale en el panel. Los paneles se crean en Preferencias, Editar la disposición."
 
@@ -1142,12 +1136,6 @@ msgstr "Copiar la ruta"
 
 msgid "A path is what a gauge follows, and what a script reads after gmcp(\"…\")."
 msgstr "Una ruta es lo que sigue un indicador, y lo que un script lee tras gmcp(\"…\")."
-
-msgid "Debug"
-msgstr "Depuración"
-
-msgid "Switch between the game and the debugging view"
-msgstr "Cambiar entre el juego y la vista de depuración"
 
 msgid ""
 "What the MUD sends besides text, with GMCP or MSDP, appears here as it comes:\n"
@@ -1493,3 +1481,11 @@ msgstr "Conectar al perfil"
 
 msgid "Go to, open or run anything"
 msgstr "Ir a, abrir o ejecutar lo que sea"
+
+
+msgid "Leave empty to keep it"
+msgstr "Déjalo vacío para conservarla"
+
+msgid "No profile"
+msgstr "Sin perfil"
+

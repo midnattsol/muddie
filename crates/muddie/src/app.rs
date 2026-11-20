@@ -275,6 +275,13 @@ impl App {
     fn menus(&mut self, ui: &mut Ui) {
         let active = self.active;
         let button = widgets::icon_button(ui, widgets::Icon::Menu, tr("Menu"), false);
+        // The profile this session plays with, in sight: what is saved with
+        // it is all in one place, opened from here.
+        let profile = self.tabs[active].profile_label();
+        ui.add_space(2.0);
+        if widgets::chip(ui, &profile, tr("Profile")).clicked() {
+            self.tabs[active].open_profile(0);
+        }
         egui::Popup::menu(&button).show(|ui| {
             widgets::menu_width(ui);
             widgets::menu_heading(ui, tr("Session"));
@@ -329,7 +336,6 @@ impl App {
     }
 
     fn settings_window(&mut self, ctx: &egui::Context) {
-        const PLUGINS: usize = 5;
         let before = self.settings.clone();
         let mut open = self.show_settings;
         // Which there are is looked up as the settings open, not each frame.
@@ -346,7 +352,6 @@ impl App {
                         tr("Output"),
                         tr("Sessions"),
                         tr("Speech"),
-                        tr("Plugins"),
                     ];
                     for (index, name) in sections.into_iter().enumerate() {
                         let selected = self.settings_section == index;
@@ -357,7 +362,6 @@ impl App {
                 });
                 ui.add_space(14.0);
                 let section = self.settings_section;
-                let active = self.active;
                 ui.vertical(|ui| {
                     ui.set_min_height(380.0);
                     // On a small window the settings scroll rather than spill.
@@ -370,7 +374,6 @@ impl App {
                             match section {
                                 GENERAL => general_settings(ui, settings, &languages),
                                 APPEARANCE => appearance_settings(ui, settings),
-                                PLUGINS => self.tabs[active].plugins_ui(ui),
                                 // Those of the sessions: output, sessions, speech.
                                 section => Tab::settings_ui(ui, settings, section - 1),
                             }

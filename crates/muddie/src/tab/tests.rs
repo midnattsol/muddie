@@ -492,7 +492,8 @@ fn commands_are_chosen_from_a_palette_and_answer_at_the_line() {
     harness.run_steps(2);
     harness.state_mut().tab_mut().toggle_palette();
     harness.run_steps(2);
-    harness.state_mut().tab_mut().palette_query = "pl".into();
+    // A slash puts the commands first, to run with Enter.
+    harness.state_mut().tab_mut().palette_query = "/pl".into();
     harness.run_steps(3);
     harness.get_by_label_contains("plugin install");
     assert!(harness.query_by_label_contains("map where").is_none());
@@ -2216,7 +2217,7 @@ fn screenshot() {
     app.offer_plugin_for("rlmud.org", "");
     offer.run_steps(3);
     save(&mut offer, "plugin-offer");
-    offer.state_mut().open_settings(5);
+    offer.state_mut().tab_mut().open_profile(1);
     offer.run_steps(4);
     save(&mut offer, "plugins-included");
 
@@ -2294,7 +2295,7 @@ fn screenshot() {
     let app = plugins.state_mut().tab_mut();
     app.profile = Some("Aardwolf".into());
     app.packages = vec!["aardwolf-mapper".into()];
-    plugins.state_mut().open_settings(5);
+    plugins.state_mut().tab_mut().open_profile(1);
     plugins.run_steps(4);
     save(&mut plugins, "plugins");
     std::fs::remove_dir_all(&dir).unwrap();

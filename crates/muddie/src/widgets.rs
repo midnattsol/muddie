@@ -123,6 +123,38 @@ pub fn sign_button(ui: &mut Ui, sign: &str, label: &str, frame: bool) -> Respons
     response.on_hover_text(label)
 }
 
+/// A rounded label that can be pressed, with what it is for said to a
+/// screen reader before what it shows: the profile in use, say.
+pub fn chip(ui: &mut Ui, text: &str, what: &str) -> Response {
+    let theme = theme::current();
+    let galley = ui.painter().layout_no_wrap(
+        text.to_owned(),
+        theme::font(Weight::Medium, 12.5),
+        theme.text,
+    );
+    let size = vec2(galley.size().x + 30.0, 26.0);
+    let (rect, response) = ui.allocate_exact_size(size, Sense::click());
+    response.widget_info(|| {
+        WidgetInfo::labeled(Role::Button, ui.is_enabled(), format!("{what}: {text}"))
+    });
+    if ui.is_rect_visible(rect) {
+        let painter = ui.painter();
+        let fill = if response.hovered() || response.has_focus() {
+            theme.hover
+        } else {
+            theme.raised
+        };
+        painter.rect_filled(rect, CornerRadius::same(13), fill);
+        let at = egui::pos2(rect.left() + 12.0, rect.center().y - galley.size().y / 2.0);
+        painter.galley(at, galley, theme.text);
+        // A small arrow: it opens something.
+        let tip = rect.right_center() - vec2(11.0, -1.5);
+        let arrow = vec![tip + vec2(-3.0, -3.0), tip, tip + vec2(3.0, -3.0)];
+        painter.add(egui::Shape::line(arrow, Stroke::new(1.2, theme.text_dim)));
+    }
+    response.on_hover_text(what)
+}
+
 /// What looks like a field to search in and opens the palette: where
 /// anything can be found, with the keys that open it from anywhere.
 pub fn palette_button(ui: &mut Ui, width: f32, keys: &str) -> Response {

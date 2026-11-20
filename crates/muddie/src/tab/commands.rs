@@ -38,6 +38,7 @@ pub enum Act {
     Reconnect,
     Disconnect,
     Profile,
+    Plugins,
     Find,
     EditLayout,
     /// Shows or hides the panel with this number.
@@ -394,6 +395,7 @@ impl Tab {
             acts.push(act(&label, panels, Act::Panel(panel.id)));
         }
         acts.push(act(tr("Edit the layout"), panels, Act::EditLayout));
+        acts.push(act(tr("Plugins"), tr("Profile"), Act::Plugins));
         let parts = [
             (tr("General"), crate::app::GENERAL),
             (tr("Appearance"), crate::app::APPEARANCE),
@@ -433,7 +435,8 @@ impl Tab {
             Act::App(request) => self.app_request = Some(request),
             Act::Reconnect => self.reconnect(ctx),
             Act::Disconnect => self.disconnect(),
-            Act::Profile => self.connection_open = true,
+            Act::Profile => self.open_profile(0),
+            Act::Plugins => self.open_profile(1),
             Act::Find => {
                 self.find_open = true;
                 self.find_wants_focus = true;

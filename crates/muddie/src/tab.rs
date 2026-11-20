@@ -172,6 +172,9 @@ pub struct Tab {
     /// When the scripts were last run from the editor, and what kept
     /// them from running, if anything did.
     script_ran: Option<(String, Option<String>)>,
+    /// Which page of the profile's window is shown: its connection or its
+    /// plugins.
+    profile_page: usize,
     /// The connection is being closed to be opened again.
     reconnect_wanted: bool,
     palette_open: bool,
@@ -451,6 +454,7 @@ impl Tab {
             protocols: Vec::new(),
             script_ran: None,
             reconnect_wanted: false,
+            profile_page: 0,
             palette_open: false,
             app_request: None,
             palette_query: String::new(),

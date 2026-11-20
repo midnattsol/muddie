@@ -359,12 +359,8 @@ impl Tab {
             self.disconnect();
             ui.close();
         }
-        let offline = self.connection.is_none();
-        let details = ui
-            .add_enabled_ui(offline, |ui| widgets::menu_item(ui, tr("Connection"), ""))
-            .inner;
-        if details.clicked() {
-            self.connection_open = true;
+        if widgets::menu_item(ui, tr("Profile"), "").clicked() {
+            self.open_profile(0);
             ui.close();
         }
         widgets::menu_separator(ui);
@@ -394,85 +390,115 @@ impl Tab {
     /// The window with every detail of the connection: where and how to
     /// connect, who to log in as, and the profile to keep it all in.
     fn connection_window(&mut self, ctx: &egui::Context) {
-        if !self.connection_open || self.connection.is_some() {
+        if !self.connection_open {
             return;
         }
         let theme = theme::current();
         let (mut open, mut connect, mut save) = (true, false, false);
-        widgets::dialog(
-            ctx,
-            "connection",
-            tr("Connection"),
-            &mut open,
-            460.0,
-            |ui| {
-                ui.spacing_mut().item_spacing.y = 8.0;
-                widgets::caption(ui, tr("Server"));
-                widgets::group(ui, |ui| {
-                    widgets::setting_row(ui, tr("Host"), &mut |ui| {
-                        widgets::row_field(ui, &mut self.host, "mud.example.org", 230.0)
-                    });
-                    widgets::setting_row(ui, tr("Port"), &mut |ui| {
-                        widgets::row_field(ui, &mut self.port, "23", 80.0)
-                    });
-                    widgets::switch_setting(ui, &mut self.tls, tr("Secure connection (TLS)"));
+        let connected = self.connection.is_some();
+        widgets::dialog(ctx, "connection", tr("Profile"), &mut open, 520.0, |ui| {
+            ui.spacing_mut().item_spacing.y = 8.0;
+            let pages = [tr("Connection"), tr("Plugins")];
+            if let Some(page) = widgets::segmented(ui, &pages, self.profile_page) {
+                self.profile_page = page;
+            }
+            ui.add_space(4.0);
+            if self.profile_page == 1 {
+                return self.plugins_ui(ui);
+            }
+            // What the profile is called first: it is what it is known by.
+            widgets::group(ui, |ui| {
+                widgets::setting_row(ui, tr("Profile name"), &mut |ui| {
+                    save = crate::widgets::button(ui, tr("Save profile")).clicked();
+                    widgets::row_field(ui, &mut self.profile_name, "", 190.0)
+                });
+            });
+            ui.add_space(6.0);
+            widgets::caption(ui, tr("Server"));
+            widgets::group(ui, |ui| {
+                widgets::setting_row(ui, tr("Host"), &mut |ui| {
+                    widgets::row_field(ui, &mut self.host, "mud.example.org", 230.0)
+                });
+                widgets::setting_row(ui, tr("Port"), &mut |ui| {
+                    widgets::row_field(ui, &mut self.port, "23", 80.0)
+                });
+                widgets::switch_setting(ui, &mut self.tls, tr("Secure connection (TLS)"));
+                // Only there to be decided with a secure connection.
+                if self.tls {
                     widgets::row_divider(ui);
-                    ui.add_enabled_ui(self.tls, |ui| {
-                        widgets::switch_setting(
-                            ui,
-                            &mut self.verify_certificate,
-                            tr("Verify certificate"),
-                        );
-                    });
-                    widgets::setting_row(ui, tr("Text encoding"), &mut |ui| {
-                        widgets::row_field(ui, &mut self.encoding, "auto", 120.0)
-                    })
-                    .on_hover_text(tr(
-                        "Only for servers that do not use UTF-8 or Latin-1, e.g. big5 or koi8-r.",
-                    ));
+                    widgets::switch_setting(
+                        ui,
+                        &mut self.verify_certificate,
+                        tr("Verify certificate"),
+                    );
+                }
+                widgets::setting_row(ui, tr("Text encoding"), &mut |ui| {
+                    widgets::row_field(ui, &mut self.encoding, "auto", 120.0)
+                })
+                .on_hover_text(tr(
+                    "Only for servers that do not use UTF-8 or Latin-1, e.g. big5 or koi8-r.",
+                ));
+            });
+            ui.add_space(6.0);
+            widgets::caption(ui, tr("Log in automatically"));
+            widgets::group(ui, |ui| {
+                widgets::setting_row(ui, tr("Character"), &mut |ui| {
+                    widgets::row_field(ui, &mut self.character, "", 230.0)
                 });
-                ui.add_space(6.0);
-                widgets::caption(ui, tr("Log in automatically"));
-                widgets::group(ui, |ui| {
-                    widgets::setting_row(ui, tr("Character"), &mut |ui| {
-                        widgets::row_field(ui, &mut self.character, "", 230.0)
-                    });
-                    widgets::setting_row(ui, tr("Password"), &mut |ui| {
-                        ui.add(
-                            TextEdit::singleline(&mut self.new_password)
-                                .password(true)
-                                .hint_text(RichText::new(tr("unchanged")).color(theme.text_faint))
-                                .margin(egui::Margin::symmetric(9, 6))
-                                .desired_width(230.0),
-                        )
-                    })
-                    .on_hover_text(tr(
-                        "Kept in the system's keyring when the profile is saved.",
-                    ));
+                // A saved profile may have a password kept already.
+                let hint = match self.profile.is_some() {
+                    true => tr("Leave empty to keep it"),
+                    false => "",
+                };
+                widgets::setting_row(ui, tr("Password"), &mut |ui| {
+                    ui.add(
+                        TextEdit::singleline(&mut self.new_password)
+                            .password(true)
+                            .hint_text(RichText::new(hint).color(theme.text_faint))
+                            .margin(egui::Margin::symmetric(9, 6))
+                            .desired_width(230.0),
+                    )
+                })
+                .on_hover_text(tr(
+                    "Kept in the system's keyring when the profile is saved.",
+                ));
+            });
+            ui.add_space(10.0);
+            ui.horizontal(|ui| {
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    // Connected, what is changed takes effect on connecting
+                    // again.
+                    let go = if connected {
+                        tr("Reconnect")
+                    } else {
+                        tr("Connect")
+                    };
+                    connect = widgets::primary_button(ui, go).clicked();
                 });
-                ui.add_space(6.0);
-                widgets::caption(ui, tr("Profile"));
-                widgets::group(ui, |ui| {
-                    widgets::setting_row(ui, tr("Profile name"), &mut |ui| {
-                        save = crate::widgets::button(ui, tr("Save profile")).clicked();
-                        widgets::row_field(ui, &mut self.profile_name, "", 150.0)
-                    });
-                });
-                ui.add_space(10.0);
-                ui.horizontal(|ui| {
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        connect = widgets::primary_button(ui, tr("Connect")).clicked();
-                    });
-                });
-            },
-        );
+            });
+        });
         self.connection_open = open;
         if save {
             self.save_profile();
         }
         if connect {
-            self.connect(ctx);
+            self.connection_open = false;
+            self.reconnect(ctx);
         }
+    }
+
+    /// What the profile in use is called, to show; or that there is none.
+    pub fn profile_label(&self) -> String {
+        match &self.profile {
+            Some(name) => name.clone(),
+            None => tr("No profile").to_owned(),
+        }
+    }
+
+    /// Opens the profile's window, at its connection or its plugins.
+    pub fn open_profile(&mut self, page: usize) {
+        self.profile_page = page;
+        self.connection_open = true;
     }
 }
 
