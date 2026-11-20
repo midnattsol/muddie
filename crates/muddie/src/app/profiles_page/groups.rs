@@ -67,7 +67,6 @@ pub(in crate::app) fn encoding_choice(ui: &mut Ui, encoding: &mut String) -> egu
         .map_or(encoding.clone(), |(label, shown)| name(label, shown));
     widgets::dropdown("encoding")
         .selected_text(chosen)
-        .width(size::FIELD_L)
         .show_ui(ui, |ui| {
             for (label, shown) in ENCODINGS {
                 if widgets::choice(ui, label == current, &name(label, shown)).clicked() {
@@ -85,7 +84,10 @@ pub(in crate::app) fn login_group(ui: &mut Ui, edit: &mut ProfileEdit) {
             ui,
             tr("Character"),
             Some(tr("Muddie answers the first prompt with it.")),
-            &mut |ui| widgets::row_field(ui, &mut edit.draft.character, "", size::FIELD_L),
+            &mut |ui| {
+                let none = tr("None: log in by hand");
+                widgets::row_field(ui, &mut edit.draft.character, none, size::FIELD_L)
+            },
         );
         widgets::setting_row(
             ui,
@@ -128,7 +130,7 @@ pub(in crate::app) fn keeping_group(ui: &mut Ui, prefs: &mut SessionPrefs) {
             prefs.keepalive_seconds = if alive { 60 } else { 0 };
         }
         if alive {
-            widgets::setting_row(ui, tr("Every"), None, &mut |ui| {
+            widgets::setting_subrow(ui, tr("Every"), None, &mut |ui| {
                 ui.add_sized(
                     [size::FIELD_S, size::CONTROL],
                     widgets::number(&mut prefs.keepalive_seconds)
@@ -164,7 +166,6 @@ pub(in crate::app) fn logs_group(ui: &mut Ui, prefs: &mut SessionPrefs) {
                     };
                     widgets::dropdown("log format")
                         .selected_text(name(prefs.log_format))
-                        .width(size::FIELD_M)
                         .show_ui(ui, |ui| {
                             for format in [LogFormat::Text, LogFormat::Html] {
                                 widgets::choice_value(

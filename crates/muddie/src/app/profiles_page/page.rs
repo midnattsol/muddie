@@ -24,28 +24,20 @@ impl App {
         ui.add_space(size::GAP_L);
     }
 
-    /// "‹ Profiles", and the profile's name, with where it leads under it,
-    /// connecting with it and its menu at the right.
+    /// "‹ Profiles", and the profile's name, with connecting with it and
+    /// its menu at the right. Where it leads is in the first section.
     pub(in crate::app) fn profile_heading(&mut self, ui: &mut Ui, ctx: &egui::Context, name: &str) {
         if widgets::quiet_button(ui, &format!("‹ {}", tr("Profiles"))).clicked() {
             self.editing = None;
             return;
         }
         ui.add_space(size::GAP_S);
-        let place =
-            (self.editing.as_ref()).map(|edit| format!("{}:{}", edit.draft.host, edit.draft.port));
-        let theme = theme::current();
         let mut asked = None;
         ui.horizontal(|ui| {
-            ui.vertical(|ui| {
-                ui.spacing_mut().item_spacing.y = 2.0;
-                let title = RichText::new(name)
-                    .font(theme::font(Weight::Semibold, 22.0))
-                    .color(theme.text);
-                ui.add(egui::Label::new(title).selectable(false));
-                let place = RichText::new(place.unwrap_or_default()).color(theme.text_dim);
-                ui.add(egui::Label::new(place).selectable(false));
-            });
+            let title = RichText::new(name)
+                .font(theme::font(Weight::Semibold, 22.0))
+                .color(theme::current().text);
+            ui.add(egui::Label::new(title).selectable(false));
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 let label = trf("{0} options", &[name]);
                 let more = widgets::icon_button(ui, widgets::Icon::More, &label, false);

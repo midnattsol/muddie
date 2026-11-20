@@ -81,7 +81,7 @@ impl App {
             return;
         };
         let mut customize = None;
-        widgets::section(ui, tr("Plugins"), |ui| {
+        widgets::section(ui, tr("Included plugins"), |ui| {
             for plugin in crate::bundled::ALL.iter() {
                 if included_row(ui, plugin, &mut edit.draft) {
                     customize = Some(plugin);
@@ -101,7 +101,7 @@ impl App {
             .map(Profiles::packages)
             .unwrap_or_default();
         let mut commands = Vec::new();
-        widgets::section_caption_with(ui, tr("Installed by you"), |ui| {
+        widgets::section_caption_with(ui, tr("Other plugins"), |ui| {
             if !installed.is_empty() && widgets::button(ui, tr("Update all")).clicked() {
                 commands.extend(
                     installed

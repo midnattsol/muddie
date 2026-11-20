@@ -4,7 +4,10 @@ use super::*;
 
 /// The ordinary button, for something to do that is not the main thing.
 pub fn button(ui: &mut Ui, text: impl Into<egui::WidgetText>) -> Response {
-    ui.add(egui::Button::new(text).min_size(vec2(0.0, theme::size::CONTROL)))
+    raised(
+        ui,
+        egui::Button::new(text).min_size(vec2(0.0, theme::size::CONTROL)),
+    )
 }
 
 /// The button for the main thing to do in a view, filled with the accent.
@@ -13,7 +16,8 @@ pub fn primary_button(ui: &mut Ui, text: &str) -> Response {
     let label = RichText::new(text)
         .font(theme::font(Weight::Medium, 13.5))
         .color(theme.on_accent);
-    ui.add(
+    raised(
+        ui,
         egui::Button::new(label)
             .fill(theme.accent)
             .stroke(Stroke::NONE)
@@ -26,7 +30,8 @@ pub fn primary_button(ui: &mut Ui, text: &str) -> Response {
 pub fn quiet_button(ui: &mut Ui, text: &str) -> Response {
     let theme = theme::current();
     let label = RichText::new(text).color(theme.text_dim);
-    ui.add(
+    raised(
+        ui,
         egui::Button::new(label)
             .fill(Color32::TRANSPARENT)
             .stroke(Stroke::NONE),
@@ -41,7 +46,8 @@ pub fn sign_button(ui: &mut Ui, sign: &str, label: &str, frame: bool) -> Respons
     let text = RichText::new(sign)
         .font(theme::font(Weight::Regular, 16.0))
         .color(if frame { theme.text } else { theme.text_dim });
-    let response = ui.add(
+    let response = raised(
+        ui,
         egui::Button::new(text)
             .frame(frame)
             .min_size(vec2(26.0, 26.0)),
@@ -267,5 +273,15 @@ pub fn tab(ui: &mut Ui, text: &str, on: bool, fresh: bool) -> Response {
             painter.circle_filled(rect.right_center() - vec2(9.0, 0.0), 3.0, marked);
         }
     }
+    response
+}
+
+/// Adds a button in the look of a button, not of a field: see
+/// [`theme::button_look`].
+fn raised(ui: &mut Ui, button: egui::Button<'_>) -> Response {
+    let kept = ui.visuals().widgets.clone();
+    theme::button_look(&mut ui.visuals_mut().widgets, &theme::current());
+    let response = ui.add(button);
+    ui.visuals_mut().widgets = kept;
     response
 }

@@ -5,7 +5,7 @@ use super::*;
 /// A small heading in capitals over a group of controls.
 pub fn caption(ui: &mut Ui, text: &str) {
     let label = RichText::new(text.to_uppercase())
-        .font(theme::font(Weight::Medium, 10.5))
+        .font(theme::font(Weight::Medium, 11.0))
         .color(theme::current().text_faint)
         .extra_letter_spacing(0.6);
     ui.label(label);
@@ -65,8 +65,9 @@ pub fn group<R>(ui: &mut Ui, add_rows: impl FnOnce(&mut Ui) -> R) -> R {
         .inner_margin(Margin::symmetric(16, 0))
         .show(ui, |ui| {
             ui.spacing_mut().item_spacing.y = 0.0;
-            // Fields inside stand out from the card, not sink into it.
-            ui.visuals_mut().text_edit_bg_color = Some(theme.surface);
+            // What is typed in or chosen from stands out from the card,
+            // not sinks into it.
+            theme::field_look(ui.visuals_mut(), theme.surface, &theme);
             ui.set_width(ui.available_width());
             add_rows(ui)
         })
@@ -102,6 +103,21 @@ pub fn setting_row(
 ) -> Response {
     row_start(ui);
     row(ui, label, about, control)
+}
+
+/// A row that belongs to the one above it, as what is set once that one
+/// is on: set in under it, with no hairline between the two.
+pub fn setting_subrow(
+    ui: &mut Ui,
+    label: &str,
+    about: Option<&str>,
+    control: &mut dyn FnMut(&mut Ui) -> Response,
+) -> Response {
+    ui.horizontal(|ui| {
+        ui.add_space(theme::size::GAP_L - 4.0);
+        ui.vertical(|ui| row(ui, label, about, control)).inner
+    })
+    .inner
 }
 
 /// A row of a [`group`] with a switch.

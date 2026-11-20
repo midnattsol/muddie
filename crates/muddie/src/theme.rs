@@ -59,10 +59,9 @@ pub mod size {
     pub const CONTROL: f32 = 30.0;
     /// A row of settings, with its control.
     pub const ROW: f32 = 44.0;
-    /// Controls at the right of a row of settings: a number; a word or a
-    /// short choice; a name, an address or a longer choice.
+    /// Controls at the right of a row of settings: a number; anything
+    /// else that is typed in or chosen from, all as wide as each other.
     pub const FIELD_S: f32 = 96.0;
-    pub const FIELD_M: f32 = 160.0;
     pub const FIELD_L: f32 = 250.0;
     /// Windows: a question, a form, the settings.
     pub const DIALOG_S: f32 = 460.0;
@@ -182,7 +181,7 @@ pub fn apply(ctx: &egui::Context, settings: &Settings) -> Result<(), String> {
     });
     ctx.all_styles_mut(|style| {
         surfaces(&mut style.visuals, &theme);
-        controls(&mut style.visuals.widgets, &theme);
+        controls(&mut style.visuals, &theme);
         spacing(&mut style.spacing);
         style.text_styles = text_styles();
     });
@@ -194,7 +193,6 @@ fn surfaces(visuals: &mut egui::Visuals, theme: &Theme) {
     visuals.panel_fill = theme.surface;
     visuals.window_fill = theme.surface;
     visuals.extreme_bg_color = theme.field;
-    visuals.text_edit_bg_color = Some(theme.field);
     visuals.faint_bg_color = theme.raised;
     visuals.window_stroke = Stroke::new(1.0, theme.border);
     visuals.window_corner_radius = CornerRadius::same(12);
@@ -217,15 +215,34 @@ fn surfaces(visuals: &mut egui::Visuals, theme: &Theme) {
     visuals.indent_has_left_vline = false;
 }
 
-/// Controls have no outline of their own: they are told apart from the
-/// surface by their fill, and from each other by spacing.
-fn controls(widgets: &mut egui::style::Widgets, theme: &Theme) {
+/// What is not interactive has the surface's edge. Buttons, by default,
+/// look like what is typed in or chosen: see [`field_look`]; each button
+/// takes [`button_look`] for itself.
+fn controls(visuals: &mut egui::Visuals, theme: &Theme) {
+    let widgets = &mut visuals.widgets;
     let radius = CornerRadius::same(8);
     widgets.noninteractive.bg_fill = theme.surface;
     widgets.noninteractive.weak_bg_fill = theme.surface;
     widgets.noninteractive.bg_stroke = Stroke::new(1.0, theme.border);
     widgets.noninteractive.fg_stroke = Stroke::new(1.0, theme.text_dim);
     widgets.noninteractive.corner_radius = radius;
+    button_look(widgets, theme);
+    for widget in [
+        &mut widgets.inactive,
+        &mut widgets.hovered,
+        &mut widgets.active,
+        &mut widgets.open,
+    ] {
+        widget.fg_stroke = Stroke::new(1.0, theme.text);
+        widget.corner_radius = radius;
+        widget.expansion = 0.0;
+    }
+    field_look(visuals, theme.field, theme);
+}
+
+/// A button stands out from what it is on by its fill, which lightens
+/// under the pointer and as it is pressed.
+pub fn button_look(widgets: &mut egui::style::Widgets, theme: &Theme) {
     for (widget, fill) in [
         (&mut widgets.inactive, mix(theme.raised, theme.text, 0.035)),
         (&mut widgets.hovered, mix(theme.raised, theme.text, 0.1)),
@@ -235,11 +252,26 @@ fn controls(widgets: &mut egui::style::Widgets, theme: &Theme) {
         widget.bg_fill = fill;
         widget.weak_bg_fill = fill;
         widget.bg_stroke = Stroke::new(1.0, mix(fill, theme.text, 0.06));
-        widget.fg_stroke = Stroke::new(1.0, theme.text);
-        widget.corner_radius = radius;
-        widget.expansion = 0.0;
     }
     widgets.active.bg_stroke = Stroke::new(1.0, theme.accent);
+}
+
+/// Whatever is typed in or chosen from looks alike: a text field, a list
+/// to choose from, a number. It has `fill`, a hairline round it that firms
+/// up under the pointer, and the accent while it is in use.
+pub fn field_look(visuals: &mut egui::Visuals, fill: Color32, theme: &Theme) {
+    visuals.text_edit_bg_color = Some(fill);
+    let edge = mix(theme.border, theme.text, 0.1);
+    let widgets = &mut visuals.widgets;
+    for (widget, stroke) in [
+        (&mut widgets.inactive, edge),
+        (&mut widgets.hovered, mix(edge, theme.text, 0.25)),
+        (&mut widgets.active, theme.accent),
+        (&mut widgets.open, theme.accent),
+    ] {
+        widget.weak_bg_fill = fill;
+        widget.bg_stroke = Stroke::new(1.0, stroke);
+    }
 }
 
 /// The room between and around things.

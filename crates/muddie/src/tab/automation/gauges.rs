@@ -250,7 +250,6 @@ fn shown_in(ui: &mut egui::Ui, rule: &mut Gauge, panels: &[(u32, String)]) -> bo
         .unwrap_or(&panels[0]);
     crate::widgets::dropdown("gauge panel")
         .selected_text(home.1.clone())
-        .width(220.0)
         .show_ui(ui, |ui| {
             for (id, name) in panels {
                 crate::widgets::choice_value(ui, &mut rule.panel, *id, name);

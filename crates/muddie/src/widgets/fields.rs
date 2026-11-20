@@ -16,35 +16,29 @@ pub fn field(ui: &mut Ui, label: &str, value: &mut String, hint: &str) -> Respon
     .inner
 }
 
-/// A single-line text box in the interface's style.
+/// A single-line text box, as wide as the space allows.
 pub fn text_box(ui: &mut Ui, value: &mut String, hint: &str) -> Response {
-    ui.add(
-        TextEdit::singleline(value)
-            .hint_text(RichText::new(hint).color(theme::current().text_faint))
-            .margin(Margin::symmetric(9, 6))
-            .desired_width(f32::INFINITY),
-    )
+    ui.add(single_line(value, hint, f32::INFINITY))
 }
 
 /// A field for something secret, as a password: its characters hidden.
 pub fn secret_field(ui: &mut Ui, value: &mut String, hint: &str, width: f32) -> Response {
-    ui.add(
-        TextEdit::singleline(value)
-            .password(true)
-            .hint_text(RichText::new(hint).color(theme::current().text_faint))
-            .margin(Margin::symmetric(9, 6))
-            .desired_width(width),
-    )
+    ui.add(single_line(value, hint, width).password(true))
 }
 
 /// A text field for the right-hand side of a [`setting_row`].
 pub fn row_field(ui: &mut Ui, value: &mut String, hint: &str, width: f32) -> Response {
-    ui.add(
-        TextEdit::singleline(value)
-            .hint_text(RichText::new(hint).color(theme::current().text_faint))
-            .margin(Margin::symmetric(9, 6))
-            .desired_width(width),
-    )
+    ui.add(single_line(value, hint, width))
+}
+
+/// One line to type in, `width` wide and as tall as every other control,
+/// with `hint` in it while it is empty.
+fn single_line<'a>(value: &'a mut String, hint: &str, width: f32) -> TextEdit<'a> {
+    TextEdit::singleline(value)
+        .hint_text(RichText::new(hint).color(theme::current().text_faint))
+        .margin(Margin::symmetric(9, 6))
+        .desired_width(width)
+        .min_size(vec2(0.0, theme::size::CONTROL))
 }
 
 /// A number to drag, or to click and type.
@@ -60,10 +54,13 @@ pub fn slider<N: egui::emath::Numeric>(
     egui::Slider::new(value, range)
 }
 
-/// A list to choose one thing from, shown when pressed. Give it what is
-/// chosen with `selected_text`, and its rows with [`choice`].
+/// A list to choose one thing from, shown when pressed, as wide as any
+/// field. Give it what is chosen with `selected_text`, and its rows with
+/// [`choice`].
 pub fn dropdown(id: &str) -> egui::ComboBox<'_> {
-    egui::ComboBox::from_id_salt(id).height(320.0)
+    egui::ComboBox::from_id_salt(id)
+        .height(320.0)
+        .width(theme::size::FIELD_L)
 }
 
 /// A row of a [`dropdown`], ticked like a choice of a menu if it is the

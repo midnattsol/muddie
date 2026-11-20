@@ -209,7 +209,6 @@ fn panel_choice(ui: &mut egui::Ui, panel: &mut String, text_panels: &[String]) {
     };
     crate::widgets::dropdown("trigger panel")
         .selected_text(chosen)
-        .width(220.0)
         .show_ui(ui, |ui| {
             for name in text_panels {
                 if crate::widgets::choice(ui, *panel == *name, name).clicked() {

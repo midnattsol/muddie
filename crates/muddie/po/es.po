@@ -854,9 +854,6 @@ msgstr "Macros"
 msgid "General"
 msgstr "General"
 
-msgid "Plugins"
-msgstr "Complementos"
-
 msgid "Same as the system"
 msgstr "El del sistema"
 
@@ -1227,9 +1224,6 @@ msgstr "Todos"
 
 msgid "new"
 msgstr "nuevo"
-
-msgid "Installed by you"
-msgstr "Instalados por ti"
 
 #, python-brace-format
 msgid "There is a plugin for {0}."
@@ -1608,4 +1602,13 @@ msgstr "Un conjunto de scripts que alguien hizo para un MUD, como un mapper, des
 
 msgid "Install…"
 msgstr "Instalar…"
+
+msgid "None: log in by hand"
+msgstr "Ninguno: entras a mano"
+
+msgid "Included plugins"
+msgstr "Complementos incluidos"
+
+msgid "Other plugins"
+msgstr "Otros complementos"
 

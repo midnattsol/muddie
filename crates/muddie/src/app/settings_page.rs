@@ -129,7 +129,6 @@ fn general_settings(ui: &mut Ui, settings: &mut Settings, languages: &[(String, 
             let shown = shown.map_or(current.clone(), |(_, name)| name.clone());
             crate::widgets::dropdown("language")
                 .selected_text(shown)
-                .width(size::FIELD_L)
                 .show_ui(ui, |ui| {
                     for (code, name) in &choices {
                         if crate::widgets::choice(ui, *code == current, name).clicked() {
@@ -148,7 +147,6 @@ fn general_settings(ui: &mut Ui, settings: &mut Settings, languages: &[(String, 
                 let steps = [75, 90, 100, 110, 125, 150, 175, 200];
                 crate::widgets::dropdown("interface scale")
                     .selected_text(format!("{percent} %"))
-                    .width(size::FIELD_M)
                     .show_ui(ui, |ui| {
                         for step in steps {
                             if crate::widgets::choice(ui, step == percent, &format!("{step} %"))
@@ -224,7 +222,6 @@ fn theme_choice(ui: &mut Ui, chosen: &mut ThemeName) -> egui::Response {
     ];
     crate::widgets::dropdown("theme")
         .selected_text(name(*chosen))
-        .width(size::FIELD_L)
         .show_ui(ui, |ui| {
             for theme in themes {
                 crate::widgets::choice_value(ui, chosen, theme, name(theme));
@@ -242,7 +239,6 @@ fn palette_choice(ui: &mut Ui, chosen: &mut MudPalette) -> egui::Response {
     };
     crate::widgets::dropdown("mud palette")
         .selected_text(name(*chosen))
-        .width(size::FIELD_L)
         .show_ui(ui, |ui| {
             for palette in [MudPalette::Vivid, MudPalette::Soft, MudPalette::Classic] {
                 crate::widgets::choice_value(ui, chosen, palette, name(palette));
@@ -263,7 +259,6 @@ fn font_choice(ui: &mut Ui, settings: &mut Settings) -> egui::Response {
     .to_owned();
     crate::widgets::dropdown("font")
         .selected_text(shown)
-        .width(size::FIELD_L)
         .height(340.0)
         .show_ui(ui, |ui| {
             bundled_fonts(ui, settings);
@@ -343,7 +338,6 @@ fn pick<T: Copy + PartialEq>(
 ) -> egui::Response {
     crate::widgets::dropdown(id)
         .selected_text(shown(*value))
-        .width(size::FIELD_M)
         .height(320.0)
         .show_ui(ui, |ui| {
             for step in steps {
@@ -407,22 +401,34 @@ fn text_settings(ui: &mut Ui, settings: &mut Settings) {
     });
 }
 
+/// The speed of the voice along a line, slow at the left and fast at the
+/// right, as wide as any field with its two words.
+fn speed_control(ui: &mut Ui, rate: &mut i32) -> egui::Response {
+    let theme = theme::current();
+    let font = theme::font(Weight::Regular, 12.0);
+    let word = |ui: &mut Ui, text: &str| {
+        ui.label(RichText::new(text).font(font.clone()).color(theme.text_dim))
+            .rect
+            .width()
+    };
+    let gap = ui.spacing().item_spacing.x;
+    let fast = word(ui, tr("Fast"));
+    let slow = ui
+        .painter()
+        .layout_no_wrap(tr("Slow").to_owned(), font.clone(), theme.text_dim)
+        .size()
+        .x;
+    ui.spacing_mut().slider_width = (size::FIELD_L - fast - slow - 2.0 * gap).max(60.0);
+    let response = ui.add(crate::widgets::slider(rate, -100..=100).show_value(false));
+    word(ui, tr("Slow"));
+    response
+}
+
 /// How the voice speaks, and whether the screen reader does instead.
 fn speech_settings(ui: &mut Ui, settings: &mut Settings) {
-    let theme = theme::current();
     widgets::group(ui, |ui| {
         widgets::setting_row(ui, tr("Speed"), None, &mut |ui| {
-            let small = |text: &str| {
-                RichText::new(text)
-                    .font(theme::font(Weight::Regular, 12.0))
-                    .color(theme.text_dim)
-            };
-            ui.label(small(tr("Fast")));
-            let slider =
-                crate::widgets::slider(&mut settings.speech_rate, -100..=100).show_value(false);
-            let response = ui.add_sized([size::FIELD_M, 20.0], slider);
-            ui.label(small(tr("Slow")));
-            response
+            speed_control(ui, &mut settings.speech_rate)
         });
         widgets::setting_row(
             ui,
@@ -450,7 +456,6 @@ fn speech_settings(ui: &mut Ui, settings: &mut Settings) {
                     .map_or(current.clone(), |(_, name)| (*name).to_owned());
                 crate::widgets::dropdown("speech language")
                     .selected_text(shown)
-                    .width(size::FIELD_M)
                     .height(320.0)
                     .show_ui(ui, |ui| {
                         for (code, name) in languages {
