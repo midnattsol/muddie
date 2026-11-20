@@ -91,45 +91,9 @@ impl Tab {
         self.logged(|log| log.local(&time, text));
     }
 
-    /// Shows a line from the server.
     /// How many lines the scrollback holds.
     pub fn lines(&self) -> usize {
         self.output.len()
-    }
-
-    /// Hands new text to the screen reader: a label too small to see, marked
-    /// as a live region, which screen readers announce when it changes, by
-    /// voice and in braille.
-    pub(super) fn announce(&mut self, ui: &mut egui::Ui) {
-        if !self.voice.announcing() {
-            return;
-        }
-        // A screen reader is only told of changes to a region it already
-        // knows, so text waits until the region has been in the tree.
-        let lines = if self.announce_ready {
-            self.voice.take_announcements()
-        } else {
-            Vec::new()
-        };
-        if !lines.is_empty() {
-            let mut text = lines.join("\n");
-            // The same text twice running would not count as a change.
-            if text == self.announcement {
-                text.push('\u{200b}');
-            }
-            self.announcement = text;
-        }
-        let label = RichText::new(&self.announcement)
-            .size(1.0)
-            .color(egui::Color32::TRANSPARENT);
-        let response = ui.add(Label::new(label).selectable(false));
-        let in_tree = ui.ctx().accesskit_node_builder(response.id, |node| {
-            node.set_live(egui::accesskit::Live::Polite);
-        });
-        self.announce_ready = in_tree.is_some();
-        if !self.announce_ready {
-            ui.ctx().request_repaint_after(Duration::from_millis(250));
-        }
     }
 }
 

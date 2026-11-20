@@ -1,46 +1,84 @@
-//! Speech output. [`Speech`] talks to the platform's speech service from a
-//! background thread; [`Narrator`] decides what incoming text to speak.
-//!
-//! On Linux this talks to speech-dispatcher directly. On Windows and
-//! macOS it uses the system's own speech through the `tts` crate.
+//! Speech output, the same on every system: through the screen reader in
+//! use when one is running, or with the system's own voice. [`Speech`]
+//! talks to it, through prism, from a thread of its own; [`Narrator`]
+//! decides what incoming text to speak.
 
 mod narrator;
-#[cfg(target_os = "linux")]
-mod ssip;
 
 use std::sync::mpsc::{Receiver, Sender, channel};
+use std::sync::{Arc, Mutex};
+
+use prismer::{Backend, Features, Prism, Registry};
 
 pub use narrator::Narrator;
 
+/// Where what is said goes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Through {
+    /// The screen reader in use, while one is running; nothing otherwise.
+    ScreenReader,
+    /// The system's own voice, whether or not a screen reader runs.
+    Voice,
+}
+
+/// What speech goes through now: what it is called, and whether it is a
+/// screen reader. Nothing while there is nothing to speak with.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Status {
+    pub name: Option<String>,
+    pub screen_reader: bool,
+}
+
+/// Makes a registry of backends, in the speech thread.
+pub type MakeRegistry = Box<dyn FnOnce() -> Registry + Send>;
+
 enum Request {
-    Say(String),
+    Say {
+        text: String,
+        interrupt: bool,
+    },
     Stop,
     /// Speech rate from -100 to 100; 0 is the voice's default.
     Rate(i32),
     /// Language to speak in, as a code such as `es`; empty for the
     /// system's default.
     Language(String),
+    /// A screen reader or a voice came or went: what is spoken through is
+    /// chosen again.
+    Changed,
 }
 
 /// Handle to the speech thread. Calls never block; dropping it ends the
 /// thread.
 pub struct Speech {
     requests: Sender<Request>,
+    status: Arc<Mutex<Status>>,
 }
 
 impl Speech {
-    pub fn start() -> Self {
-        let (requests, receiver) = channel();
-        std::thread::Builder::new()
-            .name("speech".into())
-            .spawn(move || worker(receiver))
-            .expect("failed to start the speech thread");
-        Self { requests }
+    pub fn start(through: Through) -> Self {
+        Self::start_with(through, None)
     }
 
-    /// Queues `text` after anything already being spoken.
-    pub fn say(&self, text: &str) {
-        let _ = self.requests.send(Request::Say(text.to_owned()));
+    /// Starts it with the backends of the registry `registry` makes besides
+    /// prism's own: for tests, which speak to one of their own. It is made
+    /// in the thread that uses it, as it cannot be passed to another.
+    pub fn start_with(through: Through, registry: Option<MakeRegistry>) -> Self {
+        let (requests, receiver) = channel();
+        let status = Arc::new(Mutex::new(Status::default()));
+        let (changed, shared) = (requests.clone(), Arc::clone(&status));
+        std::thread::Builder::new()
+            .name("speech".into())
+            .spawn(move || worker(through, registry, &receiver, &changed, &shared))
+            .expect("failed to start the speech thread");
+        Self { requests, status }
+    }
+
+    /// Says `text`, after anything already being said, or in its place if
+    /// `interrupt`.
+    pub fn say(&self, text: &str, interrupt: bool) {
+        let text = text.to_owned();
+        let _ = self.requests.send(Request::Say { text, interrupt });
     }
 
     /// Sets how fast to speak, from -100 (slowest) to 100 (fastest).
@@ -51,96 +89,150 @@ impl Speech {
     /// Chooses the language to speak in, by its code (`es`, `en-GB`...).
     /// An empty code goes back to the system's default.
     pub fn set_language(&self, code: &str) {
-        // Only what a language code can hold, as it goes into a command.
-        let code: String = (code.trim().chars())
-            .filter(|ch| ch.is_ascii_alphanumeric() || *ch == '-')
-            .collect();
-        let _ = self.requests.send(Request::Language(code));
+        let _ = self
+            .requests
+            .send(Request::Language(code.trim().to_owned()));
     }
 
-    /// Silences the current and all queued speech.
+    /// Silences what is being said and all that is waiting.
     pub fn stop(&self) {
         let _ = self.requests.send(Request::Stop);
     }
-}
 
-#[cfg(target_os = "linux")]
-fn worker(requests: Receiver<Request>) {
-    // The connection is opened on first use and reopened after a failure,
-    // so a restarted speech service is picked up again.
-    let mut connection: Option<ssip::Connection> = None;
-    for request in requests {
-        let result = match connection.take() {
-            Some(open) => Ok(open),
-            None => ssip::Connection::open(),
-        }
-        .and_then(|mut open| {
-            match &request {
-                Request::Say(text) => open.speak(text)?,
-                Request::Stop => open.cancel()?,
-                Request::Rate(rate) => open.set_rate(*rate)?,
-                Request::Language(code) if code.is_empty() => {}
-                Request::Language(code) => open.set_language(code)?,
-            }
-            Ok(open)
-        });
-        match result {
-            Ok(open) => connection = Some(open),
-            Err(error) => eprintln!("muddie: speech unavailable: {error}"),
-        }
+    /// What speech goes through now.
+    pub fn status(&self) -> Status {
+        self.status
+            .lock()
+            .map(|status| status.clone())
+            .unwrap_or_default()
     }
 }
 
-#[cfg(not(target_os = "linux"))]
-fn worker(requests: Receiver<Request>) {
-    // The voice is opened on first use and reopened after a failure.
-    let mut voice: Option<tts::Tts> = None;
+/// Speaks what is asked, through what `through` says, choosing it again
+/// whenever a screen reader or a voice comes or goes.
+fn worker(
+    through: Through,
+    registry: Option<MakeRegistry>,
+    requests: &Receiver<Request>,
+    changed: &Sender<Request>,
+    status: &Mutex<Status>,
+) {
+    let changed = changed.clone();
+    let mut builder = Prism::builder().on_availability(move |_, _, _| {
+        let _ = changed.send(Request::Changed);
+    });
+    let registry = registry.map(|make| make());
+    if let Some(registry) = &registry {
+        builder = builder.registry(registry);
+    }
+    let prism = match builder.build() {
+        Ok(prism) => prism,
+        Err(error) => return eprintln!("muddie: speech unavailable: {error}"),
+    };
+    let (mut rate, mut language) = (0, String::new());
+    let mut backend = choose(&prism, through);
+    tune(backend.as_ref(), rate, &language);
+    report(backend.as_ref(), status);
     for request in requests {
-        if voice.is_none() {
-            match tts::Tts::default() {
-                Ok(opened) => voice = Some(opened),
-                Err(error) => eprintln!("muddie: speech unavailable: {error}"),
+        let Some(chosen) = &backend else {
+            if let Request::Changed = request {
+                backend = choose(&prism, through);
+                tune(backend.as_ref(), rate, &language);
+                report(backend.as_ref(), status);
             }
-        }
-        let Some(tts) = &mut voice else {
             continue;
         };
-        let result = match request {
-            Request::Say(text) => tts.speak(text, false).map(drop),
-            Request::Stop => tts.stop().map(drop),
-            Request::Rate(rate) => {
-                // Each system has its own scale: map ours onto it, with 0
-                // at the voice's normal rate.
-                let (slowest, normal, fastest) =
-                    (tts.min_rate(), tts.normal_rate(), tts.max_rate());
-                let share = rate as f32 / 100.0;
-                let span = if share >= 0.0 {
-                    fastest - normal
-                } else {
-                    normal - slowest
+        match request {
+            Request::Say { text, interrupt } => {
+                let said = match chosen.supports(Features::OUTPUT) {
+                    // Spoken, and on the braille display too.
+                    true => chosen.output(&text, interrupt),
+                    false => chosen.speak(&text, interrupt),
                 };
-                tts.set_rate(normal + span * share).map(drop)
-            }
-            Request::Language(code) if code.is_empty() => Ok(()),
-            // The first installed voice of that language, if there is one.
-            Request::Language(code) => tts.voices().and_then(|voices| {
-                let wanted = code.to_lowercase();
-                let voice = (voices.iter()).find(|voice| {
-                    voice
-                        .language()
-                        .to_string()
-                        .to_lowercase()
-                        .starts_with(&wanted)
-                });
-                match voice {
-                    Some(voice) => tts.set_voice(voice),
-                    None => Ok(()),
+                if let Err(error) = said {
+                    eprintln!("muddie: speech failed: {error}");
                 }
-            }),
-        };
-        if let Err(error) = result {
-            eprintln!("muddie: speech unavailable: {error}");
-            voice = None;
+            }
+            // Not speaking is no error here.
+            Request::Stop => drop(chosen.stop()),
+            Request::Rate(wanted) => {
+                rate = wanted;
+                tune(backend.as_ref(), rate, &language);
+            }
+            Request::Language(wanted) => {
+                language = wanted;
+                tune(backend.as_ref(), rate, &language);
+            }
+            Request::Changed => {
+                let now = choose(&prism, through);
+                let same = now.as_ref().map(Backend::name) == backend.as_ref().map(Backend::name);
+                if !same {
+                    backend = now;
+                    tune(backend.as_ref(), rate, &language);
+                    report(backend.as_ref(), status);
+                }
+            }
         }
     }
 }
+
+/// The backend to speak through: the first running screen reader, or the
+/// first voice, by prism's order of preference.
+fn choose(prism: &Prism, through: Through) -> Option<Backend<'_>> {
+    let wanted = match through {
+        Through::ScreenReader => Features::IS_SCREEN_READER,
+        Through::Voice => Features::IS_SPEECH_ENGINE,
+    };
+    let mut ids = prism.backend_ids();
+    ids.sort_by_key(|id| std::cmp::Reverse(prism.backend_priority(*id)));
+    ids.into_iter().find_map(|id| {
+        let backend = prism.create(id).ok()?;
+        backend.initialize().ok()?;
+        let features = backend.features();
+        let usable = features.contains(wanted)
+            && features.contains(Features::SPEAK)
+            && !features.contains(Features::REQUIRES_EXPLICIT_SELECTION)
+            // One that says nothing is not a voice.
+            && prism.backend_priority(id) > 0;
+        usable.then_some(backend)
+    })
+}
+
+/// Gives a voice the rate and language wanted. A screen reader keeps its
+/// own: they are the user's, set in it.
+fn tune(backend: Option<&Backend<'_>>, rate: i32, language: &str) {
+    let Some(backend) = backend.filter(|backend| !backend.supports(Features::IS_SCREEN_READER))
+    else {
+        return;
+    };
+    if backend.supports(Features::SET_RATE) {
+        // From -100..100 to prism's 0..1, with 0 at the middle.
+        let _ = backend.set_rate((rate as f32 + 100.0) / 200.0);
+    }
+    if language.is_empty() || !backend.supports(Features::SET_VOICE) {
+        return;
+    }
+    let wanted = language.to_lowercase();
+    let voices = backend.voices().unwrap_or_default();
+    let voice = (voices.iter()).find(|voice| {
+        (voice.language.as_deref())
+            .is_some_and(|language| language.to_lowercase().starts_with(&wanted))
+    });
+    if let Some(voice) = voice {
+        let _ = backend.set_voice(voice.id);
+    }
+}
+
+/// Says what speech now goes through.
+fn report(backend: Option<&Backend<'_>>, status: &Mutex<Status>) {
+    let now = Status {
+        name: backend.map(Backend::name),
+        screen_reader: backend.is_some_and(|backend| backend.supports(Features::IS_SCREEN_READER)),
+    };
+    if let Ok(mut status) = status.lock() {
+        *status = now;
+    }
+}
+
+#[cfg(test)]
+mod tests;

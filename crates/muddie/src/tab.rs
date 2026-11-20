@@ -187,9 +187,6 @@ pub struct Tab {
     sizes: panel_sizes::Sizes,
     /// The address typed on the welcome screen.
     address: String,
-    /// Whether the region for announcements was in the accessibility tree
-    /// on the last frame.
-    announce_ready: bool,
     /// Label of the text encoding the server uses; `auto` for most.
     encoding: String,
     /// The plugins that come with Muddie: those switched on, those
@@ -214,8 +211,6 @@ pub struct Tab {
     login: Login,
     /// Keypad keys pressed since the last frame, by name.
     pub keypad_pressed: Vec<&'static str>,
-    /// What the screen reader was last asked to announce.
-    announcement: String,
 }
 
 /// How far an automatic login has got.
@@ -305,7 +300,6 @@ impl Tab {
             completions: Vec::new(),
             sizes: panel_sizes::Sizes::default(),
             address: String::new(),
-            announce_ready: false,
             encoding: "auto".into(),
             included_on: Vec::new(),
             included_off: Vec::new(),
@@ -318,10 +312,11 @@ impl Tab {
             new_password: String::new(),
             login: Login::Idle,
             keypad_pressed: Vec::new(),
-            announcement: String::new(),
         };
         app.editor.panes = settings.automation_panes;
-        app.voice.set_enabled(startup.speech);
+        if startup.speech {
+            app.voice.force_voice();
+        }
         match startup.profile {
             Some(name) => {
                 if app.select_profile(Some(name)) {
@@ -375,10 +370,7 @@ impl Tab {
                 .log
                 .restyle(settings.scrollback_lines, settings.timestamps);
         }
-        self.voice.set_rate(settings.speech_rate);
-        self.voice.set_language(&settings.speech_language);
-        self.voice
-            .set_announce(settings.announce_with_screen_reader);
+        self.voice.configure(settings);
     }
 }
 

@@ -102,7 +102,7 @@ impl Tab {
     /// something of it is on.
     fn connection_config(&self) -> Config {
         let mut config = Config {
-            screen_reader: self.voice.enabled(),
+            screen_reader: self.voice.screen_reader(),
             encoding: self.encoding.clone(),
             gmcp_supports: self.wanted_modules(),
             ..Config::default()

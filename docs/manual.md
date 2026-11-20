@@ -8,7 +8,8 @@ muddie HOST PORT [--tls] [--insecure]   connect straight away
 muddie --profile NAME                load a saved profile and connect
 ```
 
-`--speech` turns speech on, `--script FILE` runs an extra script (it can be
+`--speech` speaks with the system's voice, whatever the settings say,
+`--script FILE` runs an extra script (it can be
 repeated), and `--insecure` accepts a self-signed TLS certificate.
 
 ## The window
@@ -398,9 +399,25 @@ used. Both are kept when the server reports the room again.
 
 ## Speech
 
-With speech on (**Switch speech on**, in the palette, or `--speech` when
-starting), Muddie speaks each new line through the system's speech:
-speech-dispatcher on Linux, the system voices on Windows and macOS.
+Muddie reads each new line aloud, the same way on every system. In the
+settings, **Speak with** chooses what reads it:
+
+- **The screen reader** (the default): the one you use, Orca, NVDA, JAWS or
+  VoiceOver, with its own voice and settings, and on your braille display
+  too. While no screen reader runs, nothing is said, so a sighted player
+  hears nothing they did not ask for. Open or close one while Muddie runs and
+  it says which it speaks with now.
+- **The system's voice**: speaks whether or not a screen reader runs, at the
+  speed and in the language set below it.
+- **Nothing**.
+
+**Switch speech off** in the palette silences it for the session, and
+**Switch speech on** brings it back, with the system's voice if there is no
+screen reader. What is said on the MUD's channels is read too, after the
+channel's name; **Read the channels** in the settings turns that off, and
+**Read aloud** in the menu of a channel's tab, for that channel alone, in
+that profile. **Interrupt with what is new** has each new line cut short the
+one being said, for games where what came before is soon old.
 
 | Key | What it does |
 |---|---|
@@ -411,14 +428,10 @@ speech-dispatcher on Linux, the system voices on Windows and macOS.
 | Alt+Shift with the same keys | The same for the panel of channels |
 | Alt+0 | Reads the gauges |
 
-With **Voice through the screen reader** set in the settings, Muddie hands
-each line to your screen reader to announce instead of speaking itself. That
-is the way to read the MUD on a braille display, and it uses the screen
-reader's own voice and settings.
-
-Sending a command silences what was still queued. The rate and the language
-of the voice are in the settings; set the language (`es`, `en`...) to that of
-the MUD, so its text is read with the right voice.
+The review keys cut short what is being said, so moving through the lines
+is quick. Sending a command silences what was still queued. For the system's
+voice, set the language (`es`, `en`...) to that of the MUD, so its text is
+read with the right voice.
 
 ## Sound
 
@@ -485,8 +498,8 @@ its control at the right.
   spacing, with a sample.
 - **Text**: the scrollback, timestamps, and whether a sent command stays in
   the command line.
-- **Speech**: the speed and the language of the voice, and whether lines go
-  to the screen reader instead.
+- **Speech**: what reads aloud, whether new lines interrupt, whether the
+  channels are read, and the speed and language of the system's voice.
 
 A session without a profile connects, keeps its connection and logs as a new
 profile would. Muddie's settings are saved in `settings.toml`, each profile

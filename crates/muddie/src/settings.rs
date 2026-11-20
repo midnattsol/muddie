@@ -4,6 +4,20 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
+/// What speaks, if anything.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SpeechOutput {
+    /// Nothing.
+    Off,
+    /// The screen reader in use, while one is running: what it says also
+    /// reaches a braille display. With none, nothing is said.
+    #[default]
+    Reader,
+    /// The system's own voice, with or without a screen reader.
+    Voice,
+}
+
 /// The sixteen colours the MUD's text is drawn in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -80,9 +94,14 @@ pub struct Settings {
     /// Language code the voice speaks in, such as `es`; empty for the
     /// system's default.
     pub speech_language: String,
-    /// Voice text through the screen reader instead of speaking directly,
-    /// so that it also reaches a braille display.
-    pub announce_with_screen_reader: bool,
+    /// What speaks, if anything.
+    pub speech: SpeechOutput,
+    /// A new line of the game cuts short what is being said, rather than
+    /// waiting for it: for fast games, where what came before is old.
+    pub speech_interrupts: bool,
+    /// What is said on the MUD's channels is said aloud too, with the
+    /// channel's name before it.
+    pub speech_channels: bool,
     /// Fetch from the web the sounds a MUD asks to be played and the
     /// player does not have.
     pub media_downloads: bool,
@@ -117,7 +136,9 @@ impl Default for Settings {
             scrollback_lines: 20_000,
             speech_rate: 0,
             speech_language: String::new(),
-            announce_with_screen_reader: false,
+            speech: SpeechOutput::default(),
+            speech_interrupts: false,
+            speech_channels: true,
             media_downloads: true,
             log_sessions: false,
             log_format: LogFormat::default(),

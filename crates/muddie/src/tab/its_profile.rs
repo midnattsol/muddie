@@ -29,7 +29,6 @@ impl Tab {
             port,
             tls: self.tls,
             verify_certificate: self.verify_certificate,
-            speech: self.voice.enabled(),
             character: self.character.trim().to_owned(),
             encoding: self.encoding.trim().to_owned(),
             packages: self.packages.clone(),
@@ -213,7 +212,6 @@ impl Tab {
             self.included_on = profile.included_on;
             self.included_off = profile.included_off;
             self.included_declined = profile.included_declined;
-            self.voice.set_enabled(profile.speech);
             self.prefs = (profile.session)
                 .unwrap_or_else(|| crate::profile::SessionPrefs::from(&self.settings));
         } else {
@@ -229,6 +227,23 @@ impl Tab {
         self.load_layout();
         self.load_scripts();
         true
+    }
+
+    /// Saves one change of the profile in use, if there is one, as `change`
+    /// makes it: what else is saved stays as it is, and what is being
+    /// typed in the connection's form is not this one's to save.
+    pub(super) fn keep_in_profile(&mut self, change: impl FnOnce(&mut Profile)) {
+        let (Some(profiles), Some(name)) = (&self.profiles, &self.profile) else {
+            return;
+        };
+        let saved = profiles.load(name).and_then(|mut profile| {
+            change(&mut profile);
+            (profiles.save(name, &profile)).map_err(|error| error.to_string())
+        });
+        match saved {
+            Ok(()) => self.profile_written = true,
+            Err(error) => self.note(&trf("Could not save the profile: {0}", &[&error])),
+        }
     }
 
     /// Saves the connection settings as the profile named in the bar.

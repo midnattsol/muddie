@@ -209,12 +209,10 @@ impl Tab {
             match action {
                 Action::Send(text) => self.send(text),
                 Action::Echo(text) => text.lines().for_each(|line| self.note(line)),
-                Action::Speak { text, interrupt } => {
-                    if interrupt {
-                        self.voice.stop();
-                    }
-                    self.voice.say(&text);
-                }
+                Action::Speak { text, interrupt } => match interrupt {
+                    true => self.voice.say_now(&text),
+                    false => self.voice.say(&text),
+                },
                 Action::Gmcp { package, data } => {
                     if let Some(connection) = &self.connection {
                         let _ = connection.commands.send(Command::Gmcp { package, data });

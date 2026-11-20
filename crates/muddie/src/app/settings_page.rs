@@ -95,7 +95,10 @@ impl App {
             }
             Section::Appearance => appearance_settings(ui, &mut self.settings),
             Section::Text => text_settings(ui, &mut self.settings),
-            Section::Speech => speech_settings(ui, &mut self.settings),
+            Section::Speech => {
+                let through = self.tabs[self.active].speech_through();
+                speech_settings(ui, &mut self.settings, through.as_deref());
+            }
         }
     }
 }
@@ -401,51 +404,90 @@ fn speed_control(ui: &mut Ui, rate: &mut i32) -> egui::Response {
     response
 }
 
-/// How the voice speaks, and whether the screen reader does instead.
-fn speech_settings(ui: &mut Ui, settings: &mut Settings) {
-    widgets::group(ui, |ui| {
-        widgets::setting_row(ui, tr("Speed"), None, &mut |ui| {
-            speed_control(ui, &mut settings.speech_rate)
-        });
-        widgets::setting_row(ui, tr("Voice language"), None, &mut |ui| {
-            let languages = [
-                ("", tr("The system's")),
-                ("es", "Español"),
-                ("en", "English"),
-                ("ca", "Català"),
-                ("gl", "Galego"),
-                ("eu", "Euskara"),
-                ("pt", "Português"),
-                ("fr", "Français"),
-                ("it", "Italiano"),
-                ("de", "Deutsch"),
-                ("nl", "Nederlands"),
-                ("pl", "Polski"),
-                ("ru", "Русский"),
+/// What speaks, and how: through the screen reader in use, which also
+/// reaches a braille display, or with the system's voice, whose speed and
+/// language are set here; and what is said.
+fn speech_settings(ui: &mut Ui, settings: &mut Settings, through: Option<&str>) {
+    use crate::settings::SpeechOutput;
+    widgets::section(ui, tr("Speaking"), |ui| {
+        let now = match through {
+            Some(name) => trf("Speaking through {0}.", &[name]),
+            None => tr("Nothing is speaking now.").to_owned(),
+        };
+        widgets::setting_row(ui, tr("Speak with"), Some(&now), &mut |ui| {
+            let choices = [
+                (SpeechOutput::Reader, tr("The screen reader").to_owned()),
+                (SpeechOutput::Voice, tr("The system's voice").to_owned()),
+                (SpeechOutput::Off, tr("Nothing").to_owned()),
             ];
-            let current = settings.speech_language.trim().to_lowercase();
-            let shown = (languages.iter())
-                .find(|(code, _)| *code == current)
-                .map_or(current.clone(), |(_, name)| (*name).to_owned());
-            crate::widgets::dropdown("speech language")
-                .selected_text(shown)
-                .height(320.0)
-                .show_ui(ui, |ui| {
-                    for (code, name) in languages {
-                        if crate::widgets::choice(ui, code == current, name).clicked() {
-                            settings.speech_language = code.to_owned();
-                        }
-                    }
-                })
-                .response
+            widgets::choose(ui, "speech output", &mut settings.speech, &choices, |_| {
+                String::new()
+            })
         });
         widgets::switch_setting(
             ui,
-            &mut settings.announce_with_screen_reader,
-            tr("Use the screen reader"),
+            &mut settings.speech_interrupts,
+            tr("Interrupt with what is new"),
             Some(tr(
-                "Instead of Muddie's voice; it also reaches a braille display.",
+                "A new line cuts short what is being said: for fast games.",
+            )),
+        );
+        widgets::switch_setting(
+            ui,
+            &mut settings.speech_channels,
+            tr("Read the channels"),
+            Some(tr(
+                "What is said on the MUD's channels, with the channel's name.",
             )),
         );
     });
+    // The screen reader speaks as it is set up to: these are for the voice.
+    let voice = settings.speech == SpeechOutput::Voice;
+    let reader = settings.speech == SpeechOutput::Reader;
+    let about = reader.then_some(tr("The screen reader uses its own settings."));
+    widgets::section(ui, tr("The system's voice"), |ui| {
+        ui.add_enabled_ui(voice, |ui| {
+            widgets::setting_row(ui, tr("Speed"), about, &mut |ui| {
+                speed_control(ui, &mut settings.speech_rate)
+            });
+            widgets::setting_row(ui, tr("Voice language"), about, &mut |ui| {
+                language_choice(ui, &mut settings.speech_language)
+            });
+        });
+    });
+}
+
+/// The language the voice speaks in, of those most asked for, or the
+/// system's.
+fn language_choice(ui: &mut Ui, language: &mut String) -> egui::Response {
+    let languages = [
+        ("", tr("The system's")),
+        ("es", "Español"),
+        ("en", "English"),
+        ("ca", "Català"),
+        ("gl", "Galego"),
+        ("eu", "Euskara"),
+        ("pt", "Português"),
+        ("fr", "Français"),
+        ("it", "Italiano"),
+        ("de", "Deutsch"),
+        ("nl", "Nederlands"),
+        ("pl", "Polski"),
+        ("ru", "Русский"),
+    ];
+    let current = language.trim().to_lowercase();
+    let shown = (languages.iter())
+        .find(|(code, _)| *code == current)
+        .map_or(current.clone(), |(_, name)| (*name).to_owned());
+    crate::widgets::dropdown("speech language")
+        .selected_text(shown)
+        .height(320.0)
+        .show_ui(ui, |ui| {
+            for (code, name) in languages {
+                if crate::widgets::choice(ui, code == current, name).clicked() {
+                    *language = code.to_owned();
+                }
+            }
+        })
+        .response
 }

@@ -146,10 +146,17 @@ impl Tab {
             Act::Log => {
                 self.do_client_command("/log");
             }
-            Act::Speech => {
-                let on = !self.voice.enabled();
-                self.voice.set_enabled(on);
-            }
+            Act::Speech => match self.voice.enabled() {
+                true => self.voice.set_muted(true),
+                false => {
+                    self.voice.set_muted(false);
+                    // Asked to speak with nothing to speak through: the
+                    // system's voice does.
+                    if !self.voice.enabled() {
+                        self.voice.force_voice();
+                    }
+                }
+            },
             Act::Find => {
                 self.find.open = true;
                 self.find.wants_focus = true;

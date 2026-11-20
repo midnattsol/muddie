@@ -103,42 +103,42 @@ fn what_a_click_opens_stays_open() {
 }
 
 #[test]
-fn lines_are_announced_through_a_live_region_when_asked() {
+fn what_is_said_aloud_is_the_game_the_channels_and_the_client() {
     let mut harness = window(None);
     let app = harness.state_mut().tab_mut();
-    app.voice.set_announce(true);
-    app.voice.set_enabled(true);
+    app.voice.force_voice();
     let (events, _sent) = fake_connection(app);
-    // Let the notice that speech is on be announced first.
-    harness.run_steps(2);
-    assert_eq!(harness.state().tab().announcement, "Speech on.");
     events
         .send(Event::Line(
             panels::styled_lines("An orc arrives.").remove(0),
         ))
         .unwrap();
-    harness.run_steps(2);
-    // The line is in the scrollback too; the announcement is the node
-    // marked as a live region.
-    let announced = (harness.query_all_by_label("An orc arrives."))
-        .filter(|node| node.accesskit_node().live() == egui::accesskit::Live::Polite)
-        .count();
-    assert_eq!(announced, 1);
-    // The same line again still counts as a change to announce.
+    // A channel of the MUD's: said with its name before it.
     events
-        .send(Event::Line(
-            panels::styled_lines("An orc arrives.").remove(0),
-        ))
+        .send(Event::Gmcp {
+            package: "Comm.Channel.Text".into(),
+            data: r#"{"channel": "ooc", "text": "Ana: hola"}"#.into(),
+        })
         .unwrap();
-    harness.run_steps(2);
-    assert_eq!(
-        harness.state().tab().announcement,
-        "An orc arrives.\u{200b}"
-    );
-    // Speaking directly instead leaves nothing to announce.
-    harness.state_mut().tab_mut().voice.set_announce(false);
-    harness.run_steps(2);
-    assert!(!harness.state().tab().voice.announcing());
+    harness.run_steps(3);
+    let said = |harness: &Harness<'_, App>| harness.state().tab().voice.said.clone();
+    assert_eq!(said(&harness), ["An orc arrives.", "ooc: Ana: hola"]);
+    // Kept quiet, a channel is not read; and silenced, nothing is.
+    let app = harness.state_mut().tab_mut();
+    app.prefs.quiet_channels.push("OOC".into());
+    app.voice.said.clear();
+    events
+        .send(Event::Gmcp {
+            package: "Comm.Channel.Text".into(),
+            data: r#"{"channel": "ooc", "text": "Ana: adiós"}"#.into(),
+        })
+        .unwrap();
+    harness.run_steps(3);
+    assert!(said(&harness).is_empty());
+    let app = harness.state_mut().tab_mut();
+    app.voice.set_muted(true);
+    app.note("Nobody hears this.");
+    assert!(said(&harness).is_empty());
 }
 
 #[test]

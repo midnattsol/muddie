@@ -1,13 +1,16 @@
 //! Speech for the main window: narration of incoming text and the keys for
-//! reviewing earlier output.
+//! reviewing earlier output. What is said goes through the screen reader
+//! in use, and so to a braille display too, or through the system's voice,
+//! as the settings say; it is the same on every system.
 
 use std::time::Instant;
 
 use eframe::egui::{Key, Modifiers, Ui};
-use muddie_speech::{Narrator, Speech};
+use muddie_speech::{Narrator, Speech, Through};
 
-use crate::i18n::tr;
+use crate::i18n::{tr, trf};
 use crate::output::Output;
+use crate::settings::{Settings, SpeechOutput};
 
 /// Alt plus one of these reads the first to ninth most recent line.
 const RECENT_KEYS: [Key; 9] = [
@@ -24,101 +27,136 @@ const RECENT_KEYS: [Key; 9] = [
 
 #[derive(Default)]
 pub struct Voice {
-    /// Whether new text is voiced at all.
-    on: bool,
-    /// The direct line to the system's speech, while that is how text is
-    /// voiced.
+    /// What speaks, as the settings say, unless this session asked for
+    /// the system's voice.
+    output: SpeechOutput,
+    forced: bool,
+    /// Silenced for this session.
+    muted: bool,
+    /// The line to speech, while there is one to keep, and where it goes.
     speech: Option<Speech>,
-    /// Voice through the screen reader instead: text is handed to the
-    /// interface to announce, which also reaches a braille display.
-    announce: bool,
-    /// Text waiting to be announced.
-    announcements: Vec<String>,
+    opened: Option<Through>,
     narrator: Narrator,
+    /// A new line of the game cuts short what is being said.
+    interrupts: bool,
+    /// What speech went through when last looked, to say when it changes.
+    through: Option<String>,
     /// Rows last read with the review keys: in the output, and in the chat.
     review: [Option<usize>; 2],
     ctrl_was_down: bool,
-    /// Speech rate from -100 to 100, applied whenever speech is on.
+    /// Speech rate from -100 to 100, and the language code to speak in.
     rate: i32,
-    /// Language code to speak in; empty for the system's default.
     language: String,
+    /// What was said, in tests, which speak to nothing.
+    #[cfg(test)]
+    pub said: Vec<String>,
 }
 
 impl Voice {
-    pub fn enabled(&self) -> bool {
-        self.on
+    /// Takes what the settings say of speech.
+    pub fn configure(&mut self, settings: &Settings) {
+        self.rate = settings.speech_rate;
+        self.language = settings.speech_language.clone();
+        self.interrupts = settings.speech_interrupts;
+        self.output = settings.speech;
+        self.open();
+        if let Some(speech) = &self.speech {
+            speech.set_rate(self.rate);
+            speech.set_language(&self.language);
+        }
     }
 
-    pub fn set_enabled(&mut self, enabled: bool) {
-        if enabled == self.on {
+    /// This session speaks with the system's voice, whatever the settings
+    /// say: as `--speech` asks.
+    pub fn force_voice(&mut self) {
+        self.forced = true;
+        self.open();
+    }
+
+    /// Where speech goes, or nothing.
+    fn wanted(&self) -> Option<Through> {
+        match (self.forced, self.output, self.muted) {
+            (_, _, true) => None,
+            (true, ..) | (false, SpeechOutput::Voice, _) => Some(Through::Voice),
+            (false, SpeechOutput::Reader, _) => Some(Through::ScreenReader),
+            (false, SpeechOutput::Off, _) => None,
+        }
+    }
+
+    /// Starts or stops the line to speech when where it is wanted to go
+    /// changes. In tests there is none: they speak to nothing, and note
+    /// what is said.
+    fn open(&mut self) {
+        let wanted = self.wanted();
+        if wanted == self.opened {
             return;
         }
-        self.on = enabled;
+        self.opened = wanted;
+        #[cfg(not(test))]
+        {
+            self.speech = wanted.map(Speech::start);
+            if let Some(speech) = &self.speech {
+                speech.set_rate(self.rate);
+                speech.set_language(&self.language);
+            }
+        }
         self.narrator = Narrator::default();
-        self.open_speech();
-        self.say(tr("Speech on."));
     }
 
-    /// Chooses between speaking directly and announcing through the screen
-    /// reader.
-    pub fn set_announce(&mut self, announce: bool) {
-        if announce != self.announce {
-            self.announce = announce;
-            self.announcements.clear();
-            self.open_speech();
+    /// Whether anything is being said: speech is on, and there is a screen
+    /// reader or a voice to say it.
+    pub fn enabled(&self) -> bool {
+        #[cfg(test)]
+        return self.wanted().is_some();
+        #[cfg(not(test))]
+        self.speech
+            .as_ref()
+            .is_some_and(|speech| speech.status().name.is_some())
+    }
+
+    /// What speaks now, by its name: the screen reader or the voice.
+    pub fn through(&self) -> Option<String> {
+        self.speech.as_ref().and_then(|speech| speech.status().name)
+    }
+
+    /// Whether a screen reader is what speaks: the MUD is told of one.
+    pub fn screen_reader(&self) -> bool {
+        (self.speech.as_ref()).is_some_and(|speech| speech.status().screen_reader)
+    }
+
+    /// Silences speech for this session, or lets it speak again.
+    pub fn set_muted(&mut self, muted: bool) {
+        if muted != self.muted {
+            self.muted = muted;
+            self.open();
+            if !muted {
+                self.say(tr("Speech on."));
+            }
         }
     }
 
-    /// Whether text is being announced through the screen reader.
-    pub fn announcing(&self) -> bool {
-        self.on && self.announce
-    }
-
-    /// Takes the text to announce since the last call.
-    pub fn take_announcements(&mut self) -> Vec<String> {
-        std::mem::take(&mut self.announcements)
-    }
-
-    /// Opens or closes the direct line to speech as the settings require.
-    fn open_speech(&mut self) {
-        let wanted = self.on && !self.announce;
-        if wanted && self.speech.is_none() {
-            self.speech = Some(Speech::start());
-            self.set_rate(self.rate);
-            let language = self.language.clone();
-            self.set_language(&language);
-        } else if !wanted {
-            self.speech = None;
-        }
-    }
-
-    pub fn set_language(&mut self, code: &str) {
-        self.language = code.to_owned();
-        if let Some(speech) = &self.speech {
-            speech.set_language(code);
-        }
-    }
-
-    pub fn set_rate(&mut self, rate: i32) {
-        self.rate = rate;
-        if let Some(speech) = &self.speech {
-            speech.set_rate(rate);
-        }
-    }
-
-    /// Voices `text` after whatever is already queued.
+    /// Says `text` after whatever is being said.
     pub fn say(&mut self, text: &str) {
-        if self.announcing() {
-            self.announcements.push(text.to_owned());
-        } else if let Some(speech) = &self.speech {
-            speech.say(text);
+        self.speak(text, false);
+    }
+
+    /// Says `text` at once, cutting short whatever is being said.
+    pub fn say_now(&mut self, text: &str) {
+        self.speak(text, true);
+    }
+
+    fn speak(&mut self, text: &str, interrupt: bool) {
+        #[cfg(test)]
+        if self.wanted().is_some() {
+            self.said.push(text.to_owned());
+        }
+        if let Some(speech) = &self.speech {
+            speech.say(text, interrupt);
         }
     }
 
-    /// Silences speech. Announcements belong to the screen reader, which
-    /// has its own key for that.
+    /// Silences what is being said and all that is waiting.
     pub fn stop(&mut self) {
-        self.announcements.clear();
         if let Some(speech) = &self.speech {
             speech.stop();
         }
@@ -127,7 +165,7 @@ impl Voice {
     /// A line or prompt from the server was completed.
     pub fn line(&mut self, text: &str) {
         if let Some(text) = self.narrator.line(text) {
-            self.say(&text);
+            self.speak(&text, self.interrupts);
         }
     }
 
@@ -147,14 +185,16 @@ impl Voice {
         self.narrator.partial(text, Instant::now());
     }
 
-    /// Runs once per frame: speaks settled text and handles the speech keys.
+    /// Runs once per frame: speaks settled text, says when what speaks
+    /// changes, and handles the speech keys.
     pub fn update(&mut self, ui: &mut Ui, output: &Output, chat: &Output) {
+        self.tell_through();
         if !self.enabled() {
             return;
         }
         let now = Instant::now();
         if let Some(text) = self.narrator.poll(now) {
-            self.say(&text);
+            self.speak(&text, self.interrupts);
         }
         if let Some(deadline) = self.narrator.deadline() {
             ui.ctx()
@@ -170,6 +210,25 @@ impl Voice {
 
         self.review_keys(ui, output, 0, Modifiers::ALT);
         self.review_keys(ui, chat, 1, Modifiers::ALT | Modifiers::SHIFT);
+        // While what speaks may change, it is looked at again now and then.
+        ui.ctx()
+            .request_repaint_after(std::time::Duration::from_secs(1));
+    }
+
+    /// Says what speech goes through when that changes: a screen reader was
+    /// opened or closed, or a voice came.
+    fn tell_through(&mut self) {
+        let Some(speech) = &self.speech else {
+            self.through = None;
+            return;
+        };
+        let now = speech.status().name;
+        if now != self.through {
+            if let Some(name) = &now {
+                speech.say(&trf("Speech through {0}.", &[name]), false);
+            }
+            self.through = now;
+        }
     }
 
     /// With `modifiers` held, Up/Down/Home/End move through `output`
@@ -202,8 +261,7 @@ impl Voice {
         let row = moved.or_else(|| recent.and_then(|back| last.checked_sub(back)));
         if let Some(row) = row {
             let text = output.text(row).trim();
-            self.stop();
-            self.say(if text.is_empty() { tr("Blank.") } else { text });
+            self.say_now(if text.is_empty() { tr("Blank.") } else { text });
         }
     }
 }

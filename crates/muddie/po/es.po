@@ -1344,12 +1344,6 @@ msgstr "Enter lo repite; al escribir se sustituye."
 msgid "Voice language"
 msgstr "Idioma de la voz"
 
-msgid "Use the screen reader"
-msgstr "Usar el lector de pantalla"
-
-msgid "Instead of Muddie's voice; it also reaches a braille display."
-msgstr "En lugar de la voz de Muddie; también llega a la línea braille."
-
 msgid "Encryption"
 msgstr "Cifrado"
 
@@ -1724,3 +1718,47 @@ msgid "{0} result"
 msgid_plural "{0} results"
 msgstr[0] "{0} resultado"
 msgstr[1] "{0} resultados"
+
+#, python-brace-format
+msgid "Speech through {0}."
+msgstr "Hablando con {0}."
+
+msgid "Read aloud"
+msgstr "Leer en voz alta"
+
+#, python-brace-format
+msgid "Speaking through {0}."
+msgstr "Ahora habla {0}."
+
+msgid "Nothing is speaking now."
+msgstr "Ahora no habla nada."
+
+msgid "Speaking"
+msgstr "Lectura en voz alta"
+
+msgid "Speak with"
+msgstr "Hablar con"
+
+msgid "The screen reader"
+msgstr "El lector de pantalla"
+
+msgid "The system's voice"
+msgstr "La voz del sistema"
+
+msgid "Nothing"
+msgstr "Nada"
+
+msgid "Interrupt with what is new"
+msgstr "Interrumpir con lo nuevo"
+
+msgid "A new line cuts short what is being said: for fast games."
+msgstr "Una línea nueva corta lo que se está diciendo: para juegos rápidos."
+
+msgid "Read the channels"
+msgstr "Leer los canales"
+
+msgid "What is said on the MUD's channels, with the channel's name."
+msgstr "Lo que se dice en los canales del MUD, con el nombre del canal."
+
+msgid "The screen reader uses its own settings."
+msgstr "El lector de pantalla usa sus propios ajustes."

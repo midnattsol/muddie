@@ -2,9 +2,10 @@
 
 A modern, accessible MUD client written in Rust.
 
-- **Made to be heard as well as seen.** Every line can be spoken through the
-  system's speech, with keys to review earlier output, and the interface is
-  exposed to screen readers.
+- **Made to be heard as well as seen.** Every line is read by the screen
+  reader you use, and so reaches a braille display, or by the system's voice;
+  there are keys to review earlier output, and the interface is exposed to
+  screen readers. It works the same on Linux, Windows and macOS.
 - **Scriptable in Luau**, in a sandbox: triggers, aliases, timers, key
   bindings, GMCP and MSDP handlers, and a map you can feed from any source.
   Scripts someone shares with you cannot touch your files.
@@ -24,9 +25,11 @@ Leer en [español](README.es.md).
 cargo build --release -p muddie
 ```
 
-The binary is `target/release/muddie`. On Linux, speech needs
-speech-dispatcher running, and sound uses `pw-play`, `paplay`, `ffplay` or
-`aplay`, whichever is installed; nothing extra is needed to build.
+The binary is `target/release/muddie`. Building needs CMake and a C++
+compiler; on Linux also the development files of D-Bus and Speech Dispatcher
+(`sudo apt install cmake libdbus-1-dev libspeechd-dev pkg-config` on Debian
+and Ubuntu), without which the program is built mute. Sound uses `pw-play`,
+`paplay`, `ffplay` or `aplay`, whichever is installed.
 
 ## Installing on Linux
 

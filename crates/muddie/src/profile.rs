@@ -24,7 +24,6 @@ pub struct Profile {
     pub tls: bool,
     /// Turn off for servers with a self-signed certificate.
     pub verify_certificate: bool,
-    pub speech: bool,
     /// Character name to log in with; its password is in the system's
     /// keyring, never in this file.
     pub character: String,
@@ -55,6 +54,9 @@ pub struct SessionPrefs {
     pub log_sessions: bool,
     pub log_format: crate::settings::LogFormat,
     pub media_downloads: bool,
+    /// The MUD's channels not read aloud, by name.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub quiet_channels: Vec<String>,
 }
 
 impl Default for SessionPrefs {
@@ -71,6 +73,7 @@ impl SessionPrefs {
             log_sessions: settings.log_sessions,
             log_format: settings.log_format,
             media_downloads: settings.media_downloads,
+            quiet_channels: Vec::new(),
         }
     }
 }
@@ -82,7 +85,6 @@ impl Default for Profile {
             port: 23,
             tls: false,
             verify_certificate: true,
-            speech: false,
             character: String::new(),
             encoding: "auto".into(),
             packages: Vec::new(),
@@ -453,7 +455,6 @@ mod tests {
             port: 4000,
             tls: true,
             verify_certificate: false,
-            speech: true,
             character: "Gandalf".into(),
             encoding: "koi8-r".into(),
             packages: vec!["combat".into()],

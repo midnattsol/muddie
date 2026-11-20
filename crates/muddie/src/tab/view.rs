@@ -22,9 +22,8 @@ impl Tab {
         }
         // Alt+0 reads the gauges aloud.
         if ui.input_mut(|input| input.consume_key(Modifiers::ALT, Key::Num0)) {
-            self.voice.stop();
             let summary = self.gauges.summary();
-            self.voice.say(if summary.is_empty() {
+            self.voice.say_now(if summary.is_empty() {
                 tr("No gauges.")
             } else {
                 &summary
@@ -53,7 +52,6 @@ impl Tab {
                 if self.find.open {
                     self.find_bar(ui);
                 }
-                self.announce(ui);
                 self.input_line(ui);
             });
         let asked = self.show_panels(ui);
@@ -113,6 +111,11 @@ impl Tab {
     }
 
     /// How the connection is doing: a colour for it, and the words.
+    /// What speaks now in this session, by its name.
+    pub fn speech_through(&self) -> Option<String> {
+        self.voice.through()
+    }
+
     pub fn status(&self) -> (egui::Color32, String) {
         let theme = theme::current();
         let place = format!("{}:{}", self.host.trim(), self.port.trim());
@@ -146,8 +149,10 @@ impl Tab {
         ui.spacing_mut().item_spacing.x = 14.0;
         ui.add_space(4.0);
         ui.label(small(&self.status().1, theme.text_dim));
-        if self.voice.enabled() {
-            ui.label(small(tr("Speech"), theme.text_faint));
+        // What reads aloud, by its name: the screen reader or the voice.
+        if let Some(name) = self.voice.through().filter(|_| self.voice.enabled()) {
+            ui.label(small(&name, theme.text_faint))
+                .on_hover_text(trf("Speaking through {0}.", &[&name]));
         }
         if self.log.is_some() {
             ui.label(small(tr("Logging"), theme.text_faint));

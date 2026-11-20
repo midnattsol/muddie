@@ -116,8 +116,7 @@ impl Tab {
                 &items.len().to_string(),
             ],
         );
-        self.voice.stop();
-        self.voice.say(&format!(
+        self.voice.say_now(&format!(
             "{}. {}. {place}",
             shown_usage(&chosen.usage),
             chosen.about

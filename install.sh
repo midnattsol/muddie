@@ -14,6 +14,18 @@ prefix=${PREFIX:-$HOME/.local}
 share=$prefix/share
 
 if [ "${1:-}" != --no-build ]; then
+    # Without these the screen reader and the system's voice are left out
+    # of the build with no word said, and Muddie is mute.
+    missing=
+    for lib in dbus-1 speech-dispatcher; do
+        pkg-config --exists "$lib" 2>/dev/null || missing="$missing $lib"
+    done
+    if [ -n "$missing" ]; then
+        echo "Missing the development files of:$missing" >&2
+        echo "On Debian or Ubuntu: sudo apt install libdbus-1-dev libspeechd-dev pkg-config" >&2
+        echo "On Fedora: sudo dnf install dbus-devel speech-dispatcher-devel pkgconf" >&2
+        exit 1
+    fi
     cargo build --release -p muddie
 fi
 [ -x target/release/muddie ] || { echo "Build Muddie first: cargo build --release -p muddie" >&2; exit 1; }

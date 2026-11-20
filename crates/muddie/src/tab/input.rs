@@ -243,10 +243,9 @@ impl Tab {
                 match found {
                     Some(row) => {
                         let text = self.output.text(row).trim().to_owned();
-                        self.voice.stop();
-                        self.voice.say(&text);
+                        self.voice.say_now(&text);
                     }
-                    None => self.voice.say(tr("Not found.")),
+                    None => self.voice.say_now(tr("Not found.")),
                 }
                 if enter {
                     field.request_focus();

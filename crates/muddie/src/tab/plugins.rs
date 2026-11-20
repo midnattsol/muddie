@@ -43,23 +43,16 @@ impl Tab {
     /// Saves which plugins are on with the profile, if there is one;
     /// without one they are as set for as long as the session lasts.
     pub(super) fn keep_included(&mut self) {
-        let (Some(profiles), Some(name)) = (&self.profiles, &self.profile) else {
-            return;
-        };
-        // What is saved of the profile, with only this changed: what is
-        // being typed in the connection's form is not this one's to save.
-        let saved = profiles.load(name).and_then(|mut profile| {
-            profile.included_on.clone_from(&self.included_on);
-            profile.included_off.clone_from(&self.included_off);
-            profile
-                .included_declined
-                .clone_from(&self.included_declined);
-            (profiles.save(name, &profile)).map_err(|error| error.to_string())
+        let (on, off, declined) = (
+            self.included_on.clone(),
+            self.included_off.clone(),
+            self.included_declined.clone(),
+        );
+        self.keep_in_profile(move |profile| {
+            profile.included_on = on;
+            profile.included_off = off;
+            profile.included_declined = declined;
         });
-        match saved {
-            Ok(()) => self.profile_written = true,
-            Err(error) => self.note(&trf("Could not save the profile: {0}", &[&error])),
-        }
     }
 
     /// Offers the plugin made for the MUD at `host`, or that gives itself

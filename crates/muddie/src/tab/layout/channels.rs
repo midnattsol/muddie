@@ -51,6 +51,42 @@ impl Tab {
         if let Some(index) = index {
             self.panels.channels[index].unread |= !seen;
         }
+        self.read_channel(name, &lines);
+    }
+
+    /// Says aloud what was said on a channel, after its name, unless the
+    /// channels are not read or this one is kept quiet.
+    fn read_channel(&mut self, name: &str, lines: &[Line]) {
+        if !self.settings.speech_channels || self.channel_quiet(name) {
+            return;
+        }
+        for line in lines {
+            let text = line.text();
+            if !text.trim().is_empty() {
+                self.voice.say(&format!("{name}: {}", text.trim()));
+            }
+        }
+    }
+
+    /// Whether a channel is kept from being read aloud.
+    fn channel_quiet(&self, name: &str) -> bool {
+        (self.prefs.quiet_channels.iter()).any(|quiet| quiet.eq_ignore_ascii_case(name))
+    }
+
+    /// Reads a channel aloud, or keeps it quiet, and keeps that with the
+    /// profile.
+    fn set_channel_quiet(&mut self, name: &str, quiet: bool) {
+        self.prefs
+            .quiet_channels
+            .retain(|known| !known.eq_ignore_ascii_case(name));
+        if quiet {
+            self.prefs.quiet_channels.push(name.to_owned());
+        }
+        let prefs = self.prefs.clone();
+        self.keep_in_profile(move |profile| {
+            let kept = prefs.quiet_channels.clone();
+            profile.session.get_or_insert(prefs).quiet_channels = kept;
+        });
     }
 
     /// Where a channel goes, by the panel named: a panel that shows the
@@ -196,8 +232,24 @@ impl Tab {
                 } else {
                     name.as_str()
                 };
-                if widgets::tab(ui, label, *name == shown, *unread).clicked() {
+                let tab = widgets::tab(ui, label, *name == shown, *unread);
+                if tab.clicked() {
                     shown.clone_from(name);
+                }
+                // Each channel can be kept from being read aloud.
+                if !name.is_empty() {
+                    let mut read = !self.channel_quiet(name);
+                    let mut changed = false;
+                    tab.context_menu(|ui| {
+                        widgets::menu_width(ui);
+                        changed = widgets::menu_check(ui, &mut read, tr("Read aloud")).clicked();
+                        if changed {
+                            ui.close();
+                        }
+                    });
+                    if changed {
+                        self.set_channel_quiet(name, !read);
+                    }
                 }
             }
         });
