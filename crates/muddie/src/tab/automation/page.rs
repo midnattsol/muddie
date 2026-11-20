@@ -3,19 +3,26 @@
 
 use super::*;
 
+/// Where the parts of the editor's page go.
+struct Columns {
+    sections: egui::Rect,
+    list: egui::Rect,
+    handle: egui::Rect,
+    detail: egui::Rect,
+}
+
 impl Tab {
     /// The automation view, which takes the session's whole space: the
     /// sections, the list of the current one, and the selected item.
+    /// The editor's page: the sections standing alone at the left, then
+    /// the list and the details as two cards, with the gap between them to
+    /// drag to trade their widths. Escape goes back to the game, unless it
+    /// is cancelling a key.
     pub(in crate::tab) fn automation_page(&mut self, ui: &mut egui::Ui) {
         let ctx = &ui.ctx().clone();
         let theme = theme::current();
-        let mut open = true;
-        // Escape goes back to the game, unless it is cancelling a key.
-        if !self.editor.recording_key
-            && ui.input_mut(|input| input.consume_key(Modifiers::NONE, Key::Escape))
-        {
-            open = false;
-        }
+        let leaving = !self.editor.recording_key
+            && ui.input_mut(|input| input.consume_key(Modifiers::NONE, Key::Escape));
         let page = egui::Frame::new()
             .fill(theme.surface)
             .inner_margin(egui::Margin {
@@ -25,85 +32,27 @@ impl Tab {
                 bottom: 8,
             });
         CentralPanel::default().frame(page).show(ui, |ui| {
-            // The sections stand alone at the left, with air after them.
-            // The list and the details are two cards; the gap between
-            // them is the one place worth dragging, to trade their widths.
-            const SECTIONS: f32 = 208.0;
-            const AIR: f32 = 22.0;
-            const HANDLE: f32 = 12.0;
-            let full = ui.available_rect_before_wrap();
-            let most = (full.width() - SECTIONS - AIR - HANDLE - 460.0).max(240.0);
-            self.editor.panes[1] = self.editor.panes[1].clamp(240.0, most);
-            let column = |left: f32, width: f32| {
-                egui::Rect::from_min_max(
-                    egui::pos2(left, full.top()),
-                    egui::pos2(left + width, full.bottom()),
-                )
-            };
-            let sections = column(full.left(), SECTIONS);
-            let list = column(sections.right() + AIR, self.editor.panes[1]);
-            let handle = column(list.right(), HANDLE);
-            let detail = column(handle.right(), full.right() - handle.right());
-
-            let id = ui.make_persistent_id("automation handle");
-            let response = ui
-                .interact(handle, id, egui::Sense::drag())
-                .on_hover_cursor(egui::CursorIcon::ResizeHorizontal);
-            response.widget_info(|| {
-                egui::WidgetInfo::labeled(egui::Role::Splitter, true, tr("Resize"))
-            });
-            if response.dragged() {
-                self.editor.panes[1] += response.drag_delta().x;
-                ui.ctx().set_cursor_icon(egui::CursorIcon::ResizeHorizontal);
-            }
-            if response.hovered() || response.dragged() {
-                // A short grip, only while it can be taken.
-                let grip = handle.center();
-                let stroke = egui::Stroke::new(3.0, theme.accent);
-                ui.painter().line_segment(
-                    [grip - egui::vec2(0.0, 18.0), grip + egui::vec2(0.0, 18.0)],
-                    stroke,
-                );
-            }
-
+            let columns = self.columns(ui.available_rect_before_wrap());
+            self.pane_handle(ui, columns.handle);
             let card = egui::CornerRadius::same(14);
-            ui.painter().rect_filled(list, card, theme.field);
-            ui.painter().rect_filled(detail, card, theme.field);
-            let mut pane =
-                |name: &str,
-                 rect: egui::Rect,
-                 raised: bool,
-                 add: &mut dyn FnMut(&mut Self, &mut egui::Ui)| {
-                    // Each pane under its own name, or what one remembers
-                    // (how far it is scrolled, say) would be the other's too.
-                    let builder = egui::UiBuilder::new()
-                        .id_salt(("automation pane", name))
-                        .max_rect(rect)
-                        .layout(egui::Layout::top_down(egui::Align::Min));
-                    ui.scope_builder(builder, |ui| {
-                        ui.set_clip_rect(rect.intersect(ui.clip_rect()));
-                        if raised {
-                            // On a card, fields stand out from it.
-                            ui.visuals_mut().text_edit_bg_color = Some(theme.surface);
-                            ui.visuals_mut().extreme_bg_color = theme.surface;
-                        }
-                        add(self, ui);
-                    });
-                };
-            pane(
+            ui.painter().rect_filled(columns.list, card, theme.field);
+            ui.painter().rect_filled(columns.detail, card, theme.field);
+            self.pane(
+                ui,
                 "sections",
-                sections.shrink2(egui::vec2(2.0, 8.0)),
+                columns.sections.shrink2(egui::vec2(2.0, 8.0)),
                 false,
-                &mut |tab, ui| tab.automation_sections(ui),
+                |tab, ui| tab.automation_sections(ui),
             );
-            pane(
+            self.pane(
+                ui,
                 "list",
-                list.shrink2(egui::vec2(10.0, 12.0)),
+                columns.list.shrink2(egui::vec2(10.0, 12.0)),
                 true,
-                &mut |tab, ui| tab.automation_list(ui),
+                |tab, ui| tab.automation_list(ui),
             );
-            let inner = detail.shrink2(egui::vec2(26.0, 18.0));
-            pane("detail", inner, true, &mut |tab, ui| {
+            let inner = columns.detail.shrink2(egui::vec2(26.0, 18.0));
+            self.pane(ui, "detail", inner, true, |tab, ui| {
                 tab.undo_bar(ui);
                 tab.editor.detail_height = inner.height();
                 egui::ScrollArea::vertical()
@@ -111,7 +60,83 @@ impl Tab {
                     .show(ui, |ui| tab.automation_detail(ui));
             });
         });
-        self.rules_autosave(ctx, open);
+        self.rules_autosave(ctx, !leaving);
+    }
+
+    /// Where the sections, the list, the handle between it and the details,
+    /// and the details go, with the list as wide as it was left within
+    /// reason.
+    fn columns(&mut self, full: egui::Rect) -> Columns {
+        const SECTIONS: f32 = 208.0;
+        const AIR: f32 = 22.0;
+        const HANDLE: f32 = 12.0;
+        let most = (full.width() - SECTIONS - AIR - HANDLE - 460.0).max(240.0);
+        self.editor.panes[1] = self.editor.panes[1].clamp(240.0, most);
+        let column = |left: f32, width: f32| {
+            egui::Rect::from_min_max(
+                egui::pos2(left, full.top()),
+                egui::pos2(left + width, full.bottom()),
+            )
+        };
+        let sections = column(full.left(), SECTIONS);
+        let list = column(sections.right() + AIR, self.editor.panes[1]);
+        let handle = column(list.right(), HANDLE);
+        let detail = column(handle.right(), full.right() - handle.right());
+        Columns {
+            sections,
+            list,
+            handle,
+            detail,
+        }
+    }
+
+    /// The gap between the list and the details, dragged to trade their
+    /// widths, with a short grip only while it can be taken.
+    fn pane_handle(&mut self, ui: &mut egui::Ui, handle: egui::Rect) {
+        let id = ui.make_persistent_id("automation handle");
+        let response = ui
+            .interact(handle, id, egui::Sense::drag())
+            .on_hover_cursor(egui::CursorIcon::ResizeHorizontal);
+        response
+            .widget_info(|| egui::WidgetInfo::labeled(egui::Role::Splitter, true, tr("Resize")));
+        if response.dragged() {
+            self.editor.panes[1] += response.drag_delta().x;
+            ui.ctx().set_cursor_icon(egui::CursorIcon::ResizeHorizontal);
+        }
+        if response.hovered() || response.dragged() {
+            let grip = handle.center();
+            let stroke = egui::Stroke::new(3.0, theme::current().accent);
+            ui.painter().line_segment(
+                [grip - egui::vec2(0.0, 18.0), grip + egui::vec2(0.0, 18.0)],
+                stroke,
+            );
+        }
+    }
+
+    /// One pane of the page, under its own name, or what one remembers (how
+    /// far it is scrolled, say) would be the other's too. On a card, fields
+    /// stand out from it.
+    fn pane(
+        &mut self,
+        ui: &mut egui::Ui,
+        name: &str,
+        rect: egui::Rect,
+        raised: bool,
+        add: impl FnOnce(&mut Self, &mut egui::Ui),
+    ) {
+        let builder = egui::UiBuilder::new()
+            .id_salt(("automation pane", name))
+            .max_rect(rect)
+            .layout(egui::Layout::top_down(egui::Align::Min));
+        ui.scope_builder(builder, |ui| {
+            ui.set_clip_rect(rect.intersect(ui.clip_rect()));
+            if raised {
+                let surface = theme::current().surface;
+                ui.visuals_mut().text_edit_bg_color = Some(surface);
+                ui.visuals_mut().extreme_bg_color = surface;
+            }
+            add(self, ui);
+        });
     }
 
     pub(in crate::tab) fn automation_sections(&mut self, ui: &mut egui::Ui) {
