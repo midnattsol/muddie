@@ -162,172 +162,213 @@ fn plain(number: f64) -> String {
 /// name and numbers, a number alone, a light that is on or off, or a few
 /// words.
 pub fn draw_gauge(ui: &mut Ui, name: &str, value: f64, max: f64, look: &GaugeLook) {
-    const CELLS: usize = 10;
-    let theme = theme::current();
-    let small = theme::font(theme::Weight::Medium, 11.5);
     let kind = match look.kind.as_str() {
         "" if look.segments => "cells",
         "" => "bar",
         kind => kind,
     };
-    let fraction = if max > 0.0 {
-        (value / max).clamp(0.0, 1.0) as f32
-    } else {
-        0.0
-    };
-    // Its colour: the one of the lowest level it is under, else its own.
-    let percent = f64::from(fraction) * 100.0;
-    let level = (look.steps.iter())
-        .filter(|(under, _)| max > 0.0 && percent < *under)
-        .min_by(|a, b| a.0.total_cmp(&b.0))
-        .and_then(|(_, colour)| colour_named(colour));
-    let own = colour_named(&look.colour).unwrap_or_else(|| color(name));
-    let colour = level.unwrap_or(own);
-    let warned = level.is_some() || (look.low > 0.0 && max > 0.0 && percent < look.low);
-    let measure = |text: &str, font: &eframe::egui::FontId| {
-        ui.painter()
-            .layout_no_wrap(text.to_owned(), font.clone(), theme.text)
-            .size()
-            .x
-    };
+    let shade = Shade::of(name, value, max, look);
     match kind {
-        "light" => {
-            let on = value != 0.0;
-            let width = 18.0 + measure(name, &small);
-            let (rect, response) = ui.allocate_exact_size(vec2(width, 28.0), Sense::hover());
-            let state = if on { "on" } else { "off" };
-            response.widget_info(|| {
-                WidgetInfo::selected(Role::CheckBox, true, on, format!("{name} {state}"))
-            });
-            let centre = rect.left_center() + vec2(5.0, 0.0);
-            let painter = ui.painter();
-            // Off, it is unlit, unless being off has a colour of its own:
-            // green for not poisoned, say.
-            let off = colour_named(&look.off_colour);
-            match (on, off) {
-                (true, _) => {
-                    painter.circle_filled(centre, 7.0, colour.gamma_multiply(0.25));
-                    painter.circle_filled(centre, 4.5, colour);
-                }
-                (false, Some(off)) => {
-                    painter.circle_filled(centre, 4.5, off);
-                }
-                (false, None) => {
-                    painter.circle_stroke(
-                        centre,
-                        4.0,
-                        eframe::egui::Stroke::new(1.2, theme.text_faint),
-                    );
-                }
-            }
-            let text = if on || off.is_some() {
-                theme.text
-            } else {
-                theme.text_faint
-            };
-            painter.text(
-                rect.left_center() + vec2(18.0, 0.0),
-                Align2::LEFT_CENTER,
-                name,
-                small,
-                text,
-            );
-        }
-        "text" | "number" => {
-            let said = if kind == "text" {
-                look.text.clone()
-            } else if max > 0.0 {
+        "light" => draw_light(ui, name, value != 0.0, &shade, look),
+        "text" => draw_words(ui, name, look.text.clone(), &shade, false),
+        "number" => {
+            let said = if max > 0.0 {
                 format!("{} / {}", plain(value), plain(max))
             } else {
                 plain(value)
             };
-            let large = theme::font(theme::Weight::Medium, 13.5);
-            let width = measure(name, &small)
-                .max(measure(&said, &large))
-                .clamp(40.0, 260.0);
-            let (rect, response) = ui.allocate_exact_size(vec2(width, 28.0), Sense::hover());
-            response
-                .widget_info(|| WidgetInfo::labeled(Role::Label, true, format!("{name} {said}")));
-            let painter = ui.painter().with_clip_rect(rect);
-            painter.text(
-                rect.left_top(),
-                Align2::LEFT_TOP,
-                name,
-                small,
-                theme.text_dim,
-            );
-            let figures = if kind == "number" && warned {
-                colour
-            } else {
-                theme.text
-            };
-            painter.text(
-                rect.left_bottom() + vec2(0.0, 2.0),
-                Align2::LEFT_BOTTOM,
-                said,
-                large,
-                figures,
+            draw_words(ui, name, said, &shade, true);
+        }
+        _ => draw_bar(ui, name, value, max, &shade, kind == "cells"),
+    }
+}
+
+/// The colour a gauge is drawn in, and how full it is: the colour of the
+/// lowest level it is under, else its own; and whether it is low enough to
+/// stand out.
+struct Shade {
+    fraction: f32,
+    level: Option<eframe::egui::Color32>,
+    colour: eframe::egui::Color32,
+    warned: bool,
+}
+
+impl Shade {
+    fn of(name: &str, value: f64, max: f64, look: &GaugeLook) -> Self {
+        let fraction = if max > 0.0 {
+            (value / max).clamp(0.0, 1.0) as f32
+        } else {
+            0.0
+        };
+        let percent = f64::from(fraction) * 100.0;
+        let level = (look.steps.iter())
+            .filter(|(under, _)| max > 0.0 && percent < *under)
+            .min_by(|a, b| a.0.total_cmp(&b.0))
+            .and_then(|(_, colour)| colour_named(colour));
+        let own = colour_named(&look.colour).unwrap_or_else(|| color(name));
+        let warned = level.is_some() || (look.low > 0.0 && max > 0.0 && percent < look.low);
+        Self {
+            fraction,
+            level,
+            colour: level.unwrap_or(own),
+            warned,
+        }
+    }
+}
+
+/// How wide a text is in a font.
+fn measure(ui: &Ui, text: &str, font: &eframe::egui::FontId) -> f32 {
+    ui.painter()
+        .layout_no_wrap(text.to_owned(), font.clone(), theme::current().text)
+        .size()
+        .x
+}
+
+/// A light, on or off, with its name. Off, it is unlit, unless being off
+/// has a colour of its own: green for not poisoned, say.
+fn draw_light(ui: &mut Ui, name: &str, on: bool, shade: &Shade, look: &GaugeLook) {
+    let theme = theme::current();
+    let small = theme::font(theme::Weight::Medium, 11.5);
+    let width = 18.0 + measure(ui, name, &small);
+    let (rect, response) = ui.allocate_exact_size(vec2(width, 28.0), Sense::hover());
+    let state = if on { "on" } else { "off" };
+    response
+        .widget_info(|| WidgetInfo::selected(Role::CheckBox, true, on, format!("{name} {state}")));
+    let centre = rect.left_center() + vec2(5.0, 0.0);
+    let painter = ui.painter();
+    let off = colour_named(&look.off_colour);
+    match (on, off) {
+        (true, _) => {
+            painter.circle_filled(centre, 7.0, shade.colour.gamma_multiply(0.25));
+            painter.circle_filled(centre, 4.5, shade.colour);
+        }
+        (false, Some(off)) => {
+            painter.circle_filled(centre, 4.5, off);
+        }
+        (false, None) => {
+            painter.circle_stroke(
+                centre,
+                4.0,
+                eframe::egui::Stroke::new(1.2, theme.text_faint),
             );
         }
-        _ => {
-            let numbers = format!("{} / {}", plain(value), plain(max));
-            let (rect, response) = ui.allocate_exact_size(vec2(158.0, 28.0), Sense::hover());
-            let described = format!("{name} {numbers}");
-            response.widget_info(|| {
-                WidgetInfo::labeled(Role::ProgressIndicator, true, described.as_str())
-            });
-            let painter = ui.painter();
-            painter.text(
-                rect.left_top(),
-                Align2::LEFT_TOP,
-                name,
-                small.clone(),
-                theme.text_dim,
-            );
-            let figures = if warned {
-                level.unwrap_or(theme.danger)
-            } else {
-                theme.text
-            };
-            painter.text(rect.right_top(), Align2::RIGHT_TOP, numbers, small, figures);
-            let empty = theme::mix(theme.surface, theme.text, 0.1);
-            if kind == "cells" {
-                let gap = 3.0;
-                let width = (rect.width() - gap * (CELLS as f32 - 1.0)) / CELLS as f32;
-                let filled = (fraction * CELLS as f32).round() as usize;
-                // Never all empty while something is left, nor full while short.
-                let filled = match filled {
-                    0 if fraction > 0.0 => 1,
-                    CELLS if fraction < 1.0 => CELLS - 1,
-                    filled => filled,
-                };
-                for cell in 0..CELLS {
-                    let left = rect.left() + cell as f32 * (width + gap);
-                    let (top, bottom) = (rect.bottom() - 8.0, rect.bottom());
-                    // Leaning cells, like the ▰ of a terminal's status line.
-                    let lean = 2.5;
-                    let points = vec![
-                        eframe::egui::pos2(left + lean, top),
-                        eframe::egui::pos2(left + width, top),
-                        eframe::egui::pos2(left + width - lean, bottom),
-                        eframe::egui::pos2(left, bottom),
-                    ];
-                    let fill = if cell < filled { colour } else { empty };
-                    painter.add(eframe::egui::Shape::convex_polygon(
-                        points,
-                        fill,
-                        eframe::egui::Stroke::NONE,
-                    ));
-                }
-            } else {
-                let track =
-                    Rect::from_min_max(rect.left_bottom() - vec2(0.0, 6.0), rect.right_bottom());
-                painter.rect_filled(track, 3.0, empty);
-                let filled =
-                    Rect::from_min_size(track.min, vec2(track.width() * fraction, track.height()));
-                painter.rect_filled(filled, 3.0, colour);
-            }
-        }
+    }
+    let text = if on || off.is_some() {
+        theme.text
+    } else {
+        theme.text_faint
+    };
+    painter.text(
+        rect.left_center() + vec2(18.0, 0.0),
+        Align2::LEFT_CENTER,
+        name,
+        small,
+        text,
+    );
+}
+
+/// Words or a number under the gauge's name; a number low enough to stand
+/// out in its colour.
+fn draw_words(ui: &mut Ui, name: &str, said: String, shade: &Shade, number: bool) {
+    let theme = theme::current();
+    let (small, large) = (
+        theme::font(theme::Weight::Medium, 11.5),
+        theme::font(theme::Weight::Medium, 13.5),
+    );
+    let width = measure(ui, name, &small)
+        .max(measure(ui, &said, &large))
+        .clamp(40.0, 260.0);
+    let (rect, response) = ui.allocate_exact_size(vec2(width, 28.0), Sense::hover());
+    response.widget_info(|| WidgetInfo::labeled(Role::Label, true, format!("{name} {said}")));
+    let painter = ui.painter().with_clip_rect(rect);
+    painter.text(
+        rect.left_top(),
+        Align2::LEFT_TOP,
+        name,
+        small,
+        theme.text_dim,
+    );
+    let figures = if number && shade.warned {
+        shade.colour
+    } else {
+        theme.text
+    };
+    painter.text(
+        rect.left_bottom() + vec2(0.0, 2.0),
+        Align2::LEFT_BOTTOM,
+        said,
+        large,
+        figures,
+    );
+}
+
+/// A bar, or a row of cells, under the gauge's name and its numbers.
+fn draw_bar(ui: &mut Ui, name: &str, value: f64, max: f64, shade: &Shade, cells: bool) {
+    let theme = theme::current();
+    let small = theme::font(theme::Weight::Medium, 11.5);
+    let numbers = format!("{} / {}", plain(value), plain(max));
+    let (rect, response) = ui.allocate_exact_size(vec2(158.0, 28.0), Sense::hover());
+    let described = format!("{name} {numbers}");
+    response.widget_info(|| WidgetInfo::labeled(Role::ProgressIndicator, true, described.as_str()));
+    let painter = ui.painter();
+    painter.text(
+        rect.left_top(),
+        Align2::LEFT_TOP,
+        name,
+        small.clone(),
+        theme.text_dim,
+    );
+    let figures = if shade.warned {
+        shade.level.unwrap_or(theme.danger)
+    } else {
+        theme.text
+    };
+    painter.text(rect.right_top(), Align2::RIGHT_TOP, numbers, small, figures);
+    let empty = theme::mix(theme.surface, theme.text, 0.1);
+    if cells {
+        draw_cells(painter, rect, shade, empty);
+    } else {
+        let track = Rect::from_min_max(rect.left_bottom() - vec2(0.0, 6.0), rect.right_bottom());
+        painter.rect_filled(track, 3.0, empty);
+        let filled = Rect::from_min_size(
+            track.min,
+            vec2(track.width() * shade.fraction, track.height()),
+        );
+        painter.rect_filled(filled, 3.0, shade.colour);
+    }
+}
+
+/// Leaning cells along the bottom, like the ▰ of a terminal's status line:
+/// never all empty while something is left, nor full while short.
+fn draw_cells(
+    painter: &eframe::egui::Painter,
+    rect: Rect,
+    shade: &Shade,
+    empty: eframe::egui::Color32,
+) {
+    const CELLS: usize = 10;
+    let gap = 3.0;
+    let width = (rect.width() - gap * (CELLS as f32 - 1.0)) / CELLS as f32;
+    let filled = match (shade.fraction * CELLS as f32).round() as usize {
+        0 if shade.fraction > 0.0 => 1,
+        CELLS if shade.fraction < 1.0 => CELLS - 1,
+        filled => filled,
+    };
+    let (top, bottom, lean) = (rect.bottom() - 8.0, rect.bottom(), 2.5);
+    for cell in 0..CELLS {
+        let left = rect.left() + cell as f32 * (width + gap);
+        let points = vec![
+            eframe::egui::pos2(left + lean, top),
+            eframe::egui::pos2(left + width, top),
+            eframe::egui::pos2(left + width - lean, bottom),
+            eframe::egui::pos2(left, bottom),
+        ];
+        let fill = if cell < filled { shade.colour } else { empty };
+        painter.add(eframe::egui::Shape::convex_polygon(
+            points,
+            fill,
+            eframe::egui::Stroke::NONE,
+        ));
     }
 }
 
