@@ -45,7 +45,7 @@ pub(in crate::tab) fn action_block(
         widgets::caption(ui, tr("Do"));
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             let current = usize::from(*action.lua);
-            match widgets::segmented(ui, &[tr("Commands"), tr("Lua")], current) {
+            match widgets::segmented(ui, &[tr("Commands"), "Luau"], current) {
                 Some(0) => *action.lua = false,
                 Some(_) => {
                     *action.lua = true;
@@ -60,14 +60,7 @@ pub(in crate::tab) fn action_block(
         });
     });
     if *action.lua {
-        widgets::code_editor(
-            ui,
-            tr("Lua"),
-            action.script,
-            action.script_hint,
-            rows,
-            mistake,
-        );
+        widgets::code_editor(ui, "Luau", action.script, action.script_hint, rows, mistake);
         note(ui, action.about_script);
     } else {
         let theme = theme::current();

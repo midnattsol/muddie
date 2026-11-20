@@ -241,7 +241,7 @@ msgid "Cannot log: {0}"
 msgstr ""
 
 #, python-brace-format
-msgid "Connecting to {0}:{1}..."
+msgid "Connecting to {0}:{1}…"
 msgstr ""
 
 msgid "The port must be a number from 1 to 65535."
@@ -603,7 +603,7 @@ msgid "not enabled; use /plugin enable"
 msgstr ""
 
 #, python-brace-format
-msgid "Installing {0}..."
+msgid "Installing {0}…"
 msgstr ""
 
 msgid "Plugins need a configuration folder, and none was found."
@@ -613,7 +613,7 @@ msgid "Give the plugin a name after the address: letters, digits, - and _."
 msgstr ""
 
 #, python-brace-format
-msgid "Updating {0}..."
+msgid "Updating {0}…"
 msgstr ""
 
 msgid "Resize"
@@ -634,7 +634,7 @@ msgstr ""
 msgid "Name this gauge"
 msgstr ""
 
-msgid "Kind"
+msgid "Type"
 msgstr ""
 
 msgid "Bar"
@@ -779,9 +779,6 @@ msgstr ""
 msgid "There is already a variable of that name."
 msgstr ""
 
-msgid "Type"
-msgstr ""
-
 msgid "Drag it, or click it to type."
 msgstr ""
 
@@ -812,7 +809,7 @@ msgstr ""
 msgid "Copy"
 msgstr ""
 
-msgid "Key"
+msgid "Field name"
 msgstr ""
 
 msgid "Disable"
@@ -969,9 +966,6 @@ msgstr ""
 msgid "Commands"
 msgstr ""
 
-msgid "Lua"
-msgstr ""
-
 msgid "The pattern is not valid:"
 msgstr ""
 
@@ -1018,6 +1012,9 @@ msgid ""
 msgstr ""
 
 msgid "Name this macro"
+msgstr ""
+
+msgid "Key"
 msgstr ""
 
 msgid "Press the key…"
@@ -1461,7 +1458,7 @@ msgstr ""
 msgid "Switch between the game and the editor"
 msgstr ""
 
-msgid "Show what the MUD sends"
+msgid "Show incoming data"
 msgstr ""
 
 msgid "Show or hide the map"

@@ -373,7 +373,7 @@ fn item_row(
                     .desired_width(150.0),
             );
             ui.ctx()
-                .accesskit_node_builder(field.id, |node| node.set_label(tr("Key")));
+                .accesskit_node_builder(field.id, |node| node.set_label(tr("Field name")));
             ui.label(RichText::new("=").font(mono()).color(theme.text_faint));
         } else {
             let number = RichText::new(format!("{:>2}", place + 1))

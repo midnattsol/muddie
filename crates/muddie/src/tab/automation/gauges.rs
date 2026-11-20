@@ -37,7 +37,7 @@ fn kind_row(ui: &mut egui::Ui, rule: &mut Gauge) {
         GaugeKind::Text,
     ];
     ui.horizontal(|ui| {
-        widgets::caption(ui, tr("Kind"));
+        widgets::caption(ui, tr("Type"));
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             let names = [
                 tr("Bar"),

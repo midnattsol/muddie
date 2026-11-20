@@ -38,7 +38,7 @@ impl App {
                             ("Alt+R", tr("Reconnect")),
                             ("Ctrl+K", tr("Commands")),
                             ("Ctrl+E", tr("Switch between the game and the editor")),
-                            ("Ctrl+D", tr("Show what the MUD sends")),
+                            ("Ctrl+D", tr("Show incoming data")),
                         ],
                     ),
                     (tr("Panels"), &[("Ctrl+M", tr("Show or hide the map"))]),

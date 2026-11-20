@@ -32,10 +32,7 @@ impl Tab {
         self.reconnect_at = None;
         self.started = true;
         self.connected_with = Some(self.connection_key());
-        self.note(&trf(
-            "Connecting to {0}:{1}...",
-            &[&host, &port.to_string()],
-        ));
+        self.note(&trf("Connecting to {0}:{1}…", &[&host, &port.to_string()]));
         self.walk = None;
         *self.map.borrow_mut() = self.map_for(&host, port);
         let target = Target {

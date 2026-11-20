@@ -253,7 +253,7 @@ impl Tab {
         let folder = self.profiles.as_ref().map(Profiles::packages_dir);
         match (folder, name) {
             (Some(folder), Some(name)) => {
-                self.note(&trf("Installing {0}...", &[&name]));
+                self.note(&trf("Installing {0}…", &[&name]));
                 self.package_jobs
                     .push((packages::install(&folder, &name, address), true));
             }
@@ -270,7 +270,7 @@ impl Tab {
     pub(super) fn update_plugin(&mut self, name: &str) {
         match self.profiles.as_ref().map(Profiles::packages_dir) {
             Some(folder) => {
-                self.note(&trf("Updating {0}...", &[name]));
+                self.note(&trf("Updating {0}…", &[name]));
                 self.package_jobs
                     .push((packages::update(&folder, name), false));
             }

@@ -139,14 +139,8 @@ msgstr "Contraseña"
 msgid "Add"
 msgstr "Añadir"
 
-msgid "Delete"
-msgstr "Borrar"
-
 msgid "Regular expression"
 msgstr "Expresión regular"
-
-msgid "Say"
-msgstr "Decir"
 
 msgid "Hide the line"
 msgstr "Ocultar la línea"
@@ -160,14 +154,6 @@ msgstr "Codificación de texto {0} desconocida; se usa la automática."
 
 msgid "enabled in this profile"
 msgstr "activo en este perfil"
-
-#, python-brace-format
-msgid "Installing {0}..."
-msgstr "Instalando {0}..."
-
-#, python-brace-format
-msgid "Updating {0}..."
-msgstr "Actualizando {0}..."
 
 msgid "Disconnect"
 msgstr "Desconectar"
@@ -220,9 +206,6 @@ msgstr "Permitir en rutas"
 msgid "Avoid in routes"
 msgstr "Evitar en rutas"
 
-msgid "Click a room to walk there, right-click for more, Shift+drag to move it."
-msgstr "Clic en una sala para caminar hasta ella, clic derecho para más, Mayús+arrastrar para moverla."
-
 #, python-brace-format
 msgid "Could not load the profile: {0}"
 msgstr "No se pudo cargar el perfil: {0}"
@@ -239,10 +222,6 @@ msgstr "No se pudo guardar el perfil: {0}"
 
 msgid "Enter a host to connect to."
 msgstr "Indica un servidor al que conectar."
-
-#, python-brace-format
-msgid "Connecting to {0}:{1}..."
-msgstr "Conectando a {0}:{1}..."
 
 #, python-brace-format
 msgid "The map will not be saved: {0}"
@@ -490,9 +469,6 @@ msgstr "Grabar una tecla"
 msgid "Function keys, keys with Ctrl or Alt, and the numeric keypad can be used."
 msgstr "Sirven las teclas de función, las combinaciones con Ctrl o Alt y el teclado numérico."
 
-msgid "Enabled"
-msgstr "Activo"
-
 msgid "Name"
 msgstr "Nombre"
 
@@ -547,10 +523,6 @@ msgstr "No se pudo guardar el script: {0}"
 
 msgid "Scripts of your own are kept per profile: save or choose a profile first."
 msgstr "Tus scripts se guardan por perfil: guarda o elige un perfil primero."
-
-#, python-brace-format
-msgid "Could not delete the script: {0}"
-msgstr "No se pudo borrar el script: {0}"
 
 msgid "Name this gauge"
 msgstr "Ponle nombre a este indicador"
@@ -731,9 +703,6 @@ msgstr "Dale un nombre al complemento tras la dirección: letras, cifras, - y _.
 msgid "Says where you are"
 msgstr "Dice dónde estás"
 
-msgid "Lists the rooms whose name contains the text"
-msgstr "Lista las salas cuyo nombre contiene el texto"
-
 msgid "Walks to a room, by name or number"
 msgstr "Camina hasta una sala, por nombre o número"
 
@@ -754,9 +723,6 @@ msgstr "Muestra el panel del mapa"
 
 msgid "Hides the map panel"
 msgstr "Oculta el panel del mapa"
-
-msgid "Lists the installed plugins"
-msgstr "Lista los complementos instalados"
 
 msgid "Installs a plugin and enables it"
 msgstr "Instala un complemento y lo activa"
@@ -779,18 +745,12 @@ msgstr "Empieza o deja de registrar la sesión"
 msgid "Runs the scripts and rules again"
 msgstr "Vuelve a ejecutar los scripts y las reglas"
 
-msgid "Lists these commands"
-msgstr "Lista estos comandos"
-
 msgid ""
 "Scripts are Luau code that is always loaded: what no rule can do,\n"
 "such as building the map or acting on what your MUD reports."
 msgstr ""
 "Los scripts son código Luau que está siempre cargado: lo que ninguna regla puede hacer,\n"
 "como construir el mapa o reaccionar a lo que informa tu MUD."
-
-msgid "Lua"
-msgstr "Lua"
 
 msgid "Script"
 msgstr "Script"
@@ -800,9 +760,6 @@ msgstr "Scripts"
 
 msgid "Triggers"
 msgstr "Disparadores"
-
-msgid "Name this trigger"
-msgstr "Pon un nombre a este disparador"
 
 msgid ""
 "A trigger reacts to what the MUD sends:\n"
@@ -945,10 +902,6 @@ msgstr ""
 "Lo que el MUD envía además del texto, con GMCP o MSDP, aparece aquí según llega:\n"
 "míralo para saber qué puede seguir un indicador o usar un script."
 
-
-msgid "Type"
-msgstr "Tipo"
-
 msgid "Drag it, or click it to type."
 msgstr "Arrástralo, o haz clic para escribir."
 
@@ -976,9 +929,6 @@ msgstr "En un script"
 msgid "Copy"
 msgstr "Copiar"
 
-msgid "Kind"
-msgstr "Clase"
-
 msgid "Bar"
 msgstr "Barra"
 
@@ -990,9 +940,6 @@ msgstr "Número"
 
 msgid "Light"
 msgstr "Luz"
-
-msgid "Key"
-msgstr "Clave"
 
 msgid "How full something is, of its maximum."
 msgstr "Cuánto queda de algo, respecto a su máximo."
@@ -1042,12 +989,6 @@ msgid ""
 msgstr ""
 "Un indicador muestra algo que informa el MUD: una barra para tu vida,\n"
 "una luz para saber si estás envenenado, un número para tu oro."
-
-msgid "Colour when on"
-msgstr "Color encendida"
-
-msgid "Colour when off"
-msgstr "Color apagada"
 
 msgid "Unlit"
 msgstr "Sin luz"
@@ -1201,17 +1142,11 @@ msgstr "Añadir indicadores"
 msgid "More options"
 msgstr "Más opciones"
 
-msgid "Set up a mapper"
-msgstr "Configurar un mapper"
-
 msgid "Menu"
 msgstr "Menú"
 
 msgid "Panels"
 msgstr "Paneles"
-
-msgid "Show what the MUD sends"
-msgstr "Mostrar lo que manda el MUD"
 
 msgid "Search or run a command"
 msgstr "Buscar o ejecutar un comando"
@@ -1242,14 +1177,6 @@ msgstr "Mensajes, {0} nuevos"
 
 msgid "Nothing yet."
 msgstr "Nada todavía."
-
-
-msgid "Deleted."
-msgstr "Borrado."
-
-#, python-brace-format
-msgid "Deleted {0}."
-msgstr "Borrado: {0}."
 
 msgid "Undo"
 msgstr "Deshacer"
@@ -1324,9 +1251,6 @@ msgstr "Automática"
 msgid "Same, for the panel of channels"
 msgstr "Lo mismo, para el panel de canales"
 
-msgid "New profile"
-msgstr "Nuevo perfil"
-
 msgid "Stop logging this session"
 msgstr "Dejar de registrar esta sesión"
 
@@ -1347,9 +1271,6 @@ msgstr "Renombrar perfil"
 
 msgid "Duplicate profile"
 msgstr "Duplicar perfil"
-
-msgid "Delete profile"
-msgstr "Borrar perfil"
 
 msgid "Create"
 msgstr "Crear"
@@ -1373,10 +1294,6 @@ msgstr "El nombre de un perfil solo puede tener letras, números, espacios, - y 
 #, python-brace-format
 msgid "{0} is in use by an open session: close it first."
 msgstr "{0} lo usa una sesión abierta: ciérrala antes."
-
-#, python-brace-format
-msgid "Delete {0}? Its scripts, rules, map and layout go with it."
-msgstr "¿Borrar {0}? Se borran con él sus scripts, reglas, mapa y disposición."
 
 msgid "Profiles need a configuration folder, and none was found."
 msgstr "Los perfiles necesitan una carpeta de configuración, y no se ha encontrado ninguna."
@@ -1687,3 +1604,80 @@ msgstr "Hay un complemento para {0}: {1} Se puede activar desde el aviso de abaj
 msgid "Changes pending"
 msgstr "Cambios pendientes"
 
+msgid "Delete"
+msgstr "Eliminar"
+
+msgid "Deleted."
+msgstr "Eliminado."
+
+#, python-brace-format
+msgid "Deleted {0}."
+msgstr "Eliminado: {0}."
+
+#, python-brace-format
+msgid "Could not delete the script: {0}"
+msgstr "No se pudo eliminar el script: {0}"
+
+msgid "Delete profile"
+msgstr "Eliminar perfil"
+
+#, python-brace-format
+msgid "Delete {0}? Its scripts, rules, map and layout go with it."
+msgstr "¿Eliminar {0}? Se eliminan con él sus scripts, reglas, mapa y disposición."
+
+msgid "Key"
+msgstr "Tecla"
+
+msgid "Field name"
+msgstr "Nombre del campo"
+
+msgid "Type"
+msgstr "Tipo"
+
+msgid "Show incoming data"
+msgstr "Mostrar los datos recibidos"
+
+msgid "New profile"
+msgstr "Perfil nuevo"
+
+msgid "Enabled"
+msgstr "Activado"
+
+msgid "Name this trigger"
+msgstr "Ponle nombre a este disparador"
+
+msgid "Lists the rooms whose name contains the text"
+msgstr "Muestra las salas cuyo nombre contiene el texto"
+
+msgid "Lists the installed plugins"
+msgstr "Muestra los complementos instalados"
+
+msgid "Lists these commands"
+msgstr "Muestra estos comandos"
+
+msgid "Click a room to walk there, right-click for more, Shift+drag to move it."
+msgstr "Haz clic en una sala para ir hasta ella, clic derecho para más opciones, y Mayús+arrastrar para moverla."
+
+msgid "Colour when on"
+msgstr "Color al estar encendida"
+
+msgid "Colour when off"
+msgstr "Color al estar apagada"
+
+msgid "Set up a mapper"
+msgstr "Configurar el mapeado"
+
+#, python-brace-format
+msgid "Installing {0}…"
+msgstr "Instalando {0}…"
+
+#, python-brace-format
+msgid "Updating {0}…"
+msgstr "Actualizando {0}…"
+
+#, python-brace-format
+msgid "Connecting to {0}:{1}…"
+msgstr "Conectando a {0}:{1}…"
+
+msgid "Say"
+msgstr "Decir en voz alta"
