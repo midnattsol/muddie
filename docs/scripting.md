@@ -90,6 +90,7 @@ after(5, function() cancel(id) end)
 | `vars` | The variables, as a table: `vars.target = "orc"` keeps a value, `vars.target` reads it, `vars.target = nil` forgets it, and `for name, value in vars do` goes through them. They are those of the editor, kept with the session's profile. A table kept in one must be assigned whole to be kept: `local bag = vars.bag; bag.gold = 5; vars.bag = bag`. |
 | `expand(text)` | `text` with each `$name` replaced by that variable's value, `$name.key` by a field of a table and `$name.1` by an item of an array, as the commands of rules and key bindings are. |
 | `remember(key, value)`, `recall(key)` | The same values, as functions. |
+| `remembered()` | All the values kept, as a table by their names. |
 
 The options table takes `group` (a name to switch several on and off
 together) and `once` (remove after firing).

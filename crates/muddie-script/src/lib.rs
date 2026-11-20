@@ -65,7 +65,9 @@
 //! - `completions(name, words)`: words for Tab to offer.
 //! - `gauge(name, value, max, options)`: show or update a bar in the status
 //!   strip; `gauge(name)` removes it. `options` may give a `colour`, a
-//!   `style` (`"segments"`) and `low`, a percentage to warn under.
+//!   `style` (`"bar"`, `"cells"`, `"number"`, `"light"` or `"text"`), the
+//!   `text` of that last kind, the colour `off` of a light, and `steps`,
+//!   the colour it takes under each percentage.
 //! - `chat(text)`: add a line to the chat panel.
 //! - `channel(name, text, {panel = "..."})`: add a line said on a channel
 //!   of the MUD's, which has a tab of its own in the panel named, made if
