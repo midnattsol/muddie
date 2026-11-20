@@ -57,7 +57,7 @@ else, such as `big5` or `koi8-r`.
 
 | Key | What it does |
 |---|---|
-| Enter | Sends the line. Several commands can be separated by `;`. The line stays, selected: Enter sends it again, and typing replaces it (this can be switched off in the settings) |
+| Enter | Sends the line. Several commands can be separated by `;`. With **Keep the command after sending it**, in the settings, the line stays, selected: Enter sends it again, and typing replaces it |
 | Up, Down | Earlier and later lines; with something typed, only those starting with it |
 | Ctrl+R | Searches the history for what is typed; again goes further back |
 | Tab | Completes the word being typed from recent output |
@@ -213,7 +213,9 @@ write to one with `panel_add(name, text)`, or put a whole text in it with
 from its menu.
 
 The **gauges** are made and changed in the editor, under **Gauges**; the
-menu of a panel of gauges, and the palette, lead there. Each gauge says which panel it is shown in, so that yours can be below
+menu of a panel of gauges, and the palette, lead there. A gauge made there
+can also be pressed where it is shown, to change it over the game in the
+same details, with the way to the editor. Each gauge says which panel it is shown in, so that yours can be below
 and an enemy's beside the map, and they are shown in the order of the
 editor's list: drag one there, or press Alt+Up or Alt+Down, to move it. A gauge
 follows something the MUD reports, and is one of these kinds:

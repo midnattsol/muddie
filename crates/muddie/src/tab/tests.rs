@@ -380,7 +380,9 @@ fn tab_completes_with_words_the_server_gives() {
 
 #[test]
 fn sent_command_stays_selected_to_repeat_or_type_over() {
+    // Only when asked for: it is off to begin with.
     let mut harness = window(None);
+    harness.state_mut().tab_mut().settings.keep_command = true;
     let (_events, mut sent) = fake_connection(harness.state_mut().tab_mut());
     let send = |text: &str| Command::Send(text.into());
     harness.state_mut().tab_mut().input = "north".into();
@@ -2004,6 +2006,83 @@ fn the_one_menu_opens_and_does_what_it_says() {
     harness.get_by_label("Settings").click();
     harness.run_steps(3);
     harness.get_by_label("Language");
+}
+
+#[test]
+fn a_panel_is_dragged_by_its_handle_to_another_place() {
+    let mut harness = window(None);
+    harness.set_size(egui::vec2(1300.0, 800.0));
+    harness.state_mut().tab_mut().started = true;
+    harness.run_steps(4);
+    // The chat, above, taken by its dots and let go on the upper part of
+    // the map, at the right.
+    let from = harness.get_by_label("Move Chat").rect().center();
+    let map = harness.get_by_label("Move Map").rect().center() + egui::vec2(60.0, 60.0);
+    harness.hover_at(from);
+    harness.run_steps(1);
+    harness.drag_at(from);
+    harness.run_steps(1);
+    for step in 1..=10 {
+        let at = from + (map - from) * (step as f32 / 10.0);
+        harness.hover_at(at);
+        harness.run_steps(1);
+    }
+    harness.drop_at(map);
+    harness.run_steps(4);
+    let app = harness.state().tab();
+    let side = |name: &str| {
+        (app.layout.panels.iter())
+            .find(|panel| panel.name == name)
+            .map(|panel| panel.side)
+    };
+    assert_eq!(side("Chat"), Some(layout::Side::Right));
+    assert!(app.dragged_panel.is_none());
+}
+
+#[test]
+fn a_panels_menu_is_reached_from_the_keyboard() {
+    let mut harness = window(None);
+    harness.set_size(egui::vec2(1300.0, 800.0));
+    harness.state_mut().tab_mut().started = true;
+    harness.run_steps(3);
+    harness.get_by_label("Chat options").focus();
+    harness.run_steps(2);
+    assert!(harness.get_by_label("Chat options").is_focused());
+    harness.key_press(Key::Enter);
+    harness.run_steps(3);
+    harness.get_by_label("At the left");
+}
+
+#[test]
+fn a_gauge_is_changed_where_it_is_shown() {
+    let mut harness = window(None);
+    harness.set_size(egui::vec2(1300.0, 800.0));
+    let app = harness.state_mut().tab_mut();
+    app.started = true;
+    app.rules.gauges.push(crate::rules::Gauge {
+        name: "Salud".into(),
+        value: "Char.Vitals.hp".into(),
+        max: "100".into(),
+        ..crate::rules::Gauge::starter()
+    });
+    app.gauges.set("Salud", Some((40.0, 100.0)));
+    // One the MUD made by itself is shown, and not to be changed here.
+    app.gauges.set("MV", Some((10.0, 20.0)));
+    harness.run_steps(3);
+    assert!(harness.query_by_label("Edit MV").is_none());
+    // One made in the editor opens its details over the game.
+    harness.get_by_label("Edit Salud").click();
+    harness.run_steps(3);
+    let app = harness.state_mut().tab_mut();
+    assert_eq!((app.gauge_here, app.view()), (Some(0), 0));
+    app.rules_draft.gauges[0].colour = "red".into();
+    harness.run_steps(2);
+    // Closed, what was changed is saved, as in the editor.
+    harness.key_press(Key::Escape);
+    harness.run_steps(3);
+    let app = harness.state().tab();
+    assert!(app.gauge_here.is_none());
+    assert_eq!(app.rules.gauges[0].colour, "red");
 }
 
 #[test]

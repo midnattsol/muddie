@@ -15,6 +15,7 @@ impl Tab {
             self.bound_keys(ui);
         }
         self.connection_window(ui.ctx());
+        self.gauge_window(ui.ctx());
         // The palette of commands, over whichever view is shown.
         self.palette(ui.ctx());
         // The automation view takes the place of the game while open.

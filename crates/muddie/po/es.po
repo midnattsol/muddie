@@ -1518,3 +1518,12 @@ msgstr "Añadir un panel de texto"
 msgid "Add the map"
 msgstr "Añadir el mapa"
 
+msgid "Disabled"
+msgstr "Desactivado"
+
+#, python-brace-format
+msgid "Edit {0}"
+msgstr "Editar {0}"
+
+msgid "Open in the editor"
+msgstr "Abrir en el editor"

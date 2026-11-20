@@ -174,6 +174,8 @@ pub struct Tab {
     /// The trigger whose details are shown, and what it was asked to do
     /// besides its commands though that is still empty.
     extras_added: (usize, Vec<automation::Extra>),
+    /// The gauge whose details are open over the game.
+    gauge_here: Option<usize>,
     /// What was last deleted in the editor, to have it back.
     undo: Option<automation::Undo>,
     /// What the client said, to be read again, and how many of those
@@ -475,6 +477,7 @@ impl Tab {
             reconnect_wanted: false,
             profile_page: 0,
             undo: None,
+            gauge_here: None,
             extras_added: (usize::MAX, Vec::new()),
             notices: Vec::new(),
             notices_unread: 0,

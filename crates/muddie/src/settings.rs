@@ -124,7 +124,7 @@ impl Default for Settings {
             timestamps: false,
             reconnect: true,
             keepalive_seconds: 60,
-            keep_command: true,
+            keep_command: false,
             automation_panes: [190.0, 320.0],
         }
     }

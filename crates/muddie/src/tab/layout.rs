@@ -1183,7 +1183,19 @@ impl Tab {
         // reported first.
         let made = &self.rules.gauges;
         (self.gauges).arrange(|name| made.iter().position(|gauge| gauge.shown_name() == name));
-        if self.gauges.show(ui, |name| self.gauge_is_in(name, id)) {
+        let made = |name: &str| {
+            self.rules
+                .gauges
+                .iter()
+                .any(|gauge| gauge.shown_name() == name)
+        };
+        let (any, pressed) = self
+            .gauges
+            .show(ui, |name| self.gauge_is_in(name, id), made);
+        if let Some(name) = pressed {
+            self.edit_gauge_here(&name);
+        }
+        if any {
             // The way to change them, at the corner, out of their way.
             return;
         }
@@ -1283,6 +1295,63 @@ impl Tab {
             );
         }
         false
+    }
+
+    /// Opens the details of a gauge made in the editor over the game, to
+    /// change it where it is shown.
+    pub(super) fn edit_gauge_here(&mut self, name: &str) {
+        let Some(index) = (self.rules.gauges.iter()).position(|gauge| gauge.shown_name() == name)
+        else {
+            return;
+        };
+        if !self.rules_open {
+            self.rules_draft = self.rules.clone();
+            self.rules_seen = self.rules.clone();
+        }
+        self.gauge_here = Some(index);
+    }
+
+    /// The details of the gauge opened over the game: the same as in the
+    /// editor, saved the same way, with the way to the editor.
+    pub(super) fn gauge_window(&mut self, ctx: &egui::Context) {
+        let Some(index) = self.gauge_here else {
+            return;
+        };
+        if index >= self.rules_draft.gauges.len() || self.rules_open {
+            self.gauge_here = None;
+            return;
+        }
+        let (mut open, mut delete, mut editor) = (true, false, false);
+        let name = self.rules_draft.gauges[index].shown_name().to_owned();
+        widgets::dialog(ctx, "gauge here", &name, &mut open, 620.0, |ui| {
+            let room = (ctx.content_rect().height() - 180.0).max(240.0);
+            egui::ScrollArea::vertical()
+                .max_height(room)
+                .show(ui, |ui| {
+                    delete = self.gauge_detail(ui, index);
+                });
+            ui.add_space(6.0);
+            ui.horizontal(|ui| {
+                editor = widgets::quiet_button(ui, tr("Open in the editor")).clicked();
+            });
+        });
+        if delete {
+            let gone = self.rules_draft.gauges.remove(index);
+            self.gauges.set(gone.shown_name(), None);
+            open = false;
+        }
+        if editor {
+            open = false;
+        }
+        if !open {
+            self.gauge_here = None;
+        }
+        // Saved as the editor saves: when the changes stop, and on closing.
+        self.rules_autosave(ctx, open);
+        if editor {
+            self.open_automation(automation::GAUGES);
+            self.select_rule(automation::GAUGES, index);
+        }
     }
 
     /// Goes to the gauges in the editor, on the first of this panel's.

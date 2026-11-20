@@ -104,18 +104,48 @@ impl Gauges {
 
     /// Draws, in a row that wraps, the gauges `wanted` says yes to by
     /// their names. Returns whether there were any.
-    pub fn show(&self, ui: &mut Ui, wanted: impl Fn(&str) -> bool) -> bool {
+    /// `editable` says which can be pressed, to be changed: those made in
+    /// the editor. Returns whether there were any, and the one pressed.
+    pub fn show(
+        &self,
+        ui: &mut Ui,
+        wanted: impl Fn(&str) -> bool,
+        editable: impl Fn(&str) -> bool,
+    ) -> (bool, Option<String>) {
         let chosen: Vec<&Gauge> = self.0.iter().filter(|gauge| wanted(&gauge.name)).collect();
         if chosen.is_empty() {
-            return false;
+            return (false, None);
         }
+        let mut pressed = None;
         ui.horizontal_wrapped(|ui| {
             ui.spacing_mut().item_spacing = vec2(22.0, 8.0);
             for gauge in chosen {
-                draw_gauge(ui, &gauge.name, gauge.value, gauge.max, &gauge.look);
+                let drawn =
+                    ui.scope(|ui| draw_gauge(ui, &gauge.name, gauge.value, gauge.max, &gauge.look));
+                if !editable(&gauge.name) {
+                    continue;
+                }
+                let id = ui.make_persistent_id(("edit gauge", &gauge.name));
+                let label = crate::i18n::trf("Edit {0}", &[&gauge.name]);
+                let press = ui.interact(drawn.response.rect, id, Sense::click());
+                press.widget_info(|| WidgetInfo::labeled(Role::Button, true, &label));
+                if press.hovered() {
+                    ui.painter().rect_stroke(
+                        drawn.response.rect.expand(4.0),
+                        6.0,
+                        eframe::egui::Stroke::new(1.0, theme::current().border),
+                        eframe::egui::StrokeKind::Outside,
+                    );
+                }
+                if press
+                    .on_hover_cursor(eframe::egui::CursorIcon::PointingHand)
+                    .clicked()
+                {
+                    pressed = Some(gauge.name.clone());
+                }
             }
         });
-        true
+        (true, pressed)
     }
 }
 

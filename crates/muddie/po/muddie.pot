@@ -258,6 +258,10 @@ msgstr ""
 msgid "weight"
 msgstr ""
 
+#, python-brace-format
+msgid "Edit {0}"
+msgstr ""
+
 msgid "new"
 msgstr ""
 
@@ -825,6 +829,9 @@ msgstr ""
 msgid "Lua"
 msgstr ""
 
+msgid "Disabled"
+msgstr ""
+
 msgid "The pattern is not valid:"
 msgstr ""
 
@@ -943,6 +950,9 @@ msgid "Add gauges"
 msgstr ""
 
 msgid "Nothing here yet. A trigger can show lines in this panel, and so can a script."
+msgstr ""
+
+msgid "Open in the editor"
 msgstr ""
 
 msgid "Done."

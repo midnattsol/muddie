@@ -1843,7 +1843,7 @@ impl Tab {
         delete
     }
 
-    fn gauge_detail(&mut self, ui: &mut egui::Ui, index: usize) -> bool {
+    pub(super) fn gauge_detail(&mut self, ui: &mut egui::Ui, index: usize) -> bool {
         use crate::rules::{GaugeKind, Step};
         let theme = theme::current();
         // Alt and an arrow move it in the list, for those who do not drag.
@@ -2144,6 +2144,7 @@ impl Tab {
                         self.rules_draft.scripts_off.push(key);
                     }
                 }
+                off_badge(ui, on);
                 let title = TextEdit::singleline(&mut self.script_name)
                     .font(theme::font(Weight::Semibold, 20.0))
                     .frame(egui::Frame::NONE)
@@ -2497,6 +2498,23 @@ fn action_block(
 
 /// The top of a rule's details: its name, set large, with the switch that
 /// turns it on and the button that deletes it. Returns true to delete.
+/// Beside a switch that is off, that it is: what is not running should
+/// not look as if it were.
+fn off_badge(ui: &mut egui::Ui, on: bool) {
+    if on {
+        return;
+    }
+    let theme = theme::current();
+    let badge = RichText::new(tr("Disabled"))
+        .font(theme::font(Weight::Medium, 11.5))
+        .color(theme.text_dim);
+    egui::Frame::new()
+        .fill(theme.raised)
+        .corner_radius(egui::CornerRadius::same(6))
+        .inner_margin(egui::Margin::symmetric(7, 2))
+        .show(ui, |ui| ui.add(Label::new(badge).selectable(false)));
+}
+
 fn rule_header(ui: &mut egui::Ui, name: &mut String, enabled: &mut bool, hint: &str) -> bool {
     let theme = theme::current();
     let mut delete = false;
@@ -2504,6 +2522,7 @@ fn rule_header(ui: &mut egui::Ui, name: &mut String, enabled: &mut bool, hint: &
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             delete = widgets::icon_button(ui, widgets::Icon::Trash, tr("Delete"), false).clicked();
             widgets::switch(ui, enabled, tr("Enabled")).on_hover_text(tr("Enabled"));
+            off_badge(ui, *enabled);
             let title = TextEdit::singleline(name)
                 .font(theme::font(Weight::Semibold, 20.0))
                 .hint_text(RichText::new(hint).color(theme.text_faint))
