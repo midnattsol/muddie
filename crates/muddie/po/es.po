@@ -46,9 +46,6 @@ msgstr "No se pudieron cargar los ajustes: {0}"
 msgid "Sessions"
 msgstr "Sesiones"
 
-msgid "Output"
-msgstr "Salida"
-
 msgid "Show the time of each line"
 msgstr "Mostrar la hora de cada línea"
 
@@ -60,15 +57,6 @@ msgstr "Conexión"
 
 msgid "Reconnect when the connection is lost"
 msgstr "Reconectar si se pierde la conexión"
-
-msgid "Keep-alive"
-msgstr "Mantener viva"
-
-msgid "Seconds of silence before a keep-alive is sent; 0 sends none."
-msgstr "Segundos de silencio antes de enviar una señal de vida; 0 no envía ninguna."
-
-msgid "Speech rate"
-msgstr "Velocidad de la voz"
 
 #, python-brace-format
 msgid "Logging stopped: {0}"
@@ -160,9 +148,6 @@ msgstr "Personaje"
 msgid "Password"
 msgstr "Contraseña"
 
-msgid "Kept in the system's keyring when the profile is saved."
-msgstr "Se guarda en el llavero del sistema al guardar el perfil."
-
 msgid "Add"
 msgstr "Añadir"
 
@@ -184,9 +169,6 @@ msgstr "Al escribir"
 #, python-brace-format
 msgid "Unknown text encoding {0}; using the automatic one."
 msgstr "Codificación de texto {0} desconocida; se usa la automática."
-
-msgid "Only for servers that do not use UTF-8 or Latin-1, e.g. big5 or koi8-r."
-msgstr "Solo para servidores que no usan UTF-8 ni Latin-1, p. ej. big5 o koi8-r."
 
 msgid "enabled in this profile"
 msgstr "activo en este perfil"
@@ -365,21 +347,6 @@ msgstr "{0} (n.º {1}) en {2}. Salidas: {3}."
 msgid "Script error: {0}"
 msgstr "Error de script: {0}"
 
-msgid "Speech language"
-msgstr "Idioma de la voz"
-
-msgid "system"
-msgstr "sistema"
-
-msgid "A language code such as es or en, so the text is read with the right voice."
-msgstr "Un código de idioma como es o en, para que el texto se lea con la voz adecuada."
-
-msgid "Voice through the screen reader (also braille)"
-msgstr "Leer a través del lector de pantalla (también braille)"
-
-msgid "Instead of speaking directly, hand each line to the screen reader to announce."
-msgstr "En vez de hablar directamente, pasa cada línea al lector de pantalla para que la anuncie."
-
 msgid "Close session"
 msgstr "Cerrar sesión"
 
@@ -469,9 +436,6 @@ msgstr "Servidor"
 
 msgid "Text encoding"
 msgstr "Codificación del texto"
-
-msgid "Log in automatically"
-msgstr "Entrar automáticamente"
 
 msgid "All changes saved"
 msgstr "Todos los cambios guardados"
@@ -908,9 +872,6 @@ msgstr "Complementos"
 msgid "Same as the system"
 msgstr "El del sistema"
 
-msgid "More languages can be added as gettext catalogues in the locale folder of the configuration."
-msgstr "Se pueden añadir más idiomas como catálogos gettext en la carpeta locale de la configuración."
-
 msgid "Font"
 msgstr "Tipografía"
 
@@ -932,14 +893,8 @@ msgstr "Quitar"
 msgid "Install a plugin"
 msgstr "Instalar un complemento"
 
-msgid "Git address"
-msgstr "Dirección git"
-
 msgid "Install"
 msgstr "Instalar"
-
-msgid "It is downloaded with git into the configuration's packages folder. Only install what you trust: a plugin can send commands as you."
-msgstr "Se descarga con git en la carpeta packages de la configuración. Instala solo lo que te merezca confianza: un complemento puede enviar comandos en tu nombre."
 
 msgid "Working…"
 msgstr "Trabajando…"
@@ -1398,9 +1353,6 @@ msgstr "Uso"
 msgid "Saved in profile {0}."
 msgstr "Guardado en el perfil {0}."
 
-msgid "Scrollback lines"
-msgstr "Líneas de historial"
-
 msgid "No data received since this view was opened."
 msgstr "No se han recibido datos desde que se abrió esta vista."
 
@@ -1460,9 +1412,6 @@ msgstr "Ir a, abrir o ejecutar lo que sea"
 
 msgid "Leave empty to keep it"
 msgstr "Déjalo vacío para conservarla"
-
-msgid "No profile"
-msgstr "Sin perfil"
 
 msgid "Messages"
 msgstr "Mensajes"
@@ -1527,3 +1476,140 @@ msgstr "Editar {0}"
 
 msgid "Open in the editor"
 msgstr "Abrir en el editor"
+
+
+msgid "Text and typing"
+msgstr "Texto y escritura"
+
+msgid "Speech and screen reader"
+msgstr "Voz y lector de pantalla"
+
+msgid "Log in"
+msgstr "Entrada"
+
+msgid "Logs and sounds"
+msgstr "Registro y sonidos"
+
+msgid "This session has no profile"
+msgstr "Esta sesión no tiene perfil"
+
+#, python-brace-format
+msgid "Profile · {0}"
+msgstr "Perfil · {0}"
+
+msgid "This session"
+msgstr "Esta sesión"
+
+msgid "How large the whole window is drawn."
+msgstr "El tamaño con el que se dibuja toda la ventana."
+
+msgid "Lines kept"
+msgstr "Líneas que se guardan"
+
+msgid "The lines kept to scroll back to and search; older ones are let go."
+msgstr "Las líneas que se conservan para volver atrás y buscar; las más antiguas se descartan."
+
+msgid "The time each line arrived, at its left."
+msgstr "La hora a la que llegó cada línea, a su izquierda."
+
+msgid "Speed"
+msgstr "Velocidad"
+
+msgid "Fast"
+msgstr "Rápida"
+
+msgid "Slow"
+msgstr "Lenta"
+
+msgid "Language of the voice"
+msgstr "Idioma de la voz"
+
+msgid "The system's"
+msgstr "El del sistema"
+
+msgid "The voice the text of the MUD is read with."
+msgstr "La voz con la que se lee el texto del MUD."
+
+msgid "Speak through the screen reader"
+msgstr "Hablar a través del lector de pantalla"
+
+msgid "Instead of its own voice, Muddie hands each line to the screen reader, which also shows it in braille."
+msgstr "En lugar de usar su propia voz, Muddie pasa cada línea al lector de pantalla, que además la muestra en braille."
+
+#, python-brace-format
+msgid "Customize {0}"
+msgstr "Personalizar {0}"
+
+msgid "Customize"
+msgstr "Personalizar"
+
+msgid "Update all"
+msgstr "Actualizar todos"
+
+msgid "The address of the plugin's git repository. Only install what you trust: a plugin can send commands as you."
+msgstr "La dirección del repositorio git del plugin. Instala solo lo que sea de confianza: un plugin puede enviar comandos en tu nombre."
+
+msgid "Save the session as a profile first: the script is kept with it."
+msgstr "Guarda antes la sesión como perfil: el script se guarda con él."
+
+#, python-brace-format
+msgid "{0} is now a script of yours, in the editor."
+msgstr "{0} es ahora un script tuyo, en el editor."
+
+msgid "Password kept in the system's keyring."
+msgstr "Contraseña guardada en el llavero del sistema."
+
+msgid "Save as profile"
+msgstr "Guardar como perfil"
+
+msgid "Aardwolf, Reinos…"
+msgstr "Aardwolf, Reinos…"
+
+msgid "A profile keeps the connection, the scripts, the map and the layout, to come back to them."
+msgstr "Un perfil guarda la conexión, los scripts, el mapa y la disposición, para volver a ellos."
+
+msgid "The changes take effect on reconnecting."
+msgstr "Los cambios se aplican al reconectar."
+
+msgid "Off only for a server with a certificate of its own making."
+msgstr "Desactívalo solo para un servidor con un certificado hecho por él mismo."
+
+msgid "Automatic"
+msgstr "Automática"
+
+msgid "Automatic suits nearly every MUD: UTF-8, or Latin-1 for what is not."
+msgstr "Automática sirve para casi todos los MUD: UTF-8, o Latin-1 para lo que no lo sea."
+
+msgid "Keeping the connection"
+msgstr "Mantener la conexión"
+
+msgid "When it drops without you closing it."
+msgstr "Cuando se corta sin que la cierres tú."
+
+msgid "Keep the connection alive"
+msgstr "Mantener viva la conexión"
+
+msgid "Some servers and routers close a connection that has been quiet for a while."
+msgstr "Algunos servidores y routers cierran una conexión que lleva un rato en silencio."
+
+msgid "Muddie answers the first prompt with it."
+msgstr "Muddie lo escribe en la primera petición del servidor."
+
+msgid "Kept in the system's keyring, never in a file, and sent when the server hides typing."
+msgstr "Se guarda en el llavero del sistema, nunca en un archivo, y se envía cuando el servidor oculta lo que escribes."
+
+msgid "The password is kept once the session is saved as a profile."
+msgstr "La contraseña se guarda cuando la sesión se guarda como perfil."
+
+msgid "Without a profile, these are those of every session that has none."
+msgstr "Sin perfil, estos valores son los de todas las sesiones que no tienen uno."
+
+msgid "Everything shown in the session, written to a file as it comes."
+msgstr "Todo lo que se muestra en la sesión, escrito en un archivo según llega."
+
+msgid "HTML keeps the colours."
+msgstr "HTML conserva los colores."
+
+msgid "A sound the MUD asks for that you do not have is fetched from the web and kept."
+msgstr "Si el MUD pide un sonido que no tienes, se descarga de internet y se guarda."
+

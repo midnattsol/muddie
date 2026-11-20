@@ -37,8 +37,6 @@ pub enum Act {
     App(AppRequest),
     Reconnect,
     Disconnect,
-    Profile,
-    Plugins,
     Find,
     /// Adds a panel of this kind.
     AddPanel(super::layout::Kind),
@@ -54,7 +52,9 @@ pub enum AppRequest {
     NewSession,
     CloseSession,
     /// The settings, at this section.
-    Settings(usize),
+    Settings(crate::app::Section),
+    /// The settings are done with: what was asked in them is under way.
+    CloseSettings,
     Shortcuts,
     About,
 }
@@ -379,7 +379,6 @@ impl Tab {
         if self.connection.is_some() {
             acts.push(act(tr("Disconnect"), session, Act::Disconnect));
         }
-        acts.push(act(tr("Profile"), session, Act::Profile));
         acts.push(act(
             tr("New session"),
             session,
@@ -420,16 +419,19 @@ impl Tab {
                 Act::AddPanel(super::layout::Kind::Map),
             ));
         }
-        acts.push(act(tr("Plugins"), tr("Profile"), Act::Plugins));
-        let parts = [
-            (tr("General"), crate::app::GENERAL),
-            (tr("Appearance"), crate::app::APPEARANCE),
-            (tr("Output"), crate::app::OUTPUT),
-            (tr("Sessions"), crate::app::SESSIONS),
-            (tr("Speech"), crate::app::SPEECH),
-        ];
-        for (name, section) in parts {
-            acts.push(act(name, settings, Act::App(AppRequest::Settings(section))));
+        for section in crate::app::Section::MUDDIE {
+            acts.push(act(
+                section.name(),
+                settings,
+                Act::App(AppRequest::Settings(section)),
+            ));
+        }
+        for section in crate::app::Section::PROFILE {
+            acts.push(act(
+                section.name(),
+                tr("Profile"),
+                Act::App(AppRequest::Settings(section)),
+            ));
         }
         let profiles = self
             .profiles
@@ -460,8 +462,6 @@ impl Tab {
             Act::App(request) => self.app_request = Some(request),
             Act::Reconnect => self.reconnect(ctx),
             Act::Disconnect => self.disconnect(),
-            Act::Profile => self.open_profile(0),
-            Act::Plugins => self.open_profile(1),
             Act::Find => {
                 self.find_open = true;
                 self.find_wants_focus = true;

@@ -38,6 +38,50 @@ pub struct Profile {
     pub included_on: Vec<String>,
     pub included_off: Vec<String>,
     pub included_declined: Vec<String>,
+    /// How its sessions go: none in a profile saved before they were
+    /// kept with it, which then has those of the settings.
+    pub session: Option<SessionPrefs>,
+}
+
+/// What depends on the MUD more than on the person: whether to connect
+/// again, keep the connection alive, log, and fetch sounds. Kept with a
+/// profile; a session without one has those of the settings.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct SessionPrefs {
+    pub reconnect: bool,
+    /// Seconds between keep-alive messages while idle; 0 sends none.
+    pub keepalive_seconds: u32,
+    pub log_sessions: bool,
+    pub log_format: crate::settings::LogFormat,
+    pub media_downloads: bool,
+}
+
+impl Default for SessionPrefs {
+    fn default() -> Self {
+        Self::from(&crate::settings::Settings::default())
+    }
+}
+
+impl SessionPrefs {
+    pub fn from(settings: &crate::settings::Settings) -> Self {
+        Self {
+            reconnect: settings.reconnect,
+            keepalive_seconds: settings.keepalive_seconds,
+            log_sessions: settings.log_sessions,
+            log_format: settings.log_format,
+            media_downloads: settings.media_downloads,
+        }
+    }
+
+    /// Makes them those of every session without a profile.
+    pub fn apply_to(&self, settings: &mut crate::settings::Settings) {
+        settings.reconnect = self.reconnect;
+        settings.keepalive_seconds = self.keepalive_seconds;
+        settings.log_sessions = self.log_sessions;
+        settings.log_format = self.log_format;
+        settings.media_downloads = self.media_downloads;
+    }
 }
 
 impl Default for Profile {
@@ -54,6 +98,7 @@ impl Default for Profile {
             included_on: Vec::new(),
             included_off: Vec::new(),
             included_declined: Vec::new(),
+            session: None,
         }
     }
 }
@@ -291,6 +336,10 @@ mod tests {
             included_on: vec!["reinos-de-leyenda".into()],
             included_off: vec!["common".into()],
             included_declined: Vec::new(),
+            session: Some(SessionPrefs {
+                reconnect: false,
+                ..SessionPrefs::default()
+            }),
         };
         profiles.save("Reinos", &profile).unwrap();
         profiles.save("Aardwolf", &Profile::default()).unwrap();

@@ -48,9 +48,14 @@ pub fn switch(ui: &mut Ui, on: &mut bool, label: &str) -> Response {
         }
         let travel = rect.width() - rect.height();
         let centre = rect.left_center() + vec2(rect.height() / 2.0 + travel * how_on, 0.0);
-        let lit = crate::palette::contrast(Color32::WHITE, theme.accent)
-            >= crate::palette::contrast(theme.on_accent, theme.accent);
-        let knob_on = if lit { Color32::WHITE } else { theme.on_accent };
+        // A white knob, as switches have; on an accent too light for it
+        // to be seen, such as the yellow of high contrast, a dark one.
+        let seen = crate::palette::contrast(Color32::WHITE, theme.accent) >= 1.8;
+        let knob_on = if seen {
+            Color32::WHITE
+        } else {
+            theme.on_accent
+        };
         let knob = theme::mix(theme.text_dim, knob_on, how_on);
         let radius = rect.height() / 2.0 - 3.0;
         painter.circle_filled(
@@ -224,7 +229,7 @@ pub fn palette_button(ui: &mut Ui, width: f32, keys: &str) -> Response {
 
 /// The ordinary button, for something to do that is not the main thing.
 pub fn button(ui: &mut Ui, text: impl Into<egui::WidgetText>) -> Response {
-    ui.add(egui::Button::new(text).min_size(vec2(0.0, 30.0)))
+    ui.add(egui::Button::new(text).min_size(vec2(0.0, theme::size::CONTROL)))
 }
 
 /// A list to choose one thing from, shown when pressed. Give it what is
@@ -272,7 +277,7 @@ pub fn primary_button(ui: &mut Ui, text: &str) -> Response {
         egui::Button::new(label)
             .fill(theme.accent)
             .stroke(Stroke::NONE)
-            .min_size(vec2(0.0, 30.0)),
+            .min_size(vec2(0.0, theme::size::CONTROL)),
     )
 }
 

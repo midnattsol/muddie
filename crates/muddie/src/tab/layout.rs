@@ -1323,18 +1323,25 @@ impl Tab {
         }
         let (mut open, mut delete, mut editor) = (true, false, false);
         let name = self.rules_draft.gauges[index].shown_name().to_owned();
-        widgets::dialog(ctx, "gauge here", &name, &mut open, 620.0, |ui| {
-            let room = (ctx.content_rect().height() - 180.0).max(240.0);
-            egui::ScrollArea::vertical()
-                .max_height(room)
-                .show(ui, |ui| {
-                    delete = self.gauge_detail(ui, index);
+        widgets::dialog(
+            ctx,
+            "gauge here",
+            &name,
+            &mut open,
+            crate::theme::size::DIALOG_M,
+            |ui| {
+                let room = (ctx.content_rect().height() - 180.0).max(240.0);
+                egui::ScrollArea::vertical()
+                    .max_height(room)
+                    .show(ui, |ui| {
+                        delete = self.gauge_detail(ui, index);
+                    });
+                ui.add_space(6.0);
+                ui.horizontal(|ui| {
+                    editor = widgets::quiet_button(ui, tr("Open in the editor")).clicked();
                 });
-            ui.add_space(6.0);
-            ui.horizontal(|ui| {
-                editor = widgets::quiet_button(ui, tr("Open in the editor")).clicked();
-            });
-        });
+            },
+        );
         if delete {
             let gone = self.rules_draft.gauges.remove(index);
             self.gauges.set(gone.shown_name(), None);

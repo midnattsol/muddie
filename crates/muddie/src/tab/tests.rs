@@ -71,9 +71,11 @@ fn profile_is_saved_from_the_connection_window_and_brings_its_scripts() {
     app.tls = true;
     app.verify_certificate = false;
     app.profile_name = "Reinos".into();
-    app.connection_open = true;
+    harness
+        .state_mut()
+        .open_settings(crate::app::Section::Connection);
     harness.run_steps(4);
-    harness.get_by_label("Save profile").click();
+    harness.get_by_label("Save as profile").click();
     harness.run_steps(2);
     let saved = Profiles::at(dir.clone()).load("Reinos").unwrap();
     assert_eq!((saved.host.as_str(), saved.port), ("mud.example.org", 4000));
@@ -185,7 +187,7 @@ fn lost_connection_is_retried_but_a_closed_one_is_not() {
 fn idle_connection_gets_a_keep_alive() {
     let mut harness = window(None);
     let app = harness.state_mut().tab_mut();
-    app.settings.keepalive_seconds = 1;
+    app.prefs.keepalive_seconds = 1;
     let (_events, mut sent) = fake_connection(app);
     app.last_activity = Instant::now() - Duration::from_secs(2);
     harness.run_steps(2);
@@ -1195,10 +1197,10 @@ fn sounds_a_mud_asks_for_are_played_from_the_players_own_or_fetched() {
     assert_eq!(app.media_file("script.sh", None), None);
     // With fetching switched off, nothing is asked of the web; nor is
     // what could not be had before.
-    app.settings.media_downloads = false;
+    app.prefs.media_downloads = false;
     app.media_fetch(address.clone(), None);
     assert!(app.media_jobs.is_empty());
-    app.settings.media_downloads = true;
+    app.prefs.media_downloads = true;
     app.media_missing.push(address.clone());
     app.media_fetch(address, None);
     assert!(app.media_jobs.is_empty());
@@ -2136,7 +2138,9 @@ fn what_a_click_opens_stays_open() {
         harness.key_press(Key::Escape);
         harness.run_steps(3);
     };
-    harness.get_by_label("Profile: No profile").click();
+    harness
+        .get_by_label("This session has no profile: Save profile")
+        .click();
     steady(&mut harness, "profile", "Profile name");
     harness.get_by_label("Menu").click();
     steady(&mut harness, "menu", "Keyboard shortcuts");
@@ -2169,6 +2173,91 @@ fn alt_r_reconnects_without_typing_an_r() {
     harness.event(egui::Event::Text("r".into()));
     harness.run_steps(3);
     assert_eq!(harness.state().tab().input, "kill");
+}
+
+#[test]
+fn a_profile_keeps_what_is_changed_in_the_settings_as_it_is_changed() {
+    let dir = std::env::temp_dir().join(format!("muddie-autosave-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let profiles = Profiles::at(dir.clone());
+    profiles
+        .save(
+            "Reinos",
+            &Profile {
+                host: "rlmud.org".into(),
+                port: 5001,
+                ..Profile::default()
+            },
+        )
+        .unwrap();
+    let mut harness = window(Some(profiles));
+    harness.set_size(egui::vec2(1300.0, 860.0));
+    assert!(
+        harness
+            .state_mut()
+            .tab_mut()
+            .select_profile(Some("Reinos".into()))
+    );
+    harness
+        .state_mut()
+        .open_settings(crate::app::Section::Connection);
+    harness.run_steps(3);
+    // What depends on the MUD is the profile's, not every session's.
+    (harness.get_by_role_and_label(egui::accesskit::Role::Switch, "Keep the connection alive"))
+        .click();
+    harness.run_steps(2);
+    harness.state_mut().tab_mut().character = "Naylhena".into();
+    harness.run_steps(2);
+    // Closing the settings keeps what was changed, without a button.
+    harness.key_press(Key::Escape);
+    harness.run_steps(3);
+    let saved = Profiles::at(dir.clone()).load("Reinos").unwrap();
+    assert_eq!(saved.character, "Naylhena");
+    // It was on, as it is to begin with: off in this profile only.
+    assert_eq!(
+        saved.session.map(|session| session.keepalive_seconds),
+        Some(0)
+    );
+    assert_eq!(harness.state().app_settings().keepalive_seconds, 60);
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn a_plugin_that_comes_with_muddie_is_made_ones_own_to_change() {
+    let dir = std::env::temp_dir().join(format!("muddie-customize-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let profiles = Profiles::at(dir.clone());
+    profiles.save("Reinos", &Profile::default()).unwrap();
+    let mut harness = window(Some(profiles.clone()));
+    harness.set_size(egui::vec2(1300.0, 860.0));
+    let app = harness.state_mut().tab_mut();
+    assert!(app.select_profile(Some("Reinos".into())));
+    let plugin = crate::bundled::find("reinos-de-leyenda").unwrap();
+    app.set_included(plugin, true);
+    harness
+        .state_mut()
+        .open_settings(crate::app::Section::Plugins);
+    harness.run_steps(3);
+    harness.get_by_label("Customize Reinos de Leyenda").click();
+    harness.run_steps(4);
+    // Its code is a script of the profile's, open in the editor, and the
+    // one that came is off so as not to run twice.
+    let path = profiles
+        .scripts_dir("Reinos")
+        .join("reinos-de-leyenda.luau");
+    assert_eq!(
+        std::fs::read_to_string(&path).unwrap(),
+        plugin.code.unwrap()
+    );
+    let app = harness.state().tab();
+    assert!(!app.included(plugin));
+    assert_eq!((app.view(), app.rules_section), (1, automation::SCRIPTS));
+    assert_eq!(
+        app.script_files
+            .get(app.rules_selected[automation::SCRIPTS]),
+        Some(&path)
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
 }
 
 #[test]
@@ -2510,7 +2599,9 @@ fn screenshot() {
     welcome.state_mut().tab_mut().started = false;
     welcome.run_steps(3);
     save(&mut welcome, "welcome");
-    welcome.state_mut().tab_mut().connection_open = true;
+    welcome
+        .state_mut()
+        .open_settings(crate::app::Section::Connection);
     welcome.run_steps(4);
     save(&mut welcome, "connection");
     std::fs::remove_dir_all(&dir).unwrap();
@@ -2521,7 +2612,9 @@ fn screenshot() {
     app.offer_plugin_for("rlmud.org", "");
     offer.run_steps(3);
     save(&mut offer, "plugin-offer");
-    offer.state_mut().tab_mut().open_profile(1);
+    offer
+        .state_mut()
+        .open_settings(crate::app::Section::Plugins);
     offer.run_steps(4);
     save(&mut offer, "plugins-included");
 
@@ -2570,10 +2663,14 @@ fn screenshot() {
     std::fs::remove_dir_all(&dir).unwrap();
 
     let mut settings = demo_window();
-    settings.state_mut().open_settings(1);
+    settings
+        .state_mut()
+        .open_settings(crate::app::Section::Appearance);
     settings.run_steps(4);
     save(&mut settings, "settings");
-    settings.state_mut().open_settings(0);
+    settings
+        .state_mut()
+        .open_settings(crate::app::Section::General);
     settings.run_steps(4);
     save(&mut settings, "settings-general");
     // The same text in each of the fonts that come with the program.
@@ -2599,7 +2696,9 @@ fn screenshot() {
     let app = plugins.state_mut().tab_mut();
     app.profile = Some("Aardwolf".into());
     app.packages = vec!["aardwolf-mapper".into()];
-    plugins.state_mut().tab_mut().open_profile(1);
+    plugins
+        .state_mut()
+        .open_settings(crate::app::Section::Plugins);
     plugins.run_steps(4);
     save(&mut plugins, "plugins");
     std::fs::remove_dir_all(&dir).unwrap();

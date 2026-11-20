@@ -34,6 +34,7 @@ use muddie_sound::{self as sound, Msp, Player};
 
 mod automation;
 mod commands;
+mod profile_page;
 pub use commands::AppRequest;
 mod data;
 mod layout;
@@ -132,7 +133,6 @@ pub struct Tab {
     rules_draft: Rules,
     rules_open: bool,
     /// The connection window is showing.
-    connection_open: bool,
     /// A connection has been asked for at least once; until then the
     /// session shows the welcome screen.
     started: bool,
@@ -182,9 +182,16 @@ pub struct Tab {
     /// have not been looked at.
     notices: Vec<Notice>,
     notices_unread: usize,
-    /// Which page of the profile's window is shown: its connection or its
-    /// plugins.
-    profile_page: usize,
+    /// How its sessions go, kept with the profile: those of the settings
+    /// with none.
+    prefs: crate::profile::SessionPrefs,
+    /// The profile as it was last saved or loaded, and since when what
+    /// is in the fields differs from it.
+    profile_saved: Option<Profile>,
+    profile_changed_at: Option<Instant>,
+    /// Where and how the session connected, to tell when the profile's
+    /// fields say otherwise and connecting again would apply them.
+    connected_with: Option<String>,
     /// The connection is being closed to be opened again.
     reconnect_wanted: bool,
     palette_open: bool,
@@ -456,7 +463,6 @@ impl Tab {
             rules: Rules::default(),
             rules_draft: Rules::default(),
             rules_open: false,
-            connection_open: false,
             started: false,
             welcome_profiles: None,
             rules_selected: [0; 8],
@@ -477,7 +483,10 @@ impl Tab {
             protocols: Vec::new(),
             script_ran: None,
             reconnect_wanted: false,
-            profile_page: 0,
+            prefs: crate::profile::SessionPrefs::default(),
+            profile_saved: None,
+            profile_changed_at: None,
+            connected_with: None,
             undo: None,
             gauge_here: None,
             extras_added: (usize::MAX, Vec::new()),
@@ -585,6 +594,10 @@ impl Tab {
     /// Takes changed settings into account.
     pub fn settings_changed(&mut self, settings: &Settings) {
         self.settings = settings.clone();
+        // Without a profile, the session goes as the settings say.
+        if self.profile.is_none() {
+            self.prefs = crate::profile::SessionPrefs::from(settings);
+        }
         self.output
             .restyle(settings.scrollback_lines, settings.timestamps);
         for (_, content) in &mut self.panel_text {
@@ -604,108 +617,6 @@ impl Tab {
     }
 
     /// The part of the settings window that belongs to sessions.
-    pub fn settings_ui(ui: &mut egui::Ui, settings: &mut Settings, section: usize) {
-        use crate::widgets::{group, setting_row as row, switch_setting as switch_row};
-        if section == 1 {
-            group(ui, |ui| {
-                row(ui, tr("Scrollback lines"), &mut |ui| {
-                    ui.add(
-                        crate::widgets::number(&mut settings.scrollback_lines)
-                            .range(100..=1_000_000)
-                            .speed(100),
-                    )
-                });
-                switch_row(
-                    ui,
-                    &mut settings.timestamps,
-                    tr("Show the time of each line"),
-                );
-            });
-        }
-        if section == 2 {
-            group(ui, |ui| {
-                switch_row(
-                    ui,
-                    &mut settings.keep_command,
-                    tr("Keep the command after sending it"),
-                )
-                .on_hover_text(tr(
-                    "It stays selected: Enter sends it again, and typing replaces it.",
-                ));
-                switch_row(
-                    ui,
-                    &mut settings.media_downloads,
-                    tr("Download the sounds a MUD asks to play"),
-                );
-                switch_row(ui, &mut settings.log_sessions, tr("Log every session"));
-                row(ui, tr("Log format"), &mut |ui| {
-                    let name = |format: LogFormat| match format {
-                        LogFormat::Text => tr("Text"),
-                        LogFormat::Html => "HTML",
-                    };
-                    crate::widgets::dropdown("log format")
-                        .selected_text(name(settings.log_format))
-                        .width(110.0)
-                        .show_ui(ui, |ui| {
-                            for format in [LogFormat::Text, LogFormat::Html] {
-                                crate::widgets::choice_value(
-                                    ui,
-                                    &mut settings.log_format,
-                                    format,
-                                    name(format),
-                                );
-                            }
-                        })
-                        .response
-                });
-                switch_row(
-                    ui,
-                    &mut settings.reconnect,
-                    tr("Reconnect when the connection is lost"),
-                );
-                row(ui, tr("Keep-alive"), &mut |ui| {
-                    ui.add(
-                        crate::widgets::number(&mut settings.keepalive_seconds)
-                            .range(0..=3600)
-                            .suffix(" s"),
-                    )
-                    .on_hover_text(tr(
-                        "Seconds of silence before a keep-alive is sent; 0 sends none.",
-                    ))
-                });
-            });
-        }
-        if section == 3 {
-            group(ui, |ui| {
-                row(ui, tr("Speech rate"), &mut |ui| {
-                    ui.add(crate::widgets::slider(
-                        &mut settings.speech_rate,
-                        -100..=100,
-                    ))
-                });
-                row(ui, tr("Speech language"), &mut |ui| {
-                    ui.add(
-                    TextEdit::singleline(&mut settings.speech_language)
-                        .hint_text(tr("system"))
-                        .margin(egui::Margin::symmetric(9, 6))
-                        .desired_width(110.0),
-                )
-                .on_hover_text(tr(
-                    "A language code such as es or en, so the text is read with the right voice.",
-                ))
-                });
-                switch_row(
-                ui,
-                &mut settings.announce_with_screen_reader,
-                tr("Voice through the screen reader (also braille)"),
-            )
-            .on_hover_text(tr(
-                "Instead of speaking directly, hand each line to the screen reader to announce.",
-            ));
-            });
-        }
-    }
-
     /// Starts the script runtime afresh and runs the user's scripts: the
     /// general one, the profile's packages and scripts, and those given on
     /// the command line.
@@ -906,7 +817,10 @@ impl Tab {
             self.included_off = profile.included_off;
             self.included_declined = profile.included_declined;
             self.voice.set_enabled(profile.speech);
+            self.prefs = (profile.session)
+                .unwrap_or_else(|| crate::profile::SessionPrefs::from(&self.settings));
         } else {
+            self.prefs = crate::profile::SessionPrefs::from(&self.settings);
             self.packages.clear();
             self.included_on.clear();
             self.included_off.clear();
@@ -915,6 +829,8 @@ impl Tab {
         self.plugin_offer = None;
         self.profile_name = name.clone().unwrap_or_default();
         self.profile = name;
+        self.profile_saved = self.profile_now();
+        self.profile_changed_at = None;
         self.load_layout();
         self.load_scripts();
         true
@@ -928,30 +844,18 @@ impl Tab {
                 "Profiles cannot be saved: no configuration folder was found.",
             ));
         };
-        let Ok(port) = self.port.trim().parse::<u16>() else {
+        let Some(mut profile) = self.profile_now() else {
             return self.note(tr("The port must be a number from 1 to 65535."));
         };
-        let profile = Profile {
-            host: self.host.trim().to_owned(),
-            port,
-            tls: self.tls,
-            verify_certificate: self.verify_certificate,
-            speech: self.voice.enabled(),
-            character: self.character.trim().to_owned(),
-            encoding: self.encoding.trim().to_owned(),
-            included_on: self.included_on.clone(),
-            included_off: self.included_off.clone(),
-            included_declined: self.included_declined.clone(),
-            // A profile saved under a new name starts without packages.
-            packages: if self.profile.as_deref() == Some(&name) {
-                self.packages.clone()
-            } else {
-                Vec::new()
-            },
-        };
+        // A profile saved under a new name starts without packages.
+        if self.profile.as_deref() != Some(&name) {
+            profile.packages.clear();
+        }
         match profiles.save(&name, &profile) {
             Ok(()) => {
                 let renamed = self.profile.as_deref() != Some(&name);
+                self.profile_saved = Some(profile.clone());
+                self.profile_changed_at = None;
                 self.packages = profile.packages;
                 self.profile = Some(name.clone());
                 if renamed {
@@ -996,7 +900,7 @@ impl Tab {
         self.user_disconnected = false;
         self.reconnect_at = None;
         self.started = true;
-        self.connection_open = false;
+        self.connected_with = Some(self.connection_key());
         self.note(&trf(
             "Connecting to {0}:{1}...",
             &[&host.to_string(), &port.to_string()],
@@ -1338,11 +1242,7 @@ impl Tab {
         let Some(profiles) = &self.profiles else {
             return self.note(tr("Cannot log: no configuration folder was found."));
         };
-        match SessionLog::start(
-            &profiles.logs_dir(),
-            &self.title(),
-            self.settings.log_format,
-        ) {
+        match SessionLog::start(&profiles.logs_dir(), &self.title(), self.prefs.log_format) {
             Ok(log) => {
                 let path = log.path().display().to_string();
                 self.log = Some(log);
@@ -1369,7 +1269,7 @@ impl Tab {
                     self.trace_sent = Some(false);
                     self.reconnect_attempts = 0;
                     self.last_activity = Instant::now();
-                    if self.settings.log_sessions && self.log.is_none() {
+                    if self.prefs.log_sessions && self.log.is_none() {
                         self.start_log();
                     }
                     self.note(tr("Connected."));
@@ -1557,7 +1457,7 @@ impl Tab {
                         Some(error) => trf("Disconnected: {0}", &[error]),
                         None => tr("Disconnected.").to_owned(),
                     });
-                    if lost && self.settings.reconnect {
+                    if lost && self.prefs.reconnect {
                         let wait =
                             Duration::from_secs(2u64.pow(self.reconnect_attempts.min(5)).min(60));
                         self.reconnect_attempts += 1;
@@ -1917,7 +1817,7 @@ impl Tab {
                 ctx.request_repaint_after(at - now);
             }
         }
-        let keepalive = Duration::from_secs(self.settings.keepalive_seconds.into());
+        let keepalive = Duration::from_secs(self.prefs.keepalive_seconds.into());
         if let (Some(connection), false) = (&self.connection, keepalive.is_zero()) {
             let idle = now.saturating_duration_since(self.last_activity);
             if idle >= keepalive {
@@ -2106,7 +2006,7 @@ impl Tab {
             .media_jobs
             .iter()
             .any(|(_, known, _)| *known == address);
-        if !self.settings.media_downloads || busy || self.media_missing.contains(&address) {
+        if !self.prefs.media_downloads || busy || self.media_missing.contains(&address) {
             return;
         }
         let Some(cache) = crate::media::cache_dir() else {
