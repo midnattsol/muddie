@@ -1,0 +1,98 @@
+//! What the scripts keep: their variables and groups, and what the client
+//! asks of them.
+
+use super::*;
+
+impl Engine {
+    /// Keeps the values of `remember` in `file`, loading what it holds.
+    pub fn use_memory_file(&mut self, file: PathBuf) {
+        let loaded = match std::fs::read_to_string(&file) {
+            Ok(text) => serde_json::from_str(&text).map_err(|error| error.to_string()),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(Default::default()),
+            Err(error) => Err(error.to_string()),
+        };
+        let mut state = self.state.borrow_mut();
+        match loaded {
+            Ok(memory) => {
+                state.memory = memory;
+                state.memory_file = Some(file);
+            }
+            // Left unset, so the unreadable file is not overwritten.
+            Err(error) => {
+                let message = format!(
+                    "remembered values not loaded from {}: {error}",
+                    file.display()
+                );
+                state.actions.push(Action::Error(message));
+            }
+        }
+    }
+
+    /// The remembered values, by name, in alphabetical order.
+    pub fn variables(&self) -> Vec<(String, serde_json::Value)> {
+        let state = self.state.borrow();
+        let mut all: Vec<(String, serde_json::Value)> = (state.memory.iter())
+            .map(|(name, value)| (name.clone(), value.clone()))
+            .collect();
+        all.sort_by_key(|(name, _)| name.to_lowercase());
+        all
+    }
+
+    /// Remembers a value, or forgets it if given none, and saves.
+    pub fn set_variable(
+        &mut self,
+        name: &str,
+        value: Option<serde_json::Value>,
+    ) -> Result<(), String> {
+        let mut state = self.state.borrow_mut();
+        match value {
+            Some(value) => {
+                state.memory.insert(name.to_owned(), value);
+            }
+            None => {
+                state.memory.remove(name);
+            }
+        }
+        state.save_memory()
+    }
+
+    /// The groups there are: those anything belongs to, and those
+    /// switched off.
+    pub fn groups(&self) -> Vec<String> {
+        self.state.borrow().group_names()
+    }
+
+    /// Whether a group is on, as every group is until it is switched off.
+    pub fn group_enabled(&self, group: &str) -> bool {
+        !self.state.borrow().disabled_groups.contains(group)
+    }
+
+    /// Switches a group on or off.
+    pub fn set_group(&mut self, group: &str, enabled: bool) {
+        let disabled = &mut self.state.borrow_mut().disabled_groups;
+        if enabled {
+            disabled.remove(group);
+        } else {
+            disabled.insert(group.to_owned());
+        }
+    }
+
+    /// Whether the built-in map loader should run, which it does unless a
+    /// script turned it off with `map.native(false)`.
+    pub fn native_map(&self) -> bool {
+        !self.state.borrow().map_native_off
+    }
+
+    /// Whether the map should be saved to a file, which it is unless a
+    /// script chose otherwise with `map.persist(false)`.
+    pub fn persist_map(&self) -> bool {
+        !self.state.borrow().map_memory_only
+    }
+
+    /// Tells scripts how many characters fit across and down the panel
+    /// called `name`, for `panel_size`.
+    pub fn set_panel_size(&mut self, name: &str, columns: u32, rows: u32) {
+        let sizes = &mut self.state.borrow_mut().panel_sizes;
+        sizes.insert(name.trim().to_lowercase(), (columns, rows));
+    }
+}

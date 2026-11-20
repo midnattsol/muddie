@@ -1,0 +1,178 @@
+//! What the MUD sends besides text, and what scripts make of it.
+
+use super::*;
+
+#[test]
+fn gmcp_data_reaches_handlers_and_is_remembered() {
+    let mut engine = engine(
+        r#"on_gmcp("char", function(data, package) echo(`{package}: {data.hp}/{data.maxhp}`) end)
+        on_gmcp("Char.Vitals", function(data) gauge("HP", data.hp, data.maxhp) end)
+        on_gmcp("Room.Info", function(data) echo(`{data.name} {#data.exits} {data.area}`) end)"#,
+    );
+    engine.on_gmcp("Char.Vitals", r#"{"hp": 80, "maxhp": 100}"#);
+    assert_eq!(
+        engine.take_actions(),
+        [
+            Action::Echo("Char.Vitals: 80/100".into()),
+            Action::Gauge {
+                name: "HP".into(),
+                level: Some((80.0, 100.0)),
+                look: GaugeLook::default(),
+            },
+        ]
+    );
+    engine.on_gmcp(
+        "Room.Info",
+        r#"{"name": "Plaza", "exits": ["n", "s"], "area": null}"#,
+    );
+    assert_eq!(engine.take_actions(), [Action::Echo("Plaza 2 nil".into())]);
+    // Packages that only share a prefix are not "under" the handler's.
+    engine.on_gmcp("Charms.List", "[]");
+    engine.on_gmcp("Core.Ping", "");
+    assert_eq!(engine.take_actions(), []);
+
+    engine.on_input("/lua echo(`{gmcp('char.vitals').hp} {gmcp('Nope')} {gmcp('Core.Ping')}`)");
+    assert_eq!(engine.take_actions(), [Action::Echo("80 nil nil".into())]);
+    engine.on_gmcp("Char.Vitals", "{not json");
+    assert!(error_text(&engine.take_actions()).contains("bad data for Char.Vitals"));
+}
+
+#[test]
+fn scripts_can_send_gmcp_and_drive_panels() {
+    let mut engine = engine("");
+    engine.exec(
+        "test",
+        r#"send_gmcp("Core.Ping")
+        send_gmcp("Core.Supports.Add", {"Char.Items 1"})
+        send_gmcp("Char.Login", {name = "ana"})
+        gauge("HP")
+        chat("Ana: hola")
+        map.walk(42)"#,
+    );
+    let gmcp = |package: &str, data: &str| Action::Gmcp {
+        package: package.into(),
+        data: data.into(),
+    };
+    assert_eq!(
+        engine.take_actions(),
+        [
+            gmcp("Core.Ping", ""),
+            gmcp("Core.Supports.Add", r#"["Char.Items 1"]"#),
+            gmcp("Char.Login", r#"{"name":"ana"}"#),
+            Action::Gauge {
+                name: "HP".into(),
+                level: None,
+                look: GaugeLook::default(),
+            },
+            Action::Chat("Ana: hola".into()),
+            Action::Walk(42),
+        ]
+    );
+    engine.exec("test", r#"gauge("HP", 5)"#);
+    assert!(error_text(&engine.take_actions()).contains("both a value and a max"));
+}
+
+#[test]
+fn msdp_and_mssp_are_available_to_scripts() {
+    let mut engine = engine(
+        r#"on_msdp("HEALTH", function(value, name) echo(`{name}={value}`) end)
+        on_gmcp("health", function() echo("wrong kind") end)"#,
+    );
+    engine.on_msdp("HEALTH", r#""80""#);
+    engine.on_msdp("ROOM", r#"{"VNUM":"7","EXITS":{"n":"8"}}"#);
+    engine.on_mssp(&[("NAME".into(), "FakeMUD".into())]);
+    assert_eq!(engine.take_actions(), [Action::Echo("HEALTH=80".into())]);
+    engine.exec(
+        "test",
+        r#"echo(`{msdp("room").EXITS.n} {gmcp("room")} {mssp().NAME} {mssp().PLAYERS}`)
+        send_msdp("REPORT", "HEALTH", "MANA")"#,
+    );
+    assert_eq!(
+        engine.take_actions(),
+        [
+            Action::Echo("8 nil FakeMUD nil".into()),
+            Action::Msdp {
+                variable: "REPORT".into(),
+                values: vec!["HEALTH".into(), "MANA".into()]
+            },
+        ]
+    );
+}
+
+#[test]
+fn client_events_modules_and_completions() {
+    let mut engine = Engine::new(Rc::default()).unwrap();
+    engine.exec(
+        "test",
+        r#"
+        supports("Map.Render 1", "Dev 1")
+        on_event("panel", function(size) echo(size.columns .. "x" .. size.rows) end)
+        on_event("connect", function() echo("in") end)
+        completions("cmds", {"north", "look"})
+        completions("cmds")
+        "#,
+    );
+    engine.on_event("panel", r#"{"columns": 40, "rows": 30}"#);
+    engine.on_event("connect", "");
+    assert_eq!(
+        engine.take_actions(),
+        [
+            Action::Supports(vec!["Map.Render 1".into(), "Dev 1".into()]),
+            Action::Completions {
+                name: "cmds".into(),
+                words: vec!["north".into(), "look".into()]
+            },
+            Action::Completions {
+                name: "cmds".into(),
+                words: Vec::new()
+            },
+            Action::Echo("40x30".into()),
+            Action::Echo("in".into()),
+        ]
+    );
+    // A package of the same name from the server is not the event.
+    engine.on_gmcp("panel", r#"{"columns": 1, "rows": 1}"#);
+    assert_eq!(engine.take_actions(), []);
+}
+
+#[test]
+fn sounds_are_requested_with_their_options() {
+    let mut engine = engine("");
+    engine.exec(
+        "test",
+        r#"play("alert.ogg") play("rain.ogg", {volume = 4, loop = true}) stop_sounds()"#,
+    );
+    let sound = |file: &str, volume, looped| Action::PlaySound {
+        file: file.into(),
+        volume,
+        looped,
+    };
+    assert_eq!(
+        engine.take_actions(),
+        [
+            sound("alert.ogg", 1.0, false),
+            sound("rain.ogg", 1.0, true),
+            Action::StopSounds
+        ]
+    );
+}
+
+#[test]
+fn the_size_of_a_panel_can_be_asked_for() {
+    let mut engine = engine(
+        r#"alias("^size (\\S+)$", function(m)
+            local size = panel_size(m[1] ~= "map" and m[1] or nil)
+            send(size and (size.columns .. "x" .. size.rows) or "none")
+        end)"#,
+    );
+    engine.on_input("size map");
+    engine.set_panel_size("Map", 42, 20);
+    engine.set_panel_size("Radar", 12, 6);
+    engine.on_input("size map");
+    engine.on_input("size radar");
+    engine.on_input("size other");
+    assert_eq!(
+        engine.take_actions(),
+        [send("none"), send("42x20"), send("12x6"), send("none")]
+    );
+}

@@ -1,0 +1,255 @@
+//! Triggers, aliases, groups, keys and timers.
+
+use super::*;
+
+#[test]
+fn trigger_gets_groups_and_the_line() {
+    let mut engine = engine(
+        r#"trigger("^(?<who>\\w+) tells you: (.*)$", function(m, line)
+            send(`reply {m.who} got {m[2]}`)
+            echo(m[0] == line and "whole" or "partial")
+        end)"#,
+    );
+    assert!(engine.on_line("Ana tells you: hola"));
+    assert_eq!(
+        engine.take_actions(),
+        [send("reply Ana got hola"), Action::Echo("whole".into())]
+    );
+    assert!(engine.on_line("Nothing here"));
+    assert_eq!(engine.take_actions(), []);
+}
+
+#[test]
+fn gag_hides_only_the_line_that_fired() {
+    let mut engine = engine(r#"trigger("spam", function() gag() end)"#);
+    assert!(!engine.on_line("some spam here"));
+    assert!(engine.on_line("a normal line"));
+}
+
+#[test]
+fn alias_replaces_input_and_its_sends_are_not_expanded() {
+    let mut engine =
+        engine(r#"alias("^k (.+)$", function(m) send("k " .. m[1]) send("kill " .. m[1]) end)"#);
+    engine.on_input("k orc");
+    assert_eq!(engine.take_actions(), [send("k orc"), send("kill orc")]);
+    engine.on_input("look");
+    assert_eq!(engine.take_actions(), [send("look")]);
+}
+
+#[test]
+fn timers_fire_repeat_and_cancel() {
+    let mut engine = engine(
+        r#"after(1, function() send("once") end)
+        ticker = every(2, function() send("tick") end)
+        alias("^stop$", function() echo(tostring(cancel(ticker))) end)"#,
+    );
+    let start = Instant::now();
+    let at = |seconds: f64| start + Duration::from_secs_f64(seconds);
+    engine.tick(at(0.5));
+    assert_eq!(engine.take_actions(), []);
+    engine.tick(at(1.5));
+    assert_eq!(engine.take_actions(), [send("once")]);
+    engine.tick(at(2.5));
+    engine.tick(at(3.0));
+    assert_eq!(engine.take_actions(), [send("tick")]);
+    engine.tick(at(5.0));
+    assert_eq!(engine.take_actions(), [send("tick")]);
+    assert!(engine.next_deadline().is_some());
+    engine.on_input("stop");
+    assert_eq!(engine.take_actions(), [Action::Echo("true".into())]);
+    assert_eq!(engine.next_deadline(), None);
+}
+
+#[test]
+fn callbacks_may_change_triggers_while_a_line_is_dispatched() {
+    let mut engine = engine(
+        r#"local second
+        trigger("go", function() cancel(second) trigger("go", function() send("late") end) end)
+        second = trigger("go", function() send("never") end)"#,
+    );
+    engine.on_line("go");
+    assert_eq!(engine.take_actions(), []);
+    engine.on_line("go");
+    assert_eq!(engine.take_actions(), [send("late")]);
+}
+
+#[test]
+fn several_commands_on_one_line_each_go_through_aliases() {
+    let mut engine = engine(r#"alias("^k (.+)$", function(m) send("kill " .. m[1]) end)"#);
+    engine.on_input("n; k orc ;say hi;; bye;");
+    assert_eq!(
+        engine.take_actions(),
+        [send("n"), send("kill orc"), send("say hi; bye"), send("")]
+    );
+    engine.on_input("");
+    assert_eq!(engine.take_actions(), [send("")]);
+    engine.on_input("/lua separator('|')");
+    engine.on_input("n|s;e");
+    assert_eq!(engine.take_actions(), [send("n"), send("s;e")]);
+    engine.on_input("/lua separator(nil)");
+    engine.on_input("n|s;e");
+    assert_eq!(engine.take_actions(), [send("n|s;e")]);
+}
+
+#[test]
+fn groups_switch_triggers_off_and_once_fires_a_single_time() {
+    let mut engine = engine(
+        r#"trigger("hit", function() send("flee") end, {group = "combat"})
+        trigger("hit", function() send("first blood") end, {once = true})
+        alias("^x$", function() send("special") end, {group = "combat"})"#,
+    );
+    engine.on_line("you are hit");
+    assert_eq!(engine.take_actions(), [send("flee"), send("first blood")]);
+    engine.on_input("/lua enable('combat', false)");
+    engine.on_line("you are hit");
+    engine.on_input("x");
+    assert_eq!(engine.take_actions(), [send("x")]);
+    engine.on_input("/lua enable('combat', true)");
+    engine.on_line("you are hit");
+    engine.on_input("x");
+    assert_eq!(engine.take_actions(), [send("flee"), send("special")]);
+}
+
+#[test]
+fn trigger_can_read_the_colours_of_its_line() {
+    use muddie_core::{Span, Style};
+    let mut engine = engine(
+        r#"trigger("orc", function()
+            local parts = {}
+            for _, span in line_spans() do
+                table.insert(parts, `{span.text}:{span.fg}:{span.bold}`)
+            end
+            echo(table.concat(parts, "|") .. " " .. #line_spans())
+        end)"#,
+    );
+    let span = |text: &str, style: Style| Span {
+        text: text.into(),
+        style,
+    };
+    let line = Line {
+        spans: vec![
+            span("An ", Style::default()),
+            span(
+                "orc",
+                Style {
+                    fg: Color::Indexed(1),
+                    bold: true,
+                    ..Style::default()
+                },
+            ),
+            span(
+                "!",
+                Style {
+                    fg: Color::Rgb(255, 128, 0),
+                    ..Style::default()
+                },
+            ),
+        ],
+        links: Vec::new(),
+        dest: None,
+    };
+    assert_eq!(engine.on_styled_line(&line), Some(line.clone()));
+    assert_eq!(
+        engine.take_actions(),
+        [Action::Echo(
+            "An :nil:false|orc:1:true|!:#ff8000:false 3".into()
+        )]
+    );
+    // Outside a trigger there is no line to describe.
+    engine.on_input("/lua echo(tostring(#line_spans()))");
+    assert_eq!(engine.take_actions(), [Action::Echo("0".into())]);
+}
+
+#[test]
+fn trigger_can_recolour_its_match_or_gag_the_line() {
+    use muddie_core::{Span, Style};
+    let mut engine = engine(
+        r##"trigger("An (\\w+)", function() highlight("bright yellow", "#102030") end)
+        trigger("^secret", function() gag() end)"##,
+    );
+    let plain = |text: &str| Line {
+        spans: vec![Span {
+            text: text.into(),
+            style: Style::default(),
+        }],
+        links: Vec::new(),
+        dest: None,
+    };
+    let shown = engine.on_styled_line(&plain("An orc!")).unwrap();
+    let styles: Vec<(&str, Color, Color)> = (shown.spans.iter())
+        .map(|span| (span.text.as_str(), span.style.fg, span.style.bg))
+        .collect();
+    assert_eq!(
+        styles,
+        [
+            ("An orc", Color::Indexed(11), Color::Rgb(0x10, 0x20, 0x30)),
+            ("!", Color::Default, Color::Default),
+        ]
+    );
+    assert_eq!(engine.on_styled_line(&plain("secret plans")), None);
+    engine.on_input("/lua highlight('plaid')");
+    assert!(error_text(&engine.take_actions()).contains("a colour is"));
+}
+
+#[test]
+fn keys_run_their_binding() {
+    let mut engine = engine(
+        r#"bind("F5", "look;inventory")
+        bind("Shift + CTRL+k", function() send("kick") end)"#,
+    );
+    assert!(engine.on_key("f5"));
+    assert!(engine.on_key("ctrl+shift+k"));
+    assert!(!engine.on_key("f6"));
+    assert_eq!(
+        engine.take_actions(),
+        [send("look"), send("inventory"), send("kick")]
+    );
+    engine.on_input("/lua echo(`{unbind('f5')} {unbind('f5')}`)");
+    assert!(!engine.on_key("f5"));
+    assert_eq!(engine.take_actions(), [Action::Echo("true false".into())]);
+    assert_eq!(key_name("Shift+Alt+Ctrl+Enter"), "ctrl+alt+shift+enter");
+}
+
+#[test]
+fn groups_cover_keys_and_timers_and_are_told_about() {
+    let mut engine = engine(
+        r#"
+        trigger("hit", function() send("flee") end, {group = "combat"})
+        bind("f1", "kick", {group = "combat"})
+        bind("f1", "look", {group = "explore"})
+        bind("f2", "score")
+        every(1, function() send("tick") end, {group = "combat"})
+        group.disable("combat")
+        "#,
+    );
+    assert_eq!(engine.groups(), ["combat", "explore"]);
+    assert!(!engine.group_enabled("combat") && engine.group_enabled("explore"));
+    // The same key does what its live group says, or nothing at all.
+    assert!(engine.on_key("f1"));
+    assert_eq!(engine.take_actions(), [send("look")]);
+    engine.set_group("explore", false);
+    assert!(!engine.on_key("f1"), "the key is left to be typed");
+    assert!(engine.on_key("f2"));
+    engine.take_actions();
+    // A timer whose group is off lets its turns pass, and comes back.
+    let start = Instant::now();
+    engine.tick(start + Duration::from_millis(1100));
+    assert_eq!(engine.take_actions(), []);
+    engine.exec(
+        "t",
+        r#"echo(tostring(group.toggle("combat")) .. tostring(group.enabled("combat")))"#,
+    );
+    assert_eq!(engine.take_actions(), [Action::Echo("truetrue".into())]);
+    engine.tick(start + Duration::from_millis(2200));
+    assert_eq!(engine.take_actions(), [send("tick")]);
+    assert!(engine.on_key("f1"));
+    assert_eq!(engine.take_actions(), [send("kick")]);
+}
+
+#[test]
+fn failing_repeating_timer_is_dropped() {
+    let mut engine = engine(r#"every(1, function() error("bad") end)"#);
+    engine.tick(Instant::now() + Duration::from_secs(2));
+    assert!(error_text(&engine.take_actions()).contains("bad"));
+    assert_eq!(engine.next_deadline(), None);
+}
