@@ -526,9 +526,6 @@ msgstr "Colorear la coincidencia"
 msgid "Try it"
 msgstr "Pruébalo"
 
-msgid "Paste a line from the MUD"
-msgstr "Pega una línea del MUD"
-
 msgid "sends"
 msgstr "envía"
 
@@ -1097,9 +1094,6 @@ msgstr "Valor"
 msgid "About Muddie"
 msgstr "Acerca de Muddie"
 
-msgid "With the line hidden, it is only in the panel. Panels are made in Preferences, Edit the layout."
-msgstr "Con la línea oculta, solo sale en el panel. Los paneles se crean en Preferencias, Editar la disposición."
-
 msgid "This session has no saved profile, so its variables last until it is closed. Save the profile, in Session, Connection, to keep them."
 msgstr "Esta sesión no tiene un perfil guardado, así que sus variables duran hasta que se cierre. Guarda el perfil, en Sesión, Conexión, para conservarlas."
 
@@ -1509,3 +1503,24 @@ msgstr "Borrado: {0}."
 
 msgid "Undo"
 msgstr "Deshacer"
+
+
+msgid "Contains"
+msgstr "Contiene"
+
+msgid "Paste a line from the MUD to try it"
+msgstr "Pega una línea del MUD para probarlo"
+
+msgid "Choose a panel"
+msgstr "Elige un panel"
+
+#, python-brace-format
+msgid "Remove “{0}”"
+msgstr "Quitar «{0}»"
+
+msgid "With the line hidden, it is only in the panel."
+msgstr "Con la línea oculta, solo está en el panel."
+
+msgid "+ Add an action"
+msgstr "+ Añadir una acción"
+

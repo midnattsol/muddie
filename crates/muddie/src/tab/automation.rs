@@ -67,6 +67,28 @@ pub(super) enum Undone {
     Nothing,
 }
 
+/// What a trigger can do besides its commands.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum Extra {
+    Say,
+    Sound,
+    Colour,
+    Hide,
+    Panel,
+}
+
+impl Extra {
+    fn label(self) -> &'static str {
+        match self {
+            Extra::Say => tr("Say"),
+            Extra::Sound => tr("Play a sound"),
+            Extra::Colour => tr("Colour the match"),
+            Extra::Hide => tr("Hide the line"),
+            Extra::Panel => tr("Show it in the panel"),
+        }
+    }
+}
+
 impl Tab {
     /// Opens the automation window on one of its sections.
     pub fn open_automation(&mut self, section: usize) {
@@ -1112,6 +1134,10 @@ impl Tab {
             .collect();
         let groups = self.rules_draft.group_names();
         let height = self.detail_height;
+        // What else it does that was asked for here, though still empty.
+        if self.extras_added.0 != index {
+            self.extras_added = (index, Vec::new());
+        }
         let rule = &mut self.rules_draft.triggers[index];
         let delete = rule_header(
             ui,
@@ -1120,96 +1146,25 @@ impl Tab {
             tr("Name this trigger"),
         );
         group_row(ui, &mut rule.group, &groups);
+
+        // When: how the pattern is read, the pattern, and a line to try
+        // it on with what it would do, all together.
         widgets::caption(ui, tr("When"));
+        let kinds = [tr("Contains"), tr("Regular expression")];
+        if let Some(kind) = widgets::segmented(ui, &kinds, usize::from(rule.regex)) {
+            rule.regex = kind == 1;
+        }
         let label = if rule.regex {
             tr("A line matches this regular expression")
         } else {
             tr("A line contains this text")
         };
         widgets::field(ui, label, &mut rule.pattern, tr("tells you"));
-        widgets::switch_row(ui, &mut rule.regex, tr("Regular expression"));
-        ui.add_space(6.0);
-        let mistake = if rule.lua {
-            self.checks.of(&self.scripts, &rule.script)
-        } else {
-            None
-        };
-        action_block(
+        widgets::text_box(
             ui,
-            Action {
-                lua: &mut rule.lua,
-                commands: &mut rule.send,
-                script: &mut rule.script,
-                matched: true,
-                commands_hint: "kill %1\nloot",
-                script_hint: "if m[1] ~= \"you\" then\n\tsend(\"assist \" .. m[1])\nend",
-                about_commands: tr("One command per line. %1, %2… are the groups of the pattern."),
-                about_script: tr("m holds the match, line the whole line."),
-            },
-            script_rows(height, 560.0),
-            mistake.as_ref(),
+            &mut self.rules_sample,
+            tr("Paste a line from the MUD to try it"),
         );
-        ui.add_space(6.0);
-        widgets::caption(ui, tr("Also"));
-        ui.columns(2, |columns| {
-            widgets::field(
-                &mut columns[0],
-                tr("Say"),
-                &mut rule.speak,
-                tr("%1 is here"),
-            );
-            widgets::field(
-                &mut columns[1],
-                tr("Play a sound"),
-                &mut rule.sound,
-                "alert.ogg",
-            );
-        });
-        ui.columns(2, |columns| {
-            widgets::field(
-                &mut columns[0],
-                tr("Colour the match"),
-                &mut rule.highlight,
-                "yellow, #ffcc00",
-            );
-            columns[1].add_space(22.0);
-            widgets::switch_row(&mut columns[1], &mut rule.gag, tr("Hide the line"));
-        });
-        ui.horizontal(|ui| {
-            let name = ui
-                .label(RichText::new(tr("Show it in the panel")).color(theme::current().text_dim));
-            let shown = if rule.panel.trim().is_empty() {
-                tr("None").to_owned()
-            } else {
-                rule.panel.clone()
-            };
-            crate::widgets::dropdown("trigger panel")
-                .selected_text(shown)
-                .width(200.0)
-                .show_ui(ui, |ui| {
-                    if crate::widgets::choice(ui, rule.panel.trim().is_empty(), tr("None"))
-                        .clicked()
-                    {
-                        rule.panel.clear();
-                    }
-                    for panel in &text_panels {
-                        if crate::widgets::choice(ui, rule.panel == *panel, panel).clicked() {
-                            rule.panel.clone_from(panel);
-                        }
-                    }
-                })
-                .response
-                .labelled_by(name.id);
-        });
-        note(
-            ui,
-            tr(
-                "With the line hidden, it is only in the panel. Panels are made in Preferences, Edit the layout.",
-            ),
-        );
-        ui.add_space(6.0);
-        widgets::caption(ui, tr("Try it"));
-        widgets::text_box(ui, &mut self.rules_sample, tr("Paste a line from the MUD"));
         let rule = &self.rules_draft.triggers[index];
         let outcome = try_pattern(&rule.regex_source(), &self.rules_sample, |captures| {
             let mut effects = Vec::new();
@@ -1231,6 +1186,148 @@ impl Tab {
             effects.join(" · ")
         });
         show_outcome(ui, outcome);
+        ui.add_space(6.0);
+
+        let rule = &mut self.rules_draft.triggers[index];
+        let mistake = if rule.lua {
+            self.checks.of(&self.scripts, &rule.script)
+        } else {
+            None
+        };
+        action_block(
+            ui,
+            Action {
+                lua: &mut rule.lua,
+                commands: &mut rule.send,
+                script: &mut rule.script,
+                matched: true,
+                commands_hint: "kill %1\nloot",
+                script_hint: "if m[1] ~= \"you\" then\n\tsend(\"assist \" .. m[1])\nend",
+                about_commands: tr("One command per line. %1, %2… are the groups of the pattern."),
+                about_script: tr("m holds the match, line the whole line."),
+            },
+            script_rows(height, 560.0),
+            mistake.as_ref(),
+        );
+        ui.add_space(6.0);
+
+        // Also: only what it does besides, each to take away again, and
+        // the rest to add.
+        let added = &mut self.extras_added.1;
+        let shown = |extra: Extra, set: bool| set || added.contains(&extra);
+        let visible = [
+            (Extra::Say, shown(Extra::Say, !rule.speak.trim().is_empty())),
+            (
+                Extra::Sound,
+                shown(Extra::Sound, !rule.sound.trim().is_empty()),
+            ),
+            (
+                Extra::Colour,
+                shown(Extra::Colour, !rule.highlight.trim().is_empty()),
+            ),
+            (Extra::Hide, shown(Extra::Hide, rule.gag)),
+            (
+                Extra::Panel,
+                shown(Extra::Panel, !rule.panel.trim().is_empty()),
+            ),
+        ];
+        if visible.iter().any(|(_, on)| *on) {
+            widgets::caption(ui, tr("Also"));
+        }
+        let mut removed = None;
+        for (extra, on) in visible {
+            if !on {
+                continue;
+            }
+            ui.horizontal(|ui| {
+                let field_width = (ui.available_width() - 40.0).max(120.0);
+                match extra {
+                    Extra::Say => {
+                        ui.set_width(field_width);
+                        widgets::field(ui, tr("Say"), &mut rule.speak, tr("%1 is here"));
+                    }
+                    Extra::Sound => {
+                        ui.set_width(field_width);
+                        widgets::field(ui, tr("Play a sound"), &mut rule.sound, "alert.ogg");
+                    }
+                    Extra::Colour => {
+                        ui.set_width(field_width);
+                        widgets::field(
+                            ui,
+                            tr("Colour the match"),
+                            &mut rule.highlight,
+                            "yellow, #ffcc00",
+                        );
+                    }
+                    Extra::Hide => {
+                        rule.gag = true;
+                        ui.label(RichText::new(tr("Hide the line")).color(theme::current().text));
+                    }
+                    Extra::Panel => {
+                        let name = ui.label(
+                            RichText::new(tr("Show it in the panel"))
+                                .color(theme::current().text_dim),
+                        );
+                        let chosen = match rule.panel.trim().is_empty() {
+                            true => tr("Choose a panel").to_owned(),
+                            false => rule.panel.clone(),
+                        };
+                        crate::widgets::dropdown("trigger panel")
+                            .selected_text(chosen)
+                            .width(200.0)
+                            .show_ui(ui, |ui| {
+                                for panel in &text_panels {
+                                    if crate::widgets::choice(ui, rule.panel == *panel, panel)
+                                        .clicked()
+                                    {
+                                        rule.panel.clone_from(panel);
+                                    }
+                                }
+                            })
+                            .response
+                            .labelled_by(name.id);
+                    }
+                }
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Max), |ui| {
+                    let what = trf("Remove “{0}”", &[extra.label()]);
+                    if widgets::close_button(ui, &what, 22.0).clicked() {
+                        removed = Some(extra);
+                    }
+                });
+            });
+        }
+        if let Some(extra) = removed {
+            added.retain(|known| *known != extra);
+            match extra {
+                Extra::Say => rule.speak.clear(),
+                Extra::Sound => rule.sound.clear(),
+                Extra::Colour => rule.highlight.clear(),
+                Extra::Hide => rule.gag = false,
+                Extra::Panel => rule.panel.clear(),
+            }
+        }
+        if rule.gag && !rule.panel.trim().is_empty() {
+            note(ui, tr("With the line hidden, it is only in the panel."));
+        }
+        let missing: Vec<Extra> = (visible.iter())
+            .filter(|(_, on)| !*on)
+            .map(|(extra, _)| *extra)
+            .collect();
+        if !missing.is_empty() {
+            let add = widgets::quiet_button(ui, tr("+ Add an action"));
+            egui::Popup::menu(&add).show(|ui| {
+                widgets::menu_width(ui);
+                for extra in missing {
+                    if widgets::menu_item(ui, extra.label(), "").clicked() {
+                        added.push(extra);
+                        if extra == Extra::Hide {
+                            rule.gag = true;
+                        }
+                        ui.close();
+                    }
+                }
+            });
+        }
         delete
     }
 

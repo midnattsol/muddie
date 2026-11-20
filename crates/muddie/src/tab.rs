@@ -172,6 +172,9 @@ pub struct Tab {
     /// When the scripts were last run from the editor, and what kept
     /// them from running, if anything did.
     script_ran: Option<(String, Option<String>)>,
+    /// The trigger whose details are shown, and what it was asked to do
+    /// besides its commands though that is still empty.
+    extras_added: (usize, Vec<automation::Extra>),
     /// What was last deleted in the editor, to have it back.
     undo: Option<automation::Undo>,
     /// What the client said, to be read again, and how many of those
@@ -474,6 +477,7 @@ impl Tab {
             reconnect_wanted: false,
             profile_page: 0,
             undo: None,
+            extras_added: (usize::MAX, Vec::new()),
             notices: Vec::new(),
             notices_unread: 0,
             palette_open: false,
