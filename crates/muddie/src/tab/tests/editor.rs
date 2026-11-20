@@ -128,14 +128,14 @@ fn a_script_switched_off_is_kept_and_not_run() {
     std::fs::create_dir_all(&scripts).unwrap();
     std::fs::write(
         scripts.join("keys.luau"),
-        r#"bind("f9", "kick", {group = "Combat"})"#,
+        r#"bind("f9", "kick", {tags = {"Combat"}})"#,
     )
     .unwrap();
     let mut harness = window(Some(profiles));
     harness.set_size(egui::vec2(1400.0, 800.0));
     let app = harness.state_mut().tab_mut();
     assert!(app.select_profile(Some("Test".into())));
-    assert_eq!(app.scripts.groups(), ["Combat"]);
+    assert_eq!(app.scripts.tags(), ["combat"]);
     // Switched off beside its name, it stops being run once saved...
     app.open_automation(automation::SCRIPTS);
     harness.run_steps(3);
@@ -153,9 +153,9 @@ fn a_script_switched_off_is_kept_and_not_run() {
     harness.run_steps(2);
     std::thread::sleep(Duration::from_millis(1000));
     harness.run_steps(3);
-    let app = harness.state().tab();
-    assert_eq!(app.rules.scripts_off, ["keys.luau"]);
-    assert!(app.scripts.groups().is_empty());
+    let app = harness.state_mut().tab_mut();
+    assert!(!app.rules.script("keys").enabled);
+    assert!(!app.scripts.on_key("f9"));
     // ...and is still there, to be switched on again.
     assert!(scripts.join("keys.luau").is_file());
     harness
@@ -164,7 +164,7 @@ fn a_script_switched_off_is_kept_and_not_run() {
     harness.run_steps(2);
     std::thread::sleep(Duration::from_millis(1000));
     harness.run_steps(3);
-    assert_eq!(harness.state().tab().scripts.groups(), ["Combat"]);
+    assert!(harness.state_mut().tab_mut().scripts.on_key("f9"));
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
@@ -207,13 +207,10 @@ fn saving_a_rule_or_a_script_leaves_what_the_other_scripts_keep() {
     // A rule is made and saved: it takes effect, and the scripts are
     // not run again for it.
     app.editor.draft = app.rules.clone();
-    app.editor.draft.aliases.push(Alias {
-        name: "hi".into(),
-        enabled: true,
-        pattern: "hi".into(),
-        send: "say hello".into(),
-        ..Alias::default()
-    });
+    app.editor.draft.aliases.push(alias("hi", |rule| {
+        rule.name = "hi".into();
+        rule.send = "say hello".into();
+    }));
     app.save_rules();
     assert_eq!(said(app, "cells"), "cells 2");
     let (_events, mut sent) = fake_connection(app);
@@ -255,7 +252,11 @@ fn saving_a_rule_or_a_script_leaves_what_the_other_scripts_keep() {
     // Switched off, a script is stopped; it can still be run by hand,
     // and running everything again starts it only if it is on.
     app.editor.draft = app.rules.clone();
-    app.editor.draft.scripts_off.push("other.luau".into());
+    app.editor.draft.set_script(crate::rules::ScriptEntry {
+        path: "other".into(),
+        enabled: false,
+        tags: Vec::new(),
+    });
     app.save_rules();
     let before = output_lines(app).len();
     app.scripts.on_input("v");
@@ -281,13 +282,10 @@ fn what_is_deleted_can_be_had_back() {
     let mut harness = window(None);
     harness.set_size(egui::vec2(1400.0, 800.0));
     let app = harness.state_mut().tab_mut();
-    app.rules.triggers.push(Trigger {
-        name: "Fight back".into(),
-        enabled: true,
-        pattern: "attacks you".into(),
-        send: "kill".into(),
-        ..Trigger::default()
-    });
+    app.rules.triggers.push(trigger("attacks you", |rule| {
+        rule.name = "Fight back".into();
+        rule.send = "kill".into();
+    }));
     app.scripts
         .set_variable("target", Some(serde_json::json!("orc")))
         .unwrap();
@@ -329,7 +327,7 @@ fn rules_made_in_the_window_are_saved_and_take_effect() {
     harness.get_by_label("Add").click();
     harness.run_steps(2);
     let app = harness.state_mut().tab_mut();
-    app.editor.draft.triggers[0].pattern = "you are hungry".into();
+    app.editor.draft.triggers[0].when.pattern = "you are hungry".into();
     app.editor.draft.triggers[0].send = "eat bread".into();
     // Edits are saved once they stop for a moment, with no button.
     harness.run_steps(2);
@@ -367,5 +365,93 @@ fn rules_made_in_the_window_are_saved_and_take_effect() {
         .unwrap();
     harness.run_steps(2);
     assert_eq!(sent.try_recv().unwrap(), Command::Send("eat bread".into()));
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn folders_and_tags_file_what_there_is_and_switch_it() {
+    let dir = std::env::temp_dir().join(format!("muddie-folders-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let profiles = Profiles::at(dir.clone());
+    profiles
+        .save("Test", &crate::profile::Profile::default())
+        .unwrap();
+    let scripts = profiles.scripts_dir("Test");
+    std::fs::create_dir_all(&scripts).unwrap();
+    std::fs::write(scripts.join("hunt.luau"), r#"bind("f9", "kick")"#).unwrap();
+    let mut harness = window(Some(profiles));
+    harness.set_size(egui::vec2(1400.0, 800.0));
+    let app = harness.state_mut().tab_mut();
+    assert!(app.select_profile(Some("Test".into())));
+    app.rules
+        .triggers
+        .push(trigger("attacks you", |rule| rule.send = "parry".into()));
+    app.open_automation(automation::TRIGGERS);
+    harness.run_steps(3);
+    // A folder is made, and named as it is made.
+    harness.get_by_label("New folder").click();
+    harness.run_steps(3);
+    let app = harness.state_mut().tab_mut();
+    app.editor.renaming.as_mut().expect("being named").typed = "Combat".into();
+    harness.run_steps(1);
+    harness.key_press(Key::Enter);
+    harness.run_steps(3);
+    let app = harness.state_mut().tab_mut();
+    assert_eq!(app.section_folders(Kind::Trigger), ["Combat"]);
+    // The trigger goes in it, and switched off with it, it does not run.
+    app.editor.draft.triggers[0].folder = "Combat".into();
+    harness.run_steps(2);
+    harness
+        .get_by_role_and_label(egui::accesskit::Role::Switch, "Combat")
+        .click();
+    harness.run_steps(2);
+    let app = harness.state_mut().tab_mut();
+    app.close_automation();
+    assert!(!app.rules.folder_on(Kind::Trigger, "Combat"));
+    let (_events, mut sent) = fake_connection(app);
+    app.scripts.on_line("An orc attacks you");
+    app.run_actions();
+    assert!(
+        sent.try_recv().is_err(),
+        "a trigger in a folder switched off ran"
+    );
+    // Its details say why.
+    app.open_automation(automation::TRIGGERS);
+    harness.run_steps(3);
+    harness.get_by_label_contains("the folder Combat is switched off");
+    // A tag is given by typing it.
+    let app = harness.state_mut().tab_mut();
+    app.editor
+        .draft
+        .set_folder_on(Kind::Trigger, "Combat", true);
+    harness.run_steps(2);
+    harness.get_by_label("Add a tag").click();
+    harness.run_steps(1);
+    harness.get_by_label("Add a tag").type_text("Combat");
+    harness.run_steps(1);
+    harness.key_press(Key::Enter);
+    harness.run_steps(3);
+    assert_eq!(
+        harness.state().tab().editor.draft.triggers[0].tags,
+        ["Combat"]
+    );
+    // A script goes into a folder on the disk, and runs from there.
+    let app = harness.state_mut().tab_mut();
+    app.open_automation(automation::SCRIPTS);
+    harness.run_steps(3);
+    let app = harness.state_mut().tab_mut();
+    app.new_folder(Kind::Script, "");
+    app.editor.renaming = None;
+    assert!(scripts.join(tr("New folder")).is_dir());
+    assert!(app.move_script_files("hunt", &format!("{}/hunt", tr("New folder"))));
+    assert!(scripts.join(tr("New folder")).join("hunt.luau").is_file());
+    assert!(app.scripts.on_key("f9"));
+    // Switched off by its folder, it is stopped.
+    app.editor
+        .draft
+        .set_folder_on(Kind::Script, tr("New folder"), false);
+    app.save_rules();
+    app.scripts.take_actions();
+    assert!(!app.scripts.on_key("f9"));
     std::fs::remove_dir_all(&dir).unwrap();
 }

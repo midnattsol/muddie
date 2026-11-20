@@ -1,4 +1,5 @@
-//! The kinds of rule made in the editor: what each is made of.
+//! The kinds of rule made in the editor: what they all have, and what
+//! each has of its own.
 
 use super::*;
 
@@ -6,108 +7,238 @@ pub(super) fn yes() -> bool {
     true
 }
 
-/// Reacts to a line of output.
+/// A rule made in the editor: what all kinds have, its name, its switch,
+/// the folder it is in, its tags and what it does, and `when`, what makes
+/// it go off, which is what each kind has of its own.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Rule<T> {
+    /// What the user calls it; shown in lists instead of what it is made
+    /// of.
+    pub name: String,
+    pub enabled: bool,
+    /// The folder it is in, as `Folder/Inner`; empty for none.
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub folder: String,
+    /// The tags it carries: each switches it with all else that carries it.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub tags: Vec<String>,
+    #[serde(flatten)]
+    pub when: T,
+    /// Commands to send, one per line or separated by `;`. `%1`... are
+    /// what the match caught, where there is a match.
+    pub send: String,
+    /// Luau to run instead.
+    pub script: String,
+    /// What it does is the script, not the commands.
+    pub lua: bool,
+}
+
+impl<T: Default> Default for Rule<T> {
+    fn default() -> Self {
+        Self {
+            name: String::new(),
+            enabled: true,
+            folder: String::new(),
+            tags: Vec::new(),
+            when: T::default(),
+            send: String::new(),
+            script: String::new(),
+            lua: false,
+        }
+    }
+}
+
+/// What makes a rule of a kind go off.
+pub trait When: Default + Clone + PartialEq {
+    /// What a new one is called before it has a name.
+    const NEW: &'static str;
+    /// What it is made of, to call it by when it has no name.
+    fn made_of(&self) -> String;
+    /// Whether there is enough of it to run.
+    fn complete(&self) -> bool;
+}
+
+/// A trigger reacts to a line of output.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(default)]
-pub struct Trigger {
-    /// What the user calls it; shown in lists instead of the pattern.
-    pub name: String,
-    #[serde(default = "yes")]
-    pub enabled: bool,
+pub struct OnLine {
     /// Text the line must contain, or a regular expression if `regex`.
     pub pattern: String,
     pub regex: bool,
-    /// Commands to send, separated by `;`. `%1`... are the pattern's groups.
-    pub send: String,
     /// Hide the line.
     pub gag: bool,
     /// Colour to give the matched text, as a name or `#rrggbb`; empty for
     /// none.
     pub highlight: String,
-    /// Text to say; `%1`... are the pattern's groups.
+    /// Text to say; `%1`... are what the match caught.
     pub speak: String,
     /// Sound file to play.
     pub sound: String,
     /// A panel of text to show the line in, besides or instead of the
     /// output; empty for none.
     pub panel: String,
-    /// Luau to run, with the match as `m` and the line as `line`.
-    pub script: String,
-    /// What it does is the script, not the commands.
-    pub lua: bool,
-    /// The group it is switched on and off with; empty for none.
-    pub group: String,
 }
 
-/// Replaces a typed command.
+/// An alias replaces a typed command.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(default)]
-pub struct Alias {
-    pub name: String,
-    #[serde(default = "yes")]
-    pub enabled: bool,
+pub struct OnTyped {
     /// The word that starts the command, or a regular expression matched
     /// against the whole command if `regex`.
     pub pattern: String,
     pub regex: bool,
-    /// Commands to send, separated by `;`. For a word alias `%1` is the
-    /// rest of what was typed; for a regular expression, its groups.
-    pub send: String,
-    /// Luau to run, with the match as `m` and what was typed as `input`.
-    pub script: String,
-    /// What it does is the script, not the commands.
-    pub lua: bool,
-    /// The group it is switched on and off with; empty for none.
-    pub group: String,
 }
 
-/// Sends commands when a key is pressed.
+/// A macro does something at the press of a key.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(default)]
-pub struct KeyBinding {
-    pub name: String,
-    #[serde(default = "yes")]
-    pub enabled: bool,
+pub struct OnKey {
     /// The key as `bind` names it, such as `f5` or `ctrl+k`.
     pub key: String,
-    pub send: String,
-    /// Luau to run when the key is pressed.
-    pub script: String,
-    /// What it does is the script, not the commands.
-    pub lua: bool,
-    /// The group it is switched on and off with; empty for none.
-    pub group: String,
 }
 
-/// Does something after a while, once or again and again.
+/// A timer does something after a while, once or again and again.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
-pub struct Timer {
-    pub name: String,
-    pub enabled: bool,
+pub struct OnTime {
     /// How long it waits, in tenths of a second.
     pub tenths: u32,
     /// Goes off every so long, instead of only once after starting.
     pub repeat: bool,
-    pub send: String,
-    pub script: String,
-    /// What it does is the script, not the commands.
-    pub lua: bool,
-    /// The group it is switched on and off with; empty for none.
-    pub group: String,
 }
 
-/// Whether a group of rules starts a session switched on. A group that
-/// has no entry does.
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(default)]
-pub struct Group {
-    pub name: String,
+impl Default for OnTime {
+    fn default() -> Self {
+        Self {
+            tenths: 600,
+            repeat: true,
+        }
+    }
+}
+
+pub type Trigger = Rule<OnLine>;
+pub type Alias = Rule<OnTyped>;
+pub type Macro = Rule<OnKey>;
+pub type Timer = Rule<OnTime>;
+
+impl When for OnLine {
+    const NEW: &'static str = "New trigger";
+    fn made_of(&self) -> String {
+        self.pattern.trim().to_owned()
+    }
+    fn complete(&self) -> bool {
+        !self.pattern.trim().is_empty()
+    }
+}
+
+impl When for OnTyped {
+    const NEW: &'static str = "New alias";
+    fn made_of(&self) -> String {
+        self.pattern.trim().to_owned()
+    }
+    fn complete(&self) -> bool {
+        !self.pattern.trim().is_empty()
+    }
+}
+
+impl When for OnKey {
+    const NEW: &'static str = "New macro";
+    fn made_of(&self) -> String {
+        self.key.trim().to_owned()
+    }
+    fn complete(&self) -> bool {
+        !self.key.trim().is_empty()
+    }
+}
+
+impl When for OnTime {
+    const NEW: &'static str = "New timer";
+    fn made_of(&self) -> String {
+        self.interval()
+    }
+    fn complete(&self) -> bool {
+        self.tenths > 0
+    }
+}
+
+impl<T: When> Rule<T> {
+    /// What it is called: its name, or else what it is made of.
+    pub fn title(&self) -> String {
+        match self.name.trim() {
+            "" => self.when.made_of(),
+            name => name.to_owned(),
+        }
+    }
+
+    /// What it does, in a line: its commands, or that it runs a script.
+    pub fn does(&self) -> String {
+        if self.lua {
+            return "Luau".to_owned();
+        }
+        let sent: Vec<&str> = commands(&self.send).collect();
+        match sent.is_empty() {
+            true => String::new(),
+            false => format!("→ {}", sent.join("; ")),
+        }
+    }
+}
+
+impl Rule<OnLine> {
+    /// A line saying what the trigger does, for lists.
+    pub fn summary(&self) -> String {
+        let when = &self.when;
+        let mut parts = vec![self.does()];
+        if !when.speak.trim().is_empty() {
+            parts.push(format!("“{}”", when.speak.trim()));
+        }
+        if !when.sound.trim().is_empty() {
+            parts.push(format!("♪ {}", when.sound.trim()));
+        }
+        if !when.highlight.trim().is_empty() {
+            parts.push(when.highlight.trim().to_owned());
+        }
+        if !when.panel.trim().is_empty() {
+            parts.push(format!("▸ {}", when.panel.trim()));
+        }
+        if when.gag {
+            parts.push("∅".to_owned());
+        }
+        parts.retain(|part| !part.is_empty());
+        parts.join("  ·  ")
+    }
+}
+
+/// A place inside a folder, or at the top for none.
+pub fn joined(folder: &str, name: &str) -> String {
+    match folder.trim() {
+        "" => name.trim().to_owned(),
+        folder => format!("{folder}/{}", name.trim()),
+    }
+}
+
+/// A folder of one kind of thing, kept for its place in the list and its
+/// switch, and so that it is there while it holds nothing.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Folder {
+    pub kind: Kind,
+    /// Its place, as `Folder/Inner`.
+    pub path: String,
+    #[serde(default = "yes")]
     pub enabled: bool,
 }
 
-pub(super) fn is_zero(number: &u8) -> bool {
-    *number == 0
+/// A script file of the player's, as the editor keeps it: by its place
+/// among the scripts, switched off or carrying tags.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ScriptEntry {
+    /// Its place, as `Folder/name` with no extension.
+    pub path: String,
+    #[serde(default = "yes")]
+    pub enabled: bool,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub tags: Vec<String>,
 }
 
 /// What a gauge is drawn as.
@@ -156,33 +287,12 @@ pub struct Gauge {
     /// The colour it takes under each percentage of its maximum.
     #[serde(rename = "step")]
     pub steps: Vec<Step>,
-    /// As earlier versions kept the two above; read, and brought up to
-    /// date by [`Rules::migrate`].
-    #[serde(skip_serializing_if = "std::ops::Not::not")]
-    pub segments: bool,
-    #[serde(skip_serializing_if = "is_zero")]
-    pub low: u8,
     /// The panel of gauges it is shown in, by the panel's id; none shows
     /// it in the first there is.
     pub panel: u32,
 }
 
-impl Default for Timer {
-    fn default() -> Self {
-        Self {
-            name: String::new(),
-            enabled: true,
-            tenths: 600,
-            repeat: true,
-            send: String::new(),
-            script: String::new(),
-            lua: false,
-            group: String::new(),
-        }
-    }
-}
-
-impl Timer {
+impl OnTime {
     /// How long it waits, as people say it: `1.5 s`, `2 min`.
     pub fn interval(&self) -> String {
         let seconds = f64::from(self.tenths) / 10.0;
@@ -243,7 +353,7 @@ impl Gauge {
     }
 }
 
-impl Trigger {
+impl OnLine {
     /// The regular expression the trigger matches lines with.
     pub fn regex_source(&self) -> String {
         if self.regex {
@@ -252,39 +362,9 @@ impl Trigger {
             regex_escape(&self.pattern)
         }
     }
-
-    /// A line saying what the trigger does, for lists.
-    pub fn summary(&self) -> String {
-        let mut parts = Vec::new();
-        if self.lua {
-            parts.push("Luau".to_owned());
-        } else if !self.send.trim().is_empty() {
-            parts.push(format!(
-                "→ {}",
-                commands(&self.send).collect::<Vec<_>>().join("; ")
-            ));
-        }
-        if !self.speak.trim().is_empty() {
-            parts.push(format!("“{}”", self.speak.trim()));
-        }
-        if !self.sound.trim().is_empty() {
-            parts.push(format!("♪ {}", self.sound.trim()));
-        }
-        if !self.highlight.trim().is_empty() {
-            parts.push(self.highlight.trim().to_owned());
-        }
-        if !self.panel.trim().is_empty() {
-            parts.push(format!("▸ {}", self.panel.trim()));
-        }
-        if self.gag {
-            parts.push("∅".to_owned());
-        }
-
-        parts.join("  ·  ")
-    }
 }
 
-impl Alias {
+impl OnTyped {
     /// The regular expression the alias matches typed commands with.
     pub fn regex_source(&self) -> String {
         if self.regex {

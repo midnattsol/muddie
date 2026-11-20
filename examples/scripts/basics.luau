@@ -40,7 +40,7 @@ trigger("is DEAD!", function()
 end)
 
 -- Combat triggers that only run while fighting.
-trigger("^You are stunned", function() send("stand") end, {group = "combat"})
-trigger("^You start fighting", function() enable("combat", true) end)
-trigger("^You stop fighting", function() enable("combat", false) end)
-enable("combat", false)
+trigger("^You are stunned", function() send("stand") end, {tags = {"combat"}})
+trigger("^You start fighting", function() tags.enable("combat") end)
+trigger("^You stop fighting", function() tags.disable("combat") end)
+tags.disable("combat")

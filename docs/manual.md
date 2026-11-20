@@ -107,9 +107,9 @@ line after the `/`, a command is carried out the same.
 
 What a command answers is not put among the lines of the game. A line of it
 is said inside the command line for a moment; if something could not be
-done, it stays there until you type. A list, of the rooms found, the groups
+done, it stays there until you type. A list, of the rooms found, the tags
 or the plugins, is shown in the palette, to choose from: Enter on a room
-walks to it, and on a group or a plugin switches it.
+walks to it, and on a tag or a plugin switches it.
 
 | Command | What it does |
 |---|---|
@@ -117,7 +117,7 @@ walks to it, and on a group or a plugin switches it.
 | `/lua <code>` | Runs a line of Luau |
 | `/reload` | Runs the scripts and rules again |
 | `/log` | Starts or stops logging the session to a file |
-| `/group`, `/group <name> [on\|off]` | Lists the groups of rules; switches one on or off for this session |
+| `/tag`, `/tag <name> [on\|off]` | Lists the tags; switches one on or off for this session |
 | `/map where` | Says where the map has you, and the exits |
 | `/map find <text>` | Lists rooms whose name contains the text |
 | `/map walk <number or name>` | Walks to a room |
@@ -176,14 +176,33 @@ The three, and what else there is:
   says whether a script is run by itself when a session starts; switched
   off it is kept, and can still be run by hand with the triangle.
 
-Rules can be put in **groups**, to switch a whole way of playing on and off
-at once: a group holds triggers, aliases, macros and timers alike. Give a
-rule its group in its details; the groups are listed under the sections, each
-with the switch of how it starts a session, and choosing one narrows the lists
-to it. `/group <name> on` and `/group <name> off` switch one for the session
-in course, as a script does with `group.enable(name)` and its like, without
-changing what is saved. The same key can be bound once per group, so that it
-does one thing in one mode and another in another.
+**Folders** keep each section in order: triggers, aliases, macros, timers
+and scripts. Make one with the folder button beside **+**; it is named as it
+is made, and named again from its menu (a right click) or with a double click.
+Drag a rule onto a folder to put it there, between two rules to put it in
+their place, or below the list to take it out of every folder; folders are
+dragged into one another the same way, and **Alt+↑** and **Alt+↓** move the
+one chosen among those beside it. Its details have the folder too, to
+choose. Deleting a folder leaves what it held in the folder it was in. A
+folder of scripts is a folder on the disk, in the profile's `scripts`. Each
+folder has a switch: switched off, nothing in it runs, however deep.
+
+**Tags** switch together what belongs together whatever its kind and its
+folder: a trigger, two aliases and a macro tagged *combat* go off together
+when *combat* is switched off. Give tags in the details of each thing, by
+typing them or choosing among those there are. The tags are listed under the
+sections, each with its switch and how many carry it; choosing one narrows
+the lists to what carries it.
+
+Something runs while it, every folder it is in and every tag it carries are
+switched on; its details say which of them keeps it from running, if one
+does. The switches in the editor are what is saved, and how a session
+starts. `/tag <name> on` and `/tag <name> off` switch a tag for the session in
+course, as a script does with `tags.disable(name)`, and a script switches
+any folder or rule by its place, as `triggers.disable("Combat")`; what is
+saved does not change. The same key can be bound by several macros, so that
+it does one thing while one is on and another while another is: the first
+that is on is the one that runs.
 
 **Variables** are values with a name that are kept: who you are hunting, how
 many you have killed. They are listed and changed in the editor, each with

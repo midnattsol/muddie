@@ -11,7 +11,7 @@ use eframe::egui::{self, CentralPanel, Key, Label, Modifiers, Panel, RichText, T
 use muddie_core::Line;
 use muddie_core::{Command, Config, Event, Session, Target, connect};
 use muddie_mapper::{Map, Progress, RoomId, RoomInfo, Walk};
-use muddie_script::{Action, Engine};
+use muddie_script::{Action, Engine, Kind, Switches};
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::complete::{self, Completion};
@@ -25,7 +25,7 @@ use crate::packages;
 use crate::palette;
 use crate::panels::{self, Gauges, MsdpVitals};
 use crate::profile::{Profile, Profiles};
-use crate::rules::{Alias, KeyBinding, Rules, Trigger};
+use crate::rules::Rules;
 use crate::secrets;
 use crate::settings::Settings;
 use crate::theme;
@@ -48,6 +48,7 @@ mod mxp;
 mod panel_sizes;
 mod plugins;
 mod scripts;
+mod switching;
 #[cfg(test)]
 mod tests;
 mod view;
@@ -175,6 +176,8 @@ pub struct Tab {
     select_input: bool,
     /// The GMCP modules the connection was last told are wanted.
     supports: Vec<String>,
+    /// The switches the player's scripts were last run or stopped by.
+    scripts_synced: Option<Switches>,
     /// Words scripts gave to complete with, under the name of each list.
     completions: Vec<(String, Vec<String>)>,
     /// How big the panels and the window are, in characters, and what was told
@@ -295,6 +298,7 @@ impl Tab {
             kept_input: None,
             select_input: false,
             supports: Vec::new(),
+            scripts_synced: None,
             completions: Vec::new(),
             sizes: panel_sizes::Sizes::default(),
             address: String::new(),

@@ -116,13 +116,14 @@ fn client_commands_are_grouped() {
     // The palette is the list of the commands: asking for help opens it.
     assert!(app.do_client_command("/help") && app.palette.open);
     app.toggle_palette();
-    // Groups: listed, and switched for the session by name.
+    // Tags: listed, and switched for the session by name.
     app.scripts
-        .exec("t", r#"bind("f9", "kick", {group = "Combat"})"#);
-    assert!(app.do_client_command("/group combat off") && !app.scripts.group_enabled("Combat"));
-    assert!(app.do_client_command("/group Combat") && app.scripts.group_enabled("Combat"));
-    assert!(app.do_client_command("/group"));
-    assert!(output_lines(app).iter().any(|line| line == "Combat: on"));
+        .exec("t", r#"bind("f9", "kick", {tags = {"Combat"}})"#);
+    let tag_on = |app: &Tab| app.scripts.switches().tag_on("combat");
+    assert!(app.do_client_command("/tag Combat off") && !tag_on(app));
+    assert!(app.do_client_command("/tag combat") && tag_on(app));
+    assert!(app.do_client_command("/tag"));
+    assert!(output_lines(app).iter().any(|line| line == "combat: on"));
     // An incomplete group opens the palette at what it has, instead
     // of going to the MUD.
     assert!(app.do_client_command("/map dance"));
@@ -194,7 +195,7 @@ fn commands_are_chosen_from_a_palette_and_answer_at_the_line() {
     // the lines of the game are as they were.
     let app = harness.state_mut().tab_mut();
     app.scripts
-        .exec("t", r#"bind("f9", "kick", {group = "Combat"})"#);
+        .exec("t", r#"bind("f9", "kick", {tags = {"Combat"}})"#);
     app.toggle_palette();
     app.palette.query = "map hi".into();
     harness.run_steps(2);
@@ -205,16 +206,16 @@ fn commands_are_chosen_from_a_palette_and_answer_at_the_line() {
     assert_eq!(output_lines(app).len(), before);
     let app = harness.state_mut().tab_mut();
     app.toggle_palette();
-    app.palette.query = "group Com".into();
+    app.palette.query = "tag com".into();
     harness.run_steps(2);
     harness.key_press(Key::Enter);
     harness.run_steps(3);
     let app = harness.state().tab();
-    assert!(!app.scripts.group_enabled("Combat"));
+    assert!(!app.scripts.switches().tag_on("combat"));
     let note = app.palette.bar_note.clone().expect("a line of answer");
     assert_eq!(
         (note.text.as_str(), note.problem),
-        ("Group Combat off.", false)
+        ("Tag combat off.", false)
     );
     assert_eq!(output_lines(app).len(), before);
     // Left alone, it goes by itself after a moment.
@@ -254,20 +255,20 @@ fn commands_are_chosen_from_a_palette_and_answer_at_the_line() {
     assert!(said.contains("boom") && problem, "{said}");
     assert_eq!(output_lines(harness.state().tab()).len(), before);
     // What a command lists stays in the palette, to choose from:
-    // Enter on a group switches it.
+    // Enter on a tag switches it.
     let app = harness.state_mut().tab_mut();
     app.toggle_palette();
-    app.palette.query = "gr".into();
+    app.palette.query = "tag".into();
     harness.run_steps(2);
     harness.key_press(Key::Enter);
     harness.run_steps(3);
     let app = harness.state().tab();
     assert!(app.palette.open && app.palette.results.is_some());
-    harness.get_by_label("Combat. off");
+    harness.get_by_label("combat. off");
     harness.key_press(Key::Enter);
     harness.run_steps(3);
     let app = harness.state().tab();
-    assert!(app.scripts.group_enabled("Combat") && !app.palette.open);
+    assert!(app.scripts.switches().tag_on("combat") && !app.palette.open);
     // Typed in the command line after a slash, a command is carried
     // out the same, and is not kept there to be sent again. What
     // could not be done stays said, until something is typed.
@@ -346,10 +347,9 @@ fn macro_key_is_recorded_from_the_next_key_pressed() {
     let mut harness = window(None);
     let app = harness.state_mut().tab_mut();
     app.open_automation(2);
-    app.editor.draft.keys.push(KeyBinding {
-        enabled: true,
+    app.editor.draft.macros.push(Macro {
         send: "look".into(),
-        ..KeyBinding::default()
+        ..Macro::default()
     });
     app.editor.recording_key = true;
     harness.run_steps(3);
@@ -360,13 +360,16 @@ fn macro_key_is_recorded_from_the_next_key_pressed() {
     harness.key_press_modifiers(Modifiers::CTRL | Modifiers::SHIFT, Key::K);
     harness.run_steps(2);
     let app = harness.state_mut().tab_mut();
-    assert_eq!(app.editor.draft.keys[0].key, "ctrl+shift+k");
+    assert_eq!(app.editor.draft.macros[0].when.key, "ctrl+shift+k");
     assert!(!app.editor.recording_key);
     // The keypad is recorded by its own names.
     app.editor.recording_key = true;
     app.keypad_pressed = vec!["numpad8"];
     harness.run_steps(2);
-    assert_eq!(harness.state().tab().editor.draft.keys[0].key, "numpad8");
+    assert_eq!(
+        harness.state().tab().editor.draft.macros[0].when.key,
+        "numpad8"
+    );
     // Escape leaves the key as it was.
     harness.state_mut().tab_mut().editor.recording_key = true;
     harness.key_press(Key::Escape);
@@ -374,7 +377,7 @@ fn macro_key_is_recorded_from_the_next_key_pressed() {
     let app = harness.state().tab();
     assert_eq!(
         (
-            app.editor.draft.keys[0].key.as_str(),
+            app.editor.draft.macros[0].when.key.as_str(),
             app.editor.recording_key
         ),
         ("numpad8", false)

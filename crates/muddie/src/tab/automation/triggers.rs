@@ -18,19 +18,12 @@ impl Tab {
             .filter(|panel| panel.kind == super::layout::Kind::Text)
             .map(|panel| panel.name.clone())
             .collect();
-        let groups = self.editor.draft.group_names();
         // What else it does that was asked for here, though still empty.
         if self.editor.extras_added.0 != index {
             self.editor.extras_added = (index, Vec::new());
         }
+        let delete = self.rule_head(ui, Kind::Trigger, index, tr("Name this trigger"));
         let rule = &mut self.editor.draft.triggers[index];
-        let delete = rule_header(
-            ui,
-            &mut rule.name,
-            &mut rule.enabled,
-            tr("Name this trigger"),
-        );
-        group_row(ui, &mut rule.group, &groups);
         when(ui, rule, &mut self.editor.sample);
         ui.add_space(6.0);
         self.trigger_does(ui, index);
@@ -72,17 +65,17 @@ impl Tab {
 fn when(ui: &mut egui::Ui, rule: &mut crate::rules::Trigger, sample: &mut String) {
     widgets::caption(ui, tr("When"));
     let kinds = [tr("Contains"), tr("Regular expression")];
-    if let Some(kind) = widgets::segmented(ui, &kinds, usize::from(rule.regex)) {
-        rule.regex = kind == 1;
+    if let Some(kind) = widgets::segmented(ui, &kinds, usize::from(rule.when.regex)) {
+        rule.when.regex = kind == 1;
     }
-    let label = if rule.regex {
+    let label = if rule.when.regex {
         tr("A line matches this regular expression")
     } else {
         tr("A line contains this text")
     };
-    widgets::field(ui, label, &mut rule.pattern, tr("tells you"));
+    widgets::field(ui, label, &mut rule.when.pattern, tr("tells you"));
     widgets::text_box(ui, sample, tr("Paste a line from the MUD to try it"));
-    let outcome = try_pattern(&rule.regex_source(), sample, |captures| {
+    let outcome = try_pattern(&rule.when.regex_source(), sample, |captures| {
         effects(rule, captures)
     });
     show_outcome(ui, outcome);
@@ -99,11 +92,11 @@ fn effects(rule: &crate::rules::Trigger, captures: &regex::Captures) -> String {
     } else if !sent.is_empty() {
         effects.push(format!("{} {}", tr("sends"), sent.join("; ")));
     }
-    if !rule.speak.trim().is_empty() {
+    if !rule.when.speak.trim().is_empty() {
         effects.push(format!(
             "{} “{}”",
             tr("says"),
-            fill(rule.speak.trim(), captures)
+            fill(rule.when.speak.trim(), captures)
         ));
     }
     effects.join(" · ")
@@ -118,11 +111,11 @@ fn also(
     text_panels: &[String],
 ) {
     let given = |extra: Extra| match extra {
-        Extra::Say => !rule.speak.trim().is_empty(),
-        Extra::Sound => !rule.sound.trim().is_empty(),
-        Extra::Colour => !rule.highlight.trim().is_empty(),
-        Extra::Hide => rule.gag,
-        Extra::Panel => !rule.panel.trim().is_empty(),
+        Extra::Say => !rule.when.speak.trim().is_empty(),
+        Extra::Sound => !rule.when.sound.trim().is_empty(),
+        Extra::Colour => !rule.when.highlight.trim().is_empty(),
+        Extra::Hide => rule.when.gag,
+        Extra::Panel => !rule.when.panel.trim().is_empty(),
     };
     let all = [
         Extra::Say,
@@ -147,7 +140,7 @@ fn also(
         added.retain(|known| *known != extra);
         extra.take_from(rule);
     }
-    if rule.gag && !rule.panel.trim().is_empty() {
+    if rule.when.gag && !rule.when.panel.trim().is_empty() {
         note(ui, tr("With the line hidden, it is only in the panel."));
     }
     if missing.is_empty() {
@@ -160,7 +153,7 @@ fn also(
             if widgets::menu_item(ui, extra.label(), "").clicked() {
                 added.push(extra);
                 if extra == Extra::Hide {
-                    rule.gag = true;
+                    rule.when.gag = true;
                 }
                 ui.close();
             }
@@ -187,15 +180,19 @@ fn extra_row(
         });
     });
     match extra {
-        Extra::Say => drop(widgets::text_box(ui, &mut rule.speak, tr("%1 is here"))),
-        Extra::Sound => drop(widgets::text_box(ui, &mut rule.sound, "alert.ogg")),
+        Extra::Say => drop(widgets::text_box(
+            ui,
+            &mut rule.when.speak,
+            tr("%1 is here"),
+        )),
+        Extra::Sound => drop(widgets::text_box(ui, &mut rule.when.sound, "alert.ogg")),
         Extra::Colour => drop(widgets::text_box(
             ui,
-            &mut rule.highlight,
+            &mut rule.when.highlight,
             "yellow, #ffcc00",
         )),
-        Extra::Hide => rule.gag = true,
-        Extra::Panel => panel_choice(ui, &mut rule.panel, text_panels),
+        Extra::Hide => rule.when.gag = true,
+        Extra::Panel => panel_choice(ui, &mut rule.when.panel, text_panels),
     }
     ui.add_space(4.0);
     removed
@@ -222,11 +219,11 @@ impl Extra {
     /// Takes it from the trigger.
     fn take_from(self, rule: &mut crate::rules::Trigger) {
         match self {
-            Extra::Say => rule.speak.clear(),
-            Extra::Sound => rule.sound.clear(),
-            Extra::Colour => rule.highlight.clear(),
-            Extra::Hide => rule.gag = false,
-            Extra::Panel => rule.panel.clear(),
+            Extra::Say => rule.when.speak.clear(),
+            Extra::Sound => rule.when.sound.clear(),
+            Extra::Colour => rule.when.highlight.clear(),
+            Extra::Hide => rule.when.gag = false,
+            Extra::Panel => rule.when.panel.clear(),
         }
     }
 

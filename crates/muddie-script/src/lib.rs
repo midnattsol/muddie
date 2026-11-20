@@ -11,8 +11,10 @@
 //! - `trigger(pattern, fn, options)`: call `fn(m, line)` for each output
 //!   line matching the regular expression. `m[0]` is the whole match,
 //!   `m[1]`... the groups, and named groups are also available as `m.name`.
-//!   The optional `options` table takes `group` (a name to switch several
-//!   on and off together) and `once` (remove it after it fires).
+//!   The optional `options` table takes `name` (its place, as
+//!   `Folder/Name`, to switch it by), `tags` (a list of tags, to switch it
+//!   with everything else that carries one of them) and `once` (remove it
+//!   after it fires).
 //! - `gag()`: inside a trigger, hide the line that fired it.
 //! - `line_spans()`: inside a trigger, the line as a list of runs of text
 //!   with their style: `text`, `fg` and `bg` (a palette number, an
@@ -23,18 +25,20 @@
 //!   palette number; `nil` leaves that colour as it is.
 //! - `alias(pattern, fn, options)`: call `fn(m, input)` instead of sending
 //!   typed input that matches; same options as `trigger`.
-//! - `group.enable(name)`, `group.disable(name)`, `group.toggle(name)`,
-//!   `group.enabled(name)`, `group.list()`: groups of triggers, aliases,
-//!   key bindings and timers, switched on and off together. `bind`,
-//!   `after` and `every` take `{group = name}` as triggers and aliases do.
-//! - `enable(group, enabled)`: switch a group of triggers and aliases on
-//!   or off.
+//! - `triggers`, `aliases`, `macros`, `timers` and `scripts`, each with
+//!   `enable(place)`, `disable(place)`, `toggle(place)`, `enabled(place)`
+//!   and `list()`: switch one thing of that kind by its place, or a folder
+//!   with all it holds, for the session. `tags` has the same, for all that
+//!   carries a tag, whatever its kind. `bind`, `after` and `every` take
+//!   `name` and `tags` as triggers and aliases do.
 //! - `separator(text)`: the text that separates several commands typed on
 //!   one line (`;` by default, doubled to type it literally); `nil` turns
 //!   splitting off.
-//! - `bind(key, action)`: run `action` (a command to send, or a function)
-//!   when `key` is pressed, e.g. `bind("f5", "look")` or
+//! - `bind(key, action, options)`: run `action` (a command to send, or a
+//!   function) when `key` is pressed, e.g. `bind("f5", "look")` or
 //!   `bind("ctrl+shift+k", function() ... end)`; `unbind(key)` removes it.
+//!   A key bound again under another `name` does that while it is on and
+//!   the first is not: the first bound that is on is the one that runs.
 //! - `remember(key, value)` and `recall(key)`: keep values between
 //!   sessions, per profile. Values can be anything JSON can hold.
 //! - `play(file, {volume = 0.8, loop = false})`: play a sound file, by
@@ -123,7 +127,7 @@
 //!   id that the functions above returned.
 
 use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::time::{Duration, Instant};
@@ -141,12 +145,14 @@ mod events;
 mod map_api;
 mod memory;
 mod state;
+mod switches;
 
 pub use action::{Action, GaugeLook};
 use api::install_api;
 use convert::*;
 use map_api::*;
 use state::*;
+pub use switches::{Belongs, Kind, Switches, places_up, tag_key};
 
 /// Longest a single script run or callback may take before it is stopped,
 /// so a faulty script cannot freeze the client.
@@ -245,22 +251,52 @@ impl State {
         expanded
     }
 
-    /// The groups there are, in alphabetical order.
-    fn group_names(&self) -> Vec<String> {
-        let matchers = self
-            .triggers
-            .iter()
-            .chain(&self.aliases)
-            .map(|matcher| &matcher.group);
-        let timers = self.timers.iter().map(|timer| &timer.group);
-        let bindings = self.bindings.values().flatten().map(|(group, _)| group);
-        let mut names: Vec<String> = matchers
-            .chain(timers)
-            .chain(bindings)
-            .flatten()
-            .cloned()
+    /// What there is of a kind, by what it is switched by: those made by
+    /// the scripts, and for scripts, those the frontend told of.
+    fn belongings(&self, kind: Kind) -> Vec<&Belongs> {
+        match kind {
+            Kind::Trigger => self
+                .triggers
+                .iter()
+                .map(|matcher| &matcher.belongs)
+                .collect(),
+            Kind::Alias => self
+                .aliases
+                .iter()
+                .map(|matcher| &matcher.belongs)
+                .collect(),
+            Kind::Macro => (self.bindings.values().flatten())
+                .map(|bound| &bound.belongs)
+                .collect(),
+            Kind::Timer => self.timers.iter().map(|timer| &timer.belongs).collect(),
+            Kind::Script => self.scripts.iter().collect(),
+        }
+    }
+
+    /// The places there are of a kind, with the folders they are in, in
+    /// alphabetical order.
+    fn place_names(&self, kind: Kind) -> Vec<String> {
+        let places = (self.belongings(kind).into_iter())
+            .filter_map(|belongs| belongs.place.as_deref())
+            .flat_map(switches::places_up);
+        let mut names: Vec<String> = places.map(str::to_owned).collect();
+        names.sort();
+        names.dedup();
+        names
+    }
+
+    /// The tags there are, those anything carries and those switched off,
+    /// in alphabetical order.
+    fn tag_names(&self) -> Vec<String> {
+        let carried = (Kind::ALL.iter())
+            .flat_map(|&kind| self.belongings(kind))
+            .flat_map(|belongs| belongs.tags.iter().map(|tag| tag_key(tag)))
+            .collect::<Vec<String>>();
+        let mut names: Vec<String> = carried
+            .into_iter()
+            .chain(self.switches.tags.iter().cloned())
             .collect();
-        names.extend(self.disabled_groups.iter().cloned());
+        names.retain(|name| !name.is_empty());
         names.sort();
         names.dedup();
         names
@@ -396,19 +432,10 @@ impl Engine {
         state.timers.retain(|timer| timer.owner != owner);
         state.data_handlers.retain(|handler| handler.owner != owner);
         state.supports.retain(|(by, _)| by != owner);
-        let bound: Vec<(String, Option<String>)> = (state.bound_by.iter())
-            .filter(|(by, ..)| by == owner)
-            .map(|(_, key, group)| (key.clone(), group.clone()))
-            .collect();
-        state.bound_by.retain(|(by, ..)| by != owner);
-        for (key, group) in bound {
-            if let Some(bindings) = state.bindings.get_mut(&key) {
-                bindings.retain(|(known, _)| *known != group);
-                if bindings.is_empty() {
-                    state.bindings.remove(&key);
-                }
-            }
-        }
+        state.bindings.retain(|_, bound| {
+            bound.retain(|bound| bound.owner != owner);
+            !bound.is_empty()
+        });
         // A module it is asks for it afresh next time.
         let stem = Path::new(owner)
             .file_stem()
@@ -423,6 +450,11 @@ impl Engine {
     pub fn reload_file(&mut self, path: &Path) {
         self.unload(&path.display().to_string());
         self.load_file(path);
+    }
+
+    /// Whether a script file is loaded.
+    pub fn is_loaded(&self, path: &Path) -> bool {
+        self.files.iter().any(|loaded| loaded == path)
     }
 
     /// Forgets a script file, taking away what it made.

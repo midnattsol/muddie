@@ -857,41 +857,11 @@ msgstr "Vivos"
 msgid "Classic terminal"
 msgstr "Terminal clásico"
 
-msgid "There are no groups. Give a rule a group in the editor."
-msgstr "No hay grupos. Asigna un grupo a una regla en el editor."
-
 msgid "on"
 msgstr "activado"
 
 msgid "off"
 msgstr "desactivado"
-
-#, python-brace-format
-msgid "Group {0} on."
-msgstr "Grupo {0} activado."
-
-#, python-brace-format
-msgid "Group {0} off."
-msgstr "Grupo {0} desactivado."
-
-#, python-brace-format
-msgid "There is no group called {0}; /group lists them."
-msgstr "No hay ningún grupo llamado {0}; /group los lista."
-
-msgid "Groups"
-msgstr "Grupos"
-
-msgid "Group"
-msgstr "Grupo"
-
-msgid "Choose a group"
-msgstr "Elegir un grupo"
-
-msgid "Lists the groups of rules and whether they are on"
-msgstr "Lista los grupos de reglas y si están activados"
-
-msgid "Switches a group on or off for this session"
-msgstr "Activa o desactiva un grupo durante esta sesión"
 
 msgid "Show it in the panel"
 msgstr "Mostrarla en el panel"
@@ -1594,3 +1564,95 @@ msgstr "Mostrar los paneles de abajo"
 msgid "Show or hide the map"
 msgstr "Mostrar u ocultar el mapa"
 
+msgid "Add a tag"
+msgstr "Añadir etiqueta"
+
+#, python-brace-format
+msgid "Add the tag {0}"
+msgstr "Añadir la etiqueta {0}"
+
+#, python-brace-format
+msgid "Remove the tag {0}"
+msgstr "Quitar la etiqueta {0}"
+
+#, python-brace-format
+msgid "There is no tag called {0}; /tag lists them."
+msgstr "No hay ninguna etiqueta llamada {0}; /tag las muestra."
+
+msgid "There are no tags. Give a rule a tag in the editor."
+msgstr "No hay etiquetas. Ponle una a una regla en el editor."
+
+msgid "New folder"
+msgstr "Carpeta nueva"
+
+#, python-brace-format
+msgid "Could not make the folder: {0}"
+msgstr "No se pudo crear la carpeta: {0}"
+
+msgid "Folder name"
+msgstr "Nombre de la carpeta"
+
+#, python-brace-format
+msgid "There is a folder called {0} already."
+msgstr "Ya hay una carpeta llamada {0}."
+
+#, python-brace-format
+msgid "Could not delete the folder: {0}"
+msgstr "No se pudo eliminar la carpeta: {0}"
+
+#, python-brace-format
+msgid "There is one called {0} already."
+msgstr "Ya hay uno llamado {0}."
+
+#, python-brace-format
+msgid "Could not move it: {0}"
+msgstr "No se pudo mover: {0}"
+
+msgid "New folder inside"
+msgstr "Carpeta nueva dentro"
+
+msgid "Delete folder"
+msgstr "Eliminar carpeta"
+
+msgid "New gauge"
+msgstr "Indicador nuevo"
+
+#, python-brace-format
+msgid "Does not run: the folder {0} is switched off."
+msgstr "No se ejecuta: la carpeta {0} está desactivada."
+
+#, python-brace-format
+msgid "Does not run: the tag {0} is switched off."
+msgstr "No se ejecuta: la etiqueta {0} está desactivada."
+
+msgid "Tags"
+msgstr "Etiquetas"
+
+msgid "Folder"
+msgstr "Carpeta"
+
+msgid "Lists the tags and whether they are on"
+msgstr "Muestra las etiquetas y si están activadas"
+
+msgid "Switches a tag on or off for this session"
+msgstr "Activa o desactiva una etiqueta en esta sesión"
+
+#, python-brace-format
+msgid "Tag {0} on."
+msgstr "Etiqueta {0} activada."
+
+#, python-brace-format
+msgid "Tag {0} off."
+msgstr "Etiqueta {0} desactivada."
+
+msgid "New trigger"
+msgstr "Disparador nuevo"
+
+msgid "New alias"
+msgstr "Alias nuevo"
+
+msgid "New macro"
+msgstr "Macro nueva"
+
+msgid "New timer"
+msgstr "Temporizador nuevo"

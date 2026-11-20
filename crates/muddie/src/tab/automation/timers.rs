@@ -4,21 +4,19 @@ use super::*;
 
 impl Tab {
     pub(in crate::tab) fn timer_detail(&mut self, ui: &mut egui::Ui, index: usize) -> bool {
-        let groups = self.editor.draft.group_names();
         let theme = theme::current();
         let height = self.editor.detail_height;
+        let delete = self.rule_head(ui, Kind::Timer, index, tr("Name this timer"));
         let rule = &mut self.editor.draft.timers[index];
-        let delete = rule_header(ui, &mut rule.name, &mut rule.enabled, tr("Name this timer"));
-        group_row(ui, &mut rule.group, &groups);
         widgets::caption(ui, tr("When"));
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = 10.0;
-            let current = usize::from(!rule.repeat);
+            let current = usize::from(!rule.when.repeat);
             if let Some(chosen) = widgets::segmented(ui, &[tr("Every"), tr("Once, after")], current)
             {
-                rule.repeat = chosen == 0;
+                rule.when.repeat = chosen == 0;
             }
-            let mut seconds = f64::from(rule.tenths) / 10.0;
+            let mut seconds = f64::from(rule.when.tenths) / 10.0;
             let field = ui.add(
                 crate::widgets::number(&mut seconds)
                     .range(0.1..=86_400.0)
@@ -28,15 +26,15 @@ impl Tab {
             ui.ctx().accesskit_node_builder(field.id, |node| {
                 node.set_label(tr("seconds"));
             });
-            rule.tenths = (seconds * 10.0).round().clamp(1.0, 864_000.0) as u32;
+            rule.when.tenths = (seconds * 10.0).round().clamp(1.0, 864_000.0) as u32;
             ui.label(RichText::new(tr("seconds")).color(theme.text_dim));
             // Said back in minutes when that is how one thinks of it.
-            if rule.tenths >= 600 {
-                let said = format!("= {}", rule.interval());
+            if rule.when.tenths >= 600 {
+                let said = format!("= {}", rule.when.interval());
                 ui.label(RichText::new(said).color(theme.text_faint));
             }
         });
-        let counted = if rule.repeat {
+        let counted = if rule.when.repeat {
             tr("Counted from when the session starts or the rules are run again.")
         } else {
             tr("Goes off once, that long after the session starts or the rules are run again.")

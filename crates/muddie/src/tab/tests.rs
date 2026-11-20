@@ -8,6 +8,23 @@ use muddie_mapper::Pos;
 use super::input::PARTIAL_SETTLE;
 use super::*;
 use crate::app::App;
+use crate::rules::{Alias, Macro, Timer, Trigger};
+
+/// A trigger on `pattern`, with what `with` gives it.
+fn trigger(pattern: &str, with: impl FnOnce(&mut Trigger)) -> Trigger {
+    let mut rule = Trigger::default();
+    rule.when.pattern = pattern.into();
+    with(&mut rule);
+    rule
+}
+
+/// An alias on `pattern`, with what `with` gives it.
+fn alias(pattern: &str, with: impl FnOnce(&mut Alias)) -> Alias {
+    let mut rule = Alias::default();
+    rule.when.pattern = pattern.into();
+    with(&mut rule);
+    rule
+}
 
 mod arranging;
 mod channels;

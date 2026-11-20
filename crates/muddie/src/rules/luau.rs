@@ -28,103 +28,118 @@ fn titled(kind: &str, name: &str, fallback: &str) -> String {
     format!("{kind} {}", name.trim())
 }
 
-/// How a rule says which group it is in.
-fn grouped(group: &str) -> String {
-    if group.trim().is_empty() {
-        return String::new();
-    }
-    format!(", {{group = {}}}", quoted(group.trim()))
+/// How each kind of rule is made in Luau.
+pub trait Luau: When {
+    /// What it is called in errors.
+    const WORD: &'static str;
+    /// The code of a rule of this kind, given its `options` table.
+    fn code(rule: &Rule<Self>, options: &str) -> String;
 }
 
-impl Trigger {
-    /// A trigger: what it does with the line it matches, in order.
-    pub(super) fn chunk(&self) -> (String, String) {
+impl<T: Luau> Rule<T> {
+    /// The rule as Luau, switched by its place, and what to call it in
+    /// errors.
+    pub(super) fn chunk(&self, place: &str) -> (String, String) {
+        let tags: Vec<String> = (self.tags.iter())
+            .filter(|tag| !tag.trim().is_empty())
+            .map(|tag| quoted(tag.trim()))
+            .collect();
+        let options = format!(
+            "{{name = {}, tags = {{{}}}}}",
+            quoted(place),
+            tags.join(", ")
+        );
+        let title = titled(T::WORD, &self.name, &self.when.made_of());
+        (title, T::code(self, &options))
+    }
+
+    /// What it does: its script, or its commands.
+    fn action(&self) -> String {
+        match self.lua {
+            true => script(&self.script),
+            false => sends(&self.send),
+        }
+    }
+}
+
+impl Luau for OnLine {
+    const WORD: &'static str = "trigger";
+    /// What it does with the line it matches, in order.
+    fn code(rule: &Rule<Self>, options: &str) -> String {
+        let when = &rule.when;
         let mut code = format!(
             "{PRELUDE}trigger({}, function(m, line)\n",
-            quoted(&self.regex_source())
+            quoted(&when.regex_source())
         );
         let call = |name: &str, given: &str| format!("\t{name}({})\n", quoted(given.trim()));
-        if !self.highlight.trim().is_empty() {
-            code.push_str(&call("highlight", &self.highlight));
+        if !when.highlight.trim().is_empty() {
+            code.push_str(&call("highlight", &when.highlight));
         }
-        if self.gag {
+        if when.gag {
             code.push_str("\tgag()\n");
         }
-        code.push_str(&if self.lua {
-            script(&self.script)
-        } else {
-            sends(&self.send)
-        });
-        if !self.speak.trim().is_empty() {
+        code.push_str(&rule.action());
+        if !when.speak.trim().is_empty() {
             code.push_str(&format!(
                 "\tspeak(fill({}, m))\n",
-                quoted(self.speak.trim())
+                quoted(when.speak.trim())
             ));
         }
-        if !self.sound.trim().is_empty() {
-            code.push_str(&call("play", &self.sound));
+        if !when.sound.trim().is_empty() {
+            code.push_str(&call("play", &when.sound));
         }
-        if !self.panel.trim().is_empty() {
-            code.push_str(&call("to_panel", &self.panel));
+        if !when.panel.trim().is_empty() {
+            code.push_str(&call("to_panel", &when.panel));
         }
-        code.push_str(&format!("end{})\n", grouped(&self.group)));
-        (titled("trigger", &self.name, &self.pattern), code)
+        code.push_str(&format!("end, {options})\n"));
+        code
     }
 }
 
-impl Alias {
-    /// An alias: what it sends, or its script, in place of what was typed.
-    pub(super) fn chunk(&self) -> (String, String) {
-        let action = if self.lua {
-            script(&self.script)
-        } else {
-            sends(&self.send)
-        };
-        let code = format!(
-            "{PRELUDE}alias({}, function(m, input)\n{action}end{})\n",
-            quoted(&self.regex_source()),
-            grouped(&self.group)
-        );
-        (titled("alias", &self.name, &self.pattern), code)
+impl Luau for OnTyped {
+    const WORD: &'static str = "alias";
+    /// What it sends, or its script, in place of what was typed.
+    fn code(rule: &Rule<Self>, options: &str) -> String {
+        format!(
+            "{PRELUDE}alias({}, function(m, input)\n{}end, {options})\n",
+            quoted(&rule.when.regex_source()),
+            rule.action(),
+        )
     }
 }
 
-impl KeyBinding {
-    /// A macro: its key bound to its script, or to what it sends, which
-    /// goes through aliases as if typed.
-    pub(super) fn chunk(&self) -> (String, String) {
-        let name = quoted(self.key.trim());
-        let code = if self.lua {
+impl Luau for OnKey {
+    const WORD: &'static str = "macro";
+    /// Its key bound to its script, or to what it sends, which goes
+    /// through aliases as if typed.
+    fn code(rule: &Rule<Self>, options: &str) -> String {
+        let key = quoted(rule.when.key.trim());
+        if rule.lua {
             format!(
-                "bind({name}, function()\n{}end{})\n",
-                script(&self.script),
-                grouped(&self.group)
+                "bind({key}, function()\n{}end, {options})\n",
+                script(&rule.script)
             )
         } else {
-            let typed = commands(&self.send).collect::<Vec<_>>().join(";");
-            format!("bind({name}, {}{})\n", quoted(&typed), grouped(&self.group))
-        };
-        (titled("macro", &self.name, &self.key), code)
+            let typed = commands(&rule.send).collect::<Vec<_>>().join(";");
+            format!("bind({key}, {}, {options})\n", quoted(&typed))
+        }
     }
 }
 
-impl Timer {
-    /// A timer: once after a while, or again and again.
-    pub(super) fn chunk(&self) -> (String, String) {
-        let action = if self.lua {
-            script(&self.script)
+impl Luau for OnTime {
+    const WORD: &'static str = "timer";
+    /// Once after a while, or again and again.
+    fn code(rule: &Rule<Self>, options: &str) -> String {
+        let action = if rule.lua {
+            script(&rule.script)
         } else {
-            commands(&self.send)
+            commands(&rule.send)
                 .map(|command| format!("\tsend(expand({}))\n", quoted(command)))
                 .collect()
         };
-        let how = if self.repeat { "every" } else { "after" };
-        let seconds = f64::from(self.tenths) / 10.0;
-        let code = format!(
-            "{how}({seconds}, function()\n{action}end{})\n",
-            grouped(&self.group)
-        );
-        (titled("timer", &self.name, &self.interval()), code)
+        let how = if rule.when.repeat { "every" } else { "after" };
+        let seconds = f64::from(rule.when.tenths) / 10.0;
+        format!("{how}({seconds}, function()\n{action}end, {options})\n")
     }
 }
 

@@ -13,16 +13,16 @@ pub(in crate::tab) fn fixed(usage: &str) -> Vec<&str> {
 /// What the palette offers for what has been typed: the commands that
 /// begin so, and for those that take the name of something there is, the
 /// names.
-pub fn offered(typed: &str, groups: &[(String, bool)], plugins: &[String]) -> Vec<Item> {
+pub fn offered(typed: &str, tags: &[(String, bool)], plugins: &[String]) -> Vec<Item> {
     if !typed.starts_with('/') {
         return Vec::new();
     }
     let typing = Typing::of(typed);
-    let group_names = (groups.iter())
+    let tag_names = (tags.iter())
         .map(|(name, on)| (name.clone(), tr(if *on { "on" } else { "off" }).to_owned()))
         .collect();
     let by_name = typing
-        .names(&["/group"], group_names)
+        .names(&["/tag"], tag_names)
         .filter(|_| typing.words.len() > 1 || !typing.open)
         .or_else(|| {
             let plugin_names = || {
@@ -132,9 +132,9 @@ mod tests {
 
     fn usages(typed: &str) -> Vec<String> {
         crate::i18n::set_language("en");
-        let groups = [("Combat".to_owned(), true), ("Social".to_owned(), false)];
+        let tags = [("combat".to_owned(), true), ("social".to_owned(), false)];
         let plugins = ["mapper".to_owned()];
-        offered(typed, &groups, &plugins)
+        offered(typed, &tags, &plugins)
             .into_iter()
             .map(|item| item.usage)
             .collect()
@@ -152,8 +152,8 @@ mod tests {
         // One that takes nothing is not offered once more follows it.
         assert!(usages("/map where now").is_empty());
         // Those that take the name of something there is offer the names.
-        assert_eq!(usages("/group "), ["/group Combat", "/group Social"]);
-        assert_eq!(usages("/group so"), ["/group Social"]);
+        assert_eq!(usages("/tag "), ["/tag combat", "/tag social"]);
+        assert_eq!(usages("/tag so"), ["/tag social"]);
         assert_eq!(usages("/plugin enable "), ["/plugin enable mapper"]);
         // What choosing one puts in the line leaves room for what it
         // cannot do without, and only then is it not run as it is.
@@ -163,10 +163,10 @@ mod tests {
         assert_eq!((stop.insert.as_str(), stop.more), ("/map stop", false));
         let avoid = offered("/map av", &[], &[]).remove(0);
         assert_eq!((avoid.insert.as_str(), avoid.more), ("/map avoid", false));
-        let combat = offered("/group Com", &[("Combat".to_owned(), true)], &[]).remove(0);
+        let combat = offered("/tag com", &[("combat".to_owned(), true)], &[]).remove(0);
         assert_eq!(
             (combat.insert.as_str(), combat.more),
-            ("/group Combat", false)
+            ("/tag combat", false)
         );
     }
 }

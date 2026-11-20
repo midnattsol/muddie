@@ -1,4 +1,4 @@
-//! Triggers, aliases, groups, keys and timers.
+//! Triggers, aliases, keys and timers, and switching them.
 
 use super::*;
 
@@ -92,22 +92,48 @@ fn several_commands_on_one_line_each_go_through_aliases() {
 }
 
 #[test]
-fn groups_switch_triggers_off_and_once_fires_a_single_time() {
+fn tags_switch_triggers_off_and_once_fires_a_single_time() {
     let mut engine = engine(
-        r#"trigger("hit", function() send("flee") end, {group = "combat"})
+        r#"trigger("hit", function() send("flee") end, {tags = {"Combat"}})
         trigger("hit", function() send("first blood") end, {once = true})
-        alias("^x$", function() send("special") end, {group = "combat"})"#,
+        alias("^x$", function() send("special") end, {tags = "combat"})"#,
     );
     engine.on_line("you are hit");
     assert_eq!(engine.take_actions(), [send("flee"), send("first blood")]);
-    engine.on_input("/lua enable('combat', false)");
+    engine.on_input("/lua tags.disable('combat')");
     engine.on_line("you are hit");
     engine.on_input("x");
     assert_eq!(engine.take_actions(), [send("x")]);
-    engine.on_input("/lua enable('combat', true)");
+    engine.on_input("/lua tags.enable('COMBAT')");
     engine.on_line("you are hit");
     engine.on_input("x");
     assert_eq!(engine.take_actions(), [send("flee"), send("special")]);
+}
+
+#[test]
+fn a_thing_is_switched_by_its_place_or_its_folder_and_only_of_its_kind() {
+    let mut engine = engine(
+        r#"trigger("hit", function() send("flee") end, {name = "Combat/Flee"})
+        trigger("hit", function() send("quaff") end, {name = "Combat/Healing/Quaff"})
+        alias("^hit$", function() send("kick") end, {name = "Combat/Kick"})"#,
+    );
+    engine.exec("t", r#"triggers.disable("Combat/Healing")"#);
+    engine.on_line("you are hit");
+    assert_eq!(engine.take_actions(), [send("flee")]);
+    engine.exec("t", r#"triggers.disable("Combat")"#);
+    engine.on_line("you are hit");
+    engine.on_input("hit");
+    assert_eq!(engine.take_actions(), [send("kick")]);
+    engine.exec(
+        "t",
+        r#"echo(tostring(triggers.enabled("Combat/Flee")) .. table.concat(triggers.list(), ","))"#,
+    );
+    assert_eq!(
+        engine.take_actions(),
+        [Action::Echo(
+            "falseCombat,Combat/Flee,Combat/Healing,Combat/Healing/Quaff".into()
+        )]
+    );
 }
 
 #[test]
@@ -211,39 +237,45 @@ fn keys_run_their_binding() {
 }
 
 #[test]
-fn groups_cover_keys_and_timers_and_are_told_about() {
+fn switches_cover_keys_and_timers_and_are_told_about() {
     let mut engine = engine(
         r#"
-        trigger("hit", function() send("flee") end, {group = "combat"})
-        bind("f1", "kick", {group = "combat"})
-        bind("f1", "look", {group = "explore"})
+        trigger("hit", function() send("flee") end, {tags = {"combat"}})
+        bind("f1", "kick", {name = "Fighting", tags = {"combat"}})
+        bind("f1", "look", {name = "Exploring"})
         bind("f2", "score")
-        every(1, function() send("tick") end, {group = "combat"})
-        group.disable("combat")
+        every(1, function() send("tick") end, {name = "Pulse", tags = {"combat"}})
+        tags.disable("combat")
         "#,
     );
-    assert_eq!(engine.groups(), ["combat", "explore"]);
-    assert!(!engine.group_enabled("combat") && engine.group_enabled("explore"));
-    // The same key does what its live group says, or nothing at all.
+    assert_eq!(engine.tags(), ["combat"]);
+    assert!(!engine.switches().tag_on("combat"));
+    // The same key does what the first bound that is on does, or nothing.
     assert!(engine.on_key("f1"));
     assert_eq!(engine.take_actions(), [send("look")]);
-    engine.set_group("explore", false);
+    let mut switches = engine.switches();
+    switches.set_place(Kind::Macro, "Exploring", false);
+    engine.set_switches(switches);
     assert!(!engine.on_key("f1"), "the key is left to be typed");
     assert!(engine.on_key("f2"));
     engine.take_actions();
-    // A timer whose group is off lets its turns pass, and comes back.
+    // A timer switched off lets its turns pass, and comes back.
     let start = Instant::now();
     engine.tick(start + Duration::from_millis(1100));
     assert_eq!(engine.take_actions(), []);
     engine.exec(
         "t",
-        r#"echo(tostring(group.toggle("combat")) .. tostring(group.enabled("combat")))"#,
+        r#"echo(tostring(tags.toggle("combat")) .. tostring(tags.enabled("combat")))"#,
     );
     assert_eq!(engine.take_actions(), [Action::Echo("truetrue".into())]);
     engine.tick(start + Duration::from_millis(2200));
     assert_eq!(engine.take_actions(), [send("tick")]);
     assert!(engine.on_key("f1"));
     assert_eq!(engine.take_actions(), [send("kick")]);
+    // Bound again under the same name, a key does the new thing instead.
+    engine.exec("t", r#"bind("f1", "bash", {name = "Fighting"})"#);
+    assert!(engine.on_key("f1"));
+    assert_eq!(engine.take_actions(), [send("bash")]);
 }
 
 #[test]

@@ -46,43 +46,178 @@ pub fn nav_item(ui: &mut Ui, selected: bool, text: &str, count: Option<usize>) -
 /// A row of a list: a title with a line of detail under it. A row that is
 /// not `active` (a rule switched off, say) is shown faded.
 pub fn list_row(ui: &mut Ui, selected: bool, title: &str, detail: &str, active: bool) -> Response {
-    let theme = theme::current();
-    let height = if detail.is_empty() { 34.0 } else { 48.0 };
-    let (rect, response) =
-        ui.allocate_exact_size(vec2(ui.available_width(), height), Sense::click());
-    response.widget_info(|| WidgetInfo::selected(Role::ListItem, ui.is_enabled(), selected, title));
-    if ui.is_rect_visible(rect) {
-        let fill = match (selected, response.hovered()) {
+    let row = ListRow {
+        title,
+        detail,
+        selected,
+        active,
+        ..ListRow::default()
+    };
+    row.show(ui)
+}
+
+/// How far in each level of folders is.
+pub const INDENT: f32 = 18.0;
+
+/// A row of a list, with all it can have: a title with a line of detail
+/// under it and its tags beside it, faded unless `active`, and `depth`
+/// folders in, with a line down for each.
+#[derive(Default)]
+pub struct ListRow<'a> {
+    pub title: &'a str,
+    pub detail: &'a str,
+    pub tags: &'a [String],
+    pub selected: bool,
+    pub active: bool,
+    pub depth: usize,
+}
+
+impl ListRow<'_> {
+    pub fn show(self, ui: &mut Ui) -> Response {
+        let theme = theme::current();
+        let height = if self.detail.is_empty() { 34.0 } else { 48.0 };
+        let (rect, response) =
+            ui.allocate_exact_size(vec2(ui.available_width(), height), Sense::click());
+        response.widget_info(|| {
+            WidgetInfo::selected(Role::ListItem, ui.is_enabled(), self.selected, self.title)
+        });
+        if !ui.is_rect_visible(rect) {
+            return response;
+        }
+        let body = indented(ui, rect, self.depth);
+        let fill = match (self.selected, response.hovered()) {
             (true, _) => theme.accent.gamma_multiply(0.22),
             (false, true) => theme.raised.gamma_multiply(0.7),
             (false, false) => Color32::TRANSPARENT,
         };
-        let fade = if active { 1.0 } else { 0.45 };
-        let painter = ui.painter().with_clip_rect(rect.shrink2(vec2(8.0, 0.0)));
-        ui.painter().rect_filled(rect, CornerRadius::same(8), fill);
-        let left = rect.left() + 12.0;
-        let title_y = if detail.is_empty() {
-            rect.center().y
+        ui.painter().rect_filled(body, CornerRadius::same(8), fill);
+        let fade = if self.active { 1.0 } else { 0.45 };
+        let painter = ui.painter().with_clip_rect(body.shrink2(vec2(8.0, 0.0)));
+        let left = body.left() + 12.0;
+        let title_y = if self.detail.is_empty() {
+            body.center().y
         } else {
-            rect.top() + 16.0
+            body.top() + 16.0
         };
-        painter.text(
+        let title = painter.text(
             egui::pos2(left, title_y),
             egui::Align2::LEFT_CENTER,
-            title,
+            self.title,
             theme::font(Weight::Medium, 13.5),
             theme.text.gamma_multiply(fade),
         );
-        if !detail.is_empty() {
+        let mut at = title.right() + 8.0;
+        for tag in self.tags.iter().filter(|tag| !tag.trim().is_empty()) {
+            at = tag_pill(&painter, egui::pos2(at, title_y), tag.trim(), fade).right() + 4.0;
+        }
+        if !self.detail.is_empty() {
             painter.text(
-                egui::pos2(left, rect.top() + 33.0),
+                egui::pos2(left, body.top() + 33.0),
                 egui::Align2::LEFT_CENTER,
-                detail,
+                self.detail,
                 theme::font(Weight::Regular, 12.0),
                 theme.text_dim.gamma_multiply(fade),
             );
         }
+        response
     }
+}
+
+/// Draws a line down for each folder a row is in, and returns the part of
+/// the row left for it.
+fn indented(ui: &Ui, rect: egui::Rect, depth: usize) -> egui::Rect {
+    let guide = Stroke::new(1.0, theme::current().border);
+    for level in 0..depth {
+        let x = rect.left() + 14.0 + INDENT * level as f32;
+        ui.painter().vline(x, rect.y_range(), guide);
+    }
+    rect.with_min_x(rect.left() + INDENT * depth as f32)
+}
+
+/// A tag, as a small pill starting at `left`, centred on its height.
+pub fn tag_pill(
+    painter: &egui::Painter,
+    left_centre: egui::Pos2,
+    tag: &str,
+    fade: f32,
+) -> egui::Rect {
+    let theme = theme::current();
+    let galley = painter.layout_no_wrap(
+        tag.to_owned(),
+        theme::font(Weight::Medium, 11.0),
+        theme.accent.gamma_multiply(fade),
+    );
+    let size = galley.size() + vec2(12.0, 4.0);
+    let pill = egui::Rect::from_min_size(left_centre - vec2(0.0, size.y / 2.0), size);
+    painter.rect_filled(
+        pill,
+        CornerRadius::same(255),
+        theme.accent.gamma_multiply(0.14 * fade),
+    );
+    painter.galley(pill.min + vec2(6.0, 2.0), galley, theme.accent);
+    pill
+}
+
+/// A folder in a list: an arrow that points down when it is open, a folder,
+/// its name and how many it holds, `depth` folders in. Faded unless
+/// `active`. Room is left at the right for its switch.
+pub fn folder_row(
+    ui: &mut Ui,
+    name: &str,
+    depth: usize,
+    open: bool,
+    active: bool,
+    count: usize,
+) -> Response {
+    let theme = theme::current();
+    let (rect, response) = ui.allocate_exact_size(vec2(ui.available_width(), 32.0), Sense::click());
+    response.widget_info(|| WidgetInfo::selected(Role::TreeItem, ui.is_enabled(), open, name));
+    if !ui.is_rect_visible(rect) {
+        return response;
+    }
+    let body = indented(ui, rect, depth);
+    if response.hovered() || response.has_focus() {
+        ui.painter().rect_filled(
+            body,
+            CornerRadius::same(8),
+            theme.raised.gamma_multiply(0.7),
+        );
+    }
+    let fade = if active { 1.0 } else { 0.45 };
+    let ink = theme.text_dim.gamma_multiply(fade);
+    let stroke = Stroke::new(1.4, ink);
+    let tip = body.left_center() + vec2(12.0, 0.0);
+    let arrow = match open {
+        true => vec![
+            tip + vec2(-4.0, -2.0),
+            tip + vec2(0.0, 2.0),
+            tip + vec2(4.0, -2.0),
+        ],
+        false => vec![
+            tip + vec2(-2.0, -4.0),
+            tip + vec2(2.0, 0.0),
+            tip + vec2(-2.0, 4.0),
+        ],
+    };
+    ui.painter().add(egui::Shape::line(arrow, stroke));
+    draw_folder(ui.painter(), body.left_center() + vec2(30.0, 0.0), stroke);
+    let painter = ui
+        .painter()
+        .with_clip_rect(body.with_max_x(body.right() - 80.0));
+    painter.text(
+        body.left_center() + vec2(42.0, 0.0),
+        egui::Align2::LEFT_CENTER,
+        name,
+        theme::font(Weight::Medium, 13.0),
+        theme.text.gamma_multiply(fade),
+    );
+    ui.painter().text(
+        body.right_center() - vec2(58.0, 0.0),
+        egui::Align2::RIGHT_CENTER,
+        count.to_string(),
+        theme::font(Weight::Regular, 11.5),
+        theme.text_faint,
+    );
     response
 }
 

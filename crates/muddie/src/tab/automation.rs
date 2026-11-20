@@ -5,26 +5,30 @@ use super::*;
 
 mod aliases;
 mod detail;
+mod folders;
 mod gauges;
 mod list;
 mod macros;
 mod page;
 mod scripts;
+mod tags;
 mod timers;
 mod triggers;
 mod undo;
 mod values;
 mod variables;
 
+pub(super) use folders::{Dragged, Renaming};
 pub(super) use scripts::Checks;
 pub(super) use triggers::Extra;
 pub(super) use undo::Undo;
 // What the sections share, and what one needs of another.
-use crate::rules::{Timer, fill};
+use crate::rules::{fill, tag_key};
 use crate::theme::Weight;
 use crate::widgets;
 use detail::*;
 use scripts::EXAMPLES;
+use tags::*;
 use values::*;
 
 /// The sections of the window, in the order of the sidebar.
@@ -37,6 +41,19 @@ pub(super) const VARIABLES: usize = 5;
 pub(super) const SCRIPTS: usize = 6;
 /// What the MUD sends besides text: not rules, but what they are made from.
 pub(super) const DATA: usize = 7;
+
+/// The kind of thing a section holds, for those that are kept in folders
+/// and switched by their place.
+pub(super) fn section_kind(section: usize) -> Option<Kind> {
+    match section {
+        TRIGGERS => Some(Kind::Trigger),
+        ALIASES => Some(Kind::Alias),
+        MACROS => Some(Kind::Macro),
+        TIMERS => Some(Kind::Timer),
+        SCRIPTS => Some(Kind::Script),
+        _ => None,
+    }
+}
 
 impl Tab {
     /// Opens the automation window on one of its sections.
@@ -130,8 +147,10 @@ pub(super) struct Editor {
     pub(super) recording_key: bool,
     /// The palette of commands: which one is chosen, and the text it was
     /// put away over, so that it stays away until that changes.
-    /// The gauge being dragged to another place in the editor's list.
-    pub(super) gauge_dragged: Option<usize>,
+    /// What is being dragged to another place in the editor's list.
+    pub(super) dragged: Option<Dragged>,
+    /// The folder whose name is being typed.
+    pub(super) renaming: Option<Renaming>,
     /// The trigger whose details are shown, and what it was asked to do
     /// besides its commands though that is still empty.
     pub(super) extras_added: (usize, Vec<automation::Extra>),
@@ -150,9 +169,9 @@ pub(super) struct Editor {
     pub(super) variable_number: f64,
     pub(super) variable_flag: bool,
     pub(super) variable_items: Vec<(String, String)>,
-    /// The group the editor's lists are narrowed to, and those folded.
-    pub(super) group_filter: Option<String>,
-    pub(super) folded_groups: Vec<String>,
+    /// The tag the editor's lists are narrowed to, and the folders folded.
+    pub(super) tag_filter: Option<String>,
+    pub(super) folded: Vec<(Kind, String)>,
     /// The widths of the automation view's first two panes, and how tall
     /// its details are.
     pub(super) panes: [f32; 2],
@@ -179,7 +198,8 @@ impl Default for Editor {
             script_settle: Default::default(),
             script_ran: None,
             recording_key: false,
-            gauge_dragged: None,
+            dragged: None,
+            renaming: None,
             extras_added: (usize::MAX, Vec::new()),
             gauge_here: None,
             undo: None,
@@ -191,8 +211,8 @@ impl Default for Editor {
             variable_number: 0.0,
             variable_flag: false,
             variable_items: Vec::new(),
-            group_filter: None,
-            folded_groups: Vec::new(),
+            tag_filter: None,
+            folded: Vec::new(),
             panes: Settings::default().automation_panes,
             detail_height: 600.0,
         }

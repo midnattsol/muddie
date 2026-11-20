@@ -12,6 +12,7 @@ mod luau;
 mod tests;
 
 pub use kinds::*;
+pub use muddie_script::{Kind, Switches, tag_key};
 
 /// Puts a match's groups into a template: `%1`... become the groups.
 pub fn fill(template: &str, captures: &regex::Captures) -> String {
@@ -32,33 +33,25 @@ pub fn fill(template: &str, captures: &regex::Captures) -> String {
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Rules {
+    /// The tags switched off, as they are compared.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub tags_off: Vec<String>,
     #[serde(rename = "trigger")]
     pub triggers: Vec<Trigger>,
     #[serde(rename = "alias")]
     pub aliases: Vec<Alias>,
     #[serde(rename = "key")]
-    pub keys: Vec<KeyBinding>,
+    pub macros: Vec<Macro>,
     #[serde(rename = "timer")]
     pub timers: Vec<Timer>,
-    #[serde(rename = "group")]
-    pub groups: Vec<Group>,
     #[serde(rename = "gauge")]
     pub gauges: Vec<Gauge>,
-    /// The scripts that are switched off, by [`script_key`]: they are
-    /// kept, and not run.
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub scripts_off: Vec<String>,
-}
-
-/// What a script file is known by among those switched off: its name, or
-/// for the one of every session, which is not in a `scripts` folder,
-/// its name after `every/`.
-pub fn script_key(file: &std::path::Path) -> String {
-    let name = file.file_name().unwrap_or_default().to_string_lossy();
-    match file.parent().is_some_and(|dir| dir.ends_with("scripts")) {
-        true => name.into_owned(),
-        false => format!("every/{name}"),
-    }
+    /// The folders of each kind, in their order.
+    #[serde(rename = "folder", skip_serializing_if = "Vec::is_empty")]
+    pub folders: Vec<Folder>,
+    /// The player's scripts that are switched off or carry tags.
+    #[serde(rename = "script", skip_serializing_if = "Vec::is_empty")]
+    pub scripts: Vec<ScriptEntry>,
 }
 
 /// The commands of a rule's `send`: one per line, or separated by `;`.
@@ -104,10 +97,7 @@ impl Rules {
     pub fn load(path: &Path) -> Result<Self, String> {
         match std::fs::read_to_string(path) {
             Ok(text) => {
-                let loaded: Result<Self, _> = toml::from_str(&text);
-                let mut rules = loaded.map_err(|error| format!("{}: {error}", path.display()))?;
-                rules.migrate();
-                Ok(rules)
+                toml::from_str(&text).map_err(|error| format!("{}: {error}", path.display()))
             }
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(Self::default()),
             Err(error) => Err(format!("cannot read {}: {error}", path.display())),
@@ -123,76 +113,214 @@ impl Rules {
             .map_err(|error| format!("cannot write {}: {error}", path.display()))
     }
 
-    /// Brings rules written by earlier versions up to date: a rule does
-    /// its commands or its script, so one that had both becomes a script
-    /// that starts by sending the commands.
-    pub fn migrate(&mut self) {
-        let merge = |send: &mut String, script: &mut String, lua: &mut bool, matched: bool| {
-            if !*lua && !script.trim().is_empty() {
-                *script = format!("{}{script}", commands_as_lua(send, matched));
-                send.clear();
-                *lua = true;
+    /// The rules of a kind, to go through and change whatever their kind;
+    /// scripts are files, not rules.
+    pub fn list(&self, kind: Kind) -> Option<&dyn RuleList> {
+        match kind {
+            Kind::Trigger => Some(&self.triggers),
+            Kind::Alias => Some(&self.aliases),
+            Kind::Macro => Some(&self.macros),
+            Kind::Timer => Some(&self.timers),
+            Kind::Script => None,
+        }
+    }
+
+    pub fn list_mut(&mut self, kind: Kind) -> Option<&mut dyn RuleList> {
+        match kind {
+            Kind::Trigger => Some(&mut self.triggers),
+            Kind::Alias => Some(&mut self.aliases),
+            Kind::Macro => Some(&mut self.macros),
+            Kind::Timer => Some(&mut self.timers),
+            Kind::Script => None,
+        }
+    }
+
+    /// What is saved switched off: folders, rules and scripts by their
+    /// place, and tags.
+    pub fn switched_off(&self) -> Switches {
+        let mut switches = Switches::default();
+        for folder in self.folders.iter().filter(|folder| !folder.enabled) {
+            switches.set_place(folder.kind, &folder.path, false);
+        }
+        for kind in Kind::ALL {
+            let Some(list) = self.list(kind) else {
+                continue;
+            };
+            for index in (0..list.len()).filter(|&index| !list.enabled(index)) {
+                switches.set_place(kind, &list.place(index), false);
             }
+        }
+        for script in self.scripts.iter().filter(|script| !script.enabled) {
+            switches.set_place(Kind::Script, &script.path, false);
+        }
+        for tag in &self.tags_off {
+            switches.set_tag(tag, false);
+        }
+        switches
+    }
+
+    /// The folders of a kind, in their order: those kept, then any a
+    /// rule is in that is not, with those above it.
+    pub fn folder_paths(&self, kind: Kind) -> Vec<String> {
+        let mut paths: Vec<String> = (self.folders.iter())
+            .filter(|folder| folder.kind == kind)
+            .map(|folder| folder.path.clone())
+            .collect();
+        let held = self.list(kind).map_or_else(Vec::new, |list| {
+            (0..list.len())
+                .map(|index| list.folder(index).to_owned())
+                .collect()
+        });
+        let mut implied: Vec<String> = (held.iter())
+            .filter(|folder| !folder.trim().is_empty())
+            .flat_map(|folder| {
+                muddie_script::places_up(folder)
+                    .map(str::to_owned)
+                    .collect::<Vec<_>>()
+            })
+            .filter(|path| !paths.contains(path))
+            .collect();
+        implied.sort();
+        implied.dedup();
+        paths.extend(implied);
+        paths
+    }
+
+    /// Whether a folder is saved switched on, as one is unless it is not.
+    pub fn folder_on(&self, kind: Kind, path: &str) -> bool {
+        (self.folders.iter())
+            .find(|folder| folder.kind == kind && folder.path == path)
+            .is_none_or(|folder| folder.enabled)
+    }
+
+    /// Sets whether a folder is saved switched on, keeping it if it was not
+    /// kept yet.
+    pub fn set_folder_on(&mut self, kind: Kind, path: &str, on: bool) {
+        match (self.folders.iter_mut()).find(|folder| folder.kind == kind && folder.path == path) {
+            Some(folder) => folder.enabled = on,
+            None => self.folders.push(Folder {
+                kind,
+                path: path.to_owned(),
+                enabled: on,
+            }),
+        }
+    }
+
+    /// Gives a folder, with all it holds, another place: renamed, or put in
+    /// another folder. Its rules and the folders in it go with it.
+    pub fn move_folder(&mut self, kind: Kind, from: &str, to: &str) {
+        let moved = |path: &str| match path.strip_prefix(from) {
+            Some("") => Some(to.to_owned()),
+            Some(rest) if rest.starts_with('/') => Some(format!("{to}{rest}")),
+            _ => None,
         };
-        for rule in &mut self.triggers {
-            merge(&mut rule.send, &mut rule.script, &mut rule.lua, true);
-        }
-        for rule in &mut self.aliases {
-            merge(&mut rule.send, &mut rule.script, &mut rule.lua, true);
-        }
-        for rule in &mut self.keys {
-            merge(&mut rule.send, &mut rule.script, &mut rule.lua, false);
-        }
-        // Gauges had a switch for cells and one level to warn under.
-        for gauge in &mut self.gauges {
-            if std::mem::take(&mut gauge.segments) && gauge.kind == GaugeKind::Bar {
-                gauge.kind = GaugeKind::Cells;
+        for folder in self.folders.iter_mut().filter(|folder| folder.kind == kind) {
+            if let Some(path) = moved(&folder.path) {
+                folder.path = path;
             }
-            let low = std::mem::take(&mut gauge.low);
-            if low > 0 && gauge.steps.is_empty() {
-                gauge.steps.push(Step {
-                    under: low,
-                    colour: "red".to_owned(),
-                });
+        }
+        if let Some(list) = self.list_mut(kind) {
+            for index in 0..list.len() {
+                if let Some(path) = moved(list.folder(index)) {
+                    list.set_folder(index, path);
+                }
             }
         }
     }
 
-    /// The groups there are, in alphabetical order: those a rule is in
-    /// and those with a state of their own.
-    pub fn group_names(&self) -> Vec<String> {
-        let rules = (self.triggers.iter().map(|rule| &rule.group))
-            .chain(self.aliases.iter().map(|rule| &rule.group))
-            .chain(self.keys.iter().map(|rule| &rule.group))
-            .chain(self.timers.iter().map(|rule| &rule.group));
-        let mut names: Vec<String> = rules
-            .chain(self.groups.iter().map(|group| &group.name))
-            .cloned()
-            .collect();
-        names.retain(|name| !name.trim().is_empty());
-        names.sort_by_key(|name| name.to_lowercase());
-        names.dedup();
+    /// Takes a folder away, leaving what it held in the folder it was in.
+    pub fn remove_folder(&mut self, kind: Kind, path: &str) {
+        let parent = path
+            .rsplit_once('/')
+            .map_or("", |(parent, _)| parent)
+            .to_owned();
+        self.folders
+            .retain(|folder| folder.kind != kind || folder.path != path);
+        let inner = |held: &str| -> Option<String> {
+            let rest = held.strip_prefix(path)?;
+            rest.starts_with('/').then(|| rest.to_owned())
+        };
+        for folder in self.folders.iter_mut().filter(|folder| folder.kind == kind) {
+            if let Some(rest) = inner(&folder.path) {
+                folder.path = joined(&parent, &rest[1..]);
+            }
+        }
+        if let Some(list) = self.list_mut(kind) {
+            for index in 0..list.len() {
+                let held = list.folder(index).to_owned();
+                if held == path {
+                    list.set_folder(index, parent.clone());
+                } else if let Some(rest) = inner(&held) {
+                    list.set_folder(index, joined(&parent, &rest[1..]));
+                }
+            }
+        }
+    }
+
+    /// The tags there are, each once however it is capitalised, in
+    /// alphabetical order.
+    pub fn tag_names(&self) -> Vec<String> {
+        let mut names: Vec<String> = Vec::new();
+        let carried = Kind::ALL
+            .iter()
+            .filter_map(|&kind| self.list(kind))
+            .flat_map(|list| (0..list.len()).flat_map(|index| list.tags(index).to_vec()))
+            .chain(self.scripts.iter().flat_map(|script| script.tags.clone()))
+            .chain(self.tags_off.iter().cloned());
+        for tag in carried {
+            let key = tag_key(&tag);
+            if !key.is_empty() && !names.iter().any(|known| tag_key(known) == key) {
+                names.push(tag.trim().to_owned());
+            }
+        }
+        names.sort_by_key(|name| tag_key(name));
         names
     }
 
-    /// Whether a group starts a session switched on.
-    pub fn group_enabled(&self, name: &str) -> bool {
-        self.groups
-            .iter()
-            .find(|group| group.name == name)
-            .is_none_or(|group| group.enabled)
+    /// Whether a tag is saved switched on.
+    pub fn tag_on(&self, tag: &str) -> bool {
+        !self.tags_off.contains(&tag_key(tag))
     }
 
-    /// Sets whether a group starts a session switched on.
-    pub fn set_group_enabled(&mut self, name: &str, enabled: bool) {
-        self.groups.retain(|group| group.name != name);
-        // Only what differs from the usual is worth keeping.
-        if !enabled {
-            self.groups.push(Group {
-                name: name.to_owned(),
-                enabled,
-            });
+    pub fn set_tag_on(&mut self, tag: &str, on: bool) {
+        let key = tag_key(tag);
+        self.tags_off.retain(|known| *known != key);
+        if !on {
+            self.tags_off.push(key);
         }
+    }
+
+    /// How a script is kept: switched on and with no tags unless said.
+    pub fn script(&self, path: &str) -> ScriptEntry {
+        (self.scripts.iter())
+            .find(|script| script.path == path)
+            .cloned()
+            .unwrap_or_else(|| ScriptEntry {
+                path: path.to_owned(),
+                enabled: true,
+                tags: Vec::new(),
+            })
+    }
+
+    /// Keeps how a script is: only what differs from the usual is kept.
+    pub fn set_script(&mut self, entry: ScriptEntry) {
+        self.scripts.retain(|script| script.path != entry.path);
+        if !entry.enabled || !entry.tags.is_empty() {
+            self.scripts.push(entry);
+        }
+    }
+
+    /// Gives the scripts in a folder, or one script, another place, as
+    /// their files were moved.
+    pub fn move_scripts(&mut self, from: &str, to: &str) {
+        for script in &mut self.scripts {
+            match script.path.strip_prefix(from) {
+                Some("") => script.path = to.to_owned(),
+                Some(rest) if rest.starts_with('/') => script.path = format!("{to}{rest}"),
+                _ => {}
+            }
+        }
+        self.move_folder(Kind::Script, from, to);
     }
 
     /// The rules as one Luau script.
@@ -205,44 +333,116 @@ impl Rules {
         chunks.collect()
     }
 
-    /// The rules as Luau, one chunk per rule switched on, each with a name
-    /// to report errors under; the groups that start switched off first.
+    /// The rules as Luau, one chunk per rule complete enough to run, each
+    /// with a name to report errors under. Those switched off are made all
+    /// the same, and switched off: a script can switch them on.
     pub fn chunks(&self) -> Vec<(String, String)> {
-        let mut chunks = Vec::new();
-        let off: String = (self.groups.iter())
-            .filter(|group| !group.enabled)
-            .map(|group| format!("group.disable({})\n", quoted(group.name.trim())))
-            .collect();
-        if !off.is_empty() {
-            chunks.push(("groups".to_owned(), off));
-        }
-        let on = |enabled: bool, given: &str| enabled && !given.trim().is_empty();
-        chunks.extend(
-            (self.triggers.iter())
-                .filter(|rule| on(rule.enabled, &rule.pattern))
-                .map(Trigger::chunk),
-        );
-        chunks.extend(
-            (self.aliases.iter())
-                .filter(|rule| on(rule.enabled, &rule.pattern))
-                .map(Alias::chunk),
-        );
-        chunks.extend(
-            (self.keys.iter())
-                .filter(|rule| on(rule.enabled, &rule.key))
-                .map(KeyBinding::chunk),
-        );
-        chunks.extend(
-            (self.timers.iter())
-                .filter(|rule| rule.enabled && rule.tenths > 0)
-                .map(Timer::chunk),
-        );
+        let mut chunks: Vec<(String, String)> = Vec::new();
+        chunks.extend(rule_chunks(&self.triggers));
+        chunks.extend(rule_chunks(&self.aliases));
+        chunks.extend(rule_chunks(&self.macros));
+        chunks.extend(rule_chunks(&self.timers));
         chunks.extend(
             (self.gauges.iter())
-                .filter(|rule| on(rule.enabled, &rule.value))
+                .filter(|rule| rule.enabled && !rule.value.trim().is_empty())
                 .map(Gauge::chunk),
         );
         chunks
+    }
+}
+
+/// The chunks of the rules of one kind complete enough to run.
+fn rule_chunks<T: luau::Luau>(rules: &Vec<Rule<T>>) -> Vec<(String, String)> {
+    (0..rules.len())
+        .filter(|&index| rules[index].when.complete())
+        .map(|index| rules[index].chunk(&RuleList::place(rules, index)))
+        .collect()
+}
+
+/// What every kind of rule has, to be changed in the editor.
+pub struct Head<'a> {
+    pub name: &'a mut String,
+    pub enabled: &'a mut bool,
+    pub folder: &'a mut String,
+    pub tags: &'a mut Vec<String>,
+}
+
+/// The rules of one kind, whatever it is: what the editor does with all
+/// of them alike.
+pub trait RuleList {
+    fn len(&self) -> usize;
+    fn title(&self, index: usize) -> String;
+    fn place(&self, index: usize) -> String;
+    fn enabled(&self, index: usize) -> bool;
+    fn folder(&self, index: usize) -> &str;
+    fn set_folder(&mut self, index: usize, folder: String);
+    fn tags(&self, index: usize) -> &[String];
+    /// What every kind has, to be changed: its name, its switch, its
+    /// folder and its tags.
+    fn head_mut(&mut self, index: usize) -> Head<'_>;
+    /// Adds a new one, in a folder; returns where it is.
+    fn add(&mut self, folder: &str) -> usize;
+    fn remove(&mut self, index: usize);
+    /// Takes one from where it is and puts it before what is at `to`.
+    fn shift(&mut self, from: usize, to: usize);
+}
+
+impl<T: When> RuleList for Vec<Rule<T>> {
+    fn len(&self) -> usize {
+        <[Rule<T>]>::len(self)
+    }
+    fn title(&self, index: usize) -> String {
+        self[index].title()
+    }
+    /// Where it is among those of its kind, as `Folder/Title`, which is
+    /// what it is switched by: one called as one before it in the same
+    /// folder is told apart by a number, `Title #2`.
+    fn place(&self, index: usize) -> String {
+        let rule = &self[index];
+        let (folder, title) = (rule.folder.trim(), rule.title());
+        let alike = (self[..index].iter())
+            .filter(|other| other.folder.trim() == folder && other.title() == title)
+            .count();
+        match alike {
+            0 => joined(folder, &title),
+            n => joined(folder, &format!("{title} #{}", n + 1)),
+        }
+    }
+    fn enabled(&self, index: usize) -> bool {
+        self[index].enabled
+    }
+    fn folder(&self, index: usize) -> &str {
+        &self[index].folder
+    }
+    fn set_folder(&mut self, index: usize, folder: String) {
+        self[index].folder = folder;
+    }
+    fn tags(&self, index: usize) -> &[String] {
+        &self[index].tags
+    }
+    fn head_mut(&mut self, index: usize) -> Head<'_> {
+        let rule = &mut self[index];
+        Head {
+            name: &mut rule.name,
+            enabled: &mut rule.enabled,
+            folder: &mut rule.folder,
+            tags: &mut rule.tags,
+        }
+    }
+    fn add(&mut self, folder: &str) -> usize {
+        self.push(Rule {
+            folder: folder.to_owned(),
+            ..Rule::default()
+        });
+        <[Rule<T>]>::len(self) - 1
+    }
+    fn remove(&mut self, index: usize) {
+        Vec::remove(self, index);
+    }
+    fn shift(&mut self, from: usize, to: usize) {
+        let moved = Vec::remove(self, from);
+        let to = if to > from { to - 1 } else { to };
+        self.insert(to.min(<[Rule<T>]>::len(self)), moved);
     }
 }
 

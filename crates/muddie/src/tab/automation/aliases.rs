@@ -4,19 +4,17 @@ use super::*;
 
 impl Tab {
     pub(in crate::tab) fn alias_detail(&mut self, ui: &mut egui::Ui, index: usize) -> bool {
-        let groups = self.editor.draft.group_names();
         let height = self.editor.detail_height;
+        let delete = self.rule_head(ui, Kind::Alias, index, tr("Name this alias"));
         let rule = &mut self.editor.draft.aliases[index];
-        let delete = rule_header(ui, &mut rule.name, &mut rule.enabled, tr("Name this alias"));
-        group_row(ui, &mut rule.group, &groups);
         widgets::caption(ui, tr("When"));
-        let label = if rule.regex {
+        let label = if rule.when.regex {
             tr("What you type matches this regular expression")
         } else {
             tr("You type this word, alone or followed by more")
         };
-        widgets::field(ui, label, &mut rule.pattern, "k");
-        widgets::switch_row(ui, &mut rule.regex, tr("Regular expression"));
+        widgets::field(ui, label, &mut rule.when.pattern, "k");
+        widgets::switch_row(ui, &mut rule.when.regex, tr("Regular expression"));
         ui.add_space(6.0);
         let mistake = if rule.lua {
             self.editor.checks.of(&self.scripts, &rule.script)
@@ -42,7 +40,7 @@ impl Tab {
         widgets::caption(ui, tr("Try it"));
         widgets::text_box(ui, &mut self.editor.sample, tr("Type a command"));
         let rule = &self.editor.draft.aliases[index];
-        let outcome = try_pattern(&rule.regex_source(), &self.editor.sample, |captures| {
+        let outcome = try_pattern(&rule.when.regex_source(), &self.editor.sample, |captures| {
             if rule.lua {
                 return tr("runs the script").to_owned();
             }

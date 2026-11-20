@@ -11,8 +11,8 @@ fn what_the_client_says_can_be_read_again() {
     app.note("Connected.");
     // An answer said in the command line for a moment is kept too.
     app.scripts
-        .exec("t", r#"bind("f9", "kick", {group = "Combat"})"#);
-    app.run_command("/group Combat off");
+        .exec("t", r#"bind("f9", "kick", {tags = {"Combat"}})"#);
+    app.run_command("/tag Combat off");
     app.run_command("/map find nowhere");
     harness.run_steps(3);
     let (said, unread) = harness.state().tab().notices();
@@ -24,7 +24,7 @@ fn what_the_client_says_can_be_read_again() {
         texts,
         [
             ("Connected.", false),
-            ("Group Combat off.", false),
+            ("Tag combat off.", false),
             ("No room matches.", true)
         ]
     );
@@ -261,14 +261,14 @@ fn frame_costs() {
     cost(&mut harness, "with panels of 2000 lines and gauges");
     let app = harness.state_mut().tab_mut();
     for n in 0..300 {
-        app.rules.triggers.push(Trigger {
-            name: format!("Trigger {n}"),
-            enabled: true,
-            pattern: format!("pattern {n}"),
-            send: "say hi".into(),
-            group: format!("Group {}", n % 6),
-            ..Trigger::default()
-        });
+        app.rules
+            .triggers
+            .push(trigger(&format!("pattern {n}"), |rule| {
+                rule.name = format!("Trigger {n}");
+                rule.send = "say hi".into();
+                rule.folder = format!("Folder {}", n % 6);
+                rule.tags = vec![format!("tag {}", n % 4)];
+            }));
     }
     app.open_automation(0);
     cost(&mut harness, "editor with 300 triggers");

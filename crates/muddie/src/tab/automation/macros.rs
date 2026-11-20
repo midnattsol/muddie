@@ -4,22 +4,20 @@ use super::*;
 
 impl Tab {
     pub(in crate::tab) fn macro_detail(&mut self, ui: &mut egui::Ui, index: usize) -> bool {
-        let groups = self.editor.draft.group_names();
         let theme = theme::current();
         let height = self.editor.detail_height;
         let recording = self.editor.recording_key;
         let mut toggle = false;
-        let rule = &mut self.editor.draft.keys[index];
-        let delete = rule_header(ui, &mut rule.name, &mut rule.enabled, tr("Name this macro"));
-        group_row(ui, &mut rule.group, &groups);
+        let delete = self.rule_head(ui, Kind::Macro, index, tr("Name this macro"));
+        let rule = &mut self.editor.draft.macros[index];
         widgets::caption(ui, tr("Key"));
         ui.horizontal(|ui| {
             let shown = if recording {
                 tr("Press the key…").to_owned()
-            } else if rule.key.trim().is_empty() {
+            } else if rule.when.key.trim().is_empty() {
                 tr("None").to_owned()
             } else {
-                rule.key.trim().to_uppercase().replace('+', " + ")
+                rule.when.key.trim().to_uppercase().replace('+', " + ")
             };
             let (colour, edge) = if recording {
                 (theme.accent, theme.accent)
@@ -121,8 +119,8 @@ impl Tab {
         }
         if let Some(key) = recorded {
             let index = self.editor.selected[MACROS];
-            if let Some(rule) = self.editor.draft.keys.get_mut(index) {
-                rule.key = key;
+            if let Some(rule) = self.editor.draft.macros.get_mut(index) {
+                rule.when.key = key;
             }
             self.editor.recording_key = false;
             // The key was for the recorder: nothing else should act on it.

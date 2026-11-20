@@ -1,13 +1,10 @@
-//! The details of a gauge, and putting gauges in order.
+//! The details of a gauge.
 
 use super::*;
 use crate::rules::{Gauge, GaugeKind, Step};
 
 impl Tab {
     pub(in crate::tab) fn gauge_detail(&mut self, ui: &mut egui::Ui, index: usize) -> bool {
-        if self.gauge_moved_by_keys(ui, index) {
-            return false;
-        }
         let panels: Vec<(u32, String)> = (self.layout.panels.iter())
             .filter(|panel| panel.kind == super::layout::Kind::Gauges)
             .map(|panel| (panel.id, panel.name.clone()))
@@ -27,60 +24,6 @@ impl Tab {
             self.add_panel(super::layout::Kind::Gauges);
         }
         delete
-    }
-
-    /// Alt and an arrow move the gauge in the list, for those who do not
-    /// drag. Returns whether it moved.
-    fn gauge_moved_by_keys(&mut self, ui: &mut egui::Ui, index: usize) -> bool {
-        let (up, down) = ui.input_mut(|input| {
-            (
-                input.consume_key(egui::Modifiers::ALT, egui::Key::ArrowUp),
-                input.consume_key(egui::Modifiers::ALT, egui::Key::ArrowDown),
-            )
-        });
-        if up && index > 0 {
-            self.move_gauge(index, index - 1);
-        } else if down {
-            self.move_gauge(index, index + 2);
-        }
-        (up && index > 0) || down
-    }
-
-    /// While a gauge is dragged in the list, marks where it would go, and
-    /// puts it there once let go.
-    pub(in crate::tab) fn drag_gauge(&mut self, ui: &egui::Ui, places: &[(usize, egui::Rect)]) {
-        let Some(from) = self.editor.gauge_dragged else {
-            return;
-        };
-        let pointer = ui.ctx().pointer_latest_pos();
-        // Before the first row whose middle is under the pointer, or last.
-        let before = pointer
-            .and_then(|pointer| (places.iter()).find(|(_, rect)| pointer.y < rect.center().y));
-        let to = before.map_or(self.editor.draft.gauges.len(), |(index, _)| *index);
-        let y = match (before, places.last()) {
-            (Some((_, rect)), _) => rect.top(),
-            (None, Some((_, rect))) => rect.bottom(),
-            (None, None) => return self.editor.gauge_dragged = None,
-        };
-        let across = places[0].1.x_range();
-        ui.painter()
-            .hline(across, y, egui::Stroke::new(2.0, theme::current().accent));
-        if !ui.input(|input| input.pointer.any_down()) {
-            self.editor.gauge_dragged = None;
-            self.move_gauge(from, to);
-        }
-    }
-
-    /// Moves a gauge to before the one now at `to`, keeping it chosen.
-    pub(in crate::tab) fn move_gauge(&mut self, from: usize, to: usize) {
-        let gauges = &mut self.editor.draft.gauges;
-        if from >= gauges.len() || to == from || to == from + 1 {
-            return;
-        }
-        let gauge = gauges.remove(from);
-        let at = if to > from { to - 1 } else { to }.min(gauges.len());
-        gauges.insert(at, gauge);
-        self.editor.selected[GAUGES] = at;
     }
 }
 

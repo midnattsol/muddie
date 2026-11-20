@@ -9,8 +9,8 @@ pub(super) struct Matcher {
     pub(crate) owner: String,
     pub(crate) regex: Regex,
     pub(crate) callback: Function,
-    /// Group it is switched on and off with, if any.
-    pub(crate) group: Option<String>,
+    /// What it is switched on and off by.
+    pub(crate) belongs: Belongs,
     /// Removed after firing once.
     pub(crate) once: bool,
 }
@@ -20,11 +20,20 @@ pub(super) enum Binding {
     Function(Function),
 }
 
+/// What a key does, for whom: the script that bound it, and what it is
+/// switched by. A key can be bound several times, to do one thing while
+/// one is on and another while another is: the first on does.
+pub(super) struct Bound {
+    pub(crate) owner: String,
+    pub(crate) belongs: Belongs,
+    pub(crate) binding: Binding,
+}
+
 pub(super) struct Timer {
     pub(crate) id: u64,
     pub(crate) owner: String,
-    /// The group it belongs to; it is passed over while that is off.
-    pub(crate) group: Option<String>,
+    /// What it is switched by; it lets its turn pass while it is off.
+    pub(crate) belongs: Belongs,
     pub(crate) due: Instant,
     /// `Some` for repeating timers.
     pub(crate) period: Option<Duration>,
@@ -60,8 +69,6 @@ pub(super) struct State {
     /// The script whose code is running: what it makes is its own, to
     /// be taken away when that script alone is run again.
     pub(crate) owner: String,
-    /// Who bound each key, in which group.
-    pub(crate) bound_by: Vec<(String, String, Option<String>)>,
     /// How many characters fit across and down each panel that shows a
     /// drawing, by its name in lower case.
     pub(crate) panel_sizes: HashMap<String, (u32, u32)>,
@@ -86,14 +93,16 @@ pub(super) struct State {
     pub(crate) current_line: Option<Line>,
     /// Byte range of the text the running trigger matched.
     pub(crate) current_match: Option<(usize, usize)>,
-    /// What to do for each bound key, by normalised key name.
-    /// What each key does, once per group it is bound in.
-    pub(crate) bindings: HashMap<String, Vec<(Option<String>, Binding)>>,
+    /// What each key does, by its normalised name.
+    pub(crate) bindings: HashMap<String, Vec<Bound>>,
     /// Values kept between sessions, and the file they are saved in.
     pub(crate) memory: serde_json::Map<String, serde_json::Value>,
     pub(crate) memory_file: Option<PathBuf>,
-    /// Groups switched off with `enable(group, false)`.
-    pub(crate) disabled_groups: HashSet<String>,
+    /// What is switched off for the session.
+    pub(crate) switches: Switches,
+    /// The scripts there are, as the frontend tells: to list them and
+    /// their tags, as it is the frontend that runs them.
+    pub(crate) scripts: Vec<Belongs>,
     /// Set by `separator()`: `Some(None)` turns command splitting off.
     pub(crate) separator: Option<Option<String>>,
     /// Folders `require` looks in: those scripts were loaded from.

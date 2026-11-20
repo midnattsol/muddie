@@ -1,4 +1,4 @@
-//! What the scripts keep: their variables and groups, and what the client
+//! What the scripts keep: their variables and switches, and what the client
 //! asks of them.
 
 use super::*;
@@ -56,25 +56,25 @@ impl Engine {
         state.save_memory()
     }
 
-    /// The groups there are: those anything belongs to, and those
-    /// switched off.
-    pub fn groups(&self) -> Vec<String> {
-        self.state.borrow().group_names()
+    /// What is switched off for the session.
+    pub fn switches(&self) -> Switches {
+        self.state.borrow().switches.clone()
     }
 
-    /// Whether a group is on, as every group is until it is switched off.
-    pub fn group_enabled(&self, group: &str) -> bool {
-        !self.state.borrow().disabled_groups.contains(group)
+    /// Switches things on and off for the session, all at once.
+    pub fn set_switches(&mut self, switches: Switches) {
+        self.state.borrow_mut().switches = switches;
     }
 
-    /// Switches a group on or off.
-    pub fn set_group(&mut self, group: &str, enabled: bool) {
-        let disabled = &mut self.state.borrow_mut().disabled_groups;
-        if enabled {
-            disabled.remove(group);
-        } else {
-            disabled.insert(group.to_owned());
-        }
+    /// The tags there are: those anything carries, and those switched off.
+    pub fn tags(&self) -> Vec<String> {
+        self.state.borrow().tag_names()
+    }
+
+    /// Tells of the scripts there are, with what each is switched by: it
+    /// is the frontend that runs them, and scripts list them.
+    pub fn know_scripts(&mut self, scripts: Vec<Belongs>) {
+        self.state.borrow_mut().scripts = scripts;
     }
 
     /// Whether the built-in map loader should run, which it does unless a

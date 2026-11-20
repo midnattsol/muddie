@@ -10,7 +10,7 @@
 //!   profiles/<name>/map.sqlite
 //! ```
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
@@ -216,18 +216,7 @@ impl Profiles {
     pub fn scripts(&self, name: &str, profile: &Profile) -> Vec<PathBuf> {
         let packages = (profile.packages.iter())
             .map(|package| self.dir.join("packages").join(package).join("init.luau"));
-        let mut own: Vec<PathBuf> = std::fs::read_dir(self.profile_dir(name).join("scripts"))
-            .into_iter()
-            .flatten()
-            .flatten()
-            .map(|entry| entry.path())
-            .filter(|path| {
-                path.extension()
-                    .is_some_and(|extension| extension == "luau")
-            })
-            .collect();
-        own.sort();
-        packages.chain(own).collect()
+        packages.chain(self.own_scripts(name)).collect()
     }
 
     /// Where a profile's own scripts are kept.
@@ -235,25 +224,47 @@ impl Profiles {
         self.profile_dir(name).join("scripts")
     }
 
+    /// A profile's own scripts, in its folder and the folders in it, in
+    /// alphabetical order of where they are.
+    fn own_scripts(&self, name: &str) -> Vec<PathBuf> {
+        let mut files = Vec::new();
+        walk(&self.scripts_dir(name), &mut |path| {
+            if path
+                .extension()
+                .is_some_and(|extension| extension == "luau")
+            {
+                files.push(path.to_owned());
+            }
+        });
+        files.sort();
+        files
+    }
+
+    /// The folders among a profile's own scripts, as places such as
+    /// `Combat/Healing`, in alphabetical order.
+    pub fn script_folders(&self, name: &str) -> Vec<String> {
+        let dir = self.scripts_dir(name);
+        let mut folders = Vec::new();
+        walk(&dir, &mut |path| {
+            if path.is_dir()
+                && let Ok(inner) = path.strip_prefix(&dir)
+            {
+                folders.push(inner.to_string_lossy().replace('\\', "/"));
+            }
+        });
+        folders.sort();
+        folders
+    }
+
     /// The scripts the user can edit: the one run in every session, there
     /// or not, then the profile's own.
     pub fn editable_scripts(&self, name: Option<&str>) -> Vec<PathBuf> {
         let mut files = vec![self.dir.join("init.luau")];
-        if let Some(name) = name {
-            let dir = self.scripts_dir(name);
-            let mut own: Vec<PathBuf> = std::fs::read_dir(dir)
+        files.extend(
+            name.map(|name| self.own_scripts(name))
                 .into_iter()
-                .flatten()
-                .flatten()
-                .map(|entry| entry.path())
-                .filter(|path| {
-                    path.extension()
-                        .is_some_and(|extension| extension == "luau")
-                })
-                .collect();
-            own.sort();
-            files.extend(own);
-        }
+                .flatten(),
+        );
         files
     }
 
@@ -378,6 +389,18 @@ fn copy_dir(from: &std::path::Path, to: &std::path::Path) -> std::io::Result<()>
         }
     }
     Ok(())
+}
+
+/// Goes through what is in a folder and in the folders in it, the folders
+/// too.
+fn walk(dir: &Path, found: &mut impl FnMut(&Path)) {
+    for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
+        let path = entry.path();
+        found(&path);
+        if path.is_dir() {
+            walk(&path, found);
+        }
+    }
 }
 
 #[cfg(test)]

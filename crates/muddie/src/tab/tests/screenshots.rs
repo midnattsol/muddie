@@ -232,39 +232,34 @@ fn shows_editor() {
     let mut rules = demo_window();
     rules.set_size(egui::vec2(1500.0, 900.0));
     let app = rules.state_mut().tab_mut();
-    app.rules.triggers.push(Trigger {
-        name: "Tells".into(),
-        group: "Social".into(),
-        enabled: true,
-        pattern: "tells you".into(),
-        speak: "a tell".into(),
-        highlight: "yellow".into(),
-        ..Trigger::default()
-    });
-    app.rules.triggers.push(Trigger {
-            name: "Fight back".into(),
-            group: "Combat".into(),
-            enabled: true,
-            pattern: r"^(\w+) attacks you".into(),
-            regex: true,
-            send: "kill %1\nshield".into(),
-            sound: "alert.ogg".into(),
-            lua: true,
-            script: "-- Only the dangerous ones\nsend(\"kill \" .. m[1])\nlocal feared = {Orc = true, Troll = true}\nif feared[m[1]] and gmcp(\"Char.Vitals\").hp < 40 then\n\tsend(\"flee\")\n\techo(\"Too weak for \" .. m[1])\nend".into(),
-            ..Trigger::default()
-        });
-    app.rules.triggers.push(Trigger {
-        enabled: false,
-        pattern: "The wind howls".into(),
-        gag: true,
-        ..Trigger::default()
-    });
-    app.rules.keys.push(KeyBinding {
+    app.rules.triggers.push(trigger("tells you", |rule| {
+        rule.name = "Tells".into();
+        rule.folder = "Social".into();
+        rule.tags = vec!["chat".into()];
+        rule.when.speak = "a tell".into();
+        rule.when.highlight = "yellow".into();
+    }));
+    app.rules.triggers.push(trigger(r"^(\w+) attacks you", |rule| {
+            rule.name = "Fight back".into();
+            rule.folder = "Combat".into();
+            rule.tags = vec!["combat".into()];
+            rule.when.regex = true;
+            rule.send = "kill %1\nshield".into();
+            rule.when.sound = "alert.ogg".into();
+            rule.lua = true;
+            rule.script = "-- Only the dangerous ones\nsend(\"kill \" .. m[1])\nlocal feared = {Orc = true, Troll = true}\nif feared[m[1]] and gmcp(\"Char.Vitals\").hp < 40 then\n\tsend(\"flee\")\n\techo(\"Too weak for \" .. m[1])\nend".into();
+        }));
+    app.rules.triggers.push(trigger("The wind howls", |rule| {
+        rule.enabled = false;
+        rule.when.gag = true;
+    }));
+    app.rules.macros.push(Macro {
         name: "North".into(),
-        enabled: true,
-        key: "numpad8".into(),
+        when: crate::rules::OnKey {
+            key: "numpad8".into(),
+        },
         send: "north".into(),
-        ..KeyBinding::default()
+        ..Macro::default()
     });
     app.open_automation(0);
     app.editor.selected[0] = 1;
@@ -289,11 +284,14 @@ fn shows_editor() {
     rules.run_steps(3);
     save(&mut rules, "macros");
     let app = rules.state_mut().tab_mut();
-    app.editor.draft.timers.push(crate::rules::Timer {
+    app.editor.draft.timers.push(Timer {
         name: "Guardar".into(),
-        tenths: 3000,
+        when: crate::rules::OnTime {
+            tenths: 3000,
+            repeat: true,
+        },
         send: "save".into(),
-        ..crate::rules::Timer::default()
+        ..Timer::default()
     });
     app.editor.section = 3;
     rules.run_steps(3);
@@ -450,7 +448,7 @@ fn shows_palette() {
     let app = palette.state_mut().tab_mut();
     app.scripts.exec(
         "t",
-        r#"bind("f9", "kick", {group = "Combate"}) bind("f8", "hi", {group = "Social"})"#,
+        r#"bind("f9", "kick", {tags = {"combate"}}) bind("f8", "hi", {tags = {"social"}})"#,
     );
     app.toggle_palette();
     palette.run_steps(8);
@@ -458,7 +456,7 @@ fn shows_palette() {
     palette.state_mut().tab_mut().palette.query = "map".into();
     palette.run_steps(4);
     save(&mut palette, "palette-typed");
-    palette.state_mut().tab_mut().palette.query = "gr".into();
+    palette.state_mut().tab_mut().palette.query = "tag".into();
     palette.run_steps(3);
     palette.key_press(Key::Enter);
     palette.run_steps(4);

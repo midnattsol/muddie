@@ -25,6 +25,8 @@ pub enum Icon {
     Fold(Edge),
     /// An arrow from a bar at this edge: brought back from there.
     Unfold(Edge),
+    /// A folder with a plus: a new folder.
+    NewFolder,
 }
 
 /// A side of the window.
@@ -106,6 +108,12 @@ fn draw_icon(painter: &egui::Painter, icon: Icon, centre: egui::Pos2, colour: Co
         Icon::Bell => draw_bell(painter, centre, stroke),
         Icon::Fold(edge) => draw_fold(painter, centre, stroke, edge, true),
         Icon::Unfold(edge) => draw_fold(painter, centre, stroke, edge, false),
+        Icon::NewFolder => {
+            draw_folder(painter, centre + vec2(-1.5, 0.5), stroke);
+            let plus = centre + vec2(5.5, 3.5);
+            painter.line_segment([plus - vec2(3.0, 0.0), plus + vec2(3.0, 0.0)], stroke);
+            painter.line_segment([plus - vec2(0.0, 3.0), plus + vec2(0.0, 3.0)], stroke);
+        }
         Icon::Trash => draw_trash(painter, centre, stroke),
     }
 }
@@ -133,6 +141,24 @@ fn draw_fold(painter: &egui::Painter, centre: egui::Pos2, stroke: Stroke, edge: 
     painter.line_segment([tail, tip], stroke);
     painter.line_segment([tip, tip - way * 3.5 + across * 3.5], stroke);
     painter.line_segment([tip, tip - way * 3.5 - across * 3.5], stroke);
+}
+
+/// A folder: a box with a tab on its top left.
+pub(super) fn draw_folder(painter: &egui::Painter, centre: egui::Pos2, stroke: Stroke) {
+    let body = egui::Rect::from_center_size(centre + vec2(0.0, 1.0), vec2(13.0, 9.0));
+    painter.rect_stroke(
+        body,
+        CornerRadius::same(2),
+        stroke,
+        egui::StrokeKind::Middle,
+    );
+    let tab = [
+        body.left_top(),
+        body.left_top() + vec2(1.0, -2.5),
+        body.left_top() + vec2(5.0, -2.5),
+        body.left_top() + vec2(6.0, 0.0),
+    ];
+    painter.add(egui::Shape::line(tab.to_vec(), stroke));
 }
 
 /// A target: a ring, its centre, and four ticks.

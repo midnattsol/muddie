@@ -80,13 +80,10 @@ fn panels_are_kept_fed_by_triggers_and_moved_about() {
     assert_eq!(kinds, [layout::Kind::Map, layout::Kind::Gauges]);
     // A trigger shows its line in a panel, which is made if need be,
     // and with the line hidden it is only there.
-    app.rules.triggers.push(Trigger {
-        enabled: true,
-        pattern: "tells you".into(),
-        panel: "Tells".into(),
-        gag: true,
-        ..Trigger::default()
-    });
+    app.rules.triggers.push(trigger("tells you", |rule| {
+        rule.when.panel = "Tells".into();
+        rule.when.gag = true;
+    }));
     for (name, code) in app.rules.chunks() {
         app.scripts.exec(&name, &code);
     }
@@ -273,7 +270,7 @@ fn gauges_are_shown_in_the_order_of_the_editor() {
     assert_eq!(names(harness.state().tab()), ["HP", "Gold", "MP"]);
     // Dropped before another, as dragging does.
     let app = harness.state_mut().tab_mut();
-    app.move_gauge(2, 0);
+    app.shift_row(2, 0);
     assert_eq!(names(app), ["MP", "HP", "Gold"]);
     app.close_automation();
     harness.run_steps(3);

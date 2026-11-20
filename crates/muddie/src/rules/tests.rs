@@ -6,8 +6,10 @@ use muddie_script::{Action, Engine};
 
 use super::*;
 
+/// The rules running as a session runs them: switched as saved.
 fn run(rules: &Rules) -> Engine {
     let mut engine = Engine::new(Rc::default()).unwrap();
+    engine.set_switches(rules.switched_off());
     engine.exec("rules", &rules.to_luau());
     assert_eq!(engine.take_actions(), [], "the generated script failed");
     engine
@@ -17,39 +19,55 @@ fn send(text: &str) -> Action {
     Action::Send(text.into())
 }
 
+/// A trigger on `pattern`, with what `with` gives it.
+fn trigger(pattern: &str, with: impl FnOnce(&mut Trigger)) -> Trigger {
+    let mut rule = Trigger::default();
+    rule.when.pattern = pattern.into();
+    with(&mut rule);
+    rule
+}
+
+fn alias(pattern: &str, with: impl FnOnce(&mut Alias)) -> Alias {
+    let mut rule = Alias::default();
+    rule.when.pattern = pattern.into();
+    with(&mut rule);
+    rule
+}
+
+fn key(key: &str, with: impl FnOnce(&mut Macro)) -> Macro {
+    let mut rule = Macro::default();
+    rule.when.key = key.into();
+    with(&mut rule);
+    rule
+}
+
+fn timer(tenths: u32, with: impl FnOnce(&mut Timer)) -> Timer {
+    let mut rule = Timer::default();
+    rule.when.tenths = tenths;
+    with(&mut rule);
+    rule
+}
+
 #[test]
 fn triggers_do_what_their_fields_say() {
     let rules = Rules {
         triggers: vec![
-            Trigger {
-                enabled: true,
-                pattern: "tells you (what?)".into(),
-                send: "smile; say \"hi\" \\o/".into(),
-                speak: "a tell".into(),
-                sound: "tell.ogg".into(),
-                ..Trigger::default()
-            },
-            Trigger {
-                enabled: true,
-                pattern: r"^(\w+) attacks (\w+)".into(),
-                regex: true,
-                send: "kill %1".into(),
-                speak: "%1 hits %2%3".into(),
-                highlight: "red".into(),
-                ..Trigger::default()
-            },
-            Trigger {
-                enabled: true,
-                pattern: "spam".into(),
-                gag: true,
-                ..Trigger::default()
-            },
-            Trigger {
-                enabled: false,
-                pattern: "spam".into(),
-                send: "never".into(),
-                ..Trigger::default()
-            },
+            trigger("tells you (what?)", |rule| {
+                rule.send = "smile; say \"hi\" \\o/".into();
+                rule.when.speak = "a tell".into();
+                rule.when.sound = "tell.ogg".into();
+            }),
+            trigger(r"^(\w+) attacks (\w+)", |rule| {
+                rule.when.regex = true;
+                rule.send = "kill %1".into();
+                rule.when.speak = "%1 hits %2%3".into();
+                rule.when.highlight = "red".into();
+            }),
+            trigger("spam", |rule| rule.when.gag = true),
+            trigger("spam", |rule| {
+                rule.enabled = false;
+                rule.send = "never".into();
+            }),
             Trigger::default(),
         ],
         ..Rules::default()
@@ -93,33 +111,18 @@ fn triggers_do_what_their_fields_say() {
 fn aliases_and_keys() {
     let rules = Rules {
         aliases: vec![
-            Alias {
-                enabled: true,
-                pattern: "k".into(),
-                send: "kill %1; loot".into(),
-                ..Alias::default()
-            },
-            Alias {
-                enabled: true,
-                pattern: r"^g (\w+) (\w+)$".into(),
-                regex: true,
-                send: "give %1 to %2".into(),
-                ..Alias::default()
-            },
+            alias("k", |rule| rule.send = "kill %1; loot".into()),
+            alias(r"^g (\w+) (\w+)$", |rule| {
+                rule.when.regex = true;
+                rule.send = "give %1 to %2".into();
+            }),
         ],
-        keys: vec![
-            KeyBinding {
-                enabled: true,
-                key: "F5".into(),
-                send: "look".into(),
-                ..KeyBinding::default()
-            },
-            KeyBinding {
-                enabled: false,
-                key: "f6".into(),
-                send: "never".into(),
-                ..KeyBinding::default()
-            },
+        macros: vec![
+            key("F5", |rule| rule.send = "look".into()),
+            key("f6", |rule| {
+                rule.enabled = false;
+                rule.send = "never".into();
+            }),
         ],
         ..Rules::default()
     };
@@ -145,24 +148,19 @@ fn aliases_and_keys() {
 
 #[test]
 fn templates_are_filled_from_a_match() {
-    let alias = Alias {
-        pattern: "k".into(),
-        ..Alias::default()
-    };
-    let regex = regex::Regex::new(&alias.regex_source()).unwrap();
+    let alias = alias("k", |_| {});
+    let regex = regex::Regex::new(&alias.when.regex_source()).unwrap();
     let captures = regex.captures("k orc chief").unwrap();
     assert_eq!(
         fill("kill %1; say 100%% of %1 %9", &captures),
         "kill orc chief; say 100%% of orc chief "
     );
     assert!(regex.captures("kick").is_none());
-    let trigger = Trigger {
-        pattern: "a (b)?".into(),
-        send: "x".into(),
-        gag: true,
-        ..Trigger::default()
-    };
-    assert_eq!(trigger.regex_source(), "a \\(b\\)\\?");
+    let trigger = trigger("a (b)?", |rule| {
+        rule.send = "x".into();
+        rule.when.gag = true;
+    });
+    assert_eq!(trigger.when.regex_source(), "a \\(b\\)\\?");
     assert_eq!(trigger.summary(), "→ x  ·  ∅");
 }
 
@@ -221,57 +219,34 @@ fn gauges_follow_values_the_server_reports() {
 #[test]
 fn rules_run_their_scripts_and_take_commands_on_several_lines() {
     let rules = Rules {
-        triggers: vec![Trigger {
-            enabled: true,
-            pattern: r"^(\w+) attacks".into(),
-            regex: true,
-            send: "kill %1\nshield; parry".into(),
-            script: "if m[1] == \"Orc\" then\n\tsend(\"flee from \" .. line)\nend".into(),
-            ..Trigger::default()
-        }],
-        keys: vec![KeyBinding {
-            enabled: true,
-            key: "f5".into(),
-            send: "look".into(),
-            script: "send(\"score\")".into(),
-            ..KeyBinding::default()
-        }],
+        triggers: vec![trigger(r"^(\w+) attacks", |rule| {
+            rule.when.regex = true;
+            rule.send = "kill %1\nshield; parry".into();
+            rule.script = "send(\"never sent\")".into();
+        })],
+        macros: vec![key("f5", |rule| {
+            rule.lua = true;
+            rule.script = "send(\"score\")".into();
+            rule.send = "never sent".into();
+        })],
         ..Rules::default()
     };
-    // Written by an earlier version, with commands and a script both:
-    // the commands become the start of the script.
-    let mut rules = rules;
-    rules.migrate();
-    let trigger = &rules.triggers[0];
-    assert!(trigger.lua && trigger.send.is_empty());
-    assert!(
-        trigger
-            .script
-            .starts_with("send(\"kill \" .. (m[1] or \"\"))\nsend(\"shield\")\n")
-    );
     let mut engine = run(&rules);
     engine.on_line("Orc attacks");
-    let expected = ["kill Orc", "shield", "parry", "flee from Orc attacks"].map(send);
-    assert_eq!(engine.take_actions(), expected);
+    assert_eq!(
+        engine.take_actions(),
+        ["kill Orc", "shield", "parry"].map(send)
+    );
+    // A rule does one or the other, whatever the other holds.
     assert!(engine.on_key("f5"));
-    assert_eq!(engine.take_actions(), ["look", "score"].map(send));
-    // A rule does one or the other: with the script chosen, commands
-    // left in the other form are not sent.
-    let mut either = rules.clone();
-    either.triggers[0].send = "never sent".into();
-    let mut engine = run(&either);
-    engine.on_line("Orc attacks");
-    assert_eq!(engine.take_actions(), expected);
+    assert_eq!(engine.take_actions(), [send("score")]);
     // A rule whose script is wrong is reported by name, and alone.
     let broken = Rules {
-        triggers: vec![Trigger {
-            name: "Broken".into(),
-            enabled: true,
-            pattern: "x".into(),
-            script: "this is not Luau".into(),
-            lua: true,
-            ..Trigger::default()
-        }],
+        triggers: vec![trigger("x", |rule| {
+            rule.name = "Broken".into();
+            rule.script = "this is not Luau".into();
+            rule.lua = true;
+        })],
         ..rules
     };
     let chunks = broken.chunks();
@@ -284,23 +259,16 @@ fn timers_go_off_once_or_again_and_again() {
     use std::time::{Duration, Instant};
     let rules = Rules {
         timers: vec![
-            Timer {
-                tenths: 20,
-                send: "save\nscore".into(),
-                ..Timer::default()
-            },
-            Timer {
-                tenths: 30,
-                repeat: false,
-                lua: true,
-                script: "send(\"once\")".into(),
-                ..Timer::default()
-            },
-            Timer {
-                enabled: false,
-                send: "never".into(),
-                ..Timer::default()
-            },
+            timer(20, |rule| rule.send = "save\nscore".into()),
+            timer(30, |rule| {
+                rule.when.repeat = false;
+                rule.lua = true;
+                rule.script = "send(\"once\")".into();
+            }),
+            timer(600, |rule| {
+                rule.enabled = false;
+                rule.send = "never".into();
+            }),
         ],
         ..Rules::default()
     };
@@ -314,61 +282,51 @@ fn timers_go_off_once_or_again_and_again() {
     assert_eq!(sent, ["once", "save", "score"].map(send));
     engine.tick(start + Duration::from_millis(6300));
     assert_eq!(engine.take_actions(), ["save", "score"].map(send));
-    assert_eq!(rules.timers[0].interval(), "2 s");
-    assert_eq!(Timer::default().interval(), "1 min");
-    let long = Timer {
-        tenths: 905,
-        ..Timer::default()
-    };
-    assert_eq!(long.interval(), "1 min 30.5 s");
+    assert_eq!(rules.timers[0].when.interval(), "2 s");
+    assert_eq!(Timer::default().when.interval(), "1 min");
+    assert_eq!(timer(905, |_| {}).when.interval(), "1 min 30.5 s");
 }
 
 #[test]
-fn rules_of_a_group_are_switched_together_whatever_their_kind() {
+fn rules_are_switched_by_their_folder_or_their_tags() {
     let mut rules = Rules {
-        triggers: vec![Trigger {
-            enabled: true,
-            pattern: "attacks".into(),
-            send: "parry".into(),
-            group: "Combat".into(),
-            ..Trigger::default()
-        }],
-        aliases: vec![Alias {
-            enabled: true,
-            pattern: "k".into(),
-            send: "kill %1".into(),
-            group: "Combat".into(),
-            ..Alias::default()
-        }],
-        keys: vec![
-            KeyBinding {
-                enabled: true,
-                key: "f1".into(),
-                send: "kick".into(),
-                group: "Combat".into(),
-                ..KeyBinding::default()
-            },
-            KeyBinding {
-                enabled: true,
-                key: "f1".into(),
-                send: "look".into(),
-                group: "Explore".into(),
-                ..KeyBinding::default()
-            },
+        triggers: vec![trigger("attacks", |rule| {
+            rule.send = "parry".into();
+            rule.folder = "Combat/Defence".into();
+        })],
+        aliases: vec![alias("k", |rule| {
+            rule.send = "kill %1".into();
+            rule.tags = vec!["Combat".into()];
+        })],
+        macros: vec![
+            key("f1", |rule| {
+                rule.send = "kick".into();
+                rule.name = "Fight".into();
+                rule.tags = vec!["combat".into()];
+            }),
+            key("f1", |rule| rule.send = "look".into()),
         ],
         ..Rules::default()
     };
-    assert_eq!(rules.group_names(), ["Combat", "Explore"]);
-    assert!(rules.group_enabled("Combat"));
-    // Saved as off, it starts off: nothing of the group takes part.
-    rules.set_group_enabled("Combat", false);
+    assert_eq!(rules.tag_names(), ["Combat"]);
+    assert_eq!(
+        rules.folder_paths(Kind::Trigger),
+        ["Combat", "Combat/Defence"]
+    );
+    // Saved as off, they start off: the folder holds the trigger, the
+    // tag the alias and the first key, which leaves the second.
+    rules.set_folder_on(Kind::Trigger, "Combat", false);
+    rules.set_tag_on("COMBAT", false);
     let mut engine = run(&rules);
     engine.on_line("An orc attacks");
     engine.on_input("k orc");
     engine.on_key("f1");
     assert_eq!(engine.take_actions(), ["k orc", "look"].map(send));
-    // Switched on for the session, all of it does.
-    engine.set_group("Combat", true);
+    // Switched on for the session, they all are.
+    let mut switches = engine.switches();
+    switches.set_tag("combat", true);
+    switches.set_place(Kind::Trigger, "Combat", true);
+    engine.set_switches(switches);
     engine.on_line("An orc attacks");
     engine.on_input("k orc");
     engine.on_key("f1");
@@ -376,28 +334,59 @@ fn rules_of_a_group_are_switched_together_whatever_their_kind() {
         engine.take_actions(),
         ["parry", "kill orc", "kick"].map(send)
     );
-    rules.set_group_enabled("Combat", true);
-    assert!(
-        rules.groups.is_empty(),
-        "the usual state is not written down"
-    );
+    rules.set_tag_on("combat", true);
+    assert!(rules.tags_off.is_empty());
+}
+
+#[test]
+fn folders_move_and_go_with_what_they_hold() {
+    let mut rules = Rules {
+        triggers: vec![
+            trigger("a", |rule| rule.folder = "Combat".into()),
+            trigger("b", |rule| rule.folder = "Combat/Healing".into()),
+            trigger("c", |_| {}),
+        ],
+        ..Rules::default()
+    };
+    rules.set_folder_on(Kind::Trigger, "Combat/Healing", false);
+    rules.move_folder(Kind::Trigger, "Combat", "Fighting");
+    let folders: Vec<&str> = rules
+        .triggers
+        .iter()
+        .map(|rule| rule.folder.as_str())
+        .collect();
+    assert_eq!(folders, ["Fighting", "Fighting/Healing", ""]);
+    assert!(!rules.folder_on(Kind::Trigger, "Fighting/Healing"));
+    // Taken away, what it held goes up a level.
+    rules.remove_folder(Kind::Trigger, "Fighting");
+    let folders: Vec<&str> = rules
+        .triggers
+        .iter()
+        .map(|rule| rule.folder.as_str())
+        .collect();
+    assert_eq!(folders, ["", "Healing", ""]);
+    assert_eq!(rules.folder_paths(Kind::Trigger), ["Healing"]);
+}
+
+#[test]
+fn rules_alike_in_one_folder_have_places_of_their_own() {
+    let rules = vec![
+        trigger("spam", |_| {}),
+        trigger("spam", |rule| rule.enabled = false),
+        trigger("spam", |rule| rule.folder = "Junk".into()),
+    ];
+    let places: Vec<String> = (0..3).map(|index| RuleList::place(&rules, index)).collect();
+    assert_eq!(places, ["spam", "spam #2", "Junk/spam"]);
 }
 
 #[test]
 fn commands_of_rules_take_the_values_of_variables() {
     let rules = Rules {
-        triggers: vec![Trigger {
-            enabled: true,
-            pattern: r"^(\w+) arrives".into(),
-            regex: true,
-            send: "tell $friend %1 is here; $5 stays".into(),
-            ..Trigger::default()
-        }],
-        timers: vec![Timer {
-            tenths: 10,
-            send: "cast $spell".into(),
-            ..Timer::default()
-        }],
+        triggers: vec![trigger(r"^(\w+) arrives", |rule| {
+            rule.when.regex = true;
+            rule.send = "tell $friend %1 is here; $5 stays".into();
+        })],
+        timers: vec![timer(10, |rule| rule.send = "cast $spell".into())],
         ..Rules::default()
     };
     let mut engine = run(&rules);
@@ -467,18 +456,6 @@ fn gauges_come_in_kinds_and_change_colour_by_level() {
         };
         assert_eq!(level, Some((0.0, 1.0)), "{off}");
     }
-    // As earlier versions kept them, they are read and brought up to date.
-    let old: Rules =
-        toml::from_str("[[gauge]]\nname = \"HP\"\nvalue = \"x\"\nsegments = true\nlow = 25\n")
-            .unwrap();
-    let mut old = old;
-    old.migrate();
-    let hp = &old.gauges[0];
-    assert_eq!(
-        (hp.kind, hp.steps[0].under, hp.steps[0].colour.as_str()),
-        (GaugeKind::Cells, 25, "red")
-    );
-    assert!(!toml::to_string(&old).unwrap().contains("segments"));
 }
 
 #[test]
@@ -486,36 +463,25 @@ fn rules_round_trip_through_their_file() {
     let path = std::env::temp_dir().join(format!("muddie-rules-{}/rules.toml", std::process::id()));
     assert_eq!(Rules::load(&path).unwrap(), Rules::default());
     let rules = Rules {
-        triggers: vec![Trigger {
-            enabled: true,
-            pattern: "a \"quoted\" [pattern]".into(),
-            gag: true,
-            ..Trigger::default()
-        }],
-        aliases: vec![Alias {
-            enabled: false,
-            pattern: "k".into(),
-            send: "kill %1".into(),
-            ..Alias::default()
-        }],
-        keys: vec![KeyBinding {
-            name: "Kick".into(),
-            enabled: true,
-            key: "ctrl+k".into(),
-            send: "kick".into(),
-            ..KeyBinding::default()
-        }],
-        groups: vec![Group {
-            name: "Combat".into(),
-            enabled: false,
-        }],
-        timers: vec![Timer {
-            name: "Save".into(),
-            tenths: 3000,
-            repeat: false,
-            send: "save".into(),
-            ..Timer::default()
-        }],
+        tags_off: vec!["combat".into()],
+        triggers: vec![trigger("a \"quoted\" [pattern]", |rule| {
+            rule.when.gag = true;
+            rule.folder = "Combat".into();
+            rule.tags = vec!["Combat".into(), "loud".into()];
+        })],
+        aliases: vec![alias("k", |rule| {
+            rule.enabled = false;
+            rule.send = "kill %1".into();
+        })],
+        macros: vec![key("ctrl+k", |rule| {
+            rule.name = "Kick".into();
+            rule.send = "kick".into();
+        })],
+        timers: vec![timer(3000, |rule| {
+            rule.name = "Save".into();
+            rule.when.repeat = false;
+            rule.send = "save".into();
+        })],
         gauges: vec![Gauge {
             name: "Salud".into(),
             value: "Char.Vitals.health.current".into(),
@@ -523,7 +489,16 @@ fn rules_round_trip_through_their_file() {
             colour: "red".into(),
             ..Gauge::starter()
         }],
-        scripts_off: vec!["keys.luau".into()],
+        folders: vec![Folder {
+            kind: Kind::Trigger,
+            path: "Combat".into(),
+            enabled: false,
+        }],
+        scripts: vec![ScriptEntry {
+            path: "Combat/keys".into(),
+            enabled: false,
+            tags: vec!["combat".into()],
+        }],
     };
     rules.save(&path).unwrap();
     assert_eq!(Rules::load(&path).unwrap(), rules);

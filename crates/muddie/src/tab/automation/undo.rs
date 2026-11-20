@@ -91,7 +91,7 @@ impl Tab {
     /// Keeps what is about to be deleted, to have it back for a while.
     pub(in crate::tab) fn keep_for_undo(&mut self, section: usize, index: usize) {
         let title = (self.automation_rows().get(index))
-            .map(|row| row.0.clone())
+            .map(|row| row.title.clone())
             .unwrap_or_default();
         let what = match section {
             VARIABLES => match self.scripts.variables().get(index) {
@@ -118,11 +118,10 @@ impl Tab {
     /// the screen too, a variable, or a script, with what it made.
     pub(in crate::tab) fn remove_entry(&mut self, section: usize, index: usize) {
         let draft = &mut self.editor.draft;
+        if let Some(list) = section_kind(section).and_then(|kind| draft.list_mut(kind)) {
+            return list.remove(index);
+        }
         match section {
-            TRIGGERS => drop(draft.triggers.remove(index)),
-            ALIASES => drop(draft.aliases.remove(index)),
-            MACROS => drop(draft.keys.remove(index)),
-            TIMERS => drop(draft.timers.remove(index)),
             GAUGES => {
                 let gone = draft.gauges.remove(index);
                 self.gauges.set(gone.shown_name(), None);

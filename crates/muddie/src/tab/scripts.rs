@@ -7,23 +7,22 @@ use super::*;
 /// them away together when they are run again.
 pub(super) const RULES: &str = "rules";
 
-/// Things by their names, each with whether it is switched on.
-pub(super) type Switched = Vec<(String, bool)>;
-
 impl Tab {
     /// The part of the settings window that belongs to sessions.
     /// Starts the script runtime afresh and runs the user's scripts: the
     /// general one, the plugins, the profile's packages and scripts, and
     /// those given on the command line; then the rules.
     pub(super) fn load_scripts(&mut self) {
-        // Groups switched for the session keep how they were left, unless
-        // what is saved for them is what changed.
-        let (saved_before, session) = self.group_states();
+        // What was switched for the session stays as it was left, unless
+        // what is saved for it is what changed.
+        let (session, before) = (self.scripts.switches(), self.rules.switched_off());
         // The scripts are told again how big the panel is.
         self.completions.clear();
         self.panels_untold();
         self.fresh_runtime();
         let files = self.script_files_to_run();
+        self.scripts.set_switches(session);
+        self.rebase_switches(&before);
         // The plugins that come with Muddie and are on, before the
         // player's own scripts, which may build on them.
         for plugin in &crate::bundled::ALL {
@@ -32,11 +31,18 @@ impl Tab {
                 (self.scripts).exec_owned(&crate::bundled::owner(plugin), &name, code);
             }
         }
+        // The player's own, unless they are switched off.
+        let (own, switches) = (self.own_scripts(), self.scripts.switches());
         for file in &files {
-            self.scripts.load_file(file);
+            let off = (own.iter())
+                .any(|(known, belongs)| known == file && !switches.active(Kind::Script, belongs));
+            if !off {
+                self.scripts.load_file(file);
+            }
         }
+        self.scripts_synced = Some(switches);
         // The rules run last, as one more script.
-        self.run_rules(&saved_before, session);
+        self.run_rules();
         self.run_actions();
     }
 
@@ -69,10 +75,9 @@ impl Tab {
     }
 
     /// The script files to run, in order: the general one, the profile's
-    /// packages and scripts, those given on the command line. The rules
-    /// are read first, as they say which of the player's own scripts are
-    /// switched off, and those are left out; a plugin has its own way of
-    /// being switched off.
+    /// packages and scripts, those given on the command line; and the
+    /// rules are read, as they say which of the player's own are switched
+    /// off.
     fn script_files_to_run(&mut self) -> Vec<PathBuf> {
         let mut files = Vec::new();
         if let Some(profiles) = &self.profiles {
@@ -92,11 +97,6 @@ impl Tab {
                 Err(error) => self.note(&trf("Could not load the rules: {0}", &[&error])),
             }
         }
-        let own: Vec<PathBuf> = (self.profiles.as_ref())
-            .map(|profiles| profiles.editable_scripts(self.profile.as_deref()))
-            .unwrap_or_default();
-        let off = &self.rules.scripts_off;
-        files.retain(|file| !own.contains(file) || !off.contains(&crate::rules::script_key(file)));
         files
     }
 
@@ -126,42 +126,13 @@ impl Tab {
         self.channel_said(name, panel, lines);
     }
 
-    /// Whether each group is on: as the rules have it saved, and as it
-    /// is in this session, where a script or the player may have
-    /// switched it.
-    pub(super) fn group_states(&self) -> (Switched, Switched) {
-        let saved = (self.rules.group_names().into_iter())
-            .map(|name| {
-                let on = self.rules.group_enabled(&name);
-                (name, on)
-            })
-            .collect();
-        let session = (self.scripts.groups().into_iter())
-            .map(|name| {
-                let on = self.scripts.group_enabled(&name);
-                (name, on)
-            })
-            .collect();
-        (saved, session)
-    }
-
     /// Runs the rules made in the interface, in place of those that were
-    /// running. Groups switched for the session keep how they were left,
-    /// unless what is saved for them is what changed.
-    pub(super) fn run_rules(&mut self, saved_before: &[(String, bool)], session: Switched) {
+    /// running.
+    pub(super) fn run_rules(&mut self) {
         self.scripts.unload(RULES);
         // Each on its own, so a mistake in one says which and spares the rest.
         for (name, code) in self.rules.chunks() {
             self.scripts.exec_owned(RULES, &name, &code);
-        }
-        for (name, on) in session {
-            let before = saved_before
-                .iter()
-                .find(|(known, _)| *known == name)
-                .is_none_or(|(_, on)| *on);
-            if before == self.rules.group_enabled(&name) {
-                self.scripts.set_group(&name, on);
-            }
         }
     }
 
@@ -169,26 +140,12 @@ impl Tab {
     /// scripts again: what those keep is not theirs to lose because a
     /// rule changed. A script switched on or off since is run or stopped.
     pub(super) fn reload_rules(&mut self, saved: Option<Rules>) {
-        let (saved_before, session) = self.group_states();
-        let off_before = self.rules.scripts_off.clone();
+        let before = self.rules.switched_off();
         if let Some(rules) = saved {
             self.rules = rules;
         }
-        let own: Vec<PathBuf> = (self.profiles.as_ref())
-            .map(|profiles| profiles.editable_scripts(self.profile.as_deref()))
-            .unwrap_or_default();
-        for file in own.iter().filter(|file| file.is_file()) {
-            let key = crate::rules::script_key(file);
-            match (
-                off_before.contains(&key),
-                self.rules.scripts_off.contains(&key),
-            ) {
-                (false, true) => self.scripts.unload_file(file),
-                (true, false) => self.scripts.load_file(file),
-                _ => {}
-            }
-        }
-        self.run_rules(&saved_before, session);
+        self.rebase_switches(&before);
+        self.run_rules();
         self.run_actions();
     }
 
@@ -283,7 +240,10 @@ impl Tab {
             }
         }
         // A script loaded, unloaded or run may have changed what it asks
-        // the MUD for.
+        // the MUD for, or switched scripts on or off.
         self.sync_modules();
+        if self.sync_scripts() {
+            self.run_actions();
+        }
     }
 }

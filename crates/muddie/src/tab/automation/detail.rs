@@ -1,40 +1,7 @@
 //! What the details of every kind of rule have in common: their heading,
-//! their group, what they do, and trying them.
+//! what they do, and trying them.
 
 use super::*;
-
-/// The group a rule belongs to: typed, or picked among those there are.
-pub(in crate::tab) fn group_row(ui: &mut egui::Ui, group: &mut String, known: &[String]) {
-    let theme = theme::current();
-    ui.horizontal(|ui| {
-        let name = ui.label(RichText::new(tr("Group")).color(theme.text_dim));
-        let field = ui.add(
-            TextEdit::singleline(group)
-                .hint_text(RichText::new(tr("None")).color(theme.text_faint))
-                .margin(egui::Margin::symmetric(9, 5))
-                .desired_width(200.0),
-        );
-        field.labelled_by(name.id);
-        if !known.is_empty() {
-            let pick = widgets::icon_button(ui, widgets::Icon::More, tr("Choose a group"), false);
-            egui::Popup::menu(&pick).show(|ui| {
-                widgets::menu_width(ui);
-                if widgets::menu_item(ui, tr("None"), "").clicked() {
-                    group.clear();
-                    ui.close();
-                }
-                widgets::menu_separator(ui);
-                for name in known {
-                    if widgets::menu_item(ui, name, "").clicked() {
-                        group.clone_from(name);
-                        ui.close();
-                    }
-                }
-            });
-        }
-    });
-    ui.add_space(2.0);
-}
 
 /// A line of small print under a control.
 pub(in crate::tab) fn note(ui: &mut egui::Ui, text: &str) {

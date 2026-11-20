@@ -152,7 +152,7 @@ impl Tab {
         let counts = [
             self.editor.draft.triggers.len(),
             self.editor.draft.aliases.len(),
-            self.editor.draft.keys.len(),
+            self.editor.draft.macros.len(),
             self.editor.draft.timers.len(),
             self.editor.draft.gauges.len(),
             self.scripts.variables().len(),
@@ -185,7 +185,7 @@ impl Tab {
                 self.editor.recording_key = false;
             }
         }
-        self.sidebar_groups(ui);
+        self.sidebar_tags(ui);
         ui.add_space(14.0);
         ui.horizontal(|ui| {
             ui.add_space(2.0);
@@ -215,76 +215,5 @@ impl Tab {
                     .color(theme::current().text_faint),
             );
         });
-    }
-
-    /// The groups under the sections: each with the switch of how it
-    /// starts a session. Choosing one narrows the lists to it.
-    pub(in crate::tab) fn sidebar_groups(&mut self, ui: &mut egui::Ui) {
-        let names = self.editor.draft.group_names();
-        if names.is_empty() {
-            self.editor.group_filter = None;
-            return;
-        }
-        let theme = theme::current();
-        ui.add_space(18.0);
-        ui.horizontal(|ui| {
-            ui.add_space(12.0);
-            widgets::caption(ui, tr("Groups"));
-        });
-        ui.add_space(2.0);
-        if self
-            .editor
-            .group_filter
-            .as_ref()
-            .is_some_and(|chosen| !names.contains(chosen))
-        {
-            self.editor.group_filter = None;
-        }
-        for name in names {
-            let chosen = self.editor.group_filter.as_ref() == Some(&name);
-            let mut on = self.editor.draft.group_enabled(&name);
-            let (rect, row) = ui
-                .allocate_exact_size(egui::vec2(ui.available_width(), 34.0), egui::Sense::click());
-            row.widget_info(|| {
-                egui::WidgetInfo::selected(egui::Role::Tab, true, chosen, name.as_str())
-            });
-            if chosen {
-                ui.painter()
-                    .rect_filled(rect, egui::CornerRadius::same(7), theme.raised);
-            } else if row.hovered() {
-                ui.painter().rect_filled(
-                    rect,
-                    egui::CornerRadius::same(7),
-                    theme.raised.gamma_multiply(0.6),
-                );
-            }
-            let colour = if on { theme.text_dim } else { theme.text_faint };
-            let text = ui
-                .painter()
-                .with_clip_rect(rect.with_max_x(rect.right() - 48.0));
-            text.text(
-                rect.left_center() + egui::vec2(12.0, 0.0),
-                egui::Align2::LEFT_CENTER,
-                &name,
-                theme::font(Weight::Regular, 13.5),
-                if chosen { theme.text } else { colour },
-            );
-            if row.clicked() {
-                self.editor.group_filter = (!chosen).then(|| name.clone());
-            }
-            // The switch, over the right end of the row.
-            let place = egui::Rect::from_center_size(
-                rect.right_center() - egui::vec2(27.0, 0.0),
-                egui::vec2(34.0, 20.0),
-            );
-            let mut slot = ui.new_child(
-                egui::UiBuilder::new()
-                    .id_salt(("group switch", name.as_str()))
-                    .max_rect(place),
-            );
-            if widgets::switch(&mut slot, &mut on, &name).changed() {
-                self.editor.draft.set_group_enabled(&name, on);
-            }
-        }
     }
 }

@@ -36,13 +36,10 @@ pub(super) const COMMANDS: [(&str, &str); 21] = [
         "Disables a plugin in this profile",
     ),
     ("/plugin remove <name>", "Deletes a plugin"),
+    ("/tag", "Lists the tags and whether they are on"),
     (
-        "/group",
-        "Lists the groups of rules and whether they are on",
-    ),
-    (
-        "/group <name> [on|off]",
-        "Switches a group on or off for this session",
+        "/tag <name> [on|off]",
+        "Switches a tag on or off for this session",
     ),
     ("/log", "Starts or stops logging the session"),
     ("/reload", "Runs the scripts and rules again"),
@@ -62,7 +59,7 @@ impl Tab {
         match command {
             "/help" | "/map" | "/plugin" => self.open_command_list(command),
             "/map-show" | "/map-hide" => self.set_map_shown(command == "/map-show"),
-            "/group" => self.group_command(argument),
+            "/tag" => self.tag_command(argument),
             "/where" => self.say_where(),
             "/find" if given => self.find_rooms(argument),
             "/go" if given => self.go_to(argument),
@@ -97,47 +94,48 @@ impl Tab {
         };
     }
 
-    /// Switches a group for this session, or lists them all.
-    fn group_command(&mut self, argument: &str) {
+    /// Switches a tag for this session, or lists them all.
+    fn tag_command(&mut self, argument: &str) {
         let (name, wanted) = match argument.rsplit_once(' ') {
             Some((name, "on")) => (name.trim(), Some(true)),
             Some((name, "off")) => (name.trim(), Some(false)),
             _ => (argument, None),
         };
-        let known = self.scripts.groups();
+        let known = self.scripts.tags();
         if name.is_empty() {
-            return self.list_groups(known);
+            return self.list_tags(known);
         }
-        let Some(group) = known.iter().find(|group| group.eq_ignore_ascii_case(name)) else {
+        let Some(tag) = known
+            .iter()
+            .find(|tag| **tag == muddie_script::tag_key(name))
+        else {
             return self.refuse(&trf(
-                "There is no group called {0}; /group lists them.",
+                "There is no tag called {0}; /tag lists them.",
                 &[name],
             ));
         };
-        let on = wanted.unwrap_or(!self.scripts.group_enabled(group));
-        self.scripts.set_group(group, on);
-        let said = if on {
-            "Group {0} on."
-        } else {
-            "Group {0} off."
-        };
-        self.note(&trf(said, &[group]));
+        let mut switches = self.scripts.switches();
+        let on = wanted.unwrap_or(!switches.tag_on(tag));
+        switches.set_tag(tag, on);
+        self.scripts.set_switches(switches);
+        self.run_actions();
+        let said = if on { "Tag {0} on." } else { "Tag {0} off." };
+        self.note(&trf(said, &[tag]));
     }
 
-    /// Lists the groups, each with whether it is on, to switch.
-    fn list_groups(&mut self, known: Vec<String>) {
+    /// Lists the tags, each with whether it is on, to switch.
+    fn list_tags(&mut self, known: Vec<String>) {
         if known.is_empty() {
-            self.refuse(tr(
-                "There are no groups. Give a rule a group in the editor.",
-            ));
+            self.refuse(tr("There are no tags. Give a rule a tag in the editor."));
         }
-        for group in known {
-            let state = if self.scripts.group_enabled(&group) {
+        let switches = self.scripts.switches();
+        for tag in known {
+            let state = if switches.tag_on(&tag) {
                 tr("on")
             } else {
                 tr("off")
             };
-            self.offer(&group, state, &format!("/group {group}"));
+            self.offer(&tag, state, &format!("/tag {tag}"));
         }
     }
 
@@ -178,9 +176,9 @@ pub(super) fn client_command(line: &str) -> Option<(&'static str, String)> {
         ("/plugin", "disable") => "/disable",
         ("/plugin", "remove") => "/remove",
         ("/plugin", _) => "/plugin",
-        ("/group", _) => {
-            let after = line.trim_start().strip_prefix("/group").unwrap_or_default();
-            return Some(("/group", after.trim().to_owned()));
+        ("/tag", _) => {
+            let after = line.trim_start().strip_prefix("/tag").unwrap_or_default();
+            return Some(("/tag", after.trim().to_owned()));
         }
         ("/log", _) => "/log",
         ("/reload", _) => "/reload",

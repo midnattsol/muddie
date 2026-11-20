@@ -14,6 +14,17 @@ msgstr ""
 msgid "Line"
 msgstr ""
 
+msgid "Add a tag"
+msgstr ""
+
+#, python-brace-format
+msgid "Add the tag {0}"
+msgstr ""
+
+#, python-brace-format
+msgid "Remove the tag {0}"
+msgstr ""
+
 msgid "Close"
 msgstr ""
 
@@ -78,6 +89,9 @@ msgid "Edit {0}"
 msgstr ""
 
 msgid "Install from git"
+msgstr ""
+
+msgid "New folder"
 msgstr ""
 
 msgid "No map yet"
@@ -286,10 +300,10 @@ msgid "Scripts reloaded."
 msgstr ""
 
 #, python-brace-format
-msgid "There is no group called {0}; /group lists them."
+msgid "There is no tag called {0}; /tag lists them."
 msgstr ""
 
-msgid "There are no groups. Give a rule a group in the editor."
+msgid "There are no tags. Give a rule a tag in the editor."
 msgstr ""
 
 msgid "on"
@@ -623,9 +637,6 @@ msgstr ""
 msgid "Saving…"
 msgstr ""
 
-msgid "Groups"
-msgstr ""
-
 msgid "Name this gauge"
 msgstr ""
 
@@ -932,15 +943,6 @@ msgstr ""
 msgid "Run each time the timer goes off."
 msgstr ""
 
-msgid "Group"
-msgstr ""
-
-msgid "None"
-msgstr ""
-
-msgid "Choose a group"
-msgstr ""
-
 msgid "Disabled"
 msgstr ""
 
@@ -1004,6 +1006,9 @@ msgstr ""
 msgid "Press the key…"
 msgstr ""
 
+msgid "None"
+msgstr ""
+
 msgid "Cancel"
 msgstr ""
 
@@ -1019,9 +1024,53 @@ msgstr ""
 msgid "Run when the key is pressed."
 msgstr ""
 
+#, python-brace-format
+msgid "Could not make the folder: {0}"
+msgstr ""
+
+msgid "Folder name"
+msgstr ""
+
+#, python-brace-format
+msgid "There is a folder called {0} already."
+msgstr ""
+
+#, python-brace-format
+msgid "Could not delete the folder: {0}"
+msgstr ""
+
+#, python-brace-format
+msgid "There is one called {0} already."
+msgstr ""
+
+#, python-brace-format
+msgid "Could not move it: {0}"
+msgstr ""
+
+msgid "every"
+msgstr ""
+
+msgid "after"
+msgstr ""
+
+msgid "In this profile"
+msgstr ""
+
+msgid "In every session"
+msgstr ""
+
 msgid ""
 "Nothing here yet.\n"
 "Press + to make one."
+msgstr ""
+
+msgid "Rename"
+msgstr ""
+
+msgid "New folder inside"
+msgstr ""
+
+msgid "Delete folder"
 msgstr ""
 
 msgid "Add"
@@ -1033,16 +1082,21 @@ msgstr ""
 msgid "From an example"
 msgstr ""
 
-msgid "every"
+msgid "New gauge"
 msgstr ""
 
-msgid "after"
+#, python-brace-format
+msgid "Does not run: the folder {0} is switched off."
 msgstr ""
 
-msgid "In every session"
+#, python-brace-format
+msgid "Does not run: the tag {0} is switched off."
 msgstr ""
 
-msgid "In this profile"
+msgid "Tags"
+msgstr ""
+
+msgid "Folder"
 msgstr ""
 
 msgid "No gauges here yet."
@@ -1204,9 +1258,6 @@ msgid "Create"
 msgstr ""
 
 msgid "Save"
-msgstr ""
-
-msgid "Rename"
 msgstr ""
 
 msgid "Duplicate"

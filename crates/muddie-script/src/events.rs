@@ -21,26 +21,18 @@ impl Engine {
     /// Handles a key press, named as in `bind` (see [`key_name`]). Returns
     /// whether the key was bound, in which case nothing else should use it.
     pub fn on_key(&mut self, key: &str) -> bool {
-        // A key can be bound once per group, so that it does one thing in
-        // one mode and another in another: the first whose group is on.
+        // A key bound several times does what the first that is on does.
         let action = {
             let state = self.state.borrow();
             let bound = state.bindings.get(&key_name(key));
-            let live = bound.into_iter().flatten().find(|(group, _)| {
-                group
-                    .as_ref()
-                    .is_none_or(|group| !state.disabled_groups.contains(group))
-            });
-            // Whose it is, for what it makes when it runs.
-            let owner = |group: &Option<String>| {
-                let name = key_name(key);
-                let by =
-                    (state.bound_by.iter()).find(|(_, known, of)| *known == name && of == group);
-                by.map(|(owner, ..)| owner.clone()).unwrap_or_default()
-            };
-            match live {
+            let live = (bound.into_iter().flatten())
+                .find(|bound| state.switches.active(Kind::Macro, &bound.belongs));
+            match live.map(|bound| (&bound.owner, &bound.binding)) {
                 Some((_, Binding::Command(command))) => Ok(state.expand(command)),
-                Some((group, Binding::Function(function))) => Err((owner(group), function.clone())),
+                // Whose it is, for what it makes when it runs.
+                Some((owner, Binding::Function(function))) => {
+                    Err((owner.clone(), function.clone()))
+                }
                 None => return false,
             }
         };
@@ -59,7 +51,7 @@ impl Engine {
             state.gag = false;
             state.current_line = styled;
         }
-        for hit in self.hits(text, |state| &state.triggers, usize::MAX) {
+        for hit in self.hits(text, Kind::Trigger, usize::MAX) {
             let still_there = (self.state.borrow().triggers.iter()).any(|t| t.id == hit.id);
             if still_there {
                 self.fire(&hit, text);
@@ -87,7 +79,7 @@ impl Engine {
             None => Some(";".to_owned()),
         };
         for command in split_commands(input, separator.as_deref()) {
-            match self.hits(&command, |state| &state.aliases, 1).pop() {
+            match self.hits(&command, Kind::Alias, 1).pop() {
                 Some(hit) => self.fire(&hit, &command),
                 None => self.push(Action::Send(command)),
             }
@@ -159,12 +151,7 @@ impl Engine {
     pub fn tick(&mut self, now: Instant) {
         let due: Vec<(u64, String, Function, bool)> = {
             let state = self.state.borrow();
-            let off = |timer: &Timer| {
-                timer
-                    .group
-                    .as_ref()
-                    .is_some_and(|group| state.disabled_groups.contains(group))
-            };
+            let off = |timer: &Timer| !state.switches.active(Kind::Timer, &timer.belongs);
             (state.timers.iter())
                 .filter(|timer| timer.due <= now)
                 .map(|timer| {
@@ -178,7 +165,7 @@ impl Engine {
                 .collect()
         };
         for (id, owner, callback, off) in due {
-            // One whose group is off lets its turn pass.
+            // One switched off lets its turn pass.
             let ok = off || self.as_owner(&owner, || callback.call::<()>(()));
             let mut state = self.state.borrow_mut();
             // The callback may have cancelled its own timer.
@@ -195,17 +182,14 @@ impl Engine {
         }
     }
 
-    pub(super) fn hits(
-        &self,
-        text: &str,
-        list: impl Fn(&State) -> &Vec<Matcher>,
-        limit: usize,
-    ) -> Vec<Hit> {
+    pub(super) fn hits(&self, text: &str, kind: Kind, limit: usize) -> Vec<Hit> {
         let state = self.state.borrow();
-        let enabled = |matcher: &&Matcher| {
-            (matcher.group.as_ref()).is_none_or(|group| !state.disabled_groups.contains(group))
+        let enabled = |matcher: &&Matcher| state.switches.active(kind, &matcher.belongs);
+        let list = match kind {
+            Kind::Alias => &state.aliases,
+            _ => &state.triggers,
         };
-        let matches = list(&state).iter().filter(enabled).filter_map(|matcher| {
+        let matches = list.iter().filter(enabled).filter_map(|matcher| {
             let captures = matcher.regex.captures(text)?;
             let group = |m: regex::Match| m.as_str().to_owned();
             Some(Hit {

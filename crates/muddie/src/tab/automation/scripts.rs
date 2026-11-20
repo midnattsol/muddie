@@ -79,31 +79,13 @@ impl Tab {
             .unwrap_or_default()
             .to_string_lossy()
             .into_owned();
-        let own = path.parent().is_some_and(|dir| dir.ends_with("scripts"));
-        if own && name != current && crate::profile::valid_name(&name) {
-            let renamed = path.with_file_name(format!("{name}.luau"));
-            if !renamed.exists() && std::fs::rename(&path, &renamed).is_ok() {
-                // What it made under its old name goes with that name.
-                self.scripts.unload_file(&path);
-                // Switched off, it stays so under its new name.
-                let (was, now) = (
-                    crate::rules::script_key(&path),
-                    crate::rules::script_key(&renamed),
-                );
-                for rules in [&mut self.editor.draft, &mut self.rules] {
-                    for known in &mut rules.scripts_off {
-                        if *known == was {
-                            known.clone_from(&now);
-                        }
-                    }
-                }
-                self.editor.script_loaded = Some(renamed.clone());
-                self.list_scripts();
-                let index = self
-                    .editor
-                    .script_files
-                    .iter()
-                    .position(|file| *file == renamed);
+        if self.is_own_script(&path) && name != current && crate::profile::valid_name(&name) {
+            // In the same folder, under its new name, with how it is kept.
+            let place = self.script_place(&path);
+            let renamed = crate::rules::joined(&folder_of(&place), &name);
+            if self.move_script_files(&place, &renamed) {
+                let index = (self.editor.script_files.iter())
+                    .position(|file| self.editor.script_loaded.as_ref() == Some(file));
                 self.editor.selected[SCRIPTS] = index.unwrap_or(0);
                 changed = true;
             }
@@ -245,7 +227,9 @@ impl Tab {
     /// buttons that run it and delete it. Switched off, it is kept and not
     /// run. Returns whether deleting and running were asked.
     fn script_heading(&mut self, ui: &mut egui::Ui, path: &std::path::Path) -> (bool, bool) {
-        let own = path.parent().is_some_and(|dir| dir.ends_with("scripts"));
+        let own = self.is_own_script(path);
+        let place = self.script_place(path);
+        let mut kept = self.editor.draft.script(&place);
         let (mut delete, mut run) = (false, false);
         ui.horizontal(|ui| {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -255,18 +239,8 @@ impl Tab {
                 }
                 run = widgets::icon_button(ui, widgets::Icon::Play, tr("Run"), false).clicked();
                 ui.add_space(6.0);
-                let key = crate::rules::script_key(path);
-                let mut on = !self.editor.draft.scripts_off.contains(&key);
-                if widgets::switch(ui, &mut on, tr("Enabled"))
-                    .on_hover_text(tr("Enabled"))
-                    .changed()
-                {
-                    self.editor.draft.scripts_off.retain(|known| *known != key);
-                    if !on {
-                        self.editor.draft.scripts_off.push(key);
-                    }
-                }
-                off_badge(ui, on);
+                widgets::switch(ui, &mut kept.enabled, tr("Enabled")).on_hover_text(tr("Enabled"));
+                off_badge(ui, kept.enabled);
                 let title = TextEdit::singleline(&mut self.editor.script_name)
                     .font(theme::font(Weight::Semibold, 20.0))
                     .frame(egui::Frame::NONE)
@@ -277,7 +251,42 @@ impl Tab {
                     .accesskit_node_builder(field.id, |node| node.set_label(tr("Name")));
             });
         });
+        ui.add(egui::Separator::default().spacing(2.0));
+        if own {
+            self.script_filing(ui, &place, &mut kept);
+        }
+        if kept != self.editor.draft.script(&place) {
+            self.editor.draft.set_script(kept);
+        }
         (delete, run)
+    }
+
+    /// Where a script of the profile's is filed: its folder, which is the
+    /// folder on the disk it is in, and its tags; and why it does not run
+    /// though switched on, if it does not.
+    fn script_filing(
+        &mut self,
+        ui: &mut egui::Ui,
+        place: &str,
+        kept: &mut crate::rules::ScriptEntry,
+    ) {
+        let folders = self.section_folders(Kind::Script);
+        let known = self.editor.draft.tag_names();
+        let mut folder = folder_of(place);
+        folder_row(ui, &mut folder, &folders);
+        tags_row(ui, ("script tags", place), &mut kept.tags, &known);
+        if folder != folder_of(place) {
+            let name = place.rsplit('/').next().unwrap_or(place);
+            let to = crate::rules::joined(&folder, name);
+            if self.move_script_files(place, &to) {
+                kept.path = to;
+            }
+        }
+        if kept.enabled
+            && let Some(reason) = self.off_reason(Kind::Script, &folder_of(&kept.path), &kept.tags)
+        {
+            note(ui, &reason);
+        }
     }
 
     /// Whether it ran, and when; or what kept it from running.

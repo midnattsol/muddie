@@ -63,7 +63,7 @@ trigger("^(?<who>\\w+) tells you: (.*)$", function(m, line)
 end)
 
 trigger("^You are hungry", function() send("eat bread") end,
-        {group = "survival", once = false})
+        {name = "Survival/Eat", tags = {"survival"}})
 
 trigger("^\\[spam\\]", function() gag() end) -- hide the line
 
@@ -80,20 +80,26 @@ after(5, function() cancel(id) end)
 | `gag()` | In a trigger: hides the line. |
 | `highlight(fg, bg)` | In a trigger: recolours the matched text. A colour is a name (`"red"`, `"bright blue"`), `"#rrggbb"` or a palette number. |
 | `line_spans()` | In a trigger: the line as runs of text with `fg`, `bg`, `bold`, `italic`, `underline` and `inverse`. |
-| `group.enable(name)`, `group.disable(name)`, `group.toggle(name)` | Switch a group on or off: its triggers, aliases, key bindings and timers, whether made in a script or in the editor. For the session; what is saved is what the editor says. |
-| `group.enabled(name)`, `group.list()` | Whether a group is on; the groups there are. |
-| `enable(group, enabled)` | The same switch, as one function. |
-| `after(seconds, fn, options)`, `every(seconds, fn, options)` | Timers. `{group = name}` makes one pass its turn while the group is off. |
+| `triggers`, `aliases`, `macros`, `timers`, `scripts` | Switch one thing of that kind by its place, or a folder with all it holds: `triggers.disable("Combat")`, `macros.enable("Combat/Kick")`, `scripts.toggle("Mapping")`. Each has `enable(place)`, `disable(place)`, `toggle(place)` (which returns whether it is now on), `enabled(place)` and `list()`, the places there are. Whether made in a script or in the editor; for the session, as what is saved is what the editor says. |
+| `tags` | The same for tags: `tags.disable("combat")` switches off everything that carries the tag, of every kind. |
+| `after(seconds, fn, options)`, `every(seconds, fn, options)` | Timers. Switched off, one lets its turns pass. |
 | `cancel(id)` | Removes whatever the id belongs to; every function above returns one. |
-| `bind(key, action, options)` | Runs a command or a function when a key is pressed: `bind("f5", "look")`, `bind("ctrl+shift+k", fn)`. With `{group = name}` the key does that only while the group is on, and can do something else in another group. `unbind(key)` removes it. |
+| `bind(key, action, options)` | Runs a command or a function when a key is pressed: `bind("f5", "look")`, `bind("ctrl+shift+k", fn)`. A key bound again under another `name` does that while it is on and those bound before are not: the first bound that is on is the one that runs. Bound again under the same name, it does the new thing instead. `unbind(key)` removes it. |
 | `separator(text)` | The text that separates commands typed on one line (`;` by default; doubled, it is typed literally). `nil` turns splitting off. |
 | `vars` | The variables, as a table: `vars.target = "orc"` keeps a value, `vars.target` reads it, `vars.target = nil` forgets it, and `for name, value in vars do` goes through them. They are those of the editor, kept with the session's profile. A table kept in one must be assigned whole to be kept: `local bag = vars.bag; bag.gold = 5; vars.bag = bag`. |
 | `expand(text)` | `text` with each `$name` replaced by that variable's value, `$name.key` by a field of a table and `$name.1` by an item of an array, as the commands of rules and key bindings are. |
 | `remember(key, value)`, `recall(key)` | The same values, as functions. |
 | `remembered()` | All the values kept, as a table by their names. |
 
-The options table takes `group` (a name to switch several on and off
-together) and `once` (remove after firing).
+The options table takes `name`, its place as `Folder/Name`, to switch it by;
+`tags`, a list of tags (or one alone) that switch it with everything else
+that carries one of them; and, for triggers and aliases, `once`, to remove it
+after it fires. A rule of the editor has as its place its folder and its
+name, or what it is made of if it has none: `Combat/Fight back`; two alike in
+one folder are told apart by a number, `Combat/Fight back #2`. A script's
+place is where it is among the profile's scripts, with no extension:
+`Mapping/rooms`. Something runs while its place, every folder above it and
+every tag it carries are switched on.
 
 Keys are named in lower case with their modifiers in the order `ctrl`, `alt`,
 `shift`: `f1`...`f35`, `ctrl+k`, `alt+shift+arrowup`. Of the main block, only

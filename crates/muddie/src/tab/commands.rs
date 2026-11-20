@@ -133,12 +133,13 @@ impl Tab {
         }
         // As it would be typed in the command line: after a slash.
         let typed = format!("/{}", self.palette.query.trim_start_matches('/'));
-        // The groups and the plugins there are, for the commands that
-        // take the name of one; the plugins are read from the disk.
-        let groups: Vec<(String, bool)> = if typed.starts_with("/group") {
-            (self.scripts.groups().into_iter())
+        // The tags and the plugins there are, for the commands that take
+        // the name of one; the plugins are read from the disk.
+        let tags: Vec<(String, bool)> = if typed.starts_with("/tag") {
+            let switches = self.scripts.switches();
+            (self.scripts.tags().into_iter())
                 .map(|name| {
-                    let on = self.scripts.group_enabled(&name);
+                    let on = switches.tag_on(&name);
                     (name, on)
                 })
                 .collect()
@@ -158,7 +159,7 @@ impl Tab {
             query.split_whitespace().all(|word| words.contains(word))
         };
         let mut items: Vec<Item> = acts.iter().filter(named).cloned().collect();
-        let commands = offered(&typed, &groups, &plugins);
+        let commands = offered(&typed, &tags, &plugins);
         // One being typed as a command goes first, to run with Enter.
         if self.palette.query.starts_with('/') || items.is_empty() {
             items.splice(0..0, commands);

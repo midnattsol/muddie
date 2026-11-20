@@ -220,3 +220,102 @@ fn line_numbers(
         first_row = row.ends_with_newline;
     }
 }
+
+/// The tags of something: each a pill with a cross to take it off, a
+/// field to add one, and under it those there are that it does not carry,
+/// narrowed to what is typed, to add with a click. Returns whether the
+/// tags changed.
+pub fn tag_field(
+    ui: &mut Ui,
+    id_salt: impl std::hash::Hash + std::fmt::Debug,
+    tags: &mut Vec<String>,
+    known: &[String],
+) -> bool {
+    let theme = theme::current();
+    let typed_id = ui.make_persistent_id((id_salt, "tag typed"));
+    let mut typed: String = ui.data_mut(|data| data.get_temp(typed_id).unwrap_or_default());
+    let carried = |tags: &[String], tag: &str| {
+        let key = crate::rules::tag_key(tag);
+        tags.iter().any(|known| crate::rules::tag_key(known) == key)
+    };
+    let mut changed = false;
+    ui.horizontal_wrapped(|ui| {
+        ui.spacing_mut().item_spacing = vec2(6.0, 6.0);
+        let mut gone = None;
+        for (index, tag) in tags.iter().enumerate() {
+            if tag_chip(ui, tag).clicked() {
+                gone = Some(index);
+            }
+        }
+        if let Some(index) = gone {
+            tags.remove(index);
+            changed = true;
+        }
+        let field = ui.add(single_line(&mut typed, crate::i18n::tr("Add a tag"), 140.0));
+        ui.ctx().accesskit_node_builder(field.id, |node| {
+            node.set_label(crate::i18n::tr("Add a tag"))
+        });
+        if field.lost_focus() && ui.input(|input| input.key_pressed(egui::Key::Enter)) {
+            let tag = typed.trim();
+            // Spelled as one there is, if it is one.
+            let tag = (known.iter())
+                .find(|known| crate::rules::tag_key(known) == crate::rules::tag_key(tag))
+                .map_or(tag, String::as_str)
+                .to_owned();
+            if !tag.is_empty() && !carried(tags, &tag) {
+                tags.push(tag);
+                changed = true;
+            }
+            typed.clear();
+            field.request_focus();
+        }
+    });
+    let wanted = typed.trim().to_lowercase();
+    let offered: Vec<&String> = (known.iter())
+        .filter(|tag| !carried(tags, tag))
+        .filter(|tag| tag.to_lowercase().contains(&wanted))
+        .collect();
+    if !offered.is_empty() {
+        ui.horizontal_wrapped(|ui| {
+            ui.spacing_mut().item_spacing = vec2(6.0, 6.0);
+            for tag in offered {
+                let add = ui.add(
+                    egui::Button::new(
+                        RichText::new(format!("+ {tag}"))
+                            .font(theme::font(Weight::Regular, 12.0))
+                            .color(theme.text_dim),
+                    )
+                    .fill(Color32::TRANSPARENT)
+                    .stroke(Stroke::new(1.0, theme.border))
+                    .corner_radius(CornerRadius::same(255)),
+                );
+                let add = add.on_hover_text(crate::i18n::trf("Add the tag {0}", &[tag]));
+                if add.clicked() {
+                    tags.push(tag.clone());
+                    typed.clear();
+                    changed = true;
+                }
+            }
+        });
+    }
+    ui.data_mut(|data| data.insert_temp(typed_id, typed));
+    changed
+}
+
+/// A tag carried, as a pill with a cross; clicked, it is taken off.
+fn tag_chip(ui: &mut Ui, tag: &str) -> Response {
+    let theme = theme::current();
+    let text = RichText::new(format!("{tag}  ×"))
+        .font(theme::font(Weight::Medium, 12.0))
+        .color(theme.accent);
+    let chip = ui.add(
+        egui::Button::new(text)
+            .fill(theme.accent.gamma_multiply(0.14))
+            .stroke(Stroke::NONE)
+            .corner_radius(CornerRadius::same(255)),
+    );
+    ui.ctx().accesskit_node_builder(chip.id, |node| {
+        node.set_label(crate::i18n::trf("Remove the tag {0}", &[tag]));
+    });
+    chip.on_hover_text(crate::i18n::trf("Remove the tag {0}", &[tag]))
+}
