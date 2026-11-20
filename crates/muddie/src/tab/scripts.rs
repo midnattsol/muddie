@@ -165,7 +165,7 @@ impl Tab {
 
     /// Saves the rules edited in the rules window and puts them to work.
     pub(super) fn save_rules(&mut self) {
-        let draft = self.rules_draft.clone();
+        let draft = self.editor.draft.clone();
         let Some(profiles) = &self.profiles else {
             // Nowhere to keep them: they still work for this session.
             return self.reload_rules(Some(draft));

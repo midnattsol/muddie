@@ -9,7 +9,7 @@ use crate::widgets;
 impl Tab {
     /// Draws the session in `ui`.
     pub fn show(&mut self, ui: &mut egui::Ui, _settings: &Settings) {
-        if self.recording_key {
+        if self.editor.recording_key {
             self.record_key(ui);
         } else {
             self.bound_keys(ui);
@@ -18,7 +18,7 @@ impl Tab {
         // The palette of commands, over whichever view is shown.
         self.palette(ui.ctx());
         // The automation view takes the place of the game while open.
-        if self.rules_open {
+        if self.editor.open {
             return self.automation_page(ui);
         }
         // Alt+0 reads the gauges aloud.
@@ -300,7 +300,7 @@ impl Tab {
 
     /// The widths of the automation view's panes, as last dragged.
     pub fn pane_widths(&self) -> [f32; 2] {
-        self.panes
+        self.editor.panes
     }
 
     /// How the connection is doing: a colour for it, and the words.

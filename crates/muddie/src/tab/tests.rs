@@ -483,7 +483,7 @@ fn commands_are_chosen_from_a_palette_and_answer_at_the_line() {
     harness.key_press(Key::Enter);
     harness.run_steps(3);
     let app = harness.state_mut().tab_mut();
-    assert_eq!((app.view(), app.rules_section), (1, automation::TIMERS));
+    assert_eq!((app.view(), app.editor.section), (1, automation::TIMERS));
     app.set_view(0);
     // And what the window does is asked of it.
     app.toggle_palette();
@@ -851,7 +851,8 @@ fn what_the_mud_sends_is_kept_to_look_at_and_made_into_gauges() {
     harness.run_steps(3);
     let app = harness.state_mut().tab_mut();
     let made = app
-        .rules_draft
+        .editor
+        .draft
         .gauges
         .last()
         .expect("a gauge was made")
@@ -914,7 +915,7 @@ fn a_variable_is_edited_as_its_type() {
     harness.get_by_label("Add a field").click();
     harness.run_steps(2);
     let app = harness.state_mut().tab_mut();
-    app.variable_items[1] = ("keys".into(), "3".into());
+    app.editor.variable_items[1] = ("keys".into(), "3".into());
     harness.run_steps(2);
     let kept = |app: &Tab| app.scripts.variables()[0].1.clone();
     assert_eq!(
@@ -1065,7 +1066,7 @@ fn gauges_are_shown_in_the_order_of_the_editor() {
     harness.key_press_modifiers(egui::Modifiers::ALT, Key::ArrowUp);
     harness.run_steps(3);
     let names = |app: &Tab| -> Vec<String> {
-        (app.rules_draft.gauges.iter())
+        (app.editor.draft.gauges.iter())
             .map(|gauge| gauge.name.clone())
             .collect()
     };
@@ -1368,28 +1369,28 @@ fn a_script_is_run_from_its_button_and_says_how_it_went() {
     app.add_script(None);
     harness.run_steps(3);
     // Typed, and run at once from its button: it takes effect...
-    harness.state_mut().tab_mut().script_text = r#"bind("f9", "kick")"#.into();
+    harness.state_mut().tab_mut().editor.script_text = r#"bind("f9", "kick")"#.into();
     harness.run_steps(2);
     harness.get_by_label("Run").click();
     harness.run_steps(3);
     let app = harness.state().tab();
     assert!(
-        matches!(&app.script_ran, Some((_, None))),
+        matches!(&app.editor.script_ran, Some((_, None))),
         "{:?}",
-        app.script_ran
+        app.editor.script_ran
     );
-    assert_eq!(app.script_saved, r#"bind("f9", "kick")"#);
+    assert_eq!(app.editor.script_saved, r#"bind("f9", "kick")"#);
     harness.get_by_label_contains("Last run: ");
     // ...and one that fails says why, there, not among the lines of
     // the game.
     let before = output_lines(harness.state().tab()).len();
-    harness.state_mut().tab_mut().script_text = "error('boom')".into();
+    harness.state_mut().tab_mut().editor.script_text = "error('boom')".into();
     harness.run_steps(2);
     harness.get_by_label("Run").click();
     harness.run_steps(3);
     let app = harness.state().tab();
-    let Some((_, Some(error))) = &app.script_ran else {
-        panic!("the error was not kept: {:?}", app.script_ran);
+    let Some((_, Some(error))) = &app.editor.script_ran else {
+        panic!("the error was not kept: {:?}", app.editor.script_ran);
     };
     assert!(error.contains("boom"), "{error}");
     assert_eq!(output_lines(app).len(), before);
@@ -1486,7 +1487,7 @@ fn a_script_switched_off_is_kept_and_not_run() {
     // Switched off beside its name, it stops being run once saved...
     app.open_automation(automation::SCRIPTS);
     harness.run_steps(3);
-    let index = (harness.state().tab().script_files.iter())
+    let index = (harness.state().tab().editor.script_files.iter())
         .position(|file| file.ends_with("keys.luau"))
         .unwrap();
     harness
@@ -1718,8 +1719,8 @@ fn saving_a_rule_or_a_script_leaves_what_the_other_scripts_keep() {
     assert_eq!(said(app, "cells"), "cells 2");
     // A rule is made and saved: it takes effect, and the scripts are
     // not run again for it.
-    app.rules_draft = app.rules.clone();
-    app.rules_draft.aliases.push(Alias {
+    app.editor.draft = app.rules.clone();
+    app.editor.draft.aliases.push(Alias {
         name: "hi".into(),
         enabled: true,
         pattern: "hi".into(),
@@ -1748,7 +1749,7 @@ fn saving_a_rule_or_a_script_leaves_what_the_other_scripts_keep() {
     // is the new one, and the first still has what it kept.
     app.open_automation(automation::SCRIPTS);
     harness.run_steps(3);
-    let index = (harness.state().tab().script_files.iter())
+    let index = (harness.state().tab().editor.script_files.iter())
         .position(|file| file.ends_with("other.luau"))
         .unwrap();
     harness
@@ -1756,7 +1757,8 @@ fn saving_a_rule_or_a_script_leaves_what_the_other_scripts_keep() {
         .tab_mut()
         .select_rule(automation::SCRIPTS, index);
     harness.run_steps(3);
-    harness.state_mut().tab_mut().script_text = r#"alias("^v$", function() echo("v2") end)"#.into();
+    harness.state_mut().tab_mut().editor.script_text =
+        r#"alias("^v$", function() echo("v2") end)"#.into();
     harness.run_steps(2);
     harness.get_by_label("Run").click();
     harness.run_steps(3);
@@ -1765,8 +1767,8 @@ fn saving_a_rule_or_a_script_leaves_what_the_other_scripts_keep() {
     assert_eq!(said(app, "cells"), "cells 2");
     // Switched off, a script is stopped; it can still be run by hand,
     // and running everything again starts it only if it is on.
-    app.rules_draft = app.rules.clone();
-    app.rules_draft.scripts_off.push("other.luau".into());
+    app.editor.draft = app.rules.clone();
+    app.editor.draft.scripts_off.push("other.luau".into());
     app.save_rules();
     let before = output_lines(app).len();
     app.scripts.on_input("v");
@@ -1955,12 +1957,12 @@ fn what_is_deleted_can_be_had_back() {
     // Deleted, it is gone, and the editor says so with a way back.
     harness.get_by_label("Delete").click();
     harness.run_steps(3);
-    assert!(harness.state().tab().rules_draft.triggers.is_empty());
+    assert!(harness.state().tab().editor.draft.triggers.is_empty());
     harness.get_by_label_contains("Deleted Fight back.");
     harness.get_by_label("Undo").click();
     harness.run_steps(3);
     assert_eq!(
-        harness.state().tab().rules_draft.triggers[0].name,
+        harness.state().tab().editor.draft.triggers[0].name,
         "Fight back"
     );
     // A variable too, with the keys that undo anywhere.
@@ -2107,14 +2109,14 @@ fn a_gauge_is_changed_where_it_is_shown() {
     harness.get_by_label("Edit Salud").click();
     harness.run_steps(3);
     let app = harness.state_mut().tab_mut();
-    assert_eq!((app.gauge_here, app.view()), (Some(0), 0));
-    app.rules_draft.gauges[0].colour = "red".into();
+    assert_eq!((app.editor.gauge_here, app.view()), (Some(0), 0));
+    app.editor.draft.gauges[0].colour = "red".into();
     harness.run_steps(2);
     // Closed, what was changed is saved, as in the editor.
     harness.key_press(Key::Escape);
     harness.run_steps(3);
     let app = harness.state().tab();
-    assert!(app.gauge_here.is_none());
+    assert!(app.editor.gauge_here.is_none());
     assert_eq!(app.rules.gauges[0].colour, "red");
 }
 
@@ -2293,10 +2295,11 @@ fn a_plugin_that_comes_with_muddie_is_made_ones_own_to_change() {
     );
     let app = harness.state().tab();
     assert!(!app.included(plugin));
-    assert_eq!((app.view(), app.rules_section), (1, automation::SCRIPTS));
+    assert_eq!((app.view(), app.editor.section), (1, automation::SCRIPTS));
     assert_eq!(
-        app.script_files
-            .get(app.rules_selected[automation::SCRIPTS]),
+        app.editor
+            .script_files
+            .get(app.editor.selected[automation::SCRIPTS]),
         Some(&path)
     );
     std::fs::remove_dir_all(&dir).unwrap();
@@ -2336,8 +2339,8 @@ fn rules_made_in_the_window_are_saved_and_take_effect() {
     harness.get_by_label("Add").click();
     harness.run_steps(2);
     let app = harness.state_mut().tab_mut();
-    app.rules_draft.triggers[0].pattern = "you are hungry".into();
-    app.rules_draft.triggers[0].send = "eat bread".into();
+    app.editor.draft.triggers[0].pattern = "you are hungry".into();
+    app.editor.draft.triggers[0].send = "eat bread".into();
     // Edits are saved once they stop for a moment, with no button.
     harness.run_steps(2);
     assert!(!dir.join("rules.toml").exists(), "not while still editing");
@@ -2349,7 +2352,7 @@ fn rules_made_in_the_window_are_saved_and_take_effect() {
     );
     // Closing the window saves at once.
     let app = harness.state_mut().tab_mut();
-    app.rules_draft.triggers[0].name = "Hunger".into();
+    app.editor.draft.triggers[0].name = "Hunger".into();
     app.close_automation();
     assert_eq!(
         Rules::load(&dir.join("rules.toml")).unwrap().triggers[0].name,
@@ -2382,34 +2385,37 @@ fn macro_key_is_recorded_from_the_next_key_pressed() {
     let mut harness = window(None);
     let app = harness.state_mut().tab_mut();
     app.open_automation(2);
-    app.rules_draft.keys.push(KeyBinding {
+    app.editor.draft.keys.push(KeyBinding {
         enabled: true,
         send: "look".into(),
         ..KeyBinding::default()
     });
-    app.recording_key = true;
+    app.editor.recording_key = true;
     harness.run_steps(3);
     // A plain letter cannot be bound, so it is not taken.
     harness.key_press(Key::A);
     harness.run_steps(2);
-    assert!(harness.state().tab().recording_key);
+    assert!(harness.state().tab().editor.recording_key);
     harness.key_press_modifiers(Modifiers::CTRL | Modifiers::SHIFT, Key::K);
     harness.run_steps(2);
     let app = harness.state_mut().tab_mut();
-    assert_eq!(app.rules_draft.keys[0].key, "ctrl+shift+k");
-    assert!(!app.recording_key);
+    assert_eq!(app.editor.draft.keys[0].key, "ctrl+shift+k");
+    assert!(!app.editor.recording_key);
     // The keypad is recorded by its own names.
-    app.recording_key = true;
+    app.editor.recording_key = true;
     app.keypad_pressed = vec!["numpad8"];
     harness.run_steps(2);
-    assert_eq!(harness.state().tab().rules_draft.keys[0].key, "numpad8");
+    assert_eq!(harness.state().tab().editor.draft.keys[0].key, "numpad8");
     // Escape leaves the key as it was.
-    harness.state_mut().tab_mut().recording_key = true;
+    harness.state_mut().tab_mut().editor.recording_key = true;
     harness.key_press(Key::Escape);
     harness.run_steps(2);
     let app = harness.state().tab();
     assert_eq!(
-        (app.rules_draft.keys[0].key.as_str(), app.recording_key),
+        (
+            app.editor.draft.keys[0].key.as_str(),
+            app.editor.recording_key
+        ),
         ("numpad8", false)
     );
 }
@@ -2690,12 +2696,13 @@ fn screenshot() {
     app.open_automation(automation::SCRIPTS);
     app.add_script(None);
     script.run_steps(3);
-    script.state_mut().tab_mut().script_text = "supports(\"Comm 1\")\n\non_gmcp(\"Comm.MensajeCanal\", function(data)\n\tpanel_add(data.canal, data.mensaje)\nend)\n".into();
+    script.state_mut().tab_mut().editor.script_text = "supports(\"Comm 1\")\n\non_gmcp(\"Comm.MensajeCanal\", function(data)\n\tpanel_add(data.canal, data.mensaje)\nend)\n".into();
     script.run_steps(2);
     script.get_by_label("Run").click();
     script.run_steps(4);
     save(&mut script, "script");
-    script.state_mut().tab_mut().script_text = "supports(\"Comm 1\")\nerror(\"boom\")\n".into();
+    script.state_mut().tab_mut().editor.script_text =
+        "supports(\"Comm 1\")\nerror(\"boom\")\n".into();
     script.run_steps(2);
     script.get_by_label("Run").click();
     script.run_steps(4);
@@ -2782,35 +2789,35 @@ fn screenshot() {
         ..KeyBinding::default()
     });
     app.open_automation(0);
-    app.rules_selected[0] = 1;
-    app.rules_sample = "Orc attacks you with a rusty axe!".into();
+    app.editor.selected[0] = 1;
+    app.editor.sample = "Orc attacks you with a rusty axe!".into();
     rules.run_steps(4);
     save(&mut rules, "automation");
     // The same with a mistake in the script, and then as commands.
     let app = rules.state_mut().tab_mut();
-    let good = app.rules_draft.triggers[1].script.clone();
-    app.rules_draft.triggers[1].script =
+    let good = app.editor.draft.triggers[1].script.clone();
+    app.editor.draft.triggers[1].script =
         good.replace("then\n\tsend(\"flee\")", "\n\tsend(\"flee\"");
     rules.run_steps(3);
     save(&mut rules, "mistake");
     let app = rules.state_mut().tab_mut();
-    app.rules_draft.triggers[1].script = good;
-    app.rules_draft.triggers[1].lua = false;
+    app.editor.draft.triggers[1].script = good;
+    app.editor.draft.triggers[1].lua = false;
     rules.run_steps(3);
     save(&mut rules, "commands");
-    rules.state_mut().tab_mut().rules_draft.triggers[1].lua = true;
+    rules.state_mut().tab_mut().editor.draft.triggers[1].lua = true;
     let app = rules.state_mut().tab_mut();
-    app.rules_section = 2;
+    app.editor.section = 2;
     rules.run_steps(3);
     save(&mut rules, "macros");
     let app = rules.state_mut().tab_mut();
-    app.rules_draft.timers.push(crate::rules::Timer {
+    app.editor.draft.timers.push(crate::rules::Timer {
         name: "Guardar".into(),
         tenths: 3000,
         send: "save".into(),
         ..crate::rules::Timer::default()
     });
-    app.rules_section = 3;
+    app.editor.section = 3;
     rules.run_steps(3);
     save(&mut rules, "timers");
     let app = rules.state_mut().tab_mut();
@@ -2829,11 +2836,11 @@ fn screenshot() {
     app.scripts
         .set_variable("ruta", Some(serde_json::json!(["norte", "norte", "este"])))
         .unwrap();
-    app.rules_section = 5;
-    app.rules_selected[5] = 0;
+    app.editor.section = 5;
+    app.editor.selected[5] = 0;
     rules.run_steps(3);
     save(&mut rules, "variables");
-    rules.state_mut().tab_mut().rules_selected[5] = 3;
+    rules.state_mut().tab_mut().editor.selected[5] = 3;
     rules.run_steps(3);
     save(&mut rules, "variable-array");
     let app = rules.state_mut().tab_mut();
@@ -2916,7 +2923,7 @@ fn screenshot() {
         .unwrap()
         .id;
     app.open_gauges(gauges);
-    app.rules_draft.gauges.push(crate::rules::Gauge {
+    app.editor.draft.gauges.push(crate::rules::Gauge {
         name: "Salud".into(),
         value: "Char.Vitals.health.current".into(),
         max: "Char.Vitals.health.max".into(),
@@ -2933,7 +2940,7 @@ fn screenshot() {
         ],
         ..crate::rules::Gauge::starter()
     });
-    app.rules_draft.gauges.push(crate::rules::Gauge {
+    app.editor.draft.gauges.push(crate::rules::Gauge {
         name: "Envenenado".into(),
         value: "Char.Status.poisoned".into(),
         kind: crate::rules::GaugeKind::Light,
@@ -2941,10 +2948,10 @@ fn screenshot() {
         off_colour: "green".into(),
         ..crate::rules::Gauge::starter()
     });
-    app.rules_selected[4] = 0;
+    app.editor.selected[4] = 0;
     layout.run_steps(4);
     save(&mut layout, "gauges");
-    layout.state_mut().tab_mut().rules_selected[4] = 1;
+    layout.state_mut().tab_mut().editor.selected[4] = 1;
     layout.run_steps(4);
     save(&mut layout, "gauge-light");
     // The palette of commands over the command line, and an answer.

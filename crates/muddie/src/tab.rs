@@ -127,9 +127,9 @@ pub struct Tab {
     last_activity: Instant,
     /// The triggers, aliases and keys made in the interface, as saved.
     rules: Rules,
-    /// The copy being edited in the rules window.
-    rules_draft: Rules,
-    rules_open: bool,
+    /// The editor: whether it is open, the rules and the script being edited,
+    /// what is chosen and filtered in it, and what it is in the middle of.
+    editor: automation::Editor,
     /// The connection window is showing.
     /// A connection has been asked for at least once; until then the
     /// session shows the welcome screen.
@@ -137,49 +137,12 @@ pub struct Tab {
     /// The saved profiles with where each connects, for the welcome
     /// screen; `None` until read, and again after one is saved.
     welcome_profiles: Option<Vec<(String, String)>>,
-    /// The rule selected in each section of the automation window.
-    rules_selected: [usize; 8],
-    /// The script files that can be edited, and the one being edited:
-    /// its file, its name as typed, its text, and that text as saved.
-    script_files: Vec<PathBuf>,
-    script_loaded: Option<PathBuf>,
-    script_name: String,
-    script_text: String,
-    script_saved: String,
-    script_seen: String,
-    /// When the script being edited last changed, to save it after.
-    script_settle: crate::autosave::Settle,
-    /// What the automation window's search box holds.
-    rules_filter: String,
-    /// The draft as last seen, and when it last changed: edits are saved
-    /// once they stop for a moment.
-    rules_seen: Rules,
-    /// When the rules being edited last changed, to save them after.
-    rules_settle: crate::autosave::Settle,
-    /// A sample line or command to try the selected rule on.
-    rules_sample: String,
-    /// The next key pressed becomes the selected macro's key.
-    recording_key: bool,
-    /// The palette of commands: which one is chosen, and the text it was
-    /// put away over, so that it stays away until that changes.
-    /// The gauge being dragged to another place in the editor's list.
-    gauge_dragged: Option<usize>,
     /// The palette of commands: whether it is open, what is typed in it, what
     /// it lists, and what the last command answered.
     palette: commands::Palette,
     /// The protocols the MUD has offered in this connection, and whether
     /// each is in use.
     protocols: Vec<(String, bool)>,
-    /// When the scripts were last run from the editor, and what kept
-    /// them from running, if anything did.
-    script_ran: Option<(String, Option<String>)>,
-    /// The trigger whose details are shown, and what it was asked to do
-    /// besides its commands though that is still empty.
-    extras_added: (usize, Vec<automation::Extra>),
-    /// The gauge whose details are open over the game.
-    gauge_here: Option<usize>,
-    /// What was last deleted in the editor, to have it back.
-    undo: Option<automation::Undo>,
     /// What the client said, to be read again, and how many of those have not
     /// been looked at.
     notices: messages::Notices,
@@ -198,35 +161,17 @@ pub struct Tab {
     /// Whether the command line's cursor is to go to the end of what was
     /// put in it.
     cursor_to_end: bool,
-    /// What checking the scripts being edited said.
-    checks: automation::Checks,
     /// The view of what the MUD sends: what was seen, which is chosen, how it
     /// is filtered, and whether it is kept outside the view.
     data_view: data::DataView,
     /// The session has no saved profile to keep its variables in, so
     /// they are carried from one start of the scripts to the next.
     variables_passing: bool,
-    /// The variable being edited: which, its name as typed, its value as
-    /// typed.
-    variable_loaded: Option<String>,
-    variable_name: String,
-    variable_text: String,
-    variable_kind: usize,
-    variable_number: f64,
-    variable_flag: bool,
-    variable_items: Vec<(String, String)>,
-    /// The group the editor's lists are narrowed to, and those folded.
-    group_filter: Option<String>,
-    folded_groups: Vec<String>,
     plugin_said: usize,
     /// The command left in the command line after it was sent, while it
     /// is still untouched; and whether it has yet to be selected.
     kept_input: Option<String>,
     select_input: bool,
-    /// The widths of the automation view's first two panes, and how tall
-    /// its details are.
-    panes: [f32; 2],
-    detail_height: f32,
     /// GMCP modules scripts asked to announce, besides the usual ones.
     supports: Vec<String>,
     /// Words scripts gave to complete with, under the name of each list.
@@ -239,8 +184,6 @@ pub struct Tab {
     /// Whether the region for announcements was in the accessibility tree
     /// on the last frame.
     announce_ready: bool,
-    /// Which of triggers, aliases and keys the rules window shows.
-    rules_section: usize,
     /// Label of the text encoding the server uses; `auto` for most.
     encoding: String,
     /// The plugins that come with Muddie: those switched on, those
@@ -333,60 +276,28 @@ impl Tab {
             reconnect_attempts: 0,
             last_activity: Instant::now(),
             rules: Rules::default(),
-            rules_draft: Rules::default(),
-            rules_open: false,
+            editor: automation::Editor::default(),
             started: false,
             welcome_profiles: None,
-            rules_selected: [0; 8],
-            script_files: Vec::new(),
-            script_loaded: None,
-            script_name: String::new(),
-            script_text: String::new(),
-            script_saved: String::new(),
-            script_seen: String::new(),
-            script_settle: Default::default(),
-            rules_filter: String::new(),
-            rules_seen: Rules::default(),
-            rules_settle: Default::default(),
-            rules_sample: String::new(),
-            recording_key: false,
-            gauge_dragged: None,
             palette: commands::Palette::default(),
             protocols: Vec::new(),
-            script_ran: None,
             reconnect_wanted: false,
             prefs: crate::profile::SessionPrefs::default(),
             profile_written: false,
             connected_with: None,
-            undo: None,
-            gauge_here: None,
-            extras_added: (usize::MAX, Vec::new()),
             notices: messages::Notices::default(),
             app_request: None,
             cursor_to_end: false,
-            checks: automation::Checks::default(),
             data_view: data::DataView::default(),
             variables_passing: false,
-            variable_loaded: None,
-            variable_name: String::new(),
-            variable_text: String::new(),
-            variable_kind: 0,
-            variable_number: 0.0,
-            variable_flag: false,
-            variable_items: Vec::new(),
-            group_filter: None,
-            folded_groups: Vec::new(),
             plugin_said: 0,
             kept_input: None,
             select_input: false,
-            panes: settings.automation_panes,
-            detail_height: 600.0,
             supports: Vec::new(),
             completions: Vec::new(),
             sizes: panel_sizes::Sizes::default(),
             address: String::new(),
             announce_ready: false,
-            rules_section: 0,
             encoding: "auto".into(),
             included_on: Vec::new(),
             included_off: Vec::new(),
@@ -401,6 +312,7 @@ impl Tab {
             keypad_pressed: Vec::new(),
             announcement: String::new(),
         };
+        app.editor.panes = settings.automation_panes;
         app.voice.set_enabled(startup.speech);
         match startup.profile {
             Some(name) => {

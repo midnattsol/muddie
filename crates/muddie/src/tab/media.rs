@@ -266,7 +266,6 @@ impl Tab {
 }
 
 /// The sounds being fetched for the MUD, where it said they are, and those
-
 /// that could not be had.
 #[derive(Default)]
 pub(super) struct Fetching {

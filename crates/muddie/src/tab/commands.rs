@@ -777,7 +777,6 @@ impl Tab {
 }
 
 /// The palette of commands: whether it is open, what is typed in it, what
-
 /// it lists, and what the last command answered.
 #[derive(Default)]
 pub(super) struct Palette {

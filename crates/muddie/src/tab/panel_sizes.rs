@@ -193,7 +193,6 @@ impl Tab {
 }
 
 /// How big the panels and the window are, in characters, and what was told
-
 /// of it.
 #[derive(Default)]
 pub(super) struct Sizes {

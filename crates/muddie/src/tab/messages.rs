@@ -116,7 +116,6 @@ impl Tab {
 }
 
 /// What the client said, to be read again, and how many of those have not
-
 /// been looked at.
 #[derive(Default)]
 pub(super) struct Notices {

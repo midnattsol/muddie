@@ -149,7 +149,12 @@ impl Tab {
         self.run_actions();
         if open {
             self.open_automation(automation::SCRIPTS);
-            if let Some(index) = self.script_files.iter().position(|file| file == path) {
+            if let Some(index) = self
+                .editor
+                .script_files
+                .iter()
+                .position(|file| file == path)
+            {
                 self.select_rule(automation::SCRIPTS, index);
             }
         }

@@ -89,23 +89,23 @@ impl Extra {
 impl Tab {
     /// Opens the automation window on one of its sections.
     pub fn open_automation(&mut self, section: usize) {
-        if !self.rules_open {
-            self.rules_draft = self.rules.clone();
-            self.rules_seen = self.rules.clone();
+        if !self.editor.open {
+            self.editor.draft = self.rules.clone();
+            self.editor.seen = self.rules.clone();
         }
-        self.rules_section = section;
-        self.rules_open = true;
+        self.editor.section = section;
+        self.editor.open = true;
         self.list_scripts();
     }
 
     /// Chooses one of the rules of a section.
     pub(super) fn select_rule(&mut self, section: usize, index: usize) {
-        self.rules_selected[section] = index;
+        self.editor.selected[section] = index;
     }
 
     /// Opens the automation view where it was left.
     pub fn reopen_automation(&mut self) {
-        self.open_automation(self.rules_section);
+        self.open_automation(self.editor.section);
     }
 
     /// The automation view, which takes the session's whole space: the
@@ -115,7 +115,7 @@ impl Tab {
         let theme = theme::current();
         let mut open = true;
         // Escape goes back to the game, unless it is cancelling a key.
-        if !self.recording_key
+        if !self.editor.recording_key
             && ui.input_mut(|input| input.consume_key(Modifiers::NONE, Key::Escape))
         {
             open = false;
@@ -137,7 +137,7 @@ impl Tab {
             const HANDLE: f32 = 12.0;
             let full = ui.available_rect_before_wrap();
             let most = (full.width() - SECTIONS - AIR - HANDLE - 460.0).max(240.0);
-            self.panes[1] = self.panes[1].clamp(240.0, most);
+            self.editor.panes[1] = self.editor.panes[1].clamp(240.0, most);
             let column = |left: f32, width: f32| {
                 egui::Rect::from_min_max(
                     egui::pos2(left, full.top()),
@@ -145,7 +145,7 @@ impl Tab {
                 )
             };
             let sections = column(full.left(), SECTIONS);
-            let list = column(sections.right() + AIR, self.panes[1]);
+            let list = column(sections.right() + AIR, self.editor.panes[1]);
             let handle = column(list.right(), HANDLE);
             let detail = column(handle.right(), full.right() - handle.right());
 
@@ -157,7 +157,7 @@ impl Tab {
                 egui::WidgetInfo::labeled(egui::Role::Splitter, true, tr("Resize"))
             });
             if response.dragged() {
-                self.panes[1] += response.drag_delta().x;
+                self.editor.panes[1] += response.drag_delta().x;
                 ui.ctx().set_cursor_icon(egui::CursorIcon::ResizeHorizontal);
             }
             if response.hovered() || response.dragged() {
@@ -209,7 +209,7 @@ impl Tab {
             let inner = detail.shrink2(egui::vec2(26.0, 18.0));
             pane("detail", inner, true, &mut |tab, ui| {
                 tab.undo_bar(ui);
-                tab.detail_height = inner.height();
+                tab.editor.detail_height = inner.height();
                 egui::ScrollArea::vertical()
                     .auto_shrink(false)
                     .show(ui, |ui| tab.automation_detail(ui));
@@ -221,32 +221,32 @@ impl Tab {
     /// Saves what is being edited once the edits stop for a moment, and
     /// at once when what they are made in closes.
     pub(super) fn rules_autosave(&mut self, ctx: &egui::Context, open: bool) {
-        if self.rules_draft != self.rules_seen {
-            self.rules_seen = self.rules_draft.clone();
-            self.rules_settle.changed();
+        if self.editor.draft != self.editor.seen {
+            self.editor.seen = self.editor.draft.clone();
+            self.editor.settle.changed();
         }
         // The script being edited is saved the same way.
-        if self.script_text != self.script_seen {
-            self.script_seen = self.script_text.clone();
-            self.script_settle.changed();
+        if self.editor.script_text != self.editor.script_seen {
+            self.editor.script_seen = self.editor.script_text.clone();
+            self.editor.script_settle.changed();
         }
-        if self.script_settle.due(ctx) {
+        if self.editor.script_settle.due(ctx) {
             self.flush_script();
         }
         if !open {
             self.close_automation();
-        } else if self.rules_settle.due(ctx) && self.rules_draft != self.rules {
+        } else if self.editor.settle.due(ctx) && self.editor.draft != self.rules {
             self.save_rules();
         }
     }
 
     /// Closes the automation window, saving what was still unsaved.
     pub fn close_automation(&mut self) {
-        self.rules_open = false;
-        self.recording_key = false;
-        self.rules_settle.clear();
+        self.editor.open = false;
+        self.editor.recording_key = false;
+        self.editor.settle.clear();
         self.flush_script();
-        if self.rules_draft != self.rules {
+        if self.editor.draft != self.rules {
             self.save_rules();
         }
     }
@@ -262,13 +262,13 @@ impl Tab {
         });
         ui.add_space(16.0);
         let counts = [
-            self.rules_draft.triggers.len(),
-            self.rules_draft.aliases.len(),
-            self.rules_draft.keys.len(),
-            self.rules_draft.timers.len(),
-            self.rules_draft.gauges.len(),
+            self.editor.draft.triggers.len(),
+            self.editor.draft.aliases.len(),
+            self.editor.draft.keys.len(),
+            self.editor.draft.timers.len(),
+            self.editor.draft.gauges.len(),
             self.scripts.variables().len(),
-            self.script_files.len(),
+            self.editor.script_files.len(),
         ];
         let names = [
             tr("Triggers"),
@@ -289,12 +289,12 @@ impl Tab {
             if section == DATA {
                 ui.add_space(10.0);
             }
-            let selected = self.rules_section == section;
+            let selected = self.editor.section == section;
             if widgets::nav_item(ui, selected, name, Some(count)).clicked() {
                 self.flush_script();
-                self.rules_section = section;
-                self.rules_sample.clear();
-                self.recording_key = false;
+                self.editor.section = section;
+                self.editor.sample.clear();
+                self.editor.recording_key = false;
             }
         }
         self.sidebar_groups(ui);
@@ -314,7 +314,8 @@ impl Tab {
         });
         ui.horizontal(|ui| {
             ui.add_space(10.0);
-            let saved = self.rules_draft == self.rules && self.script_text == self.script_saved;
+            let saved = self.editor.draft == self.rules
+                && self.editor.script_text == self.editor.script_saved;
             let state = if saved {
                 tr("All changes saved")
             } else {
@@ -331,9 +332,9 @@ impl Tab {
     /// The groups under the sections: each with the switch of how it
     /// starts a session. Choosing one narrows the lists to it.
     fn sidebar_groups(&mut self, ui: &mut egui::Ui) {
-        let names = self.rules_draft.group_names();
+        let names = self.editor.draft.group_names();
         if names.is_empty() {
-            self.group_filter = None;
+            self.editor.group_filter = None;
             return;
         }
         let theme = theme::current();
@@ -344,15 +345,16 @@ impl Tab {
         });
         ui.add_space(2.0);
         if self
+            .editor
             .group_filter
             .as_ref()
             .is_some_and(|chosen| !names.contains(chosen))
         {
-            self.group_filter = None;
+            self.editor.group_filter = None;
         }
         for name in names {
-            let chosen = self.group_filter.as_ref() == Some(&name);
-            let mut on = self.rules_draft.group_enabled(&name);
+            let chosen = self.editor.group_filter.as_ref() == Some(&name);
+            let mut on = self.editor.draft.group_enabled(&name);
             let (rect, row) = ui
                 .allocate_exact_size(egui::vec2(ui.available_width(), 34.0), egui::Sense::click());
             row.widget_info(|| {
@@ -380,7 +382,7 @@ impl Tab {
                 if chosen { theme.text } else { colour },
             );
             if row.clicked() {
-                self.group_filter = (!chosen).then(|| name.clone());
+                self.editor.group_filter = (!chosen).then(|| name.clone());
             }
             // The switch, over the right end of the row.
             let place = egui::Rect::from_center_size(
@@ -393,7 +395,7 @@ impl Tab {
                     .max_rect(place),
             );
             if widgets::switch(&mut slot, &mut on, &name).changed() {
-                self.rules_draft.set_group_enabled(&name, on);
+                self.editor.draft.set_group_enabled(&name, on);
             }
         }
     }
@@ -412,8 +414,8 @@ impl Tab {
                 shown.trim().to_owned()
             }
         };
-        let draft = &self.rules_draft;
-        match self.rules_section {
+        let draft = &self.editor.draft;
+        match self.editor.section {
             TRIGGERS => (draft.triggers.iter())
                 .map(|rule| {
                     (
@@ -497,7 +499,7 @@ impl Tab {
                     (name, format!("{}  ·  {held}", TYPES[kind_of(&value)]), true)
                 })
                 .collect(),
-            _ => (self.script_files.iter())
+            _ => (self.editor.script_files.iter())
                 .map(|file| {
                     let name = file
                         .file_name()
@@ -519,8 +521,8 @@ impl Tab {
 
     /// The group of each rule of the current section, in their order.
     fn row_groups(&self) -> Vec<String> {
-        let draft = &self.rules_draft;
-        let groups: Vec<&String> = match self.rules_section {
+        let draft = &self.editor.draft;
+        let groups: Vec<&String> = match self.editor.section {
             TRIGGERS => draft.triggers.iter().map(|rule| &rule.group).collect(),
             ALIASES => draft.aliases.iter().map(|rule| &rule.group).collect(),
             MACROS => draft.keys.iter().map(|rule| &rule.group).collect(),
@@ -535,7 +537,7 @@ impl Tab {
 
     /// Looks again for the script files that can be edited.
     fn list_scripts(&mut self) {
-        self.script_files = match &self.profiles {
+        self.editor.script_files = match &self.profiles {
             Some(profiles) => profiles.editable_scripts(self.profile.as_deref()),
             None => Vec::new(),
         };
@@ -544,17 +546,17 @@ impl Tab {
     /// Saves the script being edited if it changed, renames its file if
     /// its name was changed, and runs the scripts again.
     fn flush_script(&mut self) {
-        self.script_settle.clear();
-        let Some(path) = self.script_loaded.clone() else {
+        self.editor.script_settle.clear();
+        let Some(path) = self.editor.script_loaded.clone() else {
             return;
         };
         let mut changed = false;
-        if self.script_text != self.script_saved {
+        if self.editor.script_text != self.editor.script_saved {
             let written = (path.parent().map_or(Ok(()), std::fs::create_dir_all))
-                .and_then(|()| std::fs::write(&path, &self.script_text));
+                .and_then(|()| std::fs::write(&path, &self.editor.script_text));
             match written {
                 Ok(()) => {
-                    self.script_saved = self.script_text.clone();
+                    self.editor.script_saved = self.editor.script_text.clone();
                     changed = true;
                 }
                 Err(error) => self.note(&trf(
@@ -563,7 +565,12 @@ impl Tab {
                 )),
             }
         }
-        let name = self.script_name.trim().trim_end_matches(".luau").to_owned();
+        let name = self
+            .editor
+            .script_name
+            .trim()
+            .trim_end_matches(".luau")
+            .to_owned();
         let current = path
             .file_stem()
             .unwrap_or_default()
@@ -580,17 +587,21 @@ impl Tab {
                     crate::rules::script_key(&path),
                     crate::rules::script_key(&renamed),
                 );
-                for rules in [&mut self.rules_draft, &mut self.rules] {
+                for rules in [&mut self.editor.draft, &mut self.rules] {
                     for known in &mut rules.scripts_off {
                         if *known == was {
                             known.clone_from(&now);
                         }
                     }
                 }
-                self.script_loaded = Some(renamed.clone());
+                self.editor.script_loaded = Some(renamed.clone());
                 self.list_scripts();
-                let index = self.script_files.iter().position(|file| *file == renamed);
-                self.rules_selected[SCRIPTS] = index.unwrap_or(0);
+                let index = self
+                    .editor
+                    .script_files
+                    .iter()
+                    .position(|file| *file == renamed);
+                self.editor.selected[SCRIPTS] = index.unwrap_or(0);
                 changed = true;
             }
         }
@@ -604,10 +615,12 @@ impl Tab {
     /// rules go on as they were, with all they keep.
     pub(super) fn run_scripts(&mut self) {
         // Saved first, if what is being typed has not been yet.
-        if self.script_loaded.is_some() && self.script_text != self.script_saved {
+        if self.editor.script_loaded.is_some()
+            && self.editor.script_text != self.editor.script_saved
+        {
             return self.flush_script();
         }
-        let Some(path) = self.script_loaded.clone() else {
+        let Some(path) = self.editor.script_loaded.clone() else {
             return;
         };
         self.palette.answer.clear();
@@ -623,18 +636,18 @@ impl Tab {
         let at = crate::output::clock();
         if self.palette.answer_failed {
             let error: Vec<String> = said.into_iter().map(|said| said.text).collect();
-            self.script_ran = Some((at, Some(error.join("\n"))));
+            self.editor.script_ran = Some((at, Some(error.join("\n"))));
         } else {
             // What it printed is shown where such things are.
             for said in said {
                 self.show_local(&said.text);
             }
-            self.script_ran = Some((at, None));
+            self.editor.script_ran = Some((at, None));
         }
     }
 
     fn automation_list(&mut self, ui: &mut egui::Ui) {
-        if self.rules_section == DATA {
+        if self.editor.section == DATA {
             return self.data_list(ui);
         }
         {
@@ -644,7 +657,7 @@ impl Tab {
                     node.set_label(tr("Add"));
                 });
                 let add = add.on_hover_text(tr("Add"));
-                if self.rules_section == SCRIPTS {
+                if self.editor.section == SCRIPTS {
                     // A script can start empty or from an example.
                     egui::Popup::menu(&add).show(|ui| {
                         widgets::menu_width(ui);
@@ -664,13 +677,13 @@ impl Tab {
                 } else if add.clicked() {
                     self.add_rule();
                 }
-                widgets::text_box(ui, &mut self.rules_filter, tr("Search"));
+                widgets::text_box(ui, &mut self.editor.filter, tr("Search"));
             });
         }
         ui.add_space(4.0);
         let rows = self.automation_rows();
-        let filter = self.rules_filter.trim().to_lowercase();
-        let section = self.rules_section;
+        let filter = self.editor.filter.trim().to_lowercase();
+        let section = self.editor.section;
         egui::ScrollArea::vertical()
             .auto_shrink(false)
             .show(ui, |ui| {
@@ -697,6 +710,7 @@ impl Tab {
                 let theme = theme::current();
                 for name in names {
                     if self
+                        .editor
                         .group_filter
                         .as_ref()
                         .is_some_and(|wanted| *wanted != name)
@@ -715,9 +729,9 @@ impl Tab {
                     if members.is_empty() {
                         continue;
                     }
-                    let on = name.is_empty() || self.rules_draft.group_enabled(&name);
+                    let on = name.is_empty() || self.editor.draft.group_enabled(&name);
                     if !name.is_empty() {
-                        let folded = self.folded_groups.contains(&name);
+                        let folded = self.editor.folded_groups.contains(&name);
                         ui.add_space(8.0);
                         let (rect, header) = ui.allocate_exact_size(
                             egui::vec2(ui.available_width(), 24.0),
@@ -772,9 +786,9 @@ impl Tab {
                         );
                         if header.clicked() {
                             if folded {
-                                self.folded_groups.retain(|known| *known != name);
+                                self.editor.folded_groups.retain(|known| *known != name);
                             } else {
-                                self.folded_groups.push(name.clone());
+                                self.editor.folded_groups.push(name.clone());
                             }
                         }
                         if folded {
@@ -783,12 +797,12 @@ impl Tab {
                     }
                     for index in members {
                         let (title, detail, enabled) = &rows[index];
-                        let selected = self.rules_selected[section] == index;
+                        let selected = self.editor.selected[section] == index;
                         let row = widgets::list_row(ui, selected, title, detail, *enabled && on);
                         if row.clicked() {
-                            self.rules_selected[section] = index;
-                            self.rules_sample.clear();
-                            self.recording_key = false;
+                            self.editor.selected[section] = index;
+                            self.editor.sample.clear();
+                            self.editor.recording_key = false;
                         }
                         // The gauges are shown in the order of this list,
                         // so its rows can be dragged to another place.
@@ -796,9 +810,9 @@ impl Tab {
                             places.push((index, row.rect));
                             let row = row.interact(egui::Sense::drag());
                             if row.drag_started() {
-                                self.gauge_dragged = Some(index);
+                                self.editor.gauge_dragged = Some(index);
                             }
-                            if self.gauge_dragged == Some(index) {
+                            if self.editor.gauge_dragged == Some(index) {
                                 ui.ctx().set_cursor_icon(egui::CursorIcon::Grabbing);
                             } else if row.hovered() {
                                 ui.ctx().set_cursor_icon(egui::CursorIcon::Grab);
@@ -812,11 +826,11 @@ impl Tab {
 
     /// Puts back what was last deleted.
     pub(super) fn undo_delete(&mut self) {
-        let Some(undo) = self.undo.take() else {
+        let Some(undo) = self.editor.undo.take() else {
             return;
         };
         match undo.what {
-            Undone::Rules(rules) => self.rules_draft = rules,
+            Undone::Rules(rules) => self.editor.draft = rules,
             Undone::Variable(name, value) => {
                 if let Err(error) = self.scripts.set_variable(&name, Some(value)) {
                     self.note(&error);
@@ -836,19 +850,19 @@ impl Tab {
             Undone::Nothing => return,
         }
         self.open_automation(undo.section);
-        self.rules_selected[undo.section] = undo.index;
+        self.editor.selected[undo.section] = undo.index;
     }
 
     /// The bar that says what was deleted, with the way to have it back,
     /// for a few seconds after.
     fn undo_bar(&mut self, ui: &mut egui::Ui) {
         const LASTS: std::time::Duration = std::time::Duration::from_secs(10);
-        let Some(undo) = &self.undo else {
+        let Some(undo) = &self.editor.undo else {
             return;
         };
         let left = LASTS.saturating_sub(undo.since.elapsed());
         if left.is_zero() {
-            self.undo = None;
+            self.editor.undo = None;
             return;
         }
         ui.ctx().request_repaint_after(left);
@@ -880,44 +894,44 @@ impl Tab {
     /// While a gauge is dragged in the list, marks where it would go, and
     /// puts it there once let go.
     fn drag_gauge(&mut self, ui: &egui::Ui, places: &[(usize, egui::Rect)]) {
-        let Some(from) = self.gauge_dragged else {
+        let Some(from) = self.editor.gauge_dragged else {
             return;
         };
         let pointer = ui.ctx().pointer_latest_pos();
         // Before the first row whose middle is under the pointer, or last.
         let before = pointer
             .and_then(|pointer| (places.iter()).find(|(_, rect)| pointer.y < rect.center().y));
-        let to = before.map_or(self.rules_draft.gauges.len(), |(index, _)| *index);
+        let to = before.map_or(self.editor.draft.gauges.len(), |(index, _)| *index);
         let y = match (before, places.last()) {
             (Some((_, rect)), _) => rect.top(),
             (None, Some((_, rect))) => rect.bottom(),
-            (None, None) => return self.gauge_dragged = None,
+            (None, None) => return self.editor.gauge_dragged = None,
         };
         let across = places[0].1.x_range();
         ui.painter()
             .hline(across, y, egui::Stroke::new(2.0, theme::current().accent));
         if !ui.input(|input| input.pointer.any_down()) {
-            self.gauge_dragged = None;
+            self.editor.gauge_dragged = None;
             self.move_gauge(from, to);
         }
     }
 
     /// Moves a gauge to before the one now at `to`, keeping it chosen.
     pub(super) fn move_gauge(&mut self, from: usize, to: usize) {
-        let gauges = &mut self.rules_draft.gauges;
+        let gauges = &mut self.editor.draft.gauges;
         if from >= gauges.len() || to == from || to == from + 1 {
             return;
         }
         let gauge = gauges.remove(from);
         let at = if to > from { to - 1 } else { to }.min(gauges.len());
         gauges.insert(at, gauge);
-        self.rules_selected[GAUGES] = at;
+        self.editor.selected[GAUGES] = at;
     }
 
     /// Adds an empty rule to the current section and selects it.
     fn add_rule(&mut self) {
-        let draft = &mut self.rules_draft;
-        let index = match self.rules_section {
+        let draft = &mut self.editor.draft;
+        let index = match self.editor.section {
             TRIGGERS => {
                 draft.triggers.push(Trigger {
                     enabled: true,
@@ -957,9 +971,9 @@ impl Tab {
             VARIABLES => return self.add_variable(),
             _ => return self.add_script(None),
         };
-        self.rules_selected[self.rules_section] = index;
-        self.rules_filter.clear();
-        self.rules_sample.clear();
+        self.editor.selected[self.editor.section] = index;
+        self.editor.filter.clear();
+        self.editor.sample.clear();
     }
 
     /// Makes an empty script file for the profile and selects it.
@@ -991,9 +1005,13 @@ impl Tab {
         match made {
             Ok(path) => {
                 self.list_scripts();
-                let index = self.script_files.iter().position(|file| *file == path);
-                self.rules_selected[SCRIPTS] = index.unwrap_or(0);
-                self.rules_filter.clear();
+                let index = self
+                    .editor
+                    .script_files
+                    .iter()
+                    .position(|file| *file == path);
+                self.editor.selected[SCRIPTS] = index.unwrap_or(0);
+                self.editor.filter.clear();
                 // Run by itself: the others have nothing to start over for.
                 if !text.is_empty() {
                     self.scripts.load_file(&path);
@@ -1005,11 +1023,11 @@ impl Tab {
     }
 
     fn automation_detail(&mut self, ui: &mut egui::Ui) {
-        if self.rules_section == DATA {
+        if self.editor.section == DATA {
             return self.data_view(ui);
         }
-        let section = self.rules_section;
-        let index = self.rules_selected[section];
+        let section = self.editor.section;
+        let index = self.editor.selected[section];
         let count = self.automation_rows().len();
         if index >= count {
             ui.add_space(60.0);
@@ -1052,7 +1070,7 @@ impl Tab {
             let title = (self.automation_rows().get(index))
                 .map(|row| row.0.clone())
                 .unwrap_or_default();
-            self.undo = Some(Undo {
+            self.editor.undo = Some(Undo {
                 title,
                 section,
                 index,
@@ -1065,15 +1083,15 @@ impl Tab {
                         }
                     }
                     SCRIPTS => {
-                        let path = self.script_files[index].clone();
+                        let path = self.editor.script_files[index].clone();
                         let code = std::fs::read_to_string(&path).unwrap_or_default();
                         Undone::Script(path, code)
                     }
-                    _ => Undone::Rules(self.rules_draft.clone()),
+                    _ => Undone::Rules(self.editor.draft.clone()),
                 },
                 since: Instant::now(),
             });
-            let draft = &mut self.rules_draft;
+            let draft = &mut self.editor.draft;
             match section {
                 TRIGGERS => drop(draft.triggers.remove(index)),
                 ALIASES => drop(draft.aliases.remove(index)),
@@ -1091,12 +1109,12 @@ impl Tab {
                             self.note(&error);
                         }
                     }
-                    self.variable_loaded = None;
+                    self.editor.variable_loaded = None;
                 }
                 _ => {
-                    let path = self.script_files[index].clone();
-                    self.script_loaded = None;
-                    self.script_settle.clear();
+                    let path = self.editor.script_files[index].clone();
+                    self.editor.script_loaded = None;
+                    self.editor.script_settle.clear();
                     if let Err(error) = std::fs::remove_file(&path) {
                         self.note(&trf(
                             "Could not delete the script: {0}",
@@ -1109,8 +1127,8 @@ impl Tab {
                     self.run_actions();
                 }
             }
-            self.rules_selected[section] = index.saturating_sub(1);
-            self.recording_key = false;
+            self.editor.selected[section] = index.saturating_sub(1);
+            self.editor.recording_key = false;
         }
     }
 
@@ -1119,13 +1137,13 @@ impl Tab {
             .filter(|panel| panel.kind == super::layout::Kind::Text)
             .map(|panel| panel.name.clone())
             .collect();
-        let groups = self.rules_draft.group_names();
-        let height = self.detail_height;
+        let groups = self.editor.draft.group_names();
+        let height = self.editor.detail_height;
         // What else it does that was asked for here, though still empty.
-        if self.extras_added.0 != index {
-            self.extras_added = (index, Vec::new());
+        if self.editor.extras_added.0 != index {
+            self.editor.extras_added = (index, Vec::new());
         }
-        let rule = &mut self.rules_draft.triggers[index];
+        let rule = &mut self.editor.draft.triggers[index];
         let delete = rule_header(
             ui,
             &mut rule.name,
@@ -1149,11 +1167,11 @@ impl Tab {
         widgets::field(ui, label, &mut rule.pattern, tr("tells you"));
         widgets::text_box(
             ui,
-            &mut self.rules_sample,
+            &mut self.editor.sample,
             tr("Paste a line from the MUD to try it"),
         );
-        let rule = &self.rules_draft.triggers[index];
-        let outcome = try_pattern(&rule.regex_source(), &self.rules_sample, |captures| {
+        let rule = &self.editor.draft.triggers[index];
+        let outcome = try_pattern(&rule.regex_source(), &self.editor.sample, |captures| {
             let mut effects = Vec::new();
             let sent: Vec<String> = crate::rules::commands(&rule.send)
                 .map(|command| fill(command, captures))
@@ -1175,9 +1193,9 @@ impl Tab {
         show_outcome(ui, outcome);
         ui.add_space(6.0);
 
-        let rule = &mut self.rules_draft.triggers[index];
+        let rule = &mut self.editor.draft.triggers[index];
         let mistake = if rule.lua {
-            self.checks.of(&self.scripts, &rule.script)
+            self.editor.checks.of(&self.scripts, &rule.script)
         } else {
             None
         };
@@ -1200,7 +1218,7 @@ impl Tab {
 
         // Also: only what it does besides, each to take away again, and
         // the rest to add.
-        let added = &mut self.extras_added.1;
+        let added = &mut self.editor.extras_added.1;
         let shown = |extra: Extra, set: bool| set || added.contains(&extra);
         let visible = [
             (Extra::Say, shown(Extra::Say, !rule.speak.trim().is_empty())),
@@ -1303,9 +1321,9 @@ impl Tab {
     }
 
     fn alias_detail(&mut self, ui: &mut egui::Ui, index: usize) -> bool {
-        let groups = self.rules_draft.group_names();
-        let height = self.detail_height;
-        let rule = &mut self.rules_draft.aliases[index];
+        let groups = self.editor.draft.group_names();
+        let height = self.editor.detail_height;
+        let rule = &mut self.editor.draft.aliases[index];
         let delete = rule_header(ui, &mut rule.name, &mut rule.enabled, tr("Name this alias"));
         group_row(ui, &mut rule.group, &groups);
         widgets::caption(ui, tr("When"));
@@ -1318,7 +1336,7 @@ impl Tab {
         widgets::switch_row(ui, &mut rule.regex, tr("Regular expression"));
         ui.add_space(6.0);
         let mistake = if rule.lua {
-            self.checks.of(&self.scripts, &rule.script)
+            self.editor.checks.of(&self.scripts, &rule.script)
         } else {
             None
         };
@@ -1339,9 +1357,9 @@ impl Tab {
         );
         ui.add_space(6.0);
         widgets::caption(ui, tr("Try it"));
-        widgets::text_box(ui, &mut self.rules_sample, tr("Type a command"));
-        let rule = &self.rules_draft.aliases[index];
-        let outcome = try_pattern(&rule.regex_source(), &self.rules_sample, |captures| {
+        widgets::text_box(ui, &mut self.editor.sample, tr("Type a command"));
+        let rule = &self.editor.draft.aliases[index];
+        let outcome = try_pattern(&rule.regex_source(), &self.editor.sample, |captures| {
             if rule.lua {
                 return tr("runs the script").to_owned();
             }
@@ -1355,12 +1373,12 @@ impl Tab {
     }
 
     fn macro_detail(&mut self, ui: &mut egui::Ui, index: usize) -> bool {
-        let groups = self.rules_draft.group_names();
+        let groups = self.editor.draft.group_names();
         let theme = theme::current();
-        let height = self.detail_height;
-        let recording = self.recording_key;
+        let height = self.editor.detail_height;
+        let recording = self.editor.recording_key;
         let mut toggle = false;
-        let rule = &mut self.rules_draft.keys[index];
+        let rule = &mut self.editor.draft.keys[index];
         let delete = rule_header(ui, &mut rule.name, &mut rule.enabled, tr("Name this macro"));
         group_row(ui, &mut rule.group, &groups);
         widgets::caption(ui, tr("Key"));
@@ -1402,7 +1420,7 @@ impl Tab {
         );
         ui.add_space(6.0);
         let mistake = if rule.lua {
-            self.checks.of(&self.scripts, &rule.script)
+            self.editor.checks.of(&self.scripts, &rule.script)
         } else {
             None
         };
@@ -1422,16 +1440,16 @@ impl Tab {
             mistake.as_ref(),
         );
         if toggle {
-            self.recording_key = !recording;
+            self.editor.recording_key = !recording;
         }
         delete
     }
 
     fn timer_detail(&mut self, ui: &mut egui::Ui, index: usize) -> bool {
-        let groups = self.rules_draft.group_names();
+        let groups = self.editor.draft.group_names();
         let theme = theme::current();
-        let height = self.detail_height;
-        let rule = &mut self.rules_draft.timers[index];
+        let height = self.editor.detail_height;
+        let rule = &mut self.editor.draft.timers[index];
         let delete = rule_header(ui, &mut rule.name, &mut rule.enabled, tr("Name this timer"));
         group_row(ui, &mut rule.group, &groups);
         widgets::caption(ui, tr("When"));
@@ -1472,7 +1490,7 @@ impl Tab {
         );
         ui.add_space(6.0);
         let mistake = if rule.lua {
-            self.checks.of(&self.scripts, &rule.script)
+            self.editor.checks.of(&self.scripts, &rule.script)
         } else {
             None
         };
@@ -1523,23 +1541,23 @@ impl Tab {
             .variables()
             .iter()
             .position(|(known, _)| *known == name);
-        self.rules_selected[VARIABLES] = place.unwrap_or(0);
-        self.rules_filter.clear();
+        self.editor.selected[VARIABLES] = place.unwrap_or(0);
+        self.editor.filter.clear();
     }
 
     /// Fills what a variable is edited through from its value.
     fn load_variable(&mut self, value: &serde_json::Value) {
         use serde_json::Value;
-        self.variable_kind = kind_of(value);
-        self.variable_text = match value {
+        self.editor.variable_kind = kind_of(value);
+        self.editor.variable_text = match value {
             Value::String(text) => text.clone(),
             _ => String::new(),
         };
-        self.variable_number = value.as_f64().unwrap_or(0.0);
-        self.variable_flag = value.as_bool().unwrap_or(false);
+        self.editor.variable_number = value.as_f64().unwrap_or(0.0);
+        self.editor.variable_flag = value.as_bool().unwrap_or(false);
         // The items of an array by their place, the fields of a table by
         // their key.
-        self.variable_items = match value {
+        self.editor.variable_items = match value {
             Value::Array(items) => items
                 .iter()
                 .map(|item| (String::new(), shown_value(item)))
@@ -1555,33 +1573,37 @@ impl Tab {
     /// The value that what is being edited stands for.
     fn edited_variable(&self) -> serde_json::Value {
         use serde_json::Value;
-        match self.variable_kind {
+        match self.editor.variable_kind {
             NUMBER => {
-                serde_json::Number::from_f64(self.variable_number).map_or(Value::Null, |number| {
-                    // A whole number is kept as one, not as 3.0.
-                    let whole =
-                        self.variable_number.fract() == 0.0 && self.variable_number.abs() < 9e15;
-                    if whole {
-                        Value::from(self.variable_number as i64)
-                    } else {
-                        Value::Number(number)
-                    }
-                })
+                serde_json::Number::from_f64(self.editor.variable_number).map_or(
+                    Value::Null,
+                    |number| {
+                        // A whole number is kept as one, not as 3.0.
+                        let whole = self.editor.variable_number.fract() == 0.0
+                            && self.editor.variable_number.abs() < 9e15;
+                        if whole {
+                            Value::from(self.editor.variable_number as i64)
+                        } else {
+                            Value::Number(number)
+                        }
+                    },
+                )
             }
-            BOOLEAN => Value::Bool(self.variable_flag),
+            BOOLEAN => Value::Bool(self.editor.variable_flag),
             ARRAY => Value::Array(
-                self.variable_items
+                self.editor
+                    .variable_items
                     .iter()
                     .map(|(_, text)| read_value(text))
                     .collect(),
             ),
             TABLE => {
-                let fields = (self.variable_items.iter())
+                let fields = (self.editor.variable_items.iter())
                     .filter(|(key, _)| !key.trim().is_empty())
                     .map(|(key, text)| (key.trim().to_owned(), read_value(text)));
                 Value::Object(fields.collect())
             }
-            _ => Value::String(self.variable_text.clone()),
+            _ => Value::String(self.editor.variable_text.clone()),
         }
     }
 
@@ -1591,9 +1613,9 @@ impl Tab {
         let Some((name, value)) = variables.get(index).cloned() else {
             return false;
         };
-        if self.variable_loaded.as_ref() != Some(&name) {
-            self.variable_loaded = Some(name.clone());
-            self.variable_name.clone_from(&name);
+        if self.editor.variable_loaded.as_ref() != Some(&name) {
+            self.editor.variable_loaded = Some(name.clone());
+            self.editor.variable_name.clone_from(&name);
             self.load_variable(&value);
         }
         let mut delete = false;
@@ -1602,7 +1624,7 @@ impl Tab {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 delete =
                     widgets::icon_button(ui, widgets::Icon::Trash, tr("Delete"), false).clicked();
-                let title = TextEdit::singleline(&mut self.variable_name)
+                let title = TextEdit::singleline(&mut self.editor.variable_name)
                     .font(egui::FontId::monospace(19.0))
                     .frame(egui::Frame::NONE)
                     .desired_width(f32::INFINITY);
@@ -1615,7 +1637,7 @@ impl Tab {
             });
         });
         ui.add(egui::Separator::default().spacing(2.0));
-        let wanted = self.variable_name.trim().to_owned();
+        let wanted = self.editor.variable_name.trim().to_owned();
         let is_a_name = wanted.starts_with(|ch: char| ch.is_ascii_alphabetic() || ch == '_')
             && wanted
                 .chars()
@@ -1634,13 +1656,13 @@ impl Tab {
             if let Err(error) = moved {
                 self.note(&error);
             }
-            self.variable_loaded = Some(wanted.clone());
+            self.editor.variable_loaded = Some(wanted.clone());
             let place = self
                 .scripts
                 .variables()
                 .iter()
                 .position(|(known, _)| *known == wanted);
-            self.rules_selected[VARIABLES] = place.unwrap_or(0);
+            self.editor.selected[VARIABLES] = place.unwrap_or(0);
             return false;
         }
 
@@ -1648,20 +1670,20 @@ impl Tab {
         ui.horizontal(|ui| {
             widgets::caption(ui, tr("Type"));
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if let Some(kind) = widgets::segmented(ui, &TYPES, self.variable_kind) {
+                if let Some(kind) = widgets::segmented(ui, &TYPES, self.editor.variable_kind) {
                     // What it held is kept, as far as the new type can hold it.
                     let held = self.edited_variable();
                     self.load_variable(&converted(&held, kind));
-                    self.variable_kind = kind;
+                    self.editor.variable_kind = kind;
                 }
             });
         });
         ui.add_space(2.0);
         widgets::caption(ui, tr("Value"));
-        match self.variable_kind {
+        match self.editor.variable_kind {
             NUMBER => {
                 let field = ui.add(
-                    crate::widgets::number(&mut self.variable_number)
+                    crate::widgets::number(&mut self.editor.variable_number)
                         .speed(1.0)
                         .max_decimals(6)
                         .min_decimals(0)
@@ -1674,8 +1696,12 @@ impl Tab {
             }
             BOOLEAN => {
                 ui.horizontal(|ui| {
-                    widgets::switch(ui, &mut self.variable_flag, tr("Value"));
-                    let said = if self.variable_flag { "true" } else { "false" };
+                    widgets::switch(ui, &mut self.editor.variable_flag, tr("Value"));
+                    let said = if self.editor.variable_flag {
+                        "true"
+                    } else {
+                        "false"
+                    };
                     ui.label(
                         RichText::new(said)
                             .font(egui::FontId::monospace(13.5))
@@ -1684,9 +1710,9 @@ impl Tab {
                 });
             }
             ARRAY | TABLE => {
-                let keyed = self.variable_kind == TABLE;
+                let keyed = self.editor.variable_kind == TABLE;
                 let mut removed = None;
-                if self.variable_items.is_empty() {
+                if self.editor.variable_items.is_empty() {
                     note(
                         ui,
                         if keyed {
@@ -1697,7 +1723,7 @@ impl Tab {
                     );
                 }
                 widgets::group(ui, |ui| {
-                    for (place, (key, text)) in self.variable_items.iter_mut().enumerate() {
+                    for (place, (key, text)) in self.editor.variable_items.iter_mut().enumerate() {
                         ui.horizontal(|ui| {
                             ui.set_min_height(40.0);
                             if keyed {
@@ -1747,7 +1773,7 @@ impl Tab {
                     }
                 });
                 if let Some(place) = removed {
-                    self.variable_items.remove(place);
+                    self.editor.variable_items.remove(place);
                 }
                 let add = if keyed {
                     tr("Add a field")
@@ -1755,7 +1781,9 @@ impl Tab {
                     tr("Add an item")
                 };
                 if crate::widgets::button(ui, add).clicked() {
-                    self.variable_items.push((String::new(), String::new()));
+                    self.editor
+                        .variable_items
+                        .push((String::new(), String::new()));
                 }
                 note(
                     ui,
@@ -1766,9 +1794,9 @@ impl Tab {
             }
             _ => {
                 // As tall as what it holds, within reason.
-                let rows = self.variable_text.lines().count().clamp(1, 10);
+                let rows = self.editor.variable_text.lines().count().clamp(1, 10);
                 let field = ui.add(
-                    TextEdit::multiline(&mut self.variable_text)
+                    TextEdit::multiline(&mut self.editor.variable_text)
                         .font(egui::FontId::monospace(13.0))
                         .margin(egui::Margin::symmetric(12, 9))
                         .desired_rows(rows)
@@ -1789,10 +1817,11 @@ impl Tab {
         ui.add_space(8.0);
         widgets::caption(ui, tr("Usage"));
         // As it is written, in each of the two places.
-        let (in_commands, in_scripts) = match self.variable_kind {
+        let (in_commands, in_scripts) = match self.editor.variable_kind {
             ARRAY => (format!("${name}.1"), format!("vars.{name}[1]")),
             TABLE => {
                 let key = self
+                    .editor
                     .variable_items
                     .first()
                     .map(|(key, _)| key.trim())
@@ -1854,7 +1883,7 @@ impl Tab {
             .collect();
         let mut add_panel = false;
         ui.set_max_width(ui.available_width().min(760.0));
-        let rule = &mut self.rules_draft.gauges[index];
+        let rule = &mut self.editor.draft.gauges[index];
         let delete = rule_header(ui, &mut rule.name, &mut rule.enabled, tr("Name this gauge"));
         // What it is drawn as.
         let kinds = [
@@ -2095,19 +2124,19 @@ impl Tab {
 
     fn script_detail(&mut self, ui: &mut egui::Ui, index: usize) -> bool {
         let theme = theme::current();
-        let path = self.script_files[index].clone();
-        if self.script_loaded.as_ref() != Some(&path) {
+        let path = self.editor.script_files[index].clone();
+        if self.editor.script_loaded.as_ref() != Some(&path) {
             self.flush_script();
             // A file that is not there yet is an empty script.
-            self.script_text = std::fs::read_to_string(&path).unwrap_or_default();
-            self.script_saved = self.script_text.clone();
-            self.script_seen = self.script_text.clone();
-            self.script_name = path
+            self.editor.script_text = std::fs::read_to_string(&path).unwrap_or_default();
+            self.editor.script_saved = self.editor.script_text.clone();
+            self.editor.script_seen = self.editor.script_text.clone();
+            self.editor.script_name = path
                 .file_stem()
                 .unwrap_or_default()
                 .to_string_lossy()
                 .into_owned();
-            self.script_loaded = Some(path.clone());
+            self.editor.script_loaded = Some(path.clone());
         }
         let own = path.parent().is_some_and(|dir| dir.ends_with("scripts"));
         let (mut delete, mut run) = (false, false);
@@ -2121,18 +2150,18 @@ impl Tab {
                 ui.add_space(6.0);
                 // Switched off, it is kept and not run.
                 let key = crate::rules::script_key(&path);
-                let mut on = !self.rules_draft.scripts_off.contains(&key);
+                let mut on = !self.editor.draft.scripts_off.contains(&key);
                 if widgets::switch(ui, &mut on, tr("Enabled"))
                     .on_hover_text(tr("Enabled"))
                     .changed()
                 {
-                    self.rules_draft.scripts_off.retain(|known| *known != key);
+                    self.editor.draft.scripts_off.retain(|known| *known != key);
                     if !on {
-                        self.rules_draft.scripts_off.push(key);
+                        self.editor.draft.scripts_off.push(key);
                     }
                 }
                 off_badge(ui, on);
-                let title = TextEdit::singleline(&mut self.script_name)
+                let title = TextEdit::singleline(&mut self.editor.script_name)
                     .font(theme::font(Weight::Semibold, 20.0))
                     .frame(egui::Frame::NONE)
                     .interactive(own)
@@ -2148,7 +2177,7 @@ impl Tab {
             self.run_scripts();
         }
         // Whether it ran, and when; or what kept it from running.
-        match &self.script_ran {
+        match &self.editor.script_ran {
             Some((_, Some(error))) => {
                 let said = RichText::new(error)
                     .font(theme::font(Weight::Regular, 11.5))
@@ -2159,13 +2188,16 @@ impl Tab {
             None => note(ui, tr("Runs when saved, shortly after you stop typing.")),
         }
         // The editor is the whole of the view.
-        let rows = script_rows(self.detail_height, 118.0);
+        let rows = script_rows(self.editor.detail_height, 118.0);
         let hint = "-- Luau\non_gmcp(\"Room.Info\", function(room)\n\tmap.visit({id = room.num, name = room.name, exits = room.exits})\nend)";
-        let mistake = self.checks.of(&self.scripts, &self.script_text);
+        let mistake = self
+            .editor
+            .checks
+            .of(&self.scripts, &self.editor.script_text);
         widgets::code_editor(
             ui,
             tr("Script"),
-            &mut self.script_text,
+            &mut self.editor.script_text,
             hint,
             rows,
             mistake.as_ref(),
@@ -2205,7 +2237,7 @@ impl Tab {
                 continue;
             };
             if key == Key::Escape {
-                self.recording_key = false;
+                self.editor.recording_key = false;
                 ui.input_mut(|input| input.events.clear());
                 return;
             }
@@ -2217,11 +2249,11 @@ impl Tab {
             }
         }
         if let Some(key) = recorded {
-            let index = self.rules_selected[MACROS];
-            if let Some(rule) = self.rules_draft.keys.get_mut(index) {
+            let index = self.editor.selected[MACROS];
+            if let Some(rule) = self.editor.draft.keys.get_mut(index) {
                 rule.key = key;
             }
-            self.recording_key = false;
+            self.editor.recording_key = false;
             // The key was for the recorder: nothing else should act on it.
             ui.input_mut(|input| input.events.clear());
         }
@@ -2571,6 +2603,111 @@ fn show_outcome(ui: &mut egui::Ui, outcome: Outcome) {
         Outcome::Match(effect) => (format!("{} {effect}", tr("Matches:")), theme.good),
     };
     ui.label(RichText::new(text).color(colour));
+}
+
+/// The editor: whether it is open, the rules and the script being edited,
+/// what is chosen and filtered in it, and what it is in the middle of.
+pub(super) struct Editor {
+    /// The copy being edited in the rules window.
+    pub(super) draft: Rules,
+    /// The draft as last seen, and when it last changed: edits are saved
+    /// once they stop for a moment.
+    pub(super) seen: Rules,
+    pub(super) open: bool,
+    /// The rule selected in each section of the automation window.
+    pub(super) selected: [usize; 8],
+    /// What the automation window's search box holds.
+    pub(super) filter: String,
+    /// When the rules being edited last changed, to save them after.
+    pub(super) settle: crate::autosave::Settle,
+    /// A sample line or command to try the selected rule on.
+    pub(super) sample: String,
+    /// Which of triggers, aliases and keys the rules window shows.
+    pub(super) section: usize,
+    /// The script files that can be edited, and the one being edited:
+    /// its file, its name as typed, its text, and that text as saved.
+    pub(super) script_files: Vec<PathBuf>,
+    pub(super) script_loaded: Option<PathBuf>,
+    pub(super) script_name: String,
+    pub(super) script_text: String,
+    pub(super) script_saved: String,
+    pub(super) script_seen: String,
+    /// When the script being edited last changed, to save it after.
+    pub(super) script_settle: crate::autosave::Settle,
+    /// When the scripts were last run from the editor, and what kept
+    /// them from running, if anything did.
+    pub(super) script_ran: Option<(String, Option<String>)>,
+    /// The next key pressed becomes the selected macro's key.
+    pub(super) recording_key: bool,
+    /// The palette of commands: which one is chosen, and the text it was
+    /// put away over, so that it stays away until that changes.
+    /// The gauge being dragged to another place in the editor's list.
+    pub(super) gauge_dragged: Option<usize>,
+    /// The trigger whose details are shown, and what it was asked to do
+    /// besides its commands though that is still empty.
+    pub(super) extras_added: (usize, Vec<automation::Extra>),
+    /// The gauge whose details are open over the game.
+    pub(super) gauge_here: Option<usize>,
+    /// What was last deleted in the editor, to have it back.
+    pub(super) undo: Option<automation::Undo>,
+    /// What checking the scripts being edited said.
+    pub(super) checks: automation::Checks,
+    /// The variable being edited: which, its name as typed, its value as
+    /// typed.
+    pub(super) variable_loaded: Option<String>,
+    pub(super) variable_name: String,
+    pub(super) variable_text: String,
+    pub(super) variable_kind: usize,
+    pub(super) variable_number: f64,
+    pub(super) variable_flag: bool,
+    pub(super) variable_items: Vec<(String, String)>,
+    /// The group the editor's lists are narrowed to, and those folded.
+    pub(super) group_filter: Option<String>,
+    pub(super) folded_groups: Vec<String>,
+    /// The widths of the automation view's first two panes, and how tall
+    /// its details are.
+    pub(super) panes: [f32; 2],
+    pub(super) detail_height: f32,
+}
+
+impl Default for Editor {
+    fn default() -> Self {
+        Self {
+            draft: Rules::default(),
+            seen: Rules::default(),
+            open: false,
+            selected: [0; 8],
+            filter: String::new(),
+            settle: Default::default(),
+            sample: String::new(),
+            section: 0,
+            script_files: Vec::new(),
+            script_loaded: None,
+            script_name: String::new(),
+            script_text: String::new(),
+            script_saved: String::new(),
+            script_seen: String::new(),
+            script_settle: Default::default(),
+            script_ran: None,
+            recording_key: false,
+            gauge_dragged: None,
+            extras_added: (usize::MAX, Vec::new()),
+            gauge_here: None,
+            undo: None,
+            checks: automation::Checks::default(),
+            variable_loaded: None,
+            variable_name: String::new(),
+            variable_text: String::new(),
+            variable_kind: 0,
+            variable_number: 0.0,
+            variable_flag: false,
+            variable_items: Vec::new(),
+            group_filter: None,
+            folded_groups: Vec::new(),
+            panes: Settings::default().automation_panes,
+            detail_height: 600.0,
+        }
+    }
 }
 
 #[cfg(test)]

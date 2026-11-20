@@ -1238,25 +1238,25 @@ impl Tab {
         else {
             return;
         };
-        if !self.rules_open {
-            self.rules_draft = self.rules.clone();
-            self.rules_seen = self.rules.clone();
+        if !self.editor.open {
+            self.editor.draft = self.rules.clone();
+            self.editor.seen = self.rules.clone();
         }
-        self.gauge_here = Some(index);
+        self.editor.gauge_here = Some(index);
     }
 
     /// The details of the gauge opened over the game: the same as in the
     /// editor, saved the same way, with the way to the editor.
     pub(super) fn gauge_window(&mut self, ctx: &egui::Context) {
-        let Some(index) = self.gauge_here else {
+        let Some(index) = self.editor.gauge_here else {
             return;
         };
-        if index >= self.rules_draft.gauges.len() || self.rules_open {
-            self.gauge_here = None;
+        if index >= self.editor.draft.gauges.len() || self.editor.open {
+            self.editor.gauge_here = None;
             return;
         }
         let (mut open, mut delete, mut editor) = (true, false, false);
-        let name = self.rules_draft.gauges[index].shown_name().to_owned();
+        let name = self.editor.draft.gauges[index].shown_name().to_owned();
         widgets::dialog(
             ctx,
             "gauge here",
@@ -1277,7 +1277,7 @@ impl Tab {
             },
         );
         if delete {
-            let gone = self.rules_draft.gauges.remove(index);
+            let gone = self.editor.draft.gauges.remove(index);
             self.gauges.set(gone.shown_name(), None);
             open = false;
         }
@@ -1285,7 +1285,7 @@ impl Tab {
             open = false;
         }
         if !open {
-            self.gauge_here = None;
+            self.editor.gauge_here = None;
         }
         // Saved as the editor saves: when the changes stop, and on closing.
         self.rules_autosave(ctx, open);
@@ -1301,7 +1301,7 @@ impl Tab {
         let first = panels_first(&self.layout, panel);
         let here =
             |gauge: &crate::rules::Gauge| gauge.panel == panel || (first && gauge.panel == 0);
-        if let Some(index) = self.rules_draft.gauges.iter().position(here) {
+        if let Some(index) = self.editor.draft.gauges.iter().position(here) {
             self.select_rule(automation::GAUGES, index);
         }
     }
@@ -1315,9 +1315,7 @@ fn panels_first(layout: &Layout, panel: u32) -> bool {
 }
 
 /// What the panels are doing: what each shows, the one being dragged, where
-
 /// each is, which tab of a place is shown, the channels, and the layout as
-
 /// last saved.
 #[derive(Default)]
 pub(super) struct Panels {

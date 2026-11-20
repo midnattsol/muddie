@@ -133,7 +133,7 @@ impl Tab {
 
     /// Whether what the MUD sends is on the screen.
     pub(super) fn data_open(&self) -> bool {
-        self.rules_open && self.rules_section == automation::DATA
+        self.editor.open && self.editor.section == automation::DATA
     }
 
     /// Tells the connection whether to say what it otherwise passes over,
@@ -192,7 +192,7 @@ impl Tab {
     /// Which of its views the session is on: the game, the editor, or
     /// the editor on what the MUD sends.
     pub fn view(&self) -> usize {
-        match (self.rules_open, self.data_open()) {
+        match (self.editor.open, self.data_open()) {
             (_, true) => 2,
             (true, false) => 1,
             (false, false) => 0,
@@ -203,7 +203,7 @@ impl Tab {
     /// was left, or the editor on what the MUD sends.
     pub fn set_view(&mut self, view: usize) {
         match view {
-            0 if self.rules_open => self.close_automation(),
+            0 if self.editor.open => self.close_automation(),
             1 => self.reopen_automation(),
             2 => self.open_automation(automation::DATA),
             _ => {}
@@ -520,19 +520,18 @@ look at it to know what a gauge can follow or a script can use.",
         } else {
             last
         };
-        self.rules_draft.gauges.push(crate::rules::Gauge {
+        self.editor.draft.gauges.push(crate::rules::Gauge {
             name: name.to_owned(),
             value: path.to_owned(),
             max: likely_max(path, all).unwrap_or_default(),
             panel,
             ..crate::rules::Gauge::starter()
         });
-        self.select_rule(automation::GAUGES, self.rules_draft.gauges.len() - 1);
+        self.select_rule(automation::GAUGES, self.editor.draft.gauges.len() - 1);
     }
 }
 
 /// The view of what the MUD sends: what was seen, which is chosen, how it
-
 /// is filtered, and whether it is kept outside the view.
 pub(super) struct DataView {
     /// What the MUD has sent besides text, by name, to look at.
