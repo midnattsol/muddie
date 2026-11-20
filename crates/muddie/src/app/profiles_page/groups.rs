@@ -19,26 +19,33 @@ pub(in crate::app) const ENCODINGS: [(&str, &str); 9] = [
 /// Where the profile connects to.
 pub(in crate::app) fn server_group(ui: &mut Ui, draft: &mut Profile) {
     widgets::section(ui, tr("Server"), |ui| {
-        widgets::setting_row(ui, tr("Host"), &mut |ui| {
+        widgets::setting_row(ui, tr("Host"), None, &mut |ui| {
             widgets::row_field(ui, &mut draft.host, "mud.example.org", size::FIELD_L)
         });
-        widgets::setting_row(ui, tr("Port"), &mut |ui| {
-            ui.add(widgets::number(&mut draft.port).range(1..=65535))
+        widgets::setting_row(ui, tr("Port"), None, &mut |ui| {
+            ui.add_sized(
+                [size::FIELD_S, size::CONTROL],
+                widgets::number(&mut draft.port).range(1..=65535),
+            )
         });
-        widgets::switch_setting(ui, &mut draft.tls, tr("Secure connection (TLS)"));
+        widgets::switch_setting(ui, &mut draft.tls, tr("Secure connection (TLS)"), None);
         if draft.tls {
-            widgets::switch_setting(ui, &mut draft.verify_certificate, tr("Verify certificate"));
-            widgets::row_note(
+            widgets::switch_setting(
                 ui,
-                tr("Off only for a server with a certificate of its own making."),
+                &mut draft.verify_certificate,
+                tr("Verify certificate"),
+                Some(tr(
+                    "Off only for a server with a certificate of its own making.",
+                )),
             );
         }
-        widgets::setting_row(ui, tr("Text encoding"), &mut |ui| {
-            encoding_choice(ui, &mut draft.encoding)
-        });
-        widgets::row_note(
+        widgets::setting_row(
             ui,
-            tr("Automatic suits nearly every MUD: UTF-8, or Latin-1 for what is not."),
+            tr("Text encoding"),
+            Some(tr(
+                "Automatic suits nearly every MUD: UTF-8, or Latin-1 for what is not.",
+            )),
+            &mut |ui| encoding_choice(ui, &mut draft.encoding),
         );
     });
 }
@@ -74,23 +81,26 @@ pub(in crate::app) fn encoding_choice(ui: &mut Ui, encoding: &mut String) -> egu
 /// Who to log in as.
 pub(in crate::app) fn login_group(ui: &mut Ui, edit: &mut ProfileEdit) {
     widgets::section(ui, tr("Log in"), |ui| {
-        widgets::setting_row(ui, tr("Character"), &mut |ui| {
-            widgets::row_field(ui, &mut edit.draft.character, "", size::FIELD_L)
-        });
-        widgets::row_note(ui, tr("Muddie answers the first prompt with it."));
-        widgets::setting_row(ui, tr("Password"), &mut |ui| {
-            widgets::secret_field(
-                ui,
-                &mut edit.password,
-                tr("Leave empty to keep it"),
-                size::FIELD_L,
-            )
-        });
-        widgets::row_note(
+        widgets::setting_row(
             ui,
-            tr(
+            tr("Character"),
+            Some(tr("Muddie answers the first prompt with it.")),
+            &mut |ui| widgets::row_field(ui, &mut edit.draft.character, "", size::FIELD_L),
+        );
+        widgets::setting_row(
+            ui,
+            tr("Password"),
+            Some(tr(
                 "Kept in the system's keyring, never in a file, and sent when the server hides typing.",
-            ),
+            )),
+            &mut |ui| {
+                widgets::secret_field(
+                    ui,
+                    &mut edit.password,
+                    tr("Leave empty to keep it"),
+                    size::FIELD_L,
+                )
+            },
         );
     });
 }
@@ -102,25 +112,31 @@ pub(in crate::app) fn keeping_group(ui: &mut Ui, prefs: &mut SessionPrefs) {
             ui,
             &mut prefs.reconnect,
             tr("Reconnect when the connection is lost"),
+            Some(tr("When it drops without you closing it.")),
         );
-        widgets::row_note(ui, tr("When it drops without you closing it."));
         let mut alive = prefs.keepalive_seconds > 0;
-        if widgets::switch_setting(ui, &mut alive, tr("Keep the connection alive")).changed() {
+        if widgets::switch_setting(
+            ui,
+            &mut alive,
+            tr("Keep the connection alive"),
+            Some(tr(
+                "Some servers and routers close a connection that has been quiet for a while.",
+            )),
+        )
+        .changed()
+        {
             prefs.keepalive_seconds = if alive { 60 } else { 0 };
         }
         if alive {
-            widgets::setting_row(ui, tr("Every"), &mut |ui| {
-                ui.add(
+            widgets::setting_row(ui, tr("Every"), None, &mut |ui| {
+                ui.add_sized(
+                    [size::FIELD_S, size::CONTROL],
                     widgets::number(&mut prefs.keepalive_seconds)
                         .range(5..=3600)
                         .suffix(" s"),
                 )
             });
         }
-        widgets::row_note(
-            ui,
-            tr("Some servers and routers close a connection that has been quiet for a while."),
-        );
     });
 }
 
@@ -128,37 +144,48 @@ pub(in crate::app) fn keeping_group(ui: &mut Ui, prefs: &mut SessionPrefs) {
 pub(in crate::app) fn logs_group(ui: &mut Ui, prefs: &mut SessionPrefs) {
     use crate::settings::LogFormat;
     widgets::section(ui, tr("Logs and sounds"), |ui| {
-        widgets::switch_setting(ui, &mut prefs.log_sessions, tr("Log every session"));
-        widgets::row_note(
+        widgets::switch_setting(
             ui,
-            tr("Everything shown in the session, written to a file as it comes."),
+            &mut prefs.log_sessions,
+            tr("Log every session"),
+            Some(tr(
+                "Everything shown in the session, written to a file as it comes.",
+            )),
         );
         if prefs.log_sessions {
-            widgets::setting_row(ui, tr("Log format"), &mut |ui| {
-                let name = |format: LogFormat| match format {
-                    LogFormat::Text => tr("Text"),
-                    LogFormat::Html => "HTML",
-                };
-                widgets::dropdown("log format")
-                    .selected_text(name(prefs.log_format))
-                    .width(size::FIELD_M)
-                    .show_ui(ui, |ui| {
-                        for format in [LogFormat::Text, LogFormat::Html] {
-                            widgets::choice_value(ui, &mut prefs.log_format, format, name(format));
-                        }
-                    })
-                    .response
-            });
-            widgets::row_note(ui, tr("HTML keeps the colours."));
+            widgets::setting_row(
+                ui,
+                tr("Log format"),
+                Some(tr("HTML keeps the colours.")),
+                &mut |ui| {
+                    let name = |format: LogFormat| match format {
+                        LogFormat::Text => tr("Text"),
+                        LogFormat::Html => "HTML",
+                    };
+                    widgets::dropdown("log format")
+                        .selected_text(name(prefs.log_format))
+                        .width(size::FIELD_M)
+                        .show_ui(ui, |ui| {
+                            for format in [LogFormat::Text, LogFormat::Html] {
+                                widgets::choice_value(
+                                    ui,
+                                    &mut prefs.log_format,
+                                    format,
+                                    name(format),
+                                );
+                            }
+                        })
+                        .response
+                },
+            );
         }
         widgets::switch_setting(
             ui,
             &mut prefs.media_downloads,
             tr("Download the sounds a MUD asks to play"),
-        );
-        widgets::row_note(
-            ui,
-            tr("A sound the MUD asks for that you do not have is fetched from the web and kept."),
+            Some(tr(
+                "A sound the MUD asks for that you do not have is fetched from the web and kept.",
+            )),
         );
     });
 }

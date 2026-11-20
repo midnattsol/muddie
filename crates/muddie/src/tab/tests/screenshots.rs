@@ -13,6 +13,7 @@ fn screenshot() {
     shows_channels();
     shows_script();
     shows_settings_and_fonts();
+    shows_every_settings_page();
     shows_plugins();
     shows_editor();
     shows_menu();
@@ -71,10 +72,18 @@ fn shows_welcome() {
     welcome.run_steps(4);
     save(&mut welcome, "profile");
     // Further down: how it is kept, its logs, and its plugins.
-    welcome.get_by_label("Log every session").scroll_to_me();
+    welcome
+        .get_all_by_label("Log every session")
+        .next()
+        .unwrap()
+        .scroll_to_me();
     welcome.run_steps(3);
     save(&mut welcome, "profile-middle");
-    welcome.get_by_label("Install").scroll_to_me();
+    welcome
+        .get_all_by_label("Install a plugin")
+        .next()
+        .unwrap()
+        .scroll_to_me();
     welcome.run_steps(3);
     save(&mut welcome, "profile-end");
     std::fs::remove_dir_all(&dir).unwrap();
@@ -135,6 +144,58 @@ fn shows_script() {
     script.get_by_label("Run").click();
     script.run_steps(4);
     save(&mut script, "script-error");
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// Every page of the settings, and a profile's from top to bottom, in
+/// English and in Spanish, whose words are longer.
+fn shows_every_settings_page() {
+    use crate::app::Section;
+    let dir = std::env::temp_dir().join(format!("muddie-shot-pages-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let profiles = Profiles::at(dir.clone());
+    let profile = Profile {
+        host: "rlmud.org".into(),
+        port: 23,
+        ..Profile::default()
+    };
+    profiles.save("Reinos de Leyenda", &profile).unwrap();
+    for language in ["en", "es"] {
+        let mut window = window(Some(profiles.clone()));
+        let ctx = window.ctx.clone();
+        window.state_mut().use_language(&ctx, language);
+        for section in Section::ALL {
+            window.state_mut().open_settings(section);
+            window.run_steps(4);
+            save(
+                &mut window,
+                &format!("page-{language}-{}", section.name().to_lowercase()),
+            );
+        }
+        window.state_mut().edit_profile("Reinos de Leyenda");
+        window.run_steps(4);
+        save(&mut window, &format!("page-{language}-profile-1"));
+        for (number, below) in [(2, "Log every session"), (3, "Install a plugin")] {
+            let label = crate::i18n::tr(below);
+            window
+                .get_all_by_label(label)
+                .next()
+                .unwrap()
+                .scroll_to_me();
+            window.run_steps(3);
+            save(&mut window, &format!("page-{language}-profile-{number}"));
+        }
+        // Installing a plugin asks where from.
+        window
+            .get_by_role_and_label(
+                egui::accesskit::Role::Button,
+                crate::i18n::tr("Install a plugin"),
+            )
+            .click_accesskit();
+        window.run_steps(4);
+        save(&mut window, &format!("page-{language}-install"));
+    }
+    crate::i18n::set_language("en");
     std::fs::remove_dir_all(&dir).unwrap();
 }
 

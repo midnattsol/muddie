@@ -306,7 +306,7 @@ impl Tab {
                 (tr("In the commands of a rule"), in_commands),
                 (tr("In a script"), in_scripts),
             ] {
-                widgets::setting_row(ui, place, &mut |ui| {
+                widgets::setting_row(ui, place, None, &mut |ui| {
                     let copy = crate::widgets::button(ui, tr("Copy"));
                     if copy.clicked() {
                         ui.ctx().copy_text(written.clone());

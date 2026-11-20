@@ -111,7 +111,7 @@ impl App {
 
 fn general_settings(ui: &mut Ui, settings: &mut Settings, languages: &[(String, String)]) {
     widgets::group(ui, |ui| {
-        widgets::setting_row(ui, tr("Language"), &mut |ui| {
+        widgets::setting_row(ui, tr("Language"), None, &mut |ui| {
             // The system's, English, and every catalogue there is.
             let mut choices = vec![
                 (String::new(), tr("Same as the system").to_owned()),
@@ -129,7 +129,7 @@ fn general_settings(ui: &mut Ui, settings: &mut Settings, languages: &[(String, 
             let shown = shown.map_or(current.clone(), |(_, name)| name.clone());
             crate::widgets::dropdown("language")
                 .selected_text(shown)
-                .width(210.0)
+                .width(size::FIELD_L)
                 .show_ui(ui, |ui| {
                     for (code, name) in &choices {
                         if crate::widgets::choice(ui, *code == current, name).clicked() {
@@ -139,47 +139,51 @@ fn general_settings(ui: &mut Ui, settings: &mut Settings, languages: &[(String, 
                 })
                 .response
         });
-        widgets::setting_row(ui, tr("Interface scale"), &mut |ui| {
-            let percent = (settings.ui_scale * 100.0).round() as u32;
-            let steps = [75, 90, 100, 110, 125, 150, 175, 200];
-            crate::widgets::dropdown("interface scale")
-                .selected_text(format!("{percent} %"))
-                .width(size::FIELD_M)
-                .show_ui(ui, |ui| {
-                    for step in steps {
-                        if crate::widgets::choice(ui, step == percent, &format!("{step} %"))
-                            .clicked()
-                        {
-                            settings.ui_scale = step as f32 / 100.0;
+        widgets::setting_row(
+            ui,
+            tr("Interface scale"),
+            Some(tr("How large the whole window is drawn.")),
+            &mut |ui| {
+                let percent = (settings.ui_scale * 100.0).round() as u32;
+                let steps = [75, 90, 100, 110, 125, 150, 175, 200];
+                crate::widgets::dropdown("interface scale")
+                    .selected_text(format!("{percent} %"))
+                    .width(size::FIELD_M)
+                    .show_ui(ui, |ui| {
+                        for step in steps {
+                            if crate::widgets::choice(ui, step == percent, &format!("{step} %"))
+                                .clicked()
+                            {
+                                settings.ui_scale = step as f32 / 100.0;
+                            }
                         }
-                    }
-                })
-                .response
-        });
-        widgets::row_note(ui, tr("How large the whole window is drawn."));
+                    })
+                    .response
+            },
+        );
     });
 }
 
-/// The theme, and the text of the MUD: its colours, its font, its size and
-/// its spacing, with a sample of it.
+/// The theme of the interface; and the text of the MUD: its colours, its
+/// font, its size and its spacing, with a sample of it.
 fn appearance_settings(ui: &mut Ui, settings: &mut Settings) {
-    widgets::group(ui, |ui| {
-        widgets::setting_row(ui, tr("Theme"), &mut |ui| {
+    widgets::section(ui, tr("Interface"), |ui| {
+        widgets::setting_row(ui, tr("Theme"), None, &mut |ui| {
             theme_choice(ui, &mut settings.theme)
         });
     });
     widgets::section(ui, tr("MUD text"), |ui| {
-        widgets::setting_row(ui, tr("Colours"), &mut |ui| {
+        widgets::setting_row(ui, tr("Colours"), None, &mut |ui| {
             palette_choice(ui, &mut settings.mud_palette)
         });
-        widgets::setting_row(ui, tr("Font"), &mut |ui| font_choice(ui, settings));
-        widgets::setting_row(ui, tr("Size"), &mut |ui| {
+        widgets::setting_row(ui, tr("Font"), None, &mut |ui| font_choice(ui, settings));
+        widgets::setting_row(ui, tr("Size"), None, &mut |ui| {
             let sizes = (10..=28).map(|size| size as f32);
             pick(ui, "font size", &mut settings.font_size, sizes, |size| {
                 format!("{size} pt")
             })
         });
-        widgets::setting_row(ui, tr("Line spacing"), &mut |ui| {
+        widgets::setting_row(ui, tr("Line spacing"), None, &mut |ui| {
             let steps = [0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.8];
             pick(
                 ui,
@@ -189,8 +193,11 @@ fn appearance_settings(ui: &mut Ui, settings: &mut Settings) {
                 |step| format!("{step:.1}"),
             )
         });
+        widgets::row_divider(ui);
+        ui.add_space(size::GAP_M);
+        sample(ui);
+        ui.add_space(size::GAP_M);
     });
-    sample(ui);
 }
 
 /// The theme, among those there are.
@@ -217,7 +224,7 @@ fn theme_choice(ui: &mut Ui, chosen: &mut ThemeName) -> egui::Response {
     ];
     crate::widgets::dropdown("theme")
         .selected_text(name(*chosen))
-        .width(210.0)
+        .width(size::FIELD_L)
         .show_ui(ui, |ui| {
             for theme in themes {
                 crate::widgets::choice_value(ui, chosen, theme, name(theme));
@@ -235,7 +242,7 @@ fn palette_choice(ui: &mut Ui, chosen: &mut MudPalette) -> egui::Response {
     };
     crate::widgets::dropdown("mud palette")
         .selected_text(name(*chosen))
-        .width(260.0)
+        .width(size::FIELD_L)
         .show_ui(ui, |ui| {
             for palette in [MudPalette::Vivid, MudPalette::Soft, MudPalette::Classic] {
                 crate::widgets::choice_value(ui, chosen, palette, name(palette));
@@ -256,7 +263,7 @@ fn font_choice(ui: &mut Ui, settings: &mut Settings) -> egui::Response {
     .to_owned();
     crate::widgets::dropdown("font")
         .selected_text(shown)
-        .width(260.0)
+        .width(size::FIELD_L)
         .height(340.0)
         .show_ui(ui, |ui| {
             bundled_fonts(ui, settings);
@@ -364,36 +371,38 @@ fn grouped(number: usize) -> String {
 /// The output kept, how each line is shown, and the command line.
 fn text_settings(ui: &mut Ui, settings: &mut Settings) {
     widgets::group(ui, |ui| {
-        widgets::setting_row(ui, tr("Lines kept"), &mut |ui| {
-            let steps = [
-                1_000, 5_000, 10_000, 20_000, 50_000, 100_000, 500_000, 1_000_000,
-            ];
-            pick(
-                ui,
-                "scrollback",
-                &mut settings.scrollback_lines,
-                steps,
-                grouped,
-            )
-        });
-        widgets::row_note(
+        widgets::setting_row(
             ui,
-            tr("The lines kept to scroll back to and search; older ones are let go."),
+            tr("Lines kept"),
+            Some(tr(
+                "The lines kept to scroll back to and search; older ones are let go.",
+            )),
+            &mut |ui| {
+                let steps = [
+                    1_000, 5_000, 10_000, 20_000, 50_000, 100_000, 500_000, 1_000_000,
+                ];
+                pick(
+                    ui,
+                    "scrollback",
+                    &mut settings.scrollback_lines,
+                    steps,
+                    grouped,
+                )
+            },
         );
         widgets::switch_setting(
             ui,
             &mut settings.timestamps,
             tr("Show the time of each line"),
+            Some(tr("The time each line arrived, at its left.")),
         );
-        widgets::row_note(ui, tr("The time each line arrived, at its left."));
         widgets::switch_setting(
             ui,
             &mut settings.keep_command,
             tr("Keep the command after sending it"),
-        );
-        widgets::row_note(
-            ui,
-            tr("It stays selected: Enter sends it again, and typing replaces it."),
+            Some(tr(
+                "It stays selected: Enter sends it again, and typing replaces it.",
+            )),
         );
     });
 }
@@ -402,7 +411,7 @@ fn text_settings(ui: &mut Ui, settings: &mut Settings) {
 fn speech_settings(ui: &mut Ui, settings: &mut Settings) {
     let theme = theme::current();
     widgets::group(ui, |ui| {
-        widgets::setting_row(ui, tr("Speed"), &mut |ui| {
+        widgets::setting_row(ui, tr("Speed"), None, &mut |ui| {
             let small = |text: &str| {
                 RichText::new(text)
                     .font(theme::font(Weight::Regular, 12.0))
@@ -415,50 +424,51 @@ fn speech_settings(ui: &mut Ui, settings: &mut Settings) {
             ui.label(small(tr("Slow")));
             response
         });
-        widgets::setting_row(ui, tr("Language of the voice"), &mut |ui| {
-            let languages = [
-                ("", tr("The system's")),
-                ("es", "Español"),
-                ("en", "English"),
-                ("ca", "Català"),
-                ("gl", "Galego"),
-                ("eu", "Euskara"),
-                ("pt", "Português"),
-                ("fr", "Français"),
-                ("it", "Italiano"),
-                ("de", "Deutsch"),
-                ("nl", "Nederlands"),
-                ("pl", "Polski"),
-                ("ru", "Русский"),
-            ];
-            let current = settings.speech_language.trim().to_lowercase();
-            let shown = (languages.iter())
-                .find(|(code, _)| *code == current)
-                .map_or(current.clone(), |(_, name)| (*name).to_owned());
-            crate::widgets::dropdown("speech language")
-                .selected_text(shown)
-                .width(size::FIELD_M)
-                .height(320.0)
-                .show_ui(ui, |ui| {
-                    for (code, name) in languages {
-                        if crate::widgets::choice(ui, code == current, name).clicked() {
-                            settings.speech_language = code.to_owned();
+        widgets::setting_row(
+            ui,
+            tr("Language of the voice"),
+            Some(tr("The voice the text of the MUD is read with.")),
+            &mut |ui| {
+                let languages = [
+                    ("", tr("The system's")),
+                    ("es", "Español"),
+                    ("en", "English"),
+                    ("ca", "Català"),
+                    ("gl", "Galego"),
+                    ("eu", "Euskara"),
+                    ("pt", "Português"),
+                    ("fr", "Français"),
+                    ("it", "Italiano"),
+                    ("de", "Deutsch"),
+                    ("nl", "Nederlands"),
+                    ("pl", "Polski"),
+                    ("ru", "Русский"),
+                ];
+                let current = settings.speech_language.trim().to_lowercase();
+                let shown = (languages.iter())
+                    .find(|(code, _)| *code == current)
+                    .map_or(current.clone(), |(_, name)| (*name).to_owned());
+                crate::widgets::dropdown("speech language")
+                    .selected_text(shown)
+                    .width(size::FIELD_M)
+                    .height(320.0)
+                    .show_ui(ui, |ui| {
+                        for (code, name) in languages {
+                            if crate::widgets::choice(ui, code == current, name).clicked() {
+                                settings.speech_language = code.to_owned();
+                            }
                         }
-                    }
-                })
-                .response
-        });
-        widgets::row_note(ui, tr("The voice the text of the MUD is read with."));
+                    })
+                    .response
+            },
+        );
         widgets::switch_setting(
             ui,
             &mut settings.announce_with_screen_reader,
             tr("Speak through the screen reader"),
-        );
-        widgets::row_note(
-            ui,
-            tr(
+            Some(tr(
                 "Instead of its own voice, Muddie hands each line to the screen reader, which also shows it in braille.",
-            ),
+            )),
         );
     });
 }

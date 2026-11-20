@@ -111,7 +111,7 @@ pub(in crate::tab) fn values_group(ui: &mut egui::Ui, seen: &Seen, all: &[Leaf])
     let mut gauge = None;
     widgets::group(ui, |ui| {
         for leaf in all {
-            widgets::setting_row(ui, &leaf.path, &mut |ui| {
+            widgets::setting_row(ui, &leaf.path, None, &mut |ui| {
                 if leaf.gauge && crate::widgets::button(ui, tr("Make a gauge")).clicked() {
                     gauge = Some(leaf.path.clone());
                 }

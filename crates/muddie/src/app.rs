@@ -51,8 +51,6 @@ pub struct App {
     /// answer.
     asking: Option<Ask>,
     ask_error: Option<String>,
-    /// The address of a plugin being typed, to install it.
-    plugin_address: String,
     /// Whether the last key came with Alt alone, so that its letter, if
     /// it comes a frame later, is not typed.
     alt_typing: bool,
@@ -115,7 +113,6 @@ impl App {
             editing: None,
             asking: None,
             ask_error: None,
-            plugin_address: String::new(),
             alt_typing: false,
             settings_unsaved: false,
             frames: 0,
@@ -142,6 +139,13 @@ impl App {
     #[cfg(test)]
     pub fn use_theme(&mut self, ctx: &egui::Context, theme: ThemeName) {
         self.settings.theme = theme;
+        self.apply_settings(ctx);
+    }
+
+    /// Switches the interface's language as the settings window would.
+    #[cfg(test)]
+    pub fn use_language(&mut self, ctx: &egui::Context, code: &str) {
+        self.settings.language = code.to_owned();
         self.apply_settings(ctx);
     }
 

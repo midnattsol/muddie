@@ -65,13 +65,5 @@ pub fn switch(ui: &mut Ui, on: &mut bool, label: &str) -> Response {
 /// A switch with its label at the left and the switch at the right edge,
 /// as tall as a row of settings.
 pub fn switch_row(ui: &mut Ui, on: &mut bool, label: &str) -> Response {
-    ui.horizontal(|ui| {
-        ui.set_min_height(theme::size::ROW);
-        let name = ui.label(label);
-        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-            switch(ui, on, label).labelled_by(name.id)
-        })
-        .inner
-    })
-    .inner
+    row(ui, label, None, &mut |ui| switch(ui, on, label))
 }

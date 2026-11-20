@@ -59,7 +59,9 @@ pub mod size {
     pub const CONTROL: f32 = 30.0;
     /// A row of settings, with its control.
     pub const ROW: f32 = 44.0;
-    /// Fields: a word or a choice, a name or an address.
+    /// Controls at the right of a row of settings: a number; a word or a
+    /// short choice; a name, an address or a longer choice.
+    pub const FIELD_S: f32 = 96.0;
     pub const FIELD_M: f32 = 160.0;
     pub const FIELD_L: f32 = 250.0;
     /// Windows: a question, a form, the settings.

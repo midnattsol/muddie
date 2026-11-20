@@ -1,10 +1,11 @@
-//! What is asked before something is done with a profile: the name for
-//! a new one, a copy or another name, and whether to delete one.
+//! What is asked before something is done: the name for a new profile, a
+//! copy or another name, whether to delete one, and where to install a
+//! plugin from.
 
 use super::*;
 use crate::profile::{Profile, SessionPrefs};
 
-/// A question about a profile, with the name typed so far.
+/// A question asked before something is done, with what was typed so far.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum Ask {
     /// The name of a new, empty profile.
@@ -20,6 +21,8 @@ pub(super) enum Ask {
         to: String,
     },
     Delete(String),
+    /// The address of the git repository of a plugin to install.
+    Install(String),
 }
 
 impl Ask {
@@ -30,6 +33,7 @@ impl Ask {
             Ask::Rename { .. } => tr("Rename profile"),
             Ask::Duplicate { .. } => tr("Duplicate profile"),
             Ask::Delete(_) => tr("Delete profile"),
+            Ask::Install(_) => tr("Install a plugin"),
         }
     }
 
@@ -41,14 +45,21 @@ impl Ask {
             Ask::Rename { .. } => tr("Rename"),
             Ask::Duplicate { .. } => tr("Duplicate"),
             Ask::Delete(_) => tr("Delete"),
+            Ask::Install(_) => tr("Install"),
         }
     }
 
-    /// The name being typed, for those that ask for one.
-    fn name_mut(&mut self) -> Option<&mut String> {
+    /// What is being typed, for those that ask for something, with what
+    /// it is called and an example of it.
+    fn typed_mut(&mut self) -> Option<(&mut String, &'static str, &'static str)> {
         match self {
-            Ask::New(name) | Ask::SaveSession(name) => Some(name),
-            Ask::Rename { to, .. } | Ask::Duplicate { to, .. } => Some(to),
+            Ask::New(name) | Ask::SaveSession(name) => Some((name, tr("Name"), "")),
+            Ask::Rename { to, .. } | Ask::Duplicate { to, .. } => Some((to, tr("Name"), "")),
+            Ask::Install(address) => Some((
+                address,
+                tr("Address of its git repository"),
+                "https://github.com/…/….git",
+            )),
             Ask::Delete(_) => None,
         }
     }
@@ -96,7 +107,7 @@ impl App {
             Ask::Delete(name) => self.tabs.iter().any(|tab| tab.uses_profile(name)),
             _ => false,
         };
-        let (mut open, mut done) = (true, false);
+        let (mut open, mut answer) = (true, None);
         widgets::dialog(
             ctx,
             "profile question",
@@ -105,11 +116,11 @@ impl App {
             size::DIALOG_S,
             |ui| {
                 ui.spacing_mut().item_spacing.y = size::GAP_S;
-                done = ask_body(ui, &mut ask, in_use, self.ask_error.as_deref());
+                answer = ask_body(ui, &mut ask, in_use, self.ask_error.as_deref());
             },
         );
-        self.asking = open.then_some(ask.clone());
-        if done {
+        self.asking = (open && answer != Some(false)).then_some(ask.clone());
+        if answer == Some(true) {
             self.answer(ask);
         }
     }
@@ -128,6 +139,11 @@ impl App {
                 .duplicate(from, to.trim())
                 .map(|()| Some(to.trim().to_owned())),
             Ask::Delete(name) => self.delete_profile(&profiles, name),
+            Ask::Install(address) => {
+                let command = format!("/plugin install {}", address.trim());
+                self.tabs[self.active].plugin_command(&command);
+                Ok(None)
+            }
         };
         match done {
             Ok(edit) => {
@@ -213,10 +229,11 @@ impl App {
     }
 }
 
-/// What a question shows: the name to type, or what deleting takes with
-/// it; what could not be done; and its buttons. Returns whether it was
-/// answered.
-fn ask_body(ui: &mut Ui, ask: &mut Ask, in_use: bool, error: Option<&str>) -> bool {
+/// What is asked: what to type, under what it is called, or what is
+/// about to happen; then Cancel and the button that does it, which stays
+/// greyed out until there is something to do it with. Returns true when
+/// it is to be done, false when cancelled.
+fn ask_body(ui: &mut Ui, ask: &mut Ask, in_use: bool, error: Option<&str>) -> Option<bool> {
     let verb = ask.verb();
     let mut ready = true;
     let mut entered = false;
@@ -235,24 +252,46 @@ fn ask_body(ui: &mut Ui, ask: &mut Ask, in_use: bool, error: Option<&str>) -> bo
             ));
         }
         _ => {
-            if let Some(name) = ask.name_mut() {
-                let field = widgets::text_box(ui, name, tr("Name"));
+            if let Some((typed, label, example)) = ask.typed_mut() {
+                let theme = theme::current();
+                let name = ui.label(
+                    RichText::new(label)
+                        .font(theme::font(Weight::Medium, 12.5))
+                        .color(theme.text_dim),
+                );
+                let field = widgets::text_box(ui, typed, example).labelled_by(name.id);
                 field.request_focus();
-                ready = !name.trim().is_empty();
+                ready = !typed.trim().is_empty();
                 entered =
                     field.lost_focus() && ui.input(|input| input.key_pressed(egui::Key::Enter));
             }
         }
     }
+    if matches!(ask, Ask::Install(_)) {
+        widgets::page_note(
+            ui,
+            tr("Only install what you trust: a plugin can send commands as you."),
+        );
+    }
     if let Some(error) = error {
         ui.colored_label(theme::current().danger, error);
     }
-    ui.add_space(size::GAP_S);
-    let mut done = false;
+    ui.add_space(size::GAP_M);
+    let mut answer = None;
     ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
-        if ready {
-            done = widgets::primary_button(ui, verb).clicked();
+        if ui
+            .add_enabled_ui(ready, |ui| widgets::primary_button(ui, verb))
+            .inner
+            .clicked()
+        {
+            answer = Some(true);
+        }
+        if widgets::button(ui, tr("Cancel")).clicked() {
+            answer = Some(false);
         }
     });
-    done || (ready && entered)
+    if ready && entered {
+        answer = Some(true);
+    }
+    answer
 }

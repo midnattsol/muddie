@@ -12,7 +12,9 @@ pub(in crate::app) fn installed_row(
 ) -> Option<String> {
     let mut asked = None;
     let mut enabled = packages.iter().any(|package| package == name);
-    let switch = widgets::setting_row(ui, name, &mut |ui| {
+    let switch = widgets::setting_row(ui, name, None, &mut |ui| {
+        let switch = widgets::switch(ui, &mut enabled, name);
+        ui.add_space(size::GAP_S);
         let more =
             widgets::icon_button(ui, widgets::Icon::More, &trf("{0} options", &[name]), false);
         egui::Popup::menu(&more).show(|ui| {
@@ -26,8 +28,7 @@ pub(in crate::app) fn installed_row(
                 ui.close();
             }
         });
-        ui.add_space(size::GAP_S);
-        widgets::switch(ui, &mut enabled, name)
+        switch
     });
     if switch.changed() {
         packages.retain(|package| package != name);
@@ -38,46 +39,53 @@ pub(in crate::app) fn installed_row(
     asked
 }
 
+/// A plugin that comes with Muddie: its switch, what it does, and for one
+/// in Luau a menu to make it the profile's own. Returns whether that was
+/// asked.
+fn included_row(ui: &mut Ui, plugin: &crate::bundled::Bundled, draft: &mut Profile) -> bool {
+    let mut on = plugin.is_on(&draft.included_on, &draft.included_off);
+    let name = tr(plugin.name);
+    let mut customize = false;
+    let switch = widgets::setting_row(ui, name, Some(tr(plugin.about)), &mut |ui| {
+        let switch = widgets::switch(ui, &mut on, name);
+        if plugin.code.is_some() {
+            ui.add_space(size::GAP_S);
+            let more =
+                widgets::icon_button(ui, widgets::Icon::More, &trf("{0} options", &[name]), false);
+            egui::Popup::menu(&more).show(|ui| {
+                widgets::menu_width(ui);
+                if widgets::menu_item(ui, tr("Customize"), "").clicked() {
+                    customize = true;
+                    ui.close();
+                }
+            });
+        }
+        switch
+    });
+    if switch.changed() {
+        plugin.switch(&mut draft.included_on, &mut draft.included_off, on);
+    }
+    customize
+}
+
 impl App {
-    /// The groups of the plugins: those that come with Muddie, those
-    /// installed, and installing one.
+    /// The plugins: those that come with Muddie, and those installed.
     pub(in crate::app) fn plugins_groups(&mut self, ui: &mut Ui) {
-        widgets::section_caption(ui, tr("Plugins"));
         self.included_group(ui);
         self.installed_group(ui);
     }
 
-    /// The plugins that come with Muddie: each with its switch, what it
-    /// does, and for one in Luau the way to make it one's own.
+    /// The plugins that come with Muddie.
     pub(in crate::app) fn included_group(&mut self, ui: &mut Ui) {
         let Some(edit) = self.editing.as_mut() else {
             return;
         };
         let mut customize = None;
-        widgets::group(ui, |ui| {
+        widgets::section(ui, tr("Plugins"), |ui| {
             for plugin in crate::bundled::ALL.iter() {
-                let draft = &mut edit.draft;
-                let mut on = plugin.is_on(&draft.included_on, &draft.included_off);
-                let name = tr(plugin.name);
-                let switch = widgets::setting_row(ui, name, &mut |ui| {
-                    let switch = widgets::switch(ui, &mut on, name);
-                    if plugin.code.is_some() {
-                        ui.add_space(size::GAP_S);
-                        let pressed = widgets::quiet_button(ui, tr("Customize"));
-                        let label = trf("Customize {0}", &[name]);
-                        pressed.widget_info(|| {
-                            egui::WidgetInfo::labeled(egui::Role::Button, true, &label)
-                        });
-                        if pressed.clicked() {
-                            customize = Some(plugin);
-                        }
-                    }
-                    switch
-                });
-                if switch.changed() {
-                    plugin.switch(&mut draft.included_on, &mut draft.included_off, on);
+                if included_row(ui, plugin, &mut edit.draft) {
+                    customize = Some(plugin);
                 }
-                widgets::row_note(ui, tr(plugin.about));
             }
         });
         if let Some(plugin) = customize {
@@ -85,16 +93,16 @@ impl App {
         }
     }
 
-    /// The plugins installed: each with its switch in this profile and
-    /// its menu, the way to update them all, and to install another; and
-    /// what the last commands about plugins said.
+    /// The plugins installed, each with its switch in this profile and its
+    /// menu; updating them all, and installing another; and what the last
+    /// commands about plugins said.
     pub(in crate::app) fn installed_group(&mut self, ui: &mut Ui) {
         let installed = (self.profiles.as_ref())
             .map(Profiles::packages)
             .unwrap_or_default();
         let mut commands = Vec::new();
         widgets::section_caption_with(ui, tr("Installed by you"), |ui| {
-            if !installed.is_empty() && widgets::quiet_button(ui, tr("Update all")).clicked() {
+            if !installed.is_empty() && widgets::button(ui, tr("Update all")).clicked() {
                 commands.extend(
                     installed
                         .iter()
@@ -105,30 +113,45 @@ impl App {
         let Some(edit) = self.editing.as_mut() else {
             return;
         };
-        let address = &mut self.plugin_address;
+        let mut install = false;
         widgets::group(ui, |ui| {
-            if installed.is_empty() {
-                ui.add_space(12.0);
-                let none = "No plugins yet. A plugin is a set of scripts someone made for a MUD: a mapper, triggers, gauges.";
-                widgets::row_note(ui, tr(none));
-            }
             for name in &installed {
                 commands.extend(installed_row(ui, &mut edit.draft.packages, name));
             }
-            commands.extend(install_row(ui, address));
+            let about = tr(
+                "A set of scripts someone made for a MUD, such as a mapper, from its git repository.",
+            );
+            install = widgets::setting_row(ui, tr("Install a plugin"), Some(about), &mut |ui| {
+                widgets::button(ui, tr("Install…"))
+            })
+            .clicked();
         });
+        if install {
+            self.asking = Some(Ask::Install(String::new()));
+            self.ask_error = None;
+        }
         for command in commands {
             self.tabs[self.active].plugin_command(&command);
         }
+        self.plugin_answers(ui);
+    }
+
+    /// What the last commands about plugins said, under their card, and
+    /// whether one is still at work.
+    fn plugin_answers(&mut self, ui: &mut Ui) {
         let (said, busy) = self.tabs[self.active].plugin_answers();
+        if !busy && said.is_empty() {
+            return;
+        }
+        ui.add_space(size::GAP_S);
         if busy {
             ui.horizontal(|ui| {
                 ui.spinner();
-                widgets::row_note(ui, tr("Working…"));
+                widgets::page_note(ui, tr("Working…"));
             });
         }
         for line in said {
-            widgets::row_note(ui, &line);
+            widgets::page_note(ui, &line);
         }
     }
 
@@ -173,25 +196,4 @@ impl App {
             &[tr(plugin.name), &name],
         ));
     }
-}
-
-/// Installing a plugin from the address of its repository. Returns the
-/// command that installs it, when asked.
-fn install_row(ui: &mut Ui, address: &mut String) -> Option<String> {
-    let mut install = false;
-    widgets::setting_row(ui, tr("Install from"), &mut |ui| {
-        let ready = !address.trim().is_empty();
-        install = ui
-            .add_enabled_ui(ready, |ui| widgets::button(ui, tr("Install")))
-            .inner
-            .clicked();
-        widgets::row_field(ui, address, "https://github.com/…/….git", size::FIELD_L)
-    });
-    widgets::row_note(
-        ui,
-        tr(
-            "The address of the plugin's git repository. Only install what you trust: a plugin can send commands as you.",
-        ),
-    );
-    install.then(|| format!("/plugin install {}", std::mem::take(address).trim()))
 }

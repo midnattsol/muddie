@@ -869,9 +869,6 @@ msgstr "Tamaño"
 msgid "Line spacing"
 msgstr "Interlineado"
 
-msgid "No plugins yet. A plugin is a set of scripts someone made for a MUD: a mapper, triggers, gauges."
-msgstr "Aún no hay complementos. Un complemento es un conjunto de scripts que alguien hizo para un MUD: un mapper, disparadores, indicadores."
-
 msgid "Update"
 msgstr "Actualizar"
 
@@ -1473,18 +1470,11 @@ msgstr "Hablar a través del lector de pantalla"
 msgid "Instead of its own voice, Muddie hands each line to the screen reader, which also shows it in braille."
 msgstr "En lugar de usar su propia voz, Muddie pasa cada línea al lector de pantalla, que además la muestra en braille."
 
-#, python-brace-format
-msgid "Customize {0}"
-msgstr "Personalizar {0}"
-
 msgid "Customize"
 msgstr "Personalizar"
 
 msgid "Update all"
 msgstr "Actualizar todos"
-
-msgid "The address of the plugin's git repository. Only install what you trust: a plugin can send commands as you."
-msgstr "La dirección del repositorio git del plugin. Instala solo lo que sea de confianza: un plugin puede enviar comandos en tu nombre."
 
 msgid "Save as profile"
 msgstr "Guardar como perfil"
@@ -1594,13 +1584,28 @@ msgstr "Los perfiles necesitan una carpeta de configuración, y no se ha encontr
 msgid "No profiles yet. A profile keeps a MUD's connection, scripts, map and layout."
 msgstr "Aún no hay perfiles. Un perfil guarda la conexión, los scripts, el mapa y la disposición de un MUD."
 
-msgid "Install from"
-msgstr "Instalar desde"
-
 #, python-brace-format
 msgid "{0} is now a script of profile {1}."
 msgstr "{0} es ahora un script del perfil {1}."
 
 msgid "This session has no profile, so its variables last until it is closed. Save it as a profile, from its tab's menu, to keep them."
 msgstr "Esta sesión no tiene perfil, así que sus variables duran hasta que se cierre. Guárdala como perfil, desde el menú de su pestaña, para conservarlas."
+
+msgid "Interface"
+msgstr "Interfaz"
+
+msgid "Install a plugin"
+msgstr "Instalar un complemento"
+
+msgid "Address of its git repository"
+msgstr "Dirección de su repositorio git"
+
+msgid "Only install what you trust: a plugin can send commands as you."
+msgstr "Instala solo lo que sea de confianza: un complemento puede enviar comandos en tu nombre."
+
+msgid "A set of scripts someone made for a MUD, such as a mapper, from its git repository."
+msgstr "Un conjunto de scripts que alguien hizo para un MUD, como un mapper, desde su repositorio git."
+
+msgid "Install…"
+msgstr "Instalar…"
 

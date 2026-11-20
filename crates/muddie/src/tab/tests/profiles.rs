@@ -219,9 +219,12 @@ fn a_plugin_that_comes_with_muddie_is_made_ones_own_to_change() {
     app.set_included(plugin, true);
     harness.state_mut().edit_profile("Reinos");
     harness.run_steps(3);
+    // In its menu.
     harness
-        .get_by_label("Customize Reinos de Leyenda")
+        .get_by_label("Reinos de Leyenda options")
         .click_accesskit();
+    harness.run_steps(2);
+    harness.get_by_label("Customize").click_accesskit();
     harness.run_steps(4);
     // Its code is a script of the profile's, open in the editor, and the
     // one that came is off so as not to run twice.
