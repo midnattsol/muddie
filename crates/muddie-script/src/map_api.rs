@@ -88,12 +88,26 @@ pub(super) fn install_map_api(
     map: &Rc<RefCell<Map>>,
 ) -> mlua::Result<()> {
     let api = lua.create_table()?;
-    // The map is updated even when saving it fails; the script still gets
-    // the failure as an error, so the user hears about it.
-    let saved = |result: Result<(), muddie_mapper::Error>| {
-        result.map_err(|error| mlua::Error::runtime(format!("could not save the map: {error}")))
-    };
+    install_rooms(lua, state, map, &api)?;
+    install_keeping(lua, state, map, &api)?;
+    install_routes(lua, state, map, &api)?;
+    install_exits(lua, map, &api)?;
+    lua.globals().set("map", api)
+}
 
+/// The map is updated even when saving it fails; the script still gets
+/// the failure as an error, so the user hears about it.
+fn saved(result: Result<(), muddie_mapper::Error>) -> mlua::Result<()> {
+    result.map_err(|error| mlua::Error::runtime(format!("could not save the map: {error}")))
+}
+
+/// Visiting rooms, setting them, finding them, and changing them.
+fn install_rooms(
+    lua: &Lua,
+    state: &Rc<RefCell<State>>,
+    map: &Rc<RefCell<Map>>,
+    api: &Table,
+) -> mlua::Result<()> {
     let (shared, world) = (Rc::clone(state), Rc::clone(map));
     api.set(
         "visit",
@@ -116,33 +130,6 @@ pub(super) fn install_map_api(
             saved(world.borrow_mut().set_room(info))?;
             Ok(id)
         })?,
-    )?;
-
-    let shared = Rc::clone(state);
-    api.set(
-        "native",
-        lua.create_function(move |_, enabled: bool| {
-            shared.borrow_mut().map_native_off = !enabled;
-            Ok(())
-        })?,
-    )?;
-
-    let (shared, world) = (Rc::clone(state), Rc::clone(map));
-    api.set(
-        "persist",
-        lua.create_function(move |_, enabled: bool| {
-            shared.borrow_mut().map_memory_only = !enabled;
-            if !enabled {
-                world.borrow_mut().stop_storing();
-            }
-            Ok(())
-        })?,
-    )?;
-
-    let world = Rc::clone(map);
-    api.set(
-        "clear",
-        lua.create_function(move |_, ()| saved(world.borrow_mut().clear()))?,
     )?;
 
     let world = Rc::clone(map);
@@ -172,6 +159,116 @@ pub(super) fn install_map_api(
 
     let world = Rc::clone(map);
     api.set(
+        "remove_room",
+        lua.create_function(move |_, id: Value| {
+            let result = world.borrow_mut().remove_room(id_of(&id)?);
+            let found = *result.as_ref().unwrap_or(&true);
+            saved(result.map(drop))?;
+            Ok(found)
+        })?,
+    )?;
+
+    let world = Rc::clone(map);
+    api.set(
+        "move",
+        lua.create_function(move |_, (id, x, y, z): (Value, i32, i32, Option<i32>)| {
+            let pos = Pos {
+                x,
+                y,
+                z: z.unwrap_or(0),
+            };
+            let result = world.borrow_mut().move_room(id_of(&id)?, pos);
+            let found = *result.as_ref().unwrap_or(&true);
+            saved(result.map(drop))?;
+            Ok(found)
+        })?,
+    )?;
+
+    let world = Rc::clone(map);
+    api.set(
+        "set_weight",
+        lua.create_function(move |_, (id, weight): (Value, u32)| {
+            let result = world.borrow_mut().set_weight(id_of(&id)?, weight);
+            let found = *result.as_ref().unwrap_or(&true);
+            saved(result.map(drop))?;
+            Ok(found)
+        })?,
+    )?;
+
+    let world = Rc::clone(map);
+    api.set(
+        "avoid",
+        lua.create_function(move |_, (id, avoid): (Value, bool)| {
+            let result = world.borrow_mut().set_avoid(id_of(&id)?, avoid);
+            let found = *result.as_ref().unwrap_or(&true);
+            saved(result.map(drop))?;
+            Ok(found)
+        })?,
+    )?;
+
+    let world = Rc::clone(map);
+    api.set(
+        "areas",
+        lua.create_function(move |_, ()| {
+            let areas: Vec<String> = (world.borrow().areas().into_iter())
+                .map(str::to_owned)
+                .collect();
+            Ok(areas)
+        })?,
+    )?;
+
+    api.set(
+        "id",
+        lua.create_function(|_, text: String| Ok(room_id(&text)))?,
+    )?;
+    Ok(())
+}
+
+/// Whether the client keeps the map itself, and in a file.
+fn install_keeping(
+    lua: &Lua,
+    state: &Rc<RefCell<State>>,
+    map: &Rc<RefCell<Map>>,
+    api: &Table,
+) -> mlua::Result<()> {
+    let shared = Rc::clone(state);
+    api.set(
+        "native",
+        lua.create_function(move |_, enabled: bool| {
+            shared.borrow_mut().map_native_off = !enabled;
+            Ok(())
+        })?,
+    )?;
+
+    let (shared, world) = (Rc::clone(state), Rc::clone(map));
+    api.set(
+        "persist",
+        lua.create_function(move |_, enabled: bool| {
+            shared.borrow_mut().map_memory_only = !enabled;
+            if !enabled {
+                world.borrow_mut().stop_storing();
+            }
+            Ok(())
+        })?,
+    )?;
+
+    let world = Rc::clone(map);
+    api.set(
+        "clear",
+        lua.create_function(move |_, ()| saved(world.borrow_mut().clear()))?,
+    )?;
+    Ok(())
+}
+
+/// Routes, and walking them.
+fn install_routes(
+    lua: &Lua,
+    state: &Rc<RefCell<State>>,
+    map: &Rc<RefCell<Map>>,
+    api: &Table,
+) -> mlua::Result<()> {
+    let world = Rc::clone(map);
+    api.set(
         "path",
         lua.create_function(move |_, (to, from): (Value, Value)| {
             let world = world.borrow();
@@ -196,7 +293,11 @@ pub(super) fn install_map_api(
             Ok(())
         })?,
     )?;
+    Ok(())
+}
 
+/// The exits of rooms, and laying an area out again.
+fn install_exits(lua: &Lua, map: &Rc<RefCell<Map>>, api: &Table) -> mlua::Result<()> {
     let world = Rc::clone(map);
     api.set(
         "set_exit",
@@ -279,70 +380,5 @@ pub(super) fn install_map_api(
             Ok(found)
         })?,
     )?;
-
-    let world = Rc::clone(map);
-    api.set(
-        "remove_room",
-        lua.create_function(move |_, id: Value| {
-            let result = world.borrow_mut().remove_room(id_of(&id)?);
-            let found = *result.as_ref().unwrap_or(&true);
-            saved(result.map(drop))?;
-            Ok(found)
-        })?,
-    )?;
-
-    let world = Rc::clone(map);
-    api.set(
-        "move",
-        lua.create_function(move |_, (id, x, y, z): (Value, i32, i32, Option<i32>)| {
-            let pos = Pos {
-                x,
-                y,
-                z: z.unwrap_or(0),
-            };
-            let result = world.borrow_mut().move_room(id_of(&id)?, pos);
-            let found = *result.as_ref().unwrap_or(&true);
-            saved(result.map(drop))?;
-            Ok(found)
-        })?,
-    )?;
-
-    let world = Rc::clone(map);
-    api.set(
-        "set_weight",
-        lua.create_function(move |_, (id, weight): (Value, u32)| {
-            let result = world.borrow_mut().set_weight(id_of(&id)?, weight);
-            let found = *result.as_ref().unwrap_or(&true);
-            saved(result.map(drop))?;
-            Ok(found)
-        })?,
-    )?;
-
-    let world = Rc::clone(map);
-    api.set(
-        "avoid",
-        lua.create_function(move |_, (id, avoid): (Value, bool)| {
-            let result = world.borrow_mut().set_avoid(id_of(&id)?, avoid);
-            let found = *result.as_ref().unwrap_or(&true);
-            saved(result.map(drop))?;
-            Ok(found)
-        })?,
-    )?;
-
-    let world = Rc::clone(map);
-    api.set(
-        "areas",
-        lua.create_function(move |_, ()| {
-            let areas: Vec<String> = (world.borrow().areas().into_iter())
-                .map(str::to_owned)
-                .collect();
-            Ok(areas)
-        })?,
-    )?;
-
-    api.set(
-        "id",
-        lua.create_function(|_, text: String| Ok(room_id(&text)))?,
-    )?;
-    lua.globals().set("map", api)
+    Ok(())
 }

@@ -3,9 +3,19 @@
 use super::*;
 
 pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
+    install_data_handlers(lua, state)?;
+    install_send_msdp(lua, state)?;
+    install_mssp(lua, state)?;
+    install_send_gmcp(lua, state)?;
+    install_on_event(lua, state)?;
+    install_supports(lua, state)?;
+    install_completions(lua, state)?;
+    Ok(())
+}
+
+fn install_data_handlers(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     let globals = lua.globals();
     let add = |name: &str, function: Function| globals.set(name, function);
-
     // GMCP packages and MSDP variables share one store; the key function
     // keeps their names apart.
     type KeyFn = fn(&str) -> String;
@@ -37,7 +47,12 @@ pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()>
             })?,
         )?;
     }
+    Ok(())
+}
 
+fn install_send_msdp(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
+    let globals = lua.globals();
+    let add = |name: &str, function: Function| globals.set(name, function);
     let shared = Rc::clone(state);
     add(
         "send_msdp",
@@ -49,7 +64,12 @@ pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()>
             Ok(())
         })?,
     )?;
+    Ok(())
+}
 
+fn install_mssp(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
+    let globals = lua.globals();
+    let add = |name: &str, function: Function| globals.set(name, function);
     let shared = Rc::clone(state);
     add(
         "mssp",
@@ -61,7 +81,12 @@ pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()>
             Ok(status)
         })?,
     )?;
+    Ok(())
+}
 
+fn install_send_gmcp(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
+    let globals = lua.globals();
+    let add = |name: &str, function: Function| globals.set(name, function);
     let shared = Rc::clone(state);
     add(
         "send_gmcp",
@@ -74,7 +99,12 @@ pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()>
             Ok(())
         })?,
     )?;
+    Ok(())
+}
 
+fn install_on_event(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
+    let globals = lua.globals();
+    let add = |name: &str, function: Function| globals.set(name, function);
     let shared = Rc::clone(state);
     add(
         "on_event",
@@ -91,7 +121,12 @@ pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()>
             Ok(id)
         })?,
     )?;
+    Ok(())
+}
 
+fn install_supports(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
+    let globals = lua.globals();
+    let add = |name: &str, function: Function| globals.set(name, function);
     let shared = Rc::clone(state);
     add(
         "supports",
@@ -100,7 +135,12 @@ pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()>
             Ok(())
         })?,
     )?;
+    Ok(())
+}
 
+fn install_completions(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
+    let globals = lua.globals();
+    let add = |name: &str, function: Function| globals.set(name, function);
     let shared = Rc::clone(state);
     add(
         "completions",

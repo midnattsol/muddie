@@ -3,9 +3,19 @@
 use super::*;
 
 pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
+    install_triggers_and_aliases(lua, state)?;
+    install_enable(lua, state)?;
+    install_group_table(lua, state)?;
+    install_bind(lua, state)?;
+    install_unbind(lua, state)?;
+    install_timers(lua, state)?;
+    install_cancel(lua, state)?;
+    Ok(())
+}
+
+fn install_triggers_and_aliases(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     let globals = lua.globals();
     let add = |name: &str, function: Function| globals.set(name, function);
-
     for (name, is_alias) in [("trigger", false), ("alias", true)] {
         let shared = Rc::clone(state);
         add(
@@ -41,7 +51,12 @@ pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()>
             )?,
         )?;
     }
+    Ok(())
+}
 
+fn install_enable(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
+    let globals = lua.globals();
+    let add = |name: &str, function: Function| globals.set(name, function);
     let shared = Rc::clone(state);
     add(
         "enable",
@@ -55,7 +70,11 @@ pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()>
             Ok(())
         })?,
     )?;
+    Ok(())
+}
 
+fn install_group_table(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
+    let globals = lua.globals();
     // The same switch, and what goes with it, under one name.
     let groups = lua.create_table()?;
     let shared = Rc::clone(state);
@@ -91,7 +110,12 @@ pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()>
         lua.create_function(move |_, ()| Ok(shared.borrow().group_names()))?,
     )?;
     globals.set("group", groups)?;
+    Ok(())
+}
 
+fn install_bind(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
+    let globals = lua.globals();
+    let add = |name: &str, function: Function| globals.set(name, function);
     let shared = Rc::clone(state);
     add(
         "bind",
@@ -120,7 +144,12 @@ pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()>
             },
         )?,
     )?;
+    Ok(())
+}
 
+fn install_unbind(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
+    let globals = lua.globals();
+    let add = |name: &str, function: Function| globals.set(name, function);
     let shared = Rc::clone(state);
     add(
         "unbind",
@@ -132,7 +161,12 @@ pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()>
                 .is_some())
         })?,
     )?;
+    Ok(())
+}
 
+fn install_timers(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
+    let globals = lua.globals();
+    let add = |name: &str, function: Function| globals.set(name, function);
     for (name, repeats) in [("after", false), ("every", true)] {
         let shared = Rc::clone(state);
         add(
@@ -162,7 +196,12 @@ pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()>
             )?,
         )?;
     }
+    Ok(())
+}
 
+fn install_cancel(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
+    let globals = lua.globals();
+    let add = |name: &str, function: Function| globals.set(name, function);
     let shared = Rc::clone(state);
     add(
         "cancel",

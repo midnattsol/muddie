@@ -3,9 +3,19 @@
 use super::*;
 
 pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
+    install_send(lua, state)?;
+    install_echo(lua, state)?;
+    install_speak(lua, state)?;
+    install_gag(lua, state)?;
+    install_separator(lua, state)?;
+    install_line_spans(lua, state)?;
+    install_highlight(lua, state)?;
+    Ok(())
+}
+
+fn install_send(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     let globals = lua.globals();
     let add = |name: &str, function: Function| globals.set(name, function);
-
     let shared = Rc::clone(state);
     add(
         "send",
@@ -14,7 +24,12 @@ pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()>
             Ok(())
         })?,
     )?;
+    Ok(())
+}
 
+fn install_echo(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
+    let globals = lua.globals();
+    let add = |name: &str, function: Function| globals.set(name, function);
     let shared = Rc::clone(state);
     add(
         "echo",
@@ -23,7 +38,12 @@ pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()>
             Ok(())
         })?,
     )?;
+    Ok(())
+}
 
+fn install_speak(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
+    let globals = lua.globals();
+    let add = |name: &str, function: Function| globals.set(name, function);
     let shared = Rc::clone(state);
     add(
         "speak",
@@ -36,7 +56,12 @@ pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()>
             Ok(())
         })?,
     )?;
+    Ok(())
+}
 
+fn install_gag(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
+    let globals = lua.globals();
+    let add = |name: &str, function: Function| globals.set(name, function);
     let shared = Rc::clone(state);
     add(
         "gag",
@@ -45,7 +70,12 @@ pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()>
             Ok(())
         })?,
     )?;
+    Ok(())
+}
 
+fn install_separator(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
+    let globals = lua.globals();
+    let add = |name: &str, function: Function| globals.set(name, function);
     let shared = Rc::clone(state);
     add(
         "separator",
@@ -54,7 +84,12 @@ pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()>
             Ok(())
         })?,
     )?;
+    Ok(())
+}
 
+fn install_line_spans(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
+    let globals = lua.globals();
+    let add = |name: &str, function: Function| globals.set(name, function);
     let shared = Rc::clone(state);
     add(
         "line_spans",
@@ -75,7 +110,12 @@ pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()>
             Ok(spans)
         })?,
     )?;
+    Ok(())
+}
 
+fn install_highlight(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
+    let globals = lua.globals();
+    let add = |name: &str, function: Function| globals.set(name, function);
     let shared = Rc::clone(state);
     add(
         "highlight",

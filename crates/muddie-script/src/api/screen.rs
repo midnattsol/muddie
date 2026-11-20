@@ -3,9 +3,19 @@
 use super::*;
 
 pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
+    install_gauge(lua, state)?;
+    install_panel(lua, state)?;
+    install_panel_add(lua, state)?;
+    install_to_panel(lua, state)?;
+    install_panel_size(lua, state)?;
+    install_channel(lua, state)?;
+    install_chat(lua, state)?;
+    Ok(())
+}
+
+fn install_gauge(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     let globals = lua.globals();
     let add = |name: &str, function: Function| globals.set(name, function);
-
     let shared = Rc::clone(state);
     add(
         "gauge",
@@ -49,7 +59,12 @@ pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()>
             },
         )?,
     )?;
+    Ok(())
+}
 
+fn install_panel(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
+    let globals = lua.globals();
+    let add = |name: &str, function: Function| globals.set(name, function);
     let shared = Rc::clone(state);
     add(
         "panel",
@@ -58,7 +73,12 @@ pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()>
             Ok(())
         })?,
     )?;
+    Ok(())
+}
 
+fn install_panel_add(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
+    let globals = lua.globals();
+    let add = |name: &str, function: Function| globals.set(name, function);
     let shared = Rc::clone(state);
     add(
         "panel_add",
@@ -67,7 +87,12 @@ pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()>
             Ok(())
         })?,
     )?;
+    Ok(())
+}
 
+fn install_to_panel(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
+    let globals = lua.globals();
+    let add = |name: &str, function: Function| globals.set(name, function);
     let shared = Rc::clone(state);
     add(
         "to_panel",
@@ -76,7 +101,12 @@ pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()>
             Ok(())
         })?,
     )?;
+    Ok(())
+}
 
+fn install_panel_size(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
+    let globals = lua.globals();
+    let add = |name: &str, function: Function| globals.set(name, function);
     let shared = Rc::clone(state);
     let made = lua.clone();
     add(
@@ -95,7 +125,12 @@ pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()>
             Ok(Value::Table(size))
         })?,
     )?;
+    Ok(())
+}
 
+fn install_channel(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
+    let globals = lua.globals();
+    let add = |name: &str, function: Function| globals.set(name, function);
     let shared = Rc::clone(state);
     add(
         "channel",
@@ -114,7 +149,12 @@ pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()>
             },
         )?,
     )?;
+    Ok(())
+}
 
+fn install_chat(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
+    let globals = lua.globals();
+    let add = |name: &str, function: Function| globals.set(name, function);
     let shared = Rc::clone(state);
     add(
         "chat",
