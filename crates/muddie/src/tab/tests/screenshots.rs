@@ -529,6 +529,19 @@ fn shows_map() {
     if let Some(path) = &path {
         (image.save(path.with_extension("side-away.png"))).expect("could not write the screenshot");
     }
+    harness
+        .get_by_label("Hide the panels at the bottom")
+        .click();
+    harness.run_steps(3);
+    let image = harness.render().expect("rendering failed");
+    if let Some(path) = &path {
+        (image.save(path.with_extension("sides-away.png")))
+            .expect("could not write the screenshot");
+    }
+    harness
+        .get_by_label("Show the panels at the bottom")
+        .click();
+    harness.run_steps(3);
     harness.get_by_label("Show Map").click();
     harness.run_steps(3);
     // A third: the menu of the room under the pointer. The map is

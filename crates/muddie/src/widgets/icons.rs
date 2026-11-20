@@ -23,6 +23,8 @@ pub enum Icon {
     Bell,
     /// An arrow to a bar at this edge: put away that way.
     Fold(Edge),
+    /// An arrow from a bar at this edge: brought back from there.
+    Unfold(Edge),
 }
 
 /// A side of the window.
@@ -102,26 +104,35 @@ fn draw_icon(painter: &egui::Painter, icon: Icon, centre: egui::Pos2, colour: Co
             }
         }
         Icon::Bell => draw_bell(painter, centre, stroke),
-        Icon::Fold(edge) => draw_fold(painter, centre, stroke, edge),
+        Icon::Fold(edge) => draw_fold(painter, centre, stroke, edge, true),
+        Icon::Unfold(edge) => draw_fold(painter, centre, stroke, edge, false),
         Icon::Trash => draw_trash(painter, centre, stroke),
     }
 }
 
-/// An arrow to a bar at an edge, as ⇥ is for the right.
-fn draw_fold(painter: &egui::Painter, centre: egui::Pos2, stroke: Stroke, edge: Edge) {
-    let way = match edge {
+/// A bar at an edge, and an arrow to it, as ⇥ is for the right, or
+/// away from it, as ⇤ is for the left.
+fn draw_fold(painter: &egui::Painter, centre: egui::Pos2, stroke: Stroke, edge: Edge, to: bool) {
+    let outward = match edge {
         Edge::Left => vec2(-1.0, 0.0),
         Edge::Right => vec2(1.0, 0.0),
         Edge::Top => vec2(0.0, -1.0),
         Edge::Bottom => vec2(0.0, 1.0),
     };
-    let across = vec2(way.y, way.x);
-    let tip = centre + way * 2.5;
-    painter.line_segment([centre - way * 6.0, tip], stroke);
+    let bar = centre + outward * 6.0;
+    let across = vec2(outward.y, outward.x);
+    painter.line_segment([bar + across * 6.0, bar - across * 6.0], stroke);
+    let (way, tip) = match to {
+        true => (outward, centre + outward * 2.5),
+        false => (-outward, centre - outward * 6.0),
+    };
+    let tail = match to {
+        true => centre - outward * 6.0,
+        false => centre + outward * 2.5,
+    };
+    painter.line_segment([tail, tip], stroke);
     painter.line_segment([tip, tip - way * 3.5 + across * 3.5], stroke);
     painter.line_segment([tip, tip - way * 3.5 - across * 3.5], stroke);
-    let bar = centre + way * 6.0;
-    painter.line_segment([bar + across * 6.0, bar - across * 6.0], stroke);
 }
 
 /// A target: a ring, its centre, and four ticks.

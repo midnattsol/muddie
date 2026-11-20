@@ -226,8 +226,9 @@ menu (the three dots). There is no mode to enter to arrange them.
   it.
 - **A whole side** can be put away, with all its panels, from the arrow
   to the edge in the header of its first panel. It leaves a thin strip
-  with the names of its panels: any of them brings the side back as it
-  was, with that panel on show. A panel shown or added on a side put away
+  with the arrow that brings the side back as it was, where the other one
+  was, and the names of its panels: any of them brings it back too, with
+  that panel on show. A panel shown or added on a side put away
   brings the side back too; **Ctrl+M** shows or hides the map alone.
 - **Side panels at full height**, in the palette, decides who gets the
   corners: with it, the panels beside the output reach the top and the

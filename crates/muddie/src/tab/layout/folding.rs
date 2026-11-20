@@ -73,17 +73,31 @@ impl Tab {
     }
 }
 
-/// The card of a strip, with the name of each panel along it: down it at
-/// the sides, read toward the output, and across it above and below.
-/// Returns the panel chosen, with its set of tabs.
+/// The card of a strip: the arrow that brings the side back, where the
+/// one that put it away was, and the name of each panel along it, down
+/// it at the sides, read toward the output, and across it above and
+/// below. Returns the panel chosen, with its set of tabs; the arrow
+/// chooses none in particular.
 fn strip_names(ui: &mut egui::Ui, side: Side, panels: &[(u32, u32, String)]) -> Option<(u32, u32)> {
     let theme = theme::current();
     let card = ui.max_rect();
     ui.painter()
         .rect_filled(card, egui::CornerRadius::same(10), theme.background);
     let font = theme::font(Weight::Medium, 10.5);
-    let mut at = 6.0;
-    let mut chosen = None;
+    // At the top of a strip at the side, at the right of one across.
+    let arrow = match side.is_beside() {
+        true => egui::Rect::from_min_size(card.min, egui::vec2(card.width(), STRIP)),
+        false => egui::Rect::from_min_max(egui::pos2(card.max.x - STRIP, card.min.y), card.max),
+    };
+    let builder = egui::UiBuilder::new()
+        .max_rect(arrow)
+        .layout(egui::Layout::top_down(egui::Align::Center));
+    let icon = widgets::Icon::Unfold(side.edge());
+    let back = ui.scope_builder(builder, |ui| {
+        widgets::icon_button(ui, icon, side.toggle_label(false), false)
+    });
+    let mut chosen = back.inner.clicked().then_some((0, 0));
+    let mut at = if side.is_beside() { STRIP + 2.0 } else { 6.0 };
     for (id, stack, name) in panels {
         let galley =
             (ui.painter()).layout_no_wrap(name.to_uppercase(), font.clone(), theme.text_dim);

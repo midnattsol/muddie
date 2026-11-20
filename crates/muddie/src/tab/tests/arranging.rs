@@ -463,7 +463,14 @@ fn a_side_is_put_away_with_its_panels_and_brought_back_as_it_was() {
             .query_by_label("Hide the panels at the right")
             .is_none()
     );
-    // Its strip brings it back, from the name of any of its panels.
+    // The arrow of its strip brings it back, and so does the name of
+    // any of its panels.
+    harness.get_by_label("Show the panels at the right").click();
+    harness.run_steps(2);
+    assert!(map_on_screen(harness.state().tab()));
+    harness.get_by_label("Hide the panels at the right").click();
+    harness.run_steps(2);
+    assert!(!map_on_screen(harness.state().tab()));
     harness.get_by_label("Show Map").click();
     harness.run_steps(2);
     assert!(map_on_screen(harness.state().tab()));
