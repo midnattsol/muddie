@@ -827,6 +827,9 @@ msgstr ""
 msgid "Could not save the panels: {0}"
 msgstr ""
 
+msgid "Channels"
+msgstr ""
+
 msgid "All"
 msgstr ""
 

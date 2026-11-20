@@ -335,6 +335,24 @@ impl Tab {
     /// the channel is made known, to have its tab.
     pub(super) fn channel_said(&mut self, name: &str, lines: Vec<Line>) {
         let name = name.trim();
+        // With nowhere to show the channels, they are given a panel: one
+        // that is hidden is somewhere, and is left as it is.
+        if !self.layout.panels.iter().any(|panel| panel.channels) {
+            let id = self.layout.next_id();
+            let taken = |name: &str| self.layout.panels.iter().any(|panel| panel.name == name);
+            let called = [tr("Chat"), tr("Channels")]
+                .into_iter()
+                .find(|name| !taken(name));
+            self.layout.panels.push(PanelSpec {
+                id,
+                name: called.unwrap_or(tr("Channels")).to_owned(),
+                kind: Kind::Text,
+                side: Side::Top,
+                size: 140.0,
+                channels: true,
+                ..PanelSpec::default()
+            });
+        }
         let known =
             (self.channels.iter()).position(|channel| channel.name.eq_ignore_ascii_case(name));
         let index = match known {

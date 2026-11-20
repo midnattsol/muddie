@@ -1126,9 +1126,6 @@ msgstr "Indicadores"
 msgid "Map"
 msgstr "Mapa"
 
-msgid "Chat"
-msgstr "Chat"
-
 msgid "Variables"
 msgstr "Variables"
 
@@ -1452,3 +1449,8 @@ msgstr "Todos"
 msgid "new"
 msgstr "nuevo"
 
+msgid "Channels"
+msgstr "Canales"
+
+msgid "Chat"
+msgstr "Chat"

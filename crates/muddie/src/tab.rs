@@ -4325,6 +4325,113 @@ mod tests {
     }
 
     #[test]
+    fn channels_are_given_a_panel_where_there_is_none_for_them() {
+        let mut harness = window(None);
+        harness.set_size(egui::vec2(1300.0, 800.0));
+        let app = harness.state_mut().tab_mut();
+        // A layout with a map and gauges, and nowhere for text.
+        app.layout
+            .panels
+            .retain(|panel| panel.kind != layout::Kind::Text);
+        assert!(!app.layout.panels.iter().any(|panel| panel.channels));
+        app.scripts
+            .exec("t", r#"channel("chat") channel("chat", "Ana: hola")"#);
+        app.run_actions();
+        harness.run_steps(3);
+        // A panel was made for them, once, and what was said is in it.
+        let app = harness.state_mut().tab_mut();
+        let made: Vec<_> = app
+            .layout
+            .panels
+            .iter()
+            .filter(|panel| panel.channels)
+            .cloned()
+            .collect();
+        assert_eq!(made.len(), 1);
+        assert!(made[0].visible && made[0].kind == layout::Kind::Text);
+        harness.get_by_label("Ana: hola");
+        harness.get_by_label("chat");
+        // Hidden, it is not made again.
+        let app = harness.state_mut().tab_mut();
+        app.layout
+            .panels
+            .iter_mut()
+            .for_each(|panel| panel.visible &= !panel.channels);
+        app.scripts.exec("t", r#"channel("chat", "Luis: buenas")"#);
+        app.run_actions();
+        harness.run_steps(3);
+        let app = harness.state().tab();
+        assert_eq!(
+            app.layout
+                .panels
+                .iter()
+                .filter(|panel| panel.channels)
+                .count(),
+            1
+        );
+    }
+
+    #[test]
+    fn a_script_turns_a_muds_own_channel_messages_into_tabs() {
+        // As a player of a MUD with channels of its own would have it: a
+        // layout with no panel of text, and a script for its messages.
+        let mut harness = window(None);
+        harness.set_size(egui::vec2(1300.0, 800.0));
+        let app = harness.state_mut().tab_mut();
+        app.layout
+            .panels
+            .retain(|panel| panel.kind != layout::Kind::Text);
+        let script = r#"supports("Comm 1")
+
+on_gmcp("Comm.MensajeCanal", function(data)
+    channel(data.canal, data.mensaje)
+end)
+
+on_gmcp("Comm.Canales", function(data)
+    for nombre in pairs(data) do
+        channel(nombre)
+    end
+end)"#;
+        app.scripts.exec("Channels", script);
+        app.run_actions();
+        let (events, _sent) = fake_connection(app);
+        let gmcp = |package: &str, data: &str| Event::Gmcp {
+            package: package.into(),
+            data: data.into(),
+        };
+        events
+            .send(gmcp(
+                "Comm.Canales",
+                r#"{"chat": "chat", "mercenario": "mercenario"}"#,
+            ))
+            .unwrap();
+        let said = "{\"canal\": \"chat\", \"mensaje\": \"[Chat] Naylhena \\u001b[1m\\u001b[30mSacerdotisa \\u001b[0mde la \\u001b[36mcalumnia\\u001b[0m: \\u001b[1m\\u001b[37mre\"}";
+        events.send(gmcp("Comm.MensajeCanal", said)).unwrap();
+        harness.run_steps(4);
+        let app = harness.state().tab();
+        let mut names: Vec<&str> = app
+            .channels
+            .iter()
+            .map(|channel| channel.name.as_str())
+            .collect();
+        names.sort_unstable();
+        assert_eq!(names, ["chat", "mercenario"]);
+        assert_eq!(
+            app.layout
+                .panels
+                .iter()
+                .filter(|panel| panel.channels && panel.visible)
+                .count(),
+            1
+        );
+        // The message, with its colours taken out of the way, in view,
+        // and a tab for each channel.
+        harness.get_by_label("[Chat] Naylhena Sacerdotisa de la calumnia: re");
+        harness.get_by_label("chat");
+        harness.get_by_label("mercenario");
+    }
+
+    #[test]
     fn session_is_logged_when_asked() {
         let dir = std::env::temp_dir().join(format!("muddie-app-log-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
