@@ -3,6 +3,50 @@
 
 use super::*;
 
+/// The gap between two places of a side, which is the edge dragged.
+const EDGE: f32 = 8.0;
+
+/// The way a side is shared: down it for those beside the output, across
+/// it for those above and below.
+struct Along {
+    stacked: bool,
+    full: egui::Rect,
+}
+
+impl Along {
+    fn length(&self) -> f32 {
+        if self.stacked {
+            self.full.height()
+        } else {
+            self.full.width()
+        }
+    }
+
+    fn start(&self) -> f32 {
+        if self.stacked {
+            self.full.top()
+        } else {
+            self.full.left()
+        }
+    }
+
+    /// The part of the side from `at`, `share` long.
+    fn span(&self, at: f32, share: f32) -> egui::Rect {
+        let full = self.full;
+        if self.stacked {
+            egui::Rect::from_min_max(
+                egui::pos2(full.left(), at),
+                egui::pos2(full.right(), at + share),
+            )
+        } else {
+            egui::Rect::from_min_max(
+                egui::pos2(at, full.top()),
+                egui::pos2(at + share, full.bottom()),
+            )
+        }
+    }
+}
+
 impl Tab {
     /// Draws the panels around the output, which takes what is left.
     /// Each side is one strip that the panels on it share: those beside
@@ -83,11 +127,31 @@ impl Tab {
         side: Side,
         members: &[usize],
     ) -> Option<MapAction> {
-        const GAP: f32 = 8.0;
-        let theme = theme::current();
         let full = ui.max_rect();
-        let stacked = side.is_beside();
-        // The places: each a panel alone, or those of one set of tabs.
+        let along = Along {
+            stacked: side.is_beside(),
+            full,
+        };
+        let places = self.places(members);
+        let length = (along.length() - EDGE * (places.len() - 1) as f32).max(1.0);
+        let weight = |tab: &Self, place: &[usize]| tab.layout.panels[place[0]].weight.max(0.05);
+        let total: f32 = places.iter().map(|place| weight(self, place)).sum();
+        let (mut asked, mut at) = (None, along.start());
+        for (number, place) in places.iter().enumerate() {
+            let share = length * weight(self, place) / total;
+            asked = asked.or(self.place(ui, place, along.span(at, share)));
+            at += share;
+            if let Some(next) = places.get(number + 1) {
+                self.edge(ui, &along, at, (place[0], next[0]), total / length);
+                at += EDGE;
+            }
+        }
+        ui.allocate_rect(full, egui::Sense::hover());
+        asked
+    }
+
+    /// The places of a side: each a panel alone, or those of one set of tabs.
+    fn places(&self, members: &[usize]) -> Vec<Vec<usize>> {
         let mut places: Vec<Vec<usize>> = Vec::new();
         for &index in members {
             let stack = self.layout.panels[index].stack;
@@ -99,100 +163,78 @@ impl Tab {
                 None => places.push(vec![index]),
             }
         }
-        let along = |rect: egui::Rect| if stacked { rect.height() } else { rect.width() };
-        let length = (along(full) - GAP * (places.len() - 1) as f32).max(1.0);
-        let weight = |tab: &Self, place: &[usize]| tab.layout.panels[place[0]].weight.max(0.05);
-        let total: f32 = places.iter().map(|place| weight(self, place)).sum();
-        let mut asked = None;
-        let mut at = if stacked { full.top() } else { full.left() };
-        for (number, place) in places.iter().enumerate() {
-            let share = length * weight(self, place) / total;
-            let rect = if stacked {
-                egui::Rect::from_min_max(
-                    egui::pos2(full.left(), at),
-                    egui::pos2(full.right(), at + share),
-                )
-            } else {
-                egui::Rect::from_min_max(
-                    egui::pos2(at, full.top()),
-                    egui::pos2(at + share, full.bottom()),
-                )
-            };
-            for &index in place {
-                self.panels.rects.push((self.layout.panels[index].id, rect));
-            }
-            ui.painter()
-                .rect_filled(rect, egui::CornerRadius::same(12), theme.background);
-            let inner = rect.shrink2(egui::vec2(14.0, 10.0));
-            let builder = egui::UiBuilder::new()
-                .id_salt(("place", self.layout.panels[place[0]].id))
-                .max_rect(inner)
-                .layout(egui::Layout::top_down(egui::Align::Min));
-            let got = ui.scope_builder(builder, |ui| {
-                ui.set_clip_rect(inner.intersect(ui.clip_rect()));
-                let index = self.panel_header(ui, place);
-                let spec = self.layout.panels[index].clone();
-                self.panel_body(ui, &spec)
-            });
-            asked = asked.or(got.inner);
-            at += share;
-            let Some(next) = places.get(number + 1).map(|next| next[0]) else {
-                continue;
-            };
-            let lead = place[0];
-            // The edge between this place and the next, to trade room.
-            let edge = if stacked {
-                egui::Rect::from_min_max(
-                    egui::pos2(full.left(), at),
-                    egui::pos2(full.right(), at + GAP),
-                )
-            } else {
-                egui::Rect::from_min_max(
-                    egui::pos2(at, full.top()),
-                    egui::pos2(at + GAP, full.bottom()),
-                )
-            };
-            let cursor = if stacked {
-                egui::CursorIcon::ResizeVertical
-            } else {
-                egui::CursorIcon::ResizeHorizontal
-            };
-            let id = ui.make_persistent_id(("panel edge", self.layout.panels[lead].id));
-            let handle = ui
-                .interact(edge, id, egui::Sense::drag())
-                .on_hover_cursor(cursor);
-            handle.widget_info(|| {
-                egui::WidgetInfo::labeled(egui::Role::Splitter, true, tr("Resize"))
-            });
-            if handle.dragged() {
-                let moved = if stacked {
-                    handle.drag_delta().y
-                } else {
-                    handle.drag_delta().x
-                };
-                // Neither gives up its last stretch.
-                let least = total * 48.0 / length;
-                let give = (moved * total / length)
-                    .min(self.layout.panels[next].weight - least)
-                    .max(least - self.layout.panels[lead].weight);
-                self.layout.panels[lead].weight += give;
-                self.layout.panels[next].weight -= give;
-                ui.ctx().set_cursor_icon(cursor);
-            }
-            if handle.hovered() || handle.dragged() {
-                let reach = if stacked {
-                    egui::vec2(18.0, 0.0)
-                } else {
-                    egui::vec2(0.0, 18.0)
-                };
-                let stroke = egui::Stroke::new(3.0, theme.accent);
-                ui.painter()
-                    .line_segment([edge.center() - reach, edge.center() + reach], stroke);
-            }
-            at += GAP;
+        places
+    }
+
+    /// One place on its card: its header, and the panel on show in it.
+    fn place(&mut self, ui: &mut egui::Ui, place: &[usize], rect: egui::Rect) -> Option<MapAction> {
+        for &index in place {
+            self.panels.rects.push((self.layout.panels[index].id, rect));
         }
-        ui.allocate_rect(full, egui::Sense::hover());
-        asked
+        ui.painter().rect_filled(
+            rect,
+            egui::CornerRadius::same(12),
+            theme::current().background,
+        );
+        let inner = rect.shrink2(egui::vec2(14.0, 10.0));
+        let builder = egui::UiBuilder::new()
+            .id_salt(("place", self.layout.panels[place[0]].id))
+            .max_rect(inner)
+            .layout(egui::Layout::top_down(egui::Align::Min));
+        ui.scope_builder(builder, |ui| {
+            ui.set_clip_rect(inner.intersect(ui.clip_rect()));
+            let index = self.panel_header(ui, place);
+            let spec = self.layout.panels[index].clone();
+            self.panel_body(ui, &spec)
+        })
+        .inner
+    }
+
+    /// The edge between two places, dragged to trade room between them;
+    /// neither gives up its last stretch. `scale` turns length into weight.
+    fn edge(
+        &mut self,
+        ui: &mut egui::Ui,
+        along: &Along,
+        at: f32,
+        (lead, next): (usize, usize),
+        scale: f32,
+    ) {
+        let edge = along.span(at, EDGE);
+        let cursor = if along.stacked {
+            egui::CursorIcon::ResizeVertical
+        } else {
+            egui::CursorIcon::ResizeHorizontal
+        };
+        let id = ui.make_persistent_id(("panel edge", self.layout.panels[lead].id));
+        let handle = ui
+            .interact(edge, id, egui::Sense::drag())
+            .on_hover_cursor(cursor);
+        handle.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Splitter, true, tr("Resize")));
+        if handle.dragged() {
+            let moved = if along.stacked {
+                handle.drag_delta().y
+            } else {
+                handle.drag_delta().x
+            };
+            let least = 48.0 * scale;
+            let give = (moved * scale)
+                .min(self.layout.panels[next].weight - least)
+                .max(least - self.layout.panels[lead].weight);
+            self.layout.panels[lead].weight += give;
+            self.layout.panels[next].weight -= give;
+            ui.ctx().set_cursor_icon(cursor);
+        }
+        if handle.hovered() || handle.dragged() {
+            let reach = if along.stacked {
+                egui::vec2(18.0, 0.0)
+            } else {
+                egui::vec2(0.0, 18.0)
+            };
+            let stroke = egui::Stroke::new(3.0, theme::current().accent);
+            ui.painter()
+                .line_segment([edge.center() - reach, edge.center() + reach], stroke);
+        }
     }
 
     /// The names of the panels that share a place, to choose which is on
