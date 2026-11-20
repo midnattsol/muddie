@@ -56,6 +56,8 @@ pub enum Act {
     Panel(u32),
     /// Lets the side panels reach the top and the bottom, or not.
     FullHeight,
+    /// Puts a side away with its panels, or brings it back.
+    Side(super::layout::Side),
     /// Switches to the saved profile of this name and connects.
     Connect(String),
 }

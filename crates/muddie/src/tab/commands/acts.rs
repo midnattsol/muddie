@@ -111,6 +111,9 @@ impl Tab {
             false => tr("Side panels at full height"),
         };
         acts.push(item(height, panels, Act::FullHeight));
+        for (side, out) in self.layout.sides() {
+            acts.push(item(side.toggle_label(out), panels, Act::Side(side)));
+        }
         acts
     }
 
@@ -157,9 +160,14 @@ impl Tab {
                 self.add_panel(kind);
             }
             Act::FullHeight => self.layout.columns_full = !self.layout.columns_full,
+            Act::Side(side) => self.toggle_side(side),
             Act::Panel(id) => {
                 if let Some(panel) = self.layout.panel_mut(id) {
                     panel.visible = !panel.visible;
+                    let (side, shown) = (panel.side, panel.visible);
+                    if shown {
+                        self.layout.reveal(side);
+                    }
                 }
             }
             Act::Connect(name) => {

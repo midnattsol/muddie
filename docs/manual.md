@@ -224,6 +224,12 @@ menu (the three dots). There is no mode to enter to arrange them.
 - Its **menu** has its name, what goes with its kind (the channels for one
   of text, editing the gauges, the areas of the map), hiding it and removing
   it.
+- **A whole side** can be put away and brought back, with its panels as
+  they were, from its button at the top right of the window: a window with
+  that side filled in while it is out. The keys are those of code editors:
+  **Ctrl+B** the left, **Ctrl+Alt+B** the right, **Ctrl+J** the bottom and
+  **Ctrl+Alt+J** the top; **Ctrl+M** shows or hides the map alone. A panel
+  shown or added on a side put away brings the side back.
 - **Side panels at full height**, in the palette, decides who gets the
   corners: with it, the panels beside the output reach the top and the
   bottom of the window.

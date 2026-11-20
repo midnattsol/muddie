@@ -425,3 +425,56 @@ fn a_gauge_is_changed_where_it_is_shown() {
     assert!(app.editor.gauge_here.is_none());
     assert_eq!(app.rules.gauges[0].colour, "red");
 }
+
+#[test]
+fn a_side_is_put_away_with_its_panels_and_brought_back_as_it_was() {
+    use layout::Side;
+    let mut harness = window(None);
+    harness.run_steps(2);
+    let app = harness.state().tab();
+    assert_eq!(
+        app.panel_sides(),
+        [(Side::Bottom, true), (Side::Right, true)]
+    );
+    let map_on_screen = |app: &Tab| {
+        let map = app
+            .layout
+            .panels
+            .iter()
+            .find(|panel| panel.kind == layout::Kind::Map);
+        let id = map.unwrap().id;
+        app.panels.rects.iter().any(|(shown, _)| *shown == id)
+    };
+    assert!(map_on_screen(app));
+    // The button at the top, as it is told to screen readers.
+    harness.get_by_label("Panels at the right").click();
+    harness.run_steps(2);
+    let app = harness.state().tab();
+    assert_eq!(
+        app.panel_sides(),
+        [(Side::Bottom, true), (Side::Right, false)]
+    );
+    assert!(!map_on_screen(app) && !app.map_shown());
+    // Each panel is still as it was: only the side is away.
+    assert!(app.layout.panels.iter().all(|panel| panel.visible));
+    // The keys: Ctrl+Alt+B is the right, not the left as Ctrl+B is.
+    harness.key_press_modifiers(egui::Modifiers::COMMAND | egui::Modifiers::ALT, Key::B);
+    harness.run_steps(2);
+    assert!(map_on_screen(harness.state().tab()));
+    harness.key_press_modifiers(egui::Modifiers::COMMAND, Key::J);
+    harness.run_steps(2);
+    let app = harness.state_mut().tab_mut();
+    assert_eq!(
+        app.panel_sides(),
+        [(Side::Bottom, false), (Side::Right, true)]
+    );
+    // Asked for, a panel on a side put away brings the side back.
+    app.toggle_side(Side::Right);
+    app.set_map_shown(true);
+    assert!(app.layout.hidden == [Side::Bottom]);
+    // It is kept with the rest of the panels.
+    let file = std::env::temp_dir().join(format!("muddie-sides-{}.toml", std::process::id()));
+    app.layout.save(&file).unwrap();
+    assert_eq!(layout::Layout::load(&file).unwrap().hidden, [Side::Bottom]);
+    std::fs::remove_file(&file).unwrap();
+}

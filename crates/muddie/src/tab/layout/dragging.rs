@@ -150,6 +150,7 @@ impl Tab {
             None => 120.0,
         };
         moved.side = side;
+        self.layout.reveal(side);
         moved.weight = 1.0;
         moved.stack = 0;
         let place = onto.as_ref().and_then(|target| {

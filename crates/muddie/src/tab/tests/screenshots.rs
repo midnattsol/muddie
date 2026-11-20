@@ -522,6 +522,15 @@ fn shows_map() {
     if let Some(path) = &path {
         (image.save(path.with_extension("all-areas.png"))).expect("could not write the screenshot");
     }
+    // The panels at the right put away, and back.
+    harness.get_by_label("Panels at the right").click();
+    harness.run_steps(3);
+    let image = harness.render().expect("rendering failed");
+    if let Some(path) = &path {
+        (image.save(path.with_extension("side-away.png"))).expect("could not write the screenshot");
+    }
+    harness.get_by_label("Panels at the right").click();
+    harness.run_steps(3);
     // A third: the menu of the room under the pointer. The map is
     // centred on the player's room, so that is the room it opens on.
     harness.get_by_label("Map view").click_secondary();

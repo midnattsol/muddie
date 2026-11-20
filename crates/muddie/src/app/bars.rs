@@ -26,10 +26,30 @@ impl App {
                 tab.set_view(view);
             }
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                self.main_menu(ui)
+                self.main_menu(ui);
+                ui.add_space(size::GAP_S);
+                self.side_buttons(ui);
             });
         });
         self.palette_field(ui, full);
+    }
+
+    /// A button for each side with panels, to put them away and bring
+    /// them back; laid out from the right, so the last comes first.
+    fn side_buttons(&mut self, ui: &mut Ui) {
+        let tab = &mut self.tabs[self.active];
+        if tab.view() != 0 {
+            return;
+        }
+        for (side, out) in tab.panel_sides().into_iter().rev() {
+            let keys = (SIDE_KEYS.iter())
+                .find(|(known, _)| *known == side)
+                .map(|(_, keys)| ui.ctx().format_shortcut(keys))
+                .unwrap_or_default();
+            if widgets::side_button(ui, side.edge(), out, side.name(), &keys).clicked() {
+                tab.toggle_side(side);
+            }
+        }
     }
 
     /// The field that opens the palette, in the middle of the bar, as

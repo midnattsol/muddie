@@ -61,8 +61,10 @@ impl Tab {
         self.map_asked(asked);
         self.report_panel(ui.ctx());
         // The output takes what the panels leave.
-        let sides =
-            |side| (self.layout.panels.iter()).any(|panel| panel.visible && panel.side == side);
+        let sides = |side| {
+            (self.layout.panels.iter())
+                .any(|panel| self.layout.on_screen(panel) && panel.side == side)
+        };
         let frame = layout::well(
             if sides(layout::Side::Left) { 4 } else { 8 },
             if sides(layout::Side::Right) { 4 } else { 8 },

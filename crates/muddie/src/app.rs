@@ -11,7 +11,7 @@ use crate::i18n::{self, tr, trf};
 use crate::keypad;
 use crate::profile::Profiles;
 use crate::settings::{MudPalette, Settings, ThemeName};
-use crate::tab::{Startup, Tab};
+use crate::tab::{Side, Startup, Tab};
 use crate::theme::{self, Weight, size};
 use crate::widgets;
 
@@ -34,6 +34,23 @@ const SWITCH_VIEW: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, 
 const DEBUG_VIEW: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, egui::Key::D);
 const COMMANDS: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, egui::Key::K);
 const SETTINGS: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, egui::Key::Comma);
+/// Putting away or bringing back the panels of each side, as the side
+/// bars of code editors are.
+const SIDE_KEYS: [(Side, KeyboardShortcut); 4] = {
+    let with_alt = Modifiers::COMMAND.plus(Modifiers::ALT);
+    [
+        (Side::Right, KeyboardShortcut::new(with_alt, egui::Key::B)),
+        (
+            Side::Left,
+            KeyboardShortcut::new(Modifiers::COMMAND, egui::Key::B),
+        ),
+        (Side::Top, KeyboardShortcut::new(with_alt, egui::Key::J)),
+        (
+            Side::Bottom,
+            KeyboardShortcut::new(Modifiers::COMMAND, egui::Key::J),
+        ),
+    ]
+};
 
 pub struct App {
     tabs: Vec<Tab>,
@@ -275,6 +292,12 @@ impl App {
         }
         if pressed(&DEBUG_VIEW) {
             tab.set_view(if tab.view() == 2 { 0 } else { 2 });
+        }
+        // Those with Alt first, as without it would take them too.
+        for (side, keys) in &SIDE_KEYS {
+            if pressed(keys) {
+                tab.toggle_side(*side);
+            }
         }
     }
 

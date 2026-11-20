@@ -45,6 +45,40 @@ impl Side {
     fn is_beside(self) -> bool {
         matches!(self, Self::Left | Self::Right)
     }
+
+    /// What the panels of this side are called, as a whole.
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Left => tr("Panels at the left"),
+            Self::Right => tr("Panels at the right"),
+            Self::Top => tr("Panels at the top"),
+            Self::Bottom => tr("Panels at the bottom"),
+        }
+    }
+
+    /// What putting the side away, or bringing it back, is called.
+    pub fn toggle_label(self, out: bool) -> &'static str {
+        match (self, out) {
+            (Self::Left, true) => tr("Hide the panels at the left"),
+            (Self::Left, false) => tr("Show the panels at the left"),
+            (Self::Right, true) => tr("Hide the panels at the right"),
+            (Self::Right, false) => tr("Show the panels at the right"),
+            (Self::Top, true) => tr("Hide the panels at the top"),
+            (Self::Top, false) => tr("Show the panels at the top"),
+            (Self::Bottom, true) => tr("Hide the panels at the bottom"),
+            (Self::Bottom, false) => tr("Show the panels at the bottom"),
+        }
+    }
+
+    /// The picture of its button: a window with this side marked.
+    pub fn edge(self) -> widgets::Edge {
+        match self {
+            Self::Left => widgets::Edge::Left,
+            Self::Right => widgets::Edge::Right,
+            Self::Top => widgets::Edge::Top,
+            Self::Bottom => widgets::Edge::Bottom,
+        }
+    }
 }
 
 /// A panel as it is kept.
@@ -92,6 +126,10 @@ pub struct Layout {
     /// the other way round.
     #[serde(default)]
     pub columns_full: bool,
+    /// The sides put away for now, with their panels as they were, to be
+    /// brought back as they are.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub hidden: Vec<Side>,
     #[serde(rename = "panel", default)]
     pub panels: Vec<PanelSpec>,
 }
@@ -114,6 +152,7 @@ impl Default for Layout {
         };
         Self {
             columns_full: false,
+            hidden: Vec::new(),
             panels: vec![
                 panel(1, "Map", Kind::Map, Side::Right, 330.0, false),
                 panel(2, "Gauges", Kind::Gauges, Side::Bottom, 96.0, false),
@@ -169,6 +208,26 @@ impl Layout {
     pub(super) fn has(&self, kind: Kind) -> bool {
         self.panels.iter().any(|panel| panel.kind == kind)
     }
+
+    /// Whether a panel is on screen: shown, on a side not put away.
+    pub(super) fn on_screen(&self, panel: &PanelSpec) -> bool {
+        panel.visible && !self.hidden.contains(&panel.side)
+    }
+
+    /// The sides with panels to show, in the order of their buttons, and
+    /// whether each is out or put away.
+    pub fn sides(&self) -> Vec<(Side, bool)> {
+        [Side::Left, Side::Top, Side::Bottom, Side::Right]
+            .into_iter()
+            .filter(|&side| (self.panels.iter()).any(|panel| panel.visible && panel.side == side))
+            .map(|side| (side, !self.hidden.contains(&side)))
+            .collect()
+    }
+
+    /// Brings a side back, if it was put away.
+    pub(super) fn reveal(&mut self, side: Side) {
+        self.hidden.retain(|hidden| *hidden != side);
+    }
 }
 
 /// What a panel has been given to show.
@@ -203,6 +262,19 @@ impl Channel {
 }
 
 impl Tab {
+    /// The sides with panels to show, and whether each is out.
+    pub fn panel_sides(&self) -> Vec<(Side, bool)> {
+        self.layout.sides()
+    }
+
+    /// Puts a side away with its panels, or brings it back as it was.
+    pub fn toggle_side(&mut self, side: Side) {
+        match self.layout.hidden.contains(&side) {
+            true => self.layout.reveal(side),
+            false => self.layout.hidden.push(side),
+        }
+    }
+
     /// Reads the panels of the profile in use.
     pub(super) fn load_layout(&mut self) {
         let loaded = match &self.profiles {

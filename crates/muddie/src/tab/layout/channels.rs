@@ -165,7 +165,7 @@ impl Tab {
                 .find(|(id, _)| *id == spec.id);
             let on_it =
                 shown.is_none_or(|(_, shown)| shown.is_empty() || shown.eq_ignore_ascii_case(name));
-            hosts && spec.visible && on_it
+            hosts && self.layout.on_screen(spec) && on_it
         })
     }
 

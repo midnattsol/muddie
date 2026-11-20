@@ -58,6 +58,7 @@ use client_commands::{COMMANDS, client_command};
 pub use messages::Notice;
 
 pub use commands::AppRequest;
+pub use layout::Side;
 
 struct Connection {
     commands: UnboundedSender<Command>,

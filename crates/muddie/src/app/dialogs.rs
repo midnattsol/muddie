@@ -10,7 +10,7 @@ impl App {
             &mut self.show_shortcuts,
             size::DIALOG_S,
             |ui| {
-                let groups: [(&str, &[(&str, &str)]); 3] = [
+                let groups: [(&str, &[(&str, &str)]); 4] = [
                     (
                         tr("Typing"),
                         &[
@@ -39,6 +39,16 @@ impl App {
                             ("Ctrl+K", tr("Commands")),
                             ("Ctrl+E", tr("Switch between the game and the editor")),
                             ("Ctrl+D", tr("Show what the MUD sends")),
+                        ],
+                    ),
+                    (
+                        tr("Panels"),
+                        &[
+                            ("Ctrl+M", tr("Show or hide the map")),
+                            ("Ctrl+B", tr("Show or hide the panels at the left")),
+                            ("Ctrl+Alt+B", tr("Show or hide the panels at the right")),
+                            ("Ctrl+J", tr("Show or hide the panels at the bottom")),
+                            ("Ctrl+Alt+J", tr("Show or hide the panels at the top")),
                         ],
                     ),
                 ];

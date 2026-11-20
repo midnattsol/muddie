@@ -65,7 +65,8 @@ impl Tab {
         for side in order {
             let members: Vec<usize> = (0..self.layout.panels.len())
                 .filter(|&index| {
-                    self.layout.panels[index].visible && self.layout.panels[index].side == side
+                    let panel = &self.layout.panels[index];
+                    self.layout.on_screen(panel) && panel.side == side
                 })
                 .collect();
             let Some(&first) = members.first() else {

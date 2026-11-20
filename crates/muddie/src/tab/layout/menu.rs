@@ -75,11 +75,13 @@ impl Tab {
             size,
             ..PanelSpec::default()
         });
+        self.layout.reveal(side);
     }
 
     /// Whether the map has its panel on screen.
     pub fn map_shown(&self) -> bool {
-        (self.layout.panels.iter()).any(|panel| panel.kind == Kind::Map && panel.visible)
+        (self.layout.panels.iter())
+            .any(|panel| panel.kind == Kind::Map && self.layout.on_screen(panel))
     }
 
     /// Shows or hides the map's panel, making one if there is none.
@@ -90,7 +92,13 @@ impl Tab {
             .iter_mut()
             .find(|panel| panel.kind == Kind::Map)
         {
-            Some(panel) => panel.visible = shown,
+            Some(panel) => {
+                panel.visible = shown;
+                let side = panel.side;
+                if shown {
+                    self.layout.reveal(side);
+                }
+            }
             None if shown => {
                 let id = self.layout.next_id();
                 self.layout.panels.push(PanelSpec {
@@ -100,6 +108,7 @@ impl Tab {
                     size: 330.0,
                     ..PanelSpec::default()
                 });
+                self.layout.reveal(PanelSpec::default().side);
             }
             None => {}
         }
