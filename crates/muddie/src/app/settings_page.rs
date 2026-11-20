@@ -153,125 +153,21 @@ fn general_settings(ui: &mut Ui, settings: &mut Settings, languages: &[(String, 
     });
 }
 
-/// The theme, and the typeface of the output with a sample of it.
+/// The theme, and the text of the MUD: its colours, its font, its size and
+/// its spacing, with a sample of it.
 fn appearance_settings(ui: &mut Ui, settings: &mut Settings) {
-    let theme = theme::current();
     widgets::group(ui, |ui| {
         widgets::setting_row(ui, tr("Theme"), &mut |ui| {
-            let name = |theme: ThemeName| match theme {
-                ThemeName::Dark => tr("Dark"),
-                ThemeName::Graphite => tr("Graphite"),
-                ThemeName::Mocha => "Mocha",
-                ThemeName::Dusk => tr("Dusk"),
-                ThemeName::TokyoNight => "Tokyo Night",
-                ThemeName::Nord => "Nord",
-                ThemeName::Light => tr("Light"),
-                ThemeName::Contrast => tr("High contrast"),
-            };
-            let themes = [
-                ThemeName::Dark,
-                ThemeName::Graphite,
-                ThemeName::Mocha,
-                ThemeName::Dusk,
-                ThemeName::TokyoNight,
-                ThemeName::Nord,
-                ThemeName::Light,
-                ThemeName::Contrast,
-            ];
-            crate::widgets::dropdown("theme")
-                .selected_text(name(settings.theme))
-                .width(210.0)
-                .show_ui(ui, |ui| {
-                    for theme in themes {
-                        crate::widgets::choice_value(ui, &mut settings.theme, theme, name(theme));
-                    }
-                })
-                .response
+            theme_choice(ui, &mut settings.theme)
         });
     });
     ui.add_space(6.0);
     widgets::caption(ui, tr("MUD text"));
     widgets::group(ui, |ui| {
         widgets::setting_row(ui, tr("Colours"), &mut |ui| {
-            let name = |palette: MudPalette| match palette {
-                MudPalette::Vivid => tr("Vivid"),
-                MudPalette::Soft => tr("Soft, to go with the theme"),
-                MudPalette::Classic => tr("Classic terminal"),
-            };
-            crate::widgets::dropdown("mud palette")
-                .selected_text(name(settings.mud_palette))
-                .width(260.0)
-                .show_ui(ui, |ui| {
-                    for palette in [MudPalette::Vivid, MudPalette::Soft, MudPalette::Classic] {
-                        crate::widgets::choice_value(
-                            ui,
-                            &mut settings.mud_palette,
-                            palette,
-                            name(palette),
-                        );
-                    }
-                })
-                .response
+            palette_choice(ui, &mut settings.mud_palette)
         });
-        widgets::setting_row(ui, tr("Font"), &mut |ui| {
-            // What the settings hold is a name of ours or a family's.
-            let shown = match settings.font_family.strip_prefix("muddie:") {
-                _ if settings.font_family.is_empty() => theme::DEFAULT_FONT,
-                Some(bundled) => bundled,
-                None => settings.font_family.as_str(),
-            }
-            .to_owned();
-            crate::widgets::dropdown("font")
-                .selected_text(shown)
-                .width(260.0)
-                .height(340.0)
-                .show_ui(ui, |ui| {
-                    let heading = |ui: &mut Ui, text: &str| {
-                        let small = RichText::new(text)
-                            .font(theme::font(Weight::Regular, 11.5))
-                            .color(theme.text_faint);
-                        ui.add(egui::Label::new(small).selectable(false));
-                    };
-                    heading(ui, tr("Bundled"));
-                    if crate::widgets::choice(
-                        ui,
-                        settings.font_family.is_empty(),
-                        theme::DEFAULT_FONT,
-                    )
-                    .clicked()
-                    {
-                        settings.font_family.clear();
-                        settings.font_file.clear();
-                    }
-                    for (name, _) in theme::BUNDLED_FONTS {
-                        let key = theme::bundled_font(name);
-                        if crate::widgets::choice(ui, settings.font_family == key, name).clicked() {
-                            settings.font_family = key;
-                            settings.font_file.clear();
-                        }
-                    }
-                    // The monospaced fonts the system has.
-                    ui.separator();
-                    heading(ui, tr("System fonts"));
-                    let Some(installed) = theme::installed_fonts() else {
-                        // Still going through the system's fonts.
-                        heading(ui, tr("Loading…"));
-                        ui.ctx()
-                            .request_repaint_after(std::time::Duration::from_millis(150));
-                        return;
-                    };
-                    for font in installed {
-                        let chosen = settings.font_family == font.family;
-                        if crate::widgets::choice(ui, chosen, &font.family).clicked() {
-                            // Where it is goes with its name, so that it is
-                            // found at once the next time.
-                            settings.font_family.clone_from(&font.family);
-                            (settings.font_file, settings.font_index) = font.place();
-                        }
-                    }
-                })
-                .response
-        });
+        widgets::setting_row(ui, tr("Font"), &mut |ui| font_choice(ui, settings));
         widgets::setting_row(ui, tr("Size"), &mut |ui| {
             let sizes = (10..=28).map(|size| size as f32);
             pick(ui, "font size", &mut settings.font_size, sizes, |size| {
@@ -289,10 +185,130 @@ fn appearance_settings(ui: &mut Ui, settings: &mut Settings) {
             )
         });
     });
-    // What the output will look like.
+    sample(ui);
+}
+
+/// The theme, among those there are.
+fn theme_choice(ui: &mut Ui, chosen: &mut ThemeName) -> egui::Response {
+    let name = |theme: ThemeName| match theme {
+        ThemeName::Dark => tr("Dark"),
+        ThemeName::Graphite => tr("Graphite"),
+        ThemeName::Mocha => "Mocha",
+        ThemeName::Dusk => tr("Dusk"),
+        ThemeName::TokyoNight => "Tokyo Night",
+        ThemeName::Nord => "Nord",
+        ThemeName::Light => tr("Light"),
+        ThemeName::Contrast => tr("High contrast"),
+    };
+    let themes = [
+        ThemeName::Dark,
+        ThemeName::Graphite,
+        ThemeName::Mocha,
+        ThemeName::Dusk,
+        ThemeName::TokyoNight,
+        ThemeName::Nord,
+        ThemeName::Light,
+        ThemeName::Contrast,
+    ];
+    crate::widgets::dropdown("theme")
+        .selected_text(name(*chosen))
+        .width(210.0)
+        .show_ui(ui, |ui| {
+            for theme in themes {
+                crate::widgets::choice_value(ui, chosen, theme, name(theme));
+            }
+        })
+        .response
+}
+
+/// The colours of the MUD's text, whatever the theme.
+fn palette_choice(ui: &mut Ui, chosen: &mut MudPalette) -> egui::Response {
+    let name = |palette: MudPalette| match palette {
+        MudPalette::Vivid => tr("Vivid"),
+        MudPalette::Soft => tr("Soft, to go with the theme"),
+        MudPalette::Classic => tr("Classic terminal"),
+    };
+    crate::widgets::dropdown("mud palette")
+        .selected_text(name(*chosen))
+        .width(260.0)
+        .show_ui(ui, |ui| {
+            for palette in [MudPalette::Vivid, MudPalette::Soft, MudPalette::Classic] {
+                crate::widgets::choice_value(ui, chosen, palette, name(palette));
+            }
+        })
+        .response
+}
+
+/// The font of the MUD's text: one that comes with Muddie, or one of the
+/// system's monospaced fonts.
+fn font_choice(ui: &mut Ui, settings: &mut Settings) -> egui::Response {
+    // What the settings hold is a name of ours or a family's.
+    let shown = match settings.font_family.strip_prefix("muddie:") {
+        _ if settings.font_family.is_empty() => theme::DEFAULT_FONT,
+        Some(bundled) => bundled,
+        None => settings.font_family.as_str(),
+    }
+    .to_owned();
+    crate::widgets::dropdown("font")
+        .selected_text(shown)
+        .width(260.0)
+        .height(340.0)
+        .show_ui(ui, |ui| {
+            bundled_fonts(ui, settings);
+            ui.separator();
+            system_fonts(ui, settings);
+        })
+        .response
+}
+
+/// A heading among the fonts.
+fn font_heading(ui: &mut Ui, text: &str) {
+    let small = RichText::new(text)
+        .font(theme::font(Weight::Regular, 11.5))
+        .color(theme::current().text_faint);
+    ui.add(egui::Label::new(small).selectable(false));
+}
+
+/// The fonts that come with Muddie.
+fn bundled_fonts(ui: &mut Ui, settings: &mut Settings) {
+    font_heading(ui, tr("Bundled"));
+    if crate::widgets::choice(ui, settings.font_family.is_empty(), theme::DEFAULT_FONT).clicked() {
+        settings.font_family.clear();
+        settings.font_file.clear();
+    }
+    for (name, _) in theme::BUNDLED_FONTS {
+        let key = theme::bundled_font(name);
+        if crate::widgets::choice(ui, settings.font_family == key, name).clicked() {
+            settings.font_family = key;
+            settings.font_file.clear();
+        }
+    }
+}
+
+/// The monospaced fonts the system has, once they have been looked for.
+fn system_fonts(ui: &mut Ui, settings: &mut Settings) {
+    font_heading(ui, tr("System fonts"));
+    let Some(installed) = theme::installed_fonts() else {
+        font_heading(ui, tr("Loading…"));
+        ui.ctx()
+            .request_repaint_after(std::time::Duration::from_millis(150));
+        return;
+    };
+    for font in installed {
+        if crate::widgets::choice(ui, settings.font_family == font.family, &font.family).clicked() {
+            // Where it is goes with its name, so that it is found at once
+            // the next time.
+            settings.font_family.clone_from(&font.family);
+            (settings.font_file, settings.font_index) = font.place();
+        }
+    }
+}
+
+/// What the output will look like.
+fn sample(ui: &mut Ui) {
     let sample = "\x1b[1;32mPlaza Mayor\x1b[0m\nUna plaza amplia con una fuente. Al norte, la \x1b[33mtorre\x1b[0m.\n\x1b[36mSalidas: norte, este, sur\x1b[0m  0O 1lI {}[] <=>\n\x1b[31mrojo \x1b[32mverde \x1b[33mamarillo \x1b[34mazul \x1b[35mmagenta \x1b[36mcian \x1b[37mblanco \x1b[1;30mgris\x1b[0m\n\x1b[1;31mrojo \x1b[1;32mverde \x1b[1;33mamarillo \x1b[1;34mazul \x1b[1;35mmagenta \x1b[1;36mcian \x1b[1;37mblanco\x1b[0m";
     let well = egui::Frame::new()
-        .fill(theme.background)
+        .fill(theme::current().background)
         .corner_radius(CornerRadius::same(12))
         .inner_margin(egui::Margin::symmetric(14, 10));
     well.show(ui, |ui| {
