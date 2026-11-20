@@ -10,6 +10,7 @@ use crate::widgets;
 
 mod channels;
 mod dragging;
+mod folding;
 mod gauges;
 mod menu;
 mod strips;
@@ -46,16 +47,6 @@ impl Side {
         matches!(self, Self::Left | Self::Right)
     }
 
-    /// What the panels of this side are called, as a whole.
-    pub fn name(self) -> &'static str {
-        match self {
-            Self::Left => tr("Panels at the left"),
-            Self::Right => tr("Panels at the right"),
-            Self::Top => tr("Panels at the top"),
-            Self::Bottom => tr("Panels at the bottom"),
-        }
-    }
-
     /// What putting the side away, or bringing it back, is called.
     pub fn toggle_label(self, out: bool) -> &'static str {
         match (self, out) {
@@ -70,7 +61,7 @@ impl Side {
         }
     }
 
-    /// The picture of its button: a window with this side marked.
+    /// The edge of the window it is on.
     pub fn edge(self) -> widgets::Edge {
         match self {
             Self::Left => widgets::Edge::Left,
@@ -216,7 +207,7 @@ impl Layout {
 
     /// The sides with panels to show, in the order of their buttons, and
     /// whether each is out or put away.
-    pub fn sides(&self) -> Vec<(Side, bool)> {
+    pub(super) fn sides(&self) -> Vec<(Side, bool)> {
         [Side::Left, Side::Top, Side::Bottom, Side::Right]
             .into_iter()
             .filter(|&side| (self.panels.iter()).any(|panel| panel.visible && panel.side == side))
@@ -262,13 +253,8 @@ impl Channel {
 }
 
 impl Tab {
-    /// The sides with panels to show, and whether each is out.
-    pub fn panel_sides(&self) -> Vec<(Side, bool)> {
-        self.layout.sides()
-    }
-
     /// Puts a side away with its panels, or brings it back as it was.
-    pub fn toggle_side(&mut self, side: Side) {
+    pub(super) fn toggle_side(&mut self, side: Side) {
         match self.layout.hidden.contains(&side) {
             true => self.layout.reveal(side),
             false => self.layout.hidden.push(side),
@@ -320,6 +306,8 @@ pub(super) struct Panels {
     pub(super) dragged: Option<u32>,
     /// Where each panel was drawn, to drop another before or after it.
     pub(super) rects: Vec<(u32, egui::Rect)>,
+    /// Where each side out was drawn, for the tab on its edge.
+    pub(super) sides: Vec<(Side, egui::Rect)>,
     /// Of the panels that share a place as tabs, by the place: which is
     /// on show; and those that got something while they were not.
     pub(super) shown_tabs: Vec<(u32, u32)>,

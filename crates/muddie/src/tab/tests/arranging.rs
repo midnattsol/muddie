@@ -433,7 +433,7 @@ fn a_side_is_put_away_with_its_panels_and_brought_back_as_it_was() {
     harness.run_steps(2);
     let app = harness.state().tab();
     assert_eq!(
-        app.panel_sides(),
+        app.layout.sides(),
         [(Side::Bottom, true), (Side::Right, true)]
     );
     let map_on_screen = |app: &Tab| {
@@ -446,26 +446,33 @@ fn a_side_is_put_away_with_its_panels_and_brought_back_as_it_was() {
         app.panels.rects.iter().any(|(shown, _)| *shown == id)
     };
     assert!(map_on_screen(app));
-    // The button at the top, as it is told to screen readers.
-    harness.get_by_label("Panels at the right").click();
+    // The tab on its edge, as it is told to screen readers.
+    harness.get_by_label("Hide the panels at the right").click();
     harness.run_steps(2);
     let app = harness.state().tab();
     assert_eq!(
-        app.panel_sides(),
+        app.layout.sides(),
         [(Side::Bottom, true), (Side::Right, false)]
     );
     assert!(!map_on_screen(app) && !app.map_shown());
     // Each panel is still as it was: only the side is away.
     assert!(app.layout.panels.iter().all(|panel| panel.visible));
-    // The keys: Ctrl+Alt+B is the right, not the left as Ctrl+B is.
-    harness.key_press_modifiers(egui::Modifiers::COMMAND | egui::Modifiers::ALT, Key::B);
+    assert!(
+        harness
+            .query_by_label("Hide the panels at the right")
+            .is_none()
+    );
+    // Its rail brings it back.
+    harness.get_by_label("Show the panels at the right").click();
     harness.run_steps(2);
     assert!(map_on_screen(harness.state().tab()));
-    harness.key_press_modifiers(egui::Modifiers::COMMAND, Key::J);
+    harness
+        .get_by_label("Hide the panels at the bottom")
+        .click();
     harness.run_steps(2);
     let app = harness.state_mut().tab_mut();
     assert_eq!(
-        app.panel_sides(),
+        app.layout.sides(),
         [(Side::Bottom, false), (Side::Right, true)]
     );
     // Asked for, a panel on a side put away brings the side back.

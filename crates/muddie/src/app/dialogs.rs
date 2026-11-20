@@ -41,16 +41,7 @@ impl App {
                             ("Ctrl+D", tr("Show what the MUD sends")),
                         ],
                     ),
-                    (
-                        tr("Panels"),
-                        &[
-                            ("Ctrl+M", tr("Show or hide the map")),
-                            ("Ctrl+B", tr("Show or hide the panels at the left")),
-                            ("Ctrl+Alt+B", tr("Show or hide the panels at the right")),
-                            ("Ctrl+J", tr("Show or hide the panels at the bottom")),
-                            ("Ctrl+Alt+J", tr("Show or hide the panels at the top")),
-                        ],
-                    ),
+                    (tr("Panels"), &[("Ctrl+M", tr("Show or hide the map"))]),
                 ];
                 for (title, shortcuts) in groups {
                     widgets::caption(ui, title);

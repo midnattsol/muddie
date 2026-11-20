@@ -21,13 +21,10 @@ pub enum Icon {
     Menu,
     /// A bell: what the client said.
     Bell,
-    /// A window with one side marked: the panels there, filled in while
-    /// they are out.
-    Side(Edge, bool),
 }
 
 /// A side of the window.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Edge {
     Left,
     Right,
@@ -38,28 +35,13 @@ pub enum Edge {
 /// A small button with a picture. `label` says what it does, to screen
 /// readers and on hover; `on` shows it as switched on.
 pub fn icon_button(ui: &mut Ui, icon: Icon, label: &str, on: bool) -> Response {
-    let response = icon_body(ui, icon, label, on, on);
-    response.on_hover_text(label)
-}
-
-/// The button that puts the panels of a side away or brings them back:
-/// its picture says which they are, and whether they are out. `keys` is
-/// its shortcut, shown on hover.
-pub fn side_button(ui: &mut Ui, edge: Edge, out: bool, label: &str, keys: &str) -> Response {
-    let response = icon_body(ui, Icon::Side(edge, out), label, out, false);
-    response.on_hover_text(format!("{label}  {keys}"))
-}
-
-/// A small button with a picture, told to screen readers as `label` and
-/// as switched on with `on`; `marked` gives it the colour of one on.
-fn icon_body(ui: &mut Ui, icon: Icon, label: &str, on: bool, marked: bool) -> Response {
     let theme = theme::current();
     let (rect, response) = ui.allocate_exact_size(Vec2::splat(28.0), Sense::click());
     response.widget_info(|| WidgetInfo::selected(Role::Button, ui.is_enabled(), on, label));
     if ui.is_rect_visible(rect) {
         let painter = ui.painter();
         let hovered = response.hovered() || response.has_focus();
-        if marked {
+        if on {
             painter.rect_filled(
                 rect,
                 CornerRadius::same(7),
@@ -68,14 +50,56 @@ fn icon_body(ui: &mut Ui, icon: Icon, label: &str, on: bool, marked: bool) -> Re
         } else if hovered {
             painter.rect_filled(rect, CornerRadius::same(7), theme.hover);
         }
-        draw_icon(
-            painter,
-            icon,
-            rect.center(),
-            icon_colour(icon, marked, hovered),
-        );
+        draw_icon(painter, icon, rect.center(), icon_colour(icon, on, hovered));
     }
+    response.on_hover_text(label)
+}
+
+/// The tab on the edge between the output and the panels of a side, at
+/// `centre`: its arrow points the way they go, away when they are `out`
+/// and back when they are not.
+pub fn fold_tab(ui: &mut Ui, centre: egui::Pos2, edge: Edge, out: bool, label: &str) -> Response {
+    let theme = theme::current();
+    let (outward, size) = match edge {
+        Edge::Left => (vec2(-1.0, 0.0), vec2(14.0, 36.0)),
+        Edge::Right => (vec2(1.0, 0.0), vec2(14.0, 36.0)),
+        Edge::Top => (vec2(0.0, -1.0), vec2(36.0, 14.0)),
+        Edge::Bottom => (vec2(0.0, 1.0), vec2(36.0, 14.0)),
+    };
+    let rect = egui::Rect::from_center_size(centre, size);
+    let response = ui.interact(
+        rect,
+        ui.make_persistent_id(("fold tab", edge, out)),
+        Sense::click(),
+    );
+    response.widget_info(|| WidgetInfo::labeled(Role::Button, ui.is_enabled(), label));
+    let hovered = response.hovered() || response.has_focus();
+    let (fill, ink) = match hovered {
+        true => (theme.hover, theme.text),
+        false => (theme.raised, theme.text_dim),
+    };
+    let painter = ui.painter();
+    let border = Stroke::new(1.0, theme.border);
+    painter.rect(
+        rect,
+        CornerRadius::same(7),
+        fill,
+        border,
+        egui::StrokeKind::Inside,
+    );
+    // A chevron, its point the way the panels go.
+    let way = if out { outward } else { -outward };
+    let across = vec2(way.y, way.x);
+    let middle = rect.center();
+    let arms = vec![
+        middle - way * 2.0 + across * 3.5,
+        middle + way * 2.0,
+        middle - way * 2.0 - across * 3.5,
+    ];
+    painter.add(egui::Shape::line(arms, Stroke::new(1.5, ink)));
     response
+        .on_hover_cursor(egui::CursorIcon::PointingHand)
+        .on_hover_text(label)
 }
 
 /// The colour an icon is drawn in: running is green and deleting red, as
@@ -123,66 +147,8 @@ fn draw_icon(painter: &egui::Painter, icon: Icon, centre: egui::Pos2, colour: Co
             }
         }
         Icon::Bell => draw_bell(painter, centre, stroke),
-        Icon::Side(edge, out) => draw_side(painter, centre, stroke, edge, out),
         Icon::Trash => draw_trash(painter, centre, stroke),
     }
-}
-
-/// A window, with the band of one side filled in, or only marked off.
-fn draw_side(painter: &egui::Painter, centre: egui::Pos2, stroke: Stroke, edge: Edge, out: bool) {
-    let window = egui::Rect::from_center_size(centre, vec2(16.0, 13.0));
-    let (min, max) = (window.min, window.max);
-    let band = match edge {
-        Edge::Left => egui::Rect::from_min_max(min, egui::pos2(min.x + 5.5, max.y)),
-        Edge::Right => egui::Rect::from_min_max(egui::pos2(max.x - 5.5, min.y), max),
-        Edge::Top => egui::Rect::from_min_max(min, egui::pos2(max.x, min.y + 4.5)),
-        Edge::Bottom => egui::Rect::from_min_max(egui::pos2(min.x, max.y - 4.5), max),
-    };
-    if out {
-        // Rounded where the window is, square where it meets the rest.
-        let (round, square) = (3, 0);
-        let corners = match edge {
-            Edge::Left => CornerRadius {
-                nw: round,
-                sw: round,
-                ne: square,
-                se: square,
-            },
-            Edge::Right => CornerRadius {
-                ne: round,
-                se: round,
-                nw: square,
-                sw: square,
-            },
-            Edge::Top => CornerRadius {
-                nw: round,
-                ne: round,
-                sw: square,
-                se: square,
-            },
-            Edge::Bottom => CornerRadius {
-                sw: round,
-                se: round,
-                nw: square,
-                ne: square,
-            },
-        };
-        painter.rect_filled(band, corners, stroke.color);
-    } else {
-        let line = match edge {
-            Edge::Left => [band.right_top(), band.right_bottom()],
-            Edge::Right => [band.left_top(), band.left_bottom()],
-            Edge::Top => [band.left_bottom(), band.right_bottom()],
-            Edge::Bottom => [band.left_top(), band.right_top()],
-        };
-        painter.line_segment(line, stroke);
-    }
-    painter.rect_stroke(
-        window,
-        CornerRadius::same(3),
-        stroke,
-        egui::StrokeKind::Inside,
-    );
 }
 
 /// A target: a ring, its centre, and four ticks.

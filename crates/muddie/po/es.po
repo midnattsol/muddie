@@ -1567,19 +1567,6 @@ msgstr "Sin cifrar"
 msgid "Font"
 msgstr "Fuente"
 
-
-msgid "Panels at the left"
-msgstr "Paneles de la izquierda"
-
-msgid "Panels at the right"
-msgstr "Paneles de la derecha"
-
-msgid "Panels at the top"
-msgstr "Paneles de arriba"
-
-msgid "Panels at the bottom"
-msgstr "Paneles de abajo"
-
 msgid "Hide the panels at the left"
 msgstr "Ocultar los paneles de la izquierda"
 
@@ -1604,17 +1591,6 @@ msgstr "Ocultar los paneles de abajo"
 msgid "Show the panels at the bottom"
 msgstr "Mostrar los paneles de abajo"
 
-msgid "Show or hide the panels at the left"
-msgstr "Mostrar u ocultar los paneles de la izquierda"
-
-msgid "Show or hide the panels at the right"
-msgstr "Mostrar u ocultar los paneles de la derecha"
-
-msgid "Show or hide the panels at the top"
-msgstr "Mostrar u ocultar los paneles de arriba"
-
-msgid "Show or hide the panels at the bottom"
-msgstr "Mostrar u ocultar los paneles de abajo"
-
 msgid "Show or hide the map"
 msgstr "Mostrar u ocultar el mapa"
+

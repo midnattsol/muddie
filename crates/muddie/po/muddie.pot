@@ -250,18 +250,6 @@ msgstr ""
 msgid "The password could not be read from the keyring: {0}"
 msgstr ""
 
-msgid "Panels at the left"
-msgstr ""
-
-msgid "Panels at the right"
-msgstr ""
-
-msgid "Panels at the top"
-msgstr ""
-
-msgid "Panels at the bottom"
-msgstr ""
-
 msgid "Hide the panels at the left"
 msgstr ""
 
@@ -1403,18 +1391,6 @@ msgid "Show what the MUD sends"
 msgstr ""
 
 msgid "Show or hide the map"
-msgstr ""
-
-msgid "Show or hide the panels at the left"
-msgstr ""
-
-msgid "Show or hide the panels at the right"
-msgstr ""
-
-msgid "Show or hide the panels at the bottom"
-msgstr ""
-
-msgid "Show or hide the panels at the top"
 msgstr ""
 
 #, python-brace-format
