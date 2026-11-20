@@ -507,10 +507,11 @@ impl Tab {
     /// hide it, and the way into the layout mode.
     pub(super) fn panels_menu(&mut self, ui: &mut egui::Ui) {
         for panel in &mut self.layout.panels {
+            let name = panel.shown_name();
             if panel.kind == Kind::Map {
-                widgets::menu_row_with_shortcut(ui, &mut panel.visible, &panel.name, "Ctrl+M");
+                widgets::menu_row_with_shortcut(ui, &mut panel.visible, &name, "Ctrl+M");
             } else {
-                widgets::menu_check(ui, &mut panel.visible, &panel.name);
+                widgets::menu_check(ui, &mut panel.visible, &name);
             }
         }
         if !self.layout.panels.is_empty() {

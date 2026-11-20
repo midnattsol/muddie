@@ -27,28 +27,25 @@ msgstr ""
 msgid "Editor"
 msgstr ""
 
-msgid "Debug"
-msgstr ""
-
 msgid "Close session"
 msgstr ""
 
 msgid "New session"
 msgstr ""
 
+msgid "Menu"
+msgstr ""
+
+msgid "Profile"
+msgstr ""
+
 msgid "Session"
 msgstr ""
 
-msgid "Preferences"
+msgid "Panels"
 msgstr ""
 
 msgid "Settings"
-msgstr ""
-
-msgid "Help"
-msgstr ""
-
-msgid "Commands"
 msgstr ""
 
 msgid "Keyboard shortcuts"
@@ -70,9 +67,6 @@ msgid "Sessions"
 msgstr ""
 
 msgid "Speech"
-msgstr ""
-
-msgid "Plugins"
 msgstr ""
 
 msgid "Typing"
@@ -108,10 +102,13 @@ msgstr ""
 msgid "Reconnect"
 msgstr ""
 
+msgid "Commands"
+msgstr ""
+
 msgid "Switch between the game and the editor"
 msgstr ""
 
-msgid "Switch between the game and the debugging view"
+msgid "Show what the MUD sends"
 msgstr ""
 
 #, python-brace-format
@@ -126,6 +123,19 @@ msgstr ""
 
 #, python-brace-format
 msgid "Could not save the settings: {0}"
+msgstr ""
+
+msgid "Messages"
+msgstr ""
+
+#, python-brace-format
+msgid "Messages, {0} new"
+msgstr ""
+
+msgid "Clear"
+msgstr ""
+
+msgid "Nothing yet."
 msgstr ""
 
 msgid "Language"
@@ -191,16 +201,13 @@ msgstr ""
 msgid "Line spacing"
 msgstr ""
 
-msgid "No map yet: the server has not reported a room."
-msgstr ""
-
-msgid "Map"
-msgstr ""
-
 msgid "Stop walking"
 msgstr ""
 
-msgid "More"
+msgid "Tidy this area"
+msgstr ""
+
+msgid "Where am I?"
 msgstr ""
 
 msgid "Show all areas"
@@ -209,13 +216,7 @@ msgstr ""
 msgid "Avoid this room in routes"
 msgstr ""
 
-msgid "Hide the map"
-msgstr ""
-
-msgid "Tidy this area"
-msgstr ""
-
-msgid "Where am I?"
+msgid "No map yet: the server has not reported a room."
 msgstr ""
 
 msgid "exits"
@@ -258,6 +259,9 @@ msgid "weight"
 msgstr ""
 
 msgid "new"
+msgstr ""
+
+msgid "Search or run a command"
 msgstr ""
 
 msgid "Close"
@@ -315,13 +319,22 @@ msgstr ""
 msgid "Disconnect"
 msgstr ""
 
-msgid "Connection"
-msgstr ""
-
 msgid "Log this session"
 msgstr ""
 
 msgid "Find"
+msgstr ""
+
+msgid "Connection"
+msgstr ""
+
+msgid "Plugins"
+msgstr ""
+
+msgid "Profile name"
+msgstr ""
+
+msgid "Save profile"
 msgstr ""
 
 msgid "Server"
@@ -348,22 +361,31 @@ msgstr ""
 msgid "Character"
 msgstr ""
 
-msgid "Password"
+msgid "Leave empty to keep it"
 msgstr ""
 
-msgid "unchanged"
+msgid "Password"
 msgstr ""
 
 msgid "Kept in the system's keyring when the profile is saved."
 msgstr ""
 
-msgid "Profile"
+msgid "No profile"
 msgstr ""
 
-msgid "Profile name"
+msgid "Say"
 msgstr ""
 
-msgid "Save profile"
+msgid "Play a sound"
+msgstr ""
+
+msgid "Colour the match"
+msgstr ""
+
+msgid "Hide the line"
+msgstr ""
+
+msgid "Show it in the panel"
 msgstr ""
 
 msgid "Resize"
@@ -388,6 +410,9 @@ msgid "Variables"
 msgstr ""
 
 msgid "Scripts"
+msgstr ""
+
+msgid "Incoming data"
 msgstr ""
 
 msgid "Reload all"
@@ -453,6 +478,16 @@ msgstr ""
 msgid "off"
 msgstr ""
 
+msgid "Deleted."
+msgstr ""
+
+#, python-brace-format
+msgid "Deleted {0}."
+msgstr ""
+
+msgid "Undo"
+msgstr ""
+
 msgid "Scripts of your own are kept per profile: save or choose a profile first."
 msgstr ""
 
@@ -499,6 +534,12 @@ msgstr ""
 msgid "When"
 msgstr ""
 
+msgid "Contains"
+msgstr ""
+
+msgid "Regular expression"
+msgstr ""
+
 msgid "A line matches this regular expression"
 msgstr ""
 
@@ -508,7 +549,16 @@ msgstr ""
 msgid "tells you"
 msgstr ""
 
-msgid "Regular expression"
+msgid "Paste a line from the MUD to try it"
+msgstr ""
+
+msgid "runs the script"
+msgstr ""
+
+msgid "sends"
+msgstr ""
+
+msgid "says"
 msgstr ""
 
 msgid "One command per line. %1, %2… are the groups of the pattern."
@@ -520,43 +570,20 @@ msgstr ""
 msgid "Also"
 msgstr ""
 
-msgid "Say"
+#, python-brace-format
+msgid "Remove “{0}”"
 msgstr ""
 
 msgid "%1 is here"
 msgstr ""
 
-msgid "Play a sound"
+msgid "Choose a panel"
 msgstr ""
 
-msgid "Colour the match"
+msgid "With the line hidden, it is only in the panel."
 msgstr ""
 
-msgid "Hide the line"
-msgstr ""
-
-msgid "Show it in the panel"
-msgstr ""
-
-msgid "None"
-msgstr ""
-
-msgid "With the line hidden, it is only in the panel. Panels are made in Preferences, Edit the layout."
-msgstr ""
-
-msgid "Try it"
-msgstr ""
-
-msgid "Paste a line from the MUD"
-msgstr ""
-
-msgid "runs the script"
-msgstr ""
-
-msgid "sends"
-msgstr ""
-
-msgid "says"
+msgid "+ Add an action"
 msgstr ""
 
 msgid "Name this alias"
@@ -574,6 +601,9 @@ msgstr ""
 msgid "m holds the match, input what was typed."
 msgstr ""
 
+msgid "Try it"
+msgstr ""
+
 msgid "Type a command"
 msgstr ""
 
@@ -584,6 +614,9 @@ msgid "Key"
 msgstr ""
 
 msgid "Press the key…"
+msgstr ""
+
+msgid "None"
 msgstr ""
 
 msgid "Cancel"
@@ -807,6 +840,15 @@ msgstr ""
 msgid "Chat"
 msgstr ""
 
+msgid "Map"
+msgstr ""
+
+msgid "Channels"
+msgstr ""
+
+msgid "Panel"
+msgstr ""
+
 #, python-brace-format
 msgid "Could not load the panels: {0}"
 msgstr ""
@@ -815,47 +857,18 @@ msgstr ""
 msgid "Could not save the panels: {0}"
 msgstr ""
 
-msgid "Channels"
-msgstr ""
-
 msgid "All"
-msgstr ""
-
-msgid "Edit the layout"
-msgstr ""
-
-msgid "Editing the layout"
-msgstr ""
-
-msgid "Drag a panel by its handle to another side, and its edge to size it."
-msgstr ""
-
-msgid "Done"
-msgstr ""
-
-msgid "Side panels reach the top and the bottom"
-msgstr ""
-
-msgid "Full-height sides"
-msgstr ""
-
-msgid "Add a panel"
-msgstr ""
-
-msgid "Lines sent to it by triggers and scripts"
-msgstr ""
-
-msgid "The map of where you are"
-msgstr ""
-
-msgid "Bars that follow your health and the like"
-msgstr ""
-
-msgid "Panel"
 msgstr ""
 
 #, python-brace-format
 msgid "Move {0}"
+msgstr ""
+
+#, python-brace-format
+msgid "{0} options"
+msgstr ""
+
+msgid "Place"
 msgstr ""
 
 msgid "At the left"
@@ -891,11 +904,36 @@ msgstr ""
 msgid "Show the MUD's channels here"
 msgstr ""
 
+msgid "Edit the gauges"
+msgstr ""
+
+msgid "Full-height sides"
+msgstr ""
+
+msgid "Side panels reach the top and the bottom"
+msgstr ""
+
+#, python-brace-format
+msgid "Hide {0}"
+msgstr ""
+
 #, python-brace-format
 msgid "Remove {0}"
 msgstr ""
 
-msgid "Edit the gauges"
+msgid "Add a text panel"
+msgstr ""
+
+msgid "Lines sent to it by triggers and scripts"
+msgstr ""
+
+msgid "Add the map"
+msgstr ""
+
+msgid "The map of where you are"
+msgstr ""
+
+msgid "Bars that follow your health and the like"
 msgstr ""
 
 msgid "No gauges here yet."
@@ -910,7 +948,23 @@ msgstr ""
 msgid "Done."
 msgstr ""
 
+msgid "Go to"
+msgstr ""
+
+msgid "Help"
+msgstr ""
+
+#, python-brace-format
+msgid "Show {0}"
+msgstr ""
+
+msgid "Connect to profile"
+msgstr ""
+
 msgid "Choose one, or type a command"
+msgstr ""
+
+msgid "Go to, open or run anything"
 msgstr ""
 
 msgid "Protocols"
@@ -935,12 +989,6 @@ msgid "This MUD offers neither GMCP nor MSDP: all it sends is text, and what it 
 msgstr ""
 
 msgid "Record in the background"
-msgstr ""
-
-msgid "Clear"
-msgstr ""
-
-msgid "Incoming data"
 msgstr ""
 
 msgid "No data received since this view was opened."
@@ -1313,6 +1361,9 @@ msgid "It is drawn as you walk, if the MUD says which room you are in. If yours 
 msgstr ""
 
 msgid "Set up a mapper"
+msgstr ""
+
+msgid "Hide the map"
 msgstr ""
 
 msgid "Command"

@@ -339,9 +339,13 @@ const CONTRAST: Theme = Theme {
     ],
 };
 
+/// The contrast text must have with what is behind it to be read: the
+/// least the accessibility guidelines ask for text of ordinary size.
+pub const READABLE: f32 = 4.5;
+
 impl Theme {
     pub fn named(name: ThemeName) -> Self {
-        match name {
+        let mut theme = match name {
             ThemeName::Dark => DARK,
             ThemeName::Mocha => MOCHA,
             ThemeName::Dusk => DUSK,
@@ -350,7 +354,16 @@ impl Theme {
             ThemeName::Graphite => GRAPHITE,
             ThemeName::Light => LIGHT,
             ThemeName::Contrast => CONTRAST,
+        };
+        // Secondary text and hints are text too: each is moved only as far
+        // as it takes to be read on every ground it is shown on.
+        let grounds = [theme.background, theme.surface, theme.field, theme.raised];
+        for colour in [&mut theme.text_dim, &mut theme.text_faint] {
+            for ground in grounds {
+                *colour = crate::palette::legible(*colour, ground, READABLE);
+            }
         }
+        theme
     }
 }
 
@@ -734,4 +747,46 @@ fn finish(
 ) -> Result<(), String> {
     ctx.set_fonts(fonts);
     result
+}
+
+#[cfg(test)]
+mod readable_tests {
+    use super::*;
+    use crate::palette::contrast;
+
+    #[test]
+    fn every_text_can_be_read_on_every_ground_of_every_theme() {
+        let names = [
+            ThemeName::Dark,
+            ThemeName::Mocha,
+            ThemeName::Dusk,
+            ThemeName::TokyoNight,
+            ThemeName::Nord,
+            ThemeName::Graphite,
+            ThemeName::Light,
+            ThemeName::Contrast,
+        ];
+        for name in names {
+            let theme = Theme::named(name);
+            let grounds = [theme.background, theme.surface, theme.field, theme.raised];
+            for (what, colour) in [
+                ("text", theme.text),
+                ("text_dim", theme.text_dim),
+                ("text_faint", theme.text_faint),
+            ] {
+                for ground in grounds {
+                    let measured = contrast(colour, ground);
+                    assert!(
+                        measured >= READABLE - 0.01,
+                        "{name:?} {what}: {measured:.2} on {ground:?}"
+                    );
+                }
+            }
+            // And the hints are still fainter than the secondary text.
+            assert!(
+                contrast(theme.text_faint, theme.surface)
+                    <= contrast(theme.text_dim, theme.surface)
+            );
+        }
+    }
 }

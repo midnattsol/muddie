@@ -11,20 +11,37 @@ muddie --profile NAME                load a saved profile and connect
 `--speech` turns speech on, `--script FILE` runs an extra script (it can be
 repeated), and `--insecure` accepts a self-signed TLS certificate.
 
+## The window
+
+At the top, the **menu** (the three lines), the **profile** the session
+plays with, the field that opens the **palette**, and at the right the two
+views of a session: **Game** and **Editor** (Ctrl+E). At the bottom, the
+sessions as tabs, what the one on screen is doing, and the **bell** of the
+messages the client has given in it, marked while some are new: what was
+said for a moment, such as the answer of a command, can be read there again.
+
+The palette, **Ctrl+K**, reaches everything: type a few letters of what you
+want, such as `timers`, `map`, `theme` or the name of a profile, and press
+Enter. It goes to the views and the sections of the editor, opens the
+settings at the part wanted, shows and hides panels, adds them, connects to
+a profile, and runs the commands of the client. Everything the menu does is
+in it.
+
 ## Sessions and profiles
 
 Each session has its own connection, scripts and map. The sessions are the
 tabs along the bottom of the window, each with a dot that is green while it is
-connected. The `+` beside them, or **Session > New session**, opens another;
+connected. The `+` beside them, or **New session** in the menu, opens another;
 sessions in the background keep running and mark their tab when something
 arrives.
 
 A new session opens on a welcome screen. Type an address such as
 `mud.example.org:4000` and press Enter to connect, or pick one of your saved
-profiles below it. **More options** there,
-or **Session > Connection**, opens the window with everything about a
-connection: host, port, TLS, text encoding, and the character to log in as.
-Type a profile name and press **Save profile** to keep it. A profile also has its own scripts, triggers, map and remembered values,
+profiles below it. **More options** there, or the profile's name at the top
+of the window, opens the **profile**'s window: its name, the host, port, TLS
+and text encoding, the character to log in as, and on its second page the
+profile's plugins. Press **Save profile** to keep it. It can be opened while
+connected: what is changed takes effect with **Reconnect**. A profile also has its own scripts, triggers, map and remembered values,
 all under `profiles/<name>/` in the configuration folder (`~/.config/muddie`
 on Linux, `%APPDATA%\muddie` on Windows).
 
@@ -164,41 +181,39 @@ They are saved in the profile's `rules.toml`. For anything more, see
 
 Around the output there can be panels: the map, the gauges, and panels of
 text. A profile starts with one for the MUD's channels above, the map at the
-right and the gauges below. **Preferences** lists them, each to show or hide.
+right and the gauges below.
 
-**Preferences > Edit the layout** is where they are made and placed, on the game
-itself:
+Every panel has a header: six dots to drag it by, its name (or the names of
+the panels that share its place, as tabs), the tools of its kind, and its
+menu (the three dots). There is no mode to enter to arrange them.
 
-- **Add a panel** makes one: of text, the map, or gauges. There is one map;
-  of the others, as many as wanted.
-- Drag a panel by its handle (the six dots) to another side of the window, or
-  press one of the four small pictures beside its name. Drag its edge to size
-  it.
-- Several panels can share a side: those beside the output are stacked, those
-  above or below it stand in a row. Drop a panel on the upper or lower half of
-  another (the left or right half, above and below the output) to put it
-  before or after it, and drag the edge between two to give one more room.
-  The dots beside the name move it too, for those who would rather not drag.
-- Panels can share one place as **tabs**, with their names along its top to
-  choose between them: drop a panel on the middle of another, or use the
-  dots. A tab that gets something while another is on show has a dot.
-- **Full-height sides** decides who gets the corners: with it, the panels beside
-  the output reach the top and the bottom of the window, and those above
-  and below fit between them.
-- Its name can be changed there, and the cross removes it.
-- **Done**, or Escape, leaves the layout mode. The layout is kept with the
-  profile.
+- **Drag** a panel by its dots to another side of the window, or to another
+  panel: on its upper or lower half (left or right, above and below the
+  output) to go before or after it, on its middle to share its place as a
+  tab. Drag the edge between two panels, or between a panel and the output,
+  to size them.
+- Its **menu** has the rest, for those who would rather not drag: its name,
+  the side it goes on, moving it before or after its neighbour, sharing the
+  place of the one before as tabs or leaving them, what goes with its kind,
+  hiding it, and removing it. **Full-height sides** there decides who gets
+  the corners: with it, the panels beside the output reach the top and the
+  bottom of the window.
+- Panels are **added** from the menu, under Panels, or the palette: of text,
+  the map, or gauges. There is one map; of the others, as many as wanted.
+  The menu lists them all too, each to show or hide.
+- A tab that gets something while another is on show is marked.
+
+The layout is kept with the profile.
 
 What a panel of text shows comes from elsewhere. A trigger can show the lines
 it matches in a panel, and hide them from the output so that they are only
 there: that is how tells, or combat, get a panel of their own. A script can
 write to one with `panel_add(name, text)`, or put a whole text in it with
 `panel(name, text)`. A panel can also be told to show the MUD's channels,
-from the dots beside its name in the layout mode.
+from its menu.
 
 The **gauges** are made and changed in the editor, under **Gauges**; the
-dots at the corner of a panel of gauges and **Preferences > Gauges** lead
-there. Each gauge says which panel it is shown in, so that yours can be below
+menu of a panel of gauges, and the palette, lead there. Each gauge says which panel it is shown in, so that yours can be below
 and an enemy's beside the map, and they are shown in the order of the
 editor's list: drag one there, or press Alt+Up or Alt+Down, to move it. A gauge
 follows something the MUD reports, and is one of these kinds:
@@ -210,7 +225,7 @@ follows something the MUD reports, and is one of these kinds:
 
 Say where the value is, and the maximum for those that have one: a GMCP
 package and the fields inside it (`Char.Vitals.health.current`), or the name
-of a MSDP variable; **Debug** shows what there is. Choose its colour, and for
+of a MSDP variable; **Incoming data**, in the editor, shows what there is. Choose its colour, and for
 those with a maximum the colours it takes as it gets low: yellow under 60 %,
 red under 30 %, as many levels as wanted, kept in order. A light can have a
 colour for when it is off as well, to say which of two things is so: red for
@@ -219,7 +234,7 @@ poisoned, green for not. Alt+0 reads the gauges aloud.
 ### Plugins that come with Muddie
 
 Muddie itself knows the ways of no MUD in particular: those are plugins, in
-**Settings > Plugins**, switched on and off per profile like the ones you
+the **profile**'s window, on its Plugins page, switched on and off per profile like the ones you
 install. Two come with it.
 
 - **Common GMCP and MSDP** makes something of what many MUDs send the same
@@ -240,7 +255,7 @@ What is said on the channels of a MUD (chat, guild, tells...) goes to the
 panel of channels, the one called Chat at first. It has a tab for each
 channel, and one for all of them together; a tab turns yellow, with a dot,
 when something is said on it that you have not looked at. Any text panel can
-be one of channels: **Show the MUD's channels here**, in the layout mode.
+be one of channels: **Show the MUD's channels here**, in its menu.
 
 A MUD that sends its channels the usual way over GMCP (`Comm.Channel.Text`)
 fills them by itself. For one that does it its own way, a script says which
@@ -254,10 +269,10 @@ made. So the public channels can be in one panel and whispers in another,
 each with its own tabs. The panels go by their names: one renamed is another
 panel to the script.
 
-## Debugging: what the MUD sends
+## Incoming data: what the MUD sends
 
-**Debug**, beside Game and Editor at the right of the top bar (Ctrl+D),
-shows what the MUD sends besides text, with GMCP or MSDP, as it comes: each
+**Incoming data**, the last section of the editor (Ctrl+D goes straight to
+it), shows what the MUD sends besides text, with GMCP or MSDP, as it comes: each
 package or variable with its values one by one, the message as it came, and
 those before it. It is where to look before making a gauge or writing a
 script. **Copy the path** takes what leads to a value, such as
@@ -342,7 +357,7 @@ whole.
 
 ## What a MUD can do: the protocols
 
-Muddie agrees with a MUD on what both can do when it connects; **Debug** shows
+Muddie agrees with a MUD on what both can do when it connects; **Incoming data** shows
 what was agreed. Nothing here needs setting up.
 
 - **GMCP**, **MSDP**, **MSSP**: data beside the text, which gauges, the map
@@ -368,7 +383,8 @@ what was agreed. Nothing here needs setting up.
 
 ## Settings
 
-**Preferences > Settings**, in sections:
+**Settings**, in the menu (Ctrl+,), are Muddie's own, for every profile, in
+sections:
 
 - **General**: the language, and the size the interface is drawn at.
 - **Appearance**: the theme (Dark, Graphite, Mocha, Dusk, Tokyo Night, Nord,
@@ -380,10 +396,12 @@ what was agreed. Nothing here needs setting up.
 - **Sessions**: whether a sent command stays in the command line, logging,
   reconnection, keep-alive.
 - **Speech**: rate, language, screen reader.
-- **Plugins**: sets of scripts made by others. Install one from the address
-  of its git repository; each has a switch that enables it in the profile of
-  the session, and can be updated or removed. Only install what you trust: a
-  plugin can send commands as you.
+
+What is a profile's own is in the **profile**'s window instead: its
+connection, and its **plugins**, sets of scripts made by others. Install one
+from the address of its git repository; each has a switch that enables it in
+that profile, and can be updated or removed. Only install what you trust: a
+plugin can send commands as you.
 
 They are saved in `settings.toml`.
 

@@ -82,14 +82,14 @@ fn luminance(colour: Color32) -> f32 {
 }
 
 /// The contrast between two colours, from 1 (none) to 21.
-fn contrast(a: Color32, b: Color32) -> f32 {
+pub(crate) fn contrast(a: Color32, b: Color32) -> f32 {
     let (a, b) = (luminance(a), luminance(b));
     (a.max(b) + 0.05) / (a.min(b) + 0.05)
 }
 
 /// `colour`, moved away from `behind` towards white or black only as far
 /// as it takes to stand out from it by `wanted`.
-fn legible(colour: Color32, behind: Color32, wanted: f32) -> Color32 {
+pub(crate) fn legible(colour: Color32, behind: Color32, wanted: f32) -> Color32 {
     if contrast(colour, behind) >= wanted {
         return colour;
     }
