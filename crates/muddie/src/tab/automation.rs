@@ -24,7 +24,6 @@ use crate::theme::Weight;
 use crate::widgets;
 use detail::*;
 use scripts::EXAMPLES;
-use undo::Undone;
 use variables::{TYPES, kind_of, shown_value};
 
 /// The sections of the window, in the order of the sidebar.

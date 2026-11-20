@@ -237,31 +237,10 @@ impl Tab {
         }
         let section = self.editor.section;
         let index = self.editor.selected[section];
-        let count = self.automation_rows().len();
-        if index >= count {
+        if index >= self.automation_rows().len() {
             ui.add_space(60.0);
-            let hint = match section {
-                TRIGGERS => tr(
-                    "A trigger reacts to what the MUD sends:\nit can answer, speak, play a sound, colour or hide the line.",
-                ),
-                ALIASES => {
-                    tr("An alias turns a short command you type\ninto the commands you mean.")
-                }
-                MACROS => tr("A macro sends commands at the press of a key."),
-                TIMERS => tr("A timer does something after a while,\nonce or again and again."),
-                GAUGES => tr(
-                    "A gauge shows something the MUD reports: a bar for your health,\na light for whether you are poisoned, a number for your gold.",
-                ),
-                VARIABLES => tr(
-                    "A variable is a value with a name, kept from one session to the next:\nwho you are hunting, what you carry, how many you have killed.",
-                ),
-                _ => tr(
-                    "Scripts are Luau code that is always loaded: what no rule can do,\nsuch as building the map or acting on what your MUD reports.",
-                ),
-            };
-            ui.vertical_centered(|ui| {
-                ui.label(RichText::new(hint).color(theme::current().text_faint))
-            });
+            let hint = RichText::new(empty_hint(section)).color(theme::current().text_faint);
+            ui.vertical_centered(|ui| ui.label(hint));
             return;
         }
         ui.spacing_mut().item_spacing.y = 10.0;
@@ -275,70 +254,32 @@ impl Tab {
             _ => self.script_detail(ui, index),
         };
         if delete {
-            // What is deleted can be had back, for a while.
-            let title = (self.automation_rows().get(index))
-                .map(|row| row.0.clone())
-                .unwrap_or_default();
-            self.editor.undo = Some(Undo {
-                title,
-                section,
-                index,
-                what: match section {
-                    VARIABLES => {
-                        let all = self.scripts.variables();
-                        match all.get(index) {
-                            Some((name, value)) => Undone::Variable(name.clone(), value.clone()),
-                            None => Undone::Nothing,
-                        }
-                    }
-                    SCRIPTS => {
-                        let path = self.editor.script_files[index].clone();
-                        let code = std::fs::read_to_string(&path).unwrap_or_default();
-                        Undone::Script(path, code)
-                    }
-                    _ => Undone::Rules(self.editor.draft.clone()),
-                },
-                since: Instant::now(),
-            });
-            let draft = &mut self.editor.draft;
-            match section {
-                TRIGGERS => drop(draft.triggers.remove(index)),
-                ALIASES => drop(draft.aliases.remove(index)),
-                MACROS => drop(draft.keys.remove(index)),
-                TIMERS => drop(draft.timers.remove(index)),
-                GAUGES => {
-                    // Take it off the screen too.
-                    let gone = draft.gauges.remove(index);
-                    self.gauges.set(gone.shown_name(), None);
-                }
-                VARIABLES => {
-                    if let Some((name, _)) = self.scripts.variables().get(index) {
-                        let forgotten = self.scripts.set_variable(name, None);
-                        if let Err(error) = forgotten {
-                            self.note(&error);
-                        }
-                    }
-                    self.editor.variable_loaded = None;
-                }
-                _ => {
-                    let path = self.editor.script_files[index].clone();
-                    self.editor.script_loaded = None;
-                    self.editor.script_settle.clear();
-                    if let Err(error) = std::fs::remove_file(&path) {
-                        self.note(&trf(
-                            "Could not delete the script: {0}",
-                            &[&error.to_string()],
-                        ));
-                    }
-                    self.list_scripts();
-                    // What it made goes with it; the others stay.
-                    self.scripts.unload_file(&path);
-                    self.run_actions();
-                }
-            }
+            self.keep_for_undo(section, index);
+            self.remove_entry(section, index);
             self.editor.selected[section] = index.saturating_sub(1);
             self.editor.recording_key = false;
         }
+    }
+}
+
+/// What a section is for, said while nothing in it is chosen.
+fn empty_hint(section: usize) -> &'static str {
+    match section {
+        TRIGGERS => tr(
+            "A trigger reacts to what the MUD sends:\nit can answer, speak, play a sound, colour or hide the line.",
+        ),
+        ALIASES => tr("An alias turns a short command you type\ninto the commands you mean."),
+        MACROS => tr("A macro sends commands at the press of a key."),
+        TIMERS => tr("A timer does something after a while,\nonce or again and again."),
+        GAUGES => tr(
+            "A gauge shows something the MUD reports: a bar for your health,\na light for whether you are poisoned, a number for your gold.",
+        ),
+        VARIABLES => tr(
+            "A variable is a value with a name, kept from one session to the next:\nwho you are hunting, what you carry, how many you have killed.",
+        ),
+        _ => tr(
+            "Scripts are Luau code that is always loaded: what no rule can do,\nsuch as building the map or acting on what your MUD reports.",
+        ),
     }
 }
 

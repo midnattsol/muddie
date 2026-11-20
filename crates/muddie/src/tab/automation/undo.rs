@@ -87,4 +87,74 @@ impl Tab {
             self.undo_delete();
         }
     }
+
+    /// Keeps what is about to be deleted, to have it back for a while.
+    pub(in crate::tab) fn keep_for_undo(&mut self, section: usize, index: usize) {
+        let title = (self.automation_rows().get(index))
+            .map(|row| row.0.clone())
+            .unwrap_or_default();
+        let what = match section {
+            VARIABLES => match self.scripts.variables().get(index) {
+                Some((name, value)) => Undone::Variable(name.clone(), value.clone()),
+                None => Undone::Nothing,
+            },
+            SCRIPTS => {
+                let path = self.editor.script_files[index].clone();
+                let code = std::fs::read_to_string(&path).unwrap_or_default();
+                Undone::Script(path, code)
+            }
+            _ => Undone::Rules(self.editor.draft.clone()),
+        };
+        self.editor.undo = Some(Undo {
+            title,
+            section,
+            index,
+            what,
+            since: Instant::now(),
+        });
+    }
+
+    /// Deletes an entry of a section: a rule, a gauge, which is taken off
+    /// the screen too, a variable, or a script, with what it made.
+    pub(in crate::tab) fn remove_entry(&mut self, section: usize, index: usize) {
+        let draft = &mut self.editor.draft;
+        match section {
+            TRIGGERS => drop(draft.triggers.remove(index)),
+            ALIASES => drop(draft.aliases.remove(index)),
+            MACROS => drop(draft.keys.remove(index)),
+            TIMERS => drop(draft.timers.remove(index)),
+            GAUGES => {
+                let gone = draft.gauges.remove(index);
+                self.gauges.set(gone.shown_name(), None);
+            }
+            VARIABLES => self.forget_variable(index),
+            _ => self.delete_script(index),
+        }
+    }
+
+    /// Forgets a variable.
+    fn forget_variable(&mut self, index: usize) {
+        if let Some((name, _)) = self.scripts.variables().get(index)
+            && let Err(error) = self.scripts.set_variable(name, None)
+        {
+            self.note(&error);
+        }
+        self.editor.variable_loaded = None;
+    }
+
+    /// Deletes a script's file; what it made goes with it, the others stay.
+    fn delete_script(&mut self, index: usize) {
+        let path = self.editor.script_files[index].clone();
+        self.editor.script_loaded = None;
+        self.editor.script_settle.clear();
+        if let Err(error) = std::fs::remove_file(&path) {
+            self.note(&trf(
+                "Could not delete the script: {0}",
+                &[&error.to_string()],
+            ));
+        }
+        self.list_scripts();
+        self.scripts.unload_file(&path);
+        self.run_actions();
+    }
 }
