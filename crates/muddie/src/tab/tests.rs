@@ -896,7 +896,9 @@ fn a_variable_is_edited_as_its_type() {
 #[ignore = "a measurement, not a check"]
 fn frame_costs() {
     let cost = |harness: &mut Harness<'_, App>, what: &str| {
-        harness.run_steps(3);
+        // Once what a burst of text left to be measured has been: that is
+        // done a share a frame, and is not what a frame costs after.
+        harness.run_steps(90);
         let started = Instant::now();
         for _ in 0..30 {
             harness.step();
