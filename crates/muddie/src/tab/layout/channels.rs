@@ -25,74 +25,17 @@ impl Tab {
     pub(in crate::tab) fn channel_said(&mut self, name: &str, panel: &str, lines: Vec<Line>) {
         let (name, panel) = (name.trim(), panel.trim());
         if panel.is_empty() {
-            // With nowhere to show the channels, they are given a panel:
-            // one that is hidden is somewhere, and is left as it is.
-            if !self.layout.panels.iter().any(|panel| panel.channels) {
-                let id = self.layout.next_id();
-                let taken = |name: &str| self.layout.panels.iter().any(|panel| panel.name == name);
-                // Under the map, as the last of those at its side.
-                let name = ["Channels", "Channels 2", "Channels 3"]
-                    .into_iter()
-                    .find(|name| !taken(name))
-                    .unwrap_or("Channels");
-                let side = (self.layout.panels.iter())
-                    .find(|panel| panel.kind == Kind::Map)
-                    .map_or(Side::Right, |map| map.side);
-                let size = (self.layout.panels.iter())
-                    .find(|panel| panel.side == side)
-                    .map_or(330.0, |panel| panel.size);
-                self.layout.panels.push(PanelSpec {
-                    id,
-                    name: name.to_owned(),
-                    kind: Kind::Text,
-                    side,
-                    size,
-                    channels: true,
-                    ..PanelSpec::default()
-                });
-            }
+            self.ensure_channels_panel();
         } else {
             // The panel named: the one of that name, made if there is
             // none, and left where it is and as it is if there is.
             self.panel_called(panel);
         }
-        let known = (self.panels.channels.iter()).position(|channel| {
-            channel.name.eq_ignore_ascii_case(name) && channel.panel.eq_ignore_ascii_case(panel)
-        });
-        let index = match known {
-            Some(index) => Some(index),
-            None if name.is_empty() || self.panels.channels.len() >= MOST_CHANNELS => None,
-            None => {
-                let mut log = Output::default();
-                log.restyle(self.settings.scrollback_lines, self.settings.timestamps);
-                self.panels.channels.push(Channel {
-                    name: name.to_owned(),
-                    panel: panel.to_owned(),
-                    log,
-                    unread: false,
-                });
-                Some(self.panels.channels.len() - 1)
-            }
-        };
+        let index = self.channel_index(name, panel);
         if lines.is_empty() {
             return;
         }
-        // Seen as it comes where a panel it is shown in is on this
-        // channel, or on all of them.
-        let seen = (self.layout.panels.iter()).any(|spec| {
-            let hosts = match panel.is_empty() {
-                true => spec.channels,
-                false => spec.name.eq_ignore_ascii_case(panel),
-            };
-            let shown = self
-                .panels
-                .channel_shown
-                .iter()
-                .find(|(id, _)| *id == spec.id);
-            let on_it =
-                shown.is_none_or(|(_, shown)| shown.is_empty() || shown.eq_ignore_ascii_case(name));
-            hosts && spec.visible && on_it
-        });
+        let seen = self.channel_in_sight(name, panel);
         for line in &lines {
             // With the rest of what is said there, and under its own tab.
             match panel.is_empty() {
@@ -106,6 +49,75 @@ impl Tab {
         if let Some(index) = index {
             self.panels.channels[index].unread |= !seen;
         }
+    }
+
+    /// With nowhere to show the channels, they are given a panel, under the
+    /// map, as the last of those at its side: one that is hidden is
+    /// somewhere, and is left as it is.
+    fn ensure_channels_panel(&mut self) {
+        if self.layout.panels.iter().any(|panel| panel.channels) {
+            return;
+        }
+        let id = self.layout.next_id();
+        let taken = |name: &str| self.layout.panels.iter().any(|panel| panel.name == name);
+        let name = ["Channels", "Channels 2", "Channels 3"]
+            .into_iter()
+            .find(|name| !taken(name))
+            .unwrap_or("Channels");
+        let side = (self.layout.panels.iter())
+            .find(|panel| panel.kind == Kind::Map)
+            .map_or(Side::Right, |map| map.side);
+        let size = (self.layout.panels.iter())
+            .find(|panel| panel.side == side)
+            .map_or(330.0, |panel| panel.size);
+        self.layout.panels.push(PanelSpec {
+            id,
+            name: name.to_owned(),
+            kind: Kind::Text,
+            side,
+            size,
+            channels: true,
+            ..PanelSpec::default()
+        });
+    }
+
+    /// The channel of this name in this panel, made if it is not known yet
+    /// and there is room for one more; none for one with no name.
+    fn channel_index(&mut self, name: &str, panel: &str) -> Option<usize> {
+        let known = (self.panels.channels.iter()).position(|channel| {
+            channel.name.eq_ignore_ascii_case(name) && channel.panel.eq_ignore_ascii_case(panel)
+        });
+        if known.is_some() || name.is_empty() || self.panels.channels.len() >= MOST_CHANNELS {
+            return known;
+        }
+        let mut log = Output::default();
+        log.restyle(self.settings.scrollback_lines, self.settings.timestamps);
+        self.panels.channels.push(Channel {
+            name: name.to_owned(),
+            panel: panel.to_owned(),
+            log,
+            unread: false,
+        });
+        Some(self.panels.channels.len() - 1)
+    }
+
+    /// Whether what is said on a channel is seen as it comes: where a panel
+    /// it is shown in is on this channel, or on all of them.
+    fn channel_in_sight(&self, name: &str, panel: &str) -> bool {
+        (self.layout.panels.iter()).any(|spec| {
+            let hosts = match panel.is_empty() {
+                true => spec.channels,
+                false => spec.name.eq_ignore_ascii_case(panel),
+            };
+            let shown = self
+                .panels
+                .channel_shown
+                .iter()
+                .find(|(id, _)| *id == spec.id);
+            let on_it =
+                shown.is_none_or(|(_, shown)| shown.is_empty() || shown.eq_ignore_ascii_case(name));
+            hosts && spec.visible && on_it
+        })
     }
 
     /// The tabs of a panel of channels: all, and one for each channel,
