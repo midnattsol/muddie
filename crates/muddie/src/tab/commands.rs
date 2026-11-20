@@ -40,7 +40,8 @@ pub enum Act {
     Profile,
     Plugins,
     Find,
-    EditLayout,
+    /// Adds a panel of this kind.
+    AddPanel(super::layout::Kind),
     /// Shows or hides the panel with this number.
     Panel(u32),
     /// Switches to the saved profile of this name and connects.
@@ -395,7 +396,28 @@ impl Tab {
             };
             acts.push(act(&label, panels, Act::Panel(panel.id)));
         }
-        acts.push(act(tr("Edit the layout"), panels, Act::EditLayout));
+        acts.push(act(
+            tr("Add a text panel"),
+            panels,
+            Act::AddPanel(super::layout::Kind::Text),
+        ));
+        acts.push(act(
+            tr("Add a panel of gauges"),
+            panels,
+            Act::AddPanel(super::layout::Kind::Gauges),
+        ));
+        if !self
+            .layout
+            .panels
+            .iter()
+            .any(|panel| panel.kind == super::layout::Kind::Map)
+        {
+            acts.push(act(
+                tr("Add the map"),
+                panels,
+                Act::AddPanel(super::layout::Kind::Map),
+            ));
+        }
         acts.push(act(tr("Plugins"), tr("Profile"), Act::Plugins));
         let parts = [
             (tr("General"), crate::app::GENERAL),
@@ -442,10 +464,10 @@ impl Tab {
                 self.find_open = true;
                 self.find_wants_focus = true;
             }
-            Act::EditLayout => {
+            Act::AddPanel(kind) => {
                 self.set_view(0);
-                self.editing_layout = true;
                 self.started = true;
+                self.add_panel(kind);
             }
             Act::Panel(id) => {
                 if let Some(panel) = self.layout.panel_mut(id) {

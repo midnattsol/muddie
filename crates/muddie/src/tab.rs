@@ -79,7 +79,6 @@ pub struct Tab {
     /// What each panel was given to show, by the panel's id.
     panel_text: Vec<(u32, layout::TextContent)>,
     /// The layout mode: panels are made, moved and removed.
-    editing_layout: bool,
     /// The panel being dragged to another side, and one to be removed.
     dragged_panel: Option<u32>,
     /// Where each panel was drawn, to drop another before or after it.
@@ -426,7 +425,6 @@ impl Tab {
             layout: layout::Layout::default(),
             layout_saved: layout::Layout::default(),
             panel_text: Vec::new(),
-            editing_layout: false,
             dragged_panel: None,
             panel_rects: Vec::new(),
             shown_tabs: Vec::new(),
@@ -2849,17 +2847,15 @@ impl Tab {
         self.panel_measured(id, cells, true);
         if self.map.borrow().current().is_some() {
             let map = self.map.borrow();
-            return self.map_view.show(ui, &map, self.walk.is_some());
+            return self.map_view.show(ui, &map);
         }
         let drawn = !self.text_of(id).fixed.is_empty() || self.text_of(id).log.len() > 0;
         if drawn {
-            crate::widgets::caption(ui, tr("Map"));
             self.text_body(ui, id, true);
             return None;
         }
         // Nothing to show yet: say why, and where to go from here.
         let theme = theme::current();
-        crate::widgets::caption(ui, tr("Map"));
         ui.add_space((ui.available_height() * 0.28).max(12.0));
         let mut scripts = false;
         ui.vertical_centered(|ui| {

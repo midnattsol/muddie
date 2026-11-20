@@ -1239,62 +1239,46 @@ impl Tab {
             if !on {
                 continue;
             }
+            // Its name, with the cross that takes it away at the far end,
+            // and what it takes under them.
             ui.horizontal(|ui| {
-                let field_width = (ui.available_width() - 40.0).max(120.0);
-                match extra {
-                    Extra::Say => {
-                        ui.set_width(field_width);
-                        widgets::field(ui, tr("Say"), &mut rule.speak, tr("%1 is here"));
-                    }
-                    Extra::Sound => {
-                        ui.set_width(field_width);
-                        widgets::field(ui, tr("Play a sound"), &mut rule.sound, "alert.ogg");
-                    }
-                    Extra::Colour => {
-                        ui.set_width(field_width);
-                        widgets::field(
-                            ui,
-                            tr("Colour the match"),
-                            &mut rule.highlight,
-                            "yellow, #ffcc00",
-                        );
-                    }
-                    Extra::Hide => {
-                        rule.gag = true;
-                        ui.label(RichText::new(tr("Hide the line")).color(theme::current().text));
-                    }
-                    Extra::Panel => {
-                        let name = ui.label(
-                            RichText::new(tr("Show it in the panel"))
-                                .color(theme::current().text_dim),
-                        );
-                        let chosen = match rule.panel.trim().is_empty() {
-                            true => tr("Choose a panel").to_owned(),
-                            false => rule.panel.clone(),
-                        };
-                        crate::widgets::dropdown("trigger panel")
-                            .selected_text(chosen)
-                            .width(200.0)
-                            .show_ui(ui, |ui| {
-                                for panel in &text_panels {
-                                    if crate::widgets::choice(ui, rule.panel == *panel, panel)
-                                        .clicked()
-                                    {
-                                        rule.panel.clone_from(panel);
-                                    }
-                                }
-                            })
-                            .response
-                            .labelled_by(name.id);
-                    }
-                }
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Max), |ui| {
+                let label = RichText::new(extra.label()).color(theme::current().text_dim);
+                ui.add(Label::new(label).selectable(false));
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     let what = trf("Remove “{0}”", &[extra.label()]);
-                    if widgets::close_button(ui, &what, 22.0).clicked() {
+                    if widgets::close_button(ui, &what, 20.0).clicked() {
                         removed = Some(extra);
                     }
                 });
             });
+            match extra {
+                Extra::Say => drop(widgets::text_box(ui, &mut rule.speak, tr("%1 is here"))),
+                Extra::Sound => drop(widgets::text_box(ui, &mut rule.sound, "alert.ogg")),
+                Extra::Colour => drop(widgets::text_box(
+                    ui,
+                    &mut rule.highlight,
+                    "yellow, #ffcc00",
+                )),
+                Extra::Hide => rule.gag = true,
+                Extra::Panel => {
+                    let chosen = match rule.panel.trim().is_empty() {
+                        true => tr("Choose a panel").to_owned(),
+                        false => rule.panel.clone(),
+                    };
+                    crate::widgets::dropdown("trigger panel")
+                        .selected_text(chosen)
+                        .width(220.0)
+                        .show_ui(ui, |ui| {
+                            for panel in &text_panels {
+                                if crate::widgets::choice(ui, rule.panel == *panel, panel).clicked()
+                                {
+                                    rule.panel.clone_from(panel);
+                                }
+                            }
+                        });
+                }
+            }
+            ui.add_space(4.0);
         }
         if let Some(extra) = removed {
             added.retain(|known| *known != extra);

@@ -105,9 +105,9 @@ impl Default for Layout {
         Self {
             columns_full: false,
             panels: vec![
-                panel(1, tr("Chat"), Kind::Text, Side::Top, 120.0, true),
-                panel(2, tr("Map"), Kind::Map, Side::Right, 330.0, false),
-                panel(3, tr("Gauges"), Kind::Gauges, Side::Bottom, 56.0, false),
+                panel(1, "Chat", Kind::Text, Side::Top, 140.0, true),
+                panel(2, "Map", Kind::Map, Side::Right, 330.0, false),
+                panel(3, "Gauges", Kind::Gauges, Side::Bottom, 96.0, false),
             ],
         }
     }
@@ -530,92 +530,12 @@ impl Tab {
             self.open_gauges(panel);
             ui.close();
         }
-        if widgets::menu_item(ui, tr("Edit the layout"), "").clicked() {
-            self.editing_layout = true;
-            self.started = true;
-            ui.close();
-        }
+        widgets::menu_separator(ui);
+        self.add_panel_items(ui);
     }
 
     /// The bar of the layout mode: what to do, a way to add a panel, and
     /// the way out.
-    pub(super) fn layout_bar(&mut self, ui: &mut egui::Ui) {
-        let theme = theme::current();
-        let bar = egui::Frame::new()
-            .fill(theme.raised)
-            .corner_radius(egui::CornerRadius::same(12))
-            .inner_margin(egui::Margin::symmetric(14, 8))
-            .outer_margin(egui::Margin {
-                left: 8,
-                right: 8,
-                top: 2,
-                bottom: 4,
-            });
-        Panel::top("layout bar")
-            .frame(bar)
-            .show_separator_line(false)
-            .show(ui, |ui| {
-                ui.horizontal(|ui| {
-                    let title = RichText::new(tr("Editing the layout"))
-                        .font(theme::font(Weight::Medium, 13.5))
-                        .color(theme.text);
-                    ui.add(Label::new(title).selectable(false));
-                    let how =
-                        tr("Drag a panel by its handle to another side, and its edge to size it.");
-                    ui.add(
-                        Label::new(
-                            RichText::new(how)
-                                .font(theme::font(Weight::Regular, 12.5))
-                                .color(theme.text_dim),
-                        )
-                        .selectable(false),
-                    );
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        if widgets::primary_button(ui, tr("Done")).clicked() {
-                            self.editing_layout = false;
-                        }
-                        // Who gets the corners of the window.
-                        let corners = tr("Side panels reach the top and the bottom");
-                        widgets::switch(ui, &mut self.layout.columns_full, corners)
-                            .on_hover_text(corners);
-                        let label = RichText::new(tr("Full-height sides"))
-                            .font(theme::font(Weight::Regular, 12.5))
-                            .color(theme.text_dim);
-                        ui.add(Label::new(label).selectable(false))
-                            .on_hover_text(corners);
-                        let add = crate::widgets::button(ui, tr("Add a panel"));
-                        egui::Popup::menu(&add).show(|ui| {
-                            widgets::menu_width(ui);
-                            let kinds = [
-                                (
-                                    Kind::Text,
-                                    tr("Text"),
-                                    tr("Lines sent to it by triggers and scripts"),
-                                ),
-                                (Kind::Map, tr("Map"), tr("The map of where you are")),
-                                (
-                                    Kind::Gauges,
-                                    tr("Gauges"),
-                                    tr("Bars that follow your health and the like"),
-                                ),
-                            ];
-                            for (kind, name, about) in kinds {
-                                // There is one map.
-                                let free = kind != Kind::Map || !self.layout.has(kind);
-                                let item = ui
-                                    .add_enabled_ui(free, |ui| widgets::menu_item(ui, name, ""))
-                                    .inner;
-                                if item.on_hover_text(about).clicked() {
-                                    self.add_panel(kind);
-                                    ui.close();
-                                }
-                            }
-                        });
-                    });
-                });
-            });
-    }
-
     pub(super) fn add_panel(&mut self, kind: Kind) {
         let id = self.layout.next_id();
         // A name not taken: the plain one, then numbered.
@@ -630,9 +550,9 @@ impl Tab {
                 .unwrap_or_default()
         };
         let (name, side, size) = match kind {
-            Kind::Text => (free(tr("Panel"), false), Side::Right, 280.0),
-            Kind::Map => (tr("Map").to_owned(), Side::Right, 330.0),
-            Kind::Gauges => (free(tr("Gauges"), true), Side::Bottom, 56.0),
+            Kind::Text => (free("Panel", false), Side::Right, 280.0),
+            Kind::Map => ("Map".to_owned(), Side::Right, 330.0),
+            Kind::Gauges => (free("Gauges", true), Side::Bottom, 96.0),
         };
         self.layout.panels.push(PanelSpec {
             id,
@@ -672,8 +592,8 @@ impl Tab {
                 Side::Left => (8, 4, 160.0),
                 Side::Right => (4, 8, 160.0),
                 // In the layout mode each panel also has its handle's row.
-                Side::Top | Side::Bottom if self.editing_layout => (8, 8, 108.0),
-                Side::Top | Side::Bottom => (8, 8, 44.0),
+                // Room for the header and a row of gauges under it.
+                Side::Top | Side::Bottom => (8, 8, 92.0),
             };
             let around = egui::Frame::new().inner_margin(egui::Margin {
                 left,
@@ -766,14 +686,9 @@ impl Tab {
                 .layout(egui::Layout::top_down(egui::Align::Min));
             let got = ui.scope_builder(builder, |ui| {
                 ui.set_clip_rect(inner.intersect(ui.clip_rect()));
-                let tabbed = place.len() > 1;
-                let index = if tabbed {
-                    self.tab_bar(ui, place)
-                } else {
-                    place[0]
-                };
+                let index = self.panel_header(ui, place);
                 let spec = self.layout.panels[index].clone();
-                self.panel_body(ui, index, &spec, tabbed)
+                self.panel_body(ui, index, &spec)
             });
             asked = asked.or(got.inner);
             at += share;
@@ -851,17 +766,13 @@ impl Tab {
             .find(|(known, _)| *known == stack)
             .map(|(_, id)| *id);
         let mut shown = kept.filter(|id| ids.contains(id)).unwrap_or(ids[0]);
-        ui.horizontal_wrapped(|ui| {
-            ui.spacing_mut().item_spacing.x = 4.0;
-            for &index in place {
-                let panel = &self.layout.panels[index];
-                let unread = self.unread_tabs.contains(&panel.id);
-                if widgets::tab(ui, &panel.name, panel.id == shown, unread).clicked() {
-                    shown = panel.id;
-                }
+        for &index in place {
+            let panel = &self.layout.panels[index];
+            let unread = self.unread_tabs.contains(&panel.id);
+            if widgets::tab(ui, &panel.shown_name(), panel.id == shown, unread).clicked() {
+                shown = panel.id;
             }
-        });
-        ui.add_space(2.0);
+        }
         self.shown_tabs.retain(|(known, _)| *known != stack);
         self.shown_tabs.push((stack, shown));
         self.unread_tabs.retain(|id| *id != shown);
@@ -1050,11 +961,8 @@ impl Tab {
         ui: &mut egui::Ui,
         index: usize,
         spec: &PanelSpec,
-        tabbed: bool,
     ) -> Option<MapAction> {
-        if self.editing_layout {
-            self.panel_handle(ui, index);
-        }
+        let _ = index;
         match spec.kind {
             Kind::Map => self.map_body(ui, spec.id),
             Kind::Gauges => {
@@ -1062,32 +970,28 @@ impl Tab {
                 None
             }
             Kind::Text => {
-                // Its name is already there in the layout mode and on a tab.
-                if !self.editing_layout && !tabbed {
-                    widgets::caption(ui, &spec.name);
-                }
                 self.text_body(ui, spec.id, false);
                 None
             }
         }
     }
 
-    /// The row a panel gets in the layout mode: a handle to drag it by,
-    /// its name, the side it is on, what goes with its kind, and the cross
-    /// that removes it.
-    fn panel_handle(&mut self, ui: &mut egui::Ui, index: usize) {
+    /// The header every panel has: a handle to drag it to another place,
+    /// its name, or the names of those that share its place as tabs; the
+    /// tools of its kind, and its menu. Returns the panel on show.
+    fn panel_header(&mut self, ui: &mut egui::Ui, place: &[usize]) -> usize {
         let theme = theme::current();
-        let Some(spec) = self.layout.panels.get(index).cloned() else {
-            return;
-        };
-        ui.horizontal_wrapped(|ui| {
-            ui.spacing_mut().item_spacing.x = 6.0;
+        let mut shown = place[0];
+        ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing.x = 4.0;
+            ui.set_min_height(24.0);
             // Six dots: this can be taken and moved.
+            let name = self.layout.panels[shown].shown_name();
             let (grip, handle) =
-                ui.allocate_exact_size(egui::vec2(16.0, 24.0), egui::Sense::drag());
+                ui.allocate_exact_size(egui::vec2(12.0, 22.0), egui::Sense::drag());
             let handle = handle.on_hover_cursor(egui::CursorIcon::Grab);
             handle.widget_info(|| {
-                egui::WidgetInfo::labeled(egui::Role::Button, true, trf("Move {0}", &[&spec.name]))
+                egui::WidgetInfo::labeled(egui::Role::Button, true, trf("Move {0}", &[&name]))
             });
             let dots = if handle.hovered() || handle.dragged() {
                 theme.text
@@ -1096,103 +1000,168 @@ impl Tab {
             };
             for (column, row) in [(0, 0), (1, 0), (0, 1), (1, 1), (0, 2), (1, 2)] {
                 let dot =
-                    grip.center() + egui::vec2(-3.0 + 6.0 * column as f32, -6.0 + 6.0 * row as f32);
-                ui.painter().circle_filled(dot, 1.4, dots);
+                    grip.center() + egui::vec2(-2.5 + 5.0 * column as f32, -5.0 + 5.0 * row as f32);
+                ui.painter().circle_filled(dot, 1.2, dots);
             }
-            if handle.drag_started() {
-                self.dragged_panel = Some(spec.id);
-            }
-            let panel = &mut self.layout.panels[index];
-            // As wide as leaves the rest of the row beside it.
-            // Four sides, the dots and the cross, with the gaps between;
-            // and the gauges' button where there is one.
-            let beside = 4.0 * 24.0 + 28.0 + 22.0 + 7.0 * 6.0 + 44.0;
-            let button = if spec.kind == Kind::Gauges {
-                104.0
+            if place.len() > 1 {
+                shown = self.tab_bar(ui, place);
             } else {
-                0.0
-            };
-            let spare = ui.available_width() - beside - button;
-            let name = ui.add(
-                TextEdit::singleline(&mut panel.name)
-                    .margin(egui::Margin::symmetric(8, 4))
-                    .desired_width(spare.clamp(56.0, 170.0)),
-            );
-            ui.ctx().accesskit_node_builder(name.id, |node| {
-                node.set_label(tr("Name"));
+                let caption = RichText::new(name.to_uppercase())
+                    .font(theme::font(Weight::Medium, 10.5))
+                    .color(theme.text_dim);
+                ui.add(Label::new(caption).selectable(false));
+            }
+            let id = self.layout.panels[shown].id;
+            if handle.drag_started() {
+                self.dragged_panel = Some(self.layout.panels[place[0]].id);
+            }
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                self.panel_menu(ui, shown);
+                let kind = self.layout.panels[shown].kind;
+                if kind == Kind::Map && self.map.borrow().current().is_some() {
+                    let walking = self.walk.is_some();
+                    self.map_view.tools(ui, walking);
+                }
+                let _ = id;
             });
-            // The four sides, for those who would rather not drag.
+        });
+        ui.add_space(2.0);
+        shown
+    }
+
+    /// What a panel's menu has: its name, where it goes, how it shares
+    /// its place, what goes with its kind, and taking it away.
+    fn panel_menu(&mut self, ui: &mut egui::Ui, index: usize) {
+        let Some(spec) = self.layout.panels.get(index).cloned() else {
+            return;
+        };
+        let more = widgets::icon_button(
+            ui,
+            widgets::Icon::More,
+            &trf("{0} options", &[&spec.shown_name()]),
+            false,
+        );
+        let (mut earlier, mut later, mut join, mut gauges) = (false, false, false, false);
+        egui::Popup::menu(&more).show(|ui| {
+            widgets::menu_width(ui);
+            let panel = &mut self.layout.panels[index];
+            widgets::menu_heading(ui, tr("Name"));
+            ui.horizontal(|ui| {
+                ui.add_space(8.0);
+                let name = ui.add(TextEdit::singleline(&mut panel.name).desired_width(200.0));
+                ui.ctx()
+                    .accesskit_node_builder(name.id, |node| node.set_label(tr("Name")));
+            });
+            widgets::menu_separator(ui);
+            widgets::menu_heading(ui, tr("Place"));
             for (side, label) in [
                 (Side::Left, tr("At the left")),
                 (Side::Right, tr("At the right")),
                 (Side::Top, tr("Above")),
                 (Side::Bottom, tr("Below")),
             ] {
-                if side_button(ui, side, panel.side == side, label).clicked() && panel.side != side
-                {
+                let mut here = panel.side == side;
+                if widgets::menu_check(ui, &mut here, label).clicked() && panel.side != side {
                     if panel.side.is_beside() != side.is_beside() {
                         panel.size = if side.is_beside() { 300.0 } else { 120.0 };
                     }
                     panel.side = side;
+                    ui.close();
                 }
             }
-            let (mut earlier, mut later, mut join) = (false, false, false);
-            let more = widgets::icon_button(ui, widgets::Icon::More, tr("More"), false);
-            egui::Popup::menu(&more).show(|ui| {
-                widgets::menu_width(ui);
-                // For those who would rather not drag.
-                let (before, after) = if panel.side.is_beside() {
-                    (tr("Move up"), tr("Move down"))
-                } else {
-                    (tr("Move left"), tr("Move right"))
-                };
-                if widgets::menu_item(ui, before, "").clicked() {
-                    earlier = true;
+            let (before, after) = match panel.side.is_beside() {
+                true => (tr("Move up"), tr("Move down")),
+                false => (tr("Move left"), tr("Move right")),
+            };
+            if widgets::menu_item(ui, before, "").clicked() {
+                earlier = true;
+                ui.close();
+            }
+            if widgets::menu_item(ui, after, "").clicked() {
+                later = true;
+                ui.close();
+            }
+            if spec.stack == 0 {
+                if widgets::menu_item(ui, tr("Share the place of the one before, as tabs"), "")
+                    .clicked()
+                {
+                    join = true;
                     ui.close();
                 }
-                if widgets::menu_item(ui, after, "").clicked() {
-                    later = true;
-                    ui.close();
-                }
-                // Tabs: with the panel before it, or out of them.
-                widgets::menu_separator(ui);
-                if spec.stack == 0 {
-                    if widgets::menu_item(ui, tr("Share the place of the one before, as tabs"), "")
-                        .clicked()
-                    {
-                        join = true;
-                        ui.close();
-                    }
-                } else if widgets::menu_item(ui, tr("Detach from tabs"), "").clicked() {
-                    panel.stack = 0;
-                    ui.close();
-                }
-                if spec.kind == Kind::Text {
-                    widgets::menu_separator(ui);
+            } else if widgets::menu_item(ui, tr("Detach from tabs"), "").clicked() {
+                panel.stack = 0;
+                ui.close();
+            }
+            widgets::menu_separator(ui);
+            match spec.kind {
+                Kind::Text => {
                     widgets::menu_check(
                         ui,
                         &mut panel.channels,
                         tr("Show the MUD's channels here"),
                     );
                 }
-            });
-            if spec.kind == Kind::Gauges && crate::widgets::button(ui, tr("Gauges")).clicked() {
-                self.open_gauges(spec.id);
+                Kind::Gauges => {
+                    if widgets::menu_item(ui, tr("Edit the gauges"), "").clicked() {
+                        gauges = true;
+                        ui.close();
+                    }
+                }
+                Kind::Map => self.map_view.menu_items(ui),
             }
-            if earlier || later {
-                self.shift_panel(index, if earlier { -1 } else { 1 });
+            let corners = tr("Full-height sides");
+            widgets::menu_check(ui, &mut self.layout.columns_full, corners)
+                .on_hover_text(tr("Side panels reach the top and the bottom"));
+            widgets::menu_separator(ui);
+            let panel = &mut self.layout.panels[index];
+            if widgets::menu_item(ui, &trf("Hide {0}", &[&spec.shown_name()]), "").clicked() {
+                panel.visible = false;
+                ui.close();
             }
-            if join {
-                self.join_before(index);
-            }
-            // Beside the rest, not at the far end: a narrow panel has
-            // no far end to spare.
-            let remove = trf("Remove {0}", &[&spec.name]);
-            if widgets::close_button(ui, &remove, 22.0).clicked() {
+            if widgets::menu_item(ui, &trf("Remove {0}", &[&spec.shown_name()]), "").clicked() {
                 self.removed_panel = Some(index);
+                ui.close();
             }
         });
-        ui.add_space(2.0);
+        if earlier || later {
+            self.shift_panel(index, if earlier { -1 } else { 1 });
+        }
+        if join {
+            self.join_before(index);
+        }
+        if gauges {
+            self.open_gauges(spec.id);
+        }
+    }
+
+    /// The panels that can be added, each with what it is for.
+    pub(super) fn add_panel_items(&mut self, ui: &mut egui::Ui) {
+        let kinds = [
+            (
+                Kind::Text,
+                tr("Add a text panel"),
+                tr("Lines sent to it by triggers and scripts"),
+            ),
+            (Kind::Map, tr("Add the map"), tr("The map of where you are")),
+            (
+                Kind::Gauges,
+                tr("Add a panel of gauges"),
+                tr("Bars that follow your health and the like"),
+            ),
+        ];
+        for (kind, name, about) in kinds {
+            // There is one map.
+            if kind == Kind::Map && self.layout.has(kind) {
+                continue;
+            }
+            if widgets::menu_item(ui, name, "")
+                .on_hover_text(about)
+                .clicked()
+            {
+                self.add_panel(kind);
+                ui.close();
+            }
+        }
     }
 
     /// Whether the gauge called `name` belongs in the panel `id`: the
@@ -1209,28 +1178,12 @@ impl Tab {
 
     /// The gauges of a panel in a row, or how to get some.
     fn gauges_body(&mut self, ui: &mut egui::Ui, id: u32) {
-        let full = ui.max_rect();
         // In the order they have in the editor, whichever the MUD
         // reported first.
         let made = &self.rules.gauges;
         (self.gauges).arrange(|name| made.iter().position(|gauge| gauge.shown_name() == name));
         if self.gauges.show(ui, |name| self.gauge_is_in(name, id)) {
             // The way to change them, at the corner, out of their way.
-            if !self.editing_layout {
-                let corner = egui::Rect::from_min_size(
-                    egui::pos2(full.right() - 28.0, full.top()),
-                    egui::vec2(28.0, 28.0),
-                );
-                let builder = egui::UiBuilder::new()
-                    .id_salt(("gauges of", id))
-                    .max_rect(corner);
-                let edit = ui.scope_builder(builder, |ui| {
-                    widgets::icon_button(ui, widgets::Icon::More, tr("Edit the gauges"), false)
-                });
-                if edit.inner.clicked() {
-                    self.open_gauges(id);
-                }
-            }
             return;
         }
         let theme = theme::current();
@@ -1333,7 +1286,6 @@ impl Tab {
 
     /// Goes to the gauges in the editor, on the first of this panel's.
     pub(super) fn open_gauges(&mut self, panel: u32) {
-        self.editing_layout = false;
         self.open_automation(automation::GAUGES);
         let first = panels_first(&self.layout, panel);
         let here =
@@ -1349,48 +1301,4 @@ impl Tab {
 fn panels_first(layout: &Layout, panel: u32) -> bool {
     let first = layout.panels.iter().find(|spec| spec.kind == Kind::Gauges);
     first.is_some_and(|spec| spec.id == panel)
-}
-
-/// A small picture of a panel on one side of a window, to put a panel
-/// there. `label` says which, for screen readers.
-fn side_button(ui: &mut egui::Ui, side: Side, on: bool, label: &str) -> egui::Response {
-    let theme = theme::current();
-    let (rect, response) = ui.allocate_exact_size(egui::vec2(24.0, 24.0), egui::Sense::click());
-    response.widget_info(|| egui::WidgetInfo::selected(egui::Role::RadioButton, true, on, label));
-    if ui.is_rect_visible(rect) {
-        let hovered = response.hovered() || response.has_focus();
-        if on {
-            ui.painter().rect_filled(
-                rect,
-                egui::CornerRadius::same(6),
-                theme.accent.gamma_multiply(0.18),
-            );
-        } else if hovered {
-            ui.painter()
-                .rect_filled(rect, egui::CornerRadius::same(6), theme.hover);
-        }
-        let colour = if on {
-            theme.accent
-        } else if hovered {
-            theme.text
-        } else {
-            theme.text_faint
-        };
-        let window = egui::Rect::from_center_size(rect.center(), egui::vec2(14.0, 12.0));
-        ui.painter().rect_stroke(
-            window,
-            egui::CornerRadius::same(2),
-            egui::Stroke::new(1.2, colour),
-            egui::StrokeKind::Middle,
-        );
-        let part = match side {
-            Side::Left => window.with_max_x(window.left() + 5.0),
-            Side::Right => window.with_min_x(window.right() - 5.0),
-            Side::Top => window.with_max_y(window.top() + 4.5),
-            Side::Bottom => window.with_min_y(window.bottom() - 4.5),
-        };
-        ui.painter()
-            .rect_filled(part, egui::CornerRadius::same(1), colour);
-    }
-    response.on_hover_text(label)
 }

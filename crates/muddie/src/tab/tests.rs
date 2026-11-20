@@ -1944,6 +1944,69 @@ fn what_is_deleted_can_be_had_back() {
 }
 
 #[test]
+fn a_panel_is_arranged_from_its_own_menu_with_no_mode_to_enter() {
+    let mut harness = window(None);
+    harness.set_size(egui::vec2(1300.0, 800.0));
+    let app = harness.state_mut().tab_mut();
+    app.started = true;
+    harness.run_steps(3);
+    // Every panel has its handle and its menu, all the time.
+    harness.get_by_label("Move Chat");
+    harness.get_by_label("Chat options").click();
+    harness.run_steps(2);
+    // From there it goes to another side...
+    harness.get_by_label("At the left").click();
+    harness.run_steps(3);
+    let side = |app: &Tab, name: &str| {
+        app.layout
+            .panels
+            .iter()
+            .find(|panel| panel.name == name)
+            .map(|panel| panel.side)
+    };
+    assert_eq!(
+        side(harness.state().tab(), "Chat"),
+        Some(layout::Side::Left)
+    );
+    // ...and is hidden, to be shown again from the menu or the palette.
+    harness.get_by_label("Chat options").click();
+    harness.run_steps(2);
+    harness.get_by_label("Hide Chat").click();
+    harness.run_steps(3);
+    let app = harness.state_mut().tab_mut();
+    assert!(
+        !app.layout
+            .panels
+            .iter()
+            .find(|panel| panel.name == "Chat")
+            .unwrap()
+            .visible
+    );
+    // A panel is added without a mode, from the palette.
+    let before = app.layout.panels.len();
+    app.toggle_palette();
+    app.palette_query = "add a text panel".into();
+    harness.run_steps(2);
+    harness.key_press(Key::Enter);
+    harness.run_steps(3);
+    assert_eq!(harness.state().tab().layout.panels.len(), before + 1);
+}
+
+#[test]
+fn the_one_menu_opens_and_does_what_it_says() {
+    let mut harness = window(None);
+    harness.set_size(egui::vec2(1300.0, 800.0));
+    harness.state_mut().tab_mut().started = true;
+    harness.run_steps(3);
+    harness.get_by_label("Menu").click();
+    harness.run_steps(3);
+    harness.get_by_label("Keyboard shortcuts");
+    harness.get_by_label("Settings").click();
+    harness.run_steps(3);
+    harness.get_by_label("Language");
+}
+
+#[test]
 fn session_is_logged_when_asked() {
     let dir = std::env::temp_dir().join(format!("muddie-app-log-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
@@ -2497,13 +2560,12 @@ fn screenshot() {
     save(&mut rules, "data");
     // The menus, as someone using Spanish sees them.
     {
-        let mut menus = connected_demo_window();
-        crate::i18n::set_language("es");
+        let mut menus = window(None);
+        menus.state_mut().tab_mut().started = true;
         menus.run_steps(2);
-        menus.get_by_label("Menú").click();
+        menus.get_by_label("Menu").click();
         menus.run_steps(4);
         save(&mut menus, "menu");
-        crate::i18n::set_language("en");
     }
     // A session whose MUD has reported no room: the map says so.
     let mut unmapped = window(None);
@@ -2518,7 +2580,6 @@ fn screenshot() {
     let mut layout = connected_demo_window();
     layout.set_size(egui::vec2(1500.0, 900.0));
     let app = layout.state_mut().tab_mut();
-    app.editing_layout = true;
     // The chat at the right, under the map, sharing its side.
     let mut chat = app.layout.panels.remove(0);
     chat.side = layout::Side::Right;

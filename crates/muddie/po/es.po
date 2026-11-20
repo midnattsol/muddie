@@ -754,10 +754,6 @@ msgid_plural "Reconnecting in {0} seconds."
 msgstr[0] "Reconectando en {0} segundo."
 msgstr[1] "Reconectando en {0} segundos."
 
-
-msgid "More"
-msgstr "Más"
-
 msgid "Hide the map"
 msgstr "Ocultar el mapa"
 
@@ -1012,18 +1008,6 @@ msgstr "No se pudieron cargar los paneles: {0}"
 #, python-brace-format
 msgid "Could not save the panels: {0}"
 msgstr "No se pudieron guardar los paneles: {0}"
-
-msgid "Editing the layout"
-msgstr "Editando la disposición"
-
-msgid "Drag a panel by its handle to another side, and its edge to size it."
-msgstr "Arrastra un panel por su tirador a otro lado, y su borde para darle tamaño."
-
-msgid "Done"
-msgstr "Listo"
-
-msgid "Add a panel"
-msgstr "Añadir un panel"
 
 msgid "Lines sent to it by triggers and scripts"
 msgstr "Líneas que le envían los disparadores y los scripts"
@@ -1438,9 +1422,6 @@ msgstr "Lo mismo, para el panel de chat"
 msgid "Add gauges"
 msgstr "Añadir indicadores"
 
-msgid "Edit the layout"
-msgstr "Editar la disposición"
-
 msgid "More options"
 msgstr "Más opciones"
 
@@ -1523,4 +1504,17 @@ msgstr "Con la línea oculta, solo está en el panel."
 
 msgid "+ Add an action"
 msgstr "+ Añadir una acción"
+
+msgid "Place"
+msgstr "Posición"
+
+#, python-brace-format
+msgid "{0} options"
+msgstr "Opciones de {0}"
+
+msgid "Add a text panel"
+msgstr "Añadir un panel de texto"
+
+msgid "Add the map"
+msgstr "Añadir el mapa"
 

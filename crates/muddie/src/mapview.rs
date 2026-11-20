@@ -2,7 +2,7 @@
 //! mark or move rooms.
 
 use eframe::egui::{
-    self, Align2, Color32, FontId, Pos2, Rect, RichText, Sense, Stroke, StrokeKind, Ui, Vec2, vec2,
+    Align2, Color32, FontId, Pos2, Rect, RichText, Sense, Stroke, StrokeKind, Ui, Vec2, vec2,
 };
 use muddie_mapper::{Map, Pos, Room, RoomId, direction_offset};
 
@@ -55,6 +55,16 @@ impl Colours {
     }
 }
 
+/// What the map's tools asked for.
+#[derive(Debug, Default, Clone, Copy)]
+struct Tools {
+    locate: bool,
+    tidy: bool,
+    stop: bool,
+    avoid: bool,
+    hide: bool,
+}
+
 pub struct MapView {
     cell: f32,
     /// How far the user dragged the map away from its centre.
@@ -70,6 +80,9 @@ pub struct MapView {
     moving: Option<RoomId>,
     /// Room the context menu was opened on.
     menu_room: Option<RoomId>,
+    /// What the tools on the panel's header asked for, to be done when
+    /// the map is drawn.
+    asked: Tools,
 }
 
 impl Default for MapView {
@@ -82,54 +95,54 @@ impl Default for MapView {
             all_areas: false,
             moving: None,
             menu_room: None,
+            asked: Tools::default(),
         }
     }
 }
 
 impl MapView {
+    /// The map's tools, on its panel's header: where am I, tidy, and stop
+    /// while walking. What they ask for is done when the map is drawn.
+    pub fn tools(&mut self, ui: &mut Ui, walking: bool) {
+        ui.spacing_mut().item_spacing.x = 2.0;
+        if walking {
+            self.asked.stop |=
+                widgets::icon_button(ui, widgets::Icon::Stop, tr("Stop walking"), true).clicked();
+        }
+        self.asked.tidy |=
+            widgets::icon_button(ui, widgets::Icon::Tidy, tr("Tidy this area"), false).clicked();
+        self.asked.locate |=
+            widgets::icon_button(ui, widgets::Icon::Locate, tr("Where am I?"), false).clicked();
+    }
+
+    /// What the map adds to its panel's menu.
+    pub fn menu_items(&mut self, ui: &mut Ui) {
+        widgets::menu_check(ui, &mut self.all_areas, tr("Show all areas"));
+        if widgets::menu_item(ui, tr("Avoid this room in routes"), "").clicked() {
+            self.asked.avoid = true;
+            ui.close();
+        }
+    }
+
     /// Shows one level of one area: the player's, unless the user chose
     /// another with the controls on top. Clicking a room asks to walk there,
     /// right-clicking opens its menu, dragging pans, the scroll wheel zooms,
     /// and Shift+drag moves a room to another cell.
-    pub fn show(&mut self, ui: &mut Ui, map: &Map, walking: bool) -> Option<MapAction> {
+    pub fn show(&mut self, ui: &mut Ui, map: &Map) -> Option<MapAction> {
         let Some(current) = map.current() else {
             ui.label(tr("No map yet: the server has not reported a room."));
             return None;
         };
         // Where the player is, as text: for screen readers, and at a glance.
         let palette = theme::current();
-        // The map's own tools sit on its title's line.
-        let (mut locate, mut tidy, mut stop) = (false, false, false);
-        let (mut avoid, mut hide) = (false, false);
-        ui.horizontal(|ui| {
-            widgets::caption(ui, tr("Map"));
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                ui.spacing_mut().item_spacing.x = 2.0;
-                if walking {
-                    stop = widgets::icon_button(ui, widgets::Icon::Stop, tr("Stop walking"), true)
-                        .clicked();
-                }
-                // What is asked for less often is behind the dots.
-                let more = widgets::icon_button(ui, widgets::Icon::More, tr("More"), false);
-                egui::Popup::menu(&more).show(|ui| {
-                    widgets::menu_width(ui);
-                    widgets::menu_check(ui, &mut self.all_areas, tr("Show all areas"));
-                    if widgets::menu_item(ui, tr("Avoid this room in routes"), "").clicked() {
-                        avoid = true;
-                        ui.close();
-                    }
-                    widgets::menu_separator(ui);
-                    if widgets::menu_item(ui, tr("Hide the map"), "Ctrl+M").clicked() {
-                        hide = true;
-                        ui.close();
-                    }
-                });
-                tidy = widgets::icon_button(ui, widgets::Icon::Tidy, tr("Tidy this area"), false)
-                    .clicked();
-                locate = widgets::icon_button(ui, widgets::Icon::Locate, tr("Where am I?"), false)
-                    .clicked();
-            });
-        });
+        // What its tools on the panel's header asked for.
+        let Tools {
+            locate,
+            tidy,
+            stop,
+            avoid,
+            hide,
+        } = std::mem::take(&mut self.asked);
         let exits: Vec<&str> = current.exits.keys().map(String::as_str).collect();
         ui.label(
             RichText::new(&current.name)

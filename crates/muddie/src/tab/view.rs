@@ -40,15 +40,6 @@ impl Tab {
         if !self.started {
             return self.welcome(ui);
         }
-        // Escape leaves the layout mode.
-        if self.editing_layout
-            && ui.input_mut(|input| input.consume_key(Modifiers::NONE, Key::Escape))
-        {
-            self.editing_layout = false;
-        }
-        if self.editing_layout {
-            self.layout_bar(ui);
-        }
         let plain = egui::Frame::new().inner_margin(egui::Margin {
             left: 8,
             right: 8,
