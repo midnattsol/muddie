@@ -508,7 +508,7 @@ impl App {
                             ("Ctrl", tr("Silence speech")),
                             ("Alt+↑  Alt+↓", tr("Read the previous and next line")),
                             ("Alt+1 … Alt+9", tr("Read the most recent lines")),
-                            ("Alt+Shift+↑ …", tr("Same, for the chat panel")),
+                            ("Alt+Shift+↑ …", tr("Same, for the panel of channels")),
                             ("Alt+0", tr("Read the gauges")),
                         ],
                     ),

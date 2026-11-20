@@ -973,9 +973,6 @@ msgstr "El mapa de donde estás"
 msgid "Bars that follow your health and the like"
 msgstr "Barras que siguen tu vida y cosas así"
 
-msgid "Panel"
-msgstr "Panel"
-
 #, python-brace-format
 msgid "Move {0}"
 msgstr "Mover {0}"
@@ -1007,9 +1004,6 @@ msgstr "Texto"
 
 msgid "Gauges"
 msgstr "Indicadores"
-
-msgid "Map"
-msgstr "Mapa"
 
 msgid "Variables"
 msgstr "Variables"
@@ -1264,12 +1258,6 @@ msgstr "Todos"
 msgid "new"
 msgstr "nuevo"
 
-msgid "Channels"
-msgstr "Canales"
-
-msgid "Chat"
-msgstr "Chat"
-
 
 msgid "Included with Muddie"
 msgstr "Incluidos con Muddie"
@@ -1367,9 +1355,6 @@ msgstr "Fuentes del sistema"
 
 msgid "Interface scale"
 msgstr "Escala de la interfaz"
-
-msgid "Same, for the chat panel"
-msgstr "Lo mismo, para el panel de chat"
 
 msgid "Add gauges"
 msgstr "Añadir indicadores"
@@ -1612,4 +1597,7 @@ msgstr "HTML conserva los colores."
 
 msgid "A sound the MUD asks for that you do not have is fetched from the web and kept."
 msgstr "Si el MUD pide un sonido que no tienes, se descarga de internet y se guarda."
+
+msgid "Same, for the panel of channels"
+msgstr "Lo mismo, para el panel de canales"
 

@@ -17,8 +17,41 @@ msgstr ""
 msgid "Jump to end"
 msgstr ""
 
+msgid "General"
+msgstr ""
+
+msgid "Appearance"
+msgstr ""
+
+msgid "Text and typing"
+msgstr ""
+
+msgid "Speech and screen reader"
+msgstr ""
+
+msgid "Connection"
+msgstr ""
+
+msgid "Log in"
+msgstr ""
+
+msgid "Plugins"
+msgstr ""
+
+msgid "Logs and sounds"
+msgstr ""
+
 #, python-brace-format
 msgid "Could not load the settings: {0}"
+msgstr ""
+
+msgid "Profile"
+msgstr ""
+
+msgid "Save profile"
+msgstr ""
+
+msgid "This session has no profile"
 msgstr ""
 
 msgid "Game"
@@ -36,9 +69,6 @@ msgstr ""
 msgid "Menu"
 msgstr ""
 
-msgid "Profile"
-msgstr ""
-
 msgid "Session"
 msgstr ""
 
@@ -54,19 +84,11 @@ msgstr ""
 msgid "About Muddie"
 msgstr ""
 
-msgid "General"
+#, python-brace-format
+msgid "Profile · {0}"
 msgstr ""
 
-msgid "Appearance"
-msgstr ""
-
-msgid "Output"
-msgstr ""
-
-msgid "Sessions"
-msgstr ""
-
-msgid "Speech"
+msgid "This session"
 msgstr ""
 
 msgid "Typing"
@@ -84,6 +106,9 @@ msgstr ""
 msgid "Search the output"
 msgstr ""
 
+msgid "Speech"
+msgstr ""
+
 msgid "Silence speech"
 msgstr ""
 
@@ -93,10 +118,13 @@ msgstr ""
 msgid "Read the most recent lines"
 msgstr ""
 
-msgid "Same, for the chat panel"
+msgid "Same, for the panel of channels"
 msgstr ""
 
 msgid "Read the gauges"
+msgstr ""
+
+msgid "Sessions"
 msgstr ""
 
 msgid "Reconnect"
@@ -147,7 +175,7 @@ msgstr ""
 msgid "Interface scale"
 msgstr ""
 
-msgid "More languages can be added as gettext catalogues in the locale folder of the configuration."
+msgid "How large the whole window is drawn."
 msgstr ""
 
 msgid "Theme"
@@ -199,6 +227,48 @@ msgid "Size"
 msgstr ""
 
 msgid "Line spacing"
+msgstr ""
+
+msgid "Lines kept"
+msgstr ""
+
+msgid "The lines kept to scroll back to and search; older ones are let go."
+msgstr ""
+
+msgid "Show the time of each line"
+msgstr ""
+
+msgid "The time each line arrived, at its left."
+msgstr ""
+
+msgid "Keep the command after sending it"
+msgstr ""
+
+msgid "It stays selected: Enter sends it again, and typing replaces it."
+msgstr ""
+
+msgid "Speed"
+msgstr ""
+
+msgid "Fast"
+msgstr ""
+
+msgid "Slow"
+msgstr ""
+
+msgid "Language of the voice"
+msgstr ""
+
+msgid "The system's"
+msgstr ""
+
+msgid "The voice the text of the MUD is read with."
+msgstr ""
+
+msgid "Speak through the screen reader"
+msgstr ""
+
+msgid "Instead of its own voice, Muddie hands each line to the screen reader, which also shows it in braille."
 msgstr ""
 
 msgid "Stop walking"
@@ -327,54 +397,6 @@ msgid "Log this session"
 msgstr ""
 
 msgid "Find"
-msgstr ""
-
-msgid "Connection"
-msgstr ""
-
-msgid "Plugins"
-msgstr ""
-
-msgid "Profile name"
-msgstr ""
-
-msgid "Save profile"
-msgstr ""
-
-msgid "Server"
-msgstr ""
-
-msgid "Host"
-msgstr ""
-
-msgid "Port"
-msgstr ""
-
-msgid "Verify certificate"
-msgstr ""
-
-msgid "Text encoding"
-msgstr ""
-
-msgid "Only for servers that do not use UTF-8 or Latin-1, e.g. big5 or koi8-r."
-msgstr ""
-
-msgid "Log in automatically"
-msgstr ""
-
-msgid "Character"
-msgstr ""
-
-msgid "Leave empty to keep it"
-msgstr ""
-
-msgid "Password"
-msgstr ""
-
-msgid "Kept in the system's keyring when the profile is saved."
-msgstr ""
-
-msgid "No profile"
 msgstr ""
 
 msgid "Say"
@@ -844,18 +866,6 @@ msgstr ""
 msgid "Matches:"
 msgstr ""
 
-msgid "Chat"
-msgstr ""
-
-msgid "Map"
-msgstr ""
-
-msgid "Channels"
-msgstr ""
-
-msgid "Panel"
-msgstr ""
-
 #, python-brace-format
 msgid "Could not load the panels: {0}"
 msgstr ""
@@ -1037,10 +1047,20 @@ msgstr ""
 msgid "Included with Muddie"
 msgstr ""
 
-msgid "Installed by you"
+#, python-brace-format
+msgid "Customize {0}"
+msgstr ""
+
+msgid "Customize"
 msgstr ""
 
 msgid "Plugins need a configuration folder, and none was found."
+msgstr ""
+
+msgid "Installed by you"
+msgstr ""
+
+msgid "Update all"
 msgstr ""
 
 msgid "No plugins yet. A plugin is a set of scripts someone made for a MUD: a mapper, triggers, gauges."
@@ -1055,70 +1075,130 @@ msgstr ""
 msgid "Install a plugin"
 msgstr ""
 
-msgid "Git address"
-msgstr ""
-
 msgid "Install"
 msgstr ""
 
-msgid "It is downloaded with git into the configuration's packages folder. Only install what you trust: a plugin can send commands as you."
+msgid "The address of the plugin's git repository. Only install what you trust: a plugin can send commands as you."
 msgstr ""
 
 msgid "Working…"
+msgstr ""
+
+msgid "Save the session as a profile first: the script is kept with it."
+msgstr ""
+
+#, python-brace-format
+msgid "{0} is now a script of yours, in the editor."
+msgstr ""
+
+#, python-brace-format
+msgid "Could not save the profile: {0}"
+msgstr ""
+
+msgid "Password kept in the system's keyring."
+msgstr ""
+
+#, python-brace-format
+msgid "The password could not be saved in the keyring: {0}"
+msgstr ""
+
+msgid "Profile name"
+msgstr ""
+
+msgid "Save as profile"
+msgstr ""
+
+msgid "Aardwolf, Reinos…"
+msgstr ""
+
+msgid "A profile keeps the connection, the scripts, the map and the layout, to come back to them."
+msgstr ""
+
+msgid "The changes take effect on reconnecting."
+msgstr ""
+
+msgid "Server"
+msgstr ""
+
+msgid "Host"
+msgstr ""
+
+msgid "Port"
+msgstr ""
+
+msgid "Verify certificate"
+msgstr ""
+
+msgid "Off only for a server with a certificate of its own making."
+msgstr ""
+
+msgid "Text encoding"
+msgstr ""
+
+msgid "Automatic"
+msgstr ""
+
+msgid "Automatic suits nearly every MUD: UTF-8, or Latin-1 for what is not."
+msgstr ""
+
+msgid "Keeping the connection"
+msgstr ""
+
+msgid "Reconnect when the connection is lost"
+msgstr ""
+
+msgid "When it drops without you closing it."
+msgstr ""
+
+msgid "Keep the connection alive"
+msgstr ""
+
+msgid "Some servers and routers close a connection that has been quiet for a while."
+msgstr ""
+
+msgid "Character"
+msgstr ""
+
+msgid "Muddie answers the first prompt with it."
+msgstr ""
+
+msgid "Leave empty to keep it"
+msgstr ""
+
+msgid "Password"
+msgstr ""
+
+msgid "Kept in the system's keyring, never in a file, and sent when the server hides typing."
+msgstr ""
+
+msgid "The password is kept once the session is saved as a profile."
+msgstr ""
+
+msgid "Without a profile, these are those of every session that has none."
+msgstr ""
+
+msgid "Log every session"
+msgstr ""
+
+msgid "Everything shown in the session, written to a file as it comes."
+msgstr ""
+
+msgid "Log format"
+msgstr ""
+
+msgid "HTML keeps the colours."
+msgstr ""
+
+msgid "Download the sounds a MUD asks to play"
+msgstr ""
+
+msgid "A sound the MUD asks for that you do not have is fetched from the web and kept."
 msgstr ""
 
 msgid "Speech on."
 msgstr ""
 
 msgid "Blank."
-msgstr ""
-
-msgid "Scrollback lines"
-msgstr ""
-
-msgid "Show the time of each line"
-msgstr ""
-
-msgid "Keep the command after sending it"
-msgstr ""
-
-msgid "It stays selected: Enter sends it again, and typing replaces it."
-msgstr ""
-
-msgid "Download the sounds a MUD asks to play"
-msgstr ""
-
-msgid "Log every session"
-msgstr ""
-
-msgid "Log format"
-msgstr ""
-
-msgid "Reconnect when the connection is lost"
-msgstr ""
-
-msgid "Keep-alive"
-msgstr ""
-
-msgid "Seconds of silence before a keep-alive is sent; 0 sends none."
-msgstr ""
-
-msgid "Speech rate"
-msgstr ""
-
-msgid "Speech language"
-msgstr ""
-
-msgid "system"
-msgstr ""
-
-msgid "A language code such as es or en, so the text is read with the right voice."
-msgstr ""
-
-msgid "Voice through the screen reader (also braille)"
-msgstr ""
-
-msgid "Instead of speaking directly, hand each line to the screen reader to announce."
 msgstr ""
 
 #, python-brace-format
@@ -1141,14 +1221,6 @@ msgstr ""
 
 #, python-brace-format
 msgid "Profile {0} saved."
-msgstr ""
-
-#, python-brace-format
-msgid "The password could not be saved in the keyring: {0}"
-msgstr ""
-
-#, python-brace-format
-msgid "Could not save the profile: {0}"
 msgstr ""
 
 msgid "Enter a host to connect to."

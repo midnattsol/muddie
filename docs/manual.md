@@ -13,9 +13,10 @@ repeated), and `--insecure` accepts a self-signed TLS certificate.
 
 ## The window
 
-At the top, the **menu** (the three lines), the **profile** the session
-plays with, the field that opens the **palette**, and at the right the two
-views of a session: **Game** and **Editor** (Ctrl+E). At the bottom, the
+At the top, at the left the **profile** the session plays with (or **Save
+profile**, for one that has none), in the middle the field that opens the
+**palette**, and at the right the two views of a session, **Game** and
+**Editor** (Ctrl+E), and the **menu** (the three lines). At the bottom, the
 sessions as tabs, what the one on screen is doing, and the **bell** of the
 messages the client has given in it, marked while some are new: what was
 said for a moment, such as the answer of a command, can be read there again.
@@ -37,11 +38,13 @@ arrives.
 
 A new session opens on a welcome screen. Type an address such as
 `mud.example.org:4000` and press Enter to connect, or pick one of your saved
-profiles below it. **More options** there, or the profile's name at the top
-of the window, opens the **profile**'s window: its name, the host, port, TLS
-and text encoding, the character to log in as, and on its second page the
-profile's plugins. Press **Save profile** to keep it. It can be opened while
-connected: what is changed takes effect with **Reconnect**. A profile also has its own scripts, triggers, map and remembered values,
+profiles below it. **More options** there, or the profile at the top of the
+window, opens the profile's part of the **settings**: its connection, who to
+log in as, its plugins, and its logs and sounds. A session without a profile
+is saved as one there, under **Connection**, with **Save as profile**; a
+profile is then kept as it is changed, with no button to press. It can be
+changed while connected: what waits for connecting again says so, with
+**Reconnect** beside it. A profile also has its own scripts, triggers, map and remembered values,
 all under `profiles/<name>/` in the configuration folder (`~/.config/muddie`
 on Linux, `%APPDATA%\muddie` on Windows).
 
@@ -180,8 +183,10 @@ They are saved in the profile's `rules.toml`. For anything more, see
 ## Panels
 
 Around the output there can be panels: the map, the gauges, and panels of
-text. A profile starts with one for the MUD's channels above, the map at the
-right and the gauges below.
+text. A profile starts with the map at the right and the gauges below; the
+MUD's channels get a panel of their own, **Channels**, under the map, when
+the first of them comes. A panel is called what it was named, whatever the
+language of the interface: the usual ones are in English.
 
 Every panel has a header: six dots to drag it by, its name (or the names of
 the panels that share its place, as tabs), the tools of its kind, and its
@@ -236,8 +241,8 @@ poisoned, green for not. Alt+0 reads the gauges aloud.
 ### Plugins that come with Muddie
 
 Muddie itself knows the ways of no MUD in particular: those are plugins, in
-the **profile**'s window, on its Plugins page, switched on and off per profile like the ones you
-install. Two come with it.
+the settings, under the profile's **Plugins**, switched on and off per
+profile like the ones you install. Two come with it.
 
 - **Common GMCP and MSDP** makes something of what many MUDs send the same
   way: `Char.Vitals` as gauges, `Room.Info` as the map, `Comm.Channel.Text`
@@ -247,14 +252,19 @@ install. Two come with it.
   is off until asked for. On connecting to that MUD it is offered over the
   command line: **Enable** switches it on there and then, and **Not now**
   puts the offer away for that profile. The MUD sends nothing over GMCP until
-  you type `consentir gmcp on` in the game.
+  you type `consentir gmcp on` in the game; if nothing has come a minute and
+  a half after connecting, the plugin says so.
 
-Switching one does not run your scripts again.
+Switching one does not run your scripts again. **Customize**, beside one
+written in Luau, makes it yours: its code becomes a script of the profile's,
+opened in the editor to change at will (to send the channels to another
+panel, say), and the one that came is switched off so as not to run twice.
 
 ### Channels
 
 What is said on the channels of a MUD (chat, guild, tells...) goes to the
-panel of channels, the one called Chat at first. It has a tab for each
+panel of channels, **Channels**, made under the map when the first of them
+comes. It has a tab for each
 channel, and one for all of them together; a tab turns yellow, with a dot,
 when something is said on it that you have not looked at. Any text panel can
 be one of channels: **Show the MUD's channels here**, in its menu.
@@ -321,7 +331,7 @@ speech-dispatcher on Linux, the system voices on Windows and macOS.
 | Alt+Up, Alt+Down | Reads the previous and next line of output |
 | Alt+Home, Alt+End | Reads the first and last line |
 | Alt+1 ... Alt+9 | Reads the most recent lines |
-| Alt+Shift with the same keys | The same for the chat panel |
+| Alt+Shift with the same keys | The same for the panel of channels |
 | Alt+0 | Reads the gauges |
 
 With **Voice through the screen reader** set in the settings, Muddie hands
@@ -385,8 +395,9 @@ what was agreed. Nothing here needs setting up.
 
 ## Settings
 
-**Settings**, in the menu (Ctrl+,), are Muddie's own, for every profile, in
-sections:
+**Settings**, in the menu (Ctrl+,), are one window with two parts. Under
+**Muddie**, what is the same for every profile; under the profile's name,
+what is its own. Every row has a line under it saying what it does.
 
 - **General**: the language, and the size the interface is drawn at.
 - **Appearance**: the theme (Dark, Graphite, Mocha, Dusk, Tokyo Night, Nord,
@@ -394,18 +405,26 @@ sections:
   (MesloLGS NF unless another is chosen: JetBrains Mono, which also comes
   with the program, or any monospaced font installed), its size and its line
   spacing, with a sample.
-- **Output**: lines kept, timestamps.
-- **Sessions**: whether a sent command stays in the command line, logging,
-  reconnection, keep-alive.
-- **Speech**: rate, language, screen reader.
+- **Text and typing**: lines kept, the time of each line, and whether a
+  sent command stays in the command line.
+- **Speech and screen reader**: the speed and the language of the voice, and
+  whether lines go to the screen reader instead.
 
-What is a profile's own is in the **profile**'s window instead: its
-connection, and its **plugins**, sets of scripts made by others. Install one
-from the address of its git repository; each has a switch that enables it in
-that profile, and can be updated or removed. Only install what you trust: a
-plugin can send commands as you.
+The profile's:
 
-They are saved in `settings.toml`.
+- **Connection**: host, port, TLS, text encoding; reconnecting when the
+  connection drops, and keeping it alive.
+- **Log in**: the character and its password.
+- **Plugins**: those that come with Muddie, and those made by others,
+  installed from the address of their git repository. Each has a switch that
+  enables it in that profile; its menu updates or removes it, and **Update
+  all** updates them all. Only install what you trust: a plugin can send
+  commands as you.
+- **Logs and sounds**: logging every session, and fetching the sounds the MUD
+  asks for. A session without a profile has here those of every session
+  that has none.
+
+Muddie's are saved in `settings.toml`, the profile's in its `profile.toml`.
 
 ## Languages
 

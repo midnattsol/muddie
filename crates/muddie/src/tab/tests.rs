@@ -330,7 +330,7 @@ fn map_drawn_by_the_server_is_asked_for_at_the_panels_size_and_shown() {
     harness.run_steps(3);
     let app = harness.state().tab();
     // It is the map's own panel that shows it, not one more.
-    assert_eq!(app.layout.panels.len(), 3);
+    assert_eq!(app.layout.panels.len(), 2);
     let map = app
         .layout
         .panels
@@ -612,10 +612,7 @@ fn panels_are_kept_fed_by_triggers_and_moved_about() {
     let app = harness.state_mut().tab_mut();
     // What a profile starts with.
     let kinds: Vec<layout::Kind> = app.layout.panels.iter().map(|panel| panel.kind).collect();
-    assert_eq!(
-        kinds,
-        [layout::Kind::Text, layout::Kind::Map, layout::Kind::Gauges]
-    );
+    assert_eq!(kinds, [layout::Kind::Map, layout::Kind::Gauges]);
     // A trigger shows its line in a panel, which is made if need be,
     // and with the line hidden it is only there.
     app.rules.triggers.push(Trigger {
@@ -654,18 +651,20 @@ fn panels_are_kept_fed_by_triggers_and_moved_about() {
         (1, "Ana tells you: hola")
     );
     assert_eq!(output_lines(app), ["A plain line"]);
-    // The channels go to the panel that shows them.
+    // The channels go to the panel told to show them.
+    (app.layout.panels.iter_mut())
+        .filter(|panel| panel.id == tells.id)
+        .for_each(|panel| panel.channels = true);
     app.channel_line(&panels::styled_lines("[ooc] Luis: buenas").remove(0));
-    let chat = app.layout.panels[0].id;
     assert_eq!(
         app.panel_text
             .iter()
-            .find(|(id, _)| *id == chat)
+            .find(|(id, _)| *id == tells.id)
             .unwrap()
             .1
             .log
             .len(),
-        1
+        2
     );
     // Moved to another side and hidden, it is all there the next time.
     let index = app
@@ -1521,6 +1520,17 @@ fn channels_are_given_a_panel_where_there_is_none_for_them() {
         .collect();
     assert_eq!(made.len(), 1);
     assert!(made[0].visible && made[0].kind == layout::Kind::Text);
+    // Called Channels, whatever the language, under the map.
+    assert_eq!(
+        (made[0].name.as_str(), made[0].side),
+        ("Channels", layout::Side::Right)
+    );
+    let app = harness.state().tab();
+    let right: Vec<&str> = (app.layout.panels.iter())
+        .filter(|panel| panel.side == layout::Side::Right)
+        .map(|panel| panel.name.as_str())
+        .collect();
+    assert_eq!(right, ["Map", "Channels"]);
     harness.get_by_label("Ana: hola");
     harness.get_by_label("chat");
     // Hidden, it is not made again.
@@ -1955,8 +1965,8 @@ fn a_panel_is_arranged_from_its_own_menu_with_no_mode_to_enter() {
     app.started = true;
     harness.run_steps(3);
     // Every panel has its handle and its menu, all the time.
-    harness.get_by_label("Move Chat");
-    harness.get_by_label("Chat options").click();
+    harness.get_by_label("Move Gauges");
+    harness.get_by_label("Gauges options").click();
     harness.run_steps(2);
     // From there it goes to another side...
     harness.get_by_label("At the left").click();
@@ -1969,20 +1979,20 @@ fn a_panel_is_arranged_from_its_own_menu_with_no_mode_to_enter() {
             .map(|panel| panel.side)
     };
     assert_eq!(
-        side(harness.state().tab(), "Chat"),
+        side(harness.state().tab(), "Gauges"),
         Some(layout::Side::Left)
     );
     // ...and is hidden, to be shown again from the menu or the palette.
-    harness.get_by_label("Chat options").click();
+    harness.get_by_label("Gauges options").click();
     harness.run_steps(2);
-    harness.get_by_label("Hide Chat").click();
+    harness.get_by_label("Hide Gauges").click();
     harness.run_steps(3);
     let app = harness.state_mut().tab_mut();
     assert!(
         !app.layout
             .panels
             .iter()
-            .find(|panel| panel.name == "Chat")
+            .find(|panel| panel.name == "Gauges")
             .unwrap()
             .visible
     );
@@ -2018,7 +2028,7 @@ fn a_panel_is_dragged_by_its_handle_to_another_place() {
     harness.run_steps(4);
     // The chat, above, taken by its dots and let go on the upper part of
     // the map, at the right.
-    let from = harness.get_by_label("Move Chat").rect().center();
+    let from = harness.get_by_label("Move Gauges").rect().center();
     let map = harness.get_by_label("Move Map").rect().center() + egui::vec2(60.0, 60.0);
     harness.hover_at(from);
     harness.run_steps(1);
@@ -2037,7 +2047,7 @@ fn a_panel_is_dragged_by_its_handle_to_another_place() {
             .find(|panel| panel.name == name)
             .map(|panel| panel.side)
     };
-    assert_eq!(side("Chat"), Some(layout::Side::Right));
+    assert_eq!(side("Gauges"), Some(layout::Side::Right));
     assert!(app.dragged_panel.is_none());
 }
 
@@ -2047,9 +2057,9 @@ fn a_panels_menu_is_reached_from_the_keyboard() {
     harness.set_size(egui::vec2(1300.0, 800.0));
     harness.state_mut().tab_mut().started = true;
     harness.run_steps(3);
-    harness.get_by_label("Chat options").focus();
+    harness.get_by_label("Gauges options").focus();
     harness.run_steps(2);
-    assert!(harness.get_by_label("Chat options").is_focused());
+    assert!(harness.get_by_label("Gauges options").is_focused());
     harness.key_press(Key::Enter);
     harness.run_steps(3);
     harness.get_by_label("At the left");
@@ -2146,7 +2156,7 @@ fn what_a_click_opens_stays_open() {
     steady(&mut harness, "menu", "Keyboard shortcuts");
     harness.get_by_label("Messages, 1 new").click();
     steady(&mut harness, "messages", "Clear");
-    harness.get_by_label("Chat options").click();
+    harness.get_by_label("Gauges options").click();
     steady(&mut harness, "panel menu", "At the left");
     harness.get_by_label("Edit Salud").click();
     steady(&mut harness, "gauge", "Open in the editor");

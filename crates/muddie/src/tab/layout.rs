@@ -88,8 +88,9 @@ pub struct Layout {
 }
 
 impl Default for Layout {
-    /// What a profile starts with: the channels above, the map at the
-    /// right and the gauges below.
+    /// What a profile starts with: the map at the right and the gauges
+    /// below. The MUD's channels get a panel of their own, under the map,
+    /// when the first of them comes.
     fn default() -> Self {
         let panel = |id, name: &str, kind, side, size, channels| PanelSpec {
             id,
@@ -105,28 +106,19 @@ impl Default for Layout {
         Self {
             columns_full: false,
             panels: vec![
-                panel(1, "Chat", Kind::Text, Side::Top, 140.0, true),
-                panel(2, "Map", Kind::Map, Side::Right, 330.0, false),
-                panel(3, "Gauges", Kind::Gauges, Side::Bottom, 96.0, false),
+                panel(1, "Map", Kind::Map, Side::Right, 330.0, false),
+                panel(2, "Gauges", Kind::Gauges, Side::Bottom, 96.0, false),
             ],
         }
     }
 }
 
 impl PanelSpec {
-    /// What a panel is called on the screen: the name given it, and for
-    /// one that kept the name it was made with, that name in the language
-    /// of the interface.
+    /// What a panel is called on the screen: its name, as it was given.
+    /// The usual ones are in English, whatever the language of the
+    /// interface, as names are not translated.
     pub fn shown_name(&self) -> String {
-        let shown = match self.name.as_str() {
-            "Chat" => tr("Chat"),
-            "Map" => tr("Map"),
-            "Gauges" => tr("Gauges"),
-            "Channels" => tr("Channels"),
-            "Panel" => tr("Panel"),
-            name => name,
-        };
-        shown.to_owned()
+        self.name.clone()
     }
 }
 
@@ -375,15 +367,23 @@ impl Tab {
             if !self.layout.panels.iter().any(|panel| panel.channels) {
                 let id = self.layout.next_id();
                 let taken = |name: &str| self.layout.panels.iter().any(|panel| panel.name == name);
-                let called = [tr("Chat"), tr("Channels")]
+                // Under the map, as the last of those at its side.
+                let name = ["Channels", "Channels 2", "Channels 3"]
                     .into_iter()
-                    .find(|name| !taken(name));
+                    .find(|name| !taken(name))
+                    .unwrap_or("Channels");
+                let side = (self.layout.panels.iter())
+                    .find(|panel| panel.kind == Kind::Map)
+                    .map_or(Side::Right, |map| map.side);
+                let size = (self.layout.panels.iter())
+                    .find(|panel| panel.side == side)
+                    .map_or(330.0, |panel| panel.size);
                 self.layout.panels.push(PanelSpec {
                     id,
-                    name: called.unwrap_or(tr("Channels")).to_owned(),
+                    name: name.to_owned(),
                     kind: Kind::Text,
-                    side: Side::Top,
-                    size: 140.0,
+                    side,
+                    size,
                     channels: true,
                     ..PanelSpec::default()
                 });
@@ -493,7 +493,7 @@ impl Tab {
                 let id = self.layout.next_id();
                 self.layout.panels.push(PanelSpec {
                     id,
-                    name: tr("Map").to_owned(),
+                    name: "Map".to_owned(),
                     kind: Kind::Map,
                     size: 330.0,
                     ..PanelSpec::default()
