@@ -279,6 +279,8 @@ impl Tab {
         self.palette_chosen = 0;
         self.results = None;
         self.palette_focus = self.palette_open;
+        // The press that opened it is not one elsewhere.
+        self.palette_fresh = self.palette_open;
     }
 
     fn close_palette(&mut self) {
@@ -702,8 +704,10 @@ impl Tab {
             self.palette_focus = true;
             return self.choose(&item, false, ctx);
         }
-        // A click anywhere else closes it.
-        if area.response.clicked_elsewhere() {
+        // A click anywhere else closes it; not the one that opened it,
+        // from the field at the top, in the frame it opened.
+        let fresh = std::mem::take(&mut self.palette_fresh);
+        if !fresh && area.response.clicked_elsewhere() {
             self.close_palette();
         }
     }

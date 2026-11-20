@@ -2086,6 +2086,73 @@ fn a_gauge_is_changed_where_it_is_shown() {
 }
 
 #[test]
+fn the_palette_opens_from_its_field_and_stays_open() {
+    let mut harness = window(None);
+    harness.set_size(egui::vec2(1300.0, 800.0));
+    harness.state_mut().tab_mut().started = true;
+    harness.run_steps(3);
+    // Pressed with the pointer, as the keys open it: it is there, and
+    // stays there frame after frame.
+    harness.get_by_label("Search or run a command").click();
+    for frame in 0..6 {
+        harness.step();
+        assert!(
+            harness.state().tab().palette_open,
+            "closed again at frame {frame}"
+        );
+    }
+    harness.get_by_label("Incoming data. Go to");
+    // A press anywhere else does close it.
+    harness.get_by_label("Menu").click();
+    harness.run_steps(3);
+    assert!(!harness.state().tab().palette_open);
+}
+
+#[test]
+fn what_a_click_opens_stays_open() {
+    let mut harness = window(None);
+    harness.set_size(egui::vec2(1300.0, 800.0));
+    let app = harness.state_mut().tab_mut();
+    app.started = true;
+    app.rules.gauges.push(crate::rules::Gauge {
+        name: "Salud".into(),
+        value: "Char.Vitals.hp".into(),
+        max: "100".into(),
+        ..crate::rules::Gauge::starter()
+    });
+    app.gauges.set("Salud", Some((40.0, 100.0)));
+    app.note("Connected.");
+    harness.run_steps(3);
+    let steady = |harness: &mut Harness<'_, crate::app::App>, what: &str, shown: &str| {
+        // It may be laid out a frame late; once there, it stays.
+        harness.run_steps(2);
+        for frame in 0..6 {
+            assert!(
+                harness.query_by_label(shown).is_some(),
+                "{what}: gone at frame {frame}"
+            );
+            harness.step();
+        }
+        harness.key_press(Key::Escape);
+        harness.run_steps(3);
+    };
+    harness.get_by_label("Profile: No profile").click();
+    steady(&mut harness, "profile", "Profile name");
+    harness.get_by_label("Menu").click();
+    steady(&mut harness, "menu", "Keyboard shortcuts");
+    harness.get_by_label("Messages, 1 new").click();
+    steady(&mut harness, "messages", "Clear");
+    harness.get_by_label("Chat options").click();
+    steady(&mut harness, "panel menu", "At the left");
+    harness.get_by_label("Edit Salud").click();
+    steady(&mut harness, "gauge", "Open in the editor");
+    harness.get_by_label("Menu").click();
+    harness.run_steps(2);
+    harness.get_by_label("Settings").click();
+    steady(&mut harness, "settings", "Language");
+}
+
+#[test]
 fn session_is_logged_when_asked() {
     let dir = std::env::temp_dir().join(format!("muddie-app-log-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);

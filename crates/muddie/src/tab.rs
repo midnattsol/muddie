@@ -188,6 +188,8 @@ pub struct Tab {
     /// The connection is being closed to be opened again.
     reconnect_wanted: bool,
     palette_open: bool,
+    /// The palette opened in this frame, by a press that is not to close it.
+    palette_fresh: bool,
     /// What the session asked the window to do, for it to take.
     app_request: Option<commands::AppRequest>,
     palette_query: String,
@@ -482,6 +484,7 @@ impl Tab {
             notices: Vec::new(),
             notices_unread: 0,
             palette_open: false,
+            palette_fresh: false,
             app_request: None,
             palette_query: String::new(),
             palette_focus: false,
