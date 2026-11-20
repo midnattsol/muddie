@@ -172,12 +172,7 @@ impl MapView {
             ui.ctx().accesskit_node_builder(chooser.id, |node| {
                 node.set_label(tr("Area"));
             });
-            let down = ui
-                .add(egui::Button::new("−").min_size(vec2(26.0, 26.0)))
-                .on_hover_text(tr("Down"));
-            ui.ctx().accesskit_node_builder(down.id, |node| {
-                node.set_label(tr("Down"));
-            });
+            let down = crate::widgets::sign_button(ui, "−", tr("Down"), true);
             if down.clicked() {
                 level -= 1;
             }
@@ -187,12 +182,7 @@ impl MapView {
                     .font(theme::font(Weight::Regular, 12.5))
                     .color(palette.text_dim),
             );
-            let up = ui
-                .add(egui::Button::new("+").min_size(vec2(26.0, 26.0)))
-                .on_hover_text(tr("Up"));
-            ui.ctx().accesskit_node_builder(up.id, |node| {
-                node.set_label(tr("Up"));
-            });
+            let up = crate::widgets::sign_button(ui, "+", tr("Up"), true);
             if up.clicked() {
                 level += 1;
             }

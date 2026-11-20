@@ -314,11 +314,7 @@ const MAX_LISTED_ROOMS: usize = 10;
 
 /// Where the map of the MUD at `host:port` is stored, creating the folder.
 fn map_path(host: &str, port: u16) -> Option<PathBuf> {
-    let data_dir = std::env::var_os("XDG_DATA_HOME")
-        .or_else(|| std::env::var_os("APPDATA"))
-        .map(PathBuf::from)
-        .or_else(|| Some(PathBuf::from(std::env::var_os("HOME")?).join(".local/share")))?;
-    let maps = data_dir.join("muddie").join("maps");
+    let maps = crate::profile::user_dir(crate::profile::UserDir::Data)?.join("maps");
     std::fs::create_dir_all(&maps).ok()?;
     let safe_host: String = (host.chars())
         .map(|ch| {
@@ -382,6 +378,9 @@ struct PanelSize {
 /// What the rules made in the interface are run as: one owner, to take
 /// them away together when they are run again.
 const RULES: &str = "rules";
+
+/// Things by their names, each with whether it is switched on.
+type Switched = Vec<(String, bool)>;
 
 impl Tab {
     pub fn new(ctx: &egui::Context, startup: Startup, settings: &Settings) -> Self {
@@ -684,14 +683,7 @@ impl Tab {
     fn load_scripts(&mut self) {
         // Groups switched for the session keep how they were left, unless
         // what is saved for them is what changed.
-        let saved_before: Vec<(String, bool)> = (self.rules.group_names().into_iter())
-            .map(|name| (self.rules.group_enabled(&name), name))
-            .map(|(on, name)| (name, on))
-            .collect();
-        let session: Vec<(String, bool)> = (self.scripts.groups().into_iter())
-            .map(|name| (self.scripts.group_enabled(&name), name))
-            .map(|(on, name)| (name, on))
-            .collect();
+        let (saved_before, session) = self.group_states();
         // The scripts say again what they want announced and are told
         // again how big the panel is.
         self.supports.clear();
@@ -767,10 +759,29 @@ impl Tab {
         self.run_actions();
     }
 
+    /// Whether each group is on: as the rules have it saved, and as it
+    /// is in this session, where a script or the player may have
+    /// switched it.
+    fn group_states(&self) -> (Switched, Switched) {
+        let saved = (self.rules.group_names().into_iter())
+            .map(|name| {
+                let on = self.rules.group_enabled(&name);
+                (name, on)
+            })
+            .collect();
+        let session = (self.scripts.groups().into_iter())
+            .map(|name| {
+                let on = self.scripts.group_enabled(&name);
+                (name, on)
+            })
+            .collect();
+        (saved, session)
+    }
+
     /// Runs the rules made in the interface, in place of those that were
     /// running. Groups switched for the session keep how they were left,
     /// unless what is saved for them is what changed.
-    fn run_rules(&mut self, saved_before: &[(String, bool)], session: Vec<(String, bool)>) {
+    fn run_rules(&mut self, saved_before: &[(String, bool)], session: Switched) {
         self.scripts.unload(RULES);
         // Each on its own, so a mistake in one says which and spares the rest.
         for (name, code) in self.rules.chunks() {
@@ -791,14 +802,7 @@ impl Tab {
     /// scripts again: what those keep is not theirs to lose because a
     /// rule changed. A script switched on or off since is run or stopped.
     fn reload_rules(&mut self, saved: Option<Rules>) {
-        let saved_before: Vec<(String, bool)> = (self.rules.group_names().into_iter())
-            .map(|name| (self.rules.group_enabled(&name), name))
-            .map(|(on, name)| (name, on))
-            .collect();
-        let session: Vec<(String, bool)> = (self.scripts.groups().into_iter())
-            .map(|name| (self.scripts.group_enabled(&name), name))
-            .map(|(on, name)| (name, on))
-            .collect();
+        let (saved_before, session) = self.group_states();
         let off_before = self.rules.scripts_off.clone();
         if let Some(rules) = saved {
             self.rules = rules;
@@ -1145,7 +1149,7 @@ impl Tab {
                     return;
                 }
                 let id = self.panel_called(&name);
-                if let Some(panel) = self.layout.panels.iter_mut().find(|panel| panel.id == id) {
+                if let Some(panel) = self.layout.panel_mut(id) {
                     panel.visible = open;
                     if !known {
                         panel.side = match align.as_str() {
@@ -2527,7 +2531,7 @@ impl Tab {
     /// Lets scripts ask for the size of the panel `id`, by its name, and
     /// as `map` if it is the map's.
     fn panel_size_known(&mut self, id: u32, cells: (u32, u32)) {
-        let Some(panel) = self.layout.panels.iter().find(|panel| panel.id == id) else {
+        let Some(panel) = self.layout.panel(id) else {
             return;
         };
         self.scripts.set_panel_size(&panel.name, cells.0, cells.1);
@@ -2570,7 +2574,7 @@ impl Tab {
         for (id, cells) in settled {
             // Which panel it is: by its name, and whether it is the map's,
             // whatever that one is called.
-            let panel = self.layout.panels.iter().find(|panel| panel.id == id);
+            let panel = self.layout.panel(id);
             let name = panel.map(|panel| panel.name.clone()).unwrap_or_default();
             let map = panel.is_some_and(|panel| panel.kind == layout::Kind::Map);
             let size = serde_json::json!({
@@ -4567,12 +4571,7 @@ end)"#;
         let app = harness.state_mut().tab_mut();
         // A panel the player made by hand, and put on the left.
         let id = app.panel_called("Conversaciones");
-        let made = app
-            .layout
-            .panels
-            .iter_mut()
-            .find(|panel| panel.id == id)
-            .unwrap();
+        let made = app.layout.panel_mut(id).unwrap();
         (made.side, made.size) = (layout::Side::Left, 300.0);
         let panels = app.layout.panels.len();
         // Named by a script, it is the one used, as it is; and one that
@@ -4587,13 +4586,7 @@ end)"#;
         harness.run_steps(3);
         let app = harness.state_mut().tab_mut();
         assert_eq!(app.layout.panels.len(), panels + 1);
-        let kept = app
-            .layout
-            .panels
-            .iter()
-            .find(|panel| panel.id == id)
-            .cloned()
-            .unwrap();
+        let kept = app.layout.panel(id).cloned().unwrap();
         assert!(kept.side == layout::Side::Left && kept.size == 300.0);
         let private = (app.layout.panels.iter())
             .find(|panel| panel.name == "Privado")

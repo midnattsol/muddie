@@ -450,7 +450,7 @@ pub fn parse_msp(line: &str) -> Option<Msp> {
             }
             "P" => priority = value.parse::<u32>().ok()?.min(100) as u8,
             "C" => keep_going = value.parse::<i32>().ok()? != 0,
-            "T" => kind = value.to_owned(),
+            "T" => value.clone_into(&mut kind),
             "U" => url = Some(value.to_owned()),
             _ => {}
         }

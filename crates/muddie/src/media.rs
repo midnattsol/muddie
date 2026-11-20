@@ -160,10 +160,8 @@ pub fn address(url: &str, name: &str) -> Option<String> {
 /// Where fetched files are kept: the cache of the user, not the folder
 /// of their settings.
 pub fn cache_dir() -> Option<PathBuf> {
-    let cache = (std::env::var_os("XDG_CACHE_HOME").map(PathBuf::from))
-        .or_else(|| std::env::var_os("LOCALAPPDATA").map(PathBuf::from))
-        .or_else(|| Some(PathBuf::from(std::env::var_os("HOME")?).join(".cache")))?;
-    Some(cache.join("muddie").join("media"))
+    use crate::profile::{UserDir, user_dir};
+    Some(user_dir(UserDir::Cache)?.join("media"))
 }
 
 /// Where the file at `address` is kept once fetched: a folder for each

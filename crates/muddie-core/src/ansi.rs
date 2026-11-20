@@ -458,17 +458,15 @@ impl Assembler {
     fn set_mxp_mode(&mut self, out: &mut Vec<Line>) {
         let number = self.params.parse::<u8>().unwrap_or(0);
         let mode = match number {
-            0 => MxpMode::Open,
-            1 => MxpMode::Secure,
-            2 => MxpMode::Locked,
+            // 0 to 2 are for this line; 5 to 7 are for every line after.
+            0 | 5 => MxpMode::Open,
+            1 | 6 => MxpMode::Secure,
+            2 | 7 => MxpMode::Locked,
             // Secure for the next tag only.
             4 => {
                 self.one_tag = Some(self.mode);
                 MxpMode::Secure
             }
-            5 => MxpMode::Open,
-            6 => MxpMode::Secure,
-            7 => MxpMode::Locked,
             // A numbered kind of line: the rest of it is of that kind.
             10..=99 => return self.line_tag(number, out),
             // 3 resets: close everything and go back to the default.

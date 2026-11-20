@@ -114,6 +114,15 @@ impl Default for Layout {
 }
 
 impl Layout {
+    /// The panel with this number.
+    pub fn panel(&self, id: u32) -> Option<&PanelSpec> {
+        self.panels.iter().find(|panel| panel.id == id)
+    }
+
+    pub fn panel_mut(&mut self, id: u32) -> Option<&mut PanelSpec> {
+        self.panels.iter_mut().find(|panel| panel.id == id)
+    }
+
     /// Reads a layout; a missing file gives the one to start with.
     pub fn load(path: &std::path::Path) -> Result<Self, String> {
         match std::fs::read_to_string(path) {
@@ -315,12 +324,7 @@ impl Tab {
     /// Marks a panel that got something while another tab of its place
     /// was the one on show.
     fn note_unread(&mut self, id: u32) {
-        let stack = self
-            .layout
-            .panels
-            .iter()
-            .find(|panel| panel.id == id)
-            .map_or(0, |panel| panel.stack);
+        let stack = self.layout.panel(id).map_or(0, |panel| panel.stack);
         let shown = self
             .shown_tabs
             .iter()
@@ -424,15 +428,9 @@ impl Tab {
     /// marked if something was said on it that has not been looked at.
     /// Returns the channel chosen; none for all.
     fn channel_tabs(&mut self, ui: &mut egui::Ui, id: u32) -> String {
-        let theme = theme::current();
         let known = self.channel_shown.iter().find(|(panel, _)| *panel == id);
         let mut shown = known.map(|(_, shown)| shown.clone()).unwrap_or_default();
-        let spec = self
-            .layout
-            .panels
-            .iter()
-            .find(|panel| panel.id == id)
-            .cloned();
+        let spec = self.layout.panel(id).cloned();
         let here = |channel: &&Channel| spec.as_ref().is_some_and(|spec| channel.shown_in(spec));
         let names: Vec<(String, bool)> = std::iter::once((String::new(), false))
             .chain(
@@ -444,54 +442,12 @@ impl Tab {
         ui.horizontal_wrapped(|ui| {
             ui.spacing_mut().item_spacing = egui::vec2(2.0, 2.0);
             for (name, unread) in &names {
-                let on = *name == shown;
                 let label = if name.is_empty() {
                     tr("All")
                 } else {
                     name.as_str()
                 };
-                let font = theme::font(
-                    if on || *unread {
-                        Weight::Medium
-                    } else {
-                        Weight::Regular
-                    },
-                    12.0,
-                );
-                // One that has something new stands out, and says so.
-                let fresh = crate::panels::colour_named("yellow").unwrap_or(theme.accent);
-                let colour = match (on, *unread) {
-                    (true, _) => theme.text,
-                    (false, true) => fresh,
-                    (false, false) => theme.text_dim,
-                };
-                let galley = ui.painter().layout_no_wrap(label.to_owned(), font, colour);
-                // Room for a dot beside the name of one with something new.
-                let dot = if *unread { 10.0 } else { 0.0 };
-                let size = galley.size() + egui::vec2(16.0 + dot, 8.0);
-                let (rect, tab) = ui.allocate_exact_size(size, egui::Sense::click());
-                tab.widget_info(|| {
-                    let said = match *unread {
-                        true => format!("{label}, {}", tr("new")),
-                        false => label.to_owned(),
-                    };
-                    egui::WidgetInfo::selected(egui::Role::Tab, true, on, said)
-                });
-                if on {
-                    ui.painter()
-                        .rect_filled(rect, egui::CornerRadius::same(6), theme.raised);
-                } else if tab.hovered() || tab.has_focus() {
-                    let fill = theme.raised.gamma_multiply(0.6);
-                    ui.painter()
-                        .rect_filled(rect, egui::CornerRadius::same(6), fill);
-                }
-                let at = egui::pos2(rect.left() + 8.0, rect.center().y - galley.size().y / 2.0);
-                ui.painter().galley(at, galley, colour);
-                if *unread {
-                    let centre = rect.right_center() - egui::vec2(9.0, 0.0);
-                    ui.painter().circle_filled(centre, 3.0, fresh);
-                }
-                if tab.clicked() {
+                if widgets::tab(ui, label, *name == shown, *unread).clicked() {
                     shown.clone_from(name);
                 }
             }
@@ -867,7 +823,6 @@ impl Tab {
     /// show. One that got something while out of sight has a dot. Returns
     /// the one on show.
     fn tab_bar(&mut self, ui: &mut egui::Ui, place: &[usize]) -> usize {
-        let theme = theme::current();
         let stack = self.layout.panels[place[0]].stack;
         let ids: Vec<u32> = place
             .iter()
@@ -883,50 +838,8 @@ impl Tab {
             ui.spacing_mut().item_spacing.x = 4.0;
             for &index in place {
                 let panel = &self.layout.panels[index];
-                let on = panel.id == shown;
                 let unread = self.unread_tabs.contains(&panel.id);
-                let font = theme::font(if on { Weight::Medium } else { Weight::Regular }, 12.5);
-                let wide = ui
-                    .painter()
-                    .layout_no_wrap(panel.name.clone(), font.clone(), theme.text)
-                    .size()
-                    .x;
-                let size = egui::vec2(wide + if unread { 30.0 } else { 20.0 }, 24.0);
-                let (rect, tab) = ui.allocate_exact_size(size, egui::Sense::click());
-                tab.widget_info(|| {
-                    egui::WidgetInfo::selected(egui::Role::Tab, true, on, panel.name.as_str())
-                });
-                let hovered = tab.hovered() || tab.has_focus();
-                if on {
-                    ui.painter()
-                        .rect_filled(rect, egui::CornerRadius::same(7), theme.raised);
-                } else if hovered {
-                    ui.painter().rect_filled(
-                        rect,
-                        egui::CornerRadius::same(7),
-                        theme.raised.gamma_multiply(0.6),
-                    );
-                }
-                let colour = if on || hovered {
-                    theme.text
-                } else {
-                    theme.text_dim
-                };
-                ui.painter().text(
-                    rect.left_center() + egui::vec2(10.0, 0.0),
-                    egui::Align2::LEFT_CENTER,
-                    &panel.name,
-                    font,
-                    colour,
-                );
-                if unread {
-                    ui.painter().circle_filled(
-                        rect.right_center() - egui::vec2(10.0, 0.0),
-                        3.0,
-                        theme.accent,
-                    );
-                }
-                if tab.clicked() {
+                if widgets::tab(ui, &panel.name, panel.id == shown, unread).clicked() {
                     shown = panel.id;
                 }
             }
@@ -956,12 +869,7 @@ impl Tab {
             .find(|(other, rect)| *other != id && rect.contains(pointer))
             .copied();
         let onto = over.and_then(|(other, rect)| {
-            let side = self
-                .layout
-                .panels
-                .iter()
-                .find(|panel| panel.id == other)?
-                .side;
+            let side = self.layout.panel(other)?.side;
             let (start, length, at) = if side.is_beside() {
                 (rect.top(), rect.height(), pointer.y)
             } else {
@@ -1274,19 +1182,12 @@ impl Tab {
     /// one it was put in, or the first of the gauges' panels if it was put
     /// in none, as those the MUD's vitals and scripts make are.
     pub(super) fn gauge_is_in(&self, name: &str, id: u32) -> bool {
-        let panels: Vec<u32> = (self.layout.panels.iter())
-            .filter(|panel| panel.kind == Kind::Gauges)
-            .map(|panel| panel.id)
-            .collect();
-        let made = self
-            .rules
-            .gauges
-            .iter()
-            .find(|gauge| gauge.shown_name() == name);
-        let home = made
-            .map(|gauge| gauge.panel)
-            .filter(|panel| panels.contains(panel));
-        home.or(panels.first().copied()) == Some(id)
+        let of_gauges = |panel: &&PanelSpec| panel.kind == Kind::Gauges;
+        // Its own panel if that is one of gauges, else the first of them.
+        let made = (self.rules.gauges.iter()).find(|gauge| gauge.shown_name() == name);
+        let own = made.and_then(|gauge| self.layout.panel(gauge.panel).filter(of_gauges));
+        let home = own.or_else(|| self.layout.panels.iter().find(of_gauges));
+        home.is_some_and(|panel| panel.id == id)
     }
 
     /// The gauges of a panel in a row, or how to get some.
@@ -1294,10 +1195,8 @@ impl Tab {
         let full = ui.max_rect();
         // In the order they have in the editor, whichever the MUD
         // reported first.
-        let order: Vec<String> = (self.rules.gauges.iter())
-            .map(|gauge| gauge.shown_name().to_owned())
-            .collect();
-        self.gauges.arrange(&order);
+        let made = &self.rules.gauges;
+        (self.gauges).arrange(|name| made.iter().position(|gauge| gauge.shown_name() == name));
         if self.gauges.show(ui, |name| self.gauge_is_in(name, id)) {
             // The way to change them, at the corner, out of their way.
             if !self.editing_layout {
@@ -1335,20 +1234,20 @@ impl Tab {
     /// since it is often a drawing, or else its lines one after another.
     /// Returns whether there was anything.
     pub(super) fn text_body(&mut self, ui: &mut egui::Ui, id: u32, quiet: bool) -> bool {
-        let fixed = self.text_of(id).fixed.clone();
+        // The drawing put in it, if there is one, laid out where it is
+        // kept: it is not copied to be drawn.
+        let galleys: Vec<_> = (self.text_of(id).fixed.iter())
+            .map(|line| ui.painter().layout_job(server_job(line)))
+            .collect();
         // What a drawing put in it has to fit in, there or yet to come.
         // The map's panel is measured where the map is drawn.
         let map =
             (self.layout.panels.iter()).any(|panel| panel.id == id && panel.kind == Kind::Map);
         if !map {
             let cells = Self::cells(ui, ui.available_size());
-            self.panel_measured(id, cells, !fixed.is_empty());
+            self.panel_measured(id, cells, !galleys.is_empty());
         }
-        if !fixed.is_empty() {
-            let galleys: Vec<_> = fixed
-                .iter()
-                .map(|line| ui.painter().layout_job(server_job(line)))
-                .collect();
+        if !galleys.is_empty() {
             let widest = galleys
                 .iter()
                 .map(|galley| galley.size().x)
@@ -1370,12 +1269,7 @@ impl Tab {
         }
         // A panel that channels are shown in has a tab for each of them:
         // one alone, or all.
-        let spec = self
-            .layout
-            .panels
-            .iter()
-            .find(|panel| panel.id == id)
-            .cloned();
+        let spec = self.layout.panel(id).cloned();
         let here = |channel: &Channel| spec.as_ref().is_some_and(|spec| channel.shown_in(spec));
         if self.channels.iter().any(here) {
             let shown = self.channel_tabs(ui, id);

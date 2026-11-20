@@ -581,7 +581,7 @@ impl Tab {
         self.run_actions();
         self.answering = false;
         let said = std::mem::take(&mut self.answer);
-        let at = chrono::Local::now().format("%H:%M:%S").to_string();
+        let at = crate::output::clock();
         if self.answer_failed {
             let error: Vec<String> = said.into_iter().map(|said| said.text).collect();
             self.script_ran = Some((at, Some(error.join("\n"))));

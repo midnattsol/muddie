@@ -109,6 +109,23 @@ impl Row {
     }
 }
 
+/// The time of day as it is shown, `HH:MM:SS`. Worked out once a second
+/// and not for every line: a burst of text is thousands of lines in one.
+pub fn clock() -> String {
+    use std::cell::RefCell;
+    thread_local! {
+        static SHOWN: RefCell<(i64, String)> = const { RefCell::new((i64::MIN, String::new())) };
+    }
+    let now = chrono::Local::now();
+    SHOWN.with(|shown| {
+        let mut shown = shown.borrow_mut();
+        if shown.0 != now.timestamp() {
+            *shown = (now.timestamp(), now.format("%H:%M:%S").to_string());
+        }
+        shown.1.clone()
+    })
+}
+
 /// The byte ranges of `text` that are `http://` or `https://` links.
 pub fn links(text: &str) -> Vec<Range<usize>> {
     let mut found = Vec::new();
@@ -223,7 +240,7 @@ impl Output {
             links: found.chain(marked).collect(),
             content,
             text,
-            time: chrono::Local::now().format("%H:%M:%S").to_string(),
+            time: clock(),
             height: None,
         });
     }

@@ -66,14 +66,35 @@ pub struct Profiles {
     dir: PathBuf,
 }
 
+/// The folders of the user that Muddie keeps things in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UserDir {
+    /// Settings, profiles, scripts: what the user made.
+    Config,
+    /// What can be fetched or worked out again.
+    Cache,
+    /// What the program gathered, such as the maps.
+    Data,
+}
+
+/// Muddie's folder of a kind, if the system says where such things go:
+/// where the desktop says, or the usual place under the home folder.
+pub fn user_dir(kind: UserDir) -> Option<PathBuf> {
+    let (named, windows, usual) = match kind {
+        UserDir::Config => ("XDG_CONFIG_HOME", "APPDATA", ".config"),
+        UserDir::Cache => ("XDG_CACHE_HOME", "LOCALAPPDATA", ".cache"),
+        UserDir::Data => ("XDG_DATA_HOME", "APPDATA", ".local/share"),
+    };
+    let base = (std::env::var_os(named).or_else(|| std::env::var_os(windows)))
+        .map(PathBuf::from)
+        .or_else(|| Some(PathBuf::from(std::env::var_os("HOME")?).join(usual)))?;
+    Some(base.join("muddie"))
+}
+
 impl Profiles {
     /// The user's configuration folder, if the system has one.
     pub fn in_config_dir() -> Option<Self> {
-        let base = std::env::var_os("XDG_CONFIG_HOME")
-            .or_else(|| std::env::var_os("APPDATA"))
-            .map(PathBuf::from)
-            .or_else(|| Some(PathBuf::from(std::env::var_os("HOME")?).join(".config")))?;
-        Some(Self::at(base.join("muddie")))
+        Some(Self::at(user_dir(UserDir::Config)?))
     }
 
     pub fn at(dir: PathBuf) -> Self {

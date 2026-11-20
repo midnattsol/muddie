@@ -249,19 +249,7 @@ impl App {
                     self.active = index;
                 }
             }
-            let plus = RichText::new("+")
-                .font(theme::font(Weight::Regular, 16.0))
-                .color(theme.text_dim);
-            let add = ui
-                .add(
-                    egui::Button::new(plus)
-                        .frame(false)
-                        .min_size(egui::vec2(24.0, 24.0)),
-                )
-                .on_hover_text(tr("New session"));
-            ui.ctx().accesskit_node_builder(add.id, |node| {
-                node.set_label(tr("New session"));
-            });
+            let add = widgets::sign_button(ui, "+", tr("New session"), false);
             if add.clicked() {
                 self.new_tab(ui.ctx());
             }

@@ -78,12 +78,10 @@ impl Gauges {
         self.0.clear();
     }
 
-    /// Puts the gauges in the order of `names`, those not among them
-    /// after, as they were.
-    pub fn arrange(&mut self, names: &[String]) {
-        let place = |gauge: &Gauge| {
-            (names.iter().position(|name| *name == gauge.name)).unwrap_or(usize::MAX)
-        };
+    /// Puts the gauges in the order `place` gives each by its name,
+    /// those it gives none after, as they were.
+    pub fn arrange(&mut self, place: impl Fn(&str) -> Option<usize>) {
+        let place = |gauge: &Gauge| place(&gauge.name).unwrap_or(usize::MAX);
         if !self.0.is_sorted_by_key(place) {
             self.0.sort_by_key(place);
         }

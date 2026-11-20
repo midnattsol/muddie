@@ -54,6 +54,75 @@ pub fn switch_row(ui: &mut Ui, on: &mut bool, label: &str) -> Response {
     .inner
 }
 
+/// A tab of a row of them: the one shown is filled, and one with
+/// something in it that has not been looked at stands out, with a dot,
+/// and says so to a screen reader.
+pub fn tab(ui: &mut Ui, text: &str, on: bool, fresh: bool) -> Response {
+    let theme = theme::current();
+    let weight = if on || fresh {
+        Weight::Medium
+    } else {
+        Weight::Regular
+    };
+    let marked = crate::panels::colour_named("yellow").unwrap_or(theme.accent);
+    let colour = match (on, fresh) {
+        (true, _) => theme.text,
+        (false, true) => marked,
+        (false, false) => theme.text_dim,
+    };
+    let galley = ui
+        .painter()
+        .layout_no_wrap(text.to_owned(), theme::font(weight, 12.5), colour);
+    // Room for the dot beside the name.
+    let dot = if fresh { 10.0 } else { 0.0 };
+    let size = vec2(galley.size().x + 18.0 + dot, 24.0);
+    let (rect, response) = ui.allocate_exact_size(size, Sense::click());
+    response.widget_info(|| {
+        let said = match fresh {
+            true => format!("{text}, {}", crate::i18n::tr("new")),
+            false => text.to_owned(),
+        };
+        WidgetInfo::selected(Role::Tab, ui.is_enabled(), on, said)
+    });
+    if ui.is_rect_visible(rect) {
+        let painter = ui.painter();
+        if on {
+            painter.rect_filled(rect, CornerRadius::same(7), theme.raised);
+        } else if response.hovered() || response.has_focus() {
+            painter.rect_filled(
+                rect,
+                CornerRadius::same(7),
+                theme.raised.gamma_multiply(0.6),
+            );
+        }
+        let at = egui::pos2(rect.left() + 9.0, rect.center().y - galley.size().y / 2.0);
+        painter.galley(at, galley, colour);
+        if fresh {
+            painter.circle_filled(rect.right_center() - vec2(9.0, 0.0), 3.0, marked);
+        }
+    }
+    response
+}
+
+/// A small button that shows a sign, such as `+`: `label` says what it
+/// does, to a screen reader and when pointed at. Without a `frame` it is
+/// only the sign until the pointer is over it.
+pub fn sign_button(ui: &mut Ui, sign: &str, label: &str, frame: bool) -> Response {
+    let theme = theme::current();
+    let text = RichText::new(sign)
+        .font(theme::font(Weight::Regular, 16.0))
+        .color(if frame { theme.text } else { theme.text_dim });
+    let response = ui.add(
+        egui::Button::new(text)
+            .frame(frame)
+            .min_size(vec2(26.0, 26.0)),
+    );
+    ui.ctx().accesskit_node_builder(response.id, |node| {
+        node.set_label(label);
+    });
+    response.on_hover_text(label)
+}
+
 /// The ordinary button, for something to do that is not the main thing.
 pub fn button(ui: &mut Ui, text: impl Into<egui::WidgetText>) -> Response {
     ui.add(egui::Button::new(text).min_size(vec2(0.0, 30.0)))
@@ -1014,6 +1083,7 @@ mod tests {
     fn controls_are_made_here_and_nowhere_else() {
         let raw = [
             "ui.button(",
+            "Button::new(",
             "ui.small_button(",
             ".selectable_label(",
             ".selectable_value(",

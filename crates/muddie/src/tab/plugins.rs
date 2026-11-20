@@ -46,11 +46,8 @@ impl Tab {
                         if crate::widgets::button(ui, tr("Update")).clicked() {
                             command = Some(format!("/plugin update {name}"));
                         }
-                        let remove = RichText::new(tr("Remove")).color(theme.danger);
-                        if ui
-                            .add(egui::Button::new(remove).fill(egui::Color32::TRANSPARENT))
-                            .clicked()
-                        {
+                        let bin = crate::widgets::Icon::Trash;
+                        if crate::widgets::icon_button(ui, bin, tr("Remove"), false).clicked() {
                             command = Some(format!("/plugin remove {name}"));
                         }
                         switch
@@ -68,10 +65,8 @@ impl Tab {
         widgets::group(ui, |ui| {
             widgets::setting_row(ui, tr("Git address"), &mut |ui| {
                 let ready = !self.plugin_address.trim().is_empty();
-                if ui
-                    .add_enabled(ready, egui::Button::new(tr("Install")))
-                    .clicked()
-                {
+                let install = ui.add_enabled_ui(ready, |ui| widgets::button(ui, tr("Install")));
+                if install.inner.clicked() {
                     command = Some(format!("/plugin install {}", self.plugin_address.trim()));
                     self.plugin_address.clear();
                 }

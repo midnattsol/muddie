@@ -147,7 +147,7 @@ impl Tab {
     /// latest, and a few of those before it.
     pub(super) fn saw(&mut self, protocol: &str, name: &str, json: &str) {
         let msdp = protocol == "MSDP";
-        let at = chrono::Local::now().format("%H:%M:%S").to_string();
+        let at = crate::output::clock();
         match self
             .data_seen
             .iter_mut()
