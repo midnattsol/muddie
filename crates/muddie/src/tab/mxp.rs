@@ -20,22 +20,7 @@ impl Tab {
     pub(super) fn mxp(&mut self, asked: muddie_core::Mxp, recording: bool) {
         use muddie_core::Mxp;
         match asked {
-            // A value by a name: kept, told to the scripts, and followed
-            // by the gauges the server asked for.
-            Mxp::Value { name, value } => {
-                if recording {
-                    self.saw(
-                        "MXP",
-                        &name,
-                        &serde_json::Value::String(value.clone()).to_string(),
-                    );
-                }
-                let told = serde_json::json!({"name": name, "value": value}).to_string();
-                self.scripts.on_event("mxp", &told);
-                self.run_actions();
-                self.mxp_state.values.insert(name.to_lowercase(), value);
-                self.mxp_gauges_follow();
-            }
+            Mxp::Value { name, value } => self.mxp_value(name, value, recording),
             Mxp::Gauge {
                 entity,
                 max,
@@ -58,34 +43,12 @@ impl Tab {
                 ));
                 self.mxp_gauges_follow();
             }
-            // A frame is a panel of text, by its name.
             Mxp::Frame {
                 name,
                 open,
                 title: _,
                 align,
-            } => {
-                if name.trim().is_empty() {
-                    return;
-                }
-                let known = (self.layout.panels.iter())
-                    .any(|panel| panel.name.eq_ignore_ascii_case(name.trim()));
-                if !known && !open {
-                    return;
-                }
-                let id = self.panel_called(&name);
-                if let Some(panel) = self.layout.panel_mut(id) {
-                    panel.visible = open;
-                    if !known {
-                        panel.side = match align.as_str() {
-                            "left" => layout::Side::Left,
-                            "top" => layout::Side::Top,
-                            "bottom" => layout::Side::Bottom,
-                            _ => layout::Side::Right,
-                        };
-                    }
-                }
-            }
+            } => self.mxp_frame(&name, open, &align),
             Mxp::Clear(name) => {
                 if !name.trim().is_empty() {
                     let id = self.panel_called(&name);
@@ -97,13 +60,7 @@ impl Tab {
                     self.msp(request);
                 }
             }
-            Mxp::Expire(name) => {
-                self.output.expire(&name);
-                let ids: Vec<u32> = self.layout.panels.iter().map(|panel| panel.id).collect();
-                for id in ids {
-                    self.text_of(id).log.expire(&name);
-                }
-            }
+            Mxp::Expire(name) => self.expire_links(&name),
             // Said, not done: where to connect is the player's to choose.
             Mxp::Relocate { host, port } => {
                 self.note(&trf(
@@ -111,21 +68,75 @@ impl Tab {
                     &[&host, &port],
                 ));
             }
-            // The name and the password of the profile, as when logging
-            // in by itself.
-            Mxp::User => {
-                let name = self.character.trim().to_owned();
-                if !name.is_empty() {
-                    self.send(name);
-                    self.login = Login::Password(Instant::now());
-                }
-            }
+            Mxp::User => self.mxp_user(),
             Mxp::Password => {
                 if !self.character.trim().is_empty() {
                     self.login = Login::Password(Instant::now());
                     self.login_password();
                 }
             }
+        }
+    }
+
+    /// A value by a name: kept, told to the scripts, and followed by the
+    /// gauges the server asked for.
+    fn mxp_value(&mut self, name: String, value: String, recording: bool) {
+        if recording {
+            self.saw(
+                "MXP",
+                &name,
+                &serde_json::Value::String(value.clone()).to_string(),
+            );
+        }
+        let told = serde_json::json!({"name": name, "value": value}).to_string();
+        self.scripts.on_event("mxp", &told);
+        self.run_actions();
+        self.mxp_state.values.insert(name.to_lowercase(), value);
+        self.mxp_gauges_follow();
+    }
+
+    /// A frame is a panel of text, by its name: opened, made where the
+    /// server says if it is new, or closed.
+    fn mxp_frame(&mut self, name: &str, open: bool, align: &str) {
+        if name.trim().is_empty() {
+            return;
+        }
+        let known =
+            (self.layout.panels.iter()).any(|panel| panel.name.eq_ignore_ascii_case(name.trim()));
+        if !known && !open {
+            return;
+        }
+        let id = self.panel_called(name);
+        let Some(panel) = self.layout.panel_mut(id) else {
+            return;
+        };
+        panel.visible = open;
+        if !known {
+            panel.side = match align {
+                "left" => layout::Side::Left,
+                "top" => layout::Side::Top,
+                "bottom" => layout::Side::Bottom,
+                _ => layout::Side::Right,
+            };
+        }
+    }
+
+    /// Links by this name stop being links, in the output and the panels.
+    fn expire_links(&mut self, name: &str) {
+        self.output.expire(name);
+        let ids: Vec<u32> = self.layout.panels.iter().map(|panel| panel.id).collect();
+        for id in ids {
+            self.text_of(id).log.expire(name);
+        }
+    }
+
+    /// The profile's name, sent as when logging in by itself; the password
+    /// follows when asked.
+    fn mxp_user(&mut self) {
+        let name = self.character.trim().to_owned();
+        if !name.is_empty() {
+            self.send(name);
+            self.login = Login::Password(Instant::now());
         }
     }
 
