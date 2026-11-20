@@ -262,10 +262,10 @@ impl Tab {
         ui.add_space(14.0);
         ui.horizontal(|ui| {
             ui.add_space(2.0);
-            let again = widgets::quiet_button(ui, tr("Run everything again"));
+            let again = widgets::quiet_button(ui, tr("Reload all"));
             if again
                 .on_hover_text(tr(
-                    "Loads the scripts and the rules afresh, as when connecting.",
+                    "Runs every script and rule again, as when a session starts.",
                 ))
                 .clicked()
             {
@@ -1591,7 +1591,7 @@ impl Tab {
             self.note(&error);
         }
         ui.add_space(8.0);
-        widgets::caption(ui, tr("Using it"));
+        widgets::caption(ui, tr("Usage"));
         // As it is written, in each of the two places.
         let (in_commands, in_scripts) = match self.variable_kind {
             ARRAY => (format!("${name}.1"), format!("vars.{name}[1]")),
@@ -1627,7 +1627,7 @@ impl Tab {
         });
         // Where it is kept, which is with the session's profile or nowhere.
         let kept = match &self.profile {
-            Some(profile) => trf("Kept with the profile {0}.", &[profile]),
+            Some(profile) => trf("Saved in profile {0}.", &[profile]),
             None => tr("This session has no saved profile, so its variables last until it is closed. Save the profile, in Session, Connection, to keep them.").to_owned(),
         };
         note(ui, &kept);
@@ -1958,11 +1958,8 @@ impl Tab {
                     .color(theme.danger);
                 ui.add(Label::new(said).wrap());
             }
-            Some((at, None)) => note(ui, &trf("Run at {0}.", &[at])),
-            None => note(
-                ui,
-                tr("It runs when it is saved, a moment after you stop typing."),
-            ),
+            Some((at, None)) => note(ui, &trf("Last run: {0}", &[at])),
+            None => note(ui, tr("Runs when saved, shortly after you stop typing.")),
         }
         // The editor is the whole of the view.
         let rows = script_rows(self.detail_height, 118.0);

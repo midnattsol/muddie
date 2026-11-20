@@ -201,7 +201,7 @@ impl Tab {
             self.scripts.on_input(line);
             self.run_actions();
             if self.answer.is_empty() {
-                self.note(tr("Run."));
+                self.note(tr("Done."));
             }
             ours = true;
         }

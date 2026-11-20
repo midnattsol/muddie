@@ -561,7 +561,7 @@ impl Tab {
                         let corners = tr("Side panels reach the top and the bottom");
                         widgets::switch(ui, &mut self.layout.columns_full, corners)
                             .on_hover_text(corners);
-                        let label = RichText::new(tr("Tall sides"))
+                        let label = RichText::new(tr("Full-height sides"))
                             .font(theme::font(Weight::Regular, 12.5))
                             .color(theme.text_dim);
                         ui.add(Label::new(label).selectable(false))
@@ -1146,7 +1146,7 @@ impl Tab {
                         join = true;
                         ui.close();
                     }
-                } else if widgets::menu_item(ui, tr("Take out of the tabs"), "").clicked() {
+                } else if widgets::menu_item(ui, tr("Detach from tabs"), "").clicked() {
                     panel.stack = 0;
                     ui.close();
                 }
@@ -1224,7 +1224,7 @@ impl Tab {
                     .font(theme::font(Weight::Regular, 12.5))
                     .color(theme.text_faint),
             );
-            if widgets::quiet_button(ui, tr("Set them up…")).clicked() {
+            if widgets::quiet_button(ui, tr("Add gauges…")).clicked() {
                 self.open_gauges(id);
             }
         });

@@ -531,7 +531,7 @@ fn commands_are_chosen_from_a_palette_and_answer_at_the_line() {
     };
     assert_eq!(
         run(&mut harness, r#"supports("Comm 1")"#),
-        ("Run.".to_owned(), false)
+        ("Done.".to_owned(), false)
     );
     assert_eq!(harness.state().tab().supports, ["Comm 1"]);
     assert_eq!(
@@ -1334,7 +1334,7 @@ fn a_script_is_run_from_its_button_and_says_how_it_went() {
         app.script_ran
     );
     assert_eq!(app.script_saved, r#"bind("f9", "kick")"#);
-    harness.get_by_label_contains("Run at ");
+    harness.get_by_label_contains("Last run: ");
     // ...and one that fails says why, there, not among the lines of
     // the game.
     let before = output_lines(harness.state().tab()).len();

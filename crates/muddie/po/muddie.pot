@@ -14,7 +14,7 @@ msgstr ""
 msgid "Latest lines"
 msgstr ""
 
-msgid "Back to the end"
+msgid "Jump to end"
 msgstr ""
 
 #, python-brace-format
@@ -102,7 +102,7 @@ msgstr ""
 msgid "Read the most recent lines"
 msgstr ""
 
-msgid "The same, for the chat"
+msgid "Same, for the chat panel"
 msgstr ""
 
 msgid "Read the gauges"
@@ -140,7 +140,7 @@ msgstr ""
 msgid "Same as the system"
 msgstr ""
 
-msgid "Interface size"
+msgid "Interface scale"
 msgstr ""
 
 msgid "More languages can be added as gettext catalogues in the locale folder of the configuration."
@@ -164,7 +164,7 @@ msgstr ""
 msgid "High contrast"
 msgstr ""
 
-msgid "Text of the MUD"
+msgid "MUD text"
 msgstr ""
 
 msgid "Colours"
@@ -182,13 +182,13 @@ msgstr ""
 msgid "Font"
 msgstr ""
 
-msgid "With Muddie"
+msgid "Bundled"
 msgstr ""
 
-msgid "Installed on this computer"
+msgid "System fonts"
 msgstr ""
 
-msgid "Looking for them…"
+msgid "Loading…"
 msgstr ""
 
 msgid "Size"
@@ -399,10 +399,10 @@ msgstr ""
 msgid "Scripts"
 msgstr ""
 
-msgid "Run everything again"
+msgid "Reload all"
 msgstr ""
 
-msgid "Loads the scripts and the rules afresh, as when connecting."
+msgid "Runs every script and rule again, as when a session starts."
 msgstr ""
 
 msgid "All changes saved"
@@ -673,7 +673,7 @@ msgstr ""
 msgid "What reads as a number, true or false is kept as that; the rest as a string. A table inside is written as JSON."
 msgstr ""
 
-msgid "Using it"
+msgid "Usage"
 msgstr ""
 
 msgid "In the commands of a rule"
@@ -686,7 +686,7 @@ msgid "Copy"
 msgstr ""
 
 #, python-brace-format
-msgid "Kept with the profile {0}."
+msgid "Saved in profile {0}."
 msgstr ""
 
 msgid "This session has no saved profile, so its variables last until it is closed. Save the profile, in Session, Connection, to keep them."
@@ -780,10 +780,10 @@ msgid "Enabled"
 msgstr ""
 
 #, python-brace-format
-msgid "Run at {0}."
+msgid "Last run: {0}"
 msgstr ""
 
-msgid "It runs when it is saved, a moment after you stop typing."
+msgid "Runs when saved, shortly after you stop typing."
 msgstr ""
 
 msgid "Script"
@@ -848,7 +848,7 @@ msgstr ""
 msgid "Side panels reach the top and the bottom"
 msgstr ""
 
-msgid "Tall sides"
+msgid "Full-height sides"
 msgstr ""
 
 msgid "Add a panel"
@@ -897,7 +897,7 @@ msgstr ""
 msgid "Share the place of the one before, as tabs"
 msgstr ""
 
-msgid "Take out of the tabs"
+msgid "Detach from tabs"
 msgstr ""
 
 msgid "Show the MUD's channels here"
@@ -913,13 +913,13 @@ msgstr ""
 msgid "No gauges here yet."
 msgstr ""
 
-msgid "Set them up…"
+msgid "Add gauges…"
 msgstr ""
 
 msgid "Nothing here yet. A trigger can show lines in this panel, and so can a script."
 msgstr ""
 
-msgid "Run."
+msgid "Done."
 msgstr ""
 
 msgid "Choose one, or type a command"
@@ -928,13 +928,13 @@ msgstr ""
 msgid "Protocols"
 msgstr ""
 
-msgid "Showing only this one"
+msgid "Filtering by this protocol"
 msgstr ""
 
 msgid "In use"
 msgstr ""
 
-msgid "Offered by the MUD, and not used by Muddie"
+msgid "Offered by the MUD, not used by Muddie"
 msgstr ""
 
 msgid "Not offered by this MUD"
@@ -946,16 +946,16 @@ msgstr ""
 msgid "This MUD offers neither GMCP nor MSDP: all it sends is text, and what it says on its channels comes as lines of the game."
 msgstr ""
 
-msgid "Keep recording outside this view"
+msgid "Record in the background"
 msgstr ""
 
 msgid "Clear"
 msgstr ""
 
-msgid "What the MUD sends"
+msgid "Incoming data"
 msgstr ""
 
-msgid "Nothing has come since this view was opened."
+msgid "No data received since this view was opened."
 msgstr ""
 
 msgid ""
@@ -970,7 +970,7 @@ msgstr ""
 msgid "Values"
 msgstr ""
 
-msgid "It came with nothing in it."
+msgid "Empty message."
 msgstr ""
 
 msgid "Make a gauge"
@@ -1027,7 +1027,7 @@ msgstr ""
 msgid "Blank."
 msgstr ""
 
-msgid "Lines kept"
+msgid "Scrollback lines"
 msgstr ""
 
 msgid "Show the time of each line"

@@ -573,7 +573,7 @@ impl Tab {
         use crate::widgets::{group, setting_row as row, switch_setting as switch_row};
         if section == 1 {
             group(ui, |ui| {
-                row(ui, tr("Lines kept"), &mut |ui| {
+                row(ui, tr("Scrollback lines"), &mut |ui| {
                     ui.add(
                         crate::widgets::number(&mut settings.scrollback_lines)
                             .range(100..=1_000_000)

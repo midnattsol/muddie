@@ -238,14 +238,14 @@ impl Tab {
                         theme.on_accent,
                         theme.accent,
                         theme.accent,
-                        tr("Showing only this one"),
+                        tr("Filtering by this protocol"),
                     ),
                     Some((_, true)) => (theme.text, theme.hover, theme.hover, tr("In use")),
                     Some((_, false)) => (
                         theme.text_dim,
                         egui::Color32::TRANSPARENT,
                         theme.text_faint,
-                        tr("Offered by the MUD, and not used by Muddie"),
+                        tr("Offered by the MUD, not used by Muddie"),
                     ),
                     None => (
                         theme.text_faint.gamma_multiply(0.55),
@@ -302,7 +302,7 @@ impl Tab {
         ui.add_space(4.0);
         ui.horizontal(|ui| {
             ui.add_space(4.0);
-            let keep = tr("Keep recording outside this view");
+            let keep = tr("Record in the background");
             widgets::switch(ui, &mut self.data_keep, keep);
             ui.add(Label::new(small(keep, theme.text_dim)).selectable(false));
         });
@@ -346,7 +346,7 @@ impl Tab {
                 });
             };
             pane("list", list.shrink2(egui::vec2(10.0, 12.0)), &mut |tab, ui| {
-                let heading = RichText::new(tr("What the MUD sends")).font(theme::font(Weight::Semibold, 15.0)).color(theme.text);
+                let heading = RichText::new(tr("Incoming data")).font(theme::font(Weight::Semibold, 15.0)).color(theme.text);
                 ui.horizontal(|ui| {
                     ui.add_space(4.0);
                     ui.add(Label::new(heading.clone()).selectable(false));
@@ -360,7 +360,7 @@ impl Tab {
                     ui.spacing_mut().item_spacing.y = 2.0;
                     if tab.data_seen.is_empty() {
                         ui.add_space(24.0);
-                        let none = RichText::new(tr("Nothing has come since this view was opened.")).color(theme.text_faint);
+                        let none = RichText::new(tr("No data received since this view was opened.")).color(theme.text_faint);
                         ui.vertical_centered(|ui| ui.label(none));
                     }
                     // Those that pass what is searched for and the
@@ -443,7 +443,7 @@ look at it to know what a gauge can follow or a script can use.");
         );
         widgets::caption(ui, tr("Values"));
         if seen.json.is_empty() {
-            ui.label(RichText::new(tr("It came with nothing in it.")).color(theme.text_faint));
+            ui.label(RichText::new(tr("Empty message.")).color(theme.text_faint));
         }
         let mut gauge = None;
         widgets::group(ui, |ui| {

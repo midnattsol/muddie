@@ -46,9 +46,6 @@ msgstr "No se pudieron cargar los ajustes: {0}"
 msgid "Sessions"
 msgstr "Sesiones"
 
-msgid "Lines kept"
-msgstr "Líneas guardadas"
-
 msgid "Output"
 msgstr "Salida"
 
@@ -133,9 +130,6 @@ msgstr "Comando"
 
 msgid "Latest lines"
 msgstr "Últimas líneas"
-
-msgid "Back to the end"
-msgstr "Volver al final"
 
 #, python-brace-format
 msgid "Could not load the rules: {0}"
@@ -424,9 +418,6 @@ msgstr "Leer la línea anterior y la siguiente"
 
 msgid "Read the most recent lines"
 msgstr "Leer las líneas más recientes"
-
-msgid "The same, for the chat"
-msgstr "Lo mismo, para el chat"
 
 msgid "Read the gauges"
 msgstr "Leer los indicadores"
@@ -717,9 +708,6 @@ msgstr "Dejar el comando tras enviarlo"
 msgid "It stays selected: Enter sends it again, and typing replaces it."
 msgstr "Queda seleccionado: Enter lo envía otra vez y escribir lo sustituye."
 
-msgid "Run everything again"
-msgstr "Ejecutar todo de nuevo"
-
 msgid "One command per line. %1, %2… are the groups of the pattern."
 msgstr "Un comando por línea. %1, %2… son los grupos del patrón."
 
@@ -913,9 +901,6 @@ msgstr "Script"
 msgid "Scripts"
 msgstr "Scripts"
 
-msgid "Loads the scripts and the rules afresh, as when connecting."
-msgstr "Carga de nuevo los scripts y las reglas, como al conectar."
-
 msgid "Triggers"
 msgstr "Disparadores"
 
@@ -948,14 +933,8 @@ msgstr "Complementos"
 msgid "Same as the system"
 msgstr "El del sistema"
 
-msgid "Interface size"
-msgstr "Tamaño de la interfaz"
-
 msgid "More languages can be added as gettext catalogues in the locale folder of the configuration."
 msgstr "Se pueden añadir más idiomas como catálogos gettext en la carpeta locale de la configuración."
-
-msgid "Text of the MUD"
-msgstr "Texto del MUD"
 
 msgid "Font"
 msgstr "Tipografía"
@@ -1007,9 +986,6 @@ msgstr "Suaves, a juego con el tema"
 
 msgid "Classic terminal"
 msgstr "Terminal clásico"
-
-msgid "Installed on this computer"
-msgstr "Instaladas en este equipo"
 
 msgid "There are no groups. Give a rule a group in the editor."
 msgstr "No hay grupos. Asigna un grupo a una regla en el editor."
@@ -1111,9 +1087,6 @@ msgstr "Indicadores…"
 msgid "Remove {0}"
 msgstr "Quitar {0}"
 
-msgid "Set them up…"
-msgstr "Configurarlos…"
-
 msgid "Nothing here yet. A trigger can show lines in this panel, and so can a script."
 msgstr "Aún no hay nada. Un disparador puede mostrar líneas en este panel, y también un script."
 
@@ -1145,24 +1118,14 @@ msgstr "Ya hay una variable con ese nombre."
 msgid "Value"
 msgstr "Valor"
 
-msgid "Using it"
-msgstr "Cómo usarla"
-
 msgid "About Muddie"
 msgstr "Acerca de Muddie"
-
-msgid "With Muddie"
-msgstr "Con Muddie"
 
 msgid "Preferences"
 msgstr "Preferencias"
 
 msgid "With the line hidden, it is only in the panel. Panels are made in Preferences, Edit the layout."
 msgstr "Con la línea oculta, solo sale en el panel. Los paneles se crean en Preferencias, Editar la disposición."
-
-#, python-brace-format
-msgid "Kept with the profile {0}."
-msgstr "Se guarda con el perfil {0}."
 
 msgid "This session has no saved profile, so its variables last until it is closed. Save the profile, in Session, Connection, to keep them."
 msgstr "Esta sesión no tiene un perfil guardado, así que sus variables duran hasta que se cierre. Guarda el perfil, en Sesión, Conexión, para conservarlas."
@@ -1192,9 +1155,6 @@ msgstr[1] "recibido {0} veces"
 msgid "Values"
 msgstr "Valores"
 
-msgid "It came with nothing in it."
-msgstr "Llegó sin nada dentro."
-
 msgid "Make a gauge"
 msgstr "Crear un indicador"
 
@@ -1210,9 +1170,6 @@ msgstr "Depuración"
 msgid "Switch between the game and the debugging view"
 msgstr "Cambiar entre el juego y la vista de depuración"
 
-msgid "What the MUD sends"
-msgstr "Lo que envía el MUD"
-
 msgid ""
 "What the MUD sends besides text, with GMCP or MSDP, appears here as it comes:\n"
 "look at it to know what a gauge can follow or a script can use."
@@ -1220,20 +1177,11 @@ msgstr ""
 "Lo que el MUD envía además del texto, con GMCP o MSDP, aparece aquí según llega:\n"
 "míralo para saber qué puede seguir un indicador o usar un script."
 
-msgid "Looking for them…"
-msgstr "Buscándolas…"
-
 msgid "Side panels reach the top and the bottom"
 msgstr "Los paneles laterales llegan arriba y abajo"
 
-msgid "Tall sides"
-msgstr "Laterales altos"
-
 msgid "Share the place of the one before, as tabs"
 msgstr "Compartir el hueco del anterior, en pestañas"
-
-msgid "Take out of the tabs"
-msgstr "Sacar de las pestañas"
 
 
 msgid "Type"
@@ -1374,26 +1322,14 @@ msgstr "Protocolos"
 msgid "In use"
 msgstr "En uso"
 
-msgid "Offered by the MUD, and not used by Muddie"
-msgstr "Lo ofrece el MUD, y Muddie no lo usa"
-
 msgid "Not offered by this MUD"
 msgstr "Este MUD no lo ofrece"
 
 msgid "This MUD offers neither GMCP nor MSDP: all it sends is text, and what it says on its channels comes as lines of the game."
 msgstr "Este MUD no ofrece GMCP ni MSDP: solo manda texto, y lo que se dice en sus canales llega como líneas del juego."
 
-msgid "Showing only this one"
-msgstr "Mostrando solo este"
-
-msgid "Keep recording outside this view"
-msgstr "Seguir grabando fuera de esta vista"
-
 msgid "Clear"
 msgstr "Vaciar"
-
-msgid "Nothing has come since this view was opened."
-msgstr "No ha llegado nada desde que se abrió esta vista."
 
 msgid "Raw message"
 msgstr "Mensaje original"
@@ -1418,22 +1354,11 @@ msgid "The MUD asks to go on at {0}, port {1}."
 msgstr "El MUD pide continuar en {0}, puerto {1}."
 
 
-msgid "Run."
-msgstr "Ejecutado."
-
-
 msgid "Reconnect"
 msgstr "Reconectar"
 
 msgid "Run"
 msgstr "Ejecutar"
-
-#, python-brace-format
-msgid "Run at {0}."
-msgstr "Ejecutado a las {0}."
-
-msgid "It runs when it is saved, a moment after you stop typing."
-msgstr "Se ejecuta al guardarse, un momento después de que dejes de escribir."
 
 
 msgid "All"
@@ -1480,4 +1405,78 @@ msgstr "Reinos de Leyenda"
 
 msgid "The channels of the MUD, each in its tab. Needs: consentir gmcp on, typed in the game."
 msgstr "Los canales del MUD, cada uno en su pestaña. Necesita escribir en el juego: consentir gmcp on."
+
+msgid "Incoming data"
+msgstr "Datos recibidos"
+
+msgid "Reload all"
+msgstr "Recargar todo"
+
+msgid "Runs every script and rule again, as when a session starts."
+msgstr "Vuelve a ejecutar todos los scripts y reglas, como al iniciar la sesión."
+
+msgid "Record in the background"
+msgstr "Grabar en segundo plano"
+
+msgid "Filtering by this protocol"
+msgstr "Filtrando por este protocolo"
+
+msgid "Jump to end"
+msgstr "Ir al final"
+
+msgid "MUD text"
+msgstr "Texto del MUD"
+
+msgid "Bundled"
+msgstr "Incluidas"
+
+msgid "Loading…"
+msgstr "Cargando…"
+
+msgid "Full-height sides"
+msgstr "Laterales a toda altura"
+
+msgid "Add gauges…"
+msgstr "Añadir indicadores…"
+
+msgid "Empty message."
+msgstr "Mensaje vacío."
+
+msgid "Done."
+msgstr "Hecho."
+
+#, python-brace-format
+msgid "Last run: {0}"
+msgstr "Última ejecución: {0}"
+
+msgid "Detach from tabs"
+msgstr "Separar de las pestañas"
+
+msgid "Usage"
+msgstr "Uso"
+
+#, python-brace-format
+msgid "Saved in profile {0}."
+msgstr "Guardado en el perfil {0}."
+
+msgid "Scrollback lines"
+msgstr "Líneas de historial"
+
+msgid "No data received since this view was opened."
+msgstr "No se han recibido datos desde que se abrió esta vista."
+
+msgid "Runs when saved, shortly after you stop typing."
+msgstr "Se ejecuta al guardarse, poco después de dejar de escribir."
+
+msgid "Offered by the MUD, not used by Muddie"
+msgstr "Ofrecido por el MUD, no usado por Muddie"
+
+msgid "System fonts"
+msgstr "Fuentes del sistema"
+
+msgid "Interface scale"
+msgstr "Escala de la interfaz"
+
+msgid "Same, for the chat panel"
+msgstr "Lo mismo, para el panel de chat"
 

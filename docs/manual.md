@@ -32,12 +32,6 @@ With a character name saved, Muddie answers the first prompt with it. The
 password is kept in the system's keyring, never in a file, and is sent when
 the server hides typing.
 
-**GMCP modules** lists what to ask this MUD for besides the usual. A MUD
-sends over GMCP only the modules a client asks for, and each MUD names its
-own: its help says which. Type their names with commas between them, such as
-`Comm, Char.Stats`; they are asked for on connecting. Some MUDs also need
-GMCP switched on from inside the game. **Debug** shows what then comes.
-
 The text encoding is `auto` for nearly every MUD: UTF-8, with Latin-1 for
 anything that is not valid UTF-8. Set it only for servers that use something
 else, such as `big5` or `koi8-r`.
@@ -188,7 +182,7 @@ itself:
 - Panels can share one place as **tabs**, with their names along its top to
   choose between them: drop a panel on the middle of another, or use the
   dots. A tab that gets something while another is on show has a dot.
-- **Tall sides** decides who gets the corners: with it, the panels beside
+- **Full-height sides** decides who gets the corners: with it, the panels beside
   the output reach the top and the bottom of the window, and those above
   and below fit between them.
 - Its name can be changed there, and the cross removes it.
@@ -221,6 +215,24 @@ those with a maximum the colours it takes as it gets low: yellow under 60 %,
 red under 30 %, as many levels as wanted, kept in order. A light can have a
 colour for when it is off as well, to say which of two things is so: red for
 poisoned, green for not. Alt+0 reads the gauges aloud.
+
+### Plugins that come with Muddie
+
+Muddie itself knows the ways of no MUD in particular: those are plugins, in
+**Settings > Plugins**, switched on and off per profile like the ones you
+install. Two come with it.
+
+- **Common GMCP and MSDP** makes something of what many MUDs send the same
+  way: `Char.Vitals` as gauges, `Room.Info` as the map, `Comm.Channel.Text`
+  as channels. It is on in a new profile; switched off, the client makes
+  nothing of them by itself, and scripts still get them.
+- **Reinos de Leyenda** shows the channels of that MUD, each in its tab. It
+  is off until asked for. On connecting to that MUD it is offered over the
+  command line: **Enable** switches it on there and then, and **Not now**
+  puts the offer away for that profile. The MUD sends nothing over GMCP until
+  you type `consentir gmcp on` in the game.
+
+Switching one does not run your scripts again.
 
 ### Channels
 
@@ -261,7 +273,7 @@ comes with an option Muddie does not know are listed too; choosing a protocol
 lists what came by it alone.
 
 Nothing is kept while the view is closed, so that it costs nothing: the list
-starts when it is opened. **Keep recording outside this view** goes on
+starts when it is opened. **Record in the background** goes on
 keeping it, to see what comes on connecting, and **Clear** empties the list.
 
 ## The map

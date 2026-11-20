@@ -397,7 +397,7 @@ impl App {
                             ("Ctrl", tr("Silence speech")),
                             ("Alt+↑  Alt+↓", tr("Read the previous and next line")),
                             ("Alt+1 … Alt+9", tr("Read the most recent lines")),
-                            ("Alt+Shift+↑ …", tr("The same, for the chat")),
+                            ("Alt+Shift+↑ …", tr("Same, for the chat panel")),
                             ("Alt+0", tr("Read the gauges")),
                         ],
                     ),
@@ -608,7 +608,7 @@ fn general_settings(ui: &mut Ui, settings: &mut Settings, languages: &[(String, 
                 })
                 .response
         });
-        widgets::setting_row(ui, tr("Interface size"), &mut |ui| {
+        widgets::setting_row(ui, tr("Interface scale"), &mut |ui| {
             let mut percent = (settings.ui_scale * 100.0).round();
             let slider = crate::widgets::slider(&mut percent, 75.0..=200.0)
                 .step_by(5.0)
@@ -668,7 +668,7 @@ fn appearance_settings(ui: &mut Ui, settings: &mut Settings) {
         });
     });
     ui.add_space(6.0);
-    widgets::caption(ui, tr("Text of the MUD"));
+    widgets::caption(ui, tr("MUD text"));
     widgets::group(ui, |ui| {
         widgets::setting_row(ui, tr("Colours"), &mut |ui| {
             let name = |palette: MudPalette| match palette {
@@ -710,7 +710,7 @@ fn appearance_settings(ui: &mut Ui, settings: &mut Settings) {
                             .color(theme.text_faint);
                         ui.add(egui::Label::new(small).selectable(false));
                     };
-                    heading(ui, tr("With Muddie"));
+                    heading(ui, tr("Bundled"));
                     if crate::widgets::choice(
                         ui,
                         settings.font_family.is_empty(),
@@ -730,10 +730,10 @@ fn appearance_settings(ui: &mut Ui, settings: &mut Settings) {
                     }
                     // The monospaced fonts the system has.
                     ui.separator();
-                    heading(ui, tr("Installed on this computer"));
+                    heading(ui, tr("System fonts"));
                     let Some(installed) = theme::installed_fonts() else {
                         // Still going through the system's fonts.
-                        heading(ui, tr("Looking for them…"));
+                        heading(ui, tr("Loading…"));
                         ui.ctx()
                             .request_repaint_after(std::time::Duration::from_millis(150));
                         return;

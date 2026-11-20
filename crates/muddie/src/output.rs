@@ -347,7 +347,7 @@ impl Output {
                                 .small()
                                 .color(theme.text_dim),
                         );
-                        if crate::widgets::button(ui, tr("Back to the end")).clicked() {
+                        if crate::widgets::button(ui, tr("Jump to end")).clicked() {
                             self.jump_to_end = true;
                         }
                     });
