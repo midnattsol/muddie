@@ -7,6 +7,7 @@ use crate::telnet::{self, Event, Verb, opt};
 // NEW-ENVIRON (RFC 1572): the commands, and what marks a name and a value.
 const ENVIRON_IS: u8 = 0;
 const ENVIRON_SEND: u8 = 1;
+const ENVIRON_INFO: u8 = 2;
 const ENVIRON_VAR: u8 = 0;
 const ENVIRON_VALUE: u8 = 1;
 const ENVIRON_USERVAR: u8 = 3;
@@ -379,6 +380,23 @@ impl Negotiator {
             }
         }
         self.config.gmcp_supports = modules;
+    }
+
+    /// A screen reader started or stopped speaking. A server that asked
+    /// through NEW-ENVIRON is told the new MTTS at once, as MNES says;
+    /// any other learns it when it next asks.
+    pub fn set_screen_reader(&mut self, on: bool, reply: &mut Vec<u8>) {
+        if on == self.config.screen_reader {
+            return;
+        }
+        self.config.screen_reader = on;
+        if self.in_use(opt::NEW_ENVIRON) {
+            let mut body = vec![ENVIRON_INFO, ENVIRON_VAR];
+            body.extend_from_slice(b"MTTS");
+            body.push(ENVIRON_VALUE);
+            body.extend_from_slice(self.mtts().to_string().as_bytes());
+            telnet::write_subneg(opt::NEW_ENVIRON, &body, reply);
+        }
     }
 
     fn mtts(&self) -> u32 {

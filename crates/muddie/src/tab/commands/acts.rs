@@ -87,8 +87,8 @@ impl Tab {
         let mut acts: Vec<Item> = (self.layout.panels.iter())
             .map(|panel| {
                 let label = match panel.visible {
-                    true => trf("Hide {0}", &[&panel.name]),
-                    false => trf("Show {0}", &[&panel.name]),
+                    true => trf("Hide {0}", &[&panel.shown_name()]),
+                    false => trf("Show {0}", &[&panel.shown_name()]),
                 };
                 item(&label, panels, Act::Panel(panel.id))
             })

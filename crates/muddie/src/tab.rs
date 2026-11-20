@@ -211,6 +211,8 @@ pub struct Tab {
     login: Login,
     /// Keypad keys pressed since the last frame, by name.
     pub keypad_pressed: Vec<&'static str>,
+    /// Whether the MUD was last told a screen reader reads the session.
+    told_screen_reader: bool,
 }
 
 /// How far an automatic login has got.
@@ -312,8 +314,12 @@ impl Tab {
             new_password: String::new(),
             login: Login::Idle,
             keypad_pressed: Vec::new(),
+            told_screen_reader: false,
         };
         app.editor.panes = settings.automation_panes;
+        // Speech first: what is said from here on, connecting included, is
+        // heard.
+        app.voice.configure(settings);
         if startup.speech {
             app.voice.force_voice();
         }
@@ -389,6 +395,7 @@ impl Tab {
         self.check_partial(ctx);
         self.check_timers(ctx);
         self.check_packages(ctx);
+        self.tell_screen_reader();
         if let Some(deadline) = self.scripts.next_deadline() {
             ctx.request_repaint_after(deadline.saturating_duration_since(now));
         }

@@ -39,7 +39,8 @@ fn what_the_mud_sends_is_kept_to_look_at_and_made_into_gauges() {
     harness.run_steps(3);
     assert!(
         harness
-            .query_by_label("Char.Vitals.health.current")
+            .query_all_by_label("Char.Vitals.health.current")
+            .next()
             .is_some()
     );
     harness

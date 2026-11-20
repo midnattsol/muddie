@@ -1762,3 +1762,27 @@ msgstr "Lo que se dice en los canales del MUD, con el nombre del canal."
 
 msgid "The screen reader uses its own settings."
 msgstr "El lector de pantalla usa sus propios ajustes."
+
+
+msgid "Map"
+msgstr "Mapa"
+
+msgid "Size of the panels at the left"
+msgstr "Tamaño de los paneles de la izquierda"
+
+msgid "Size of the panels at the right"
+msgstr "Tamaño de los paneles de la derecha"
+
+msgid "Size of the panels at the top"
+msgstr "Tamaño de los paneles de arriba"
+
+msgid "Size of the panels at the bottom"
+msgstr "Tamaño de los paneles de abajo"
+
+
+msgid "No matches."
+msgstr "Sin resultados."
+
+
+msgid "Command palette"
+msgstr "Paleta de comandos"

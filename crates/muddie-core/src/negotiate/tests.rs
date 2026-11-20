@@ -252,4 +252,38 @@ fn the_client_says_what_it_is_when_asked_and_nothing_else() {
         assert!(told.contains(name), "{name} is missing from {told:?}");
     }
     assert!(told.contains("UTF-8") && !told.contains("USER"));
+    // A screen reader starts: the server is told of it unasked.
+    reply.clear();
+    n.set_screen_reader(true, &mut reply);
+    let mut info = vec![ENVIRON_INFO, ENVIRON_VAR];
+    info.extend_from_slice(b"MTTS");
+    info.push(ENVIRON_VALUE);
+    info.extend_from_slice(
+        (MTTS_ANSI | MTTS_UTF8 | MTTS_256_COLORS | MTTS_TRUECOLOR | MTTS_SCREEN_READER)
+            .to_string()
+            .as_bytes(),
+    );
+    let mut expected = Vec::new();
+    telnet::write_subneg(opt::NEW_ENVIRON, &info, &mut expected);
+    assert_eq!(reply, expected);
+    // The same again is no news.
+    reply.clear();
+    n.set_screen_reader(true, &mut reply);
+    assert!(reply.is_empty());
+}
+
+#[test]
+fn a_screen_reader_that_comes_later_is_told_when_ttype_is_asked() {
+    let mut n = negotiator();
+    let mut reply = Vec::new();
+    // Without NEW-ENVIRON there is no one to tell now.
+    n.set_screen_reader(true, &mut reply);
+    assert!(reply.is_empty());
+    for _ in 0..2 {
+        handle(&mut n, Event::Subneg(opt::TTYPE, vec![TTYPE_SEND]));
+    }
+    let (reply, _) = handle(&mut n, Event::Subneg(opt::TTYPE, vec![TTYPE_SEND]));
+    let mtts = String::from_utf8_lossy(&reply[4..reply.len() - 2]).into_owned();
+    let bits: u32 = mtts.trim_start_matches("MTTS ").parse().unwrap();
+    assert_ne!(bits & MTTS_SCREEN_READER, 0);
 }

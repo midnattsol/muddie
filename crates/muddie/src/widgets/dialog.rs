@@ -29,7 +29,10 @@ pub fn dialog<R>(
         });
     let mut closed = false;
     let width = width.min(ctx.content_rect().width() - 80.0);
-    let modal = egui::Modal::new(egui::Id::unique(id))
+    let id = egui::Id::unique(id);
+    // A screen reader says it is a dialog, and its name.
+    let modal = egui::Modal::new(id)
+        .area(egui::Modal::default_area(id).accessible_name(title))
         .backdrop_color(Color32::from_black_alpha(if theme.dark { 150 } else { 70 }))
         .frame(frame)
         .show(ctx, |ui| {
@@ -40,7 +43,13 @@ pub fn dialog<R>(
                     .color(theme.text);
                 ui.add(egui::Label::new(heading).selectable(false));
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    closed = close_button(ui, crate::i18n::tr("Close"), 24.0).clicked();
+                    let close = close_button(ui, crate::i18n::tr("Close"), 24.0);
+                    closed = close.clicked();
+                    // The keyboard is in it: on its first control when it
+                    // opens, or whenever nothing has it.
+                    if ui.memory(|memory| memory.focused().is_none()) {
+                        close.request_focus();
+                    }
                 });
             });
             ui.add_space(8.0);

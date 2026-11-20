@@ -16,6 +16,7 @@ impl Tab {
         if self.palette_keys(ctx, &items) {
             return;
         }
+        self.say_found(ctx, &items);
         let (area, clicked) = self.palette_card(ctx, &items, shown);
         if let Some(index) = clicked {
             self.palette.focus = true;
@@ -108,7 +109,14 @@ impl Tab {
             Step::End(false) => last,
         };
         self.palette.reveal = true;
-        let chosen = &items[self.palette.chosen];
+        self.say_chosen(items);
+    }
+
+    /// Says the one chosen aloud, with where it is in the list.
+    fn say_chosen(&mut self, items: &[Item]) {
+        let Some(chosen) = items.get(self.palette.chosen) else {
+            return self.voice.say_now(tr("No matches."));
+        };
         let place = trf(
             "{0} of {1}",
             &[
@@ -121,6 +129,21 @@ impl Tab {
             shown_usage(&chosen.usage),
             chosen.about
         ));
+    }
+
+    /// Once what is typed has been left as it is for a moment, says what it
+    /// found first, or that it found nothing: what is seen at a glance.
+    fn say_found(&mut self, ctx: &egui::Context, items: &[Item]) {
+        const PAUSE: std::time::Duration = std::time::Duration::from_millis(500);
+        let Some(typed_at) = self.palette.typed_at else {
+            return;
+        };
+        let waited = typed_at.elapsed();
+        if waited < PAUSE {
+            return ctx.request_repaint_after(PAUSE - waited);
+        }
+        self.palette.typed_at = None;
+        self.say_chosen(items);
     }
 
     /// The card at the top of the window: the field, and a window of the
@@ -159,6 +182,14 @@ impl Tab {
                     ui.spacing_mut().item_spacing.y = 0.0;
                     self.palette_field(ui, items.len());
                     if items.is_empty() {
+                        if !self.palette.query.trim().is_empty() {
+                            ui.add_space(4.0);
+                            ui.horizontal(|ui| {
+                                ui.add_space(12.0);
+                                crate::widgets::page_note(ui, tr("No matches."));
+                            });
+                            ui.add_space(8.0);
+                        }
                         return;
                     }
                     let line = ui.available_rect_before_wrap();
@@ -237,9 +268,14 @@ impl Tab {
                 .inner
             })
             .inner;
+        // Named for a screen reader; what it is for is its hint.
+        ui.ctx().accesskit_node_builder(edit.response.id, |node| {
+            node.set_label(tr("Command palette"));
+        });
         if edit.response.changed() {
             self.palette.chosen = 0;
             self.palette.results = None;
+            self.palette.typed_at = Some(Instant::now());
         }
         if std::mem::take(&mut self.palette.cursor_end) {
             let end = egui::text::CCursor::new(self.palette.query.chars().count());

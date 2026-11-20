@@ -67,8 +67,13 @@ impl Tab {
         if submitted {
             self.submit();
         }
-        // The input owns the keyboard unless the user moved focus elsewhere.
-        if !self.palette.open && (submitted || ui.memory(|memory| memory.focused().is_none())) {
+        // The input owns the keyboard unless the user moved focus elsewhere,
+        // or a dialog over it has it.
+        let dialog = ui.memory(|memory| memory.top_modal_layer().is_some());
+        if !self.palette.open
+            && !dialog
+            && (submitted || ui.memory(|memory| memory.focused().is_none()))
+        {
             response.request_focus();
         }
     }

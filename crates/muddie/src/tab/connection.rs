@@ -43,6 +43,7 @@ impl Tab {
         };
         let config = self.connection_config();
         self.supports.clone_from(&config.gmcp_supports);
+        self.told_screen_reader = config.screen_reader;
         let Session { commands, events } = connect(target, config);
         let events = forward(events, ctx.clone());
         self.connection = Some(Connection { commands, events });
@@ -95,6 +96,19 @@ impl Tab {
                 Map::in_memory()
             }
         }
+    }
+
+    /// Tells the MUD when a screen reader starts or stops reading the
+    /// session: it may send less of what is drawn rather than said.
+    pub(super) fn tell_screen_reader(&mut self) {
+        let now = self.voice.screen_reader();
+        if now == self.told_screen_reader {
+            return;
+        }
+        if let Some(connection) = &self.connection {
+            let _ = connection.commands.send(Command::ScreenReader(now));
+        }
+        self.told_screen_reader = now;
     }
 
     /// What the client says of itself and asks the MUD for. What many MUDs

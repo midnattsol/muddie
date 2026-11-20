@@ -61,6 +61,16 @@ impl Side {
         }
     }
 
+    /// What the edge dragged to make its panels wider or taller is called.
+    pub fn size_label(self) -> &'static str {
+        match self {
+            Self::Left => tr("Size of the panels at the left"),
+            Self::Right => tr("Size of the panels at the right"),
+            Self::Top => tr("Size of the panels at the top"),
+            Self::Bottom => tr("Size of the panels at the bottom"),
+        }
+    }
+
     /// The edge of the window it is on.
     pub fn edge(self) -> widgets::Edge {
         match self {
@@ -91,6 +101,18 @@ pub struct PanelSpec {
     /// The panels of a side with the same number here, other than none,
     /// share one place as tabs.
     pub stack: u32,
+}
+
+impl PanelSpec {
+    /// Its name as shown: the ones the program gives are in the language
+    /// of the interface; what it is kept as stays, as scripts name it so.
+    pub fn shown_name(&self) -> String {
+        match self.name.as_str() {
+            "Map" => tr("Map").to_owned(),
+            "Gauges" => tr("Gauges").to_owned(),
+            name => name.to_owned(),
+        }
+    }
 }
 
 impl Default for PanelSpec {

@@ -13,7 +13,7 @@ impl Tab {
         let more = widgets::icon_button(
             ui,
             widgets::Icon::More,
-            &trf("{0} options", &[&spec.name]),
+            &trf("{0} options", &[&spec.shown_name()]),
             false,
         );
         let mut asked = None;
@@ -37,7 +37,7 @@ impl Tab {
                 Kind::Map => self.map_view.menu_items(ui),
             }
             widgets::menu_separator(ui);
-            asked = closing_items(ui, &spec.name).or(asked.take());
+            asked = closing_items(ui, &spec.shown_name()).or(asked.take());
         });
         match asked {
             Some(PanelAsk::Gauges) => self.open_gauges(spec.id),

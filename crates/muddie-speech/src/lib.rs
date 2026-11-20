@@ -5,8 +5,9 @@
 
 mod narrator;
 
-use std::sync::mpsc::{Receiver, Sender, channel};
+use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender, channel};
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use prismer::{Backend, Features, Prism, Registry};
 
@@ -27,7 +28,13 @@ pub enum Through {
 pub struct Status {
     pub name: Option<String>,
     pub screen_reader: bool,
+    /// Whether it has been looked for yet: until then, nothing is known.
+    pub known: bool,
 }
+
+/// How often a screen reader or a voice is looked for while there is none:
+/// one can start at any time, or be too busy to answer when first asked.
+const LOOK_AGAIN: Duration = Duration::from_secs(2);
 
 /// Makes a registry of backends, in the speech thread.
 pub type MakeRegistry = Box<dyn FnOnce() -> Registry + Send>;
@@ -43,6 +50,9 @@ enum Request {
     /// Language to speak in, as a code such as `es`; empty for the
     /// system's default.
     Language(String),
+    /// What to say when what speech goes through changes, with `{0}` for
+    /// its name.
+    Announce(String),
     /// A screen reader or a voice came or went: what is spoken through is
     /// chosen again.
     Changed,
@@ -94,6 +104,13 @@ impl Speech {
             .send(Request::Language(code.trim().to_owned()));
     }
 
+    /// Has what speech goes through said when it changes, as `template`
+    /// says with `{0}` for its name: a screen reader started, or a voice
+    /// came. What it is at first is not said.
+    pub fn announce_changes(&self, template: &str) {
+        let _ = self.requests.send(Request::Announce(template.to_owned()));
+    }
+
     /// Silences what is being said and all that is waiting.
     pub fn stop(&self) {
         let _ = self.requests.send(Request::Stop);
@@ -117,6 +134,11 @@ fn worker(
     changed: &Sender<Request>,
     status: &Mutex<Status>,
 ) {
+    // What goes wrong in prism is told where Muddie's own troubles are.
+    prismer::log::set_handler(|level, source, message| {
+        eprintln!("muddie: speech: {level:?}: {source}: {message}");
+    });
+    let _ = prismer::log::set_level(prismer::log::Level::Warn);
     let changed = changed.clone();
     let mut builder = Prism::builder().on_availability(move |_, _, _| {
         let _ = changed.send(Request::Changed);
@@ -129,16 +151,35 @@ fn worker(
         Ok(prism) => prism,
         Err(error) => return eprintln!("muddie: speech unavailable: {error}"),
     };
-    let (mut rate, mut language) = (0, String::new());
+    let (mut rate, mut language, mut announce) = (0, String::new(), String::new());
     let mut backend = choose(&prism, through);
     tune(backend.as_ref(), rate, &language);
     report(backend.as_ref(), status);
-    for request in requests {
+    loop {
+        let request = match backend {
+            Some(_) => requests.recv().ok(),
+            None => match requests.recv_timeout(LOOK_AGAIN) {
+                Ok(request) => Some(request),
+                Err(RecvTimeoutError::Timeout) => Some(Request::Changed),
+                Err(RecvTimeoutError::Disconnected) => None,
+            },
+        };
+        let Some(request) = request else {
+            return;
+        };
         let Some(chosen) = &backend else {
-            if let Request::Changed = request {
-                backend = choose(&prism, through);
-                tune(backend.as_ref(), rate, &language);
-                report(backend.as_ref(), status);
+            match request {
+                Request::Changed => switch(
+                    &prism,
+                    through,
+                    &mut backend,
+                    (rate, &language, &announce),
+                    status,
+                ),
+                Request::Rate(wanted) => rate = wanted,
+                Request::Language(wanted) => language = wanted,
+                Request::Announce(template) => announce = template,
+                Request::Say { .. } | Request::Stop => {}
             }
             continue;
         };
@@ -163,16 +204,36 @@ fn worker(
                 language = wanted;
                 tune(backend.as_ref(), rate, &language);
             }
-            Request::Changed => {
-                let now = choose(&prism, through);
-                let same = now.as_ref().map(Backend::name) == backend.as_ref().map(Backend::name);
-                if !same {
-                    backend = now;
-                    tune(backend.as_ref(), rate, &language);
-                    report(backend.as_ref(), status);
-                }
-            }
+            Request::Announce(template) => announce = template,
+            Request::Changed => switch(
+                &prism,
+                through,
+                &mut backend,
+                (rate, &language, &announce),
+                status,
+            ),
         }
+    }
+}
+
+/// Takes what speech now goes through, if it is another, and says so
+/// before anything else is said through it.
+fn switch<'a>(
+    prism: &'a Prism,
+    through: Through,
+    backend: &mut Option<Backend<'a>>,
+    (rate, language, announce): (i32, &str, &str),
+    status: &Mutex<Status>,
+) {
+    let now = choose(prism, through);
+    if now.as_ref().map(Backend::name) == backend.as_ref().map(Backend::name) {
+        return;
+    }
+    *backend = now;
+    tune(backend.as_ref(), rate, language);
+    report(backend.as_ref(), status);
+    if let Some(chosen) = backend.as_ref().filter(|_| !announce.is_empty()) {
+        let _ = chosen.speak(&announce.replace("{0}", &chosen.name()), false);
     }
 }
 
@@ -186,15 +247,18 @@ fn choose(prism: &Prism, through: Through) -> Option<Backend<'_>> {
     let mut ids = prism.backend_ids();
     ids.sort_by_key(|id| std::cmp::Reverse(prism.backend_priority(*id)));
     ids.into_iter().find_map(|id| {
+        // One that says nothing is not a voice.
+        if prism.backend_priority(id) == 0 {
+            return None;
+        }
         let backend = prism.create(id).ok()?;
-        backend.initialize().ok()?;
+        // What it is, known before it is started: what is not wanted is
+        // not started at all.
         let features = backend.features();
         let usable = features.contains(wanted)
             && features.contains(Features::SPEAK)
-            && !features.contains(Features::REQUIRES_EXPLICIT_SELECTION)
-            // One that says nothing is not a voice.
-            && prism.backend_priority(id) > 0;
-        usable.then_some(backend)
+            && !features.contains(Features::REQUIRES_EXPLICIT_SELECTION);
+        (usable && backend.initialize().is_ok()).then_some(backend)
     })
 }
 
@@ -228,6 +292,7 @@ fn report(backend: Option<&Backend<'_>>, status: &Mutex<Status>) {
     let now = Status {
         name: backend.map(Backend::name),
         screen_reader: backend.is_some_and(|backend| backend.supports(Features::IS_SCREEN_READER)),
+        known: true,
     };
     if let Ok(mut status) = status.lock() {
         *status = now;

@@ -31,7 +31,7 @@ impl Tab {
         }
         let panels: Vec<(u32, u32, String)> = (self.layout.panels.iter())
             .filter(|panel| panel.visible && panel.side == side)
-            .map(|panel| (panel.id, panel.stack, panel.name.clone()))
+            .map(|panel| (panel.id, panel.stack, panel.shown_name()))
             .collect();
         let (left, right) = match side {
             Side::Left => (8, 4),

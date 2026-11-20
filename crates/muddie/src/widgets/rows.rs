@@ -139,7 +139,7 @@ pub(super) fn row(
         let control = control(ui);
         ui.add_space(ROW_GAP);
         let column = vec2(ui.available_width(), height);
-        let (title, measured) = ui
+        let (shown, measured) = ui
             .allocate_ui_with_layout(column, Layout::top_down(Align::Min), |ui| {
                 ui.add_space(((height - words) / 2.0).max(0.0));
                 row_words(ui, label, about)
@@ -149,29 +149,51 @@ pub(super) fn row(
             ui.ctx().data_mut(|data| data.insert_temp(id, measured));
             ui.ctx().request_discard("a row's words changed height");
         }
-        if let Some(about) = about {
-            (ui.ctx()).accesskit_node_builder(control.id, |node| node.set_description(about));
+        // The control is named and described by the row's words, and they
+        // are not read again apart from it: a screen reader does not know
+        // what words a control was labelled by, and reads them on their own.
+        (ui.ctx()).accesskit_node_builder(control.id, |node| {
+            node.set_label(label);
+            // What a dropdown has chosen is told to screen readers on
+            // Linux only as part of what it is described by: elsewhere
+            // they read it themselves.
+            let chosen = (cfg!(target_os = "linux")
+                && node.role() == egui::accesskit::Role::ComboBox)
+                .then(|| node.value().map(str::to_owned))
+                .flatten();
+            match (chosen, about) {
+                (Some(chosen), Some(about)) => node.set_description(format!("{chosen}. {about}")),
+                (Some(chosen), None) => node.set_description(chosen),
+                (None, Some(about)) => node.set_description(about),
+                (None, None) => {}
+            }
+        });
+        for words in shown {
+            (ui.ctx()).accesskit_node_builder(words, |node| node.set_hidden());
         }
-        control.labelled_by(title.id)
+        control
     })
     .inner
 }
 
-/// The title of a row, and what it is for under it. Returns the title and
-/// how tall the two are.
-fn row_words(ui: &mut Ui, label: &str, about: Option<&str>) -> (Response, f32) {
+/// The title of a row, and what it is for under it. Returns the two, and
+/// how tall they are.
+fn row_words(ui: &mut Ui, label: &str, about: Option<&str>) -> (Vec<egui::Id>, f32) {
     const BETWEEN: f32 = 2.0;
     ui.spacing_mut().item_spacing.y = BETWEEN;
     let theme = theme::current();
     let title = ui.add(egui::Label::new(RichText::new(label).color(theme.text)).wrap());
     let mut height = title.rect.height();
+    let mut shown = vec![title.id];
     if let Some(about) = about {
         let note = RichText::new(about)
             .font(theme::font(Weight::Regular, 12.0))
             .color(theme.text_dim);
-        height += BETWEEN + ui.add(egui::Label::new(note).wrap()).rect.height();
+        let note = ui.add(egui::Label::new(note).wrap());
+        height += BETWEEN + note.rect.height();
+        shown.push(note.id);
     }
-    (title, height)
+    (shown, height)
 }
 
 /// A note on a page, outside its cards: what there is not yet, or what

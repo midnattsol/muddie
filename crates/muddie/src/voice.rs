@@ -8,7 +8,7 @@ use std::time::Instant;
 use eframe::egui::{Key, Modifiers, Ui};
 use muddie_speech::{Narrator, Speech, Through};
 
-use crate::i18n::{tr, trf};
+use crate::i18n::tr;
 use crate::output::Output;
 use crate::settings::{Settings, SpeechOutput};
 
@@ -39,8 +39,6 @@ pub struct Voice {
     narrator: Narrator,
     /// A new line of the game cuts short what is being said.
     interrupts: bool,
-    /// What speech went through when last looked, to say when it changes.
-    through: Option<String>,
     /// Rows last read with the review keys: in the output, and in the chat.
     review: [Option<usize>; 2],
     ctrl_was_down: bool,
@@ -55,12 +53,19 @@ pub struct Voice {
 impl Voice {
     /// Takes what the settings say of speech.
     pub fn configure(&mut self, settings: &Settings) {
+        let tuned = self.rate != settings.speech_rate || self.language != settings.speech_language;
         self.rate = settings.speech_rate;
         self.language = settings.speech_language.clone();
         self.interrupts = settings.speech_interrupts;
         self.output = settings.speech;
+        let opened = self.opened;
         self.open();
-        if let Some(speech) = &self.speech {
+        // A line just opened was told them already.
+        if let Some(speech) = self
+            .speech
+            .as_ref()
+            .filter(|_| tuned && opened == self.opened)
+        {
             speech.set_rate(self.rate);
             speech.set_language(&self.language);
         }
@@ -98,6 +103,7 @@ impl Voice {
             if let Some(speech) = &self.speech {
                 speech.set_rate(self.rate);
                 speech.set_language(&self.language);
+                speech.announce_changes(tr("Speech through {0}."));
             }
         }
         self.narrator = Narrator::default();
@@ -185,10 +191,15 @@ impl Voice {
         self.narrator.partial(text, Instant::now());
     }
 
-    /// Runs once per frame: speaks settled text, says when what speaks
-    /// changes, and handles the speech keys.
+    /// Runs once per frame: speaks settled text and handles the speech
+    /// keys.
     pub fn update(&mut self, ui: &mut Ui, output: &Output, chat: &Output) {
-        self.tell_through();
+        // A screen reader can start or stop at any time: the window looks
+        // again now and then, so the status bar and the MUD learn of it.
+        if self.speech.is_some() {
+            ui.ctx()
+                .request_repaint_after(std::time::Duration::from_secs(1));
+        }
         if !self.enabled() {
             return;
         }
@@ -210,25 +221,6 @@ impl Voice {
 
         self.review_keys(ui, output, 0, Modifiers::ALT);
         self.review_keys(ui, chat, 1, Modifiers::ALT | Modifiers::SHIFT);
-        // While what speaks may change, it is looked at again now and then.
-        ui.ctx()
-            .request_repaint_after(std::time::Duration::from_secs(1));
-    }
-
-    /// Says what speech goes through when that changes: a screen reader was
-    /// opened or closed, or a voice came.
-    fn tell_through(&mut self) {
-        let Some(speech) = &self.speech else {
-            self.through = None;
-            return;
-        };
-        let now = speech.status().name;
-        if now != self.through {
-            if let Some(name) = &now {
-                speech.say(&trf("Speech through {0}.", &[name]), false);
-            }
-            self.through = now;
-        }
     }
 
     /// With `modifiers` held, Up/Down/Home/End move through `output`

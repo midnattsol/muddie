@@ -383,6 +383,16 @@ impl Pipeline {
         }
     }
 
+    /// A screen reader started or stopped speaking; the server is told if
+    /// it can be.
+    pub fn set_screen_reader(&mut self, on: bool, out: &mut Vec<u8>) {
+        let start = out.len();
+        self.negotiator.set_screen_reader(on, out);
+        if out.len() > start {
+            self.finish_outgoing(out, start);
+        }
+    }
+
     /// Starts or stops telling what arrives of the protocols this client
     /// only passes over: it costs nothing while nobody is looking.
     pub fn set_trace(&mut self, trace: bool) {

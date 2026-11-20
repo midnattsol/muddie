@@ -100,6 +100,23 @@ impl Tab {
                 .min_size(least)
                 .show(ui, |ui| self.strip(ui, side, &members));
             asked = asked.or(shown.inner);
+            // The edge to drag is named for what it sizes, in the
+            // language of the interface.
+            let handle = ui.scope_id().with(id).with("__resize");
+            ui.ctx().accesskit_node_builder(handle, |node| {
+                node.set_label(side.size_label());
+                // Its share of the window, read without a string of digits.
+                let round = |value: f64| (value * 100.0).round() / 100.0;
+                if let Some(value) = node.numeric_value() {
+                    node.set_numeric_value(round(value));
+                }
+                if let Some(value) = node.min_numeric_value() {
+                    node.set_min_numeric_value(round(value));
+                }
+                if let Some(value) = node.max_numeric_value() {
+                    node.set_max_numeric_value(round(value));
+                }
+            });
             // As it was left, to be the same the next time.
             let rect = shown.response.rect;
             let size = if side.is_beside() {
@@ -258,7 +275,7 @@ impl Tab {
         for &index in place {
             let panel = &self.layout.panels[index];
             let unread = self.panels.unread_tabs.contains(&panel.id);
-            if widgets::tab(ui, &panel.name.clone(), panel.id == shown, unread).clicked() {
+            if widgets::tab(ui, &panel.shown_name(), panel.id == shown, unread).clicked() {
                 shown = panel.id;
             }
         }
@@ -297,7 +314,7 @@ impl Tab {
             ui.spacing_mut().item_spacing.x = 4.0;
             ui.set_min_height(24.0);
             // Six dots: this can be taken and moved.
-            let name = self.layout.panels[shown].name.clone();
+            let name = self.layout.panels[shown].shown_name();
             let (grip, handle) =
                 ui.allocate_exact_size(egui::vec2(12.0, 22.0), egui::Sense::drag());
             let handle = handle.on_hover_cursor(egui::CursorIcon::Grab);

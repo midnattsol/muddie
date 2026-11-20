@@ -47,7 +47,9 @@ fn the_one_menu_opens_and_does_what_it_says() {
     harness.get_by_label("Keyboard shortcuts");
     harness.get_by_label("Settings").click();
     harness.run_steps(3);
-    harness.get_by_label("Language");
+    // The control named by its row; the row's words are hidden from a
+    // screen reader, which hears them in the control.
+    harness.get_by_role_and_label(egui::accesskit::Role::ComboBox, "Language");
 }
 
 #[test]
@@ -70,7 +72,7 @@ fn what_a_click_opens_stays_open() {
         harness.run_steps(4);
         for frame in 0..6 {
             assert!(
-                harness.query_by_label(shown).is_some(),
+                harness.query_all_by_label(shown).next().is_some(),
                 "{what}: gone at frame {frame}"
             );
             harness.step();
@@ -139,6 +141,38 @@ fn what_is_said_aloud_is_the_game_the_channels_and_the_client() {
     app.voice.set_muted(true);
     app.note("Nobody hears this.");
     assert!(said(&harness).is_empty());
+}
+
+#[test]
+fn what_the_palette_finds_is_said_once_typing_pauses() {
+    let mut harness = window(None);
+    let app = harness.state_mut().tab_mut();
+    app.voice.force_voice();
+    app.toggle_palette();
+    harness.run_steps(3);
+    let field = "Command palette";
+    (harness.get_by_role_and_label(egui::accesskit::Role::TextInput, field)).type_text("zzzz");
+    harness.run_steps(2);
+    // Nothing yet: what is typed may still change.
+    assert!(harness.state().tab().voice.said.is_empty());
+    std::thread::sleep(std::time::Duration::from_millis(600));
+    harness.run_steps(2);
+    assert_eq!(harness.state().tab().voice.said, ["No matches."]);
+    assert!(harness.query_by_label("No matches.").is_some());
+}
+
+#[test]
+fn a_dialog_has_the_keyboard_and_its_name() {
+    let mut harness = window(None);
+    harness.run_steps(3);
+    harness
+        .state_mut()
+        .open_settings(crate::app::Section::General);
+    harness.run_steps(4);
+    // The keyboard is in it, not in the command line behind it.
+    let close = harness.get_by_label("Close");
+    assert!(close.accesskit_node().is_focused());
+    harness.get_by_role_and_label(egui::accesskit::Role::Dialog, "Settings");
 }
 
 #[test]

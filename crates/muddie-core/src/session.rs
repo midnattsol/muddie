@@ -46,6 +46,8 @@ pub enum Command {
     /// told what was added and what was removed, or all of them when it
     /// turns GMCP on.
     GmcpSupports(Vec<String>),
+    /// Whether a screen reader is what reads the session aloud now.
+    ScreenReader(bool),
     /// Send an MSDP message such as `REPORT` with variable names.
     Msdp {
         variable: String,
@@ -186,6 +188,9 @@ async fn drive(
                 }
                 Some(Command::Msdp { variable, values }) => {
                     pipeline.send_msdp(&variable, &values, &mut outgoing);
+                }
+                Some(Command::ScreenReader(on)) => {
+                    pipeline.set_screen_reader(on, &mut outgoing);
                 }
                 Some(Command::KeepAlive) => pipeline.keep_alive(&mut outgoing),
                 Some(Command::Trace(on)) => pipeline.set_trace(on),

@@ -227,4 +227,6 @@ pub(super) struct Palette {
     /// for a moment, and what it listed, shown over it to choose from.
     pub(super) bar_note: Option<commands::BarNote>,
     pub(super) results: Option<Vec<commands::Item>>,
+    /// When what is typed last changed, until what it finds is said.
+    pub(super) typed_at: Option<Instant>,
 }
