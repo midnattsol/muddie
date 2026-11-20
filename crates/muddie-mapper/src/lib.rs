@@ -163,6 +163,18 @@ pub struct Map {
     current: Option<RoomId>,
     /// `None` for a map that only lives in memory.
     store: Option<Store>,
+    /// Rooms changed since the map was last written, to be written all in
+    /// one go by [`Map::flush`] rather than each as it changes.
+    unsaved: std::collections::BTreeSet<RoomId>,
+    /// Counts the changes to its rooms, for what is worked out from them
+    /// to be worked out again only when they change.
+    revision: u64,
+}
+
+impl Drop for Map {
+    fn drop(&mut self) {
+        let _ = self.flush();
+    }
 }
 
 impl Map {
@@ -178,6 +190,8 @@ impl Map {
             rooms: rooms.into_iter().map(|room| (room.id, room)).collect(),
             current: None,
             store: Some(store),
+            unsaved: Default::default(),
+            revision: 0,
         })
     }
 
@@ -189,13 +203,44 @@ impl Map {
     /// Stops saving: from now on the map lives only in memory. The file,
     /// if there was one, is left as it is.
     pub fn stop_storing(&mut self) {
+        // What changed until now is the file's; what changes after, not.
+        let _ = self.flush();
         self.store = None;
+    }
+
+    /// Writes the rooms changed since it was last done, in one go.
+    pub fn flush(&mut self) -> Result<(), Error> {
+        if self.unsaved.is_empty() {
+            return Ok(());
+        }
+        let ids = std::mem::take(&mut self.unsaved);
+        match &mut self.store {
+            Some(store) => store.save(ids.iter().filter_map(|id| self.rooms.get(id))),
+            None => Ok(()),
+        }
+    }
+
+    /// Notes that rooms changed: they are written with the next
+    /// [`Map::flush`].
+    pub(crate) fn keep(&mut self, ids: impl IntoIterator<Item = RoomId>) {
+        self.revision += 1;
+        if self.store.is_some() {
+            self.unsaved.extend(ids);
+        }
+    }
+
+    /// Which change of its rooms the map is at: the same number, the same
+    /// rooms.
+    pub fn revision(&self) -> u64 {
+        self.revision
     }
 
     /// Forgets every room, in the file too if the map is stored.
     pub fn clear(&mut self) -> Result<(), Error> {
         self.rooms.clear();
         self.current = None;
+        self.unsaved.clear();
+        self.revision += 1;
         match &mut self.store {
             Some(store) => store.clear(),
             None => Ok(()),

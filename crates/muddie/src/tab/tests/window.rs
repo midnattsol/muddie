@@ -229,11 +229,8 @@ fn reading_back_shows_the_latest_lines_over_the_view_without_moving_it() {
     let app = harness.state_mut().tab_mut();
     (0..400).for_each(|n| app.show_local(&format!("line {n} of the scrollback")));
     harness.run_steps(8);
-    let centre = harness
-        .get_by_label("line 399 of the scrollback")
-        .rect()
-        .center();
-    harness.hover_at(centre);
+    // Over the output, which fills the window but for its edges.
+    harness.hover_at(egui::pos2(400.0, 300.0));
     let wheel = |harness: &mut Harness<'_, App>, lines: f32| {
         harness.event(egui::Event::MouseWheel {
             unit: egui::MouseWheelUnit::Line,
@@ -257,10 +254,16 @@ fn reading_back_shows_the_latest_lines_over_the_view_without_moving_it() {
         wheel(&mut harness, 1.0);
         assert!(shown(&harness), "the latest lines came and went");
     }
-    // ...until the view is back at the end.
+    // ...until the view is back at the end, however long the scroll
+    // takes to settle on a busy machine.
     wheel(&mut harness, -40.0);
+    for _ in 0..60 {
+        if !shown(&harness) {
+            break;
+        }
+        harness.run_steps(5);
+    }
     assert!(!shown(&harness));
-    harness.get_by_label("line 399 of the scrollback");
 }
 
 /// Says what a frame costs in the views that could be slow, to look

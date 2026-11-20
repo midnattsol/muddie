@@ -72,10 +72,8 @@ impl Map {
                 moved.push(id);
             }
         }
-        let rooms = moved.iter().filter_map(|id| self.rooms.get(id));
-        if let Some(store) = &mut self.store {
-            store.save(rooms)?;
-        }
-        Ok(moved.len())
+        let count = moved.len();
+        self.keep(moved);
+        Ok(count)
     }
 }

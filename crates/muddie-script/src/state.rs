@@ -73,6 +73,9 @@ pub(super) struct State {
     /// drawing, by its name in lower case.
     pub(crate) panel_sizes: HashMap<String, (u32, u32)>,
     pub(crate) triggers: Vec<Matcher>,
+    /// The triggers' patterns in one set, by the ids of the triggers it
+    /// was made of; none if they could not be put in one.
+    pub(crate) trigger_set: Option<(Vec<u64>, Option<regex::RegexSet>)>,
     pub(crate) aliases: Vec<Matcher>,
     pub(crate) timers: Vec<Timer>,
     pub(crate) data_handlers: Vec<DataHandler>,
@@ -100,6 +103,9 @@ pub(super) struct State {
     pub(crate) memory_file: Option<PathBuf>,
     /// What is switched off for the session.
     pub(crate) switches: Switches,
+    /// The modules asked for or the switches changed since the frontend
+    /// last asked.
+    pub(crate) changed: bool,
     /// The scripts there are, as the frontend tells: to list them and
     /// their tags, as it is the frontend that runs them.
     pub(crate) scripts: Vec<Belongs>,

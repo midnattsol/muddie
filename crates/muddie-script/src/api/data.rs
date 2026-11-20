@@ -137,6 +137,7 @@ fn install_supports(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
                 let asked = (owner.clone(), module);
                 if !state.supports.contains(&asked) {
                     state.supports.push(asked);
+                    state.changed = true;
                 }
             }
             Ok(())

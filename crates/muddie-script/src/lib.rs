@@ -431,7 +431,9 @@ impl Engine {
         state.aliases.retain(|matcher| matcher.owner != owner);
         state.timers.retain(|timer| timer.owner != owner);
         state.data_handlers.retain(|handler| handler.owner != owner);
+        let asked = state.supports.len();
         state.supports.retain(|(by, _)| by != owner);
+        state.changed |= state.supports.len() != asked;
         state.bindings.retain(|_, bound| {
             bound.retain(|bound| bound.owner != owner);
             !bound.is_empty()

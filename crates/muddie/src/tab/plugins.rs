@@ -35,6 +35,9 @@ impl Tab {
             self.scripts.exec_owned(&owner, &name, code);
         }
         self.run_actions();
+        // The one that is part of the program changes what is asked for by
+        // itself, with no script to say so.
+        self.sync_modules();
     }
 
     /// Saves which plugins are on with the profile, if there is one;

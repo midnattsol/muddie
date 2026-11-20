@@ -2,17 +2,29 @@
 
 use super::*;
 
+/// How long a frame spends on what arrived, at most: enough for hundreds
+/// of lines, little enough for the window to keep moving.
+const EVENTS_PER_FRAME: Duration = Duration::from_millis(8);
+
 impl Tab {
     /// Takes what arrived from the connection since the last frame.
-    pub(super) fn handle_events(&mut self) {
+    /// Does what arrived from the connection, for as long as a frame can
+    /// spare: a burst is taken over several frames rather than holding one
+    /// up. Returns whether some was left for the next.
+    pub(super) fn handle_events(&mut self) -> bool {
         self.sync_trace();
         let recording = self.recording();
-        let Some(connection) = &self.connection else {
-            return;
-        };
-        let events: Vec<Event> = connection.events.try_iter().collect();
-        for event in events {
-            self.handle_event(event, recording);
+        let started = Instant::now();
+        loop {
+            if started.elapsed() >= EVENTS_PER_FRAME {
+                return true;
+            }
+            let next =
+                (self.connection.as_ref()).and_then(|connection| connection.events.try_recv().ok());
+            match next {
+                Some(event) => self.handle_event(event, recording),
+                None => return false,
+            }
         }
     }
 
@@ -101,10 +113,21 @@ impl Tab {
             return self.msp(request);
         }
         self.pending_partial = None;
-        match self.triggered(&line, &text) {
+        // Text whose triggers already ran while it was unterminated keeps
+        // that verdict instead of firing twice.
+        let settled = (self.settled_partial.take()).filter(|(fired, _)| *fired == text);
+        let shown = match settled {
+            Some((_, shown)) => shown,
+            None => self
+                .run_triggers(line)
+                .then(|| self.dispatched.take())
+                .flatten(),
+        };
+        match shown {
             Some(shown) => {
                 self.show_line(&shown);
                 self.voice.line(&text);
+                self.dispatched = Some(shown);
             }
             None => {
                 self.output.clear_partial();
@@ -116,17 +139,14 @@ impl Tab {
         self.login_name();
     }
 
-    /// What the triggers make of a line: how it is to be shown, or nothing
-    /// if hidden. Text whose triggers already ran while it was unterminated
-    /// keeps that verdict instead of firing twice.
-    fn triggered(&mut self, line: &Line, text: &str) -> Option<Line> {
-        let settled = (self.settled_partial.take()).filter(|(fired, _)| fired == text);
-        if let Some((_, shown)) = settled {
-            return shown;
-        }
-        let shown = self.scripts.on_styled_line(line);
-        self.dispatched = Some(shown.clone().unwrap_or_else(|| line.clone()));
-        shown
+    /// Runs the triggers on a line. What they leave of it, or the line as
+    /// it came if they hid it, is kept for what they asked to be done with
+    /// it. Returns whether it is to be shown.
+    pub(super) fn run_triggers(&mut self, line: Line) -> bool {
+        let shown = self.scripts.on_styled_line(&line);
+        let visible = shown.is_some();
+        self.dispatched = Some(shown.unwrap_or(line));
+        visible
     }
 
     /// A line not yet ended: shown as it is, and waited on in case it is a
@@ -280,6 +300,20 @@ impl Tab {
         if let Err(error) = write(log) {
             self.log = None;
             self.note(&trf("Logging stopped: {0}", &[&error.to_string()]));
+        }
+    }
+
+    /// Writes out what the log and the map have waiting, once a frame:
+    /// line by line or room by room, a burst would wait on the disk.
+    pub(super) fn write_down(&mut self) {
+        self.logged(SessionLog::flush);
+        let written = self.map.borrow_mut().flush();
+        if let Err(error) = written {
+            self.map.borrow_mut().stop_storing();
+            self.note(&trf(
+                "The map will not be saved: {0}",
+                &[&error.to_string()],
+            ));
         }
     }
 

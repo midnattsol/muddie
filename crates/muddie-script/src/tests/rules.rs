@@ -285,3 +285,29 @@ fn failing_repeating_timer_is_dropped() {
     assert!(error_text(&engine.take_actions()).contains("bad"));
     assert_eq!(engine.next_deadline(), None);
 }
+
+#[test]
+fn many_triggers_fire_as_few_do_and_follow_changes() {
+    // Enough to be tried as one set: those that match fire, in order.
+    let mut code = String::new();
+    for n in 0..30 {
+        code.push_str(&format!(
+            "trigger(\"^word {n}$\", function() send(\"saw {n}\") end)\n"
+        ));
+    }
+    code.push_str("trigger(\"word\", function() send(\"any\") end)\n");
+    let mut engine = engine(&code);
+    engine.on_line("word 7");
+    assert_eq!(engine.take_actions(), [send("saw 7"), send("any")]);
+    // One added, and one taken away, are seen at the next line.
+    engine.exec("t", r#"trigger("^word 7$", function() send("again") end)"#);
+    // The ids count from 1: this is the one of "word 3".
+    engine.exec("t", r#"cancel(4)"#);
+    engine.on_line("word 7");
+    assert_eq!(
+        engine.take_actions(),
+        [send("saw 7"), send("any"), send("again")]
+    );
+    engine.on_line("word 3");
+    assert_eq!(engine.take_actions(), [send("any")]);
+}

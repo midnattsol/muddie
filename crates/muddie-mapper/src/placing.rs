@@ -47,11 +47,8 @@ impl Map {
         for (anchor, direction, other) in links {
             moved.extend(self.align(anchor, &direction, other));
         }
-        let rooms = moved.iter().filter_map(|id| self.rooms.get(id));
-        match &mut self.store {
-            Some(store) => store.save(rooms),
-            None => Ok(()),
-        }
+        self.keep(moved);
+        Ok(())
     }
 
     /// If `other` sits on a separate island from `anchor`, moves that island
@@ -168,16 +165,9 @@ impl Map {
         if self.rooms.get(&room.id) == Some(&room) {
             return Ok(());
         }
-        let saved = self.save(&room);
+        self.keep([room.id]);
         self.rooms.insert(room.id, room);
-        saved
-    }
-
-    pub(super) fn save(&mut self, room: &Room) -> Result<(), Error> {
-        match &mut self.store {
-            Some(store) => store.save([room]),
-            None => Ok(()),
-        }
+        Ok(())
     }
 
     /// Chooses where a room goes: where the server says, else where it

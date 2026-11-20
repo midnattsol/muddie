@@ -200,8 +200,9 @@ impl Tab {
                     }
                 }
                 Action::ToPanel(name) => {
-                    if let Some(line) = self.dispatched.clone() {
+                    if let Some(line) = self.dispatched.take() {
                         self.add_to_panel(&name, &line);
+                        self.dispatched = Some(line);
                     }
                 }
                 Action::Completions { name, words } => {
@@ -241,9 +242,11 @@ impl Tab {
         }
         // A script loaded, unloaded or run may have changed what it asks
         // the MUD for, or switched scripts on or off.
-        self.sync_modules();
-        if self.sync_scripts() {
-            self.run_actions();
+        if self.scripts.take_changed() {
+            self.sync_modules();
+            if self.sync_scripts() {
+                self.run_actions();
+            }
         }
     }
 }

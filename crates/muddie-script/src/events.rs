@@ -183,28 +183,60 @@ impl Engine {
     }
 
     pub(super) fn hits(&self, text: &str, kind: Kind, limit: usize) -> Vec<Hit> {
+        let candidates = match kind {
+            Kind::Trigger => self.matching_triggers(text),
+            _ => None,
+        };
         let state = self.state.borrow();
         let enabled = |matcher: &&Matcher| state.switches.active(kind, &matcher.belongs);
         let list = match kind {
             Kind::Alias => &state.aliases,
             _ => &state.triggers,
         };
-        let matches = list.iter().filter(enabled).filter_map(|matcher| {
-            let captures = matcher.regex.captures(text)?;
-            let group = |m: regex::Match| m.as_str().to_owned();
-            Some(Hit {
-                id: matcher.id,
-                owner: matcher.owner.clone(),
-                once: matcher.once,
-                range: captures.get(0).map_or((0, 0), |m| (m.start(), m.end())),
-                callback: matcher.callback.clone(),
-                groups: captures.iter().map(|m| m.map(group)).collect(),
-                named: (matcher.regex.capture_names().flatten())
-                    .filter_map(|name| Some((name.to_owned(), group(captures.name(name)?))))
-                    .collect(),
-            })
-        });
+        let candidate = |index: usize| (candidates.as_ref()).is_none_or(|set| set.matched(index));
+        let listed = list
+            .iter()
+            .enumerate()
+            .filter(|(index, _)| candidate(*index));
+        let matches = listed
+            .map(|(_, matcher)| matcher)
+            .filter(enabled)
+            .filter_map(|matcher| {
+                let captures = matcher.regex.captures(text)?;
+                let group = |m: regex::Match| m.as_str().to_owned();
+                Some(Hit {
+                    id: matcher.id,
+                    owner: matcher.owner.clone(),
+                    once: matcher.once,
+                    range: captures.get(0).map_or((0, 0), |m| (m.start(), m.end())),
+                    callback: matcher.callback.clone(),
+                    groups: captures.iter().map(|m| m.map(group)).collect(),
+                    named: (matcher.regex.capture_names().flatten())
+                        .filter_map(|name| Some((name.to_owned(), group(captures.name(name)?))))
+                        .collect(),
+                })
+            });
         matches.take(limit).collect()
+    }
+
+    /// Which triggers match a line, learned in one pass over it with all
+    /// their patterns in one set: with many triggers, much quicker than
+    /// trying each. None with few, or if they cannot be put in one set.
+    fn matching_triggers(&self, text: &str) -> Option<regex::SetMatches> {
+        /// Below this many, trying each is as quick.
+        const SET_FROM: usize = 16;
+        let mut state = self.state.borrow_mut();
+        if state.triggers.len() < SET_FROM {
+            return None;
+        }
+        let ids: Vec<u64> = state.triggers.iter().map(|matcher| matcher.id).collect();
+        if (state.trigger_set.as_ref()).is_none_or(|(known, _)| *known != ids) {
+            let patterns = state.triggers.iter().map(|matcher| matcher.regex.as_str());
+            let set = regex::RegexSet::new(patterns).ok();
+            state.trigger_set = Some((ids, set));
+        }
+        let (_, set) = state.trigger_set.as_ref()?;
+        Some(set.as_ref()?.matches(text))
     }
 
     pub(super) fn fire(&mut self, hit: &Hit, text: &str) {

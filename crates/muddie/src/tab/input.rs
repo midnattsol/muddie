@@ -274,8 +274,10 @@ impl Tab {
             return;
         };
         let text = line.text();
-        let shown = self.scripts.on_styled_line(&line);
-        self.dispatched = Some(shown.clone().unwrap_or_else(|| line.clone()));
+        let shown = self
+            .run_triggers(line)
+            .then(|| self.dispatched.clone())
+            .flatten();
         match &shown {
             Some(shown) => self.output.set_partial(shown),
             None => {

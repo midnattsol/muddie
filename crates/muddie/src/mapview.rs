@@ -64,7 +64,14 @@ pub struct MapView {
     /// What the tools on the panel's header asked for, to be done when
     /// the map is drawn.
     asked: Tools,
+    /// The rooms on the level shown, worked out again only when the map,
+    /// the area, the level or whether every area is shown changes.
+    on_level: Option<(Shown, Vec<RoomId>)>,
 }
+
+/// What the rooms on show depend on: the map's revision, the area, the
+/// level, and whether every area is shown.
+type Shown = (u64, String, i32, bool);
 
 impl Default for MapView {
     fn default() -> Self {
@@ -77,6 +84,7 @@ impl Default for MapView {
             moving: None,
             menu_room: None,
             asked: Tools::default(),
+            on_level: None,
         }
     }
 }
@@ -123,13 +131,28 @@ impl MapView {
         self.zoom_and_pan(ui, &response);
         let all_areas = self.all_areas;
         let on_level = |room: &Room| (all_areas || room.area == area) && room.pos.z == level;
+        let shown: Shown = (map.revision(), area.clone(), level, all_areas);
+        if self
+            .on_level
+            .as_ref()
+            .is_none_or(|(known, _)| *known != shown)
+        {
+            let ids = map
+                .rooms()
+                .filter(|room| on_level(room))
+                .map(|room| room.id);
+            self.on_level = Some((shown, ids.collect()));
+        }
+        let level_rooms: Vec<&Room> = (self.on_level.iter())
+            .flat_map(|(_, ids)| ids.iter().filter_map(|id| map.room(*id)))
+            .collect();
         // The player's own area is centred on the player whatever the
         // level, so going up and down keeps the place; any other area is
         // centred on the middle of what is drawn.
         let origin = if area == current.area || all_areas {
             (current.pos.x, current.pos.y)
         } else {
-            middle_of(map.rooms().filter(|room| on_level(room)))
+            middle_of(level_rooms.iter().copied())
         };
         let grid = Grid {
             centre: response.rect.center() + self.pan,
@@ -137,14 +160,9 @@ impl MapView {
             cell: self.cell,
             level,
         };
-        let visible: Vec<&Room> = (map.rooms())
-            .filter(|room| {
-                on_level(room)
-                    && response
-                        .rect
-                        .expand(grid.cell)
-                        .contains(grid.on_screen(room.pos))
-            })
+        let around = response.rect.expand(grid.cell);
+        let visible: Vec<&Room> = (level_rooms.into_iter())
+            .filter(|room| around.contains(grid.on_screen(room.pos)))
             .collect();
         let colours = Colours::of(theme::current());
         draw_exits(&painter, map, &visible, &grid, &colours, &on_level);

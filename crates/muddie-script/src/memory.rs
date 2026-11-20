@@ -63,7 +63,16 @@ impl Engine {
 
     /// Switches things on and off for the session, all at once.
     pub fn set_switches(&mut self, switches: Switches) {
-        self.state.borrow_mut().switches = switches;
+        let mut state = self.state.borrow_mut();
+        state.changed |= state.switches != switches;
+        state.switches = switches;
+    }
+
+    /// Whether the modules asked for or the switches changed since this
+    /// was last asked: what the frontend works out from them is then to be
+    /// worked out again.
+    pub fn take_changed(&mut self) -> bool {
+        std::mem::take(&mut self.state.borrow_mut().changed)
     }
 
     /// The tags there are: those anything carries, and those switched off.
@@ -74,7 +83,9 @@ impl Engine {
     /// Tells of the scripts there are, with what each is switched by: it
     /// is the frontend that runs them, and scripts list them.
     pub fn know_scripts(&mut self, scripts: Vec<Belongs>) {
-        self.state.borrow_mut().scripts = scripts;
+        let mut state = self.state.borrow_mut();
+        state.changed |= state.scripts != scripts;
+        state.scripts = scripts;
     }
 
     /// Whether the built-in map loader should run, which it does unless a

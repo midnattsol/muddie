@@ -68,9 +68,9 @@ impl Map {
             return Ok(false);
         };
         edit(&mut room);
-        let saved = self.save(&room);
+        self.keep([id]);
         self.rooms.insert(id, room);
-        saved.map(|()| true)
+        Ok(true)
     }
 
     /// Forgets a room. Exits of other rooms that led to it remain, as
@@ -82,6 +82,8 @@ impl Map {
         if self.current == Some(id) {
             self.current = None;
         }
+        self.unsaved.remove(&id);
+        self.revision += 1;
         match &mut self.store {
             Some(store) => store.delete(id).map(|()| true),
             None => Ok(true),

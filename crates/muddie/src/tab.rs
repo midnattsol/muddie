@@ -384,7 +384,9 @@ impl Tab {
     /// server, timers, and anything waiting on the clock.
     pub fn poll(&mut self, ctx: &egui::Context, _settings: &Settings, on_screen: bool) {
         let lines_before = self.output.total_pushed();
-        self.handle_events();
+        if self.handle_events() {
+            ctx.request_repaint();
+        }
         let now = Instant::now();
         self.scripts.tick(now);
         self.run_actions();
@@ -395,6 +397,7 @@ impl Tab {
         if let Some(deadline) = self.scripts.next_deadline() {
             ctx.request_repaint_after(deadline.saturating_duration_since(now));
         }
+        self.write_down();
         self.unread = !on_screen && (self.unread || self.output.total_pushed() != lines_before);
     }
 }

@@ -73,7 +73,7 @@ impl SessionLog {
                 writeln!(self.file)?;
             }
         }
-        self.file.flush()
+        Ok(())
     }
 
     /// Writes a line the client added itself.
@@ -89,6 +89,12 @@ impl SessionLog {
                 )?;
             }
         }
+        Ok(())
+    }
+
+    /// Writes out what is waiting to be written: once a frame, not once a
+    /// line.
+    pub fn flush(&mut self) -> io::Result<()> {
         self.file.flush()
     }
 }

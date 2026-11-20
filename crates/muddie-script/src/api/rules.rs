@@ -100,7 +100,9 @@ fn install_switches(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
             table.set(
                 verb,
                 lua.create_function(move |_, name: String| {
-                    let switches = &mut shared.borrow_mut().switches;
+                    let state = &mut *shared.borrow_mut();
+                    state.changed = true;
+                    let switches = &mut state.switches;
                     let was = match kind {
                         Some(kind) => switches.place_on(kind, &name),
                         None => switches.tag_on(&name),
