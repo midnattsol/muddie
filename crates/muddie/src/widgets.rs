@@ -123,6 +123,52 @@ pub fn sign_button(ui: &mut Ui, sign: &str, label: &str, frame: bool) -> Respons
     response.on_hover_text(label)
 }
 
+/// What looks like a field to search in and opens the palette: where
+/// anything can be found, with the keys that open it from anywhere.
+pub fn palette_button(ui: &mut Ui, width: f32, keys: &str) -> Response {
+    let theme = theme::current();
+    let (rect, response) = ui.allocate_exact_size(vec2(width, 26.0), Sense::click());
+    let said = crate::i18n::tr("Search or run a command");
+    response.widget_info(|| WidgetInfo::labeled(Role::Button, ui.is_enabled(), said));
+    if ui.is_rect_visible(rect) {
+        let painter = ui.painter();
+        let fill = if response.hovered() {
+            theme.hover
+        } else {
+            theme.field
+        };
+        painter.rect_filled(rect, CornerRadius::same(8), fill);
+        painter.rect_stroke(
+            rect,
+            CornerRadius::same(8),
+            Stroke::new(1.0, theme.border),
+            egui::StrokeKind::Inside,
+        );
+        // A magnifying glass, the words, and the keys at the far end.
+        let glass = rect.left_center() + vec2(14.0, -1.0);
+        let stroke = Stroke::new(1.3, theme.text_faint);
+        painter.circle_stroke(glass, 4.0, stroke);
+        painter.line_segment([glass + vec2(3.0, 3.0), glass + vec2(6.0, 6.0)], stroke);
+        let small = theme::font(Weight::Regular, 12.5);
+        let clip = painter.with_clip_rect(rect.shrink(4.0));
+        clip.text(
+            rect.left_center() + vec2(28.0, 0.0),
+            egui::Align2::LEFT_CENTER,
+            said,
+            small.clone(),
+            theme.text_faint,
+        );
+        clip.text(
+            rect.right_center() - vec2(10.0, 0.0),
+            egui::Align2::RIGHT_CENTER,
+            keys,
+            small,
+            theme.text_faint,
+        );
+    }
+    response
+}
+
 /// The ordinary button, for something to do that is not the main thing.
 pub fn button(ui: &mut Ui, text: impl Into<egui::WidgetText>) -> Response {
     ui.add(egui::Button::new(text).min_size(vec2(0.0, 30.0)))
@@ -727,6 +773,10 @@ pub enum Icon {
     Play,
     /// A bin: delete.
     Trash,
+    /// Three lines: the menu.
+    Menu,
+    /// A bell: what the client said.
+    Bell,
 }
 
 /// A small button with a picture. `label` says what it does, to screen
@@ -803,6 +853,28 @@ pub fn icon_button(ui: &mut Ui, icon: Icon, label: &str, on: bool) -> Response {
                     centre + vec2(-4.0, 6.0),
                 ];
                 painter.add(egui::Shape::convex_polygon(triangle, colour, Stroke::NONE));
+            }
+            Icon::Menu => {
+                for step in [-4.5, 0.0, 4.5] {
+                    painter.line_segment(
+                        [centre + vec2(-6.5, step), centre + vec2(6.5, step)],
+                        stroke,
+                    );
+                }
+            }
+            Icon::Bell => {
+                // A dome, its rim, and the clapper under it.
+                let dome: Vec<egui::Pos2> = (0..=12)
+                    .map(|step| {
+                        let angle = std::f32::consts::PI * (step as f32 / 12.0);
+                        centre + vec2(-5.0 * angle.cos(), -5.0 * angle.sin() + 1.5)
+                    })
+                    .collect();
+                painter.add(egui::Shape::line(dome, stroke));
+                painter.line_segment([centre + vec2(-5.0, 1.5), centre + vec2(-5.0, 4.0)], stroke);
+                painter.line_segment([centre + vec2(5.0, 1.5), centre + vec2(5.0, 4.0)], stroke);
+                painter.line_segment([centre + vec2(-6.5, 4.0), centre + vec2(6.5, 4.0)], stroke);
+                painter.circle_filled(centre + vec2(0.0, 6.5), 1.4, colour);
             }
             Icon::Trash => {
                 // The lid and its handle, and the bin under them.

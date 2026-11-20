@@ -10,13 +10,15 @@ use crate::widgets;
 const SAVE_AFTER: Duration = Duration::from_millis(900);
 
 /// The sections of the window, in the order of the sidebar.
-const TRIGGERS: usize = 0;
-const ALIASES: usize = 1;
-const MACROS: usize = 2;
-const TIMERS: usize = 3;
+pub(super) const TRIGGERS: usize = 0;
+pub(super) const ALIASES: usize = 1;
+pub(super) const MACROS: usize = 2;
+pub(super) const TIMERS: usize = 3;
 pub(super) const GAUGES: usize = 4;
-const VARIABLES: usize = 5;
+pub(super) const VARIABLES: usize = 5;
 pub(super) const SCRIPTS: usize = 6;
+/// What the MUD sends besides text: not rules, but what they are made from.
+pub(super) const DATA: usize = 7;
 
 /// Scripts to start from: what each is for, its file name, its text.
 const EXAMPLES: [(&str, &str, &str); 5] = [
@@ -249,9 +251,18 @@ impl Tab {
             tr("Variables"),
             tr("Scripts"),
         ];
-        for (section, name) in names.into_iter().enumerate() {
+        let data = (DATA, tr("Incoming data"), self.data_seen.len());
+        let rules = names
+            .into_iter()
+            .enumerate()
+            .map(|(section, name)| (section, name, counts[section]));
+        for (section, name, count) in rules.chain([data]) {
+            // What the rules are made from stands apart from them.
+            if section == DATA {
+                ui.add_space(10.0);
+            }
             let selected = self.rules_section == section;
-            if widgets::nav_item(ui, selected, name, Some(counts[section])).clicked() {
+            if widgets::nav_item(ui, selected, name, Some(count)).clicked() {
                 self.flush_script();
                 self.rules_section = section;
                 self.rules_sample.clear();
@@ -595,6 +606,9 @@ impl Tab {
     }
 
     fn automation_list(&mut self, ui: &mut egui::Ui) {
+        if self.rules_section == DATA {
+            return self.data_list(ui);
+        }
         {
             ui.horizontal(|ui| {
                 let add = widgets::primary_button(ui, "+");
@@ -896,6 +910,9 @@ impl Tab {
     }
 
     fn automation_detail(&mut self, ui: &mut egui::Ui) {
+        if self.rules_section == DATA {
+            return self.data_view(ui);
+        }
         let section = self.rules_section;
         let index = self.rules_selected[section];
         let count = self.automation_rows().len();

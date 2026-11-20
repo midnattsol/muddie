@@ -21,6 +21,40 @@ pub struct Item {
     /// Whether it takes something that has yet to be typed, so that
     /// choosing it completes it rather than runs it.
     pub more: bool,
+    /// What choosing it does, if it is not a command to run.
+    pub act: Option<Act>,
+}
+
+/// Something the palette can do that is not a command typed: go to a
+/// view or a section, open the settings, connect to a profile.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Act {
+    /// The game, the editor where it was left, or what the MUD sends.
+    View(usize),
+    /// A section of the editor.
+    Section(usize),
+    /// Something the window does rather than the session.
+    App(AppRequest),
+    Reconnect,
+    Disconnect,
+    Profile,
+    Find,
+    EditLayout,
+    /// Shows or hides the panel with this number.
+    Panel(u32),
+    /// Switches to the saved profile of this name and connects.
+    Connect(String),
+}
+
+/// What a session asks the window to do.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AppRequest {
+    NewSession,
+    CloseSession,
+    /// The settings, at this section.
+    Settings(usize),
+    Shortcuts,
+    About,
 }
 
 /// The words of a command that are typed as they are, not the `<this>` or
@@ -46,6 +80,7 @@ pub fn offered(typed: &str, groups: &[(String, bool)], plugins: &[String]) -> Ve
         usage,
         about: about.to_owned(),
         more,
+        act: None,
     };
     // The names of what there is, for the commands that take one.
     let named = |prefix: &[&str], names: Vec<(String, String)>| -> Option<Vec<Item>> {
@@ -224,6 +259,7 @@ impl Tab {
                     usage: said.text,
                     about: said.about,
                     more: false,
+                    act: None,
                 });
                 self.results = Some(items.collect());
                 self.palette_query.clear();
@@ -281,16 +317,159 @@ impl Tab {
             Some(profiles) if typed.starts_with("/plugin ") => profiles.packages(),
             _ => Vec::new(),
         };
-        let items = offered(&typed, &groups, &plugins);
+        // What can be done, by what it is called, then the commands that
+        // begin as what is typed; with nothing typed, the first of both.
+        let query = self.palette_query.trim().to_lowercase();
+        let acts = self.palette_acts();
+        let named = |item: &&Item| {
+            let words = format!("{} {}", item.usage, item.about).to_lowercase();
+            query.split_whitespace().all(|word| words.contains(word))
+        };
+        let mut items: Vec<Item> = acts.iter().filter(named).cloned().collect();
+        let commands = offered(&typed, &groups, &plugins);
+        // One being typed as a command goes first, to run with Enter.
+        if self.palette_query.starts_with('/') || items.is_empty() {
+            items.splice(0..0, commands);
+        } else {
+            items.extend(commands);
+        }
         self.palette_cache = Some((self.palette_query.clone(), items.clone()));
         items
+    }
+
+    /// What the palette can do besides commands, each with where it is.
+    fn palette_acts(&self) -> Vec<Item> {
+        let act = |label: &str, place: &str, act: Act| Item {
+            insert: String::new(),
+            usage: label.to_owned(),
+            about: place.to_owned(),
+            more: false,
+            act: Some(act),
+        };
+        let (go, session, panels, settings, help) = (
+            tr("Go to"),
+            tr("Session"),
+            tr("Panels"),
+            tr("Settings"),
+            tr("Help"),
+        );
+        let mut acts = vec![
+            act(tr("Game"), go, Act::View(0)),
+            act(tr("Editor"), go, Act::View(1)),
+            act(tr("Incoming data"), go, Act::View(2)),
+        ];
+        let sections = [
+            (tr("Triggers"), automation::TRIGGERS),
+            (tr("Aliases"), automation::ALIASES),
+            (tr("Macros"), automation::MACROS),
+            (tr("Timers"), automation::TIMERS),
+            (tr("Gauges"), automation::GAUGES),
+            (tr("Variables"), automation::VARIABLES),
+            (tr("Scripts"), automation::SCRIPTS),
+        ];
+        for (name, section) in sections {
+            acts.push(act(name, tr("Editor"), Act::Section(section)));
+        }
+        acts.push(act(tr("Reconnect"), session, Act::Reconnect));
+        if self.connection.is_some() {
+            acts.push(act(tr("Disconnect"), session, Act::Disconnect));
+        }
+        acts.push(act(tr("Profile"), session, Act::Profile));
+        acts.push(act(
+            tr("New session"),
+            session,
+            Act::App(AppRequest::NewSession),
+        ));
+        acts.push(act(
+            tr("Close session"),
+            session,
+            Act::App(AppRequest::CloseSession),
+        ));
+        acts.push(act(tr("Find"), session, Act::Find));
+        for panel in &self.layout.panels {
+            let label = match panel.visible {
+                true => trf("Hide {0}", &[&panel.shown_name()]),
+                false => trf("Show {0}", &[&panel.shown_name()]),
+            };
+            acts.push(act(&label, panels, Act::Panel(panel.id)));
+        }
+        acts.push(act(tr("Edit the layout"), panels, Act::EditLayout));
+        let parts = [
+            (tr("General"), crate::app::GENERAL),
+            (tr("Appearance"), crate::app::APPEARANCE),
+            (tr("Output"), crate::app::OUTPUT),
+            (tr("Sessions"), crate::app::SESSIONS),
+            (tr("Speech"), crate::app::SPEECH),
+        ];
+        for (name, section) in parts {
+            acts.push(act(name, settings, Act::App(AppRequest::Settings(section))));
+        }
+        let profiles = self
+            .profiles
+            .as_ref()
+            .map(Profiles::names)
+            .unwrap_or_default();
+        for name in profiles {
+            acts.push(act(
+                &name,
+                tr("Connect to profile"),
+                Act::Connect(name.clone()),
+            ));
+        }
+        acts.push(act(
+            tr("Keyboard shortcuts"),
+            help,
+            Act::App(AppRequest::Shortcuts),
+        ));
+        acts.push(act(tr("About Muddie"), help, Act::App(AppRequest::About)));
+        acts
+    }
+
+    /// Does what an act of the palette means.
+    fn act(&mut self, act: Act, ctx: &egui::Context) {
+        match act {
+            Act::View(view) => self.set_view(view),
+            Act::Section(section) => self.open_automation(section),
+            Act::App(request) => self.app_request = Some(request),
+            Act::Reconnect => self.reconnect(ctx),
+            Act::Disconnect => self.disconnect(),
+            Act::Profile => self.connection_open = true,
+            Act::Find => {
+                self.find_open = true;
+                self.find_wants_focus = true;
+            }
+            Act::EditLayout => {
+                self.set_view(0);
+                self.editing_layout = true;
+                self.started = true;
+            }
+            Act::Panel(id) => {
+                if let Some(panel) = self.layout.panel_mut(id) {
+                    panel.visible = !panel.visible;
+                }
+            }
+            Act::Connect(name) => {
+                if self.select_profile(Some(name)) {
+                    self.connect(ctx);
+                }
+            }
+        }
+    }
+
+    /// What this session asked the window to do, once.
+    pub fn take_app_request(&mut self) -> Option<AppRequest> {
+        self.app_request.take()
     }
 
     /// Does what choosing `item` means: runs it, or, if it takes
     /// something yet to be typed, completes it to type that after. With
     /// `typed_more`, what it takes is already there, and it is run as
     /// typed.
-    fn choose(&mut self, item: &Item, typed_more: bool) {
+    fn choose(&mut self, item: &Item, typed_more: bool, ctx: &egui::Context) {
+        if let Some(act) = item.act.clone() {
+            self.close_palette();
+            return self.act(act, ctx);
+        }
         // Something only to be read: done with the list.
         if item.insert.is_empty() {
             return self.close_palette();
@@ -354,7 +533,7 @@ impl Tab {
             let typed = format!("/{}", self.palette_query.trim_start_matches('/'));
             let typed_more = typed.trim_end().len() > chosen.insert.trim_end().len();
             if enter {
-                return self.choose(&chosen, typed_more);
+                return self.choose(&chosen, typed_more, ctx);
             }
             // Tab completes, and there is nothing to complete in a list.
             if tab && !listed && !typed_more {
@@ -395,7 +574,7 @@ impl Tab {
                     let hint = if listed {
                         tr("Choose one, or type a command")
                     } else {
-                        tr("Type a command")
+                        tr("Go to, open or run anything")
                     };
                     let hint = RichText::new(hint)
                         .font(theme::font(Weight::Regular, 14.5))
@@ -495,7 +674,7 @@ impl Tab {
         if let Some(index) = clicked {
             let item = items[index].clone();
             self.palette_focus = true;
-            return self.choose(&item, false);
+            return self.choose(&item, false, ctx);
         }
         // A click anywhere else closes it.
         if area.response.clicked_elsewhere() {

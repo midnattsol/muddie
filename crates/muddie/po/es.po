@@ -1465,3 +1465,31 @@ msgstr "Más opciones"
 msgid "Set up a mapper"
 msgstr "Configurar un mapper"
 
+msgid "Menu"
+msgstr "Menú"
+
+msgid "Panels"
+msgstr "Paneles"
+
+msgid "Show what the MUD sends"
+msgstr "Mostrar lo que manda el MUD"
+
+msgid "Search or run a command"
+msgstr "Buscar o ejecutar un comando"
+
+msgid "Go to"
+msgstr "Ir a"
+
+#, python-brace-format
+msgid "Hide {0}"
+msgstr "Ocultar {0}"
+
+#, python-brace-format
+msgid "Show {0}"
+msgstr "Mostrar {0}"
+
+msgid "Connect to profile"
+msgstr "Conectar al perfil"
+
+msgid "Go to, open or run anything"
+msgstr "Ir a, abrir o ejecutar lo que sea"

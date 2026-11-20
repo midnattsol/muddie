@@ -113,6 +113,23 @@ impl Default for Layout {
     }
 }
 
+impl PanelSpec {
+    /// What a panel is called on the screen: the name given it, and for
+    /// one that kept the name it was made with, that name in the language
+    /// of the interface.
+    pub fn shown_name(&self) -> String {
+        let shown = match self.name.as_str() {
+            "Chat" => tr("Chat"),
+            "Map" => tr("Map"),
+            "Gauges" => tr("Gauges"),
+            "Channels" => tr("Channels"),
+            "Panel" => tr("Panel"),
+            name => name,
+        };
+        shown.to_owned()
+    }
+}
+
 impl Layout {
     /// The panel with this number.
     pub fn panel(&self, id: u32) -> Option<&PanelSpec> {
@@ -1316,7 +1333,6 @@ impl Tab {
 
     /// Goes to the gauges in the editor, on the first of this panel's.
     pub(super) fn open_gauges(&mut self, panel: u32) {
-        self.debug_open = false;
         self.editing_layout = false;
         self.open_automation(automation::GAUGES);
         let first = panels_first(&self.layout, panel);

@@ -19,6 +19,14 @@ const NEW_SESSION: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, 
 const CLOSE_SESSION: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, egui::Key::W);
 const SWITCH_VIEW: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, egui::Key::E);
 const COMMANDS: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, egui::Key::K);
+const SETTINGS: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, egui::Key::Comma);
+
+/// The sections of the settings.
+pub const GENERAL: usize = 0;
+pub const APPEARANCE: usize = 1;
+pub const OUTPUT: usize = 2;
+pub const SESSIONS: usize = 3;
+pub const SPEECH: usize = 4;
 const DEBUG_VIEW: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, egui::Key::D);
 
 pub struct App {
@@ -123,7 +131,6 @@ impl App {
     }
 
     /// Opens the settings window, to look at it.
-    #[cfg(test)]
     pub fn open_settings(&mut self, section: usize) {
         self.show_settings = true;
         self.settings_section = section;
@@ -174,8 +181,8 @@ impl App {
             let active = self.active;
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 let tab = &mut self.tabs[active];
-                let views = [tr("Game"), tr("Editor"), tr("Debug")];
-                if let Some(view) = widgets::segmented(ui, &views, tab.view()) {
+                let views = [tr("Game"), tr("Editor")];
+                if let Some(view) = widgets::segmented(ui, &views, tab.view().min(1)) {
                     tab.set_view(view);
                 }
             });
@@ -263,10 +270,14 @@ impl App {
         }
     }
 
+    /// The one menu: what a session can do, what is shown, the
+    /// settings, and help. Everything in it is in the palette too.
     fn menus(&mut self, ui: &mut Ui) {
         let active = self.active;
-        ui.menu_button(tr("Session"), |ui| {
+        let button = widgets::icon_button(ui, widgets::Icon::Menu, tr("Menu"), false);
+        egui::Popup::menu(&button).show(|ui| {
             widgets::menu_width(ui);
+            widgets::menu_heading(ui, tr("Session"));
             let shortcut = ui.ctx().format_shortcut(&NEW_SESSION);
             if widgets::menu_item(ui, tr("New session"), &shortcut).clicked() {
                 self.new_tab(ui.ctx());
@@ -277,24 +288,15 @@ impl App {
                 self.close_tab(self.active, ui.ctx());
                 ui.close();
             }
-            widgets::menu_separator(ui);
             if let Some(tab) = self.tabs.get_mut(active) {
                 tab.session_menu(ui);
+                widgets::menu_separator(ui);
+                widgets::menu_heading(ui, tr("Panels"));
+                tab.view_menu(ui);
             }
-        });
-        ui.menu_button(tr("Preferences"), |ui| {
-            widgets::menu_width(ui);
-            self.tabs[active].view_menu(ui);
             widgets::menu_separator(ui);
-            if widgets::menu_item(ui, tr("Settings"), "").clicked() {
+            if widgets::menu_item(ui, tr("Settings"), "Ctrl+,").clicked() {
                 self.show_settings = true;
-                ui.close();
-            }
-        });
-        ui.menu_button(tr("Help"), |ui| {
-            widgets::menu_width(ui);
-            if widgets::menu_item(ui, tr("Commands"), "Ctrl+K").clicked() {
-                self.tabs[self.active].toggle_palette();
                 ui.close();
             }
             if widgets::menu_item(ui, tr("Keyboard shortcuts"), "").clicked() {
@@ -306,11 +308,27 @@ impl App {
                 ui.close();
             }
         });
+        // Where anything can be found, in sight.
+        ui.add_space(8.0);
+        let keys = ui.ctx().format_shortcut(&COMMANDS);
+        if widgets::palette_button(ui, 280.0, &keys).clicked() {
+            self.tabs[active].toggle_palette();
+        }
+    }
+
+    /// Does what a session asked of the window.
+    fn carry_out(&mut self, request: crate::tab::AppRequest, ctx: &egui::Context) {
+        use crate::tab::AppRequest;
+        match request {
+            AppRequest::NewSession => self.new_tab(ctx),
+            AppRequest::CloseSession => self.close_tab(self.active, ctx),
+            AppRequest::Settings(section) => self.open_settings(section),
+            AppRequest::Shortcuts => self.show_shortcuts = true,
+            AppRequest::About => self.show_about = true,
+        }
     }
 
     fn settings_window(&mut self, ctx: &egui::Context) {
-        const GENERAL: usize = 0;
-        const APPEARANCE: usize = 1;
         const PLUGINS: usize = 5;
         let before = self.settings.clone();
         let mut open = self.show_settings;
@@ -409,10 +427,7 @@ impl App {
                             ("Alt+R", tr("Reconnect")),
                             ("Ctrl+K", tr("Commands")),
                             ("Ctrl+E", tr("Switch between the game and the editor")),
-                            (
-                                "Ctrl+D",
-                                tr("Switch between the game and the debugging view"),
-                            ),
+                            ("Ctrl+D", tr("Show what the MUD sends")),
                         ],
                     ),
                 ];
@@ -524,12 +539,15 @@ impl eframe::App for App {
         if ui.input_mut(|input| input.consume_shortcut(&CLOSE_SESSION)) {
             self.close_tab(self.active, ui.ctx());
         }
+        if ui.input_mut(|input| input.consume_shortcut(&SETTINGS)) {
+            self.show_settings = true;
+        }
         if ui.input_mut(|input| input.consume_shortcut(&COMMANDS)) {
             self.tabs[self.active].toggle_palette();
         }
         if ui.input_mut(|input| input.consume_shortcut(&SWITCH_VIEW)) {
             let tab = &mut self.tabs[self.active];
-            tab.set_view(if tab.view() == 1 { 0 } else { 1 });
+            tab.set_view(if tab.view() == 0 { 1 } else { 0 });
         }
         if ui.input_mut(|input| input.consume_shortcut(&DEBUG_VIEW)) {
             let tab = &mut self.tabs[self.active];
@@ -559,6 +577,9 @@ impl eframe::App for App {
         let pressed = std::mem::take(&mut *self.keypad.lock().expect("keypad lock"));
         self.tabs[active].keypad_pressed.extend(pressed);
         self.tabs[active].show(ui, &self.settings);
+        if let Some(request) = self.tabs[active].take_app_request() {
+            self.carry_out(request, ui.ctx());
+        }
         // Panels switched on or off stay that way the next time.
         let panes = self.tabs[active].pane_widths();
         // Not while something is being dragged: once it is let go.

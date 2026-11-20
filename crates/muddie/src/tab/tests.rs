@@ -461,10 +461,37 @@ fn commands_are_chosen_from_a_palette_and_answer_at_the_line() {
     harness.run_steps(3);
     assert!(harness.query_by_label_contains("plugin install").is_none());
     harness.state_mut().tab_mut().input.clear();
-    // The palette lists the commands, each said for what it is.
+    // The palette goes to places, and lists the commands, each said for
+    // what it is.
     harness.state_mut().tab_mut().toggle_palette();
     harness.run_steps(3);
+    harness.get_by_label("Incoming data. Go to");
+    harness.state_mut().tab_mut().palette_query = "map".into();
+    harness.run_steps(3);
     harness.get_by_label_contains("map where");
+    // What it goes to is done there and then: the editor, at a section.
+    harness.state_mut().tab_mut().palette_query = "timers".into();
+    harness.run_steps(3);
+    harness.key_press(Key::Enter);
+    harness.run_steps(3);
+    let app = harness.state_mut().tab_mut();
+    assert_eq!((app.view(), app.rules_section), (1, automation::TIMERS));
+    app.set_view(0);
+    // And what the window does is asked of it.
+    app.toggle_palette();
+    app.palette_query = "about".into();
+    harness.run_steps(2);
+    harness.key_press(Key::Enter);
+    harness.run_steps(3);
+    assert!(
+        harness
+            .query_by_label_contains("A modern, accessible MUD client")
+            .is_some()
+    );
+    harness.key_press(Key::Escape);
+    harness.run_steps(2);
+    harness.state_mut().tab_mut().toggle_palette();
+    harness.run_steps(2);
     harness.state_mut().tab_mut().palette_query = "pl".into();
     harness.run_steps(3);
     harness.get_by_label_contains("plugin install");
@@ -2392,13 +2419,13 @@ fn screenshot() {
     rules.run_steps(3);
     save(&mut rules, "data");
     // The menus, as someone using Spanish sees them.
-    for menu in ["Sesión", "Preferencias"] {
+    {
         let mut menus = connected_demo_window();
         crate::i18n::set_language("es");
         menus.run_steps(2);
-        menus.get_by_label(menu).click();
+        menus.get_by_label("Menú").click();
         menus.run_steps(4);
-        save(&mut menus, &format!("menu-{menu}"));
+        save(&mut menus, "menu");
         crate::i18n::set_language("en");
     }
     // A session whose MUD has reported no room: the map says so.

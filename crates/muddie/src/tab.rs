@@ -34,6 +34,7 @@ use muddie_sound::{self as sound, Msp, Player};
 
 mod automation;
 mod commands;
+pub use commands::AppRequest;
 mod data;
 mod layout;
 mod plugins;
@@ -140,7 +141,7 @@ pub struct Tab {
     /// screen; `None` until read, and again after one is saved.
     welcome_profiles: Option<Vec<(String, String)>>,
     /// The rule selected in each section of the automation window.
-    rules_selected: [usize; 7],
+    rules_selected: [usize; 8],
     /// The script files that can be edited, and the one being edited:
     /// its file, its name as typed, its text, and that text as saved.
     script_files: Vec<PathBuf>,
@@ -174,6 +175,8 @@ pub struct Tab {
     /// The connection is being closed to be opened again.
     reconnect_wanted: bool,
     palette_open: bool,
+    /// What the session asked the window to do, for it to take.
+    app_request: Option<commands::AppRequest>,
     palette_query: String,
     /// The palette's field is to take the keyboard, or its cursor to go
     /// to the end of what was put in it.
@@ -198,7 +201,6 @@ pub struct Tab {
     data_seen: Vec<data::Seen>,
     /// The debugging view: whether it is on screen, the one chosen in
     /// its list, and what the list is narrowed to.
-    debug_open: bool,
     data_selected: usize,
     data_filter: String,
     /// The protocol whose data alone is listed, if one was chosen.
@@ -431,7 +433,7 @@ impl Tab {
             connection_open: false,
             started: false,
             welcome_profiles: None,
-            rules_selected: [0; 7],
+            rules_selected: [0; 8],
             script_files: Vec::new(),
             script_loaded: None,
             script_name: String::new(),
@@ -450,6 +452,7 @@ impl Tab {
             script_ran: None,
             reconnect_wanted: false,
             palette_open: false,
+            app_request: None,
             palette_query: String::new(),
             palette_focus: false,
             palette_cursor_end: false,
@@ -462,7 +465,6 @@ impl Tab {
             cursor_to_end: false,
             checks: automation::Checks::default(),
             data_seen: Vec::new(),
-            debug_open: false,
             data_selected: 0,
             data_filter: String::new(),
             data_protocol: None,
