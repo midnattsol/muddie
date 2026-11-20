@@ -1,7 +1,6 @@
 //! The values of variables: their types, as a script knows them, how they
 //! are shown and read, and turning one into another type.
 
-
 /// The types a variable can be, by the names a script knows them by,
 /// which are the same in every language.
 pub(in crate::tab) const TYPES: [&str; 5] = ["string", "number", "boolean", "array", "table"];
