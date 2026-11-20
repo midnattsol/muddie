@@ -105,8 +105,9 @@ impl Tab {
     }
 
     /// What a panel was given: text put there whole, centred as a block
-    /// since it is often a drawing, or else its lines one after another.
-    /// Returns whether there was anything.
+    /// since it is often a drawing; a channel, or all of them, if it shows
+    /// channels; or else its lines one after another. Returns whether
+    /// there was anything.
     pub(in crate::tab) fn text_body(&mut self, ui: &mut egui::Ui, id: u32, quiet: bool) -> bool {
         // The drawing put in it, if there is one, laid out where it is
         // kept: it is not copied to be drawn.
@@ -122,69 +123,77 @@ impl Tab {
             self.panel_measured(id, cells, !galleys.is_empty());
         }
         if !galleys.is_empty() {
-            let widest = galleys
-                .iter()
-                .map(|galley| galley.size().x)
-                .fold(0.0, f32::max);
-            let height: f32 = galleys.iter().map(|galley| galley.size().y).sum();
-            let left = ((ui.available_width() - widest) / 2.0).max(0.0);
-            ui.add_space(((ui.available_height() - height) / 2.0).max(0.0));
-            ui.horizontal(|ui| {
-                ui.add_space(left);
-                ui.vertical(|ui| {
-                    ui.spacing_mut().item_spacing.y = 0.0;
-                    for galley in galleys {
-                        // Never wrapped: the columns must stay in line.
-                        ui.add(Label::new(galley).extend());
-                    }
-                });
-            });
+            drawing(ui, galleys);
             return true;
         }
-        // A panel that channels are shown in has a tab for each of them:
-        // one alone, or all.
-        let spec = self.layout.panel(id).cloned();
-        let here = |channel: &Channel| spec.as_ref().is_some_and(|spec| channel.shown_in(spec));
-        if self.panels.channels.iter().any(here) {
-            let shown = self.channel_tabs(ui, id);
-            let chosen = (self.panels.channels.iter_mut())
-                .find(|channel| !shown.is_empty() && channel.name == shown && here(channel));
-            match chosen {
-                Some(channel) => {
-                    channel.unread = false;
-                    let clicked = match channel.log.len() {
-                        0 => None,
-                        _ => channel.log.show(ui, &format!("panel {id} channel {shown}")),
-                    };
-                    if let Some(clicked) = clicked {
-                        self.link_clicked(clicked);
-                    }
-                    return true;
-                }
-                // With all of them in view there is nothing unseen.
-                None => (self.panels.channels.iter_mut())
-                    .filter(|channel| here(channel))
-                    .for_each(|channel| channel.unread = false),
-            }
+        if self.channel_shown_in(ui, id) {
+            return true;
         }
         if self.text_of(id).log.len() > 0 {
-            let clicked = self.text_of(id).log.show(ui, &format!("panel {id}"));
-            if let Some(clicked) = clicked {
+            if let Some(clicked) = self.text_of(id).log.show(ui, &format!("panel {id}")) {
                 self.link_clicked(clicked);
             }
             return true;
         }
         if !quiet {
-            let theme = theme::current();
             let none = tr(
                 "Nothing here yet. A trigger can show lines in this panel, and so can a script.",
             );
-            ui.label(
-                RichText::new(none)
-                    .font(theme::font(Weight::Regular, 12.5))
-                    .color(theme.text_faint),
-            );
+            let faint = RichText::new(none)
+                .font(theme::font(Weight::Regular, 12.5))
+                .color(theme::current().text_faint);
+            ui.label(faint);
         }
         false
     }
+
+    /// A panel that channels are shown in has a tab for each of them: the
+    /// one chosen is shown alone. With all of them in view there is nothing
+    /// unseen. Returns whether one alone was shown.
+    fn channel_shown_in(&mut self, ui: &mut egui::Ui, id: u32) -> bool {
+        let spec = self.layout.panel(id).cloned();
+        let here = |channel: &Channel| spec.as_ref().is_some_and(|spec| channel.shown_in(spec));
+        if !self.panels.channels.iter().any(here) {
+            return false;
+        }
+        let shown = self.channel_tabs(ui, id);
+        let chosen = (self.panels.channels.iter_mut())
+            .find(|channel| !shown.is_empty() && channel.name == shown && here(channel));
+        let Some(channel) = chosen else {
+            (self.panels.channels.iter_mut())
+                .filter(|channel| here(channel))
+                .for_each(|channel| channel.unread = false);
+            return false;
+        };
+        channel.unread = false;
+        let clicked = match channel.log.len() {
+            0 => None,
+            _ => channel.log.show(ui, &format!("panel {id} channel {shown}")),
+        };
+        if let Some(clicked) = clicked {
+            self.link_clicked(clicked);
+        }
+        true
+    }
+}
+
+/// A drawing put in a panel whole, centred as a block, its lines never
+/// wrapped: the columns must stay in line.
+fn drawing(ui: &mut egui::Ui, galleys: Vec<std::sync::Arc<egui::Galley>>) {
+    let widest = galleys
+        .iter()
+        .map(|galley| galley.size().x)
+        .fold(0.0, f32::max);
+    let height: f32 = galleys.iter().map(|galley| galley.size().y).sum();
+    let left = ((ui.available_width() - widest) / 2.0).max(0.0);
+    ui.add_space(((ui.available_height() - height) / 2.0).max(0.0));
+    ui.horizontal(|ui| {
+        ui.add_space(left);
+        ui.vertical(|ui| {
+            ui.spacing_mut().item_spacing.y = 0.0;
+            for galley in galleys {
+                ui.add(Label::new(galley).extend());
+            }
+        });
+    });
 }
