@@ -1389,10 +1389,8 @@ impl Tab {
         let mut renamed = false;
         ui.horizontal(|ui| {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                let label = RichText::new(tr("Delete")).color(theme.danger);
-                delete = ui
-                    .add(egui::Button::new(label).fill(egui::Color32::TRANSPARENT))
-                    .clicked();
+                delete =
+                    widgets::icon_button(ui, widgets::Icon::Trash, tr("Delete"), false).clicked();
                 let title = TextEdit::singleline(&mut self.variable_name)
                     .font(egui::FontId::monospace(19.0))
                     .frame(egui::Frame::NONE)
@@ -1905,11 +1903,11 @@ impl Tab {
         ui.horizontal(|ui| {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 if own {
-                    let label = RichText::new(tr("Delete")).color(theme.danger);
-                    delete = ui
-                        .add(egui::Button::new(label).fill(egui::Color32::TRANSPARENT))
+                    delete = widgets::icon_button(ui, widgets::Icon::Trash, tr("Delete"), false)
                         .clicked();
                 }
+                run = widgets::icon_button(ui, widgets::Icon::Play, tr("Run"), false).clicked();
+                ui.add_space(6.0);
                 // Switched off, it is kept and not run.
                 let key = crate::rules::script_key(&path);
                 let mut on = !self.rules_draft.scripts_off.contains(&key);
@@ -1920,11 +1918,6 @@ impl Tab {
                     }
                 }
                 ui.label(RichText::new(tr("Enabled")).color(theme.text_dim));
-                run = widgets::run_button(ui, tr("Run"))
-                    .on_hover_text(tr(
-                        "Saves it and runs it now, with the other scripts and the rules, which share what they keep.",
-                    ))
-                    .clicked();
                 let title = TextEdit::singleline(&mut self.script_name)
                     .font(theme::font(Weight::Semibold, 20.0))
                     .frame(egui::Frame::NONE)
@@ -2286,10 +2279,7 @@ fn rule_header(ui: &mut egui::Ui, name: &mut String, enabled: &mut bool, hint: &
     let mut delete = false;
     ui.horizontal(|ui| {
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            let label = RichText::new(tr("Delete")).color(theme.danger);
-            delete = ui
-                .add(egui::Button::new(label).fill(egui::Color32::TRANSPARENT))
-                .clicked();
+            delete = widgets::icon_button(ui, widgets::Icon::Trash, tr("Delete"), false).clicked();
             widgets::switch(ui, enabled, tr("Enabled"));
             ui.label(RichText::new(tr("Enabled")).color(theme.text_dim));
             let title = TextEdit::singleline(name)

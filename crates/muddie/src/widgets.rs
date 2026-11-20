@@ -94,46 +94,6 @@ pub fn slider<N: egui::emath::Numeric>(
     egui::Slider::new(value, range)
 }
 
-/// The button that runs something: a triangle, as on a player, and what
-/// it runs.
-pub fn run_button(ui: &mut Ui, text: &str) -> Response {
-    let theme = theme::current();
-    let font = theme::font(Weight::Medium, 13.5);
-    let galley = ui
-        .painter()
-        .layout_no_wrap(text.to_owned(), font, theme.text);
-    let size = vec2(galley.size().x + 40.0, 30.0);
-    let (rect, response) = ui.allocate_exact_size(size, Sense::click());
-    response.widget_info(|| WidgetInfo::labeled(Role::Button, ui.is_enabled(), text));
-    if ui.is_rect_visible(rect) {
-        let fill = match (response.is_pointer_button_down_on(), response.hovered()) {
-            (true, _) => theme::mix(theme.raised, theme.text, 0.16),
-            (false, true) => theme::mix(theme.raised, theme.text, 0.1),
-            (false, false) => theme::mix(theme.raised, theme.text, 0.035),
-        };
-        let painter = ui.painter();
-        painter.rect_filled(rect, CornerRadius::same(8), fill);
-        if response.has_focus() {
-            painter.rect_stroke(
-                rect,
-                CornerRadius::same(8),
-                Stroke::new(1.0, theme.accent),
-                egui::StrokeKind::Inside,
-            );
-        }
-        let tip = rect.left_center() + vec2(22.0, 0.0);
-        let triangle = vec![tip + vec2(-8.0, -5.5), tip, tip + vec2(-8.0, 5.5)];
-        painter.add(egui::Shape::convex_polygon(
-            triangle,
-            theme.good,
-            Stroke::NONE,
-        ));
-        let at = egui::pos2(rect.left() + 30.0, rect.center().y - galley.size().y / 2.0);
-        painter.galley(at, galley, theme.text);
-    }
-    response
-}
-
 /// The button for the main thing to do in a view, filled with the accent.
 pub fn primary_button(ui: &mut Ui, text: &str) -> Response {
     let theme = theme::current();
@@ -694,6 +654,10 @@ pub enum Icon {
     Stop,
     /// Three dots: more.
     More,
+    /// A triangle, as on a player: run.
+    Play,
+    /// A bin: delete.
+    Trash,
 }
 
 /// A small button with a picture. `label` says what it does, to screen
@@ -714,10 +678,13 @@ pub fn icon_button(ui: &mut Ui, icon: Icon, label: &str, on: bool) -> Response {
         } else if hovered {
             painter.rect_filled(rect, CornerRadius::same(7), theme.hover);
         }
-        let colour = match (on, hovered) {
-            (true, _) => theme.accent,
-            (false, true) => theme.text,
-            (false, false) => theme.text_dim,
+        // Running is green and deleting red, as they are everywhere.
+        let colour = match (icon, on, hovered) {
+            (Icon::Play, ..) => theme.good,
+            (Icon::Trash, ..) => theme.danger,
+            (_, true, _) => theme.accent,
+            (_, false, true) => theme.text,
+            (_, false, false) => theme.text_dim,
         };
         let stroke = Stroke::new(1.4, colour);
         let centre = rect.center();
@@ -758,6 +725,38 @@ pub fn icon_button(ui: &mut Ui, icon: Icon, label: &str, on: bool) -> Response {
             Icon::More => {
                 for step in [-5.0, 0.0, 5.0] {
                     painter.circle_filled(centre + vec2(step, 0.0), 1.5, colour);
+                }
+            }
+            Icon::Play => {
+                let triangle = vec![
+                    centre + vec2(-4.0, -6.0),
+                    centre + vec2(6.0, 0.0),
+                    centre + vec2(-4.0, 6.0),
+                ];
+                painter.add(egui::Shape::convex_polygon(triangle, colour, Stroke::NONE));
+            }
+            Icon::Trash => {
+                // The lid and its handle, and the bin under them.
+                painter.line_segment(
+                    [centre + vec2(-6.5, -4.5), centre + vec2(6.5, -4.5)],
+                    stroke,
+                );
+                painter.line_segment(
+                    [centre + vec2(-2.0, -7.0), centre + vec2(2.0, -7.0)],
+                    stroke,
+                );
+                let bin = vec![
+                    centre + vec2(-4.8, -4.5),
+                    centre + vec2(-3.8, 7.0),
+                    centre + vec2(3.8, 7.0),
+                    centre + vec2(4.8, -4.5),
+                ];
+                painter.add(egui::Shape::line(bin, stroke));
+                for across in [-1.6, 1.6] {
+                    painter.line_segment(
+                        [centre + vec2(across, -1.5), centre + vec2(across, 4.0)],
+                        Stroke::new(1.1, colour),
+                    );
                 }
             }
         }

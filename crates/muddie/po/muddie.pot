@@ -776,13 +776,10 @@ msgstr ""
 msgid "standing"
 msgstr ""
 
-msgid "Enabled"
-msgstr ""
-
 msgid "Run"
 msgstr ""
 
-msgid "Saves it and runs it now, with the other scripts and the rules, which share what they keep."
+msgid "Enabled"
 msgstr ""
 
 #, python-brace-format
