@@ -2153,6 +2153,25 @@ fn what_a_click_opens_stays_open() {
 }
 
 #[test]
+fn alt_r_reconnects_without_typing_an_r() {
+    let mut harness = window(None);
+    harness.state_mut().tab_mut().started = true;
+    harness.state_mut().tab_mut().input = "kill".into();
+    harness.run_steps(3);
+    // What the window gives for Alt+R: the key, then the letter.
+    harness.event(egui::Event::Key {
+        key: Key::R,
+        physical_key: Some(Key::R),
+        pressed: true,
+        repeat: false,
+        modifiers: egui::Modifiers::ALT,
+    });
+    harness.event(egui::Event::Text("r".into()));
+    harness.run_steps(3);
+    assert_eq!(harness.state().tab().input, "kill");
+}
+
+#[test]
 fn session_is_logged_when_asked() {
     let dir = std::env::temp_dir().join(format!("muddie-app-log-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
