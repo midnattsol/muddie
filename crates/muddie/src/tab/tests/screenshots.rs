@@ -473,7 +473,7 @@ fn shows_map() {
     assert!(harness.query_by_label("Avoid in routes").is_some());
     let image = harness.render().expect("rendering failed");
     if let Some(path) = &path {
-        let path = path.with_extension("menu.png");
+        let path = path.with_extension("map-menu.png");
         image.save(path).expect("could not write the screenshot");
     }
     // Choosing to avoid the room marks it on the map.

@@ -2,7 +2,8 @@
 //! mark or move rooms.
 
 use eframe::egui::{
-    Align2, Color32, FontId, Pos2, Rect, RichText, Sense, Stroke, StrokeKind, Ui, Vec2, vec2,
+    Align2, Color32, FontId, Painter, Pos2, Rect, Response, RichText, Sense, Stroke, StrokeKind,
+    Ui, Vec2, vec2,
 };
 use muddie_mapper::{Map, Pos, Room, RoomId, direction_offset};
 
@@ -133,30 +134,67 @@ impl MapView {
             ui.label(tr("No map yet: the server has not reported a room."));
             return None;
         };
-        // Where the player is, as text: for screen readers, and at a glance.
-        let palette = theme::current();
-        // What its tools on the panel's header asked for.
-        let Tools {
-            locate,
-            tidy,
-            stop,
-            avoid,
-            hide,
-        } = std::mem::take(&mut self.asked);
-        let exits: Vec<&str> = current.exits.keys().map(String::as_str).collect();
-        ui.label(
-            RichText::new(&current.name)
-                .font(theme::font(Weight::Medium, 14.0))
-                .color(palette.text),
-        );
-        let leading = format!("{}: {}", tr("exits"), exits.join(", "));
-        ui.label(
-            RichText::new(leading)
-                .font(theme::font(Weight::Regular, 12.0))
-                .color(palette.text_dim),
-        );
-        ui.add_space(4.0);
+        let tools = std::mem::take(&mut self.asked);
+        heading(ui, current);
+        let (area, level) = self.place_row(ui, map, current, tools.locate);
+        let (response, painter) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
+        ui.ctx()
+            .accesskit_node_builder(response.id, |node| node.set_label(tr("Map view")));
+        self.zoom_and_pan(ui, &response);
+        let all_areas = self.all_areas;
+        let on_level = |room: &Room| (all_areas || room.area == area) && room.pos.z == level;
+        // The player's own area is centred on the player whatever the
+        // level, so going up and down keeps the place; any other area is
+        // centred on the middle of what is drawn.
+        let origin = if area == current.area || all_areas {
+            (current.pos.x, current.pos.y)
+        } else {
+            middle_of(map.rooms().filter(|room| on_level(room)))
+        };
+        let grid = Grid {
+            centre: response.rect.center() + self.pan,
+            origin,
+            cell: self.cell,
+            level,
+        };
+        let visible: Vec<&Room> = (map.rooms())
+            .filter(|room| {
+                on_level(room)
+                    && response
+                        .rect
+                        .expand(grid.cell)
+                        .contains(grid.on_screen(room.pos))
+            })
+            .collect();
+        let colours = Colours::of(theme::current());
+        draw_exits(&painter, map, &visible, &grid, &colours, &on_level);
+        draw_rooms(&painter, &visible, &grid, current, &area, &colours);
+        let room_at = |point: Pos2| {
+            (visible.iter())
+                .find(|room| grid.on_screen(room.pos).distance(point) <= grid.half() * 1.5)
+                .copied()
+        };
+        if let Some(moved) = self.move_room(ui, &response, &painter, &grid, &room_at, &colours) {
+            return Some(moved);
+        }
+        let pointed = response.hover_pos().and_then(room_at);
+        if response.secondary_clicked() {
+            self.menu_room = pointed.map(|room| room.id);
+        }
+        let mut chosen = tools.action(&area);
+        if let Some(asked) = self.room_menu(&response, map, &area) {
+            chosen = Some(asked);
+        }
+        if chosen.is_none() && response.clicked() {
+            chosen = pointed.map(|room| MapAction::Walk(room.id));
+        }
+        room_tip(response, pointed);
+        chosen
+    }
 
+    /// One compact row: which area, which level, and the way back to where
+    /// the player is. Returns the area and level to show.
+    fn place_row(&mut self, ui: &mut Ui, map: &Map, current: &Room, locate: bool) -> (String, i32) {
         let home = (current.area.clone(), current.pos.z);
         if self.centred_on != Some(current.id) {
             // The player moved: go back to following them.
@@ -170,36 +208,12 @@ impl MapView {
             (area, level) = home.clone();
             self.pan = Vec2::ZERO;
         }
-        // One compact row: which area, which level, and the way back.
+        let browsing = self.browsing.is_some();
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = 6.0;
-            let chooser = crate::widgets::dropdown("map area")
-                .selected_text(area.as_str())
-                .width(130.0)
-                .show_ui(ui, |ui| {
-                    for name in map.areas() {
-                        crate::widgets::choice_value(ui, &mut area, name.to_owned(), name);
-                    }
-                })
-                .response;
-            ui.ctx().accesskit_node_builder(chooser.id, |node| {
-                node.set_label(tr("Area"));
-            });
-            let down = crate::widgets::sign_button(ui, "−", tr("Down"), true);
-            if down.clicked() {
-                level -= 1;
-            }
-            let shown_level = format!("{} {level}", tr("level"));
-            ui.label(
-                RichText::new(shown_level)
-                    .font(theme::font(Weight::Regular, 12.5))
-                    .color(palette.text_dim),
-            );
-            let up = crate::widgets::sign_button(ui, "+", tr("Up"), true);
-            if up.clicked() {
-                level += 1;
-            }
-            if self.browsing.is_some() && crate::widgets::button(ui, tr("Back to me")).clicked() {
+            area_choice(ui, map, &mut area);
+            level_steps(ui, &mut level);
+            if browsing && crate::widgets::button(ui, tr("Back to me")).clicked() {
                 (area, level) = home.clone();
             }
         });
@@ -208,145 +222,43 @@ impl MapView {
             self.pan = Vec2::ZERO;
         }
         self.browsing = (shown != home).then(|| shown.clone());
-        let (area, level) = shown;
+        shown
+    }
 
-        let hint = tr("Click a room to walk there, right-click for more, Shift+drag to move it.");
-        let colours = Colours::of(theme::current());
-        let (response, painter) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
-        ui.ctx().accesskit_node_builder(response.id, |node| {
-            node.set_label(tr("Map view"));
-        });
+    /// The scroll wheel zooms over the map, and dragging pans it, but for a
+    /// room being moved.
+    fn zoom_and_pan(&mut self, ui: &Ui, response: &Response) {
         if response.hovered() {
             let scroll = ui.input(|input| input.smooth_scroll_delta.y);
             let zoomed = self.cell * (1.0 + scroll * 0.002);
             self.cell = zoomed.clamp(*CELL_RANGE.start(), *CELL_RANGE.end());
         }
-        let cell = self.cell;
-        let half = cell * 0.28;
         if self.moving.is_none() {
             self.pan += response.drag_delta();
         }
+    }
 
-        let all_areas = self.all_areas;
-        let on_level = |room: &Room| (all_areas || room.area == area) && room.pos.z == level;
-        // The player's own area is centred on the player whatever the
-        // level, so going up and down keeps the place; any other area is
-        // centred on the middle of what is drawn.
-        let origin = if area == current.area || all_areas {
-            (current.pos.x, current.pos.y)
-        } else {
-            let spans = map
-                .rooms()
-                .filter(|room| on_level(room))
-                .fold(None, |spans, room| {
-                    let ((x0, x1), (y0, y1)) =
-                        spans.unwrap_or(((i32::MAX, i32::MIN), (i32::MAX, i32::MIN)));
-                    let pos = room.pos;
-                    Some((
-                        (x0.min(pos.x), x1.max(pos.x)),
-                        (y0.min(pos.y), y1.max(pos.y)),
-                    ))
-                });
-            spans.map_or((0, 0), |((x0, x1), (y0, y1))| {
-                ((x0 + x1) / 2, (y0 + y1) / 2)
-            })
-        };
-        let centre = response.rect.center() + self.pan;
-        let on_screen = |pos: Pos| -> Pos2 {
-            // Screen y grows downwards, map y northwards.
-            centre + vec2((pos.x - origin.0) as f32, -(pos.y - origin.1) as f32) * cell
-        };
-        let visible: Vec<&Room> = (map.rooms())
-            .filter(|room| {
-                on_level(room) && response.rect.expand(cell).contains(on_screen(room.pos))
-            })
-            .collect();
-        let room_at = |point: Pos2| {
-            (visible.iter()).find(|room| on_screen(room.pos).distance(point) <= half * 1.5)
-        };
-
-        for room in &visible {
-            let from = on_screen(room.pos);
-            let mut other_exits = false;
-            for (direction, exit) in &room.exits {
-                let colour = if exit.locked {
-                    colours.locked
-                } else {
-                    colours.exit
-                };
-                let line = Stroke::new(1.5, colour);
-                let target = map.room(exit.to).filter(|target| on_level(target));
-                match (target, direction_offset(direction)) {
-                    (Some(target), _) => {
-                        painter.line_segment([from, on_screen(target.pos)], line);
-                    }
-                    // Another level: mark which way the exit goes.
-                    (None, Some((_, _, dz))) if dz != 0 => {
-                        let (text, corner) = if dz > 0 {
-                            ("u", vec2(half, -half))
-                        } else {
-                            ("d", vec2(half, half))
-                        };
-                        let font = FontId::monospace(cell * 0.36);
-                        painter.text(
-                            from + corner * 1.6,
-                            Align2::CENTER_CENTER,
-                            text,
-                            font,
-                            colours.mark,
-                        );
-                    }
-                    // Unexplored, or in another area: a stub pointing the way.
-                    (None, Some((dx, dy, _))) => {
-                        let stub = vec2(dx as f32, -dy as f32) * cell * 0.5;
-                        painter.line_segment([from, from + stub], line);
-                    }
-                    // An exit with no direction on the grid (a portal, "enter").
-                    (None, None) => other_exits = true,
-                }
-            }
-            if other_exits {
-                painter.circle_filled(from + vec2(-half, -half) * 1.5, cell * 0.07, colours.mark);
-            }
-        }
-        for room in &visible {
-            let rect = Rect::from_center_size(on_screen(room.pos), Vec2::splat(half * 2.0));
-            let is_current = room.id == current.id;
-            let fill = match (is_current, room.avoid) {
-                (true, _) => colours.current,
-                (false, true) => colours.avoided,
-                (false, false) => colours.room,
-            };
-            // With every area on show, the chosen one stands out.
-            let fill = if room.area == area {
-                fill
-            } else {
-                fill.gamma_multiply(0.45)
-            };
-            painter.rect_filled(rect, 3.0, fill);
-            if is_current {
-                let ring = Stroke::new(1.5, colours.current);
-                painter.rect_stroke(rect.expand(3.0), 4.0, ring, StrokeKind::Outside);
-            }
-        }
-
-        // Shift+drag picks a room up; releasing drops it on the nearest cell.
+    /// Shift+drag picks a room up and shows where it would go; releasing
+    /// drops it on the nearest cell. Returns the move, once dropped.
+    fn move_room<'a>(
+        &mut self,
+        ui: &Ui,
+        response: &Response,
+        painter: &Painter,
+        grid: &Grid,
+        room_at: &dyn Fn(Pos2) -> Option<&'a Room>,
+        colours: &Colours,
+    ) -> Option<MapAction> {
         let pointer = response.interact_pointer_pos();
-        let cell_under = |point: Pos2| {
-            let offset = (point - centre) / cell;
-            Pos {
-                x: origin.0 + offset.x.round() as i32,
-                y: origin.1 - offset.y.round() as i32,
-                z: level,
-            }
-        };
         if response.drag_started() && ui.input(|input| input.modifiers.shift) {
             let pressed_at = ui.input(|input| input.pointer.press_origin());
             self.moving = pressed_at.and_then(room_at).map(|room| room.id);
         }
         if let (Some(_), Some(point)) = (self.moving, pointer) {
-            let ghost =
-                Rect::from_center_size(on_screen(cell_under(point)), Vec2::splat(half * 2.0));
+            let ghost = Rect::from_center_size(
+                grid.on_screen(grid.cell_under(point)),
+                Vec2::splat(grid.half() * 2.0),
+            );
             painter.rect_stroke(
                 ghost,
                 3.0,
@@ -357,28 +269,19 @@ impl MapView {
         if response.drag_stopped()
             && let Some(room) = self.moving.take()
         {
-            return pointer.map(|point| MapAction::Move(room, cell_under(point)));
+            return pointer.map(|point| MapAction::Move(room, grid.cell_under(point)));
         }
+        None
+    }
 
-        let pointed = response.hover_pos().and_then(room_at);
-        if response.secondary_clicked() {
-            self.menu_room = pointed.map(|room| room.id);
-        }
+    /// The menu of the room right-clicked: walk there, avoid it, tidy its
+    /// area, show all areas. Returns what was chosen.
+    fn room_menu(&mut self, response: &Response, map: &Map, area: &str) -> Option<MapAction> {
         let mut chosen = None;
-        if hide {
-            chosen = Some(MapAction::Command("/map hide"));
-        } else if avoid {
-            chosen = Some(MapAction::Command("/map avoid"));
-        } else if stop {
-            chosen = Some(MapAction::Command("/map stop"));
-        } else if tidy {
-            chosen = Some(MapAction::Tidy(area.clone()));
-        } else if locate {
-            chosen = Some(MapAction::Command("/map where"));
-        }
         response.context_menu(|ui| {
             widgets::menu_width(ui);
-            if let Some(room) = self.menu_room.and_then(|id| map.room(id)) {
+            let room = self.menu_room.and_then(|id| map.room(id));
+            if let Some(room) = room {
                 widgets::menu_heading(ui, &format!("{} (#{})", room.name, room.id));
                 if widgets::menu_item(ui, tr("Walk here"), "").clicked() {
                     chosen = Some(MapAction::Walk(room.id));
@@ -395,33 +298,238 @@ impl MapView {
                 }
                 widgets::menu_separator(ui);
             }
-            let tidied = self
-                .menu_room
-                .and_then(|id| map.room(id))
-                .map_or_else(|| area.clone(), |room| room.area.clone());
+            let tidied = room.map_or_else(|| area.to_owned(), |room| room.area.clone());
             if widgets::menu_item(ui, tr("Tidy this area"), "").clicked() {
                 chosen = Some(MapAction::Tidy(tidied));
                 ui.close();
             }
             widgets::menu_check(ui, &mut self.all_areas, tr("Show all areas"));
         });
-        if chosen.is_none() && response.clicked() {
-            chosen = pointed.map(|room| MapAction::Walk(room.id));
-        }
-        // Over empty space the map says how it is used; over a room, which.
-        if pointed.is_none() && response.hovered() && !response.dragged() {
-            response.clone().on_hover_text_at_pointer(hint);
-        }
-        if let Some(room) = pointed {
-            let mut text = format!("{} (#{})", room.name, room.id);
-            if room.avoid {
-                text.push_str(&format!(", {}", tr("avoided")));
-            }
-            if room.weight > 1 {
-                text.push_str(&format!(", {} {}", tr("weight"), room.weight));
-            }
-            response.on_hover_text_at_pointer(text);
-        }
         chosen
     }
+}
+
+impl Tools {
+    /// What the tools on the panel's header asked of the map.
+    fn action(self, area: &str) -> Option<MapAction> {
+        if self.hide {
+            Some(MapAction::Command("/map hide"))
+        } else if self.avoid {
+            Some(MapAction::Command("/map avoid"))
+        } else if self.stop {
+            Some(MapAction::Command("/map stop"))
+        } else if self.tidy {
+            Some(MapAction::Tidy(area.to_owned()))
+        } else if self.locate {
+            Some(MapAction::Command("/map where"))
+        } else {
+            None
+        }
+    }
+}
+
+/// Where the map is drawn: the point on screen of the room at `origin`,
+/// how big a cell is, and the level shown.
+struct Grid {
+    centre: Pos2,
+    origin: (i32, i32),
+    cell: f32,
+    level: i32,
+}
+
+impl Grid {
+    /// Where a place of the map is on screen: screen y grows downwards,
+    /// map y northwards.
+    fn on_screen(&self, pos: Pos) -> Pos2 {
+        self.centre
+            + vec2(
+                (pos.x - self.origin.0) as f32,
+                -(pos.y - self.origin.1) as f32,
+            ) * self.cell
+    }
+
+    /// The cell of the map under a point on screen.
+    fn cell_under(&self, point: Pos2) -> Pos {
+        let offset = (point - self.centre) / self.cell;
+        Pos {
+            x: self.origin.0 + offset.x.round() as i32,
+            y: self.origin.1 - offset.y.round() as i32,
+            z: self.level,
+        }
+    }
+
+    /// Half the side of a room.
+    fn half(&self) -> f32 {
+        self.cell * 0.28
+    }
+}
+
+/// Where the player is, as text: for screen readers, and at a glance.
+fn heading(ui: &mut Ui, current: &Room) {
+    let palette = theme::current();
+    ui.label(
+        RichText::new(&current.name)
+            .font(theme::font(Weight::Medium, 14.0))
+            .color(palette.text),
+    );
+    let exits: Vec<&str> = current.exits.keys().map(String::as_str).collect();
+    let leading = format!("{}: {}", tr("exits"), exits.join(", "));
+    ui.label(
+        RichText::new(leading)
+            .font(theme::font(Weight::Regular, 12.0))
+            .color(palette.text_dim),
+    );
+    ui.add_space(4.0);
+}
+
+/// The area to show, among those the map has.
+fn area_choice(ui: &mut Ui, map: &Map, area: &mut String) {
+    let chooser = crate::widgets::dropdown("map area")
+        .selected_text(area.as_str())
+        .width(130.0)
+        .show_ui(ui, |ui| {
+            for name in map.areas() {
+                crate::widgets::choice_value(ui, area, name.to_owned(), name);
+            }
+        })
+        .response;
+    ui.ctx()
+        .accesskit_node_builder(chooser.id, |node| node.set_label(tr("Area")));
+}
+
+/// The level to show, a step down or up.
+fn level_steps(ui: &mut Ui, level: &mut i32) {
+    if crate::widgets::sign_button(ui, "−", tr("Down"), true).clicked() {
+        *level -= 1;
+    }
+    let shown = format!("{} {level}", tr("level"));
+    ui.label(
+        RichText::new(shown)
+            .font(theme::font(Weight::Regular, 12.5))
+            .color(theme::current().text_dim),
+    );
+    if crate::widgets::sign_button(ui, "+", tr("Up"), true).clicked() {
+        *level += 1;
+    }
+}
+
+/// The middle of the rooms given, to centre on.
+fn middle_of<'a>(rooms: impl Iterator<Item = &'a Room>) -> (i32, i32) {
+    let spans = rooms.fold(None, |spans, room| {
+        let ((x0, x1), (y0, y1)) = spans.unwrap_or(((i32::MAX, i32::MIN), (i32::MAX, i32::MIN)));
+        let pos = room.pos;
+        Some((
+            (x0.min(pos.x), x1.max(pos.x)),
+            (y0.min(pos.y), y1.max(pos.y)),
+        ))
+    });
+    spans.map_or((0, 0), |((x0, x1), (y0, y1))| {
+        ((x0 + x1) / 2, (y0 + y1) / 2)
+    })
+}
+
+/// The exits of the rooms shown: a line to a room shown, a mark for one
+/// up or down, a stub the way of one not shown, and a dot for one with
+/// no direction on the grid.
+fn draw_exits(
+    painter: &Painter,
+    map: &Map,
+    visible: &[&Room],
+    grid: &Grid,
+    colours: &Colours,
+    on_level: &dyn Fn(&Room) -> bool,
+) {
+    let (cell, half) = (grid.cell, grid.half());
+    for room in visible {
+        let from = grid.on_screen(room.pos);
+        let mut other_exits = false;
+        for (direction, exit) in &room.exits {
+            let colour = if exit.locked {
+                colours.locked
+            } else {
+                colours.exit
+            };
+            let line = Stroke::new(1.5, colour);
+            let target = map.room(exit.to).filter(|target| on_level(target));
+            match (target, direction_offset(direction)) {
+                (Some(target), _) => {
+                    painter.line_segment([from, grid.on_screen(target.pos)], line);
+                }
+                (None, Some((_, _, dz))) if dz != 0 => {
+                    let (text, corner) = if dz > 0 {
+                        ("u", vec2(half, -half))
+                    } else {
+                        ("d", vec2(half, half))
+                    };
+                    let font = FontId::monospace(cell * 0.36);
+                    painter.text(
+                        from + corner * 1.6,
+                        Align2::CENTER_CENTER,
+                        text,
+                        font,
+                        colours.mark,
+                    );
+                }
+                (None, Some((dx, dy, _))) => {
+                    let stub = vec2(dx as f32, -dy as f32) * cell * 0.5;
+                    painter.line_segment([from, from + stub], line);
+                }
+                (None, None) => other_exits = true,
+            }
+        }
+        if other_exits {
+            painter.circle_filled(from + vec2(-half, -half) * 1.5, cell * 0.07, colours.mark);
+        }
+    }
+}
+
+/// The rooms shown: the player's ringed, avoided ones marked, and those of
+/// other areas, with every area on show, faint.
+fn draw_rooms(
+    painter: &Painter,
+    visible: &[&Room],
+    grid: &Grid,
+    current: &Room,
+    area: &str,
+    colours: &Colours,
+) {
+    for room in visible {
+        let rect = Rect::from_center_size(grid.on_screen(room.pos), Vec2::splat(grid.half() * 2.0));
+        let is_current = room.id == current.id;
+        let fill = match (is_current, room.avoid) {
+            (true, _) => colours.current,
+            (false, true) => colours.avoided,
+            (false, false) => colours.room,
+        };
+        let fill = if room.area == area {
+            fill
+        } else {
+            fill.gamma_multiply(0.45)
+        };
+        painter.rect_filled(rect, 3.0, fill);
+        if is_current {
+            let ring = Stroke::new(1.5, colours.current);
+            painter.rect_stroke(rect.expand(3.0), 4.0, ring, StrokeKind::Outside);
+        }
+    }
+}
+
+/// Over empty space the map says how it is used; over a room, which.
+fn room_tip(response: Response, pointed: Option<&Room>) {
+    let Some(room) = pointed else {
+        if response.hovered() && !response.dragged() {
+            let hint =
+                tr("Click a room to walk there, right-click for more, Shift+drag to move it.");
+            response.on_hover_text_at_pointer(hint);
+        }
+        return;
+    };
+    let mut text = format!("{} (#{})", room.name, room.id);
+    if room.avoid {
+        text.push_str(&format!(", {}", tr("avoided")));
+    }
+    if room.weight > 1 {
+        text.push_str(&format!(", {} {}", tr("weight"), room.weight));
+    }
+    response.on_hover_text_at_pointer(text);
 }
