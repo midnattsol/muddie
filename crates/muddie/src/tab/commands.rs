@@ -237,7 +237,7 @@ impl Tab {
         self.palette_chosen = 0;
         self.answer.clear();
         (self.answering, self.answer_failed) = (true, false);
-        let mut ours = self.map_command(line);
+        let mut ours = self.do_client_command(line);
         // A line of Lua is a command of the client too, carried out by
         // the scripts: what it prints is its answer, and if it prints
         // nothing, that it was run is.
@@ -486,7 +486,7 @@ impl Tab {
             Act::Reconnect => self.reconnect(ctx),
             Act::Disconnect => self.disconnect(),
             Act::Log => {
-                self.map_command("/log");
+                self.do_client_command("/log");
             }
             Act::Speech => {
                 let on = !self.voice.enabled();

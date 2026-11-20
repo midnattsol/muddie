@@ -221,4 +221,77 @@ impl Tab {
             }
         }
     }
+
+    /// Lists the installed plugins, each with whether it is on in this
+    /// profile and the command that switches it.
+    pub(super) fn list_plugins(&mut self) {
+        let installed = self
+            .profiles
+            .as_ref()
+            .map(Profiles::packages)
+            .unwrap_or_default();
+        if installed.is_empty() {
+            self.refuse(tr(
+                "No plugins are installed. Use /plugin install with a git address.",
+            ));
+        }
+        for package in installed {
+            let (state, switch) = match self.packages.contains(&package) {
+                true => (tr("enabled in this profile"), "disable"),
+                false => (tr("not enabled; use /plugin enable"), "enable"),
+            };
+            self.offer(&package, state, &format!("/plugin {switch} {package}"));
+        }
+    }
+
+    /// Downloads a plugin from a git repository and enables it: the
+    /// address, then a name for it if the address does not give one.
+    pub(super) fn install_plugin(&mut self, argument: &str) {
+        let (address, given) = argument.split_once(' ').unwrap_or((argument, ""));
+        let name = match given.trim() {
+            "" => packages::name_from_address(address),
+            given => crate::profile::valid_name(given).then(|| given.to_owned()),
+        };
+        let folder = self.profiles.as_ref().map(Profiles::packages_dir);
+        match (folder, name) {
+            (Some(folder), Some(name)) => {
+                self.note(&trf("Installing {0}...", &[&name]));
+                self.package_jobs
+                    .push((packages::install(&folder, &name, address), true));
+            }
+            (None, _) => self.note(tr(
+                "Plugins need a configuration folder, and none was found.",
+            )),
+            (_, None) => self.note(tr(
+                "Give the plugin a name after the address: letters, digits, - and _.",
+            )),
+        }
+    }
+
+    /// Brings an installed plugin up to date.
+    pub(super) fn update_plugin(&mut self, name: &str) {
+        match self.profiles.as_ref().map(Profiles::packages_dir) {
+            Some(folder) => {
+                self.note(&trf("Updating {0}...", &[name]));
+                self.package_jobs
+                    .push((packages::update(&folder, name), false));
+            }
+            None => self.note(tr(
+                "Plugins need a configuration folder, and none was found.",
+            )),
+        }
+    }
+
+    /// Enables an installed plugin in this profile, or disables one.
+    pub(super) fn enable_plugin(&mut self, name: &str, enable: bool) {
+        let installed = self
+            .profiles
+            .as_ref()
+            .map(Profiles::packages)
+            .unwrap_or_default();
+        if enable && !installed.iter().any(|package| package == name) {
+            return self.note(tr("No such plugin is installed; see /plugin list."));
+        }
+        self.set_package(name, enable);
+    }
 }

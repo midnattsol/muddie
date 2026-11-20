@@ -159,7 +159,7 @@ impl Tab {
     /// shown where it was asked.
     pub fn plugin_command(&mut self, command: &str) {
         let before = self.output.len();
-        self.map_command(command);
+        self.do_client_command(command);
         self.plugin_said = before;
     }
 

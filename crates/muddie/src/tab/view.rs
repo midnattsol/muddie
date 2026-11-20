@@ -280,7 +280,7 @@ impl Tab {
             Some(MapAction::Tidy(area)) => self.tidy(&area),
             Some(MapAction::Scripts) => self.open_automation(automation::SCRIPTS),
             Some(MapAction::Command(command)) => {
-                self.map_command(command);
+                self.do_client_command(command);
             }
             Some(MapAction::Avoid(room, avoid)) => {
                 let saved = self.map.borrow_mut().set_avoid(room, avoid);

@@ -436,21 +436,21 @@ fn client_commands_are_grouped() {
 
     let mut harness = window(None);
     let app = harness.state_mut().tab_mut();
-    assert!(app.map_command("/map hide") && !app.map_shown());
-    assert!(app.map_command("/map show") && app.map_shown());
+    assert!(app.do_client_command("/map hide") && !app.map_shown());
+    assert!(app.do_client_command("/map show") && app.map_shown());
     // The palette is the list of the commands: asking for help opens it.
-    assert!(app.map_command("/help") && app.palette_open);
+    assert!(app.do_client_command("/help") && app.palette_open);
     app.toggle_palette();
     // Groups: listed, and switched for the session by name.
     app.scripts
         .exec("t", r#"bind("f9", "kick", {group = "Combat"})"#);
-    assert!(app.map_command("/group combat off") && !app.scripts.group_enabled("Combat"));
-    assert!(app.map_command("/group Combat") && app.scripts.group_enabled("Combat"));
-    assert!(app.map_command("/group"));
+    assert!(app.do_client_command("/group combat off") && !app.scripts.group_enabled("Combat"));
+    assert!(app.do_client_command("/group Combat") && app.scripts.group_enabled("Combat"));
+    assert!(app.do_client_command("/group"));
     assert!(output_lines(app).iter().any(|line| line == "Combat: on"));
     // An incomplete group opens the palette at what it has, instead
     // of going to the MUD.
-    assert!(app.map_command("/map dance"));
+    assert!(app.do_client_command("/map dance"));
     assert!(app.palette_open && app.palette_query == "map ");
 }
 
@@ -2287,7 +2287,7 @@ fn session_is_logged_when_asked() {
     let mut harness = window(Some(Profiles::at(dir.clone())));
     let app = harness.state_mut().tab_mut();
     app.host = "mud.example.org".into();
-    assert!(app.map_command("/log"));
+    assert!(app.do_client_command("/log"));
     let (events, _sent) = fake_connection(app);
     events
         .send(Event::Line(
@@ -2297,7 +2297,7 @@ fn session_is_logged_when_asked() {
     harness.run_steps(2);
     let app = harness.state_mut().tab_mut();
     let path = app.log.as_ref().unwrap().path().to_owned();
-    assert!(app.map_command("/log"));
+    assert!(app.do_client_command("/log"));
     assert!(app.log.is_none());
     let log = std::fs::read_to_string(path).unwrap();
     assert!(log.contains("An orc arrives"), "{log}");
@@ -2344,7 +2344,7 @@ fn rules_made_in_the_window_are_saved_and_take_effect() {
     harness.run_steps(2);
     assert_eq!(sent.try_recv().unwrap(), Command::Send("eat bread".into()));
     // Reloading scripts keeps the rules working.
-    assert!(harness.state_mut().tab_mut().map_command("/reload"));
+    assert!(harness.state_mut().tab_mut().do_client_command("/reload"));
     events
         .send(Event::Line(
             panels::styled_lines("Again you are hungry.").remove(0),

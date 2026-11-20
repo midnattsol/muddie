@@ -110,4 +110,120 @@ impl Tab {
         }
         !rooms.is_empty()
     }
+
+    /// Says where the player is, by the map.
+    pub(super) fn say_where(&mut self) {
+        let place = self.map.borrow().current().map(|room| {
+            let exits: Vec<&str> = room.exits.keys().map(String::as_str).collect();
+            let fields = [
+                &room.name,
+                &room.id.to_string(),
+                &room.area,
+                &exits.join(", "),
+            ];
+            trf(
+                "{0} (#{1}) in {2}. Exits: {3}.",
+                &fields.map(String::as_str),
+            )
+        });
+        match place {
+            Some(place) => self.note(&place),
+            None => self.refuse(tr("The map does not know where you are yet.")),
+        }
+    }
+
+    /// Lists the rooms whose name has the text, to walk to.
+    pub(super) fn find_rooms(&mut self, text: &str) {
+        if !self.offer_rooms(text) {
+            self.refuse(tr("No room matches."));
+        }
+    }
+
+    /// Walks to a room, by number, or by name if only one has it; several
+    /// are listed, to choose the one meant.
+    pub(super) fn go_to(&mut self, room: &str) {
+        if let Ok(id) = room.parse::<RoomId>() {
+            return self.walk_to(id);
+        }
+        let found: Vec<RoomId> = (self.map.borrow().find(room).iter())
+            .map(|room| room.id)
+            .collect();
+        match found[..] {
+            [] => self.refuse(tr("No room matches.")),
+            [id] => self.walk_to(id),
+            _ => {
+                self.offer_rooms(room);
+            }
+        }
+    }
+
+    /// Lets routes pass through a room, or keeps them out of it: the one
+    /// given by number, or the one the player is in.
+    pub(super) fn toggle_avoid(&mut self, room: &str) {
+        let toggled = {
+            let mut map = self.map.borrow_mut();
+            let found = match room.parse::<RoomId>() {
+                Ok(id) => map.room(id),
+                Err(_) if room.is_empty() => map.current(),
+                Err(_) => None,
+            };
+            let target = found.map(|room| (room.id, !room.avoid, room.name.clone()));
+            target.map(|(id, avoid, name)| (map.set_avoid(id, avoid), avoid, name))
+        };
+        match toggled {
+            Some((Ok(_), true, name)) => self.note(&trf("Routes will avoid {0}.", &[&name])),
+            Some((Ok(_), false, name)) => {
+                self.note(&trf("Routes may pass through {0} again.", &[&name]))
+            }
+            Some((Err(error), ..)) => {
+                self.refuse(&trf("Could not save the map: {0}", &[&error.to_string()]))
+            }
+            None => self.refuse(tr("No such room; use /map avoid with a room number.")),
+        }
+    }
+
+    /// Lets routes use an exit of the room the player is in, or keeps
+    /// them from it.
+    pub(super) fn toggle_lock(&mut self, direction: &str) {
+        let toggled = {
+            let mut map = self.map.borrow_mut();
+            let here = map.current().map(|room| room.id);
+            let direction = muddie_mapper::canonical_direction(direction);
+            let exit = here.and_then(|id| map.room(id)?.exits.get(&direction).cloned());
+            here.zip(exit).map(|(id, exit)| {
+                let locked = !exit.locked;
+                (
+                    map.edit_exit(id, &direction, |exit| exit.locked = locked),
+                    locked,
+                )
+            })
+        };
+        match toggled {
+            Some((Ok(_), true)) => self.note(tr("Routes will not use that exit.")),
+            Some((Ok(_), false)) => self.note(tr("Routes may use that exit again.")),
+            Some((Err(error), _)) => {
+                self.refuse(&trf("Could not save the map: {0}", &[&error.to_string()]))
+            }
+            None => self.refuse(tr("This room has no such exit.")),
+        }
+    }
+
+    /// Draws the area the player is in again from scratch.
+    pub(super) fn tidy_here(&mut self) {
+        let area = self.map.borrow().current().map(|room| room.area.clone());
+        match area {
+            Some(area) => self.tidy(&area),
+            None => self.refuse(tr("The map does not know where you are yet.")),
+        }
+    }
+
+    /// Stops walking, if walking.
+    pub(super) fn stop_walking(&mut self) {
+        let stopped = self.walk.take().is_some();
+        self.note(if stopped {
+            tr("Walk stopped.")
+        } else {
+            tr("Not walking.")
+        });
+    }
 }
