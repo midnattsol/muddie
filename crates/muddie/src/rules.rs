@@ -40,7 +40,7 @@ pub struct Rules {
     pub triggers: Vec<Trigger>,
     #[serde(rename = "alias")]
     pub aliases: Vec<Alias>,
-    #[serde(rename = "key")]
+    #[serde(rename = "macro")]
     pub macros: Vec<Macro>,
     #[serde(rename = "timer")]
     pub timers: Vec<Timer>,

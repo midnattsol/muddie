@@ -502,6 +502,8 @@ fn rules_round_trip_through_their_file() {
     };
     rules.save(&path).unwrap();
     assert_eq!(Rules::load(&path).unwrap(), rules);
+    // Macros are kept as such.
+    assert!(std::fs::read_to_string(&path).unwrap().contains("[[macro]]"));
     // A rule written by hand without `enabled` is on.
     std::fs::write(&path, "[[trigger]]\npattern = \"x\"\n").unwrap();
     assert!(Rules::load(&path).unwrap().triggers[0].enabled);
