@@ -1,0 +1,224 @@
+//! The plugins of a session: those that come with Muddie, offered for the
+//! MUD connected to, and those installed.
+
+use super::*;
+
+impl Tab {
+    /// Whether a plugin that comes with Muddie is on in this session.
+    pub(super) fn included(&self, plugin: &crate::bundled::Bundled) -> bool {
+        plugin.is_on(&self.included_on, &self.included_off)
+    }
+
+    /// Whether what many MUDs send the same way is made something of.
+    pub(super) fn conventions(&self) -> bool {
+        crate::bundled::find(crate::bundled::COMMON).is_some_and(|plugin| self.included(plugin))
+    }
+
+    /// Switches a plugin that comes with Muddie on or off, at once and
+    /// without running the other scripts again, and keeps that with the
+    /// profile if there is one.
+    pub(super) fn set_included(&mut self, plugin: &'static crate::bundled::Bundled, on: bool) {
+        plugin.switch(&mut self.included_on, &mut self.included_off, on);
+        self.run_included(plugin, on);
+        self.keep_included();
+    }
+
+    /// Starts or stops a plugin that comes with Muddie in this session.
+    pub(super) fn run_included(&mut self, plugin: &'static crate::bundled::Bundled, on: bool) {
+        if self.plugin_offer == Some(plugin) {
+            self.plugin_offer = None;
+        }
+        let owner = crate::bundled::owner(plugin);
+        self.scripts.unload(&owner);
+        if let (Some(code), true) = (plugin.code, on) {
+            let name = format!("{}.luau", plugin.id);
+            self.scripts.exec_owned(&owner, &name, code);
+        }
+        // The one that is part of the program asks the MUD for its own.
+        if plugin.id == crate::bundled::COMMON && on {
+            let usual = muddie_core::Config::default().gmcp_supports;
+            self.announce_modules(usual);
+        }
+        self.run_actions();
+    }
+
+    /// Saves which plugins are on with the profile, if there is one;
+    /// without one they are as set for as long as the session lasts.
+    pub(super) fn keep_included(&mut self) {
+        let (Some(profiles), Some(name)) = (&self.profiles, &self.profile) else {
+            return;
+        };
+        // What is saved of the profile, with only this changed: what is
+        // being typed in the connection's form is not this one's to save.
+        let saved = profiles.load(name).and_then(|mut profile| {
+            profile.included_on.clone_from(&self.included_on);
+            profile.included_off.clone_from(&self.included_off);
+            profile
+                .included_declined
+                .clone_from(&self.included_declined);
+            (profiles.save(name, &profile)).map_err(|error| error.to_string())
+        });
+        match saved {
+            Ok(()) => self.profile_written = true,
+            Err(error) => self.note(&trf("Could not save the profile: {0}", &[&error])),
+        }
+    }
+
+    /// Offers the plugin made for the MUD at `host`, or that gives itself
+    /// `name`, unless it is on already or was declined for this profile.
+    pub(super) fn offer_plugin_for(&mut self, host: &str, name: &str) {
+        let Some(plugin) = crate::bundled::for_mud(host, name) else {
+            return;
+        };
+        let declined = self.included_declined.iter().any(|id| id == plugin.id);
+        if self.included(plugin) || declined || self.plugin_offer == Some(plugin) {
+            return;
+        }
+        self.plugin_offer = Some(plugin);
+        self.voice.say(&trf(
+            "There is a plugin for {0}. It is offered above the command line.",
+            &[tr(plugin.name)],
+        ));
+    }
+
+    /// The plugin offered for this MUD was declined: it is not offered
+    /// again in this profile, and stays in the settings.
+    pub(super) fn decline_plugin(&mut self) {
+        if let Some(plugin) = self.plugin_offer.take() {
+            self.included_declined.push(plugin.id.to_owned());
+            self.keep_included();
+        }
+    }
+
+    /// The offer of a plugin for the MUD connected to, over the command
+    /// line: what it does, and a button to switch it on and one not to.
+    pub(super) fn plugin_notice(&mut self, ui: &mut egui::Ui) {
+        let Some(plugin) = self.plugin_offer else {
+            return;
+        };
+        let theme = theme::current();
+        let card = egui::Frame::new()
+            .fill(theme.raised)
+            .stroke(egui::Stroke::new(1.0, theme.border))
+            .corner_radius(egui::CornerRadius::same(10))
+            .inner_margin(egui::Margin::symmetric(12, 6));
+        let (mut enable, mut decline) = (false, false);
+        card.show(ui, |ui| {
+            ui.horizontal(|ui| {
+                let what = trf("There is a plugin for {0}.", &[tr(plugin.name)]);
+                ui.label(RichText::new(what).color(theme.text));
+                ui.label(RichText::new(tr(plugin.about)).color(theme.text_dim));
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    decline = crate::widgets::quiet_button(ui, tr("Not now")).clicked();
+                    enable = crate::widgets::button(ui, tr("Enable")).clicked();
+                });
+            });
+        });
+        ui.add_space(4.0);
+        if enable {
+            self.set_included(plugin, true);
+        }
+        if decline {
+            self.decline_plugin();
+        }
+    }
+
+    /// Tells the MUD of GMCP modules it has not been told of: at once if
+    /// there is a connection, and on connecting.
+    pub(super) fn announce_modules(&mut self, modules: Vec<String>) {
+        let new: Vec<String> = modules
+            .into_iter()
+            .filter(|module| !self.supports.contains(module))
+            .collect();
+        if let (Some(connection), false) = (&self.connection, new.is_empty()) {
+            let data = serde_json::to_string(&new).unwrap_or_default();
+            let package = "Core.Supports.Add".to_owned();
+            let _ = connection.commands.send(Command::Gmcp { package, data });
+        }
+        self.supports.extend(new);
+    }
+
+    /// Adds a package to the profile's list, or takes it off, saves the
+    /// profile and runs the scripts again.
+    pub(super) fn set_package(&mut self, name: &str, enable: bool) {
+        let Some(profile) = self.profile.clone() else {
+            return self.note(tr(
+                "Plugins are enabled per profile: save or choose a profile first.",
+            ));
+        };
+        self.packages.retain(|package| package != name);
+        if enable {
+            self.packages.push(name.to_owned());
+        }
+        self.profile_name = profile;
+        self.save_profile();
+        self.load_scripts();
+        self.note(&if enable {
+            trf("Plugin {0} enabled.", &[name])
+        } else {
+            trf("Plugin {0} disabled.", &[name])
+        });
+    }
+
+    /// Deletes an installed plugin, in every profile's eyes.
+    pub(super) fn remove_plugin(&mut self, name: &str) {
+        let folder = self.profiles.as_ref().map(Profiles::packages_dir);
+        let installed = self
+            .profiles
+            .as_ref()
+            .map(Profiles::packages)
+            .unwrap_or_default();
+        let Some(folder) = folder.filter(|_| installed.iter().any(|plugin| plugin == name)) else {
+            return self.note(tr("No such plugin is installed; see /plugin list."));
+        };
+        // Its name came from the list of folders there, so this is one.
+        match std::fs::remove_dir_all(folder.join(name)) {
+            Ok(()) => {
+                self.note(&trf("Plugin {0} removed.", &[name]));
+                if self.packages.iter().any(|plugin| plugin == name) {
+                    self.set_package(name, false);
+                }
+            }
+            Err(error) => self.note(&trf(
+                "The plugin could not be removed: {0}",
+                &[&error.to_string()],
+            )),
+        }
+    }
+
+    /// Reports package installs and updates that have ended.
+    pub(super) fn check_packages(&mut self, ctx: &egui::Context) {
+        let mut ended = Vec::new();
+        self.package_jobs
+            .retain(|(job, enable)| match job.try_recv() {
+                Ok(outcome) => {
+                    ended.push((outcome, *enable));
+                    false
+                }
+                Err(std::sync::mpsc::TryRecvError::Empty) => true,
+                Err(std::sync::mpsc::TryRecvError::Disconnected) => false,
+            });
+        if !self.package_jobs.is_empty() {
+            ctx.request_repaint_after(Duration::from_millis(200));
+        }
+        for (outcome, enable) in ended {
+            match outcome {
+                Ok(name) if enable => {
+                    self.bar(&trf("Plugin {0} installed.", &[&name]), false);
+                    self.set_package(&name, true);
+                }
+                Ok(name) => {
+                    self.bar(&trf("Plugin {0} updated.", &[&name]), false);
+                    self.load_scripts();
+                }
+                Err(error) => self.bar(
+                    &trf(
+                        "The plugin could not be installed or updated: {0}",
+                        &[&error],
+                    ),
+                    true,
+                ),
+            }
+        }
+    }
+}

@@ -177,3 +177,95 @@ impl Tab {
         (said, busy)
     }
 }
+
+impl Tab {
+    /// Switches to a saved profile, or to none. Returns false if the
+    /// profile could not be loaded.
+    pub(super) fn select_profile(&mut self, name: Option<String>) -> bool {
+        let loaded = match (&name, &self.profiles) {
+            (Some(name), Some(profiles)) => profiles.load(name).map(Some),
+            (Some(_), None) => Err("no configuration folder was found".to_owned()),
+            (None, _) => Ok(None),
+        };
+        let profile = match loaded {
+            Ok(profile) => profile,
+            Err(error) => {
+                self.note(&trf(
+                    "Could not load the profile: {0}",
+                    &[&error.to_string()],
+                ));
+                return false;
+            }
+        };
+        if let Some(profile) = profile {
+            self.host = profile.host;
+            self.port = profile.port.to_string();
+            self.tls = profile.tls;
+            self.verify_certificate = profile.verify_certificate;
+            self.packages = profile.packages;
+            self.character = profile.character;
+            self.encoding = profile.encoding;
+            self.included_on = profile.included_on;
+            self.included_off = profile.included_off;
+            self.included_declined = profile.included_declined;
+            self.voice.set_enabled(profile.speech);
+            self.prefs = (profile.session)
+                .unwrap_or_else(|| crate::profile::SessionPrefs::from(&self.settings));
+        } else {
+            self.prefs = crate::profile::SessionPrefs::from(&self.settings);
+            self.packages.clear();
+            self.included_on.clear();
+            self.included_off.clear();
+            self.included_declined.clear();
+        }
+        self.plugin_offer = None;
+        self.profile_name = name.clone().unwrap_or_default();
+        self.profile = name;
+        self.load_layout();
+        self.load_scripts();
+        true
+    }
+
+    /// Saves the connection settings as the profile named in the bar.
+    pub(super) fn save_profile(&mut self) {
+        let name = self.profile_name.trim().to_owned();
+        let Some(profiles) = &self.profiles else {
+            return self.note(tr(
+                "Profiles cannot be saved: no configuration folder was found.",
+            ));
+        };
+        let Some(mut profile) = self.profile_now() else {
+            return self.note(tr("The port must be a number from 1 to 65535."));
+        };
+        // A profile saved under a new name starts without packages.
+        if self.profile.as_deref() != Some(&name) {
+            profile.packages.clear();
+        }
+        match profiles.save(&name, &profile) {
+            Ok(()) => {
+                let renamed = self.profile.as_deref() != Some(&name);
+                self.profile_written = true;
+                self.packages = profile.packages;
+                self.profile = Some(name.clone());
+                if renamed {
+                    self.load_scripts();
+                }
+                self.welcome_profiles = None;
+                self.note(&trf("Profile {0} saved.", &[&name]));
+                let password = std::mem::take(&mut self.new_password);
+                if !password.is_empty()
+                    && let Err(error) = secrets::set_password(&name, Some(&password))
+                {
+                    self.note(&trf(
+                        "The password could not be saved in the keyring: {0}",
+                        &[&error],
+                    ));
+                }
+            }
+            Err(error) => self.note(&trf(
+                "Could not save the profile: {0}",
+                &[&error.to_string()],
+            )),
+        }
+    }
+}

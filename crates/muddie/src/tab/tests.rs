@@ -5,6 +5,7 @@ use egui_kittest::Harness;
 use egui_kittest::kittest::{NodeT, Queryable};
 use muddie_mapper::Pos;
 
+use super::input::PARTIAL_SETTLE;
 use super::*;
 use crate::app::App;
 
