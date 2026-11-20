@@ -49,6 +49,24 @@ const EXAMPLES: [(&str, &str, &str); 5] = [
     ),
 ];
 
+/// What was last deleted in the editor, to have it back.
+pub(super) struct Undo {
+    title: String,
+    section: usize,
+    index: usize,
+    what: Undone,
+    since: Instant,
+}
+
+/// What it takes to put back what was deleted.
+pub(super) enum Undone {
+    /// The rules as they were: of all of them, as the list is one.
+    Rules(crate::rules::Rules),
+    Variable(String, serde_json::Value),
+    Script(PathBuf, String),
+    Nothing,
+}
+
 impl Tab {
     /// Opens the automation window on one of its sections.
     pub fn open_automation(&mut self, section: usize) {
@@ -171,6 +189,7 @@ impl Tab {
             );
             let inner = detail.shrink2(egui::vec2(26.0, 18.0));
             pane("detail", inner, true, &mut |tab, ui| {
+                tab.undo_bar(ui);
                 tab.detail_height = inner.height();
                 egui::ScrollArea::vertical()
                     .auto_shrink(false)
@@ -782,6 +801,73 @@ impl Tab {
             });
     }
 
+    /// Puts back what was last deleted.
+    pub(super) fn undo_delete(&mut self) {
+        let Some(undo) = self.undo.take() else {
+            return;
+        };
+        match undo.what {
+            Undone::Rules(rules) => self.rules_draft = rules,
+            Undone::Variable(name, value) => {
+                if let Err(error) = self.scripts.set_variable(&name, Some(value)) {
+                    self.note(&error);
+                }
+            }
+            Undone::Script(path, code) => match std::fs::write(&path, &code) {
+                Ok(()) => {
+                    self.list_scripts();
+                    self.scripts.load_file(&path);
+                    self.run_actions();
+                }
+                Err(error) => self.note(&trf(
+                    "Could not save the script: {0}",
+                    &[&error.to_string()],
+                )),
+            },
+            Undone::Nothing => return,
+        }
+        self.open_automation(undo.section);
+        self.rules_selected[undo.section] = undo.index;
+    }
+
+    /// The bar that says what was deleted, with the way to have it back,
+    /// for a few seconds after.
+    fn undo_bar(&mut self, ui: &mut egui::Ui) {
+        const LASTS: std::time::Duration = std::time::Duration::from_secs(10);
+        let Some(undo) = &self.undo else {
+            return;
+        };
+        let left = LASTS.saturating_sub(undo.since.elapsed());
+        if left.is_zero() {
+            self.undo = None;
+            return;
+        }
+        ui.ctx().request_repaint_after(left);
+        let theme = theme::current();
+        let said = match undo.title.trim().is_empty() {
+            true => tr("Deleted.").to_owned(),
+            false => trf("Deleted {0}.", &[undo.title.trim()]),
+        };
+        let mut again = false;
+        egui::Frame::new()
+            .fill(theme.raised)
+            .stroke(egui::Stroke::new(1.0, theme.border))
+            .corner_radius(egui::CornerRadius::same(10))
+            .inner_margin(egui::Margin::symmetric(12, 6))
+            .show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new(said).color(theme.text));
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        again = widgets::button(ui, tr("Undo")).clicked();
+                    });
+                });
+            });
+        ui.add_space(8.0);
+        if again || ui.input_mut(|input| input.consume_key(Modifiers::COMMAND, Key::Z)) {
+            self.undo_delete();
+        }
+    }
+
     /// While a gauge is dragged in the list, marks where it would go, and
     /// puts it there once let go.
     fn drag_gauge(&mut self, ui: &egui::Ui, places: &[(usize, egui::Rect)]) {
@@ -953,6 +1039,31 @@ impl Tab {
             _ => self.script_detail(ui, index),
         };
         if delete {
+            // What is deleted can be had back, for a while.
+            let title = (self.automation_rows().get(index))
+                .map(|row| row.0.clone())
+                .unwrap_or_default();
+            self.undo = Some(Undo {
+                title,
+                section,
+                index,
+                what: match section {
+                    VARIABLES => {
+                        let all = self.scripts.variables();
+                        match all.get(index) {
+                            Some((name, value)) => Undone::Variable(name.clone(), value.clone()),
+                            None => Undone::Nothing,
+                        }
+                    }
+                    SCRIPTS => {
+                        let path = self.script_files[index].clone();
+                        let code = std::fs::read_to_string(&path).unwrap_or_default();
+                        Undone::Script(path, code)
+                    }
+                    _ => Undone::Rules(self.rules_draft.clone()),
+                },
+                since: Instant::now(),
+            });
             let draft = &mut self.rules_draft;
             match section {
                 TRIGGERS => drop(draft.triggers.remove(index)),

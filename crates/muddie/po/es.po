@@ -1498,3 +1498,14 @@ msgstr "Mensajes, {0} nuevos"
 
 msgid "Nothing yet."
 msgstr "Nada todavía."
+
+
+msgid "Deleted."
+msgstr "Borrado."
+
+#, python-brace-format
+msgid "Deleted {0}."
+msgstr "Borrado: {0}."
+
+msgid "Undo"
+msgstr "Deshacer"

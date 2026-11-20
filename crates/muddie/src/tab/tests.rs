@@ -1901,6 +1901,49 @@ fn what_the_client_says_can_be_read_again() {
 }
 
 #[test]
+fn what_is_deleted_can_be_had_back() {
+    let mut harness = window(None);
+    harness.set_size(egui::vec2(1400.0, 800.0));
+    let app = harness.state_mut().tab_mut();
+    app.rules.triggers.push(Trigger {
+        name: "Fight back".into(),
+        enabled: true,
+        pattern: "attacks you".into(),
+        send: "kill".into(),
+        ..Trigger::default()
+    });
+    app.scripts
+        .set_variable("target", Some(serde_json::json!("orc")))
+        .unwrap();
+    app.open_automation(automation::TRIGGERS);
+    harness.run_steps(3);
+    // Deleted, it is gone, and the editor says so with a way back.
+    harness.get_by_label("Delete").click();
+    harness.run_steps(3);
+    assert!(harness.state().tab().rules_draft.triggers.is_empty());
+    harness.get_by_label_contains("Deleted Fight back.");
+    harness.get_by_label("Undo").click();
+    harness.run_steps(3);
+    assert_eq!(
+        harness.state().tab().rules_draft.triggers[0].name,
+        "Fight back"
+    );
+    // A variable too, with the keys that undo anywhere.
+    harness
+        .state_mut()
+        .tab_mut()
+        .open_automation(automation::VARIABLES);
+    harness.run_steps(3);
+    harness.get_by_label("Delete").click();
+    harness.run_steps(3);
+    assert!(harness.state().tab().scripts.variables().is_empty());
+    harness.key_press_modifiers(egui::Modifiers::COMMAND, Key::Z);
+    harness.run_steps(3);
+    let kept = harness.state().tab().scripts.variables();
+    assert_eq!(kept, [("target".to_owned(), serde_json::json!("orc"))]);
+}
+
+#[test]
 fn session_is_logged_when_asked() {
     let dir = std::env::temp_dir().join(format!("muddie-app-log-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);

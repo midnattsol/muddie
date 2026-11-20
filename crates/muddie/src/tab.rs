@@ -172,6 +172,8 @@ pub struct Tab {
     /// When the scripts were last run from the editor, and what kept
     /// them from running, if anything did.
     script_ran: Option<(String, Option<String>)>,
+    /// What was last deleted in the editor, to have it back.
+    undo: Option<automation::Undo>,
     /// What the client said, to be read again, and how many of those
     /// have not been looked at.
     notices: Vec<Notice>,
@@ -471,6 +473,7 @@ impl Tab {
             script_ran: None,
             reconnect_wanted: false,
             profile_page: 0,
+            undo: None,
             notices: Vec::new(),
             notices_unread: 0,
             palette_open: false,
