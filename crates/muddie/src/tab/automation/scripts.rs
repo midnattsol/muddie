@@ -40,10 +40,15 @@ pub(in crate::tab) struct Checks(Vec<(u64, Option<(usize, String)>)>);
 impl Tab {
     /// Looks again for the script files that can be edited.
     pub(in crate::tab) fn list_scripts(&mut self) {
-        self.editor.script_files = match &self.profiles {
-            Some(profiles) => profiles.editable_scripts(self.profile.as_deref()),
-            None => Vec::new(),
-        };
+        (self.editor.script_files, self.editor.script_folders) =
+            match (&self.profiles, &self.profile) {
+                (Some(profiles), Some(profile)) => (
+                    profiles.editable_scripts(Some(profile)),
+                    profiles.script_folders(profile),
+                ),
+                (Some(profiles), None) => (profiles.editable_scripts(None), Vec::new()),
+                _ => (Vec::new(), Vec::new()),
+            };
     }
 
     /// Saves the script being edited if it changed, renames its file if
@@ -273,7 +278,7 @@ impl Tab {
         let folders = self.section_folders(Kind::Script);
         let known = self.editor.draft.tag_names();
         let mut folder = folder_of(place);
-        folder_row(ui, &mut folder, &folders);
+        folder_row(ui, &mut folder, &folders, false);
         tags_row(ui, ("script tags", place), &mut kept.tags, &known);
         if folder != folder_of(place) {
             let name = place.rsplit('/').next().unwrap_or(place);

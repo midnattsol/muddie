@@ -23,7 +23,7 @@ impl Tab {
         };
         let head = list.head_mut(index);
         let delete = rule_header(ui, head.name, head.enabled, hint);
-        folder_row(ui, head.folder, &folders);
+        folder_row(ui, head.folder, &folders, false);
         tags_row(ui, ("rule tags", kind, index), head.tags, &known);
         let (on, folder, tags) = (*head.enabled, head.folder.clone(), head.tags.clone());
         if on && let Some(reason) = self.off_reason(kind, &folder, &tags) {
@@ -74,6 +74,7 @@ impl Tab {
             widgets::caption(ui, tr("Tags"));
         });
         ui.add_space(2.0);
+        let carrying = self.carrying();
         for name in names {
             let chosen = (self.editor.tag_filter.as_deref())
                 .is_some_and(|chosen| tag_key(chosen) == tag_key(&name));
@@ -108,7 +109,11 @@ impl Tab {
             ui.painter().text(
                 rect.right_center() - egui::vec2(56.0, 0.0),
                 egui::Align2::RIGHT_CENTER,
-                self.carrying(&name).to_string(),
+                carrying
+                    .get(&tag_key(&name))
+                    .copied()
+                    .unwrap_or(0)
+                    .to_string(),
                 theme::font(Weight::Regular, 12.0),
                 theme.text_faint,
             );
@@ -131,51 +136,62 @@ impl Tab {
         }
     }
 
-    /// How many things carry a tag, of every kind.
-    fn carrying(&self, tag: &str) -> usize {
+    /// How many things carry each tag, of every kind, by the tag as it is
+    /// compared: worked out in one pass.
+    fn carrying(&self) -> std::collections::HashMap<String, usize> {
         let draft = &self.editor.draft;
-        let key = tag_key(tag);
-        let carries = |tags: &[String]| tags.iter().any(|known| tag_key(known) == key);
-        let rules: usize = (Kind::ALL.iter())
-            .filter_map(|&kind| draft.list(kind))
-            .map(|list| {
-                (0..list.len())
-                    .filter(|&index| carries(list.tags(index)))
-                    .count()
-            })
-            .sum();
-        rules
-            + draft
-                .scripts
-                .iter()
-                .filter(|script| carries(&script.tags))
-                .count()
+        let mut counts = std::collections::HashMap::new();
+        let mut count = |tags: &[String]| {
+            let mut seen: Vec<String> = tags.iter().map(|tag| tag_key(tag)).collect();
+            seen.sort();
+            seen.dedup();
+            for tag in seen {
+                *counts.entry(tag).or_insert(0) += 1;
+            }
+        };
+        for list in Kind::ALL.iter().filter_map(|&kind| draft.list(kind)) {
+            (0..list.len()).for_each(|index| count(list.tags(index)));
+        }
+        draft.scripts.iter().for_each(|script| count(&script.tags));
+        counts
     }
 }
 
-/// The folder something is in, chosen among those of its kind.
-pub(in crate::tab) fn folder_row(ui: &mut egui::Ui, folder: &mut String, folders: &[String]) {
+/// The folder something is in, chosen among those of its kind. Of several
+/// things in more than one folder, it says so. Returns whether one was
+/// chosen.
+pub(in crate::tab) fn folder_row(
+    ui: &mut egui::Ui,
+    folder: &mut String,
+    folders: &[String],
+    several: bool,
+) -> bool {
+    let mut picked = false;
     filing_line(ui, tr("Folder"), |ui| {
-        let shown = match folder.trim() {
-            "" => tr("None").to_owned(),
-            path => path.replace('/', " › "),
+        let shown = match (several, folder.trim()) {
+            (true, _) => tr("Several folders").to_owned(),
+            (false, "") => tr("None").to_owned(),
+            (false, path) => path.replace('/', " › "),
         };
         widgets::dropdown("folder")
             .selected_text(shown)
             .show_ui(ui, |ui| {
-                if widgets::choice(ui, folder.trim().is_empty(), tr("None")).clicked() {
+                if widgets::choice(ui, !several && folder.trim().is_empty(), tr("None")).clicked() {
                     folder.clear();
+                    picked = true;
                 }
                 for path in folders {
                     let depth = path.matches('/').count();
                     let name = path.rsplit('/').next().unwrap_or(path);
                     let label = format!("{}{name}", "    ".repeat(depth));
-                    if widgets::choice(ui, folder == path, &label).clicked() {
+                    if widgets::choice(ui, !several && folder == path, &label).clicked() {
                         folder.clone_from(path);
+                        picked = true;
                     }
                 }
             });
     });
+    picked
 }
 
 /// The tags something carries.

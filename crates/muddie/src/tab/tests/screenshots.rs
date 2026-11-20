@@ -296,6 +296,20 @@ fn shows_editor() {
     app.editor.section = 3;
     rules.run_steps(3);
     save(&mut rules, "timers");
+    // Several triggers chosen at once, and a folder being named.
+    let app = rules.state_mut().tab_mut();
+    app.editor.section = 0;
+    app.editor.selected[0] = 0;
+    app.editor.marked = vec![0, 1];
+    rules.run_steps(3);
+    save(&mut rules, "chosen");
+    let app = rules.state_mut().tab_mut();
+    app.editor.marked.clear();
+    app.new_folder(crate::rules::Kind::Trigger, "");
+    rules.run_steps(3);
+    save(&mut rules, "folder-name");
+    let app = rules.state_mut().tab_mut();
+    app.editor.renaming = None;
     let app = rules.state_mut().tab_mut();
     app.scripts
         .set_variable("objetivo", Some(serde_json::json!("orco jefe")))

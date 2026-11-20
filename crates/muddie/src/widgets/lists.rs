@@ -158,6 +158,18 @@ pub fn tag_pill(
     pill
 }
 
+/// Where the name of a folder's line is, given the line and how many
+/// folders in it is: what is typed over to name it.
+pub fn folder_name_rect(line: egui::Rect, depth: usize) -> egui::Rect {
+    // Clear of the folder drawn before it; the text typed in it, with the
+    // field's margin, starts where the name does.
+    let left = line.left() + INDENT * depth as f32 + 38.0;
+    egui::Rect::from_min_max(
+        egui::pos2(left, line.center().y - 10.0),
+        egui::pos2(line.right() - 80.0, line.center().y + 10.0),
+    )
+}
+
 /// A folder in a list: an arrow that points down when it is open, a folder,
 /// its name and how many it holds, `depth` folders in. Faded unless
 /// `active`. Room is left at the right for its switch.

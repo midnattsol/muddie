@@ -4,6 +4,7 @@ use super::*;
 
 /// What was last deleted in the editor, to have it back.
 pub(in crate::tab) struct Undo {
+    /// What it was called, or how many there were.
     pub(in crate::tab) title: String,
     pub(in crate::tab) section: usize,
     pub(in crate::tab) index: usize,
@@ -15,9 +16,8 @@ pub(in crate::tab) struct Undo {
 pub(in crate::tab) enum Undone {
     /// The rules as they were: of all of them, as the list is one.
     Rules(crate::rules::Rules),
-    Variable(String, serde_json::Value),
-    Script(PathBuf, String),
-    Nothing,
+    Variables(Vec<(String, serde_json::Value)>),
+    Scripts(Vec<(PathBuf, String)>),
 }
 
 impl Tab {
@@ -28,23 +28,28 @@ impl Tab {
         };
         match undo.what {
             Undone::Rules(rules) => self.editor.draft = rules,
-            Undone::Variable(name, value) => {
-                if let Err(error) = self.scripts.set_variable(&name, Some(value)) {
-                    self.note(&error);
+            Undone::Variables(variables) => {
+                for (name, value) in variables {
+                    if let Err(error) = self.scripts.set_variable(&name, Some(value)) {
+                        self.note(&error);
+                    }
                 }
             }
-            Undone::Script(path, code) => match std::fs::write(&path, &code) {
-                Ok(()) => {
-                    self.list_scripts();
-                    self.scripts.load_file(&path);
-                    self.run_actions();
+            Undone::Scripts(scripts) => {
+                for (path, code) in scripts {
+                    let written = (path.parent().map_or(Ok(()), std::fs::create_dir_all))
+                        .and_then(|()| std::fs::write(&path, &code));
+                    match written {
+                        Ok(()) => self.scripts.load_file(&path),
+                        Err(error) => self.note(&trf(
+                            "Could not save the script: {0}",
+                            &[&error.to_string()],
+                        )),
+                    }
                 }
-                Err(error) => self.note(&trf(
-                    "Could not save the script: {0}",
-                    &[&error.to_string()],
-                )),
-            },
-            Undone::Nothing => return,
+                self.list_scripts();
+                self.run_actions();
+            }
         }
         self.open_automation(undo.section);
         self.editor.selected[undo.section] = undo.index;
@@ -88,35 +93,67 @@ impl Tab {
         }
     }
 
+    /// Deletes what is chosen in a section, all at once and to be had
+    /// back at once: rules, gauges, which are taken off the screen too,
+    /// variables, or scripts, with what they made.
+    pub(in crate::tab) fn delete_chosen(&mut self) {
+        let section = self.editor.section;
+        let mut chosen = self.chosen();
+        chosen.sort_unstable();
+        let Some(&first) = chosen.first() else {
+            return;
+        };
+        self.keep_for_undo(section, &chosen);
+        // From the last, so that those before keep their places.
+        for &index in chosen.iter().rev() {
+            self.remove_entry(section, index);
+        }
+        self.editor.marked.clear();
+        self.editor.selected[section] = first.saturating_sub(1);
+        self.editor.recording_key = false;
+    }
+
     /// Keeps what is about to be deleted, to have it back for a while.
-    pub(in crate::tab) fn keep_for_undo(&mut self, section: usize, index: usize) {
-        let title = (self.automation_rows().get(index))
-            .map(|row| row.title.clone())
-            .unwrap_or_default();
+    fn keep_for_undo(&mut self, section: usize, indices: &[usize]) {
+        let rows = self.automation_rows();
+        let title = match indices {
+            [index] => (rows.get(*index))
+                .map(|row| row.title.clone())
+                .unwrap_or_default(),
+            _ => trn("{0} item", "{0} items", indices.len() as u64),
+        };
         let what = match section {
-            VARIABLES => match self.scripts.variables().get(index) {
-                Some((name, value)) => Undone::Variable(name.clone(), value.clone()),
-                None => Undone::Nothing,
-            },
-            SCRIPTS => {
-                let path = self.editor.script_files[index].clone();
-                let code = std::fs::read_to_string(&path).unwrap_or_default();
-                Undone::Script(path, code)
+            VARIABLES => {
+                let variables = self.scripts.variables();
+                let kept = indices
+                    .iter()
+                    .filter_map(|&index| variables.get(index).cloned());
+                Undone::Variables(kept.collect())
             }
+            SCRIPTS => Undone::Scripts(
+                (indices.iter())
+                    .filter_map(|&index| self.editor.script_files.get(index))
+                    .map(|path| {
+                        (
+                            path.clone(),
+                            std::fs::read_to_string(path).unwrap_or_default(),
+                        )
+                    })
+                    .collect(),
+            ),
             _ => Undone::Rules(self.editor.draft.clone()),
         };
         self.editor.undo = Some(Undo {
             title,
             section,
-            index,
+            index: indices[0],
             what,
             since: Instant::now(),
         });
     }
 
-    /// Deletes an entry of a section: a rule, a gauge, which is taken off
-    /// the screen too, a variable, or a script, with what it made.
-    pub(in crate::tab) fn remove_entry(&mut self, section: usize, index: usize) {
+    /// Deletes one entry of a section.
+    fn remove_entry(&mut self, section: usize, index: usize) {
         let draft = &mut self.editor.draft;
         if let Some(list) = section_kind(section).and_then(|kind| draft.list_mut(kind)) {
             return list.remove(index);
@@ -152,7 +189,6 @@ impl Tab {
                 &[&error.to_string()],
             ));
         }
-        self.list_scripts();
         self.scripts.unload_file(&path);
         self.run_actions();
     }

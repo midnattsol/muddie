@@ -351,6 +351,35 @@ impl Rules {
     }
 }
 
+/// The order of `len` things once those at `moving` are taken out and put,
+/// in the order they were, before what was at `to`; `len` puts them last.
+pub fn moved_order(len: usize, moving: &[usize], to: usize) -> Vec<usize> {
+    let mut moving: Vec<usize> = moving
+        .iter()
+        .copied()
+        .filter(|&index| index < len)
+        .collect();
+    moving.sort_unstable();
+    moving.dedup();
+    let staying = (0..len).filter(|index| moving.binary_search(index).is_err());
+    let before = (0..to.min(len))
+        .filter(|index| moving.binary_search(index).is_err())
+        .count();
+    let mut order: Vec<usize> = staying.collect();
+    order.splice(before..before, moving);
+    order
+}
+
+/// Puts things in a new order: the one at `order[0]` first, and so on.
+pub fn reorder<T>(items: &mut Vec<T>, order: &[usize]) {
+    let mut taken: Vec<Option<T>> = std::mem::take(items).into_iter().map(Some).collect();
+    items.extend(
+        order
+            .iter()
+            .filter_map(|&index| taken.get_mut(index)?.take()),
+    );
+}
+
 /// The chunks of the rules of one kind complete enough to run.
 fn rule_chunks<T: luau::Luau>(rules: &Vec<Rule<T>>) -> Vec<(String, String)> {
     (0..rules.len())
@@ -383,8 +412,8 @@ pub trait RuleList {
     /// Adds a new one, in a folder; returns where it is.
     fn add(&mut self, folder: &str) -> usize;
     fn remove(&mut self, index: usize);
-    /// Takes one from where it is and puts it before what is at `to`.
-    fn shift(&mut self, from: usize, to: usize);
+    /// Puts them in a new order: the one at `order[0]` first, and so on.
+    fn reorder(&mut self, order: &[usize]);
 }
 
 impl<T: When> RuleList for Vec<Rule<T>> {
@@ -439,10 +468,8 @@ impl<T: When> RuleList for Vec<Rule<T>> {
     fn remove(&mut self, index: usize) {
         Vec::remove(self, index);
     }
-    fn shift(&mut self, from: usize, to: usize) {
-        let moved = Vec::remove(self, from);
-        let to = if to > from { to - 1 } else { to };
-        self.insert(to.min(<[Rule<T>]>::len(self)), moved);
+    fn reorder(&mut self, order: &[usize]) {
+        reorder(self, order);
     }
 }
 

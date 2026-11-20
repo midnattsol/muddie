@@ -21,7 +21,9 @@ impl Tab {
     pub(in crate::tab) fn automation_page(&mut self, ui: &mut egui::Ui) {
         let ctx = &ui.ctx().clone();
         let theme = theme::current();
+        // Escape first gives up a key being recorded, then several chosen.
         let leaving = !self.editor.recording_key
+            && self.editor.marked.len() < 2
             && ui.input_mut(|input| input.consume_key(Modifiers::NONE, Key::Escape));
         let page = egui::Frame::new()
             .fill(theme.surface)
@@ -155,7 +157,7 @@ impl Tab {
             self.editor.draft.macros.len(),
             self.editor.draft.timers.len(),
             self.editor.draft.gauges.len(),
-            self.scripts.variables().len(),
+            self.scripts.variable_count(),
             self.editor.script_files.len(),
         ];
         let names = [
@@ -181,6 +183,7 @@ impl Tab {
             if widgets::nav_item(ui, selected, name, Some(count)).clicked() {
                 self.flush_script();
                 self.editor.section = section;
+                self.editor.marked.clear();
                 self.editor.sample.clear();
                 self.editor.recording_key = false;
             }

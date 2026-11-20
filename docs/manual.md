@@ -187,6 +187,15 @@ choose. Deleting a folder leaves what it held in the folder it was in. A
 folder of scripts is a folder on the disk, in the profile's `scripts`. Each
 folder has a switch: switched off, nothing in it runs, however deep.
 
+Several things are chosen as in a file manager: **Ctrl+click** adds one or
+takes it away, **Shift+click** chooses all from the one chosen before,
+**Ctrl+A** all that is shown, **Shift+↑** and **Shift+↓** one more, and
+**Escape** leaves one. With several chosen, the details show what they have
+in common, and what is changed there is changed in all of them: their
+switch, their folder, their tags; deleting them deletes them all, to be had
+back at once with **Undo**. Dragged, they go together. A right click on a
+row offers the same: switch, move to a folder, delete.
+
 **Tags** switch together what belongs together whatever its kind and its
 folder: a trigger, two aliases and a macro tagged *combat* go off together
 when *combat* is switched off. Give tags in the details of each thing, by

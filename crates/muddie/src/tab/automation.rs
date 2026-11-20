@@ -11,6 +11,7 @@ mod list;
 mod macros;
 mod page;
 mod scripts;
+mod selection;
 mod tags;
 mod timers;
 mod triggers;
@@ -64,12 +65,14 @@ impl Tab {
         }
         self.editor.section = section;
         self.editor.open = true;
+        self.editor.marked.clear();
         self.list_scripts();
     }
 
     /// Chooses one of the rules of a section.
     pub(super) fn select_rule(&mut self, section: usize, index: usize) {
         self.editor.selected[section] = index;
+        self.editor.marked.clear();
     }
 
     /// Opens the automation view where it was left.
@@ -122,6 +125,15 @@ pub(super) struct Editor {
     pub(super) open: bool,
     /// The rule selected in each section of the automation window.
     pub(super) selected: [usize; 8],
+    /// The rows of the current section chosen together, when several are;
+    /// the one selected is among them.
+    pub(super) marked: Vec<usize>,
+    /// The rows of the current section in the order they were shown, for
+    /// choosing a range of them.
+    pub(super) visible: Vec<usize>,
+    /// The folders among the profile's scripts, as they were last looked
+    /// for on the disk.
+    pub(super) script_folders: Vec<String>,
     /// What the automation window's search box holds.
     pub(super) filter: String,
     /// When the rules being edited last changed, to save them after.
@@ -185,6 +197,9 @@ impl Default for Editor {
             seen: Rules::default(),
             open: false,
             selected: [0; 8],
+            marked: Vec::new(),
+            visible: Vec::new(),
+            script_folders: Vec::new(),
             filter: String::new(),
             settle: Default::default(),
             sample: String::new(),

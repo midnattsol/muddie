@@ -193,7 +193,10 @@ impl Tab {
         }
         let section = self.editor.section;
         let index = self.editor.selected[section];
-        if index >= self.automation_rows().len() {
+        if self.chosen().len() > 1 {
+            return self.bulk_detail(ui);
+        }
+        if index >= self.section_len() {
             ui.add_space(60.0);
             let hint = RichText::new(empty_hint(section)).color(theme::current().text_faint);
             ui.vertical_centered(|ui| ui.label(hint));
@@ -210,10 +213,8 @@ impl Tab {
             _ => self.script_detail(ui, index),
         };
         if delete {
-            self.keep_for_undo(section, index);
-            self.remove_entry(section, index);
-            self.editor.selected[section] = index.saturating_sub(1);
-            self.editor.recording_key = false;
+            self.delete_chosen();
+            self.list_scripts();
         }
     }
 }

@@ -110,6 +110,7 @@ impl Tab {
             .map(|kind| self.section_folders(kind))
             .unwrap_or_default();
         self.moved_by_keys(ui, &rows);
+        self.choosing_keys(ui);
         egui::ScrollArea::vertical()
             .auto_shrink(false)
             .show(ui, |ui| {
@@ -127,6 +128,12 @@ impl Tab {
                     folders: &folders,
                 };
                 self.branch(ui, &tree, "", true, &mut spots);
+                self.editor.visible = (spots.iter())
+                    .filter_map(|(spot, _)| match spot {
+                        Spot::Row(index) => Some(*index),
+                        Spot::Folder(_) => None,
+                    })
+                    .collect();
                 // What is under the last row takes a drop at the top level.
                 let rest = ui.available_rect_before_wrap();
                 ui.allocate_rect(rest, egui::Sense::hover());
@@ -192,14 +199,41 @@ impl Tab {
         count: usize,
     ) -> egui::Rect {
         let name = path.rsplit('/').next().unwrap_or(path);
-        if self
-            .editor
-            .renaming
-            .as_ref()
-            .is_some_and(|renaming| renaming.path == path)
-        {
-            return self.folder_name_field(ui, kind, depth);
+        let renaming =
+            (self.editor.renaming.as_ref()).is_some_and(|renaming| renaming.path == path);
+        let rect = match renaming {
+            true => self.folder_name_field(ui, kind, depth, (open, active, count)),
+            false => self.folder_handles(ui, kind, path, depth, (open, active, count)),
+        };
+        // The switch, over the right end of the line, named or not.
+        let place = egui::Rect::from_center_size(
+            rect.right_center() - egui::vec2(25.0, 0.0),
+            egui::vec2(34.0, 20.0),
+        );
+        let mut slot = ui.new_child(
+            egui::UiBuilder::new()
+                .id_salt(("folder switch", kind, path))
+                .max_rect(place),
+        );
+        let mut on = self.editor.draft.folder_on(kind, path);
+        if widgets::switch(&mut slot, &mut on, name).changed() {
+            self.editor.draft.set_folder_on(kind, path, on);
         }
+        rect
+    }
+
+    /// A folder's line as it usually is: opened and closed by a click,
+    /// named again by a double click or from its menu, and dragged into
+    /// another. Returns where it is.
+    fn folder_handles(
+        &mut self,
+        ui: &mut egui::Ui,
+        kind: Kind,
+        path: &str,
+        depth: usize,
+        (open, active, count): (bool, bool, usize),
+    ) -> egui::Rect {
+        let name = path.rsplit('/').next().unwrap_or(path);
         let line = widgets::folder_row(ui, name, depth, open, active, count);
         let line = line.interact(egui::Sense::click_and_drag());
         if line.clicked() {
@@ -216,20 +250,6 @@ impl Tab {
             self.editor.dragged = Some(Dragged::Folder(path.to_owned()));
         }
         line.context_menu(|ui| self.folder_menu(ui, kind, path));
-        // The switch, over the right end of the line.
-        let place = egui::Rect::from_center_size(
-            line.rect.right_center() - egui::vec2(25.0, 0.0),
-            egui::vec2(34.0, 20.0),
-        );
-        let mut slot = ui.new_child(
-            egui::UiBuilder::new()
-                .id_salt(("folder switch", kind, path))
-                .max_rect(place),
-        );
-        let mut on = self.editor.draft.folder_on(kind, path);
-        if widgets::switch(&mut slot, &mut on, name).changed() {
-            self.editor.draft.set_folder_on(kind, path, on);
-        }
         line.rect
     }
 
@@ -251,8 +271,9 @@ impl Tab {
         }
     }
 
-    /// One thing's line: chosen by a click, and dragged to another place.
-    /// Returns where it is.
+    /// One thing's line: chosen by a click, with Ctrl or Shift for several,
+    /// dragged to another place with whatever is chosen with it, and with a
+    /// menu of what can be done with what is chosen. Returns where it is.
     fn list_line(
         &mut self,
         ui: &mut egui::Ui,
@@ -262,20 +283,23 @@ impl Tab {
         active: bool,
     ) -> egui::Rect {
         let section = self.editor.section;
+        let chosen = self.chosen().contains(&index);
         let line = widgets::ListRow {
             title: &row.title,
             detail: &row.detail,
             tags: &row.tags,
-            selected: self.editor.selected[section] == index,
+            selected: chosen,
             active,
             depth,
         }
         .show(ui);
         if line.clicked() {
-            self.editor.selected[section] = index;
-            self.editor.sample.clear();
-            self.editor.recording_key = false;
+            self.choose_row(index, ui.input(|input| input.modifiers));
         }
+        if line.secondary_clicked() && !chosen {
+            self.choose_row(index, Modifiers::NONE);
+        }
+        line.context_menu(|ui| self.row_menu(ui));
         let movable = section != VARIABLES && !self.narrowed();
         if movable {
             let line = line.interact(egui::Sense::drag());
@@ -315,27 +339,7 @@ impl Tab {
             (_, true) if at + 1 < alike.len() => alike[at + 1] + 1,
             _ => return,
         };
-        self.shift_row(from, to);
-    }
-
-    /// Takes the thing at `from` and puts it before what is at `to`, in
-    /// the section on show, keeping it chosen.
-    pub(in crate::tab) fn shift_row(&mut self, from: usize, to: usize) {
-        let section = self.editor.section;
-        if to == from || to == from + 1 {
-            return;
-        }
-        match section_kind(section).and_then(|kind| self.editor.draft.list_mut(kind)) {
-            Some(list) => list.shift(from, to),
-            None if section == GAUGES => {
-                let gauge = self.editor.draft.gauges.remove(from);
-                let at = if to > from { to - 1 } else { to };
-                let at = at.min(self.editor.draft.gauges.len());
-                self.editor.draft.gauges.insert(at, gauge);
-            }
-            None => return,
-        }
-        self.editor.selected[section] = if to > from { to - 1 } else { to };
+        self.move_rows(&[from], to);
     }
 
     /// The button that adds one, which for scripts offers to start from an

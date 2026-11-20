@@ -455,3 +455,113 @@ fn folders_and_tags_file_what_there_is_and_switch_it() {
     assert!(!app.scripts.on_key("f9"));
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn several_are_chosen_with_ctrl_and_shift_and_changed_together() {
+    let mut harness = window(None);
+    harness.set_size(egui::vec2(1400.0, 800.0));
+    let app = harness.state_mut().tab_mut();
+    for name in ["Alpha", "Beta", "Gamma", "Delta"] {
+        app.rules
+            .triggers
+            .push(trigger(&name.to_lowercase(), |rule| {
+                rule.name = name.into()
+            }));
+    }
+    app.rules.set_folder_on(Kind::Trigger, "Combat", true);
+    app.open_automation(automation::TRIGGERS);
+    harness.run_steps(3);
+    let chosen = |harness: &Harness<'_, App>| harness.state().tab().chosen();
+    // Ctrl adds one, Shift a range from the one chosen before.
+    harness.get_by_label("Alpha").click();
+    harness.run_steps(2);
+    harness
+        .get_by_label("Gamma")
+        .click_modifiers(Modifiers::COMMAND);
+    harness.run_steps(2);
+    assert_eq!(chosen(&harness), [0, 2]);
+    harness.get_by_label_contains("2 chosen");
+    harness
+        .get_by_label("Delta")
+        .click_modifiers(Modifiers::SHIFT);
+    harness.run_steps(2);
+    assert_eq!(chosen(&harness), [2, 3]);
+    // Switched off together, and deleted together, to be had back at once.
+    harness
+        .get_by_role_and_label(egui::accesskit::Role::Switch, "Enabled")
+        .click();
+    harness.run_steps(2);
+    let draft = &harness.state().tab().editor.draft;
+    let on: Vec<bool> = draft.triggers.iter().map(|rule| rule.enabled).collect();
+    assert_eq!(on, [true, true, false, false]);
+    harness.get_by_label("Delete").click();
+    harness.run_steps(2);
+    assert_eq!(harness.state().tab().editor.draft.triggers.len(), 2);
+    harness.get_by_label_contains("Deleted 2 items.");
+    harness.get_by_label("Undo").click();
+    harness.run_steps(3);
+    assert_eq!(harness.state().tab().editor.draft.triggers.len(), 4);
+    // Dragged with the mouse onto a folder, one goes into it.
+    harness.get_by_label("Beta").click();
+    harness.run_steps(2);
+    let from = harness.get_by_label("Beta").rect().center();
+    let into = (harness.get_by_role_and_label(egui::accesskit::Role::TreeItem, "Combat"))
+        .rect()
+        .center();
+    let pointer = |harness: &mut Harness<'_, App>, at: egui::Pos2, pressed: Option<bool>| {
+        harness.event(egui::Event::PointerMoved(at));
+        if let Some(pressed) = pressed {
+            harness.event(egui::Event::PointerButton {
+                pos: at,
+                button: egui::PointerButton::Primary,
+                pressed,
+                modifiers: Modifiers::NONE,
+            });
+        }
+        harness.run_steps(2);
+    };
+    pointer(&mut harness, from, Some(true));
+    pointer(&mut harness, from + egui::vec2(0.0, -12.0), None);
+    pointer(&mut harness, into, None);
+    pointer(&mut harness, into, Some(false));
+    let draft = &harness.state().tab().editor.draft;
+    assert_eq!(draft.triggers[1].folder, "Combat");
+    // Ctrl+A chooses all that is shown; Escape leaves the one selected.
+    harness.key_press_modifiers(Modifiers::COMMAND, Key::A);
+    harness.run_steps(2);
+    assert_eq!(chosen(&harness).len(), 4);
+    harness.key_press(Key::Escape);
+    harness.run_steps(2);
+    assert_eq!(chosen(&harness).len(), 1);
+    assert!(
+        harness.state().tab().editor.open,
+        "Escape went back to the game"
+    );
+}
+
+#[test]
+fn a_new_folder_is_named_in_its_line_and_a_name_taken_is_kept_to_change() {
+    let mut harness = window(None);
+    harness.set_size(egui::vec2(1400.0, 800.0));
+    let app = harness.state_mut().tab_mut();
+    app.rules.set_folder_on(Kind::Alias, "Travel", true);
+    app.open_automation(automation::ALIASES);
+    harness.run_steps(3);
+    harness.get_by_label("New folder").click();
+    harness.run_steps(3);
+    // Its name is chosen: what is typed replaces it.
+    harness.get_by_label("Folder name").type_text("Travel");
+    harness.run_steps(2);
+    harness.key_press(Key::Enter);
+    harness.run_steps(2);
+    let app = harness.state().tab();
+    assert!(app.editor.renaming.is_some(), "a name taken was given");
+    assert_eq!(app.editor.renaming.as_ref().unwrap().typed, "Travel");
+    harness.get_by_label("Folder name").type_text(" home");
+    harness.run_steps(2);
+    harness.key_press(Key::Enter);
+    harness.run_steps(3);
+    let app = harness.state().tab();
+    assert!(app.editor.renaming.is_none());
+    assert_eq!(app.section_folders(Kind::Alias), ["Travel", "Travel home"]);
+}

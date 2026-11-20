@@ -1656,3 +1656,29 @@ msgstr "Macro nueva"
 
 msgid "New timer"
 msgstr "Temporizador nuevo"
+
+
+msgid "Disable"
+msgstr "Desactivar"
+
+msgid "Move to folder"
+msgstr "Mover a la carpeta"
+
+#, python-brace-format
+msgid "{0} chosen"
+msgid_plural "{0} chosen"
+msgstr[0] "{0} elegido"
+msgstr[1] "{0} elegidos"
+
+msgid "What is changed here is changed in all of them."
+msgstr "Lo que cambies aquí cambia en todos ellos."
+
+#, python-brace-format
+msgid "{0} item"
+msgid_plural "{0} items"
+msgstr[0] "{0} elemento"
+msgstr[1] "{0} elementos"
+
+
+msgid "Several folders"
+msgstr "Varias carpetas"

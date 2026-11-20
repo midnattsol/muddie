@@ -270,7 +270,7 @@ fn gauges_are_shown_in_the_order_of_the_editor() {
     assert_eq!(names(harness.state().tab()), ["HP", "Gold", "MP"]);
     // Dropped before another, as dragging does.
     let app = harness.state_mut().tab_mut();
-    app.shift_row(2, 0);
+    app.move_rows(&[2], 0);
     assert_eq!(names(app), ["MP", "HP", "Gold"]);
     app.close_automation();
     harness.run_steps(3);

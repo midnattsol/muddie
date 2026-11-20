@@ -38,6 +38,11 @@ impl Engine {
         all
     }
 
+    /// How many values are remembered.
+    pub fn variable_count(&self) -> usize {
+        self.state.borrow().memory.len()
+    }
+
     /// Remembers a value, or forgets it if given none, and saves.
     pub fn set_variable(
         &mut self,

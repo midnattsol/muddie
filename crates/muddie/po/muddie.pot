@@ -225,6 +225,10 @@ msgstr ""
 msgid "Logging stopped: {0}"
 msgstr ""
 
+#, python-brace-format
+msgid "The map will not be saved: {0}"
+msgstr ""
+
 msgid "Cannot log: no configuration folder was found."
 msgstr ""
 
@@ -248,10 +252,6 @@ msgstr ""
 
 #, python-brace-format
 msgid "Unknown text encoding {0}; using the automatic one."
-msgstr ""
-
-#, python-brace-format
-msgid "The map will not be saved: {0}"
 msgstr ""
 
 msgid "The map will not be saved: no data folder was found."
@@ -821,6 +821,25 @@ msgstr ""
 msgid "Key"
 msgstr ""
 
+msgid "Disable"
+msgstr ""
+
+msgid "Move to folder"
+msgstr ""
+
+msgid "None"
+msgstr ""
+
+msgid "Enabled"
+msgstr ""
+
+#, python-brace-format
+msgid "{0} chosen"
+msgstr ""
+
+msgid "What is changed here is changed in all of them."
+msgstr ""
+
 #, python-brace-format
 msgid "Could not save the script: {0}"
 msgstr ""
@@ -833,6 +852,10 @@ msgid "Deleted {0}."
 msgstr ""
 
 msgid "Undo"
+msgstr ""
+
+#, python-brace-format
+msgid "{0} item"
 msgstr ""
 
 #, python-brace-format
@@ -907,9 +930,6 @@ msgid "Script"
 msgstr ""
 
 msgid "Run"
-msgstr ""
-
-msgid "Enabled"
 msgstr ""
 
 #, python-brace-format
@@ -1006,9 +1026,6 @@ msgstr ""
 msgid "Press the key…"
 msgstr ""
 
-msgid "None"
-msgstr ""
-
 msgid "Cancel"
 msgstr ""
 
@@ -1097,6 +1114,9 @@ msgid "Tags"
 msgstr ""
 
 msgid "Folder"
+msgstr ""
+
+msgid "Several folders"
 msgstr ""
 
 msgid "No gauges here yet."
