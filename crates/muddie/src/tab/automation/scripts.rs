@@ -246,14 +246,9 @@ impl Tab {
                 ui.add_space(6.0);
                 widgets::switch(ui, &mut kept.enabled, tr("Enabled")).on_hover_text(tr("Enabled"));
                 off_badge(ui, kept.enabled);
-                let title = TextEdit::singleline(&mut self.editor.script_name)
-                    .font(theme::font(Weight::Semibold, 20.0))
-                    .frame(egui::Frame::NONE)
-                    .interactive(own)
-                    .desired_width(f32::INFINITY);
-                let field = ui.add(title);
-                ui.ctx()
-                    .accesskit_node_builder(field.id, |node| node.set_label(tr("Name")));
+                let font = theme::font(Weight::Semibold, 20.0);
+                let (name, rename) = (&mut self.editor.script_name, &mut self.editor.rename);
+                name_field(ui, name, font, "", rename, own);
             });
         });
         ui.add(egui::Separator::default().spacing(2.0));

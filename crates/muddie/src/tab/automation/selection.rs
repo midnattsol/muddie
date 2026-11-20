@@ -69,21 +69,34 @@ impl Tab {
         self.editor.recording_key = false;
     }
 
-    /// The keys that choose, while no field has them: Ctrl+A chooses all
-    /// that is shown, Shift and an arrow add the one above or below what
-    /// is chosen, and Escape leaves the one selected.
+    /// The keys of the list, while no field has them, as in any list:
+    /// the arrows go up and down it, Home and End to its ends; with Shift
+    /// they add the one above or below to what is chosen, and Ctrl+A
+    /// chooses all that is shown; Escape leaves one chosen; Delete deletes
+    /// what is chosen and F2 renames it.
     pub(in crate::tab) fn choosing_keys(&mut self, ui: &mut egui::Ui) {
         if ui.memory(|memory| memory.focused().is_some()) {
             return;
         }
-        let (all, up, down, back) = ui.input_mut(|input| {
+        // Those with Shift first: without it, the plain ones would take
+        // them too.
+        let (wider_up, wider_down) = ui.input_mut(|input| {
             (
-                input.consume_key(Modifiers::COMMAND, Key::A),
                 input.consume_key(Modifiers::SHIFT, Key::ArrowUp),
                 input.consume_key(Modifiers::SHIFT, Key::ArrowDown),
-                self.editor.marked.len() > 1 && input.consume_key(Modifiers::NONE, Key::Escape),
             )
         });
+        let pressed = |key: Key| ui.input_mut(|input| input.consume_key(Modifiers::NONE, key));
+        let (up, down, home, end) = (
+            pressed(Key::ArrowUp),
+            pressed(Key::ArrowDown),
+            pressed(Key::Home),
+            pressed(Key::End),
+        );
+        let (delete, rename) = (pressed(Key::Delete), pressed(Key::F2));
+        let all = ui.input_mut(|input| input.consume_key(Modifiers::COMMAND, Key::A));
+        let back = self.editor.marked.len() > 1
+            && ui.input_mut(|input| input.consume_key(Modifiers::NONE, Key::Escape));
         let visible = self.editor.visible.clone();
         if all && visible.len() > 1 {
             self.editor.marked = visible.clone();
@@ -91,13 +104,36 @@ impl Tab {
         if back {
             self.editor.marked.clear();
         }
+        if delete && !self.chosen().is_empty() {
+            self.delete_chosen();
+            self.list_scripts();
+            return;
+        }
+        if rename && self.chosen().len() == 1 {
+            self.editor.rename = true;
+        }
         let chosen = self.chosen();
         let at = |row: usize| visible.iter().position(|&shown| shown == row);
-        let ends = (chosen.iter().filter_map(|&row| at(row)).min())
-            .zip(chosen.iter().filter_map(|&row| at(row)).max());
-        let added = match (ends, up, down) {
-            (Some((first, _)), true, _) if first > 0 => Some(visible[first - 1]),
-            (Some((_, last)), _, true) => visible.get(last + 1).copied(),
+        let shown: Vec<usize> = chosen.iter().filter_map(|&row| at(row)).collect();
+        let (first, last) = (shown.iter().min().copied(), shown.iter().max().copied());
+        let current = at(self.editor.selected[self.editor.section]);
+        // Going: to the one above or below the one selected, or to an end.
+        let to = match (up, down, home, end, current) {
+            (true, _, _, _, Some(at)) => Some(at.saturating_sub(1)),
+            (_, true, _, _, Some(at)) => Some((at + 1).min(visible.len().saturating_sub(1))),
+            (_, _, true, _, _) => Some(0),
+            (_, _, _, true, _) => visible.len().checked_sub(1),
+            (true, _, _, _, None) | (_, true, _, _, None) => Some(0),
+            _ => None,
+        };
+        if let Some(&row) = to.and_then(|to| visible.get(to)) {
+            self.choose_row(row, Modifiers::NONE);
+            return;
+        }
+        // Widening: what is chosen, and the one above or below it.
+        let added = match (first, last, wider_up, wider_down) {
+            (Some(first), _, true, _) if first > 0 => Some(visible[first - 1]),
+            (_, Some(last), _, true) => visible.get(last + 1).copied(),
             _ => None,
         };
         if let Some(row) = added {
@@ -265,7 +301,11 @@ impl Tab {
             }
         }
         widgets::menu_separator(ui);
-        if widgets::menu_item(ui, tr("Delete"), "").clicked() {
+        if chosen.len() == 1 && widgets::menu_item(ui, tr("Rename"), "F2").clicked() {
+            self.editor.rename = true;
+            ui.close();
+        }
+        if widgets::menu_item(ui, tr("Delete"), tr("Del")).clicked() {
             self.delete_chosen();
             self.list_scripts();
             ui.close();

@@ -18,11 +18,12 @@ impl Tab {
     ) -> bool {
         let folders = self.section_folders(kind);
         let known = self.editor.draft.tag_names();
+        let rename = &mut self.editor.rename;
         let Some(list) = self.editor.draft.list_mut(kind) else {
             return false;
         };
         let head = list.head_mut(index);
-        let delete = rule_header(ui, head.name, head.enabled, hint);
+        let delete = rule_header(ui, head.name, head.enabled, hint, rename);
         folder_row(ui, head.folder, &folders, false);
         tags_row(ui, ("rule tags", kind, index), head.tags, &known);
         let (on, folder, tags) = (*head.enabled, head.folder.clone(), head.tags.clone());

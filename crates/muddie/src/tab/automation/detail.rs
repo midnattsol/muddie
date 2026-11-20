@@ -136,27 +136,55 @@ pub(in crate::tab) fn rule_header(
     name: &mut String,
     enabled: &mut bool,
     hint: &str,
+    rename: &mut bool,
 ) -> bool {
-    let theme = theme::current();
     let mut delete = false;
     ui.horizontal(|ui| {
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             delete = widgets::icon_button(ui, widgets::Icon::Trash, tr("Delete"), false).clicked();
             widgets::switch(ui, enabled, tr("Enabled")).on_hover_text(tr("Enabled"));
             off_badge(ui, *enabled);
-            let title = TextEdit::singleline(name)
-                .font(theme::font(Weight::Semibold, 20.0))
-                .hint_text(RichText::new(hint).color(theme.text_faint))
-                .frame(egui::Frame::NONE)
-                .desired_width(f32::INFINITY);
-            let field = ui.add(title);
-            ui.ctx().accesskit_node_builder(field.id, |node| {
-                node.set_label(tr("Name"));
-            });
+            let font = theme::font(Weight::Semibold, 20.0);
+            name_field(ui, name, font, hint, rename, true);
         });
     });
     ui.add(egui::Separator::default().spacing(2.0));
     delete
+}
+
+/// The name at the head of the details, whatever they are of, edited where
+/// it is: in its own font, with no frame. When renaming is asked for (F2,
+/// or Rename in a row's menu) it is given the keys with its text chosen,
+/// to be typed over.
+pub(in crate::tab) fn name_field(
+    ui: &mut egui::Ui,
+    name: &mut String,
+    font: egui::FontId,
+    hint: &str,
+    rename: &mut bool,
+    editable: bool,
+) -> egui::Response {
+    let id = ui.make_persistent_id("detail name");
+    let field = ui.add(
+        TextEdit::singleline(name)
+            .id(id)
+            .font(font)
+            .hint_text(RichText::new(hint).color(theme::current().text_faint))
+            .frame(egui::Frame::NONE)
+            .interactive(editable)
+            .desired_width(f32::INFINITY),
+    );
+    ui.ctx()
+        .accesskit_node_builder(field.id, |node| node.set_label(tr("Name")));
+    if std::mem::take(rename) && editable {
+        field.request_focus();
+        if let Some(mut state) = TextEdit::load_state(ui.ctx(), id) {
+            let all = egui::text::CCursorRange::select_all_str(name);
+            state.cursor.set_char_range(Some(all));
+            state.store(ui.ctx(), id);
+        }
+    }
+    field
 }
 
 /// How many rows of code fit in a view `height` tall once `taken` of it

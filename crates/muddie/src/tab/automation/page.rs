@@ -21,8 +21,12 @@ impl Tab {
     pub(in crate::tab) fn automation_page(&mut self, ui: &mut egui::Ui) {
         let ctx = &ui.ctx().clone();
         let theme = theme::current();
-        // Escape first gives up a key being recorded, then several chosen.
+        // Escape first gives up a key being recorded, a field being typed
+        // in, and several chosen; only then the editor. Whether a field was
+        // being typed in is as it was before this frame: Escape has already
+        // taken it from the field.
         let leaving = !self.editor.recording_key
+            && !self.editor.was_typing
             && self.editor.marked.len() < 2
             && ui.input_mut(|input| input.consume_key(Modifiers::NONE, Key::Escape));
         let page = egui::Frame::new()
@@ -62,6 +66,7 @@ impl Tab {
                     .show(ui, |ui| tab.automation_detail(ui));
             });
         });
+        self.editor.was_typing = ui.memory(|memory| memory.focused().is_some());
         self.rules_autosave(ctx, !leaving);
     }
 

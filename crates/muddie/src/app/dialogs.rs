@@ -10,7 +10,7 @@ impl App {
             &mut self.show_shortcuts,
             size::DIALOG_S,
             |ui| {
-                let groups: [(&str, &[(&str, &str)]); 4] = [
+                let groups: [(&str, &[(&str, &str)]); 5] = [
                     (
                         tr("Typing"),
                         &[
@@ -26,7 +26,7 @@ impl App {
                             ("Ctrl", tr("Silence speech")),
                             ("Alt+↑  Alt+↓", tr("Read the previous and next line")),
                             ("Alt+1 … Alt+9", tr("Read the most recent lines")),
-                            ("Alt+Shift+↑ …", tr("Same, for the panel of channels")),
+                            (tr("Alt+Shift+↑ …"), tr("Same, for the panel of channels")),
                             ("Alt+0", tr("Read the gauges")),
                         ],
                     ),
@@ -39,6 +39,21 @@ impl App {
                             ("Ctrl+K", tr("Commands")),
                             ("Ctrl+E", tr("Switch between the game and the editor")),
                             ("Ctrl+D", tr("Show incoming data")),
+                        ],
+                    ),
+                    (
+                        tr("Editor"),
+                        &[
+                            ("↑  ↓", tr("Choose the one above or below")),
+                            (
+                                tr("Ctrl+click  Shift+click"),
+                                tr("Choose several, or a range"),
+                            ),
+                            ("Ctrl+A", tr("Choose all that is shown")),
+                            ("Alt+↑  Alt+↓", tr("Move it up or down")),
+                            ("F2", tr("Rename")),
+                            (tr("Del"), tr("Delete")),
+                            ("Ctrl+Z", tr("Undo")),
                         ],
                     ),
                     (tr("Panels"), &[("Ctrl+M", tr("Show or hide the map"))]),

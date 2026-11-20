@@ -150,14 +150,9 @@ impl Tab {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 delete =
                     widgets::icon_button(ui, widgets::Icon::Trash, tr("Delete"), false).clicked();
-                let title = TextEdit::singleline(&mut self.editor.variable_name)
-                    .font(egui::FontId::monospace(19.0))
-                    .frame(egui::Frame::NONE)
-                    .desired_width(f32::INFINITY);
-                let field = ui.add(title);
-                ui.ctx()
-                    .accesskit_node_builder(field.id, |node| node.set_label(tr("Name")));
-                renamed = field.lost_focus();
+                let font = egui::FontId::monospace(19.0);
+                let (name, rename) = (&mut self.editor.variable_name, &mut self.editor.rename);
+                renamed = name_field(ui, name, font, "", rename, true).lost_focus();
             });
         });
         ui.add(egui::Separator::default().spacing(2.0));

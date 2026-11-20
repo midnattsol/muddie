@@ -163,6 +163,10 @@ pub(super) struct Editor {
     pub(super) dragged: Option<Dragged>,
     /// The folder whose name is being typed.
     pub(super) renaming: Option<Renaming>,
+    /// The name in the details is to be given the keys, to type a new one.
+    pub(super) rename: bool,
+    /// Whether a field had the keys at the end of the last frame.
+    pub(super) was_typing: bool,
     /// The trigger whose details are shown, and what it was asked to do
     /// besides its commands though that is still empty.
     pub(super) extras_added: (usize, Vec<automation::Extra>),
@@ -215,6 +219,8 @@ impl Default for Editor {
             recording_key: false,
             dragged: None,
             renaming: None,
+            rename: false,
+            was_typing: false,
             extras_added: (usize::MAX, Vec::new()),
             gauge_here: None,
             undo: None,

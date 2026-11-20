@@ -565,3 +565,57 @@ fn a_new_folder_is_named_in_its_line_and_a_name_taken_is_kept_to_change() {
     assert!(app.editor.renaming.is_none());
     assert_eq!(app.section_folders(Kind::Alias), ["Travel", "Travel home"]);
 }
+
+#[test]
+fn the_list_answers_the_keys_any_list_does() {
+    let mut harness = window(None);
+    harness.set_size(egui::vec2(1400.0, 800.0));
+    let app = harness.state_mut().tab_mut();
+    for name in ["Alpha", "Beta", "Gamma"] {
+        app.rules
+            .aliases
+            .push(alias(&name.to_lowercase(), |rule| rule.name = name.into()));
+    }
+    app.open_automation(automation::ALIASES);
+    harness.run_steps(3);
+    let selected = |harness: &Harness<'_, App>| harness.state().tab().chosen();
+    // The arrows go down and up it, Home and End to its ends.
+    harness.key_press(Key::ArrowDown);
+    harness.run_steps(2);
+    assert_eq!(selected(&harness), [1]);
+    harness.key_press(Key::End);
+    harness.run_steps(2);
+    assert_eq!(selected(&harness), [2]);
+    harness.key_press(Key::Home);
+    harness.run_steps(2);
+    assert_eq!(selected(&harness), [0]);
+    // F2 gives the name the keys; Escape there leaves the name, not the
+    // editor.
+    harness.key_press(Key::F2);
+    harness.run_steps(2);
+    harness.key_press(Key::Escape);
+    harness.run_steps(2);
+    assert!(
+        harness.state().tab().editor.open,
+        "Escape in the name left the editor"
+    );
+    // Its text is chosen, to be typed over.
+    harness.key_press(Key::F2);
+    harness.run_steps(2);
+    harness.get_by_label("Name").type_text("First");
+    harness.run_steps(2);
+    assert_eq!(harness.state().tab().editor.draft.aliases[0].name, "First");
+    // Another clicked, out of the name, Delete deletes it, to be had back.
+    harness.get_by_label("Beta").click();
+    harness.run_steps(2);
+    harness.key_press(Key::Delete);
+    harness.run_steps(2);
+    let names = |harness: &Harness<'_, App>| -> Vec<String> {
+        let aliases = &harness.state().tab().editor.draft.aliases;
+        aliases.iter().map(|rule| rule.name.clone()).collect()
+    };
+    assert_eq!(names(&harness), ["First", "Gamma"]);
+    harness.key_press_modifiers(Modifiers::COMMAND, Key::Z);
+    harness.run_steps(2);
+    assert_eq!(names(&harness), ["First", "Beta", "Gamma"]);
+}

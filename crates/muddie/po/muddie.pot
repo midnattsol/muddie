@@ -770,9 +770,6 @@ msgstr ""
 msgid "Delete"
 msgstr ""
 
-msgid "Name"
-msgstr ""
-
 msgid "A name is made of letters, digits and _, and does not start with a digit."
 msgstr ""
 
@@ -822,6 +819,12 @@ msgid "Move to folder"
 msgstr ""
 
 msgid "None"
+msgstr ""
+
+msgid "Rename"
+msgstr ""
+
+msgid "Del"
 msgstr ""
 
 msgid "Enabled"
@@ -978,6 +981,9 @@ msgstr ""
 msgid "Matches:"
 msgstr ""
 
+msgid "Name"
+msgstr ""
+
 msgid ""
 "A trigger reacts to what the MUD sends:\n"
 "it can answer, speak, play a sound, colour or hide the line."
@@ -1073,9 +1079,6 @@ msgstr ""
 msgid ""
 "Nothing here yet.\n"
 "Press + to make one."
-msgstr ""
-
-msgid "Rename"
 msgstr ""
 
 msgid "New folder inside"
@@ -1446,6 +1449,9 @@ msgstr ""
 msgid "Read the most recent lines"
 msgstr ""
 
+msgid "Alt+Shift+↑ …"
+msgstr ""
+
 msgid "Same, for the panel of channels"
 msgstr ""
 
@@ -1459,6 +1465,21 @@ msgid "Switch between the game and the editor"
 msgstr ""
 
 msgid "Show incoming data"
+msgstr ""
+
+msgid "Choose the one above or below"
+msgstr ""
+
+msgid "Ctrl+click  Shift+click"
+msgstr ""
+
+msgid "Choose several, or a range"
+msgstr ""
+
+msgid "Choose all that is shown"
+msgstr ""
+
+msgid "Move it up or down"
 msgstr ""
 
 msgid "Show or hide the map"

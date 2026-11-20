@@ -192,7 +192,11 @@ choose. Deleting a folder leaves what it held in the folder it was in. A
 folder of scripts is a folder on the disk, in the profile's `scripts`. Each
 folder has a switch: switched off, nothing in it runs, however deep.
 
-Several things are chosen as in a file manager: **Ctrl+click** adds one or
+The list answers the keys any list does while no field is being typed in:
+**↑** and **↓** choose the one above or below, **Home** and **End** the
+first and the last, **F2** renames the one chosen, **Del** deletes what is
+chosen, and **Ctrl+Z** has it back. Escape leaves a field being typed in
+before it leaves the editor. Several things are chosen as in a file manager: **Ctrl+click** adds one or
 takes it away, **Shift+click** chooses all from the one chosen before,
 **Ctrl+A** all that is shown, **Shift+↑** and **Shift+↓** one more, and
 **Escape** leaves one. With several chosen, the details show what they have

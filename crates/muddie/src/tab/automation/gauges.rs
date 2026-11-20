@@ -11,7 +11,14 @@ impl Tab {
             .collect();
         ui.set_max_width(ui.available_width().min(760.0));
         let rule = &mut self.editor.draft.gauges[index];
-        let delete = rule_header(ui, &mut rule.name, &mut rule.enabled, tr("Name this gauge"));
+        let hint = tr("Name this gauge");
+        let delete = rule_header(
+            ui,
+            &mut rule.name,
+            &mut rule.enabled,
+            hint,
+            &mut self.editor.rename,
+        );
         kind_row(ui, rule);
         follows(ui, rule);
         colours(ui, rule);

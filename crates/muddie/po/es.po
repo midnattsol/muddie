@@ -1681,3 +1681,25 @@ msgstr "Conectando a {0}:{1}…"
 
 msgid "Say"
 msgstr "Decir en voz alta"
+
+
+msgid "Del"
+msgstr "Supr"
+
+msgid "Ctrl+click  Shift+click"
+msgstr "Ctrl+clic  Mayús+clic"
+
+msgid "Alt+Shift+↑ …"
+msgstr "Alt+Mayús+↑ …"
+
+msgid "Choose the one above or below"
+msgstr "Elegir el de arriba o el de abajo"
+
+msgid "Choose several, or a range"
+msgstr "Elegir varios, o un rango"
+
+msgid "Choose all that is shown"
+msgstr "Elegir todo lo que se ve"
+
+msgid "Move it up or down"
+msgstr "Moverlo arriba o abajo"
