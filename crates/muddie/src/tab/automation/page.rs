@@ -198,9 +198,9 @@ impl Tab {
         self.sidebar_foot(ui);
     }
 
-    /// The foot of the sections: whether what is edited is saved, and
-    /// restarting the scripts, with when that was last done and what
-    /// failed then.
+    /// The foot of the sections: restarting the scripts, with when that
+    /// was last done and what failed then. What is edited is saved by
+    /// itself, and only saving that fails is said, as any failure is.
     fn sidebar_foot(&mut self, ui: &mut egui::Ui) {
         let theme = theme::current();
         let small = |text: &str, colour| {
@@ -208,18 +208,6 @@ impl Tab {
                 .font(theme::font(Weight::Regular, 11.5))
                 .color(colour)
         };
-        let saved =
-            self.editor.draft == self.rules && self.editor.script_text == self.editor.script_saved;
-        let state = if saved {
-            tr("All changes saved")
-        } else {
-            tr("Saving…")
-        };
-        ui.horizontal(|ui| {
-            ui.add_space(10.0);
-            ui.label(small(state, theme.text_faint));
-        });
-        ui.add_space(crate::theme::size::GAP_S);
         ui.horizontal(|ui| {
             ui.add_space(6.0);
             let restart = widgets::button(ui, tr("Restart scripts")).on_hover_text(tr(

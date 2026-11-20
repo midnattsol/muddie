@@ -631,12 +631,6 @@ msgstr ""
 msgid "Resize"
 msgstr ""
 
-msgid "All changes saved"
-msgstr ""
-
-msgid "Saving…"
-msgstr ""
-
 msgid "Restart scripts"
 msgstr ""
 

@@ -380,12 +380,6 @@ msgstr "Dejar de caminar"
 msgid "Server"
 msgstr "Servidor"
 
-msgid "All changes saved"
-msgstr "Todos los cambios guardados"
-
-msgid "Saving…"
-msgstr "Guardando…"
-
 msgid "Search"
 msgstr "Buscar"
 
@@ -1730,4 +1724,3 @@ msgid "{0} result"
 msgid_plural "{0} results"
 msgstr[0] "{0} resultado"
 msgstr[1] "{0} resultados"
-
