@@ -141,3 +141,32 @@ pub(crate) fn entity(name: &str) -> Option<char> {
         _ => return None,
     })
 }
+
+/// What a tag was given: by name, or by where it is among those given
+/// without one.
+pub(crate) struct Attributes(pub(crate) Vec<(Option<String>, String)>);
+
+impl Attributes {
+    /// The one called `key`, or else the one without a name at `position`.
+    pub(crate) fn get(&self, key: &str, position: usize) -> Option<&str> {
+        let named = self.0.iter().find(|(name, _)| name.as_deref() == Some(key));
+        let positional = self
+            .0
+            .iter()
+            .filter(|(name, _)| name.is_none())
+            .nth(position);
+        named.or(positional).map(|(_, value)| value.as_str())
+    }
+
+    /// The same, as text: empty if not given.
+    pub(crate) fn text(&self, key: &str, position: usize) -> String {
+        self.get(key, position).unwrap_or_default().to_owned()
+    }
+
+    /// Whether a word was given, by name or as a value of its own.
+    pub(crate) fn has(&self, word: &str) -> bool {
+        (self.0.iter()).any(|(name, value)| {
+            name.as_deref() == Some(word) || (name.is_none() && value.eq_ignore_ascii_case(word))
+        })
+    }
+}

@@ -145,6 +145,9 @@ impl Assembler {
         std::mem::take(&mut self.asked)
     }
 
+    /// Does what a tag says: defines something, closes what it opened,
+    /// stands for the tags an element was defined as, formats text, or,
+    /// from the server alone, the rest.
     pub(crate) fn carry_out(&mut self, tag: &str, out: &mut Vec<Line>, depth: u8) {
         let secure = self.mode == MxpMode::Secure;
         // Definitions are the server's to make, not another player's.
@@ -169,25 +172,16 @@ impl Assembler {
         {
             return self.open_element(&name, &element, &attributes, out, depth);
         }
-        let attribute = |key: &str, position: usize| {
-            let named = attributes
-                .iter()
-                .find(|(name, _)| name.as_deref() == Some(key));
-            let positional = attributes
-                .iter()
-                .filter(|(name, _)| name.is_none())
-                .nth(position);
-            named.or(positional).map(|(_, value)| value.as_str())
-        };
-        let said = |word: &str| {
-            (attributes.iter()).any(|(name, value)| {
-                name.as_deref() == Some(word)
-                    || (name.is_none() && value.eq_ignore_ascii_case(word))
-            })
-        };
-        let text =
-            |key: &str, position: usize| attribute(key, position).unwrap_or_default().to_owned();
-        match name.as_str() {
+        let given = Attributes(attributes);
+        if !self.formatting_tag(&name, &given, out) && secure {
+            self.secure_tag(&name, &given, out);
+        }
+    }
+
+    /// The tags anyone may send: of the look of text and of its lines.
+    /// Returns whether it was one.
+    fn formatting_tag(&mut self, name: &str, given: &Attributes, out: &mut Vec<Line>) -> bool {
+        match name {
             "b" | "bold" | "strong" | "h" | "high" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => {
                 self.format(|style| style.bold = true)
             }
@@ -197,9 +191,10 @@ impl Assembler {
             // Kept as they are: text here is of one size and one face.
             "small" | "tt" => self.format(|_| {}),
             "c" | "color" | "font" => {
-                let fore = attribute(if name == "font" { "color" } else { "fore" }, 0)
+                let fore = given
+                    .get(if name == "font" { "color" } else { "fore" }, 0)
                     .and_then(named_color);
-                let back = attribute("back", 1).and_then(named_color);
+                let back = given.get("back", 1).and_then(named_color);
                 self.format(|style| {
                     style.fg = fore.unwrap_or(style.fg);
                     style.bg = back.unwrap_or(style.bg);
@@ -210,152 +205,164 @@ impl Assembler {
             "sbr" => self.line.push(' ', self.style),
             "nobr" => self.no_break = true,
             "p" => self.paragraph = true,
-            "hr" => {
-                if !self.line.is_empty() {
-                    self.push_line(out);
-                }
-                (0..40).for_each(|_| self.line.push('─', self.style));
-                self.push_line(out);
-            }
-            "send" if secure => {
-                self.open_link(Link {
-                    href: attribute("href", 0).map(str::to_owned),
-                    hint: text("hint", 1),
-                    name: attribute("expire", usize::MAX)
-                        .unwrap_or_default()
-                        .to_owned(),
-                    prompt: said("prompt"),
-                    ..Link::default()
-                });
-            }
-            "a" if secure => {
-                if let Some(href) = attribute("href", 0) {
+            "hr" => self.rule(out),
+            _ => return false,
+        }
+        true
+    }
+
+    /// The tags only the server may send: links, values, gauges, frames,
+    /// pictures, sounds, and what the client is asked about itself.
+    fn secure_tag(&mut self, name: &str, given: &Attributes, out: &mut Vec<Line>) {
+        match name {
+            "send" => self.open_link(Link {
+                href: given.get("href", 0).map(str::to_owned),
+                hint: given.text("hint", 1),
+                name: given.text("expire", usize::MAX),
+                prompt: given.has("prompt"),
+                ..Link::default()
+            }),
+            "a" => {
+                if let Some(href) = given.get("href", 0) {
                     self.open_link(Link {
                         href: Some(href.to_owned()),
-                        hint: text("hint", 1),
-                        name: attribute("expire", usize::MAX)
-                            .unwrap_or_default()
-                            .to_owned(),
+                        hint: given.text("hint", 1),
+                        name: given.text("expire", usize::MAX),
                         web: true,
                         ..Link::default()
                     });
                 }
             }
-            "expire" if secure => self.asked.push(Mxp::Expire(text("name", 0))),
+            "expire" => self.asked.push(Mxp::Expire(given.text("name", 0))),
             // What follows, up to where it closes, is a value by a name.
-            "v" | "var" if secure => {
-                let name = text("name", 0);
+            "v" | "var" => {
+                let name = given.text("name", 0);
                 if !name.is_empty() {
                     self.values.push((name, self.line.text().len()));
                 }
             }
-            "gauge" | "stat" if secure => self.asked.push(Mxp::Gauge {
-                entity: text("entity", 0),
-                max: text("max", 1),
-                caption: text("caption", 2),
-                colour: text("color", 3),
+            "gauge" | "stat" => self.asked.push(Mxp::Gauge {
+                entity: given.text("entity", 0),
+                max: given.text("max", 1),
+                caption: given.text("caption", 2),
+                colour: given.text("color", 3),
                 bar: name == "gauge",
             }),
-            "frame" if secure => self.asked.push(Mxp::Frame {
-                name: text("name", 0),
-                open: !text("action", 1).eq_ignore_ascii_case("close"),
-                title: text("title", 2),
-                align: text("align", 4).to_lowercase(),
+            "frame" => self.asked.push(Mxp::Frame {
+                name: given.text("name", 0),
+                open: !given.text("action", 1).eq_ignore_ascii_case("close"),
+                title: given.text("title", 2),
+                align: given.text("align", 4).to_lowercase(),
             }),
-            // What follows goes to a frame; what came before on this
-            // line stays where it was going.
-            "dest" if secure => {
-                if !self.line.is_empty() {
-                    self.push_line(out);
-                }
-                let frame = text("name", 0);
-                if said("eof") {
-                    self.asked.push(Mxp::Clear(frame.clone()));
-                }
-                self.dest = (!frame.is_empty()).then_some(frame);
-            }
-            // A picture cannot be shown among text: its name, to open.
-            "image" if secure => {
-                let file = text("fname", 0);
-                let from = attribute("url", 1).unwrap_or_default();
-                if !file.is_empty() {
-                    let start = self.line.text().len();
-                    format!("[{file}]")
-                        .chars()
-                        .for_each(|ch| self.line.push(ch, self.style));
-                    if !from.is_empty() {
-                        self.line.links.push(LineLink {
-                            range: start..self.line.text().len(),
-                            target: LinkTarget::Url(format!(
-                                "{}/{file}",
-                                from.trim_end_matches('/')
-                            )),
-                            hint: String::new(),
-                            name: String::new(),
-                        });
-                    }
-                }
-            }
-            // Asked for as the sound protocol would, to go the same way.
-            "sound" | "music" if secure => {
-                let file = text("fname", 0);
-                if !file.is_empty() {
-                    let mut request = format!("!!{}({file}", name.to_uppercase());
-                    let fourth = if name == "music" {
-                        ("c", "C")
-                    } else {
-                        ("p", "P")
-                    };
-                    let fields = [
-                        ("v", "V", 1),
-                        ("l", "L", 2),
-                        (fourth.0, fourth.1, 3),
-                        ("t", "T", 4),
-                        ("u", "U", 5),
-                    ];
-                    for (key, letter, position) in fields {
-                        if let Some(value) =
-                            attribute(key, position).filter(|value| !value.is_empty())
-                        {
-                            request.push_str(&format!(" {letter}={value}"));
-                        }
-                    }
-                    request.push(')');
-                    self.asked.push(Mxp::Sound(request));
-                }
-            }
-            "relocate" if secure => self.asked.push(Mxp::Relocate {
-                host: text("hostname", 0),
-                port: text("port", 1),
+            "dest" => self.destination(given, out),
+            "image" => self.image(given),
+            "sound" | "music" => self.sound(name, given),
+            "relocate" => self.asked.push(Mxp::Relocate {
+                host: given.text("hostname", 0),
+                port: given.text("port", 1),
             }),
-            "user" if secure => self.asked.push(Mxp::User),
-            "password" if secure => self.asked.push(Mxp::Password),
-            "version" if secure => {
+            "user" => self.asked.push(Mxp::User),
+            "password" => self.asked.push(Mxp::Password),
+            "version" => {
                 let version = env!("CARGO_PKG_VERSION");
                 self.replies.push(format!(
                     "\x1b[1z<VERSION MXP=\"1.0\" CLIENT=muddie VERSION=\"{version}\">"
                 ));
             }
-            // All there is, or of those asked about, which there are.
-            "support" if secure => {
-                let asked: Vec<String> = (attributes.iter())
-                    .map(|(name, value)| name.clone().unwrap_or_else(|| value.to_lowercase()))
-                    .collect();
-                let listed: Vec<String> = if asked.is_empty() {
-                    SUPPORTED.iter().map(|tag| format!("+{tag}")).collect()
-                } else {
-                    (asked.iter())
-                        .map(|tag| {
-                            let known = SUPPORTED.contains(&tag.split('.').next().unwrap_or(tag));
-                            format!("{}{tag}", if known { '+' } else { '-' })
-                        })
-                        .collect()
-                };
-                self.replies
-                    .push(format!("\x1b[1z<SUPPORTS {}>", listed.join(" ")));
-            }
+            "support" => self.support(given),
             _ => {}
         }
+    }
+
+    /// A rule across the text, on a line of its own.
+    fn rule(&mut self, out: &mut Vec<Line>) {
+        if !self.line.is_empty() {
+            self.push_line(out);
+        }
+        (0..40).for_each(|_| self.line.push('─', self.style));
+        self.push_line(out);
+    }
+
+    /// What follows goes to a frame; what came before on this line stays
+    /// where it was going.
+    fn destination(&mut self, given: &Attributes, out: &mut Vec<Line>) {
+        if !self.line.is_empty() {
+            self.push_line(out);
+        }
+        let frame = given.text("name", 0);
+        if given.has("eof") {
+            self.asked.push(Mxp::Clear(frame.clone()));
+        }
+        self.dest = (!frame.is_empty()).then_some(frame);
+    }
+
+    /// A picture cannot be shown among text: its name, to open.
+    fn image(&mut self, given: &Attributes) {
+        let file = given.text("fname", 0);
+        if file.is_empty() {
+            return;
+        }
+        let start = self.line.text().len();
+        format!("[{file}]")
+            .chars()
+            .for_each(|ch| self.line.push(ch, self.style));
+        let from = given.text("url", 1);
+        if !from.is_empty() {
+            self.line.links.push(LineLink {
+                range: start..self.line.text().len(),
+                target: LinkTarget::Url(format!("{}/{file}", from.trim_end_matches('/'))),
+                hint: String::new(),
+                name: String::new(),
+            });
+        }
+    }
+
+    /// A sound or music, asked for as the sound protocol would, to go the
+    /// same way.
+    fn sound(&mut self, name: &str, given: &Attributes) {
+        let file = given.text("fname", 0);
+        if file.is_empty() {
+            return;
+        }
+        let mut request = format!("!!{}({file}", name.to_uppercase());
+        let fourth = if name == "music" {
+            ("c", "C")
+        } else {
+            ("p", "P")
+        };
+        let fields = [
+            ("v", "V", 1),
+            ("l", "L", 2),
+            (fourth.0, fourth.1, 3),
+            ("t", "T", 4),
+            ("u", "U", 5),
+        ];
+        for (key, letter, position) in fields {
+            if let Some(value) = given.get(key, position).filter(|value| !value.is_empty()) {
+                request.push_str(&format!(" {letter}={value}"));
+            }
+        }
+        request.push(')');
+        self.asked.push(Mxp::Sound(request));
+    }
+
+    /// Says which tags there are: all, or of those asked about, which.
+    fn support(&mut self, given: &Attributes) {
+        let asked: Vec<String> = (given.0.iter())
+            .map(|(name, value)| name.clone().unwrap_or_else(|| value.to_lowercase()))
+            .collect();
+        let listed: Vec<String> = if asked.is_empty() {
+            SUPPORTED.iter().map(|tag| format!("+{tag}")).collect()
+        } else {
+            (asked.iter())
+                .map(|tag| {
+                    let known = SUPPORTED.contains(&tag.split('.').next().unwrap_or(tag));
+                    format!("{}{tag}", if known { '+' } else { '-' })
+                })
+                .collect()
+        };
+        self.replies
+            .push(format!("\x1b[1z<SUPPORTS {}>", listed.join(" ")));
     }
 
     /// Closes a tag: an element the server defined, by closing what it
