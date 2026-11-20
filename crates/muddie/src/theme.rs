@@ -62,8 +62,8 @@ const DARK: Theme = Theme {
     text: rgb(0xe8e8e8),
     text_dim: rgb(0xa1a1a4),
     text_faint: rgb(0x6c6c70),
-    accent: rgb(0xe4e4e6),
-    on_accent: rgb(0x131314),
+    accent: rgb(0x7aa5ff),
+    on_accent: rgb(0x0c1424),
     good: rgb(0x7cc68d),
     danger: rgb(0xe5737a),
     terminal: [
@@ -246,7 +246,7 @@ const GRAPHITE: Theme = Theme {
     text_dim: rgb(0xa5a5ad),
     text_faint: rgb(0x6e6e77),
     accent: rgb(0x5b9dff),
-    on_accent: rgb(0xffffff),
+    on_accent: rgb(0x0b1424),
     good: rgb(0x3ecf8e),
     danger: rgb(0xff6369),
     terminal: [
@@ -338,6 +338,28 @@ const CONTRAST: Theme = Theme {
         rgb(0xffffff),
     ],
 };
+
+/// The sizes things are drawn at, so that every screen has the same
+/// rhythm: one height for a control, a few widths for a field, a few
+/// for a window, and the gaps between.
+pub mod size {
+    /// A button, a field, a list to choose from.
+    pub const CONTROL: f32 = 30.0;
+    /// A row of settings, with its control.
+    pub const ROW: f32 = 44.0;
+    /// Fields: a number or a port, a word, a name or an address.
+    pub const FIELD_S: f32 = 90.0;
+    pub const FIELD_M: f32 = 160.0;
+    pub const FIELD_L: f32 = 250.0;
+    /// Windows: a question, a form, the settings.
+    pub const DIALOG_S: f32 = 460.0;
+    pub const DIALOG_M: f32 = 620.0;
+    pub const DIALOG_L: f32 = 960.0;
+    /// Gaps: inside a group, between groups, between sections.
+    pub const GAP_S: f32 = 6.0;
+    pub const GAP_M: f32 = 12.0;
+    pub const GAP_L: f32 = 20.0;
+}
 
 /// The contrast text must have with what is behind it to be read: the
 /// least the accessibility guidelines ask for text of ordinary size.
@@ -782,6 +804,17 @@ mod readable_tests {
                     );
                 }
             }
+            // The accent marks what is on or chosen: it stands out from
+            // the grounds, and what is written on it can be read.
+            for ground in grounds {
+                let measured = contrast(theme.accent, ground);
+                assert!(
+                    measured >= 3.0,
+                    "{name:?} accent: {measured:.2} on {ground:?}"
+                );
+            }
+            let on = contrast(theme.on_accent, theme.accent);
+            assert!(on >= READABLE, "{name:?} on_accent: {on:.2}");
             // And the hints are still fainter than the secondary text.
             assert!(
                 contrast(theme.text_faint, theme.surface)

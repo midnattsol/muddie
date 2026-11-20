@@ -12,7 +12,7 @@ use crate::theme::{self, Weight};
 /// screen readers; show it yourself with [`switch_row`] if it needs showing.
 pub fn switch(ui: &mut Ui, on: &mut bool, label: &str) -> Response {
     let theme = theme::current();
-    let size = vec2(34.0, 20.0);
+    let size = vec2(40.0, 22.0);
     let (rect, mut response) = ui.allocate_exact_size(size, Sense::click());
     if response.clicked() {
         *on = !*on;
@@ -20,24 +20,45 @@ pub fn switch(ui: &mut Ui, on: &mut bool, label: &str) -> Response {
     }
     response.widget_info(|| WidgetInfo::selected(Role::Switch, ui.is_enabled(), *on, label));
     if ui.is_rect_visible(rect) {
-        let how_on = ui.ctx().animate_bool_with_time(response.id, *on, 0.12);
-        let track = theme::mix(theme.hover, theme.accent, how_on);
+        let how_on = ui.ctx().animate_bool_with_time(response.id, *on, 0.14);
         let painter = ui.painter();
-        painter.rect_filled(rect, CornerRadius::same(10), track);
+        let round = CornerRadius::same(11);
+        // Off: a hollow track and a grey knob. On: the track filled with
+        // the accent, and a knob that stands out from it.
+        let hollow = if response.hovered() {
+            theme.hover
+        } else {
+            theme.raised
+        };
+        painter.rect_filled(rect, round, theme::mix(hollow, theme.accent, how_on));
+        let edge = theme.text_faint.gamma_multiply(0.6 * (1.0 - how_on));
+        painter.rect_stroke(
+            rect,
+            round,
+            Stroke::new(1.0, edge),
+            egui::StrokeKind::Inside,
+        );
         if response.has_focus() {
             painter.rect_stroke(
-                rect.expand(2.0),
-                CornerRadius::same(12),
+                rect.expand(2.5),
+                CornerRadius::same(14),
                 Stroke::new(1.5, theme.accent),
                 egui::StrokeKind::Outside,
             );
         }
         let travel = rect.width() - rect.height();
         let centre = rect.left_center() + vec2(rect.height() / 2.0 + travel * how_on, 0.0);
-        // The knob takes the colour that reads on the track: on a light
-        // accent, a white knob would vanish once switched on.
-        let knob = theme::mix(Color32::WHITE, theme.on_accent, how_on);
-        painter.circle_filled(centre, rect.height() / 2.0 - 2.5, knob);
+        let lit = crate::palette::contrast(Color32::WHITE, theme.accent)
+            >= crate::palette::contrast(theme.on_accent, theme.accent);
+        let knob_on = if lit { Color32::WHITE } else { theme.on_accent };
+        let knob = theme::mix(theme.text_dim, knob_on, how_on);
+        let radius = rect.height() / 2.0 - 3.0;
+        painter.circle_filled(
+            centre + vec2(0.0, 1.0),
+            radius + 0.5,
+            Color32::from_black_alpha(50),
+        );
+        painter.circle_filled(centre, radius, knob);
     }
     response
 }
@@ -1144,7 +1165,7 @@ pub fn setting_row(
 ) -> Response {
     row_start(ui);
     ui.horizontal(|ui| {
-        ui.set_min_height(42.0);
+        ui.set_min_height(theme::size::ROW);
         let name = ui.label(label);
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
             control(ui).labelled_by(name.id)
@@ -1158,7 +1179,7 @@ pub fn setting_row(
 pub fn switch_setting(ui: &mut Ui, on: &mut bool, label: &str) -> Response {
     row_start(ui);
     ui.horizontal(|ui| {
-        ui.set_min_height(42.0);
+        ui.set_min_height(theme::size::ROW);
         ui.label(label);
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
             switch(ui, on, label)
@@ -1166,6 +1187,27 @@ pub fn switch_setting(ui: &mut Ui, on: &mut bool, label: &str) -> Response {
         .inner
     })
     .inner
+}
+
+/// What a row of a [`group`] is for, under it, always in sight: not in
+/// a tip that only shows under the pointer.
+pub fn row_note(ui: &mut Ui, text: &str) {
+    let note = RichText::new(text)
+        .font(theme::font(Weight::Regular, 12.0))
+        .color(theme::current().text_dim);
+    ui.add(egui::Label::new(note).wrap());
+    ui.add_space(10.0);
+}
+
+/// A field for something secret, as a password: its characters hidden.
+pub fn secret_field(ui: &mut Ui, value: &mut String, hint: &str, width: f32) -> Response {
+    ui.add(
+        TextEdit::singleline(value)
+            .password(true)
+            .hint_text(RichText::new(hint).color(theme::current().text_faint))
+            .margin(Margin::symmetric(9, 6))
+            .desired_width(width),
+    )
 }
 
 /// A text field for the right-hand side of a [`setting_row`].
