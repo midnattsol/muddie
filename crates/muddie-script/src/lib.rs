@@ -64,9 +64,10 @@
 //!   strip; `gauge(name)` removes it. `options` may give a `colour`, a
 //!   `style` (`"segments"`) and `low`, a percentage to warn under.
 //! - `chat(text)`: add a line to the chat panel.
-//! - `channel(name, text)`: add a line said on a channel of the MUD's,
-//!   which has a tab of its own in the chat panel; `channel(name)` makes
-//!   the tab before anyone speaks.
+//! - `channel(name, text, {panel = "..."})`: add a line said on a channel
+//!   of the MUD's, which has a tab of its own in the panel named, made if
+//!   there is none of that name, or in the panel of channels if none is
+//!   named. `channel(name)` makes the tab before anyone speaks.
 //! - `panel_add(name, text)`: add `text` at the end of a panel, which keeps
 //!   what it had, as a log does. In a trigger, `to_panel(name)` adds the
 //!   line being looked at, with its colours.
@@ -178,9 +179,12 @@ pub enum Action {
     /// A line said on a channel of the MUD's, by the channel's name; or
     /// with no text, a channel there is, to have its tab before anyone
     /// speaks on it.
+    /// `panel` names the panel it is shown in, made if there is none of
+    /// that name; empty for the panel of channels.
     Channel {
         name: String,
         text: Option<String>,
+        panel: String,
     },
     /// Add lines to the end of a panel of text.
     PanelAdd {
@@ -1913,10 +1917,20 @@ fn install_api(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     let shared = Rc::clone(state);
     add(
         "channel",
-        lua.create_function(move |_, (name, text): (String, Option<String>)| {
-            (shared.borrow_mut().actions).push(Action::Channel { name, text });
-            Ok(())
-        })?,
+        lua.create_function(
+            move |_, (name, text, options): (String, Option<String>, Option<mlua::Table>)| {
+                let panel = match options {
+                    Some(options) => options.get::<Option<String>>("panel")?,
+                    None => None,
+                };
+                (shared.borrow_mut().actions).push(Action::Channel {
+                    name,
+                    text,
+                    panel: panel.unwrap_or_default(),
+                });
+                Ok(())
+            },
+        )?,
     )?;
 
     let shared = Rc::clone(state);

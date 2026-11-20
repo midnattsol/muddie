@@ -1317,7 +1317,7 @@ impl Tab {
                         self.media(message);
                     } else if package.eq_ignore_ascii_case("Comm.Channel.Text") {
                         let name = panels::channel_name(&data);
-                        self.channel_said(&name, panels::channel_text(&data));
+                        self.channel_said(&name, "", panels::channel_text(&data));
                     } else if package.eq_ignore_ascii_case("Room.Info") && self.scripts.native_map()
                     {
                         self.entered_room(&data);
@@ -1479,9 +1479,9 @@ impl Tab {
                         (None, true) => {}
                     }
                 }
-                Action::Channel { name, text } => {
+                Action::Channel { name, text, panel } => {
                     let lines = text.as_deref().map(panels::styled_lines);
-                    self.channel_said(&name, lines.unwrap_or_default());
+                    self.channel_said(&name, &panel, lines.unwrap_or_default());
                 }
                 Action::Chat(text) => {
                     for line in panels::styled_lines(&text) {
@@ -3827,7 +3827,16 @@ mod tests {
         );
         // The view follows to the end, where the newest already are; a
         // frame or two later, as the size of what it holds settles.
-        harness.run_steps(3);
+        // However many frames that takes on a busy machine.
+        for _ in 0..12 {
+            harness.step();
+            if harness
+                .query_by_label("line 5999 of a burst of text")
+                .is_some()
+            {
+                break;
+            }
+        }
         assert!(harness.query_by_label("Latest lines").is_none());
         harness.get_by_label("line 5999 of a burst of text");
         // The rest follow, and the end stays in view meanwhile.
@@ -4429,6 +4438,63 @@ end)"#;
         harness.get_by_label("[Chat] Naylhena Sacerdotisa de la calumnia: re");
         harness.get_by_label("chat");
         harness.get_by_label("mercenario");
+    }
+
+    #[test]
+    fn a_channel_goes_to_the_panel_a_script_names() {
+        let mut harness = window(None);
+        harness.set_size(egui::vec2(1300.0, 800.0));
+        let app = harness.state_mut().tab_mut();
+        // A panel the player made by hand, and put on the left.
+        let id = app.panel_called("Conversaciones");
+        let made = app
+            .layout
+            .panels
+            .iter_mut()
+            .find(|panel| panel.id == id)
+            .unwrap();
+        (made.side, made.size) = (layout::Side::Left, 300.0);
+        let panels = app.layout.panels.len();
+        // Named by a script, it is the one used, as it is; and one that
+        // is not there is made.
+        app.scripts.exec(
+            "t",
+            r#"channel("chat", "Ana: hola", {panel = "conversaciones"})
+            channel("bando", "Eva: al norte", {panel = "Conversaciones"})
+            channel("susurro", "Luis te susurra: ven", {panel = "Privado"})"#,
+        );
+        app.run_actions();
+        harness.run_steps(3);
+        let app = harness.state_mut().tab_mut();
+        assert_eq!(app.layout.panels.len(), panels + 1);
+        let kept = app
+            .layout
+            .panels
+            .iter()
+            .find(|panel| panel.id == id)
+            .cloned()
+            .unwrap();
+        assert!(kept.side == layout::Side::Left && kept.size == 300.0);
+        let private = (app.layout.panels.iter())
+            .find(|panel| panel.name == "Privado")
+            .cloned()
+            .unwrap();
+        // Each panel has what was said on its channels, and their tabs.
+        assert_eq!(app.text_of(id).log.len(), 2);
+        assert_eq!(app.text_of(private.id).log.text(0), "Luis te susurra: ven");
+        let tabs = |app: &Tab, panel: &str| -> Vec<String> {
+            (app.channels.iter())
+                .filter(|channel| channel.panel.eq_ignore_ascii_case(panel))
+                .map(|channel| channel.name.clone())
+                .collect()
+        };
+        assert_eq!(tabs(app, "Conversaciones"), ["chat", "bando"]);
+        assert_eq!(tabs(app, "Privado"), ["susurro"]);
+        // The panel of channels, which none of them was sent to, has none.
+        harness.get_by_label("bando").click();
+        harness.run_steps(3);
+        harness.get_by_label("Eva: al norte");
+        assert!(harness.query_by_label("Ana: hola").is_none());
     }
 
     #[test]

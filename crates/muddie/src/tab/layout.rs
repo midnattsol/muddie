@@ -175,8 +175,21 @@ pub struct TextContent {
 /// was that has not been looked at.
 pub struct Channel {
     pub name: String,
+    /// The panel it is shown in, by its name; empty for the panel of
+    /// channels, whichever it is.
+    pub panel: String,
     pub log: Output,
     pub unread: bool,
+}
+
+impl Channel {
+    /// Whether this channel has its tab in `panel`.
+    fn shown_in(&self, panel: &PanelSpec) -> bool {
+        match self.panel.is_empty() {
+            true => panel.channels,
+            false => panel.name.eq_ignore_ascii_case(&self.panel),
+        }
+    }
 }
 
 /// How many channels are kept apart; what is said on more goes with the
@@ -333,28 +346,35 @@ impl Tab {
     /// Takes lines said on a channel of the MUD's: they go with the rest
     /// of what is said, and under the channel's own tab. With no lines,
     /// the channel is made known, to have its tab.
-    pub(super) fn channel_said(&mut self, name: &str, lines: Vec<Line>) {
-        let name = name.trim();
-        // With nowhere to show the channels, they are given a panel: one
-        // that is hidden is somewhere, and is left as it is.
-        if !self.layout.panels.iter().any(|panel| panel.channels) {
-            let id = self.layout.next_id();
-            let taken = |name: &str| self.layout.panels.iter().any(|panel| panel.name == name);
-            let called = [tr("Chat"), tr("Channels")]
-                .into_iter()
-                .find(|name| !taken(name));
-            self.layout.panels.push(PanelSpec {
-                id,
-                name: called.unwrap_or(tr("Channels")).to_owned(),
-                kind: Kind::Text,
-                side: Side::Top,
-                size: 140.0,
-                channels: true,
-                ..PanelSpec::default()
-            });
+    pub(super) fn channel_said(&mut self, name: &str, panel: &str, lines: Vec<Line>) {
+        let (name, panel) = (name.trim(), panel.trim());
+        if panel.is_empty() {
+            // With nowhere to show the channels, they are given a panel:
+            // one that is hidden is somewhere, and is left as it is.
+            if !self.layout.panels.iter().any(|panel| panel.channels) {
+                let id = self.layout.next_id();
+                let taken = |name: &str| self.layout.panels.iter().any(|panel| panel.name == name);
+                let called = [tr("Chat"), tr("Channels")]
+                    .into_iter()
+                    .find(|name| !taken(name));
+                self.layout.panels.push(PanelSpec {
+                    id,
+                    name: called.unwrap_or(tr("Channels")).to_owned(),
+                    kind: Kind::Text,
+                    side: Side::Top,
+                    size: 140.0,
+                    channels: true,
+                    ..PanelSpec::default()
+                });
+            }
+        } else {
+            // The panel named: the one of that name, made if there is
+            // none, and left where it is and as it is if there is.
+            self.panel_called(panel);
         }
-        let known =
-            (self.channels.iter()).position(|channel| channel.name.eq_ignore_ascii_case(name));
+        let known = (self.channels.iter()).position(|channel| {
+            channel.name.eq_ignore_ascii_case(name) && channel.panel.eq_ignore_ascii_case(panel)
+        });
         let index = match known {
             Some(index) => Some(index),
             None if name.is_empty() || self.channels.len() >= MOST_CHANNELS => None,
@@ -363,6 +383,7 @@ impl Tab {
                 log.restyle(self.settings.scrollback_lines, self.settings.timestamps);
                 self.channels.push(Channel {
                     name: name.to_owned(),
+                    panel: panel.to_owned(),
                     log,
                     unread: false,
                 });
@@ -372,17 +393,24 @@ impl Tab {
         if lines.is_empty() {
             return;
         }
-        // Seen as it comes where a panel shows this channel, or all.
-        let panels: Vec<u32> = (self.layout.panels.iter())
-            .filter(|panel| panel.channels && panel.visible)
-            .map(|panel| panel.id)
-            .collect();
-        let seen = panels.iter().any(|id| {
-            let shown = self.channel_shown.iter().find(|(panel, _)| panel == id);
-            shown.is_none_or(|(_, shown)| shown.is_empty() || shown.eq_ignore_ascii_case(name))
+        // Seen as it comes where a panel it is shown in is on this
+        // channel, or on all of them.
+        let seen = (self.layout.panels.iter()).any(|spec| {
+            let hosts = match panel.is_empty() {
+                true => spec.channels,
+                false => spec.name.eq_ignore_ascii_case(panel),
+            };
+            let shown = self.channel_shown.iter().find(|(id, _)| *id == spec.id);
+            let on_it =
+                shown.is_none_or(|(_, shown)| shown.is_empty() || shown.eq_ignore_ascii_case(name));
+            hosts && spec.visible && on_it
         });
         for line in &lines {
-            self.channel_line(line);
+            // With the rest of what is said there, and under its own tab.
+            match panel.is_empty() {
+                true => self.channel_line(line),
+                false => self.add_to_panel(panel, line),
+            }
             if let Some(index) = index {
                 self.channels[index].log.push(line);
             }
@@ -399,10 +427,17 @@ impl Tab {
         let theme = theme::current();
         let known = self.channel_shown.iter().find(|(panel, _)| *panel == id);
         let mut shown = known.map(|(_, shown)| shown.clone()).unwrap_or_default();
+        let spec = self
+            .layout
+            .panels
+            .iter()
+            .find(|panel| panel.id == id)
+            .cloned();
+        let here = |channel: &&Channel| spec.as_ref().is_some_and(|spec| channel.shown_in(spec));
         let names: Vec<(String, bool)> = std::iter::once((String::new(), false))
             .chain(
-                self.channels
-                    .iter()
+                (self.channels.iter())
+                    .filter(here)
                     .map(|channel| (channel.name.clone(), channel.unread)),
             )
             .collect();
@@ -1327,12 +1362,19 @@ impl Tab {
             });
             return true;
         }
-        // A panel of channels has a tab for each: one alone, or all.
-        let of_channels = (self.layout.panels.iter()).any(|panel| panel.id == id && panel.channels);
-        if of_channels && !self.channels.is_empty() {
+        // A panel that channels are shown in has a tab for each of them:
+        // one alone, or all.
+        let spec = self
+            .layout
+            .panels
+            .iter()
+            .find(|panel| panel.id == id)
+            .cloned();
+        let here = |channel: &Channel| spec.as_ref().is_some_and(|spec| channel.shown_in(spec));
+        if self.channels.iter().any(here) {
             let shown = self.channel_tabs(ui, id);
             let chosen = (self.channels.iter_mut())
-                .find(|channel| !shown.is_empty() && channel.name == shown);
+                .find(|channel| !shown.is_empty() && channel.name == shown && here(channel));
             match chosen {
                 Some(channel) => {
                     channel.unread = false;
@@ -1346,9 +1388,8 @@ impl Tab {
                     return true;
                 }
                 // With all of them in view there is nothing unseen.
-                None => self
-                    .channels
-                    .iter_mut()
+                None => (self.channels.iter_mut())
+                    .filter(|channel| here(channel))
                     .for_each(|channel| channel.unread = false),
             }
         }

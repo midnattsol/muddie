@@ -35,7 +35,7 @@ the module returns.
 | `chat(text)` | Adds a line to the chat panel. Colour codes are allowed. |
 | `panel(name, text)` | Puts `text` in a panel, in place of what it showed; `panel(name)` clears it. For anything the server sends ready to display, such as a map it draws. The panel is made, as one of text, if there is none of that name; `"map"` means the map's panel whatever it is called, and `"chat"` the one of the channels. |
 | `panel_add(name, text)` | Adds `text` at the end of a panel, which keeps what it had. In a trigger, `to_panel(name)` adds the line being looked at, with its colours. |
-| `channel(name, text)` | Adds `text` as said on the channel `name` of the MUD, which has a tab of its own in the panel of channels. `channel(name)` makes the tab before anyone speaks. |
+| `channel(name, text, options)` | Adds `text` as said on the channel `name` of the MUD, which has a tab of its own in a panel. `options.panel` names that panel: the one of that name is used as it is, and one is made if there is none; with no panel named, it is the panel of channels. `channel(name)` makes the tab before anyone speaks. |
 | `gauge(name, value, max, options)` | Shows or updates a gauge; `gauge(name)` removes it. `options` may give a `colour` (a name or `#rrggbb`), a `style` (`"bar"`, `"cells"`, `"number"`, `"light"`, which is on when `value` is not 0 and takes the colour `off` while it is not, or `"text"`, which shows `options.text`), and `steps`, the colours it takes under each percentage: `{{60, "yellow"}, {30, "red"}}`. |
 | `play(file, {volume = 0.8, loop = false})` | Plays a sound, by path or by name in the profile's `sounds` folder. |
 | `stop_sounds()` | Stops every sound. |

@@ -232,6 +232,13 @@ fills them by itself. For one that does it its own way, a script says which
 channel a line is of with `channel(name, text)`; for one that only sends
 text, a trigger can.
 
+A script can also say which panel a channel goes to, by the panel's name:
+`channel(name, text, {panel = "Talk"})`. A panel of that name that you made
+yourself is used as it is, wherever you put it; if there is none, one is
+made. So the public channels can be in one panel and whispers in another,
+each with its own tabs. The panels go by their names: one renamed is another
+panel to the script.
+
 ## Debugging: what the MUD sends
 
 **Debug**, beside Game and Editor at the right of the top bar (Ctrl+D),
