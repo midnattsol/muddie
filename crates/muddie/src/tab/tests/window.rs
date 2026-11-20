@@ -93,7 +93,7 @@ fn what_a_click_opens_stays_open() {
     harness.get_by_label("Messages, 1 new").click();
     steady(&mut harness, "messages", "Clear");
     harness.get_by_label("Gauges options").click();
-    steady(&mut harness, "panel menu", "At the left");
+    steady(&mut harness, "panel menu", "Hide Gauges");
     harness.get_by_label("Edit Salud").click();
     steady(&mut harness, "gauge", "Open in the editor");
     harness.get_by_label("Menu").click();

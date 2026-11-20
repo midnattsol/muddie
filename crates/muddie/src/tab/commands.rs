@@ -54,6 +54,8 @@ pub enum Act {
     AddPanel(super::layout::Kind),
     /// Shows or hides the panel with this number.
     Panel(u32),
+    /// Lets the side panels reach the top and the bottom, or not.
+    FullHeight,
     /// Switches to the saved profile of this name and connects.
     Connect(String),
 }

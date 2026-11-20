@@ -101,6 +101,11 @@ impl Tab {
         if !self.layout.has(Kind::Map) {
             acts.push(item(tr("Add the map"), panels, Act::AddPanel(Kind::Map)));
         }
+        let height = match self.layout.columns_full {
+            true => tr("Side panels between the top and bottom ones"),
+            false => tr("Side panels at full height"),
+        };
+        acts.push(item(height, panels, Act::FullHeight));
         acts
     }
 
@@ -146,6 +151,7 @@ impl Tab {
                 self.started = true;
                 self.add_panel(kind);
             }
+            Act::FullHeight => self.layout.columns_full = !self.layout.columns_full,
             Act::Panel(id) => {
                 if let Some(panel) = self.layout.panel_mut(id) {
                     panel.visible = !panel.visible;

@@ -3,8 +3,9 @@
 use super::*;
 
 impl Tab {
-    /// What a panel's menu has: its name, where it goes, how it shares
-    /// its place, what goes with its kind, and taking it away.
+    /// What a panel's menu has: its name, what goes with its kind, and
+    /// hiding or removing it. Where it goes, its order and sharing a place
+    /// as tabs are done by dragging it by its handle.
     pub(in crate::tab) fn panel_menu(&mut self, ui: &mut egui::Ui, index: usize) {
         let Some(spec) = self.layout.panels.get(index).cloned() else {
             return;
@@ -21,8 +22,6 @@ impl Tab {
             let panel = &mut self.layout.panels[index];
             name_field(ui, &mut panel.name);
             widgets::menu_separator(ui);
-            asked = place_items(ui, panel).or(asked.take());
-            widgets::menu_separator(ui);
             match spec.kind {
                 Kind::Text => drop(widgets::menu_check(
                     ui,
@@ -37,15 +36,10 @@ impl Tab {
                 }
                 Kind::Map => self.map_view.menu_items(ui),
             }
-            widgets::menu_check(ui, &mut self.layout.columns_full, tr("Full-height sides"))
-                .on_hover_text(tr("Side panels reach the top and the bottom"));
             widgets::menu_separator(ui);
             asked = closing_items(ui, &spec.name).or(asked.take());
         });
         match asked {
-            Some(PanelAsk::Earlier) => self.shift_panel(index, -1),
-            Some(PanelAsk::Later) => self.shift_panel(index, 1),
-            Some(PanelAsk::Join) => self.join_before(index),
             Some(PanelAsk::Gauges) => self.open_gauges(spec.id),
             Some(PanelAsk::Hide) => self.layout.panels[index].visible = false,
             Some(PanelAsk::Remove) => self.panels.removed = Some(index),
@@ -114,9 +108,6 @@ impl Tab {
 
 /// What a panel's menu asks to be done once it is closed.
 enum PanelAsk {
-    Earlier,
-    Later,
-    Join,
     Gauges,
     Hide,
     Remove,
@@ -131,52 +122,6 @@ fn name_field(ui: &mut egui::Ui, name: &mut String) {
         ui.ctx()
             .accesskit_node_builder(field.id, |node| node.set_label(tr("Name")));
     });
-}
-
-/// The side it goes on, moving it a step along that side, and sharing the
-/// place of the one before as tabs, or leaving them.
-fn place_items(ui: &mut egui::Ui, panel: &mut PanelSpec) -> Option<PanelAsk> {
-    widgets::menu_heading(ui, tr("Place"));
-    let sides = [
-        (Side::Left, tr("At the left")),
-        (Side::Right, tr("At the right")),
-        (Side::Top, tr("Above")),
-        (Side::Bottom, tr("Below")),
-    ];
-    for (side, label) in sides {
-        let mut here = panel.side == side;
-        if widgets::menu_check(ui, &mut here, label).clicked() && panel.side != side {
-            if panel.side.is_beside() != side.is_beside() {
-                panel.size = if side.is_beside() { 300.0 } else { 120.0 };
-            }
-            panel.side = side;
-            ui.close();
-        }
-    }
-    let (before, after) = match panel.side.is_beside() {
-        true => (tr("Move up"), tr("Move down")),
-        false => (tr("Move left"), tr("Move right")),
-    };
-    let mut asked = None;
-    let mut item = |ui: &mut egui::Ui, label: &str, what: PanelAsk| {
-        if widgets::menu_item(ui, label, "").clicked() {
-            asked = Some(what);
-            ui.close();
-        }
-    };
-    item(ui, before, PanelAsk::Earlier);
-    item(ui, after, PanelAsk::Later);
-    if panel.stack == 0 {
-        item(
-            ui,
-            tr("Share the place of the one before, as tabs"),
-            PanelAsk::Join,
-        );
-    } else if widgets::menu_item(ui, tr("Detach from tabs"), "").clicked() {
-        panel.stack = 0;
-        ui.close();
-    }
-    asked
 }
 
 /// Hiding the panel, and removing it.

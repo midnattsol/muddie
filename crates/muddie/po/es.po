@@ -947,18 +947,6 @@ msgstr "No se pudieron guardar los paneles: {0}"
 msgid "Move {0}"
 msgstr "Mover {0}"
 
-msgid "At the left"
-msgstr "A la izquierda"
-
-msgid "At the right"
-msgstr "A la derecha"
-
-msgid "Above"
-msgstr "Arriba"
-
-msgid "Below"
-msgstr "Abajo"
-
 msgid "Show the MUD's channels here"
 msgstr "Mostrar aquí los canales del MUD"
 
@@ -997,18 +985,6 @@ msgstr "Valor"
 msgid "About Muddie"
 msgstr "Acerca de Muddie"
 
-msgid "Move up"
-msgstr "Subir"
-
-msgid "Move down"
-msgstr "Bajar"
-
-msgid "Move left"
-msgstr "Mover a la izquierda"
-
-msgid "Move right"
-msgstr "Mover a la derecha"
-
 
 msgid "No gauges here yet."
 msgstr "Aún no hay indicadores aquí."
@@ -1037,12 +1013,6 @@ msgid ""
 msgstr ""
 "Lo que el MUD envía además del texto, con GMCP o MSDP, aparece aquí según llega:\n"
 "míralo para saber qué puede seguir un indicador o usar un script."
-
-msgid "Side panels reach the top and the bottom"
-msgstr "Los paneles laterales llegan arriba y abajo"
-
-msgid "Share the place of the one before, as tabs"
-msgstr "Compartir el hueco del anterior, en pestañas"
 
 
 msgid "Type"
@@ -1278,9 +1248,6 @@ msgstr "Incluidas"
 msgid "Loading…"
 msgstr "Cargando…"
 
-msgid "Full-height sides"
-msgstr "Laterales a toda altura"
-
 msgid "Empty message."
 msgstr "Mensaje vacío."
 
@@ -1290,9 +1257,6 @@ msgstr "Hecho."
 #, python-brace-format
 msgid "Last run: {0}"
 msgstr "Última ejecución: {0}"
-
-msgid "Detach from tabs"
-msgstr "Separar de las pestañas"
 
 msgid "Usage"
 msgstr "Uso"
@@ -1398,9 +1362,6 @@ msgstr "Con la línea oculta, solo está en el panel."
 
 msgid "+ Add an action"
 msgstr "+ Añadir una acción"
-
-msgid "Place"
-msgstr "Posición"
 
 #, python-brace-format
 msgid "{0} options"
@@ -1611,4 +1572,10 @@ msgstr "Complementos incluidos"
 
 msgid "Other plugins"
 msgstr "Otros complementos"
+
+msgid "Side panels between the top and bottom ones"
+msgstr "Paneles laterales entre los de arriba y abajo"
+
+msgid "Side panels at full height"
+msgstr "Paneles laterales a toda la altura"
 

@@ -314,7 +314,7 @@ fn the_server_is_told_how_much_text_fits() {
 }
 
 #[test]
-fn a_panel_is_arranged_from_its_own_menu_with_no_mode_to_enter() {
+fn a_panel_is_hidden_from_its_own_menu_with_no_mode_to_enter() {
     let mut harness = window(None);
     harness.set_size(egui::vec2(1300.0, 800.0));
     let app = harness.state_mut().tab_mut();
@@ -324,23 +324,7 @@ fn a_panel_is_arranged_from_its_own_menu_with_no_mode_to_enter() {
     harness.get_by_label("Move Gauges");
     harness.get_by_label("Gauges options").click();
     harness.run_steps(2);
-    // From there it goes to another side...
-    harness.get_by_label("At the left").click();
-    harness.run_steps(3);
-    let side = |app: &Tab, name: &str| {
-        app.layout
-            .panels
-            .iter()
-            .find(|panel| panel.name == name)
-            .map(|panel| panel.side)
-    };
-    assert_eq!(
-        side(harness.state().tab(), "Gauges"),
-        Some(layout::Side::Left)
-    );
-    // ...and is hidden, to be shown again from the menu or the palette.
-    harness.get_by_label("Gauges options").click();
-    harness.run_steps(2);
+    // From there it is hidden, to be shown again from the palette.
     harness.get_by_label("Hide Gauges").click();
     harness.run_steps(3);
     let app = harness.state_mut().tab_mut();
@@ -404,7 +388,7 @@ fn a_panels_menu_is_reached_from_the_keyboard() {
     assert!(harness.get_by_label("Gauges options").is_focused());
     harness.key_press(Key::Enter);
     harness.run_steps(3);
-    harness.get_by_label("At the left");
+    harness.get_by_label("Hide Gauges");
 }
 
 #[test]

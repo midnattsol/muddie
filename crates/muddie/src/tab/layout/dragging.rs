@@ -1,4 +1,5 @@
-//! Moving panels: dragged to another place, or a step along their side.
+//! Moving panels: dragged to another side, another place on theirs, or
+//! into another's place as a tab.
 
 use super::*;
 
@@ -190,41 +191,6 @@ impl Tab {
                 self.panels.shown_tabs.push((joined, moved.id));
                 self.layout.panels.insert(last + 1, moved);
             }
-        }
-    }
-
-    /// Makes a panel share the place of the one before it on its side.
-    pub(in crate::tab) fn join_before(&mut self, index: usize) {
-        let side = self.layout.panels[index].side;
-        let Some(before) = (0..index).rev().find(|&other| {
-            self.layout.panels[other].visible && self.layout.panels[other].side == side
-        }) else {
-            return;
-        };
-        let stack = match self.layout.panels[before].stack {
-            0 => self.layout.next_stack(),
-            stack => stack,
-        };
-        self.layout.panels[before].stack = stack;
-        self.layout.panels[index].stack = stack;
-        let id = self.layout.panels[index].id;
-        self.panels.shown_tabs.retain(|(known, _)| *known != stack);
-        self.panels.shown_tabs.push((stack, id));
-    }
-
-    /// Moves a panel one place among those of its side: `-1` earlier,
-    /// `1` later.
-    pub(in crate::tab) fn shift_panel(&mut self, index: usize, by: isize) {
-        let side = self.layout.panels[index].side;
-        let same: Vec<usize> = (0..self.layout.panels.len())
-            .filter(|&other| self.layout.panels[other].side == side)
-            .collect();
-        let place = same.iter().position(|&other| other == index).unwrap_or(0);
-        if let Some(&other) = place
-            .checked_add_signed(by)
-            .and_then(|wanted| same.get(wanted))
-        {
-            self.layout.panels.swap(index, other);
         }
     }
 }
