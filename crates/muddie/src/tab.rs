@@ -2804,7 +2804,7 @@ impl Tab {
             let about = tr("It is drawn as you walk, if the MUD says which room you are in. If yours tells it another way, or draws the map itself, a script can take it from there.");
             ui.label(RichText::new(about).font(theme::font(theme::Weight::Regular, 12.5)).color(theme.text_dim));
             ui.add_space(12.0);
-            scripts = crate::widgets::button(ui, tr("Set up a mapper…")).clicked();
+            scripts = crate::widgets::button(ui, tr("Set up a mapper")).clicked();
             ui.add_space(4.0);
             if crate::widgets::quiet_button(ui, tr("Hide the map")).clicked() {
                 self.set_map_shown(false);

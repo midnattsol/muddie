@@ -219,8 +219,7 @@ impl Tab {
                                     egui::Layout::right_to_left(egui::Align::Center),
                                     |ui| {
                                         ui.add_space(4.0);
-                                        if widgets::quiet_button(ui, tr("More options…")).clicked()
-                                        {
+                                        if widgets::quiet_button(ui, tr("More options")).clicked() {
                                             self.apply_address();
                                             self.connection_open = true;
                                         }
@@ -365,7 +364,7 @@ impl Tab {
         }
         let offline = self.connection.is_none();
         let details = ui
-            .add_enabled_ui(offline, |ui| widgets::menu_item(ui, tr("Connection…"), ""))
+            .add_enabled_ui(offline, |ui| widgets::menu_item(ui, tr("Connection"), ""))
             .inner;
         if details.clicked() {
             self.connection_open = true;
@@ -388,7 +387,7 @@ impl Tab {
     pub fn view_menu(&mut self, ui: &mut egui::Ui) {
         self.panels_menu(ui);
         widgets::menu_separator(ui);
-        if widgets::menu_item(ui, tr("Find…"), "Ctrl+F").clicked() {
+        if widgets::menu_item(ui, tr("Find"), "Ctrl+F").clicked() {
             self.find_open = true;
             self.find_wants_focus = true;
             ui.close();

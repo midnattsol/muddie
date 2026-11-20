@@ -389,9 +389,6 @@ msgstr "Cerrar sesión"
 msgid "Session"
 msgstr "Sesión"
 
-msgid "Settings…"
-msgstr "Ajustes…"
-
 msgid "Help"
 msgstr "Ayuda"
 
@@ -441,9 +438,6 @@ msgstr "Tus perfiles"
 msgid "Secure connection (TLS)"
 msgstr "Conexión segura (TLS)"
 
-msgid "More options…"
-msgstr "Más opciones…"
-
 #, python-brace-format
 msgid "Connected to {0}, encrypted"
 msgstr "Conectado a {0}, cifrado"
@@ -461,14 +455,8 @@ msgstr "Registrando"
 msgid "Walking"
 msgstr "Caminando"
 
-msgid "Connection…"
-msgstr "Conexión…"
-
 msgid "Log this session"
 msgstr "Registrar esta sesión"
-
-msgid "Find…"
-msgstr "Buscar…"
 
 msgid "Where am I?"
 msgstr "¿Dónde estoy?"
@@ -695,9 +683,6 @@ msgstr "Aún no hay mapa"
 
 msgid "It is drawn as you walk, if the MUD says which room you are in. If yours tells it another way, or draws the map itself, a script can take it from there."
 msgstr "Se dibuja al caminar, si el MUD dice en qué sala estás. Si el tuyo lo cuenta de otra forma, o dibuja él mismo el mapa, un script puede encargarse."
-
-msgid "Set up a mapper…"
-msgstr "Configurar un mapper…"
 
 msgid "Line"
 msgstr "Línea"
@@ -1034,9 +1019,6 @@ msgstr "No se pudieron cargar los paneles: {0}"
 msgid "Could not save the panels: {0}"
 msgstr "No se pudieron guardar los paneles: {0}"
 
-msgid "Edit the layout…"
-msgstr "Editar la disposición…"
-
 msgid "Editing the layout"
 msgstr "Editando la disposición"
 
@@ -1079,9 +1061,6 @@ msgstr "Abajo"
 
 msgid "Show the MUD's channels here"
 msgstr "Mostrar aquí los canales del MUD"
-
-msgid "Gauges…"
-msgstr "Indicadores…"
 
 #, python-brace-format
 msgid "Remove {0}"
@@ -1313,9 +1292,6 @@ msgstr "Elige uno, o escribe un comando"
 msgid "Commands"
 msgstr "Comandos"
 
-msgid "Commands…"
-msgstr "Comandos…"
-
 msgid "Protocols"
 msgstr "Protocolos"
 
@@ -1436,9 +1412,6 @@ msgstr "Cargando…"
 msgid "Full-height sides"
 msgstr "Laterales a toda altura"
 
-msgid "Add gauges…"
-msgstr "Añadir indicadores…"
-
 msgid "Empty message."
 msgstr "Mensaje vacío."
 
@@ -1479,4 +1452,16 @@ msgstr "Escala de la interfaz"
 
 msgid "Same, for the chat panel"
 msgstr "Lo mismo, para el panel de chat"
+
+msgid "Add gauges"
+msgstr "Añadir indicadores"
+
+msgid "Edit the layout"
+msgstr "Editar la disposición"
+
+msgid "More options"
+msgstr "Más opciones"
+
+msgid "Set up a mapper"
+msgstr "Configurar un mapper"
 

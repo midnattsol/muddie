@@ -21,8 +21,8 @@ arrives.
 
 A new session opens on a welcome screen. Type an address such as
 `mud.example.org:4000` and press Enter to connect, or pick one of your saved
-profiles below it. **More options…** there,
-or **Session > Connection…**, opens the window with everything about a
+profiles below it. **More options** there,
+or **Session > Connection**, opens the window with everything about a
 connection: host, port, TLS, text encoding, and the character to log in as.
 Type a profile name and press **Save profile** to keep it. A profile also has its own scripts, triggers, map and remembered values,
 all under `profiles/<name>/` in the configuration folder (`~/.config/muddie`
@@ -166,7 +166,7 @@ Around the output there can be panels: the map, the gauges, and panels of
 text. A profile starts with one for the MUD's channels above, the map at the
 right and the gauges below. **Preferences** lists them, each to show or hide.
 
-**Preferences > Edit the layout…** is where they are made and placed, on the game
+**Preferences > Edit the layout** is where they are made and placed, on the game
 itself:
 
 - **Add a panel** makes one: of text, the map, or gauges. There is one map;
@@ -197,7 +197,7 @@ write to one with `panel_add(name, text)`, or put a whole text in it with
 from the dots beside its name in the layout mode.
 
 The **gauges** are made and changed in the editor, under **Gauges**; the
-dots at the corner of a panel of gauges and **Preferences > Gauges…** lead
+dots at the corner of a panel of gauges and **Preferences > Gauges** lead
 there. Each gauge says which panel it is shown in, so that yours can be below
 and an enemy's beside the map, and they are shown in the order of the
 editor's list: drag one there, or press Alt+Up or Alt+Down, to move it. A gauge
@@ -368,7 +368,7 @@ what was agreed. Nothing here needs setting up.
 
 ## Settings
 
-**Preferences > Settings…**, in sections:
+**Preferences > Settings**, in sections:
 
 - **General**: the language, and the size the interface is drawn at.
 - **Appearance**: the theme (Dark, Graphite, Mocha, Dusk, Tokyo Night, Nord,

@@ -42,22 +42,19 @@ msgstr ""
 msgid "Preferences"
 msgstr ""
 
-msgid "Settings…"
+msgid "Settings"
 msgstr ""
 
 msgid "Help"
 msgstr ""
 
-msgid "Commands…"
+msgid "Commands"
 msgstr ""
 
 msgid "Keyboard shortcuts"
 msgstr ""
 
 msgid "About Muddie"
-msgstr ""
-
-msgid "Settings"
 msgstr ""
 
 msgid "General"
@@ -109,9 +106,6 @@ msgid "Read the gauges"
 msgstr ""
 
 msgid "Reconnect"
-msgstr ""
-
-msgid "Commands"
 msgstr ""
 
 msgid "Switch between the game and the editor"
@@ -287,7 +281,7 @@ msgstr ""
 msgid "Secure connection (TLS)"
 msgstr ""
 
-msgid "More options…"
+msgid "More options"
 msgstr ""
 
 msgid "Your profiles"
@@ -321,16 +315,13 @@ msgstr ""
 msgid "Disconnect"
 msgstr ""
 
-msgid "Connection…"
+msgid "Connection"
 msgstr ""
 
 msgid "Log this session"
 msgstr ""
 
-msgid "Find…"
-msgstr ""
-
-msgid "Connection"
+msgid "Find"
 msgstr ""
 
 msgid "Server"
@@ -830,10 +821,7 @@ msgstr ""
 msgid "All"
 msgstr ""
 
-msgid "Gauges…"
-msgstr ""
-
-msgid "Edit the layout…"
+msgid "Edit the layout"
 msgstr ""
 
 msgid "Editing the layout"
@@ -913,7 +901,7 @@ msgstr ""
 msgid "No gauges here yet."
 msgstr ""
 
-msgid "Add gauges…"
+msgid "Add gauges"
 msgstr ""
 
 msgid "Nothing here yet. A trigger can show lines in this panel, and so can a script."
@@ -1216,9 +1204,6 @@ msgstr ""
 msgid "A sound could not be fetched: {0}"
 msgstr ""
 
-msgid "Find"
-msgstr ""
-
 msgid "Previous"
 msgstr ""
 
@@ -1327,7 +1312,7 @@ msgstr ""
 msgid "It is drawn as you walk, if the MUD says which room you are in. If yours tells it another way, or draws the map itself, a script can take it from there."
 msgstr ""
 
-msgid "Set up a mapper…"
+msgid "Set up a mapper"
 msgstr ""
 
 msgid "Command"

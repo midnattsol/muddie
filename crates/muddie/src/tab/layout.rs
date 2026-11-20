@@ -499,7 +499,7 @@ impl Tab {
         if !self.layout.panels.is_empty() {
             widgets::menu_separator(ui);
         }
-        if widgets::menu_item(ui, tr("Gauges…"), "").clicked() {
+        if widgets::menu_item(ui, tr("Gauges"), "").clicked() {
             // Those of the first panel of gauges, made if there is none.
             if !self.layout.has(Kind::Gauges) {
                 self.add_panel(Kind::Gauges);
@@ -513,7 +513,7 @@ impl Tab {
             self.open_gauges(panel);
             ui.close();
         }
-        if widgets::menu_item(ui, tr("Edit the layout…"), "").clicked() {
+        if widgets::menu_item(ui, tr("Edit the layout"), "").clicked() {
             self.editing_layout = true;
             self.started = true;
             ui.close();
@@ -1159,7 +1159,7 @@ impl Tab {
                     );
                 }
             });
-            if spec.kind == Kind::Gauges && crate::widgets::button(ui, tr("Gauges…")).clicked() {
+            if spec.kind == Kind::Gauges && crate::widgets::button(ui, tr("Gauges")).clicked() {
                 self.open_gauges(spec.id);
             }
             if earlier || later {
@@ -1224,7 +1224,7 @@ impl Tab {
                     .font(theme::font(Weight::Regular, 12.5))
                     .color(theme.text_faint),
             );
-            if widgets::quiet_button(ui, tr("Add gauges…")).clicked() {
+            if widgets::quiet_button(ui, tr("Add gauges")).clicked() {
                 self.open_gauges(id);
             }
         });

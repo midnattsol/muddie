@@ -286,14 +286,14 @@ impl App {
             widgets::menu_width(ui);
             self.tabs[active].view_menu(ui);
             widgets::menu_separator(ui);
-            if widgets::menu_item(ui, tr("Settings…"), "").clicked() {
+            if widgets::menu_item(ui, tr("Settings"), "").clicked() {
                 self.show_settings = true;
                 ui.close();
             }
         });
         ui.menu_button(tr("Help"), |ui| {
             widgets::menu_width(ui);
-            if widgets::menu_item(ui, tr("Commands…"), "Ctrl+K").clicked() {
+            if widgets::menu_item(ui, tr("Commands"), "Ctrl+K").clicked() {
                 self.tabs[self.active].toggle_palette();
                 ui.close();
             }
