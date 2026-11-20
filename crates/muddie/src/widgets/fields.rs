@@ -97,10 +97,9 @@ pub fn code_editor(
 ) -> Response {
     let theme = theme::current();
     let font = egui::FontId::monospace(13.0);
-    let small = egui::FontId::monospace(11.5);
     // Room for the numbers of as many lines as there are, or will fit.
     let lines = value.split('\n').count().max(rows);
-    let digit = ui.fonts_mut(|fonts| fonts.glyph_width(&small, '0'));
+    let digit = ui.fonts_mut(|fonts| fonts.glyph_width(&egui::FontId::monospace(11.5), '0'));
     let gutter = lines.to_string().len().max(2) as f32 * digit + 26.0;
     let mut coloured = |ui: &Ui, text: &dyn egui::TextBuffer, wrap_width: f32| {
         let mut job = crate::luau::highlight(text.as_str(), &font, &theme);
@@ -127,11 +126,32 @@ pub fn code_editor(
         .layouter(&mut coloured)
         .show(ui);
     let response = output.response.response.clone();
-    ui.ctx().accesskit_node_builder(response.id, |node| {
-        node.set_label(label);
-    });
+    ui.ctx()
+        .accesskit_node_builder(response.id, |node| node.set_label(label));
+    line_numbers(ui, &output, gutter, mistake);
+    if let Some((line, message)) = mistake {
+        let text = format!("{} {line}: {message}", crate::i18n::tr("Line"));
+        ui.label(
+            RichText::new(text)
+                .font(theme::font(Weight::Regular, 12.0))
+                .color(theme.danger),
+        );
+    }
+    response
+}
 
-    let rect = response.rect;
+/// The numbers of the lines in the gutter, the line being written marked,
+/// and the line of a mistake in its colour. A line of code can wrap into
+/// several rows; only its first is numbered.
+fn line_numbers(
+    ui: &Ui,
+    output: &egui::text_edit::TextEditOutput,
+    gutter: f32,
+    mistake: Option<&(usize, String)>,
+) {
+    let theme = theme::current();
+    let small = egui::FontId::monospace(11.5);
+    let rect = output.response.rect;
     let painter = ui.painter().with_clip_rect(rect);
     let edge = rect.left() + gutter - 12.0;
     painter.vline(
@@ -140,9 +160,8 @@ pub fn code_editor(
         Stroke::new(1.0, theme.border),
     );
     let writing = (output.cursor_range)
-        .filter(|_| response.has_focus())
+        .filter(|_| output.response.has_focus())
         .map(|range| output.galley.layout_from_cursor(range.primary).row);
-    // A line of code can wrap into several rows; only its first is numbered.
     let (mut number, mut first_row) = (1, true);
     for (index, row) in output.galley.rows.iter().enumerate() {
         let placed = row.rect().translate(output.galley_pos.to_vec2());
@@ -158,8 +177,9 @@ pub fn code_editor(
                 (false, true) => theme.text_dim,
                 (false, false) => theme.text_faint,
             };
+            let at = egui::pos2(edge - 9.0, placed.center().y);
             painter.text(
-                egui::pos2(edge - 9.0, placed.center().y),
+                at,
                 egui::Align2::RIGHT_CENTER,
                 number.to_string(),
                 small.clone(),
@@ -174,13 +194,4 @@ pub fn code_editor(
         }
         first_row = row.ends_with_newline;
     }
-    if let Some((line, message)) = mistake {
-        let text = format!("{} {line}: {message}", crate::i18n::tr("Line"));
-        ui.label(
-            RichText::new(text)
-                .font(theme::font(Weight::Regular, 12.0))
-                .color(theme.danger),
-        );
-    }
-    response
 }
