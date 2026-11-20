@@ -4,133 +4,122 @@
 use super::*;
 
 impl Tab {
-    /// What the palette can do besides commands, each with where it is.
+    /// What the palette can do besides commands, each with where it is:
+    /// places to go, the session's own, the panels, the settings, the
+    /// profiles, and help.
     pub(in crate::tab) fn palette_acts(&self) -> Vec<Item> {
-        let act = |label: &str, place: &str, act: Act| Item {
-            insert: String::new(),
-            usage: label.to_owned(),
-            about: place.to_owned(),
-            more: false,
-            act: Some(act),
-        };
-        let (go, session, panels, settings, help) = (
-            tr("Go to"),
-            tr("Session"),
-            tr("Panels"),
-            tr("Settings"),
-            tr("Help"),
-        );
-        let mut acts = vec![
-            act(tr("Game"), go, Act::View(0)),
-            act(tr("Editor"), go, Act::View(1)),
-            act(tr("Incoming data"), go, Act::View(2)),
-        ];
-        let sections = [
-            (tr("Triggers"), automation::TRIGGERS),
-            (tr("Aliases"), automation::ALIASES),
-            (tr("Macros"), automation::MACROS),
-            (tr("Timers"), automation::TIMERS),
-            (tr("Gauges"), automation::GAUGES),
-            (tr("Variables"), automation::VARIABLES),
-            (tr("Scripts"), automation::SCRIPTS),
-        ];
-        for (name, section) in sections {
-            acts.push(act(name, tr("Editor"), Act::Section(section)));
-        }
-        acts.push(act(tr("Reconnect"), session, Act::Reconnect));
+        let mut acts = places();
+        acts.extend(self.session_acts());
+        acts.extend(self.panel_acts());
+        let settings = tr("Settings");
+        acts.extend(crate::app::Section::ALL.map(|section| {
+            item(
+                section.name(),
+                settings,
+                Act::App(AppRequest::Settings(section)),
+            )
+        }));
+        acts.extend(self.profile_acts());
+        let help = tr("Help");
+        acts.push(item(
+            tr("Keyboard shortcuts"),
+            help,
+            Act::App(AppRequest::Shortcuts),
+        ));
+        acts.push(item(tr("About Muddie"), help, Act::App(AppRequest::About)));
+        acts
+    }
+
+    /// What is done with the session: connecting, closing, finding, logging,
+    /// speech and its profile.
+    fn session_acts(&self) -> Vec<Item> {
+        let session = tr("Session");
+        let mut acts = vec![item(tr("Reconnect"), session, Act::Reconnect)];
         if self.connection.is_some() {
-            acts.push(act(tr("Disconnect"), session, Act::Disconnect));
+            acts.push(item(tr("Disconnect"), session, Act::Disconnect));
         }
-        acts.push(act(
+        acts.push(item(
             tr("New session"),
             session,
             Act::App(AppRequest::NewSession),
         ));
-        acts.push(act(
+        acts.push(item(
             tr("Close session"),
             session,
             Act::App(AppRequest::CloseSession),
         ));
-        acts.push(act(tr("Find"), session, Act::Find));
+        acts.push(item(tr("Find"), session, Act::Find));
         let log = if self.log.is_some() {
             tr("Stop logging this session")
         } else {
             tr("Log this session")
         };
-        acts.push(act(log, session, Act::Log));
+        acts.push(item(log, session, Act::Log));
         let speech = if self.voice.enabled() {
             tr("Switch speech off")
         } else {
             tr("Switch speech on")
         };
-        acts.push(act(speech, session, Act::Speech));
-        match &self.profile {
-            Some(name) => acts.push(act(
-                tr("Edit profile"),
-                session,
-                Act::App(AppRequest::Profile(
-                    crate::app::ProfileAction::Edit,
-                    name.clone(),
-                )),
-            )),
-            None => acts.push(act(
+        acts.push(item(speech, session, Act::Speech));
+        acts.push(match &self.profile {
+            Some(name) => {
+                let edit = AppRequest::Profile(crate::app::ProfileAction::Edit, name.clone());
+                item(tr("Edit profile"), session, Act::App(edit))
+            }
+            None => item(
                 tr("Save as profile"),
                 session,
                 Act::App(AppRequest::SaveAsProfile),
-            )),
-        }
-        for panel in &self.layout.panels {
-            let label = match panel.visible {
-                true => trf("Hide {0}", &[&panel.name.clone()]),
-                false => trf("Show {0}", &[&panel.name.clone()]),
-            };
-            acts.push(act(&label, panels, Act::Panel(panel.id)));
-        }
-        acts.push(act(
+            ),
+        });
+        acts
+    }
+
+    /// Showing or hiding each panel, and adding one.
+    fn panel_acts(&self) -> Vec<Item> {
+        use super::layout::Kind;
+        let panels = tr("Panels");
+        let mut acts: Vec<Item> = (self.layout.panels.iter())
+            .map(|panel| {
+                let label = match panel.visible {
+                    true => trf("Hide {0}", &[&panel.name]),
+                    false => trf("Show {0}", &[&panel.name]),
+                };
+                item(&label, panels, Act::Panel(panel.id))
+            })
+            .collect();
+        acts.push(item(
             tr("Add a text panel"),
             panels,
-            Act::AddPanel(super::layout::Kind::Text),
+            Act::AddPanel(Kind::Text),
         ));
-        acts.push(act(
+        acts.push(item(
             tr("Add a panel of gauges"),
             panels,
-            Act::AddPanel(super::layout::Kind::Gauges),
+            Act::AddPanel(Kind::Gauges),
         ));
-        if !self.layout.has(super::layout::Kind::Map) {
-            acts.push(act(
-                tr("Add the map"),
-                panels,
-                Act::AddPanel(super::layout::Kind::Map),
-            ));
+        if !self.layout.has(Kind::Map) {
+            acts.push(item(tr("Add the map"), panels, Act::AddPanel(Kind::Map)));
         }
-        for section in crate::app::Section::ALL {
-            acts.push(act(
-                section.name(),
-                settings,
-                Act::App(AppRequest::Settings(section)),
-            ));
-        }
+        acts
+    }
+
+    /// Connecting to each saved profile, and editing it.
+    fn profile_acts(&self) -> Vec<Item> {
         let profiles = self
             .profiles
             .as_ref()
             .map(Profiles::names)
             .unwrap_or_default();
-        for name in profiles {
-            acts.push(act(
-                &name,
-                tr("Connect to profile"),
-                Act::Connect(name.clone()),
-            ));
-            let edit = AppRequest::Profile(crate::app::ProfileAction::Edit, name.clone());
-            acts.push(act(&name, tr("Edit profile"), Act::App(edit)));
-        }
-        acts.push(act(
-            tr("Keyboard shortcuts"),
-            help,
-            Act::App(AppRequest::Shortcuts),
-        ));
-        acts.push(act(tr("About Muddie"), help, Act::App(AppRequest::About)));
-        acts
+        (profiles.into_iter())
+            .flat_map(|name| {
+                let edit = AppRequest::Profile(crate::app::ProfileAction::Edit, name.clone());
+                [
+                    item(&name, tr("Connect to profile"), Act::Connect(name.clone())),
+                    item(&name, tr("Edit profile"), Act::App(edit)),
+                ]
+            })
+            .collect()
     }
 
     /// Does what an act of the palette means.
@@ -174,4 +163,36 @@ impl Tab {
     pub fn take_app_request(&mut self) -> Option<AppRequest> {
         self.app_request.take()
     }
+}
+
+/// Something the palette does, called `label`, said to be of `place`.
+fn item(label: &str, place: &str, act: Act) -> Item {
+    Item {
+        insert: String::new(),
+        usage: label.to_owned(),
+        about: place.to_owned(),
+        more: false,
+        act: Some(act),
+    }
+}
+
+/// The places to go: the views, and each section of the editor.
+fn places() -> Vec<Item> {
+    let go = tr("Go to");
+    let mut acts = vec![
+        item(tr("Game"), go, Act::View(0)),
+        item(tr("Editor"), go, Act::View(1)),
+        item(tr("Incoming data"), go, Act::View(2)),
+    ];
+    let sections = [
+        (tr("Triggers"), automation::TRIGGERS),
+        (tr("Aliases"), automation::ALIASES),
+        (tr("Macros"), automation::MACROS),
+        (tr("Timers"), automation::TIMERS),
+        (tr("Gauges"), automation::GAUGES),
+        (tr("Variables"), automation::VARIABLES),
+        (tr("Scripts"), automation::SCRIPTS),
+    ];
+    acts.extend(sections.map(|(name, section)| item(name, tr("Editor"), Act::Section(section))));
+    acts
 }
