@@ -19,7 +19,12 @@ fi
 [ -x target/release/muddie ] || { echo "Build Muddie first: cargo build --release -p muddie" >&2; exit 1; }
 
 install -Dm755 target/release/muddie "$prefix/bin/muddie"
-install -Dm644 assets/$id.desktop "$share/applications/$id.desktop"
+# With the program's whole path: the desktop leaves out an entry whose
+# program it cannot find, and its PATH need not be the terminal's.
+mkdir -p "$share/applications"
+sed "s|^Exec=muddie|TryExec=$prefix/bin/muddie\nExec=$prefix/bin/muddie|" \
+    assets/$id.desktop > "$share/applications/$id.desktop"
+chmod 644 "$share/applications/$id.desktop"
 install -Dm644 assets/$id.metainfo.xml "$share/metainfo/$id.metainfo.xml"
 for icon in assets/icons/hicolor/*/apps/$id.png; do
     size=$(basename "$(dirname "$(dirname "$icon")")")
