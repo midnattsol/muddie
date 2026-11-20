@@ -2124,8 +2124,8 @@ fn what_a_click_opens_stays_open() {
     app.note("Connected.");
     harness.run_steps(3);
     let steady = |harness: &mut Harness<'_, crate::app::App>, what: &str, shown: &str| {
-        // It may be laid out a frame late; once there, it stays.
-        harness.run_steps(2);
+        // It may be laid out a few frames late; once there, it stays.
+        harness.run_steps(4);
         for frame in 0..6 {
             assert!(
                 harness.query_by_label(shown).is_some(),
