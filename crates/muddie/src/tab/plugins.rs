@@ -74,8 +74,8 @@ impl Tab {
         }
         self.plugin_offer = Some(plugin);
         self.voice.say(&trf(
-            "There is a plugin for {0}. It is offered above the command line.",
-            &[tr(plugin.name)],
+            "There is a plugin for {0}: {1} It can be enabled from the notice at the bottom right.",
+            &[tr(plugin.name), tr(plugin.about)],
         ));
     }
 
@@ -88,36 +88,21 @@ impl Tab {
         }
     }
 
-    /// The offer of a plugin for the MUD connected to, over the command
-    /// line: what it does, and a button to switch it on and one not to.
-    pub(super) fn plugin_notice(&mut self, ui: &mut egui::Ui) {
-        let Some(plugin) = self.plugin_offer else {
-            return;
-        };
-        let theme = theme::current();
-        let card = egui::Frame::new()
-            .fill(theme.raised)
-            .stroke(egui::Stroke::new(1.0, theme.border))
-            .corner_radius(egui::CornerRadius::same(10))
-            .inner_margin(egui::Margin::symmetric(12, 6));
-        let (mut enable, mut decline) = (false, false);
-        card.show(ui, |ui| {
-            ui.horizontal(|ui| {
-                let what = trf("There is a plugin for {0}.", &[tr(plugin.name)]);
-                ui.label(RichText::new(what).color(theme.text));
-                ui.label(RichText::new(tr(plugin.about)).color(theme.text_dim));
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    decline = crate::widgets::quiet_button(ui, tr("Not now")).clicked();
-                    enable = crate::widgets::button(ui, tr("Enable")).clicked();
-                });
-            });
-        });
-        ui.add_space(4.0);
-        if enable {
-            self.set_included(plugin, true);
-        }
-        if decline {
-            self.decline_plugin();
+    /// What the plugin offered for this MUD is and does, if one is.
+    pub fn plugin_offered(&self) -> Option<(String, String)> {
+        let plugin = self.plugin_offer?;
+        Some((
+            trf("There is a plugin for {0}.", &[tr(plugin.name)]),
+            tr(plugin.about).to_owned(),
+        ))
+    }
+
+    /// Answers the offer of a plugin: switched on, or not offered again.
+    pub fn answer_plugin_offer(&mut self, enable: bool) {
+        match (self.plugin_offer, enable) {
+            (Some(plugin), true) => self.set_included(plugin, true),
+            (Some(_), false) => self.decline_plugin(),
+            (None, _) => {}
         }
     }
 

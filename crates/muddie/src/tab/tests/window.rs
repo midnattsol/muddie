@@ -327,3 +327,27 @@ fn frame_costs() {
     app.set_view(2);
     cost(&mut harness, "debug with 120 packages");
 }
+
+#[test]
+fn what_is_said_out_of_sight_of_the_game_is_shown_over_the_corner() {
+    let mut harness = window(None);
+    harness.set_size(egui::vec2(1300.0, 800.0));
+    harness.run_steps(2);
+    // In sight, the lines of the game say it, and nothing floats.
+    harness.state_mut().tab_mut().note("Said in sight.");
+    harness.run_steps(2);
+    assert_eq!(
+        harness.query_all_by_label("Said in sight.").count(),
+        1,
+        "said twice"
+    );
+    // In the editor, a notice says it, moving nothing, and goes.
+    harness.state_mut().tab_mut().open_automation(0);
+    harness.run_steps(2);
+    harness.state_mut().tab_mut().note("Said in the editor.");
+    harness.run_steps(2);
+    harness.get_by_label("Said in the editor.");
+    std::thread::sleep(std::time::Duration::from_millis(6100));
+    harness.run_steps(2);
+    assert!(harness.query_by_label("Said in the editor.").is_none());
+}

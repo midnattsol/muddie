@@ -183,20 +183,36 @@ pub fn page_note(ui: &mut Ui, text: &str) {
     ui.add(egui::Label::new(note).wrap());
 }
 
-/// A bar that says something about the page, with what to do about it at
-/// the right.
-pub fn notice_bar(ui: &mut Ui, text: &str, add: &mut dyn FnMut(&mut Ui)) {
+/// A notice over the corner of the window, which moves nothing: what it
+/// says, marked if it is that something could not be done, and what can
+/// be done about it under it, if anything.
+pub fn toast(
+    ui: &mut Ui,
+    text: &str,
+    problem: bool,
+    actions: Option<&mut dyn FnMut(&mut Ui)>,
+) -> Response {
     let theme = theme::current();
-    Frame::new()
-        .fill(theme.accent.gamma_multiply(0.14))
-        .stroke(Stroke::new(1.0, theme.accent.gamma_multiply(0.5)))
+    let edge = if problem { theme.danger } else { theme.border };
+    let shown = Frame::new()
+        .fill(theme.raised)
+        .stroke(Stroke::new(1.0, edge))
         .corner_radius(CornerRadius::same(10))
-        .inner_margin(Margin::symmetric(14, 8))
+        .inner_margin(Margin::symmetric(14, 10))
+        .shadow(egui::epaint::Shadow {
+            offset: [0, 4],
+            blur: 16,
+            spread: 0,
+            color: Color32::from_black_alpha(60),
+        })
         .show(ui, |ui| {
             ui.set_width(ui.available_width());
-            ui.horizontal(|ui| {
-                ui.label(RichText::new(text).color(theme.text));
-                ui.with_layout(Layout::right_to_left(Align::Center), add);
-            });
+            let colour = if problem { theme.danger } else { theme.text };
+            ui.add(egui::Label::new(RichText::new(text).color(colour)).wrap());
+            if let Some(actions) = actions {
+                ui.add_space(6.0);
+                ui.with_layout(Layout::right_to_left(Align::Center), actions);
+            }
         });
+    shown.response
 }

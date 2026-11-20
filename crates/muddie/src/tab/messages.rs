@@ -10,6 +10,9 @@ pub struct Notice {
     pub time: String,
     pub text: String,
     pub problem: bool,
+    /// How many were said before it in the session, and when it was.
+    pub serial: u64,
+    pub at: Instant,
 }
 
 /// How many of the client's messages are kept to be read again.
@@ -42,10 +45,13 @@ impl Tab {
         if self.notices.list.len() >= MOST_NOTICES {
             self.notices.list.remove(0);
         }
+        self.notices.said += 1;
         self.notices.list.push(Notice {
             time: crate::output::clock(),
             text: text.to_owned(),
             problem,
+            serial: self.notices.said,
+            at: Instant::now(),
         });
         self.notices.unread += 1;
     }
@@ -54,6 +60,11 @@ impl Tab {
     /// of them have not been looked at.
     pub fn notices(&self) -> (&[Notice], usize) {
         (&self.notices.list, self.notices.unread)
+    }
+
+    /// How many the client has said in the session.
+    pub fn notices_said(&self) -> u64 {
+        self.notices.said
     }
 
     /// They have been looked at.
@@ -123,4 +134,6 @@ pub(super) struct Notices {
     /// have not been looked at.
     pub(super) list: Vec<Notice>,
     pub(super) unread: usize,
+    /// How many have been said in the session, kept or not.
+    pub(super) said: u64,
 }

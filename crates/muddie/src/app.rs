@@ -21,6 +21,7 @@ mod dialogs;
 mod keys;
 mod profiles;
 mod settings_page;
+mod toasts;
 
 use asks::Ask;
 use keys::drop_alt_typing;
@@ -65,6 +66,9 @@ pub struct App {
     languages: Option<Vec<(String, String)>>,
     show_shortcuts: bool,
     show_about: bool,
+    /// The last of the client's notices said while the lines of the game
+    /// were in sight: those after are shown over the corner.
+    toasts_after: u64,
     /// A problem with the settings to show in the settings window.
     settings_error: Option<String>,
     /// Keypad keys noted by the window layer, waiting for the next frame.
@@ -124,6 +128,7 @@ impl App {
             languages: None,
             show_shortcuts: false,
             show_about: false,
+            toasts_after: 0,
             settings_error,
             keypad,
         }
@@ -348,6 +353,7 @@ impl eframe::App for App {
         self.bars(ui);
         self.windows(ui.ctx());
         self.session(ui);
+        self.toasts(ui.ctx());
         self.keep_settings(ui);
     }
 }

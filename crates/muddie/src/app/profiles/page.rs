@@ -1,5 +1,5 @@
 //! The profile chosen, at the right of the Profiles window: its colour,
-//! name, menu and connecting with it; a notice when what changed waits
+//! name, menu and connecting with it, which says when what changed waits
 //! for reconnecting; and its parts, each in a tab.
 
 use super::*;
@@ -11,7 +11,6 @@ impl App {
             return self.no_profile(ui);
         };
         self.profile_heading(ui, ctx, &name);
-        self.reconnect_notice(ui, ctx, &name);
         ui.add_space(size::GAP_M);
         let names = ProfileTab::ALL.map(ProfileTab::name);
         let current = ProfileTab::ALL
@@ -96,6 +95,9 @@ impl App {
             if in_use {
                 widgets::badge(ui, tr("In use"), true);
             }
+            if self.waits_to_reconnect(name) {
+                widgets::badge(ui, tr("Changes pending"), false);
+            }
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 let label = trf("{0} options", &[name]);
                 let more = widgets::icon_button(ui, widgets::Icon::More, &label, false);
@@ -109,36 +111,21 @@ impl App {
         }
     }
 
-    /// With the session on screen connected with this profile otherwise
-    /// than it now says, that what changed waits for reconnecting.
-    pub(in crate::app) fn reconnect_notice(
-        &mut self,
-        ui: &mut Ui,
-        ctx: &egui::Context,
-        name: &str,
-    ) {
-        let tab = &mut self.tabs[self.active];
-        if !tab.uses_profile(name) || !tab.connection_outdated() {
-            return;
-        }
-        ui.add_space(size::GAP_M);
-        let mut again = false;
-        widgets::notice_bar(
-            ui,
-            tr("The changes take effect on reconnecting."),
-            &mut |ui| {
-                again = widgets::primary_button(ui, tr("Reconnect")).clicked();
-            },
-        );
-        if again {
-            tab.reconnect(ctx);
-            self.show_profiles = false;
-        }
-    }
-
     /// Connects with this profile: in the session on screen if it is not
     /// connected, or else in a new one.
+    /// With the session on screen connected with this profile otherwise
+    /// than it now says, what changed takes effect on reconnecting: it says
+    /// so in its place, and connecting is reconnecting.
     pub(in crate::app) fn connect_button(&mut self, ui: &mut Ui, ctx: &egui::Context, name: &str) {
+        if self.waits_to_reconnect(name) {
+            let again = widgets::primary_button(ui, tr("Reconnect"))
+                .on_hover_text(tr("The changes take effect on reconnecting."));
+            if again.clicked() {
+                self.tabs[self.active].reconnect(ctx);
+                self.show_profiles = false;
+            }
+            return;
+        }
         if !widgets::primary_button(ui, tr("Connect")).clicked() {
             return;
         }
@@ -148,5 +135,12 @@ impl App {
         }
         self.tabs[self.active].play(name, ctx);
         self.show_profiles = false;
+    }
+
+    /// Whether the session on screen plays with this profile as it was,
+    /// so that what changed waits for reconnecting.
+    fn waits_to_reconnect(&self, name: &str) -> bool {
+        let tab = &self.tabs[self.active];
+        tab.uses_profile(name) && tab.connection_outdated()
     }
 }

@@ -54,7 +54,6 @@ impl Tab {
                     self.find_bar(ui);
                 }
                 self.announce(ui);
-                self.plugin_notice(ui);
                 self.input_line(ui);
             });
         let asked = self.show_panels(ui);

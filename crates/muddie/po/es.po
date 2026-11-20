@@ -1125,11 +1125,7 @@ msgstr "nuevo"
 
 #, python-brace-format
 msgid "There is a plugin for {0}."
-msgstr "Hay un plugin para {0}."
-
-#, python-brace-format
-msgid "There is a plugin for {0}. It is offered above the command line."
-msgstr "Hay un plugin para {0}. Se ofrece encima de la barra de comandos."
+msgstr "Hay un complemento para {0}."
 
 msgid "Not now"
 msgstr "Ahora no"
@@ -1682,3 +1678,12 @@ msgstr[1] "{0} elementos"
 
 msgid "Several folders"
 msgstr "Varias carpetas"
+
+
+#, python-brace-format
+msgid "There is a plugin for {0}: {1} It can be enabled from the notice at the bottom right."
+msgstr "Hay un complemento para {0}: {1} Se puede activar desde el aviso de abajo a la derecha."
+
+msgid "Changes pending"
+msgstr "Cambios pendientes"
+

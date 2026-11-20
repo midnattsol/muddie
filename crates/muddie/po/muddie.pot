@@ -552,17 +552,11 @@ msgid "Script error: {0}"
 msgstr ""
 
 #, python-brace-format
-msgid "There is a plugin for {0}. It is offered above the command line."
+msgid "There is a plugin for {0}: {1} It can be enabled from the notice at the bottom right."
 msgstr ""
 
 #, python-brace-format
 msgid "There is a plugin for {0}."
-msgstr ""
-
-msgid "Not now"
-msgstr ""
-
-msgid "Enable"
 msgstr ""
 
 msgid "Plugins are enabled per profile: save or choose a profile first."
@@ -822,6 +816,9 @@ msgid "Key"
 msgstr ""
 
 msgid "Disable"
+msgstr ""
+
+msgid "Enable"
 msgstr ""
 
 msgid "Move to folder"
@@ -1310,6 +1307,9 @@ msgstr ""
 msgid "No profiles yet. A profile keeps a MUD's connection, scripts, map and layout."
 msgstr ""
 
+msgid "Changes pending"
+msgstr ""
+
 msgid "The changes take effect on reconnecting."
 msgstr ""
 
@@ -1417,6 +1417,9 @@ msgid "{0} is now a script of profile {1}."
 msgstr ""
 
 msgid "Profiles need a configuration folder, and none was found."
+msgstr ""
+
+msgid "Not now"
 msgstr ""
 
 msgid "Plugins"

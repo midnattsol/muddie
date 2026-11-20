@@ -19,7 +19,11 @@ the **menu** (the three lines): a new session, the settings, the profiles,
 the keyboard shortcuts and what Muddie is. At the bottom, the sessions as tabs, what the
 one on screen is doing, and the **bell** of the messages the client has given
 in it, marked while some are new: what was said for a moment, such as the
-answer of a command, can be read there again.
+answer of a command, can be read there again. What the client says while the
+lines of the game are out of sight, in the editor or with a window open, is
+also shown for a few seconds over the bottom right corner, where it moves
+nothing; so is what waits for an answer, such as a plugin offered for the
+MUD. Nothing the client says pushes the rest aside.
 
 A session's tab says its name and, with a dot, how its connection is doing.
 A right click on it opens its menu: connect or reconnect, disconnect, edit
@@ -66,8 +70,9 @@ session plays with, and the one chosen at the right. Its page has its name,
   as you.
 
 What is changed there is kept as it is changed, with no button to press, and
-a session playing with that profile takes it. A session connected otherwise
-than its profile now says shows it, with **Reconnect** beside it. **New
+a session playing with that profile takes it. While the session on screen is
+connected otherwise than its profile now says, the profile is marked
+**Changes pending** and its **Connect** button is **Reconnect**. **New
 profile**, under the list, makes an empty one. A profile also has its own scripts, triggers, map and remembered values,
 all under `profiles/<name>/` in the configuration folder (`~/.config/muddie`
 on Linux, `%APPDATA%\muddie` on Windows).
@@ -307,8 +312,8 @@ per profile like the ones you install. Two come with it.
   as channels. It is on in a new profile; switched off, the client makes
   nothing of them by itself, and scripts still get them.
 - **Reinos de Leyenda** shows the channels of that MUD, each in its tab. It
-  is off until asked for. On connecting to that MUD it is offered over the
-  command line: **Enable** switches it on there and then, and **Not now**
+  is off until asked for. On connecting to that MUD it is offered in a
+  notice over the bottom right corner: **Enable** switches it on there and then, and **Not now**
   puts the offer away for that profile. The MUD sends nothing over GMCP until
   you type `consentir gmcp on` in the game; if nothing has come a minute and
   a half after connecting, the plugin says so.
