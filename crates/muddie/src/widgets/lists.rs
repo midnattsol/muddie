@@ -70,6 +70,8 @@ pub struct ListRow<'a> {
     pub selected: bool,
     pub active: bool,
     pub depth: usize,
+    /// It failed: its title is in the colour of what could not be done.
+    pub problem: bool,
 }
 
 impl ListRow<'_> {
@@ -99,12 +101,17 @@ impl ListRow<'_> {
         } else {
             body.top() + 16.0
         };
+        let ink = if self.problem {
+            theme.danger
+        } else {
+            theme.text
+        };
         let title = painter.text(
             egui::pos2(left, title_y),
             egui::Align2::LEFT_CENTER,
             self.title,
             theme::font(Weight::Medium, 13.5),
-            theme.text.gamma_multiply(fade),
+            ink.gamma_multiply(fade),
         );
         let mut at = title.right() + 8.0;
         for tag in self.tags.iter().filter(|tag| !tag.trim().is_empty()) {

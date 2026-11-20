@@ -215,6 +215,9 @@ pub(super) struct Palette {
     pub(super) cursor_end: bool,
     pub(super) cache: Option<(String, Vec<commands::Item>)>,
     pub(super) chosen: usize,
+    /// The one chosen was chosen with the keys: the list is to be scrolled
+    /// to it.
+    pub(super) reveal: bool,
     /// What the command being carried out has said so far, and whether
     /// it said it could not do what was asked.
     pub(super) answer: Vec<commands::Said>,

@@ -126,6 +126,44 @@ impl Tab {
         self.channel_said(name, panel, lines);
     }
 
+    /// Runs every script and rule again, as when a session starts, keeping
+    /// the variables: the same from the editor, the palette and `/reload`.
+    /// Says how it went, and keeps when it was and which scripts failed,
+    /// for the editor to show.
+    pub(super) fn restart_scripts(&mut self) {
+        self.flush_script();
+        self.script_errors.clear();
+        self.load_scripts();
+        // What failed, by where the error says it was: a script's file, or
+        // a rule.
+        let mut failed: Vec<String> = (self.script_errors.iter())
+            .map(|error| {
+                error
+                    .split(':')
+                    .next()
+                    .unwrap_or_default()
+                    .trim()
+                    .to_owned()
+            })
+            .collect();
+        failed.sort();
+        failed.dedup();
+        let said = match failed.len() {
+            0 => tr("Scripts restarted.").to_owned(),
+            count => trn(
+                "Scripts restarted; {0} failed.",
+                "Scripts restarted; {0} failed.",
+                count as u64,
+            ),
+        };
+        match failed.is_empty() {
+            true => self.note(&said),
+            false => self.refuse(&said),
+        }
+        self.editor.restarted = Some(crate::output::clock());
+        self.editor.failed = failed;
+    }
+
     /// Runs the rules made in the interface, in place of those that were
     /// running.
     pub(super) fn run_rules(&mut self) {
@@ -235,6 +273,7 @@ impl Tab {
                 }
                 Action::StopSounds => self.sound.stop_all(),
                 Action::Error(message) => {
+                    self.script_errors.push(message.clone());
                     let message = trf("Script error: {0}", &[&message]);
                     message.lines().for_each(|line| self.refuse(line));
                 }

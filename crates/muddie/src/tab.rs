@@ -178,6 +178,8 @@ pub struct Tab {
     supports: Vec<String>,
     /// The switches the player's scripts were last run or stopped by.
     scripts_synced: Option<Switches>,
+    /// The errors the scripts gave since they were last restarted.
+    script_errors: Vec<String>,
     /// Words scripts gave to complete with, under the name of each list.
     completions: Vec<(String, Vec<String>)>,
     /// How big the panels and the window are, in characters, and what was told
@@ -299,6 +301,7 @@ impl Tab {
             select_input: false,
             supports: Vec::new(),
             scripts_synced: None,
+            script_errors: Vec::new(),
             completions: Vec::new(),
             sizes: panel_sizes::Sizes::default(),
             address: String::new(),

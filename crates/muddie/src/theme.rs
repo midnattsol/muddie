@@ -296,6 +296,9 @@ fn spacing(spacing: &mut egui::style::Spacing) {
     spacing.icon_width = 16.0;
     spacing.scroll.bar_width = 8.0;
     spacing.scroll.floating = true;
+    // A bar is seen, faintly, wherever there is more to scroll to, not
+    // only under the pointer: what can be scrolled says so.
+    spacing.scroll.dormant_handle_opacity = 0.45;
 }
 
 /// The type of each kind of text.

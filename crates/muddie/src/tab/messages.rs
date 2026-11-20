@@ -21,7 +21,14 @@ pub(super) const MOST_NOTICES: usize = 200;
 impl Tab {
     /// Shows and speaks a message from the client itself.
     pub fn note(&mut self, text: &str) {
-        self.remember_notice(text, self.palette.answering && self.palette.answer_failed);
+        self.say(text, false);
+    }
+
+    /// Shows and speaks a message, kept as one of something that could not
+    /// be done if it is a `problem`.
+    pub(super) fn say(&mut self, text: &str, problem: bool) {
+        let problem = problem || (self.palette.answering && self.palette.answer_failed);
+        self.remember_notice(text, problem);
         // What a command typed with `/` says is its answer, shown at the
         // command line; anything else is a line of the client's.
         if self.palette.answering {

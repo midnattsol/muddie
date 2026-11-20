@@ -34,7 +34,11 @@ want, such as `timers`, `map`, `theme` or the name of a profile, and press
 Enter. It goes to the views and the sections of the editor, opens the
 settings at the part wanted, shows and hides panels, adds them, connects to
 a profile, and runs the commands of the client. Everything the menu does is
-in it.
+in it. It says how many it found; **↑** and **↓** go through them one by
+one, round the ends, **Page Up** and **Page Down** a page at a time, and
+**Ctrl+Home** and **Ctrl+End** to the first and the last, each said aloud
+with where it is; the wheel scrolls it too. Wherever there is more to
+scroll to, a faint bar says so.
 
 ## Sessions and profiles
 
@@ -120,7 +124,7 @@ walks to it, and on a tag or a plugin switches it.
 |---|---|
 | `/help` | Opens the palette of these commands |
 | `/lua <code>` | Runs a line of Luau |
-| `/reload` | Runs the scripts and rules again |
+| `/reload` | Restarts the scripts and rules, as **Restart scripts** does in the editor |
 | `/log` | Starts or stops logging the session to a file |
 | `/tag`, `/tag <name> [on\|off]` | Lists the tags; switches one on or off for this session |
 | `/map where` | Says where the map has you, and the exits |
@@ -191,6 +195,11 @@ one chosen among those beside it. Its details have the folder too, to
 choose. Deleting a folder leaves what it held in the folder it was in. A
 folder of scripts is a folder on the disk, in the profile's `scripts`. Each
 folder has a switch: switched off, nothing in it runs, however deep.
+
+**Restart scripts**, under the sections, runs every script and rule again as
+when a session starts, keeping the variables; under it, when that was done
+and how many failed, and the scripts that failed are marked in the list.
+`/reload` does the same.
 
 The list answers the keys any list does while no field is being typed in:
 **↑** and **↓** choose the one above or below, **Home** and **End** the

@@ -383,3 +383,31 @@ fn macro_key_is_recorded_from_the_next_key_pressed() {
         ("numpad8", false)
     );
 }
+
+#[test]
+fn the_palette_is_a_list_to_page_through_that_says_how_long_it_is() {
+    let mut harness = window(None);
+    harness.set_size(egui::vec2(1300.0, 800.0));
+    harness.state_mut().tab_mut().toggle_palette();
+    harness.run_steps(3);
+    let count = harness.state_mut().tab_mut().palette_items().len();
+    assert!(count > 8, "too few to page through: {count}");
+    harness.get_by_label_contains(&format!("{count} results"));
+    let chosen = |harness: &Harness<'_, App>| harness.state().tab().palette.chosen;
+    // A page down, then to the end, then round to the first.
+    harness.key_press(Key::PageDown);
+    harness.run_steps(2);
+    assert_eq!(chosen(&harness), 7);
+    harness.key_press_modifiers(Modifiers::COMMAND, Key::End);
+    harness.run_steps(2);
+    assert_eq!(chosen(&harness), count - 1);
+    harness.key_press(Key::PageDown);
+    harness.run_steps(2);
+    assert_eq!(chosen(&harness), count - 1, "a page stops at the end");
+    harness.key_press(Key::ArrowDown);
+    harness.run_steps(2);
+    assert_eq!(chosen(&harness), 0, "one goes round");
+    harness.key_press(Key::PageUp);
+    harness.run_steps(2);
+    assert_eq!(chosen(&harness), 0);
+}

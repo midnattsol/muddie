@@ -127,9 +127,6 @@ msgstr "No se pudo guardar la contraseña en el llavero: {0}"
 msgid "The password could not be read from the keyring: {0}"
 msgstr "No se pudo leer la contraseña del llavero: {0}"
 
-msgid "Scripts reloaded."
-msgstr "Scripts recargados."
-
 msgid "Character"
 msgstr "Personaje"
 
@@ -742,9 +739,6 @@ msgstr "Elimina un complemento"
 msgid "Starts or stops logging the session"
 msgstr "Empieza o deja de registrar la sesión"
 
-msgid "Runs the scripts and rules again"
-msgstr "Vuelve a ejecutar los scripts y las reglas"
-
 msgid ""
 "Scripts are Luau code that is always loaded: what no rule can do,\n"
 "such as building the map or acting on what your MUD reports."
@@ -1079,12 +1073,6 @@ msgstr "Reinos de Leyenda"
 
 msgid "Incoming data"
 msgstr "Datos recibidos"
-
-msgid "Reload all"
-msgstr "Recargar todo"
-
-msgid "Runs every script and rule again, as when a session starts."
-msgstr "Vuelve a ejecutar todos los scripts y reglas, como al iniciar la sesión."
 
 msgid "Record in the background"
 msgstr "Grabar en segundo plano"
@@ -1703,3 +1691,43 @@ msgstr "Elegir todo lo que se ve"
 
 msgid "Move it up or down"
 msgstr "Moverlo arriba o abajo"
+
+
+msgid "Restart scripts"
+msgstr "Reiniciar scripts"
+
+msgid "Runs every script and rule again, as when a session starts. The variables are kept."
+msgstr "Vuelve a ejecutar todos los scripts y reglas, como al empezar la sesión. Las variables se conservan."
+
+msgid "Scripts restarted."
+msgstr "Scripts reiniciados."
+
+#, python-brace-format
+msgid "Scripts restarted; {0} failed."
+msgid_plural "Scripts restarted; {0} failed."
+msgstr[0] "Scripts reiniciados; {0} ha fallado."
+msgstr[1] "Scripts reiniciados; {0} han fallado."
+
+#, python-brace-format
+msgid "Restarted at {0}"
+msgstr "Reiniciados a las {0}"
+
+#, python-brace-format
+msgid "Restarted at {1}; {0} failed"
+msgid_plural "Restarted at {1}; {0} failed"
+msgstr[0] "Reiniciados a las {1}; {0} ha fallado"
+msgstr[1] "Reiniciados a las {1}; {0} han fallado"
+
+msgid "Restarts the scripts and rules"
+msgstr "Reinicia los scripts y las reglas"
+
+#, python-brace-format
+msgid "{0} of {1}"
+msgstr "{0} de {1}"
+
+#, python-brace-format
+msgid "{0} result"
+msgid_plural "{0} results"
+msgstr[0] "{0} resultado"
+msgstr[1] "{0} resultados"
+

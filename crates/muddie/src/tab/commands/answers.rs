@@ -22,7 +22,7 @@ impl Tab {
     /// Says that what was asked could not be done.
     pub(in crate::tab) fn refuse(&mut self, text: &str) {
         self.palette.answer_failed |= self.palette.answering;
-        self.note(text);
+        self.say(text, true);
     }
 
     /// Says something inside the command line, if it is empty to say it

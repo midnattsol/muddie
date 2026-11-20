@@ -13,6 +13,8 @@ pub(in crate::tab) struct Row {
     /// The folder it is in; empty for none.
     pub(in crate::tab) folder: String,
     pub(in crate::tab) tags: Vec<String>,
+    /// It failed when last run.
+    pub(in crate::tab) problem: bool,
 }
 
 /// Where a row or a folder was drawn, to find what the pointer is over.
@@ -58,7 +60,7 @@ impl Tab {
             false => tr("In every session"),
         };
         Row {
-            title: (file.file_name().unwrap_or_default().to_string_lossy()).into_owned(),
+            title: title_of(file),
             detail: detail.to_owned(),
             on: kept.enabled,
             folder: place
@@ -66,6 +68,7 @@ impl Tab {
                 .map_or("", |(folder, _)| folder)
                 .to_owned(),
             tags: kept.tags,
+            problem: self.editor.failed.contains(&title_of(file)),
         }
     }
 
@@ -291,6 +294,7 @@ impl Tab {
             selected: chosen,
             active,
             depth,
+            problem: row.problem,
         }
         .show(ui);
         if line.clicked() {
@@ -450,6 +454,7 @@ fn rule_rows<T: crate::rules::When>(
                 on: rule.enabled,
                 folder: rule.folder.trim().to_owned(),
                 tags: rule.tags.clone(),
+                problem: false,
             }
         })
         .collect()
@@ -474,6 +479,7 @@ fn gauge_row(rule: &crate::rules::Gauge) -> Row {
         on: rule.enabled,
         folder: String::new(),
         tags: Vec::new(),
+        problem: false,
     }
 }
 
@@ -485,5 +491,12 @@ fn variable_row((name, value): (String, serde_json::Value)) -> Row {
         on: true,
         folder: String::new(),
         tags: Vec::new(),
+        problem: false,
     }
+}
+
+/// What a script is called in the list, and in what its errors say: its
+/// file's name.
+pub(in crate::tab) fn title_of(file: &std::path::Path) -> String {
+    (file.file_name().unwrap_or_default().to_string_lossy()).into_owned()
 }

@@ -167,6 +167,10 @@ pub(super) struct Editor {
     pub(super) rename: bool,
     /// Whether a field had the keys at the end of the last frame.
     pub(super) was_typing: bool,
+    /// When the scripts were last restarted, and the scripts' files (or
+    /// the rules) that failed then.
+    pub(super) restarted: Option<String>,
+    pub(super) failed: Vec<String>,
     /// The trigger whose details are shown, and what it was asked to do
     /// besides its commands though that is still empty.
     pub(super) extras_added: (usize, Vec<automation::Extra>),
@@ -221,6 +225,8 @@ impl Default for Editor {
             renaming: None,
             rename: false,
             was_typing: false,
+            restarted: None,
+            failed: Vec::new(),
             extras_added: (usize::MAX, Vec::new()),
             gauge_here: None,
             undo: None,

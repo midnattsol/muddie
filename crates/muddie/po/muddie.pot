@@ -296,9 +296,6 @@ msgstr ""
 msgid "Could not save the panels: {0}"
 msgstr ""
 
-msgid "Scripts reloaded."
-msgstr ""
-
 #, python-brace-format
 msgid "There is no tag called {0}; /tag lists them."
 msgstr ""
@@ -401,10 +398,18 @@ msgstr ""
 msgid "Done."
 msgstr ""
 
+#, python-brace-format
+msgid "{0} of {1}"
+msgstr ""
+
 msgid "Choose one, or type a command"
 msgstr ""
 
 msgid "Go to, open or run anything"
+msgstr ""
+
+#, python-brace-format
+msgid "{0} result"
 msgstr ""
 
 msgid "Settings"
@@ -539,6 +544,13 @@ msgstr ""
 msgid "Could not load the rules: {0}"
 msgstr ""
 
+msgid "Scripts restarted."
+msgstr ""
+
+#, python-brace-format
+msgid "Scripts restarted; {0} failed."
+msgstr ""
+
 #, python-brace-format
 msgid "Could not save the rules: {0}"
 msgstr ""
@@ -619,16 +631,24 @@ msgstr ""
 msgid "Resize"
 msgstr ""
 
-msgid "Reload all"
-msgstr ""
-
-msgid "Runs every script and rule again, as when a session starts."
-msgstr ""
-
 msgid "All changes saved"
 msgstr ""
 
 msgid "Saving…"
+msgstr ""
+
+msgid "Restart scripts"
+msgstr ""
+
+msgid "Runs every script and rule again, as when a session starts. The variables are kept."
+msgstr ""
+
+#, python-brace-format
+msgid "Restarted at {0}"
+msgstr ""
+
+#, python-brace-format
+msgid "Restarted at {1}; {0} failed"
 msgstr ""
 
 msgid "Name this gauge"

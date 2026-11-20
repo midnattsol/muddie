@@ -619,3 +619,41 @@ fn the_list_answers_the_keys_any_list_does() {
     harness.run_steps(2);
     assert_eq!(names(&harness), ["First", "Beta", "Gamma"]);
 }
+
+#[test]
+fn restarting_the_scripts_says_when_and_which_failed() {
+    let dir = std::env::temp_dir().join(format!("muddie-restart-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let profiles = Profiles::at(dir.clone());
+    profiles
+        .save("Test", &crate::profile::Profile::default())
+        .unwrap();
+    let scripts = profiles.scripts_dir("Test");
+    std::fs::create_dir_all(&scripts).unwrap();
+    std::fs::write(scripts.join("good.luau"), "local x = 1").unwrap();
+    std::fs::write(scripts.join("broken.luau"), "error('boom')").unwrap();
+    let mut harness = window(Some(profiles));
+    harness.set_size(egui::vec2(1400.0, 800.0));
+    let app = harness.state_mut().tab_mut();
+    assert!(app.select_profile(Some("Test".into())));
+    app.open_automation(automation::SCRIPTS);
+    harness.run_steps(3);
+    harness.get_by_label("Restart scripts").click();
+    harness.run_steps(3);
+    let app = harness.state().tab();
+    assert_eq!(app.editor.failed, ["broken.luau"]);
+    // In the foot of the sections, with when.
+    let at = harness.state().tab().editor.restarted.clone().unwrap();
+    harness.get_by_label(&format!("Restarted at {at}; 1 failed"));
+    // Said over the corner, as the lines of the game are not in sight,
+    // and kept as something that could not be done.
+    let (said, _) = harness.state().tab().notices();
+    let last = said.last().unwrap();
+    assert!(
+        last.problem && last.text.contains("1 failed"),
+        "{}",
+        last.text
+    );
+    harness.get_by_label(&last.text.clone());
+    std::fs::remove_dir_all(&dir).unwrap();
+}

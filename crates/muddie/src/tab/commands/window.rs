@@ -29,25 +29,50 @@ impl Tab {
         }
     }
 
-    /// Its keys, before the field in it gets them: Escape closes it, the
-    /// arrows choose, which is said aloud, Enter takes the one chosen and
-    /// Tab completes it. Returns whether it is done with for this frame.
+    /// Its keys, before the field in it gets them: Escape closes it; the
+    /// arrows choose one up or down, round the ends, Page Up and Page Down
+    /// a page, stopping at the ends, Ctrl+Home and Ctrl+End the first and
+    /// the last, which is said aloud with where it is; Enter takes the one
+    /// chosen and Tab completes it. Home and End are the field's. Returns
+    /// whether it is done with for this frame.
     fn palette_keys(&mut self, ctx: &egui::Context, items: &[Item]) -> bool {
-        let (up, down, tab, escape, enter) = ctx.input_mut(|input| {
-            (
-                input.consume_key(Modifiers::NONE, Key::ArrowUp),
-                input.consume_key(Modifiers::NONE, Key::ArrowDown),
-                input.consume_key(Modifiers::NONE, Key::Tab),
-                input.consume_key(Modifiers::NONE, Key::Escape),
-                input.consume_key(Modifiers::NONE, Key::Enter),
-            )
-        });
+        let pressed = |modifiers: Modifiers, key: Key| {
+            ctx.input_mut(|input| input.consume_key(modifiers, key))
+        };
+        // Those with Ctrl first: without it, the plain ones would take
+        // them too.
+        let (first, last) = (
+            pressed(Modifiers::COMMAND, Key::Home),
+            pressed(Modifiers::COMMAND, Key::End),
+        );
+        let (up, down) = (
+            pressed(Modifiers::NONE, Key::ArrowUp),
+            pressed(Modifiers::NONE, Key::ArrowDown),
+        );
+        let (page_up, page_down) = (
+            pressed(Modifiers::NONE, Key::PageUp),
+            pressed(Modifiers::NONE, Key::PageDown),
+        );
+        let (tab, escape, enter) = (
+            pressed(Modifiers::NONE, Key::Tab),
+            pressed(Modifiers::NONE, Key::Escape),
+            pressed(Modifiers::NONE, Key::Enter),
+        );
         if escape {
             self.close_palette();
             return true;
         }
-        if (up || down) && !items.is_empty() {
-            self.move_choice(items, up);
+        let step = match (up, down, page_up, page_down, first, last) {
+            (true, ..) => Some(Step::One(true)),
+            (_, true, ..) => Some(Step::One(false)),
+            (_, _, true, ..) => Some(Step::Page(true)),
+            (_, _, _, true, ..) => Some(Step::Page(false)),
+            (_, _, _, _, true, _) => Some(Step::End(true)),
+            (_, _, _, _, _, true) => Some(Step::End(false)),
+            _ => None,
+        };
+        if let (Some(step), false) = (step, items.is_empty()) {
+            self.move_choice(items, step);
         }
         let Some(chosen) = items.get(self.palette.chosen).cloned() else {
             return false;
@@ -68,20 +93,35 @@ impl Tab {
         false
     }
 
-    /// Chooses the one above or below, round the ends, and says it aloud
-    /// for those who do not see the list.
-    fn move_choice(&mut self, items: &[Item], up: bool) {
-        let last = items.len() - 1;
-        self.palette.chosen = match (up, self.palette.chosen) {
-            (true, 0) => last,
-            (true, chosen) => chosen - 1,
-            (false, chosen) if chosen == last => 0,
-            (false, chosen) => chosen + 1,
+    /// Chooses another as `step` says, brings it into view, and says it
+    /// aloud with where it is in the list, for those who do not see it.
+    fn move_choice(&mut self, items: &[Item], step: Step) {
+        let (last, chosen) = (items.len() - 1, self.palette.chosen);
+        self.palette.chosen = match step {
+            Step::One(true) if chosen == 0 => last,
+            Step::One(true) => chosen - 1,
+            Step::One(false) if chosen == last => 0,
+            Step::One(false) => chosen + 1,
+            Step::Page(true) => chosen.saturating_sub(ROWS - 1),
+            Step::Page(false) => (chosen + ROWS - 1).min(last),
+            Step::End(true) => 0,
+            Step::End(false) => last,
         };
+        self.palette.reveal = true;
         let chosen = &items[self.palette.chosen];
+        let place = trf(
+            "{0} of {1}",
+            &[
+                &(self.palette.chosen + 1).to_string(),
+                &items.len().to_string(),
+            ],
+        );
         self.voice.stop();
-        self.voice
-            .say(&format!("{}. {}", shown_usage(&chosen.usage), chosen.about));
+        self.voice.say(&format!(
+            "{}. {}. {place}",
+            shown_usage(&chosen.usage),
+            chosen.about
+        ));
     }
 
     /// The card at the top of the window: the field, and a window of the
@@ -93,7 +133,6 @@ impl Tab {
         items: &[Item],
         shown: f32,
     ) -> (egui::Response, Option<usize>) {
-        const ROWS: usize = 8;
         let theme = theme::current();
         let screen = ctx.content_rect();
         let width = (screen.width() - 32.0).min(560.0);
@@ -119,7 +158,7 @@ impl Tab {
                 card.show(ui, |ui| {
                     ui.set_width(width - 12.0);
                     ui.spacing_mut().item_spacing.y = 0.0;
-                    self.palette_field(ui);
+                    self.palette_field(ui, items.len());
                     if items.is_empty() {
                         return;
                     }
@@ -130,13 +169,26 @@ impl Tab {
                         egui::Stroke::new(1.0, theme.border),
                     );
                     ui.add_space(6.0);
-                    let first = (self.palette.chosen.saturating_sub(ROWS - 1))
-                        .min(items.len().saturating_sub(ROWS));
-                    for (index, item) in items.iter().enumerate().skip(first).take(ROWS) {
-                        if palette_row(ui, item, index == self.palette.chosen) {
-                            clicked = Some(index);
-                        }
-                    }
+                    // A list to scroll, by the wheel or its bar too, as tall
+                    // as a page of it at most: its bar and its faded edges
+                    // say when there is more.
+                    let reveal = std::mem::take(&mut self.palette.reveal);
+                    egui::ScrollArea::vertical()
+                        .id_salt("palette list")
+                        .max_height(ROWS as f32 * ROW)
+                        .auto_shrink([false, true])
+                        .show(ui, |ui| {
+                            for (index, item) in items.iter().enumerate() {
+                                let chosen = index == self.palette.chosen;
+                                let row = palette_row(ui, item, chosen);
+                                if row.clicked() {
+                                    clicked = Some(index);
+                                }
+                                if chosen && reveal {
+                                    row.scroll_to_me(None);
+                                }
+                            }
+                        });
                 });
             });
         (area.response, clicked)
@@ -144,7 +196,7 @@ impl Tab {
 
     /// What to look for: the field, which keeps the keyboard while the
     /// palette is open.
-    fn palette_field(&mut self, ui: &mut egui::Ui) {
+    fn palette_field(&mut self, ui: &mut egui::Ui, count: usize) {
         let theme = theme::current();
         let field = egui::Id::unique("palette field");
         let listed = self.palette.results.is_some() && self.palette.query.is_empty();
@@ -159,14 +211,31 @@ impl Tab {
         let edit = egui::Frame::new()
             .inner_margin(egui::Margin::symmetric(10, 8))
             .show(ui, |ui| {
-                TextEdit::singleline(&mut self.palette.query)
-                    .id(field)
-                    .frame(egui::Frame::NONE)
-                    .font(theme::font(Weight::Regular, 14.5))
-                    .hint_text(hint)
-                    .lock_focus(true)
-                    .desired_width(f32::INFINITY)
-                    .show(ui)
+                ui.horizontal(|ui| {
+                    // How many there are, at the right, while there are some.
+                    let shown = match count {
+                        0 => String::new(),
+                        count => trn("{0} result", "{0} results", count as u64),
+                    };
+                    let counted =
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            ui.label(
+                                RichText::new(shown)
+                                    .font(theme::font(Weight::Regular, 12.0))
+                                    .color(theme.text_faint),
+                            );
+                            TextEdit::singleline(&mut self.palette.query)
+                                .id(field)
+                                .frame(egui::Frame::NONE)
+                                .font(theme::font(Weight::Regular, 14.5))
+                                .hint_text(hint)
+                                .lock_focus(true)
+                                .desired_width(f32::INFINITY)
+                                .show(ui)
+                        });
+                    counted.inner
+                })
+                .inner
             })
             .inner;
         if edit.response.changed() {
@@ -188,9 +257,8 @@ impl Tab {
 }
 
 /// A row of the palette's list: the thing itself at the left, what it is
-/// at the right, marked when chosen. Returns whether it was clicked.
-fn palette_row(ui: &mut egui::Ui, item: &Item, chosen: bool) -> bool {
-    const ROW: f32 = 32.0;
+/// at the right, marked when chosen.
+fn palette_row(ui: &mut egui::Ui, item: &Item, chosen: bool) -> egui::Response {
     let theme = theme::current();
     let (rect, row) =
         ui.allocate_exact_size(egui::vec2(ui.available_width(), ROW), egui::Sense::click());
@@ -227,5 +295,20 @@ fn palette_row(ui: &mut egui::Ui, item: &Item, chosen: bool) -> bool {
         theme::font(Weight::Regular, 13.5),
         theme.text,
     );
-    row.clicked()
+    row
+}
+
+/// How tall a row of the list is, and how many make a page of it.
+const ROW: f32 = 32.0;
+const ROWS: usize = 8;
+
+/// How the keys move the choice in the list.
+#[derive(Debug, Clone, Copy)]
+enum Step {
+    /// One up, or down, round the ends.
+    One(bool),
+    /// A page up, or down, stopping at the ends.
+    Page(bool),
+    /// The first, or the last.
+    End(bool),
 }

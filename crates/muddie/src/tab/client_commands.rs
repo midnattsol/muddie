@@ -42,7 +42,7 @@ pub(super) const COMMANDS: [(&str, &str); 21] = [
         "Switches a tag on or off for this session",
     ),
     ("/log", "Starts or stops logging the session"),
-    ("/reload", "Runs the scripts and rules again"),
+    ("/reload", "Restarts the scripts and rules"),
     ("/lua <code>", "Runs a line of Luau"),
     ("/help", "Lists these commands"),
 ];
@@ -71,10 +71,7 @@ impl Tab {
             "/update" if given => self.update_plugin(argument),
             "/enable" | "/disable" if given => self.enable_plugin(argument, command == "/enable"),
             "/remove" if given => self.remove_plugin(argument),
-            "/reload" => {
-                self.load_scripts();
-                self.note(tr("Scripts reloaded."));
-            }
+            "/reload" => self.restart_scripts(),
             "/log" => self.toggle_log(),
             "/stop" => self.stop_walking(),
             _ => return false,

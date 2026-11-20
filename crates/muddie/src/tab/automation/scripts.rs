@@ -124,7 +124,11 @@ impl Tab {
         self.palette.answering = false;
         let said = std::mem::take(&mut self.palette.answer);
         let at = crate::output::clock();
+        // Run by itself, whether it fails is known again.
+        let name = list::title_of(&path);
+        self.editor.failed.retain(|failed| *failed != name);
         if self.palette.answer_failed {
+            self.editor.failed.push(name);
             let error: Vec<String> = said.into_iter().map(|said| said.text).collect();
             self.editor.script_ran = Some((at, Some(error.join("\n"))));
         } else {
