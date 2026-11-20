@@ -1452,8 +1452,8 @@ msgstr "Complementos"
 msgid "TLS encryption"
 msgstr "Cifrado TLS"
 
-msgid "Install from git…"
-msgstr "Instalar desde git…"
+msgid "Install from git"
+msgstr "Instalar desde git"
 
 msgid "Palette"
 msgstr "Paleta"

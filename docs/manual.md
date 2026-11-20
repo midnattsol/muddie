@@ -60,7 +60,7 @@ session plays with, and the one chosen at the right. Its page has its name,
   **Session log**, off, as text or as HTML; and **Download sounds** the MUD
   asks for.
 - **Plugins**: those **Included** with Muddie, and those **Installed**, with
-  **Install from git…** and the address of their git repository. Each has a switch
+  **Install from git** and the address of their git repository. Each has a switch
   that enables it in that profile; its menu has the rest, and **Update all**
   updates them all. Only install what you trust: a plugin can send commands
   as you.

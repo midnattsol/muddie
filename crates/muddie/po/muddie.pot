@@ -77,7 +77,7 @@ msgstr ""
 msgid "Edit {0}"
 msgstr ""
 
-msgid "Install from git…"
+msgid "Install from git"
 msgstr ""
 
 msgid "No map yet"

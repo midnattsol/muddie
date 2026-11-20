@@ -166,7 +166,7 @@ fn shows_every_settings_page() {
             );
         }
         // Installing a plugin asks where from.
-        let install = crate::i18n::tr("Install from git…");
+        let install = crate::i18n::tr("Install from git");
         window.get_by_label(install).click_accesskit();
         window.run_steps(4);
         save(&mut window, &format!("page-{language}-install"));
