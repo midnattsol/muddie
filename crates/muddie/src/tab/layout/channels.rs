@@ -23,24 +23,26 @@ impl Tab {
     /// of what is said, and under the channel's own tab. With no lines,
     /// the channel is made known, to have its tab.
     pub(in crate::tab) fn channel_said(&mut self, name: &str, panel: &str, lines: Vec<Line>) {
-        let (name, panel) = (name.trim(), panel.trim());
-        if panel.is_empty() {
+        let name = name.trim();
+        if panel.trim().is_empty() {
             self.ensure_channels_panel();
         } else {
             // The panel named: the one of that name, made if there is
             // none, and left where it is and as it is if there is.
-            self.panel_called(panel);
+            self.panel_called(panel.trim());
         }
-        let index = self.channel_index(name, panel);
+        self.join_channels();
+        let panel = self.channel_place(panel);
+        let index = self.channel_index(name, &panel);
         if lines.is_empty() {
             return;
         }
-        let seen = self.channel_in_sight(name, panel);
+        let seen = self.channel_in_sight(name, &panel);
         for line in &lines {
             // With the rest of what is said there, and under its own tab.
             match panel.is_empty() {
                 true => self.channel_line(line),
-                false => self.add_to_panel(panel, line),
+                false => self.add_to_panel(&panel, line),
             }
             if let Some(index) = index {
                 self.panels.channels[index].log.push(line);
@@ -48,6 +50,46 @@ impl Tab {
         }
         if let Some(index) = index {
             self.panels.channels[index].unread |= !seen;
+        }
+    }
+
+    /// Where a channel goes, by the panel named: a panel that shows the
+    /// channels anyway is the panel of channels, given as no name, so that
+    /// a channel sent there by name and one sent to the panel of channels
+    /// are one and the same.
+    pub(in crate::tab) fn channel_place(&self, panel: &str) -> String {
+        let panel = panel.trim();
+        let channels = |spec: &PanelSpec| spec.channels && spec.name.eq_ignore_ascii_case(panel);
+        match self.layout.panels.iter().any(channels) {
+            true => String::new(),
+            false => panel.to_owned(),
+        }
+    }
+
+    /// Makes one of the channels that are the same once a panel shows the
+    /// channels: the first is kept, and what the other was marked is
+    /// added to it.
+    fn join_channels(&mut self) {
+        let places: Vec<String> = (self.panels.channels.iter())
+            .map(|channel| self.channel_place(&channel.panel))
+            .collect();
+        for (channel, place) in self.panels.channels.iter_mut().zip(places) {
+            channel.panel = place;
+        }
+        let mut index = 0;
+        while index < self.panels.channels.len() {
+            let same = |other: &Channel, this: &Channel| {
+                other.name.eq_ignore_ascii_case(&this.name)
+                    && other.panel.eq_ignore_ascii_case(&this.panel)
+            };
+            let this = &self.panels.channels[index];
+            match (self.panels.channels[..index].iter()).position(|other| same(other, this)) {
+                Some(first) => {
+                    let gone = self.panels.channels.remove(index);
+                    self.panels.channels[first].unread |= gone.unread;
+                }
+                None => index += 1,
+            }
         }
     }
 

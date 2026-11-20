@@ -251,3 +251,54 @@ fn a_panel_already_called_channels_is_where_the_channels_go() {
         .collect();
     assert_eq!(text, [("Channels", true)], "no Channels 2 is made");
 }
+
+#[test]
+fn a_channel_handled_by_a_plugin_and_by_a_script_is_one_channel_said_once() {
+    let mut harness = window(None);
+    harness.set_size(egui::vec2(1300.0, 800.0));
+    let app = harness.state_mut().tab_mut();
+    // As the Reinos de Leyenda plugin does: to the panel of channels.
+    app.scripts.exec(
+        "plugin",
+        r#"on_gmcp("Comm.Canales", function(d) for n in pairs(d) do channel(n) end end)
+           on_gmcp("Comm.MensajeCanal", function(d) channel(d.canal, d.mensaje) end)"#,
+    );
+    // And a script of the player's that does the same, naming the panel.
+    app.scripts.exec(
+        "mine",
+        r#"on_gmcp("Comm.MensajeCanal", function(d) channel(d.canal, d.mensaje, {panel = "Channels"}) end)"#,
+    );
+    let (events, _sent) = fake_connection(app);
+    let gmcp = |package: &str, data: &str| Event::Gmcp {
+        package: package.into(),
+        data: data.into(),
+    };
+    events
+        .send(gmcp("Comm.Canales", r#"{"chat": 1, "ciu": 1}"#))
+        .unwrap();
+    for said in ["Ana: hola", "Luis: buenas"] {
+        let data = format!(r#"{{"canal": "chat", "mensaje": "{said}"}}"#);
+        events.send(gmcp("Comm.MensajeCanal", &data)).unwrap();
+    }
+    harness.run_steps(4);
+    let app = harness.state_mut().tab_mut();
+    // In whatever order the MUD listed them.
+    let mut names: Vec<&str> = (app.panels.channels.iter())
+        .map(|channel| channel.name.as_str())
+        .collect();
+    names.sort();
+    assert_eq!(names, ["chat", "ciu"], "one tab for each channel");
+    let chat = (app.panels.channels.iter())
+        .find(|channel| channel.name == "chat")
+        .unwrap();
+    assert_eq!(chat.log.len(), 2, "each line once under its tab");
+    let panel = (app.layout.panels.iter())
+        .find(|panel| panel.channels)
+        .unwrap()
+        .id;
+    assert_eq!(
+        app.text_of(panel).log.len(),
+        2,
+        "each line once among all of them"
+    );
+}

@@ -102,6 +102,32 @@ impl Tab {
         files
     }
 
+    /// Takes what a script said was said on a channel. The same line on the
+    /// same channel, in one round of actions, is one line: a plugin and a
+    /// script of the player's may both make it of the same message of the
+    /// MUD's.
+    fn channel_from_script(
+        &mut self,
+        name: &str,
+        text: Option<&str>,
+        panel: &str,
+        said: &mut Vec<(String, String, String)>,
+    ) {
+        if let Some(text) = text {
+            let key = (
+                name.trim().to_lowercase(),
+                self.channel_place(panel).to_lowercase(),
+                text.to_owned(),
+            );
+            if said.contains(&key) {
+                return;
+            }
+            said.push(key);
+        }
+        let lines = text.map(panels::styled_lines).unwrap_or_default();
+        self.channel_said(name, panel, lines);
+    }
+
     /// Whether each group is on: as the rules have it saved, and as it
     /// is in this session, where a script or the player may have
     /// switched it.
@@ -184,6 +210,8 @@ impl Tab {
 
     /// Carries out what scripts asked for since the last call.
     pub(super) fn run_actions(&mut self) {
+        // What was said on each channel, in this one round of actions.
+        let mut said = Vec::new();
         for action in self.scripts.take_actions() {
             match action {
                 Action::Send(text) => self.send(text),
@@ -233,8 +261,7 @@ impl Tab {
                     }
                 }
                 Action::Channel { name, text, panel } => {
-                    let lines = text.as_deref().map(panels::styled_lines);
-                    self.channel_said(&name, &panel, lines.unwrap_or_default());
+                    self.channel_from_script(&name, text.as_deref(), &panel, &mut said);
                 }
                 Action::Chat(text) => {
                     for line in panels::styled_lines(&text) {
