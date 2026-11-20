@@ -12,99 +12,44 @@ impl Tab {
         let more = widgets::icon_button(
             ui,
             widgets::Icon::More,
-            &trf("{0} options", &[&spec.name.clone()]),
+            &trf("{0} options", &[&spec.name]),
             false,
         );
-        let (mut earlier, mut later, mut join, mut gauges) = (false, false, false, false);
+        let mut asked = None;
         egui::Popup::menu(&more).show(|ui| {
             widgets::menu_width(ui);
             let panel = &mut self.layout.panels[index];
-            widgets::menu_heading(ui, tr("Name"));
-            ui.horizontal(|ui| {
-                ui.add_space(8.0);
-                let name = ui.add(TextEdit::singleline(&mut panel.name).desired_width(200.0));
-                ui.ctx()
-                    .accesskit_node_builder(name.id, |node| node.set_label(tr("Name")));
-            });
+            name_field(ui, &mut panel.name);
             widgets::menu_separator(ui);
-            widgets::menu_heading(ui, tr("Place"));
-            for (side, label) in [
-                (Side::Left, tr("At the left")),
-                (Side::Right, tr("At the right")),
-                (Side::Top, tr("Above")),
-                (Side::Bottom, tr("Below")),
-            ] {
-                let mut here = panel.side == side;
-                if widgets::menu_check(ui, &mut here, label).clicked() && panel.side != side {
-                    if panel.side.is_beside() != side.is_beside() {
-                        panel.size = if side.is_beside() { 300.0 } else { 120.0 };
-                    }
-                    panel.side = side;
-                    ui.close();
-                }
-            }
-            let (before, after) = match panel.side.is_beside() {
-                true => (tr("Move up"), tr("Move down")),
-                false => (tr("Move left"), tr("Move right")),
-            };
-            if widgets::menu_item(ui, before, "").clicked() {
-                earlier = true;
-                ui.close();
-            }
-            if widgets::menu_item(ui, after, "").clicked() {
-                later = true;
-                ui.close();
-            }
-            if spec.stack == 0 {
-                if widgets::menu_item(ui, tr("Share the place of the one before, as tabs"), "")
-                    .clicked()
-                {
-                    join = true;
-                    ui.close();
-                }
-            } else if widgets::menu_item(ui, tr("Detach from tabs"), "").clicked() {
-                panel.stack = 0;
-                ui.close();
-            }
+            asked = place_items(ui, panel).or(asked.take());
             widgets::menu_separator(ui);
             match spec.kind {
-                Kind::Text => {
-                    widgets::menu_check(
-                        ui,
-                        &mut panel.channels,
-                        tr("Show the MUD's channels here"),
-                    );
-                }
+                Kind::Text => drop(widgets::menu_check(
+                    ui,
+                    &mut panel.channels,
+                    tr("Show the MUD's channels here"),
+                )),
                 Kind::Gauges => {
                     if widgets::menu_item(ui, tr("Edit the gauges"), "").clicked() {
-                        gauges = true;
+                        asked = Some(PanelAsk::Gauges);
                         ui.close();
                     }
                 }
                 Kind::Map => self.map_view.menu_items(ui),
             }
-            let corners = tr("Full-height sides");
-            widgets::menu_check(ui, &mut self.layout.columns_full, corners)
+            widgets::menu_check(ui, &mut self.layout.columns_full, tr("Full-height sides"))
                 .on_hover_text(tr("Side panels reach the top and the bottom"));
             widgets::menu_separator(ui);
-            let panel = &mut self.layout.panels[index];
-            if widgets::menu_item(ui, &trf("Hide {0}", &[&spec.name.clone()]), "").clicked() {
-                panel.visible = false;
-                ui.close();
-            }
-            if widgets::menu_item(ui, &trf("Remove {0}", &[&spec.name.clone()]), "").clicked() {
-                self.panels.removed = Some(index);
-                ui.close();
-            }
+            asked = closing_items(ui, &spec.name).or(asked.take());
         });
-        if earlier || later {
-            self.shift_panel(index, if earlier { -1 } else { 1 });
-        }
-        if join {
-            self.join_before(index);
-        }
-        if gauges {
-            self.open_gauges(spec.id);
+        match asked {
+            Some(PanelAsk::Earlier) => self.shift_panel(index, -1),
+            Some(PanelAsk::Later) => self.shift_panel(index, 1),
+            Some(PanelAsk::Join) => self.join_before(index),
+            Some(PanelAsk::Gauges) => self.open_gauges(spec.id),
+            Some(PanelAsk::Hide) => self.layout.panels[index].visible = false,
+            Some(PanelAsk::Remove) => self.panels.removed = Some(index),
+            None => {}
         }
     }
 
@@ -165,4 +110,85 @@ impl Tab {
             None => {}
         }
     }
+}
+
+/// What a panel's menu asks to be done once it is closed.
+enum PanelAsk {
+    Earlier,
+    Later,
+    Join,
+    Gauges,
+    Hide,
+    Remove,
+}
+
+/// The panel's name, to change.
+fn name_field(ui: &mut egui::Ui, name: &mut String) {
+    widgets::menu_heading(ui, tr("Name"));
+    ui.horizontal(|ui| {
+        ui.add_space(8.0);
+        let field = ui.add(TextEdit::singleline(name).desired_width(200.0));
+        ui.ctx()
+            .accesskit_node_builder(field.id, |node| node.set_label(tr("Name")));
+    });
+}
+
+/// The side it goes on, moving it a step along that side, and sharing the
+/// place of the one before as tabs, or leaving them.
+fn place_items(ui: &mut egui::Ui, panel: &mut PanelSpec) -> Option<PanelAsk> {
+    widgets::menu_heading(ui, tr("Place"));
+    let sides = [
+        (Side::Left, tr("At the left")),
+        (Side::Right, tr("At the right")),
+        (Side::Top, tr("Above")),
+        (Side::Bottom, tr("Below")),
+    ];
+    for (side, label) in sides {
+        let mut here = panel.side == side;
+        if widgets::menu_check(ui, &mut here, label).clicked() && panel.side != side {
+            if panel.side.is_beside() != side.is_beside() {
+                panel.size = if side.is_beside() { 300.0 } else { 120.0 };
+            }
+            panel.side = side;
+            ui.close();
+        }
+    }
+    let (before, after) = match panel.side.is_beside() {
+        true => (tr("Move up"), tr("Move down")),
+        false => (tr("Move left"), tr("Move right")),
+    };
+    let mut asked = None;
+    let mut item = |ui: &mut egui::Ui, label: &str, what: PanelAsk| {
+        if widgets::menu_item(ui, label, "").clicked() {
+            asked = Some(what);
+            ui.close();
+        }
+    };
+    item(ui, before, PanelAsk::Earlier);
+    item(ui, after, PanelAsk::Later);
+    if panel.stack == 0 {
+        item(
+            ui,
+            tr("Share the place of the one before, as tabs"),
+            PanelAsk::Join,
+        );
+    } else if widgets::menu_item(ui, tr("Detach from tabs"), "").clicked() {
+        panel.stack = 0;
+        ui.close();
+    }
+    asked
+}
+
+/// Hiding the panel, and removing it.
+fn closing_items(ui: &mut egui::Ui, name: &str) -> Option<PanelAsk> {
+    let mut asked = None;
+    if widgets::menu_item(ui, &trf("Hide {0}", &[name]), "").clicked() {
+        asked = Some(PanelAsk::Hide);
+        ui.close();
+    }
+    if widgets::menu_item(ui, &trf("Remove {0}", &[name]), "").clicked() {
+        asked = Some(PanelAsk::Remove);
+        ui.close();
+    }
+    asked
 }
