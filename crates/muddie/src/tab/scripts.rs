@@ -13,8 +13,8 @@ pub(super) type Switched = Vec<(String, bool)>;
 impl Tab {
     /// The part of the settings window that belongs to sessions.
     /// Starts the script runtime afresh and runs the user's scripts: the
-    /// general one, the profile's packages and scripts, and those given on
-    /// the command line.
+    /// general one, the plugins, the profile's packages and scripts, and
+    /// those given on the command line; then the rules.
     pub(super) fn load_scripts(&mut self) {
         // Groups switched for the session keep how they were left, unless
         // what is saved for them is what changed.
@@ -24,18 +24,37 @@ impl Tab {
         self.supports.clear();
         self.completions.clear();
         self.panels_untold();
-        // Variables belong to the session. With a saved profile they are
-        // kept with it; without one they last as long as the session, and
-        // go with it into a profile if it is then saved as one.
+        self.fresh_runtime();
+        let files = self.script_files_to_run();
+        // The plugins that come with Muddie and are on, before the
+        // player's own scripts, which may build on them.
+        for plugin in &crate::bundled::ALL {
+            if let (Some(code), true) = (plugin.code, self.included(plugin)) {
+                let name = format!("{}.luau", plugin.id);
+                (self.scripts).exec_owned(&crate::bundled::owner(plugin), &name, code);
+            }
+        }
+        for file in &files {
+            self.scripts.load_file(file);
+        }
+        // The rules run last, as one more script.
+        self.run_rules(&saved_before, session);
+        self.run_actions();
+    }
+
+    /// A new runtime, knowing as much of the panels as the old one did,
+    /// and the variables. They belong to the session: with a saved profile
+    /// they are kept with it; without one they last as long as the session,
+    /// and go with it into a profile if it is then saved as one.
+    fn fresh_runtime(&mut self) {
         let passing = std::mem::take(&mut self.variables_passing).then(|| self.scripts.variables());
         self.scripts =
             Engine::new(Rc::clone(&self.map)).expect("failed to start the script runtime");
-        // The new runtime knows as much of the panels as the old one did.
         self.retell_panel_sizes();
         match (&self.profiles, &self.profile) {
-            (Some(profiles), Some(profile)) => {
-                (self.scripts).use_memory_file(profiles.memory_path(Some(profile)));
-            }
+            (Some(profiles), Some(profile)) => self
+                .scripts
+                .use_memory_file(profiles.memory_path(Some(profile))),
             _ => self.variables_passing = true,
         }
         let known: Vec<String> = self
@@ -49,6 +68,14 @@ impl Tab {
                 let _ = self.scripts.set_variable(&name, Some(value));
             }
         }
+    }
+
+    /// The script files to run, in order: the general one, the profile's
+    /// packages and scripts, those given on the command line. The rules
+    /// are read first, as they say which of the player's own scripts are
+    /// switched off, and those are left out; a plugin has its own way of
+    /// being switched off.
+    fn script_files_to_run(&mut self) -> Vec<PathBuf> {
         let mut files = Vec::new();
         if let Some(profiles) = &self.profiles {
             files.extend(profiles.init_script());
@@ -61,40 +88,18 @@ impl Tab {
             }
         }
         files.extend(self.extra_scripts.iter().cloned());
-        // The plugins that come with Muddie and are on, before the
-        // player's own scripts, which may build on them.
-        for plugin in &crate::bundled::ALL {
-            if let (Some(code), true) = (plugin.code, self.included(plugin)) {
-                let name = format!("{}.luau", plugin.id);
-                (self.scripts).exec_owned(&crate::bundled::owner(plugin), &name, code);
-            }
-        }
-        // The rules made in the interface, which also say which of the
-        // scripts are switched off.
         if let Some(profiles) = &self.profiles {
             match Rules::load(&profiles.rules_path(self.profile.as_deref())) {
                 Ok(rules) => self.rules = rules,
                 Err(error) => self.note(&trf("Could not load the rules: {0}", &[&error])),
             }
         }
-        // The player's own scripts that are switched off are not run;
-        // a plugin has its own way of being switched off.
         let own: Vec<PathBuf> = (self.profiles.as_ref())
             .map(|profiles| profiles.editable_scripts(self.profile.as_deref()))
             .unwrap_or_default();
-        files.retain(|file| {
-            !own.contains(file)
-                || !self
-                    .rules
-                    .scripts_off
-                    .contains(&crate::rules::script_key(file))
-        });
-        for file in &files {
-            self.scripts.load_file(file);
-        }
-        // The rules run last, as one more script.
-        self.run_rules(&saved_before, session);
-        self.run_actions();
+        let off = &self.rules.scripts_off;
+        files.retain(|file| !own.contains(file) || !off.contains(&crate::rules::script_key(file)));
+        files
     }
 
     /// Whether each group is on: as the rules have it saved, and as it
