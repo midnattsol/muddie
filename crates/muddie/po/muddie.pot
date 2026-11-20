@@ -17,258 +17,12 @@ msgstr ""
 msgid "Jump to end"
 msgstr ""
 
-msgid "General"
-msgstr ""
-
-msgid "Appearance"
-msgstr ""
-
-msgid "Text and typing"
-msgstr ""
-
-msgid "Speech and screen reader"
-msgstr ""
-
-msgid "Connection"
-msgstr ""
-
-msgid "Log in"
-msgstr ""
-
-msgid "Plugins"
-msgstr ""
-
-msgid "Logs and sounds"
-msgstr ""
-
 #, python-brace-format
 msgid "Could not load the settings: {0}"
 msgstr ""
 
-msgid "Profile"
-msgstr ""
-
-msgid "Save profile"
-msgstr ""
-
-msgid "This session has no profile"
-msgstr ""
-
-msgid "Game"
-msgstr ""
-
-msgid "Editor"
-msgstr ""
-
-msgid "Close session"
-msgstr ""
-
-msgid "New session"
-msgstr ""
-
-msgid "Menu"
-msgstr ""
-
-msgid "Session"
-msgstr ""
-
-msgid "Panels"
-msgstr ""
-
-msgid "Settings"
-msgstr ""
-
-msgid "Keyboard shortcuts"
-msgstr ""
-
-msgid "About Muddie"
-msgstr ""
-
-#, python-brace-format
-msgid "Profile · {0}"
-msgstr ""
-
-msgid "This session"
-msgstr ""
-
-msgid "Typing"
-msgstr ""
-
-msgid "Earlier and later commands"
-msgstr ""
-
-msgid "Search the commands typed before"
-msgstr ""
-
-msgid "Complete the word being typed"
-msgstr ""
-
-msgid "Search the output"
-msgstr ""
-
-msgid "Speech"
-msgstr ""
-
-msgid "Silence speech"
-msgstr ""
-
-msgid "Read the previous and next line"
-msgstr ""
-
-msgid "Read the most recent lines"
-msgstr ""
-
-msgid "Same, for the panel of channels"
-msgstr ""
-
-msgid "Read the gauges"
-msgstr ""
-
-msgid "Sessions"
-msgstr ""
-
-msgid "Reconnect"
-msgstr ""
-
-msgid "Commands"
-msgstr ""
-
-msgid "Switch between the game and the editor"
-msgstr ""
-
-msgid "Show what the MUD sends"
-msgstr ""
-
-#, python-brace-format
-msgid "Version {0}"
-msgstr ""
-
-msgid "A modern, accessible MUD client."
-msgstr ""
-
-msgid "Free software, under the MIT or Apache 2.0 licence."
-msgstr ""
-
 #, python-brace-format
 msgid "Could not save the settings: {0}"
-msgstr ""
-
-msgid "Messages"
-msgstr ""
-
-#, python-brace-format
-msgid "Messages, {0} new"
-msgstr ""
-
-msgid "Clear"
-msgstr ""
-
-msgid "Nothing yet."
-msgstr ""
-
-msgid "Language"
-msgstr ""
-
-msgid "Same as the system"
-msgstr ""
-
-msgid "Interface scale"
-msgstr ""
-
-msgid "How large the whole window is drawn."
-msgstr ""
-
-msgid "Theme"
-msgstr ""
-
-msgid "Dark"
-msgstr ""
-
-msgid "Graphite"
-msgstr ""
-
-msgid "Dusk"
-msgstr ""
-
-msgid "Light"
-msgstr ""
-
-msgid "High contrast"
-msgstr ""
-
-msgid "MUD text"
-msgstr ""
-
-msgid "Colours"
-msgstr ""
-
-msgid "Vivid"
-msgstr ""
-
-msgid "Soft, to go with the theme"
-msgstr ""
-
-msgid "Classic terminal"
-msgstr ""
-
-msgid "Font"
-msgstr ""
-
-msgid "Bundled"
-msgstr ""
-
-msgid "System fonts"
-msgstr ""
-
-msgid "Loading…"
-msgstr ""
-
-msgid "Size"
-msgstr ""
-
-msgid "Line spacing"
-msgstr ""
-
-msgid "Lines kept"
-msgstr ""
-
-msgid "The lines kept to scroll back to and search; older ones are let go."
-msgstr ""
-
-msgid "Show the time of each line"
-msgstr ""
-
-msgid "The time each line arrived, at its left."
-msgstr ""
-
-msgid "Keep the command after sending it"
-msgstr ""
-
-msgid "It stays selected: Enter sends it again, and typing replaces it."
-msgstr ""
-
-msgid "Speed"
-msgstr ""
-
-msgid "Fast"
-msgstr ""
-
-msgid "Slow"
-msgstr ""
-
-msgid "Language of the voice"
-msgstr ""
-
-msgid "The system's"
-msgstr ""
-
-msgid "The voice the text of the MUD is read with."
-msgstr ""
-
-msgid "Speak through the screen reader"
-msgstr ""
-
-msgid "Instead of its own voice, Muddie hands each line to the screen reader, which also shows it in braille."
 msgstr ""
 
 msgid "Stop walking"
@@ -344,6 +98,10 @@ msgstr ""
 msgid "Line"
 msgstr ""
 
+#, python-brace-format
+msgid "{0} options"
+msgstr ""
+
 msgid "No gauges."
 msgstr ""
 
@@ -384,19 +142,13 @@ msgstr ""
 msgid "Not connected"
 msgstr ""
 
+msgid "Speech"
+msgstr ""
+
 msgid "Logging"
 msgstr ""
 
 msgid "Walking"
-msgstr ""
-
-msgid "Disconnect"
-msgstr ""
-
-msgid "Log this session"
-msgstr ""
-
-msgid "Find"
 msgstr ""
 
 msgid "Say"
@@ -415,6 +167,9 @@ msgid "Show it in the panel"
 msgstr ""
 
 msgid "Resize"
+msgstr ""
+
+msgid "Editor"
 msgstr ""
 
 msgid "Triggers"
@@ -469,6 +224,9 @@ msgid "Cells"
 msgstr ""
 
 msgid "Number"
+msgstr ""
+
+msgid "Light"
 msgstr ""
 
 msgid "Text"
@@ -848,6 +606,9 @@ msgstr ""
 msgid "Do"
 msgstr ""
 
+msgid "Commands"
+msgstr ""
+
 msgid "Lua"
 msgstr ""
 
@@ -879,10 +640,6 @@ msgstr ""
 
 #, python-brace-format
 msgid "Move {0}"
-msgstr ""
-
-#, python-brace-format
-msgid "{0} options"
 msgstr ""
 
 msgid "Place"
@@ -938,21 +695,6 @@ msgstr ""
 msgid "Remove {0}"
 msgstr ""
 
-msgid "Add a text panel"
-msgstr ""
-
-msgid "Lines sent to it by triggers and scripts"
-msgstr ""
-
-msgid "Add the map"
-msgstr ""
-
-msgid "The map of where you are"
-msgstr ""
-
-msgid "Bars that follow your health and the like"
-msgstr ""
-
 msgid "No gauges here yet."
 msgstr ""
 
@@ -965,20 +707,80 @@ msgstr ""
 msgid "Open in the editor"
 msgstr ""
 
+msgid "New profile"
+msgstr ""
+
 msgid "Done."
 msgstr ""
 
 msgid "Go to"
 msgstr ""
 
+msgid "Session"
+msgstr ""
+
+msgid "Panels"
+msgstr ""
+
+msgid "Settings"
+msgstr ""
+
 msgid "Help"
+msgstr ""
+
+msgid "Game"
+msgstr ""
+
+msgid "Reconnect"
+msgstr ""
+
+msgid "Disconnect"
+msgstr ""
+
+msgid "New session"
+msgstr ""
+
+msgid "Close session"
+msgstr ""
+
+msgid "Find"
+msgstr ""
+
+msgid "Stop logging this session"
+msgstr ""
+
+msgid "Log this session"
+msgstr ""
+
+msgid "Switch speech off"
+msgstr ""
+
+msgid "Switch speech on"
+msgstr ""
+
+msgid "Edit profile"
+msgstr ""
+
+msgid "Save as profile"
 msgstr ""
 
 #, python-brace-format
 msgid "Show {0}"
 msgstr ""
 
+msgid "Add a text panel"
+msgstr ""
+
+msgid "Add the map"
+msgstr ""
+
 msgid "Connect to profile"
+msgstr ""
+
+msgid "Keyboard shortcuts"
+msgstr ""
+
+msgid "About Muddie"
 msgstr ""
 
 msgid "Choose one, or type a command"
@@ -1009,6 +811,9 @@ msgid "This MUD offers neither GMCP nor MSDP: all it sends is text, and what it 
 msgstr ""
 
 msgid "Record in the background"
+msgstr ""
+
+msgid "Clear"
 msgstr ""
 
 msgid "No data received since this view was opened."
@@ -1044,17 +849,173 @@ msgstr ""
 msgid "History"
 msgstr ""
 
-msgid "Included with Muddie"
+msgid "General"
+msgstr ""
+
+msgid "Appearance"
+msgstr ""
+
+msgid "Profiles"
+msgstr ""
+
+msgid "Language"
+msgstr ""
+
+msgid "Same as the system"
+msgstr ""
+
+msgid "Interface scale"
+msgstr ""
+
+msgid "How large the whole window is drawn."
+msgstr ""
+
+msgid "Theme"
+msgstr ""
+
+msgid "Dark"
+msgstr ""
+
+msgid "Graphite"
+msgstr ""
+
+msgid "Dusk"
+msgstr ""
+
+msgid "High contrast"
+msgstr ""
+
+msgid "MUD text"
+msgstr ""
+
+msgid "Colours"
+msgstr ""
+
+msgid "Vivid"
+msgstr ""
+
+msgid "Soft, to go with the theme"
+msgstr ""
+
+msgid "Classic terminal"
+msgstr ""
+
+msgid "Font"
+msgstr ""
+
+msgid "Bundled"
+msgstr ""
+
+msgid "System fonts"
+msgstr ""
+
+msgid "Loading…"
+msgstr ""
+
+msgid "Size"
+msgstr ""
+
+msgid "Line spacing"
+msgstr ""
+
+msgid "Lines kept"
+msgstr ""
+
+msgid "The lines kept to scroll back to and search; older ones are let go."
+msgstr ""
+
+msgid "Show the time of each line"
+msgstr ""
+
+msgid "The time each line arrived, at its left."
+msgstr ""
+
+msgid "Keep the command after sending it"
+msgstr ""
+
+msgid "It stays selected: Enter sends it again, and typing replaces it."
+msgstr ""
+
+msgid "Speed"
+msgstr ""
+
+msgid "Fast"
+msgstr ""
+
+msgid "Slow"
+msgstr ""
+
+msgid "Language of the voice"
+msgstr ""
+
+msgid "The system's"
+msgstr ""
+
+msgid "The voice the text of the MUD is read with."
+msgstr ""
+
+msgid "Speak through the screen reader"
+msgstr ""
+
+msgid "Instead of its own voice, Muddie hands each line to the screen reader, which also shows it in braille."
+msgstr ""
+
+msgid "Rename profile"
+msgstr ""
+
+msgid "Duplicate profile"
+msgstr ""
+
+msgid "Delete profile"
+msgstr ""
+
+msgid "Create"
+msgstr ""
+
+msgid "Save"
+msgstr ""
+
+msgid "Rename"
+msgstr ""
+
+msgid "Duplicate"
 msgstr ""
 
 #, python-brace-format
-msgid "Customize {0}"
+msgid "There is a profile called {0} already."
+msgstr ""
+
+msgid "A profile name may only have letters, digits, spaces, - and _."
+msgstr ""
+
+#, python-brace-format
+msgid "{0} is in use by an open session: close it first."
+msgstr ""
+
+#, python-brace-format
+msgid "Delete {0}? Its scripts, rules, map and layout go with it."
+msgstr ""
+
+msgid "Edit"
+msgstr ""
+
+msgid "Profiles need a configuration folder, and none was found."
+msgstr ""
+
+msgid "No profiles yet. A profile keeps a MUD's connection, scripts, map and layout."
+msgstr ""
+
+msgid "The changes take effect on reconnecting."
+msgstr ""
+
+msgid "Plugins"
 msgstr ""
 
 msgid "Customize"
 msgstr ""
 
-msgid "Plugins need a configuration folder, and none was found."
+#, python-brace-format
+msgid "Customize {0}"
 msgstr ""
 
 msgid "Installed by you"
@@ -1066,13 +1027,7 @@ msgstr ""
 msgid "No plugins yet. A plugin is a set of scripts someone made for a MUD: a mapper, triggers, gauges."
 msgstr ""
 
-msgid "Update"
-msgstr ""
-
-msgid "Plugins are enabled per profile: save or choose a profile first."
-msgstr ""
-
-msgid "Install a plugin"
+msgid "Install from"
 msgstr ""
 
 msgid "Install"
@@ -1084,37 +1039,16 @@ msgstr ""
 msgid "Working…"
 msgstr ""
 
-msgid "Save the session as a profile first: the script is kept with it."
-msgstr ""
-
 #, python-brace-format
-msgid "{0} is now a script of yours, in the editor."
+msgid "{0} is now a script of profile {1}."
 msgstr ""
 
 #, python-brace-format
 msgid "Could not save the profile: {0}"
 msgstr ""
 
-msgid "Password kept in the system's keyring."
-msgstr ""
-
 #, python-brace-format
 msgid "The password could not be saved in the keyring: {0}"
-msgstr ""
-
-msgid "Profile name"
-msgstr ""
-
-msgid "Save as profile"
-msgstr ""
-
-msgid "Aardwolf, Reinos…"
-msgstr ""
-
-msgid "A profile keeps the connection, the scripts, the map and the layout, to come back to them."
-msgstr ""
-
-msgid "The changes take effect on reconnecting."
 msgstr ""
 
 msgid "Server"
@@ -1135,10 +1069,28 @@ msgstr ""
 msgid "Text encoding"
 msgstr ""
 
+msgid "Automatic suits nearly every MUD: UTF-8, or Latin-1 for what is not."
+msgstr ""
+
 msgid "Automatic"
 msgstr ""
 
-msgid "Automatic suits nearly every MUD: UTF-8, or Latin-1 for what is not."
+msgid "Log in"
+msgstr ""
+
+msgid "Character"
+msgstr ""
+
+msgid "Muddie answers the first prompt with it."
+msgstr ""
+
+msgid "Password"
+msgstr ""
+
+msgid "Leave empty to keep it"
+msgstr ""
+
+msgid "Kept in the system's keyring, never in a file, and sent when the server hides typing."
 msgstr ""
 
 msgid "Keeping the connection"
@@ -1156,25 +1108,7 @@ msgstr ""
 msgid "Some servers and routers close a connection that has been quiet for a while."
 msgstr ""
 
-msgid "Character"
-msgstr ""
-
-msgid "Muddie answers the first prompt with it."
-msgstr ""
-
-msgid "Leave empty to keep it"
-msgstr ""
-
-msgid "Password"
-msgstr ""
-
-msgid "Kept in the system's keyring, never in a file, and sent when the server hides typing."
-msgstr ""
-
-msgid "The password is kept once the session is saved as a profile."
-msgstr ""
-
-msgid "Without a profile, these are those of every session that has none."
+msgid "Logs and sounds"
 msgstr ""
 
 msgid "Log every session"
@@ -1193,6 +1127,71 @@ msgid "Download the sounds a MUD asks to play"
 msgstr ""
 
 msgid "A sound the MUD asks for that you do not have is fetched from the web and kept."
+msgstr ""
+
+msgid "Update"
+msgstr ""
+
+msgid "Typing"
+msgstr ""
+
+msgid "Earlier and later commands"
+msgstr ""
+
+msgid "Search the commands typed before"
+msgstr ""
+
+msgid "Complete the word being typed"
+msgstr ""
+
+msgid "Search the output"
+msgstr ""
+
+msgid "Silence speech"
+msgstr ""
+
+msgid "Read the previous and next line"
+msgstr ""
+
+msgid "Read the most recent lines"
+msgstr ""
+
+msgid "Same, for the panel of channels"
+msgstr ""
+
+msgid "Read the gauges"
+msgstr ""
+
+msgid "Sessions"
+msgstr ""
+
+msgid "Switch between the game and the editor"
+msgstr ""
+
+msgid "Show what the MUD sends"
+msgstr ""
+
+#, python-brace-format
+msgid "Version {0}"
+msgstr ""
+
+msgid "A modern, accessible MUD client."
+msgstr ""
+
+msgid "Free software, under the MIT or Apache 2.0 licence."
+msgstr ""
+
+msgid "Menu"
+msgstr ""
+
+msgid "Messages"
+msgstr ""
+
+#, python-brace-format
+msgid "Messages, {0} new"
+msgstr ""
+
+msgid "Nothing yet."
 msgstr ""
 
 msgid "Speech on."
@@ -1297,6 +1296,9 @@ msgid "Not now"
 msgstr ""
 
 msgid "Enable"
+msgstr ""
+
+msgid "Plugins are enabled per profile: save or choose a profile first."
 msgstr ""
 
 #, python-brace-format
@@ -1410,6 +1412,9 @@ msgstr ""
 
 #, python-brace-format
 msgid "Installing {0}..."
+msgstr ""
+
+msgid "Plugins need a configuration folder, and none was found."
 msgstr ""
 
 msgid "Give the plugin a name after the address: letters, digits, - and _."

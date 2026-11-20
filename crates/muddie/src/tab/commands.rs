@@ -38,6 +38,10 @@ pub enum Act {
     Reconnect,
     Disconnect,
     Find,
+    /// Starts or stops writing the session to a file.
+    Log,
+    /// Switches the voice on or off.
+    Speech,
     /// Adds a panel of this kind.
     AddPanel(super::layout::Kind),
     /// Shows or hides the panel with this number.
@@ -47,16 +51,18 @@ pub enum Act {
 }
 
 /// What a session asks the window to do.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AppRequest {
     NewSession,
     CloseSession,
-    /// The settings, at this section.
+    /// The settings, at this page.
     Settings(crate::app::Section),
-    /// The settings are done with: what was asked in them is under way.
-    CloseSettings,
     Shortcuts,
     About,
+    /// Something done with the saved profile of this name.
+    Profile(crate::app::ProfileAction, String),
+    /// Keeps this session, which has none, as a profile.
+    SaveAsProfile,
 }
 
 /// The words of a command that are typed as they are, not the `<this>` or
@@ -390,10 +396,37 @@ impl Tab {
             Act::App(AppRequest::CloseSession),
         ));
         acts.push(act(tr("Find"), session, Act::Find));
+        let log = if self.log.is_some() {
+            tr("Stop logging this session")
+        } else {
+            tr("Log this session")
+        };
+        acts.push(act(log, session, Act::Log));
+        let speech = if self.voice.enabled() {
+            tr("Switch speech off")
+        } else {
+            tr("Switch speech on")
+        };
+        acts.push(act(speech, session, Act::Speech));
+        match &self.profile {
+            Some(name) => acts.push(act(
+                tr("Edit profile"),
+                session,
+                Act::App(AppRequest::Profile(
+                    crate::app::ProfileAction::Edit,
+                    name.clone(),
+                )),
+            )),
+            None => acts.push(act(
+                tr("Save as profile"),
+                session,
+                Act::App(AppRequest::SaveAsProfile),
+            )),
+        }
         for panel in &self.layout.panels {
             let label = match panel.visible {
-                true => trf("Hide {0}", &[&panel.shown_name()]),
-                false => trf("Show {0}", &[&panel.shown_name()]),
+                true => trf("Hide {0}", &[&panel.name.clone()]),
+                false => trf("Show {0}", &[&panel.name.clone()]),
             };
             acts.push(act(&label, panels, Act::Panel(panel.id)));
         }
@@ -407,29 +440,17 @@ impl Tab {
             panels,
             Act::AddPanel(super::layout::Kind::Gauges),
         ));
-        if !self
-            .layout
-            .panels
-            .iter()
-            .any(|panel| panel.kind == super::layout::Kind::Map)
-        {
+        if !self.layout.has(super::layout::Kind::Map) {
             acts.push(act(
                 tr("Add the map"),
                 panels,
                 Act::AddPanel(super::layout::Kind::Map),
             ));
         }
-        for section in crate::app::Section::MUDDIE {
+        for section in crate::app::Section::ALL {
             acts.push(act(
                 section.name(),
                 settings,
-                Act::App(AppRequest::Settings(section)),
-            ));
-        }
-        for section in crate::app::Section::PROFILE {
-            acts.push(act(
-                section.name(),
-                tr("Profile"),
                 Act::App(AppRequest::Settings(section)),
             ));
         }
@@ -444,6 +465,8 @@ impl Tab {
                 tr("Connect to profile"),
                 Act::Connect(name.clone()),
             ));
+            let edit = AppRequest::Profile(crate::app::ProfileAction::Edit, name.clone());
+            acts.push(act(&name, tr("Edit profile"), Act::App(edit)));
         }
         acts.push(act(
             tr("Keyboard shortcuts"),
@@ -462,6 +485,13 @@ impl Tab {
             Act::App(request) => self.app_request = Some(request),
             Act::Reconnect => self.reconnect(ctx),
             Act::Disconnect => self.disconnect(),
+            Act::Log => {
+                self.map_command("/log");
+            }
+            Act::Speech => {
+                let on = !self.voice.enabled();
+                self.voice.set_enabled(on);
+            }
             Act::Find => {
                 self.find_open = true;
                 self.find_wants_focus = true;

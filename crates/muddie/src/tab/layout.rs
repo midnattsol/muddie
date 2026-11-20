@@ -113,15 +113,6 @@ impl Default for Layout {
     }
 }
 
-impl PanelSpec {
-    /// What a panel is called on the screen: its name, as it was given.
-    /// The usual ones are in English, whatever the language of the
-    /// interface, as names are not translated.
-    pub fn shown_name(&self) -> String {
-        self.name.clone()
-    }
-}
-
 impl Layout {
     /// The panel with this number.
     pub fn panel(&self, id: u32) -> Option<&PanelSpec> {
@@ -165,7 +156,8 @@ impl Layout {
             + 1
     }
 
-    fn has(&self, kind: Kind) -> bool {
+    /// Whether it has a panel of this kind.
+    pub(super) fn has(&self, kind: Kind) -> bool {
         self.panels.iter().any(|panel| panel.kind == kind)
     }
 }
@@ -503,38 +495,6 @@ impl Tab {
         }
     }
 
-    /// The panels' entries of the View menu: one per panel, to show or
-    /// hide it, and the way into the layout mode.
-    pub(super) fn panels_menu(&mut self, ui: &mut egui::Ui) {
-        for panel in &mut self.layout.panels {
-            let name = panel.shown_name();
-            if panel.kind == Kind::Map {
-                widgets::menu_row_with_shortcut(ui, &mut panel.visible, &name, "Ctrl+M");
-            } else {
-                widgets::menu_check(ui, &mut panel.visible, &name);
-            }
-        }
-        if !self.layout.panels.is_empty() {
-            widgets::menu_separator(ui);
-        }
-        if widgets::menu_item(ui, tr("Gauges"), "").clicked() {
-            // Those of the first panel of gauges, made if there is none.
-            if !self.layout.has(Kind::Gauges) {
-                self.add_panel(Kind::Gauges);
-            }
-            let panel = self
-                .layout
-                .panels
-                .iter()
-                .find(|panel| panel.kind == Kind::Gauges)
-                .map_or(0, |panel| panel.id);
-            self.open_gauges(panel);
-            ui.close();
-        }
-        widgets::menu_separator(ui);
-        self.add_panel_items(ui);
-    }
-
     /// The bar of the layout mode: what to do, a way to add a panel, and
     /// the way out.
     pub(super) fn add_panel(&mut self, kind: Kind) {
@@ -689,7 +649,7 @@ impl Tab {
                 ui.set_clip_rect(inner.intersect(ui.clip_rect()));
                 let index = self.panel_header(ui, place);
                 let spec = self.layout.panels[index].clone();
-                self.panel_body(ui, index, &spec)
+                self.panel_body(ui, &spec)
             });
             asked = asked.or(got.inner);
             at += share;
@@ -770,7 +730,7 @@ impl Tab {
         for &index in place {
             let panel = &self.layout.panels[index];
             let unread = self.unread_tabs.contains(&panel.id);
-            if widgets::tab(ui, &panel.shown_name(), panel.id == shown, unread).clicked() {
+            if widgets::tab(ui, &panel.name.clone(), panel.id == shown, unread).clicked() {
                 shown = panel.id;
             }
         }
@@ -955,15 +915,8 @@ impl Tab {
         }
     }
 
-    /// What is inside a panel: in the layout mode, its handle and what
-    /// can be changed about it; then what it shows.
-    fn panel_body(
-        &mut self,
-        ui: &mut egui::Ui,
-        index: usize,
-        spec: &PanelSpec,
-    ) -> Option<MapAction> {
-        let _ = index;
+    /// What a panel shows, by its kind.
+    fn panel_body(&mut self, ui: &mut egui::Ui, spec: &PanelSpec) -> Option<MapAction> {
         match spec.kind {
             Kind::Map => self.map_body(ui, spec.id),
             Kind::Gauges => {
@@ -987,7 +940,7 @@ impl Tab {
             ui.spacing_mut().item_spacing.x = 4.0;
             ui.set_min_height(24.0);
             // Six dots: this can be taken and moved.
-            let name = self.layout.panels[shown].shown_name();
+            let name = self.layout.panels[shown].name.clone();
             let (grip, handle) =
                 ui.allocate_exact_size(egui::vec2(12.0, 22.0), egui::Sense::drag());
             let handle = handle.on_hover_cursor(egui::CursorIcon::Grab);
@@ -1012,7 +965,6 @@ impl Tab {
                     .color(theme.text_dim);
                 ui.add(Label::new(caption).selectable(false));
             }
-            let id = self.layout.panels[shown].id;
             if handle.drag_started() {
                 self.dragged_panel = Some(self.layout.panels[place[0]].id);
             }
@@ -1023,7 +975,6 @@ impl Tab {
                     let walking = self.walk.is_some();
                     self.map_view.tools(ui, walking);
                 }
-                let _ = id;
             });
         });
         ui.add_space(2.0);
@@ -1039,7 +990,7 @@ impl Tab {
         let more = widgets::icon_button(
             ui,
             widgets::Icon::More,
-            &trf("{0} options", &[&spec.shown_name()]),
+            &trf("{0} options", &[&spec.name.clone()]),
             false,
         );
         let (mut earlier, mut later, mut join, mut gauges) = (false, false, false, false);
@@ -1115,11 +1066,11 @@ impl Tab {
                 .on_hover_text(tr("Side panels reach the top and the bottom"));
             widgets::menu_separator(ui);
             let panel = &mut self.layout.panels[index];
-            if widgets::menu_item(ui, &trf("Hide {0}", &[&spec.shown_name()]), "").clicked() {
+            if widgets::menu_item(ui, &trf("Hide {0}", &[&spec.name.clone()]), "").clicked() {
                 panel.visible = false;
                 ui.close();
             }
-            if widgets::menu_item(ui, &trf("Remove {0}", &[&spec.shown_name()]), "").clicked() {
+            if widgets::menu_item(ui, &trf("Remove {0}", &[&spec.name.clone()]), "").clicked() {
                 self.removed_panel = Some(index);
                 ui.close();
             }
@@ -1132,36 +1083,6 @@ impl Tab {
         }
         if gauges {
             self.open_gauges(spec.id);
-        }
-    }
-
-    /// The panels that can be added, each with what it is for.
-    pub(super) fn add_panel_items(&mut self, ui: &mut egui::Ui) {
-        let kinds = [
-            (
-                Kind::Text,
-                tr("Add a text panel"),
-                tr("Lines sent to it by triggers and scripts"),
-            ),
-            (Kind::Map, tr("Add the map"), tr("The map of where you are")),
-            (
-                Kind::Gauges,
-                tr("Add a panel of gauges"),
-                tr("Bars that follow your health and the like"),
-            ),
-        ];
-        for (kind, name, about) in kinds {
-            // There is one map.
-            if kind == Kind::Map && self.layout.has(kind) {
-                continue;
-            }
-            if widgets::menu_item(ui, name, "")
-                .on_hover_text(about)
-                .clicked()
-            {
-                self.add_panel(kind);
-                ui.close();
-            }
         }
     }
 

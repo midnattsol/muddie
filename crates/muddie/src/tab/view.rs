@@ -207,9 +207,10 @@ impl Tab {
                                     egui::Layout::right_to_left(egui::Align::Center),
                                     |ui| {
                                         ui.add_space(4.0);
+                                        // More than an address is a profile's.
                                         if widgets::quiet_button(ui, tr("More options")).clicked() {
                                             self.apply_address();
-                                            self.open_profile(crate::app::Section::Connection);
+                                            self.app_request = Some(AppRequest::SaveAsProfile);
                                         }
                                     },
                                 );
@@ -228,11 +229,20 @@ impl Tab {
                                     ui.horizontal(|ui| {
                                         ui.spacing_mut().item_spacing.x = gap;
                                         for (name, place) in pair {
-                                            if widgets::profile_card(ui, card, name, place)
-                                                .clicked()
-                                            {
+                                            let pressed =
+                                                widgets::profile_card(ui, card, name, place);
+                                            if pressed.clicked() {
                                                 chosen = Some(name.clone());
                                             }
+                                            // What can be done with it, as anywhere else.
+                                            pressed.context_menu(|ui| {
+                                                if let Some(action) = crate::app::profile_menu(ui) {
+                                                    self.app_request = Some(AppRequest::Profile(
+                                                        action,
+                                                        name.clone(),
+                                                    ));
+                                                }
+                                            });
                                         }
                                     });
                                     ui.add_space(gap);
@@ -335,46 +345,6 @@ impl Tab {
         }
         if self.walk.is_some() {
             ui.label(small(tr("Walking"), theme.accent));
-        }
-    }
-
-    /// The session's entries of the Session menu.
-    pub fn session_menu(&mut self, ui: &mut egui::Ui) {
-        // Connecting again is always there: with a connection it closes
-        // it first, and without one it is how to connect.
-        if widgets::menu_item(ui, tr("Reconnect"), "Alt+R").clicked() {
-            self.reconnect(&ui.ctx().clone());
-            ui.close();
-        }
-        if self.connection.is_some() && widgets::menu_item(ui, tr("Disconnect"), "").clicked() {
-            self.disconnect();
-            ui.close();
-        }
-        if widgets::menu_item(ui, tr("Profile"), "").clicked() {
-            self.open_profile(crate::app::Section::Connection);
-            ui.close();
-        }
-        widgets::menu_separator(ui);
-        let mut logging = self.log.is_some();
-        if widgets::menu_check(ui, &mut logging, tr("Log this session")).changed() {
-            self.map_command("/log");
-            ui.close();
-        }
-        let mut speech = self.voice.enabled();
-        if widgets::menu_check(ui, &mut speech, tr("Speech")).changed() {
-            self.voice.set_enabled(speech);
-            ui.close();
-        }
-    }
-
-    /// The session's entries of the View menu.
-    pub fn view_menu(&mut self, ui: &mut egui::Ui) {
-        self.panels_menu(ui);
-        widgets::menu_separator(ui);
-        if widgets::menu_item(ui, tr("Find"), "Ctrl+F").clicked() {
-            self.find_open = true;
-            self.find_wants_focus = true;
-            ui.close();
         }
     }
 }

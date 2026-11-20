@@ -1,4 +1,5 @@
 mod app;
+mod autosave;
 mod bundled;
 mod complete;
 mod history;

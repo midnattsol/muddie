@@ -73,15 +73,6 @@ impl SessionPrefs {
             media_downloads: settings.media_downloads,
         }
     }
-
-    /// Makes them those of every session without a profile.
-    pub fn apply_to(&self, settings: &mut crate::settings::Settings) {
-        settings.reconnect = self.reconnect;
-        settings.keepalive_seconds = self.keepalive_seconds;
-        settings.log_sessions = self.log_sessions;
-        settings.log_format = self.log_format;
-        settings.media_downloads = self.media_downloads;
-    }
 }
 
 impl Default for Profile {
@@ -307,6 +298,86 @@ impl Profiles {
     pub fn map_path(&self, name: &str) -> PathBuf {
         self.profile_dir(name).join("map.sqlite")
     }
+
+    /// Whether a profile of this name is saved.
+    pub fn exists(&self, name: &str) -> bool {
+        self.profile_dir(name).join("profile.toml").is_file()
+    }
+
+    /// Gives a profile another name, with all it has: its scripts, rules,
+    /// layout, map and remembered values. Its password goes with it.
+    pub fn rename(&self, from: &str, to: &str) -> Result<(), String> {
+        self.free_name(to)?;
+        std::fs::rename(self.profile_dir(from), self.profile_dir(to))
+            .map_err(|error| format!("cannot rename the profile: {error}"))?;
+        move_password(from, to, true);
+        Ok(())
+    }
+
+    /// Makes a copy of a profile under another name, with all it has.
+    pub fn duplicate(&self, from: &str, to: &str) -> Result<(), String> {
+        self.free_name(to)?;
+        copy_dir(&self.profile_dir(from), &self.profile_dir(to))
+            .map_err(|error| format!("cannot copy the profile: {error}"))?;
+        move_password(from, to, false);
+        Ok(())
+    }
+
+    /// Deletes a profile, with all it has, and forgets its password.
+    pub fn delete(&self, name: &str) -> Result<(), String> {
+        std::fs::remove_dir_all(self.profile_dir(name))
+            .map_err(|error| format!("cannot delete the profile: {error}"))?;
+        let _ = crate::secrets::set_password(name, None);
+        Ok(())
+    }
+
+    /// A name a new profile can take: allowed, and no other's.
+    fn free_name(&self, name: &str) -> Result<(), String> {
+        if !valid_name(name) {
+            return Err("a profile name may only have letters, digits, spaces, - and _".into());
+        }
+        if self.profile_dir(name).exists() {
+            return Err(format!("there is a profile called {name} already"));
+        }
+        Ok(())
+    }
+
+    /// A name not taken, made from `base`: itself, then numbered.
+    pub fn unused_name(&self, base: &str) -> String {
+        (1..)
+            .map(|number| match number {
+                1 => base.to_owned(),
+                number => format!("{base} {number}"),
+            })
+            .find(|name| !self.profile_dir(name).exists())
+            .unwrap_or_else(|| base.to_owned())
+    }
+}
+
+/// Copies a profile's password to another name, and with `moving` forgets
+/// it under the first. A keyring that cannot be reached leaves it be.
+fn move_password(from: &str, to: &str, moving: bool) {
+    if let Ok(Some(password)) = crate::secrets::password(from) {
+        let _ = crate::secrets::set_password(to, Some(&password));
+        if moving {
+            let _ = crate::secrets::set_password(from, None);
+        }
+    }
+}
+
+/// Copies a folder and everything in it.
+fn copy_dir(from: &std::path::Path, to: &std::path::Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(to)?;
+    for entry in std::fs::read_dir(from)? {
+        let entry = entry?;
+        let target = to.join(entry.file_name());
+        if entry.file_type()?.is_dir() {
+            copy_dir(&entry.path(), &target)?;
+        } else {
+            std::fs::copy(entry.path(), target)?;
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -318,6 +389,36 @@ mod tests {
             std::env::temp_dir().join(format!("muddie-profile-{test}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         Profiles::at(dir)
+    }
+
+    #[test]
+    fn a_profile_is_renamed_copied_and_deleted_with_all_it_has() {
+        let profiles = scratch("folders");
+        profiles
+            .save(
+                "Reinos",
+                &Profile {
+                    port: 5001,
+                    ..Profile::default()
+                },
+            )
+            .unwrap();
+        std::fs::write(profiles.scripts_dir("Reinos").join("a.luau"), "x = 1").unwrap();
+        std::fs::write(profiles.map_path("Reinos"), "map").unwrap();
+        profiles.duplicate("Reinos", "Reinos 2").unwrap();
+        assert_eq!(profiles.load("Reinos 2").unwrap().port, 5001);
+        assert!(profiles.scripts_dir("Reinos 2").join("a.luau").is_file());
+        assert!(profiles.map_path("Reinos 2").is_file());
+        // Not over another, nor under a name that cannot be a folder's.
+        assert!(profiles.duplicate("Reinos", "Reinos 2").is_err());
+        assert!(profiles.rename("Reinos", "a/b").is_err());
+        profiles.rename("Reinos 2", "Naylhena").unwrap();
+        assert_eq!(profiles.names(), ["Naylhena", "Reinos"]);
+        assert_eq!(profiles.unused_name("Reinos"), "Reinos 2");
+        assert_eq!(profiles.unused_name("Nuevo"), "Nuevo");
+        profiles.delete("Naylhena").unwrap();
+        assert_eq!(profiles.names(), ["Reinos"]);
+        std::fs::remove_dir_all(profiles.dir).unwrap();
     }
 
     #[test]

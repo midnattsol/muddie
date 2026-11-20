@@ -347,18 +347,16 @@ pub mod size {
     pub const CONTROL: f32 = 30.0;
     /// A row of settings, with its control.
     pub const ROW: f32 = 44.0;
-    /// Fields: a number or a port, a word, a name or an address.
-    pub const FIELD_S: f32 = 90.0;
+    /// Fields: a word or a choice, a name or an address.
     pub const FIELD_M: f32 = 160.0;
     pub const FIELD_L: f32 = 250.0;
     /// Windows: a question, a form, the settings.
     pub const DIALOG_S: f32 = 460.0;
     pub const DIALOG_M: f32 = 620.0;
-    pub const DIALOG_L: f32 = 960.0;
-    /// Gaps: inside a group, between groups, between sections.
+    pub const DIALOG_L: f32 = 720.0;
+    /// Gaps: inside a group, and between groups.
     pub const GAP_S: f32 = 6.0;
     pub const GAP_M: f32 = 12.0;
-    pub const GAP_L: f32 = 20.0;
 }
 
 /// The contrast text must have with what is behind it to be read: the

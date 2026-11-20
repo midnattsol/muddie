@@ -61,7 +61,7 @@ fn fake_connection(
 }
 
 #[test]
-fn profile_is_saved_from_the_connection_window_and_brings_its_scripts() {
+fn a_session_is_saved_as_a_profile_that_brings_its_scripts() {
     let dir = std::env::temp_dir().join(format!("muddie-app-profile-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     let mut harness = window(Some(Profiles::at(dir.clone())));
@@ -70,28 +70,26 @@ fn profile_is_saved_from_the_connection_window_and_brings_its_scripts() {
     app.port = "4000".into();
     app.tls = true;
     app.verify_certificate = false;
-    app.profile_name = "Reinos".into();
-    harness
-        .state_mut()
-        .open_settings(crate::app::Section::Connection);
-    harness.run_steps(4);
-    harness.get_by_label("Save as profile").click();
-    harness.run_steps(2);
-    let saved = Profiles::at(dir.clone()).load("Reinos").unwrap();
+    // Asked for a name, with one made from the MUD's address.
+    app.app_request = Some(AppRequest::SaveAsProfile);
+    harness.run_steps(3);
+    harness.get_by_label("Save").click();
+    harness.run_steps(3);
+    let saved = Profiles::at(dir.clone()).load("Mud").unwrap();
     assert_eq!((saved.host.as_str(), saved.port), ("mud.example.org", 4000));
     assert!(saved.tls && !saved.verify_certificate);
-    assert_eq!(harness.state().tab().profile.as_deref(), Some("Reinos"));
+    assert_eq!(harness.state().tab().profile.as_deref(), Some("Mud"));
 
     // Scripts dropped in the profile's folder run when it is selected.
     std::fs::write(
-        dir.join("profiles/Reinos/scripts/hello.luau"),
+        dir.join("profiles/Mud/scripts/hello.luau"),
         "echo('hola desde el perfil')",
     )
     .unwrap();
     let app = harness.state_mut().tab_mut();
     assert!(app.select_profile(None));
     app.host.clear();
-    assert!(app.select_profile(Some("Reinos".into())));
+    assert!(app.select_profile(Some("Mud".into())));
     assert_eq!(app.host, "mud.example.org");
     assert!(output_lines(app).contains(&"hola desde el perfil".to_owned()));
     assert!(!app.select_profile(Some("Missing".into())));
@@ -2148,10 +2146,16 @@ fn what_a_click_opens_stays_open() {
         harness.key_press(Key::Escape);
         harness.run_steps(3);
     };
-    harness
-        .get_by_label("This session has no profile: Save profile")
-        .click();
-    steady(&mut harness, "profile", "Profile name");
+    let session = harness
+        .get_all_by_role(egui::accesskit::Role::Tab)
+        .find(|tab| {
+            tab.accesskit_node()
+                .label()
+                .is_some_and(|label| label.contains("Not connected"))
+        })
+        .expect("the session's tab");
+    session.click_secondary();
+    steady(&mut harness, "session menu", "Save as profile");
     harness.get_by_label("Menu").click();
     steady(&mut harness, "menu", "Keyboard shortcuts");
     harness.get_by_label("Messages, 1 new").click();
@@ -2208,19 +2212,24 @@ fn a_profile_keeps_what_is_changed_in_the_settings_as_it_is_changed() {
             .tab_mut()
             .select_profile(Some("Reinos".into()))
     );
-    harness
-        .state_mut()
-        .open_settings(crate::app::Section::Connection);
+    harness.state_mut().edit_profile("Reinos");
     harness.run_steps(3);
     // What depends on the MUD is the profile's, not every session's.
     (harness.get_by_role_and_label(egui::accesskit::Role::Switch, "Keep the connection alive"))
         .click();
     harness.run_steps(2);
-    harness.state_mut().tab_mut().character = "Naylhena".into();
+    let character = || (egui::accesskit::Role::TextInput, "Character");
+    harness
+        .get_by_role_and_label(character().0, character().1)
+        .focus();
     harness.run_steps(2);
-    // Closing the settings keeps what was changed, without a button.
-    harness.key_press(Key::Escape);
+    (harness.get_by_role_and_label(character().0, character().1)).type_text("Naylhena");
+    harness.run_steps(2);
+    // Closing the settings keeps what was changed, without a button, and
+    // the session playing with the profile takes it.
+    harness.get_by_label("Close").click();
     harness.run_steps(3);
+    assert_eq!(harness.state().tab().character, "Naylhena");
     let saved = Profiles::at(dir.clone()).load("Reinos").unwrap();
     assert_eq!(saved.character, "Naylhena");
     // It was on, as it is to begin with: off in this profile only.
@@ -2244,11 +2253,11 @@ fn a_plugin_that_comes_with_muddie_is_made_ones_own_to_change() {
     assert!(app.select_profile(Some("Reinos".into())));
     let plugin = crate::bundled::find("reinos-de-leyenda").unwrap();
     app.set_included(plugin, true);
-    harness
-        .state_mut()
-        .open_settings(crate::app::Section::Plugins);
+    harness.state_mut().edit_profile("Reinos");
     harness.run_steps(3);
-    harness.get_by_label("Customize Reinos de Leyenda").click();
+    harness
+        .get_by_label("Customize Reinos de Leyenda")
+        .click_accesskit();
     harness.run_steps(4);
     // Its code is a script of the profile's, open in the editor, and the
     // one that came is off so as not to run twice.
@@ -2611,9 +2620,12 @@ fn screenshot() {
     save(&mut welcome, "welcome");
     welcome
         .state_mut()
-        .open_settings(crate::app::Section::Connection);
+        .open_settings(crate::app::Section::Profiles);
     welcome.run_steps(4);
-    save(&mut welcome, "connection");
+    save(&mut welcome, "profiles");
+    welcome.state_mut().edit_profile("Aardwolf");
+    welcome.run_steps(4);
+    save(&mut welcome, "profile");
     std::fs::remove_dir_all(&dir).unwrap();
 
     // A plugin for the MUD connected to, offered over the command line.
@@ -2622,11 +2634,6 @@ fn screenshot() {
     app.offer_plugin_for("rlmud.org", "");
     offer.run_steps(3);
     save(&mut offer, "plugin-offer");
-    offer
-        .state_mut()
-        .open_settings(crate::app::Section::Plugins);
-    offer.run_steps(4);
-    save(&mut offer, "plugins-included");
 
     // The channels of the MUD, each with its tab in one panel.
     let mut channels = connected_demo_window();
@@ -2701,15 +2708,16 @@ fn screenshot() {
         std::fs::write(dir.join("packages").join(plugin).join("init.luau"), "").unwrap();
     }
     let profiles = Profiles::at(dir.clone());
-    profiles.save("Aardwolf", &Profile::default()).unwrap();
+    let profile = Profile {
+        packages: vec!["aardwolf-mapper".into()],
+        ..Profile::default()
+    };
+    profiles.save("Aardwolf", &profile).unwrap();
     let mut plugins = window(Some(profiles));
-    let app = plugins.state_mut().tab_mut();
-    app.profile = Some("Aardwolf".into());
-    app.packages = vec!["aardwolf-mapper".into()];
-    plugins
-        .state_mut()
-        .open_settings(crate::app::Section::Plugins);
+    plugins.state_mut().edit_profile("Aardwolf");
     plugins.run_steps(4);
+    plugins.get_by_label("Update all").scroll_to_me();
+    plugins.run_steps(3);
     save(&mut plugins, "plugins");
     std::fs::remove_dir_all(&dir).unwrap();
     // The automation window, with rules of each kind to look at.

@@ -48,6 +48,32 @@ pub const ALL: [Bundled; 2] = [
     },
 ];
 
+impl Bundled {
+    /// Whether it is on in a profile that lists these as switched on and
+    /// off: one on unless asked not is on unless in `off`, and the other
+    /// way round.
+    pub fn is_on(&self, on: &[String], off: &[String]) -> bool {
+        let listed = |list: &[String]| list.iter().any(|id| id == self.id);
+        if self.default_on {
+            !listed(off)
+        } else {
+            listed(on)
+        }
+    }
+
+    /// Switches it in those lists, writing down only what differs from
+    /// how it is to begin with.
+    pub fn switch(&self, on: &mut Vec<String>, off: &mut Vec<String>, wanted: bool) {
+        on.retain(|id| id != self.id);
+        off.retain(|id| id != self.id);
+        match (self.default_on, wanted) {
+            (false, true) => on.push(self.id.to_owned()),
+            (true, false) => off.push(self.id.to_owned()),
+            _ => {}
+        }
+    }
+}
+
 /// The plugin of this id.
 pub fn find(id: &str) -> Option<&'static Bundled> {
     ALL.iter().find(|plugin| plugin.id == id)

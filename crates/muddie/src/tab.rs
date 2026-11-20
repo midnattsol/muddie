@@ -27,18 +27,17 @@ use crate::panels::{self, Gauges, MsdpVitals};
 use crate::profile::{Profile, Profiles};
 use crate::rules::{Alias, KeyBinding, Rules, Trigger};
 use crate::secrets;
-use crate::settings::{LogFormat, Settings};
+use crate::settings::Settings;
 use crate::theme;
 use crate::voice::Voice;
 use muddie_sound::{self as sound, Msp, Player};
 
 mod automation;
 mod commands;
-mod profile_page;
+mod its_profile;
 pub use commands::AppRequest;
 mod data;
 mod layout;
-mod plugins;
 mod view;
 
 struct Connection {
@@ -149,13 +148,15 @@ pub struct Tab {
     script_text: String,
     script_saved: String,
     script_seen: String,
-    script_changed_at: Option<Instant>,
+    /// When the script being edited last changed, to save it after.
+    script_settle: crate::autosave::Settle,
     /// What the automation window's search box holds.
     rules_filter: String,
     /// The draft as last seen, and when it last changed: edits are saved
     /// once they stop for a moment.
     rules_seen: Rules,
-    rules_changed_at: Option<Instant>,
+    /// When the rules being edited last changed, to save them after.
+    rules_settle: crate::autosave::Settle,
     /// A sample line or command to try the selected rule on.
     rules_sample: String,
     /// The next key pressed becomes the selected macro's key.
@@ -185,10 +186,8 @@ pub struct Tab {
     /// How its sessions go, kept with the profile: those of the settings
     /// with none.
     prefs: crate::profile::SessionPrefs,
-    /// The profile as it was last saved or loaded, and since when what
-    /// is in the fields differs from it.
-    profile_saved: Option<Profile>,
-    profile_changed_at: Option<Instant>,
+    /// The session wrote its profile, for the settings to read it again.
+    profile_written: bool,
     /// Where and how the session connected, to tell when the profile's
     /// fields say otherwise and connecting again would apply them.
     connected_with: Option<String>,
@@ -246,9 +245,6 @@ pub struct Tab {
     /// The group the editor's lists are narrowed to, and those folded.
     group_filter: Option<String>,
     folded_groups: Vec<String>,
-    /// The address being typed to install a plugin from, and the row of
-    /// the output from which the answers to the settings' plugins are.
-    plugin_address: String,
     plugin_said: usize,
     /// The command left in the command line after it was sent, while it
     /// is still untouched; and whether it has yet to be selected.
@@ -472,10 +468,10 @@ impl Tab {
             script_text: String::new(),
             script_saved: String::new(),
             script_seen: String::new(),
-            script_changed_at: None,
+            script_settle: Default::default(),
             rules_filter: String::new(),
             rules_seen: Rules::default(),
-            rules_changed_at: None,
+            rules_settle: Default::default(),
             rules_sample: String::new(),
             recording_key: false,
             gauge_dragged: None,
@@ -484,8 +480,7 @@ impl Tab {
             script_ran: None,
             reconnect_wanted: false,
             prefs: crate::profile::SessionPrefs::default(),
-            profile_saved: None,
-            profile_changed_at: None,
+            profile_written: false,
             connected_with: None,
             undo: None,
             gauge_here: None,
@@ -522,7 +517,6 @@ impl Tab {
             variable_items: Vec::new(),
             group_filter: None,
             folded_groups: Vec::new(),
-            plugin_address: String::new(),
             plugin_said: 0,
             kept_input: None,
             select_input: false,
@@ -829,8 +823,6 @@ impl Tab {
         self.plugin_offer = None;
         self.profile_name = name.clone().unwrap_or_default();
         self.profile = name;
-        self.profile_saved = self.profile_now();
-        self.profile_changed_at = None;
         self.load_layout();
         self.load_scripts();
         true
@@ -854,8 +846,7 @@ impl Tab {
         match profiles.save(&name, &profile) {
             Ok(()) => {
                 let renamed = self.profile.as_deref() != Some(&name);
-                self.profile_saved = Some(profile.clone());
-                self.profile_changed_at = None;
+                self.profile_written = true;
                 self.packages = profile.packages;
                 self.profile = Some(name.clone());
                 if renamed {
@@ -979,7 +970,7 @@ impl Tab {
         });
     }
 
-    fn disconnect(&mut self) {
+    pub fn disconnect(&mut self) {
         self.user_disconnected = true;
         self.reconnect_at = None;
         if let Some(connection) = &self.connection {
@@ -989,7 +980,7 @@ impl Tab {
 
     /// Connects again: at once if there is no connection, and if there
     /// is one, once it has been closed.
-    pub(super) fn reconnect(&mut self, ctx: &egui::Context) {
+    pub fn reconnect(&mut self, ctx: &egui::Context) {
         if self.host.trim().is_empty() {
             return;
         }
@@ -1584,11 +1575,7 @@ impl Tab {
 
     /// Whether a plugin that comes with Muddie is on in this session.
     pub(super) fn included(&self, plugin: &crate::bundled::Bundled) -> bool {
-        let listed = |list: &[String]| list.iter().any(|id| id == plugin.id);
-        match plugin.default_on {
-            true => !listed(&self.included_off),
-            false => listed(&self.included_on),
-        }
+        plugin.is_on(&self.included_on, &self.included_off)
     }
 
     /// Whether what many MUDs send the same way is made something of.
@@ -1600,14 +1587,13 @@ impl Tab {
     /// without running the other scripts again, and keeps that with the
     /// profile if there is one.
     pub(super) fn set_included(&mut self, plugin: &'static crate::bundled::Bundled, on: bool) {
-        let id = plugin.id.to_owned();
-        self.included_on.retain(|known| *known != id);
-        self.included_off.retain(|known| *known != id);
-        match (plugin.default_on, on) {
-            (false, true) => self.included_on.push(id),
-            (true, false) => self.included_off.push(id),
-            _ => {}
-        }
+        plugin.switch(&mut self.included_on, &mut self.included_off, on);
+        self.run_included(plugin, on);
+        self.keep_included();
+    }
+
+    /// Starts or stops a plugin that comes with Muddie in this session.
+    pub(super) fn run_included(&mut self, plugin: &'static crate::bundled::Bundled, on: bool) {
         if self.plugin_offer == Some(plugin) {
             self.plugin_offer = None;
         }
@@ -1623,7 +1609,6 @@ impl Tab {
             self.announce_modules(usual);
         }
         self.run_actions();
-        self.keep_included();
     }
 
     /// Saves which plugins are on with the profile, if there is one;
@@ -1642,8 +1627,9 @@ impl Tab {
                 .clone_from(&self.included_declined);
             (profiles.save(name, &profile)).map_err(|error| error.to_string())
         });
-        if let Err(error) = saved {
-            self.note(&trf("Could not save the profile: {0}", &[&error]));
+        match saved {
+            Ok(()) => self.profile_written = true,
+            Err(error) => self.note(&trf("Could not save the profile: {0}", &[&error])),
         }
     }
 

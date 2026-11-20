@@ -52,9 +52,6 @@ msgstr "Mostrar la hora de cada línea"
 msgid "Log every session"
 msgstr "Registrar todas las sesiones"
 
-msgid "Connection"
-msgstr "Conexión"
-
 msgid "Reconnect when the connection is lost"
 msgstr "Reconectar si se pierde la conexión"
 
@@ -181,9 +178,6 @@ msgstr "Instalando {0}..."
 msgid "Updating {0}..."
 msgstr "Actualizando {0}..."
 
-msgid "Profile"
-msgstr "Perfil"
-
 msgid "Disconnect"
 msgstr "Desconectar"
 
@@ -201,12 +195,6 @@ msgstr "Puerto"
 
 msgid "Verify certificate"
 msgstr "Verificar certificado"
-
-msgid "Profile name"
-msgstr "Nombre del perfil"
-
-msgid "Save profile"
-msgstr "Guardar perfil"
 
 msgid "Speech on."
 msgstr "Voz activada."
@@ -890,9 +878,6 @@ msgstr "Actualizar"
 msgid "Remove"
 msgstr "Quitar"
 
-msgid "Install a plugin"
-msgstr "Instalar un complemento"
-
 msgid "Install"
 msgstr "Instalar"
 
@@ -963,15 +948,6 @@ msgstr "No se pudieron cargar los paneles: {0}"
 #, python-brace-format
 msgid "Could not save the panels: {0}"
 msgstr "No se pudieron guardar los paneles: {0}"
-
-msgid "Lines sent to it by triggers and scripts"
-msgstr "Líneas que le envían los disparadores y los scripts"
-
-msgid "The map of where you are"
-msgstr "El mapa de donde estás"
-
-msgid "Bars that follow your health and the like"
-msgstr "Barras que siguen tu vida y cosas así"
 
 #, python-brace-format
 msgid "Move {0}"
@@ -1258,10 +1234,6 @@ msgstr "Todos"
 msgid "new"
 msgstr "nuevo"
 
-
-msgid "Included with Muddie"
-msgstr "Incluidos con Muddie"
-
 msgid "Installed by you"
 msgstr "Instalados por ti"
 
@@ -1462,28 +1434,11 @@ msgstr "Editar {0}"
 msgid "Open in the editor"
 msgstr "Abrir en el editor"
 
-
-msgid "Text and typing"
-msgstr "Texto y escritura"
-
-msgid "Speech and screen reader"
-msgstr "Voz y lector de pantalla"
-
 msgid "Log in"
 msgstr "Entrada"
 
 msgid "Logs and sounds"
 msgstr "Registro y sonidos"
-
-msgid "This session has no profile"
-msgstr "Esta sesión no tiene perfil"
-
-#, python-brace-format
-msgid "Profile · {0}"
-msgstr "Perfil · {0}"
-
-msgid "This session"
-msgstr "Esta sesión"
 
 msgid "How large the whole window is drawn."
 msgstr "El tamaño con el que se dibuja toda la ventana."
@@ -1534,24 +1489,8 @@ msgstr "Actualizar todos"
 msgid "The address of the plugin's git repository. Only install what you trust: a plugin can send commands as you."
 msgstr "La dirección del repositorio git del plugin. Instala solo lo que sea de confianza: un plugin puede enviar comandos en tu nombre."
 
-msgid "Save the session as a profile first: the script is kept with it."
-msgstr "Guarda antes la sesión como perfil: el script se guarda con él."
-
-#, python-brace-format
-msgid "{0} is now a script of yours, in the editor."
-msgstr "{0} es ahora un script tuyo, en el editor."
-
-msgid "Password kept in the system's keyring."
-msgstr "Contraseña guardada en el llavero del sistema."
-
 msgid "Save as profile"
 msgstr "Guardar como perfil"
-
-msgid "Aardwolf, Reinos…"
-msgstr "Aardwolf, Reinos…"
-
-msgid "A profile keeps the connection, the scripts, the map and the layout, to come back to them."
-msgstr "Un perfil guarda la conexión, los scripts, el mapa y la disposición, para volver a ellos."
 
 msgid "The changes take effect on reconnecting."
 msgstr "Los cambios se aplican al reconectar."
@@ -1583,12 +1522,6 @@ msgstr "Muddie lo escribe en la primera petición del servidor."
 msgid "Kept in the system's keyring, never in a file, and sent when the server hides typing."
 msgstr "Se guarda en el llavero del sistema, nunca en un archivo, y se envía cuando el servidor oculta lo que escribes."
 
-msgid "The password is kept once the session is saved as a profile."
-msgstr "La contraseña se guarda cuando la sesión se guarda como perfil."
-
-msgid "Without a profile, these are those of every session that has none."
-msgstr "Sin perfil, estos valores son los de todas las sesiones que no tienen uno."
-
 msgid "Everything shown in the session, written to a file as it comes."
 msgstr "Todo lo que se muestra en la sesión, escrito en un archivo según llega."
 
@@ -1600,4 +1533,74 @@ msgstr "Si el MUD pide un sonido que no tienes, se descarga de internet y se gua
 
 msgid "Same, for the panel of channels"
 msgstr "Lo mismo, para el panel de canales"
+
+msgid "New profile"
+msgstr "Nuevo perfil"
+
+msgid "Stop logging this session"
+msgstr "Dejar de registrar esta sesión"
+
+msgid "Switch speech off"
+msgstr "Apagar la voz"
+
+msgid "Switch speech on"
+msgstr "Encender la voz"
+
+msgid "Edit profile"
+msgstr "Editar perfil"
+
+msgid "Profiles"
+msgstr "Perfiles"
+
+msgid "Rename profile"
+msgstr "Renombrar perfil"
+
+msgid "Duplicate profile"
+msgstr "Duplicar perfil"
+
+msgid "Delete profile"
+msgstr "Borrar perfil"
+
+msgid "Create"
+msgstr "Crear"
+
+msgid "Save"
+msgstr "Guardar"
+
+msgid "Rename"
+msgstr "Renombrar"
+
+msgid "Duplicate"
+msgstr "Duplicar"
+
+#, python-brace-format
+msgid "There is a profile called {0} already."
+msgstr "Ya hay un perfil llamado {0}."
+
+msgid "A profile name may only have letters, digits, spaces, - and _."
+msgstr "El nombre de un perfil solo puede tener letras, números, espacios, - y _."
+
+#, python-brace-format
+msgid "{0} is in use by an open session: close it first."
+msgstr "{0} lo usa una sesión abierta: ciérrala antes."
+
+#, python-brace-format
+msgid "Delete {0}? Its scripts, rules, map and layout go with it."
+msgstr "¿Borrar {0}? Se borran con él sus scripts, reglas, mapa y disposición."
+
+msgid "Edit"
+msgstr "Editar"
+
+msgid "Profiles need a configuration folder, and none was found."
+msgstr "Los perfiles necesitan una carpeta de configuración, y no se ha encontrado ninguna."
+
+msgid "No profiles yet. A profile keeps a MUD's connection, scripts, map and layout."
+msgstr "Aún no hay perfiles. Un perfil guarda la conexión, los scripts, el mapa y la disposición de un MUD."
+
+msgid "Install from"
+msgstr "Instalar desde"
+
+#, python-brace-format
+msgid "{0} is now a script of profile {1}."
+msgstr "{0} es ahora un script del perfil {1}."
 

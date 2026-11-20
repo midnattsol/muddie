@@ -6,9 +6,6 @@ use crate::rules::{Timer, fill};
 use crate::theme::Weight;
 use crate::widgets;
 
-/// How long edits must stop before they are saved and put to work.
-const SAVE_AFTER: Duration = Duration::from_millis(900);
-
 /// The sections of the window, in the order of the sidebar.
 pub(super) const TRIGGERS: usize = 0;
 pub(super) const ALIASES: usize = 1;
@@ -226,30 +223,20 @@ impl Tab {
     pub(super) fn rules_autosave(&mut self, ctx: &egui::Context, open: bool) {
         if self.rules_draft != self.rules_seen {
             self.rules_seen = self.rules_draft.clone();
-            self.rules_changed_at = Some(Instant::now());
+            self.rules_settle.changed();
         }
-        let settled = self
-            .rules_changed_at
-            .is_some_and(|at| at.elapsed() >= SAVE_AFTER);
         // The script being edited is saved the same way.
         if self.script_text != self.script_seen {
             self.script_seen = self.script_text.clone();
-            self.script_changed_at = Some(Instant::now());
+            self.script_settle.changed();
         }
-        if let Some(at) = self.script_changed_at {
-            if at.elapsed() >= SAVE_AFTER {
-                self.flush_script();
-            } else {
-                ctx.request_repaint_after(SAVE_AFTER.saturating_sub(at.elapsed()));
-            }
+        if self.script_settle.due(ctx) {
+            self.flush_script();
         }
         if !open {
             self.close_automation();
-        } else if self.rules_draft != self.rules && settled {
-            self.rules_changed_at = None;
+        } else if self.rules_settle.due(ctx) && self.rules_draft != self.rules {
             self.save_rules();
-        } else if let Some(at) = self.rules_changed_at {
-            ctx.request_repaint_after(SAVE_AFTER.saturating_sub(at.elapsed()));
         }
     }
 
@@ -257,7 +244,7 @@ impl Tab {
     pub fn close_automation(&mut self) {
         self.rules_open = false;
         self.recording_key = false;
-        self.rules_changed_at = None;
+        self.rules_settle.clear();
         self.flush_script();
         if self.rules_draft != self.rules {
             self.save_rules();
@@ -557,7 +544,7 @@ impl Tab {
     /// Saves the script being edited if it changed, renames its file if
     /// its name was changed, and runs the scripts again.
     fn flush_script(&mut self) {
-        self.script_changed_at = None;
+        self.script_settle.clear();
         let Some(path) = self.script_loaded.clone() else {
             return;
         };
@@ -1109,7 +1096,7 @@ impl Tab {
                 _ => {
                     let path = self.script_files[index].clone();
                     self.script_loaded = None;
-                    self.script_changed_at = None;
+                    self.script_settle.clear();
                     if let Err(error) = std::fs::remove_file(&path) {
                         self.note(&trf(
                             "Could not delete the script: {0}",

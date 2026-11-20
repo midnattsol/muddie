@@ -68,12 +68,14 @@ pub fn switch(ui: &mut Ui, on: &mut bool, label: &str) -> Response {
     response
 }
 
-/// A switch with its label to the left and the switch at the right edge.
+/// A switch with its label at the left and the switch at the right edge,
+/// as tall as a row of settings.
 pub fn switch_row(ui: &mut Ui, on: &mut bool, label: &str) -> Response {
     ui.horizontal(|ui| {
-        ui.label(label);
+        ui.set_min_height(theme::size::ROW);
+        let name = ui.label(label);
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-            switch(ui, on, label)
+            switch(ui, on, label).labelled_by(name.id)
         })
         .inner
     })
@@ -147,38 +149,6 @@ pub fn sign_button(ui: &mut Ui, sign: &str, label: &str, frame: bool) -> Respons
         node.set_label(label);
     });
     response.on_hover_text(label)
-}
-
-/// A rounded label that can be pressed, with what it is for said to a
-/// screen reader before what it shows: the profile in use, say.
-pub fn chip(ui: &mut Ui, text: &str, what: &str) -> Response {
-    let theme = theme::current();
-    let galley = ui.painter().layout_no_wrap(
-        text.to_owned(),
-        theme::font(Weight::Medium, 12.5),
-        theme.text,
-    );
-    let size = vec2(galley.size().x + 30.0, 26.0);
-    let (rect, response) = ui.allocate_exact_size(size, Sense::click());
-    response.widget_info(|| {
-        WidgetInfo::labeled(Role::Button, ui.is_enabled(), format!("{what}: {text}"))
-    });
-    if ui.is_rect_visible(rect) {
-        let painter = ui.painter();
-        let fill = if response.hovered() || response.has_focus() {
-            theme.hover
-        } else {
-            theme.raised
-        };
-        painter.rect_filled(rect, CornerRadius::same(13), fill);
-        let at = egui::pos2(rect.left() + 12.0, rect.center().y - galley.size().y / 2.0);
-        painter.galley(at, galley, theme.text);
-        // A small arrow: it opens something.
-        let tip = rect.right_center() - vec2(11.0, -1.5);
-        let arrow = vec![tip + vec2(-3.0, -3.0), tip, tip + vec2(3.0, -3.0)];
-        painter.add(egui::Shape::line(arrow, Stroke::new(1.2, theme.text_dim)));
-    }
-    response.on_hover_text(what)
 }
 
 /// What looks like a field to search in and opens the palette: where
@@ -460,17 +430,6 @@ pub fn menu_item(ui: &mut Ui, text: &str, shortcut: &str) -> Response {
 /// A choice in a menu that is on or off; a tick shows it is on.
 pub fn menu_check(ui: &mut Ui, on: &mut bool, text: &str) -> Response {
     let mut response = menu_row(ui, Some(*on), text, "");
-    if response.clicked() {
-        *on = !*on;
-        response.mark_changed();
-    }
-    response
-}
-
-/// A choice in a menu that is on or off and has a keyboard shortcut,
-/// which goes before the tick.
-pub fn menu_row_with_shortcut(ui: &mut Ui, on: &mut bool, text: &str, shortcut: &str) -> Response {
-    let mut response = menu_row(ui, Some(*on), text, shortcut);
     if response.clicked() {
         *on = !*on;
         response.mark_changed();
@@ -1183,15 +1142,88 @@ pub fn setting_row(
 /// A row of a [`group`] with a switch.
 pub fn switch_setting(ui: &mut Ui, on: &mut bool, label: &str) -> Response {
     row_start(ui);
+    switch_row(ui, on, label)
+}
+
+/// A row of a [`group`] that leads somewhere: its title, what it holds,
+/// a word about it at the right if there is one, and its menu. Returns
+/// the row and the button of its menu.
+pub fn link_row(
+    ui: &mut Ui,
+    title: &str,
+    detail: &str,
+    badge: Option<&str>,
+) -> (Response, Response) {
+    row_start(ui);
+    let theme = theme::current();
     ui.horizontal(|ui| {
-        ui.set_min_height(theme::size::ROW);
-        ui.label(label);
-        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-            switch(ui, on, label)
-        })
-        .inner
+        ui.set_min_height(theme::size::ROW + 6.0);
+        let more = ui
+            .with_layout(Layout::right_to_left(Align::Center), |ui| {
+                let more = icon_button(
+                    ui,
+                    Icon::More,
+                    &crate::i18n::trf("{0} options", &[title]),
+                    false,
+                );
+                if let Some(badge) = badge {
+                    let word = RichText::new(badge)
+                        .font(theme::font(Weight::Medium, 11.5))
+                        .color(theme.accent);
+                    ui.add(egui::Label::new(word).selectable(false));
+                }
+                let (rect, open) = ui.allocate_exact_size(ui.available_size(), Sense::click());
+                open.widget_info(|| {
+                    WidgetInfo::labeled(Role::Button, true, format!("{title}, {detail}"))
+                });
+                if open.hovered() {
+                    ui.painter().rect_filled(
+                        rect.expand2(vec2(8.0, 2.0)),
+                        CornerRadius::same(8),
+                        theme.hover,
+                    );
+                }
+                let painter = ui.painter();
+                let top = rect.left_center() - vec2(0.0, 9.0);
+                painter.text(
+                    top,
+                    egui::Align2::LEFT_CENTER,
+                    title,
+                    theme::font(Weight::Medium, 14.0),
+                    theme.text,
+                );
+                let under = rect.left_center() + vec2(0.0, 9.0);
+                painter.text(
+                    under,
+                    egui::Align2::LEFT_CENTER,
+                    detail,
+                    theme::font(Weight::Regular, 12.0),
+                    theme.text_dim,
+                );
+                (more, open)
+            })
+            .inner;
+        (more.1, more.0)
     })
     .inner
+}
+
+/// A bar that says something about the page, with what to do about it at
+/// the right.
+pub fn notice_bar(ui: &mut Ui, text: &str, add: &mut dyn FnMut(&mut Ui)) {
+    let theme = theme::current();
+    Frame::new()
+        .fill(theme.accent.gamma_multiply(0.14))
+        .stroke(Stroke::new(1.0, theme.accent.gamma_multiply(0.5)))
+        .corner_radius(CornerRadius::same(10))
+        .inner_margin(Margin::symmetric(14, 8))
+        .show(ui, |ui| {
+            ui.set_width(ui.available_width());
+            ui.horizontal(|ui| {
+                ui.label(RichText::new(text).color(theme.text));
+                ui.with_layout(Layout::right_to_left(Align::Center), add);
+            });
+        });
 }
 
 /// What a row of a [`group`] is for, under it, always in sight: not in
