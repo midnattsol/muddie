@@ -156,3 +156,26 @@ impl Tab {
         }
     }
 }
+
+impl Tab {
+    /// Which of its views the session is on: the game, the editor, or
+    /// the editor on what the MUD sends.
+    pub fn view(&self) -> usize {
+        match (self.editor.open, self.data_open()) {
+            (_, true) => 2,
+            (true, false) => 1,
+            (false, false) => 0,
+        }
+    }
+
+    /// Goes to one of the session's views: the game, the editor where it
+    /// was left, or the editor on what the MUD sends.
+    pub fn set_view(&mut self, view: usize) {
+        match view {
+            0 if self.editor.open => self.close_automation(),
+            1 => self.reopen_automation(),
+            2 => self.open_automation(automation::DATA),
+            _ => {}
+        }
+    }
+}
