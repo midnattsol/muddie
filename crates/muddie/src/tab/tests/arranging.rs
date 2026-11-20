@@ -9,7 +9,10 @@ fn map_drawn_by_the_server_is_asked_for_at_the_panels_size_and_shown() {
     let example = include_str!("../../../../../examples/scripts/drawn-map.luau");
     app.scripts.exec("drawn-map", example);
     app.run_actions();
-    assert_eq!(app.supports, ["Map.Render 1"]);
+    assert_eq!(
+        app.supports.last().map(String::as_str),
+        Some("Map.Render 1")
+    );
     let (events, mut sent) = fake_connection(app);
     events.send(Event::Connected).unwrap();
     // The size goes out once the panel has kept it for a moment.

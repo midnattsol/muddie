@@ -61,7 +61,8 @@
 //! - `panel_size(name)`: how many characters fit across and down a panel
 //!   that shows a drawing, as `{columns, rows}`, or `nil` if it is not on
 //!   the screen yet; the map's panel if none is named.
-//! - `supports(module, ...)`: announce GMCP modules to the server.
+//! - `supports(module, ...)`: announce GMCP modules to the server while
+//!   the script is loaded.
 //! - `completions(name, words)`: words for Tab to offer.
 //! - `gauge(name, value, max, options)`: show or update a bar in the status
 //!   strip; `gauge(name)` removes it. `options` may give a `colour`, a
@@ -394,6 +395,7 @@ impl Engine {
         state.aliases.retain(|matcher| matcher.owner != owner);
         state.timers.retain(|timer| timer.owner != owner);
         state.data_handlers.retain(|handler| handler.owner != owner);
+        state.supports.retain(|(by, _)| by != owner);
         let bound: Vec<(String, Option<String>)> = (state.bound_by.iter())
             .filter(|(by, ..)| by == owner)
             .map(|(_, key, group)| (key.clone(), group.clone()))
@@ -427,6 +429,18 @@ impl Engine {
     pub fn unload_file(&mut self, path: &Path) {
         self.unload(&path.display().to_string());
         self.files.retain(|loaded| loaded != path);
+    }
+
+    /// The GMCP modules the scripts loaded ask for, as `"Name version"`,
+    /// each once, in the order first asked for.
+    pub fn supports(&self) -> Vec<String> {
+        let mut modules: Vec<String> = Vec::new();
+        for (_, module) in &self.state.borrow().supports {
+            if !modules.contains(module) {
+                modules.push(module.clone());
+            }
+        }
+        modules
     }
 
     /// Takes the actions requested since the last call, in order.

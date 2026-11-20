@@ -373,6 +373,16 @@ impl Pipeline {
         self.finish_outgoing(out, start);
     }
 
+    /// Changes the GMCP modules wanted; the server is told what changed
+    /// if GMCP is on.
+    pub fn set_gmcp_supports(&mut self, modules: Vec<String>, out: &mut Vec<u8>) {
+        let start = out.len();
+        self.negotiator.set_gmcp_supports(modules, out);
+        if out.len() > start {
+            self.finish_outgoing(out, start);
+        }
+    }
+
     /// Starts or stops telling what arrives of the protocols this client
     /// only passes over: it costs nothing while nobody is looking.
     pub fn set_trace(&mut self, trace: bool) {

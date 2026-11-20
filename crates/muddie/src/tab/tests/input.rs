@@ -239,7 +239,13 @@ fn commands_are_chosen_from_a_palette_and_answer_at_the_line() {
         run(&mut harness, r#"supports("Comm 1")"#),
         ("Done.".to_owned(), false)
     );
-    assert_eq!(harness.state().tab().supports, ["Comm 1"]);
+    assert!(
+        harness
+            .state()
+            .tab()
+            .wanted_modules()
+            .contains(&"Comm 1".to_owned())
+    );
     assert_eq!(
         run(&mut harness, r#"echo("two")"#),
         ("two".to_owned(), false)

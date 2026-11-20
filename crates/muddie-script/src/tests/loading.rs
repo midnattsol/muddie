@@ -96,11 +96,9 @@ fn example_scripts_load() {
     for file in files {
         let mut engine = Engine::new(Rc::default()).unwrap();
         engine.load_file(&file);
-        // Announcing a module is all an example may do on loading:
-        // anything else would be an error it reported.
-        let mut actions = engine.take_actions();
-        actions.retain(|action| !matches!(action, Action::Supports(_)));
-        assert_eq!(actions, [], "{}", file.display());
+        // An example does nothing on loading: anything would be an
+        // error it reported.
+        assert_eq!(engine.take_actions(), [], "{}", file.display());
     }
 }
 

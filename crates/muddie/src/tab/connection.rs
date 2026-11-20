@@ -44,7 +44,9 @@ impl Tab {
             tls: self.tls,
             verify_certificate: self.verify_certificate,
         };
-        let Session { commands, events } = connect(target, self.connection_config());
+        let config = self.connection_config();
+        self.supports.clone_from(&config.gmcp_supports);
+        let Session { commands, events } = connect(target, config);
         let events = forward(events, ctx.clone());
         self.connection = Some(Connection { commands, events });
     }
@@ -105,15 +107,12 @@ impl Tab {
         let mut config = Config {
             screen_reader: self.voice.enabled(),
             encoding: self.encoding.clone(),
+            gmcp_supports: self.wanted_modules(),
             ..Config::default()
         };
         if !self.conventions() {
-            let ours =
-                |module: &String| module.starts_with("Core ") || module.starts_with("Client.");
-            config.gmcp_supports.retain(ours);
             config.msdp_report.clear();
         }
-        config.gmcp_supports.extend(self.supports.iter().cloned());
         config
     }
 

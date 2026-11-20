@@ -34,11 +34,6 @@ impl Tab {
             let name = format!("{}.luau", plugin.id);
             self.scripts.exec_owned(&owner, &name, code);
         }
-        // The one that is part of the program asks the MUD for its own.
-        if plugin.id == crate::bundled::COMMON && on {
-            let usual = muddie_core::Config::default().gmcp_supports;
-            self.announce_modules(usual);
-        }
         self.run_actions();
     }
 
@@ -123,19 +118,34 @@ impl Tab {
         }
     }
 
-    /// Tells the MUD of GMCP modules it has not been told of: at once if
-    /// there is a connection, and on connecting.
-    pub(super) fn announce_modules(&mut self, modules: Vec<String>) {
-        let new: Vec<String> = modules
-            .into_iter()
-            .filter(|module| !self.supports.contains(module))
-            .collect();
-        if let (Some(connection), false) = (&self.connection, new.is_empty()) {
-            let data = serde_json::to_string(&new).unwrap_or_default();
-            let package = "Core.Supports.Add".to_owned();
-            let _ = connection.commands.send(Command::Gmcp { package, data });
+    /// The GMCP modules to ask the MUD for now: the client's own; those
+    /// many MUDs send the same way, while the plugin that makes something
+    /// of them is on; and those the scripts loaded ask for.
+    pub(super) fn wanted_modules(&self) -> Vec<String> {
+        let ours = |module: &String| module.starts_with("Core ") || module.starts_with("Client.");
+        let mut modules = muddie_core::Config::default().gmcp_supports;
+        if !self.conventions() {
+            modules.retain(ours);
         }
-        self.supports.extend(new);
+        for module in self.scripts.supports() {
+            if !modules.contains(&module) {
+                modules.push(module);
+            }
+        }
+        modules
+    }
+
+    /// Tells the connection which GMCP modules are wanted, when that
+    /// changed: it tells the MUD what was added and what was removed.
+    pub(super) fn sync_modules(&mut self) {
+        let wanted = self.wanted_modules();
+        if wanted == self.supports {
+            return;
+        }
+        if let Some(connection) = &self.connection {
+            let _ = (connection.commands).send(Command::GmcpSupports(wanted.clone()));
+        }
+        self.supports = wanted;
     }
 
     /// Adds a package to the profile's list, or takes it off, saves the

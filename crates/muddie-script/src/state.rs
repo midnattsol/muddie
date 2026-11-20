@@ -69,6 +69,8 @@ pub(super) struct State {
     pub(crate) aliases: Vec<Matcher>,
     pub(crate) timers: Vec<Timer>,
     pub(crate) data_handlers: Vec<DataHandler>,
+    /// The GMCP modules each script asked for, as `(owner, "Name version")`.
+    pub(crate) supports: Vec<(String, String)>,
     /// Data last received per GMCP package or MSDP variable.
     pub(crate) data: HashMap<String, Value>,
     /// The server's MSSP status, as `(name, value)` pairs.

@@ -173,7 +173,7 @@ pub struct Tab {
     /// is still untouched; and whether it has yet to be selected.
     kept_input: Option<String>,
     select_input: bool,
-    /// GMCP modules scripts asked to announce, besides the usual ones.
+    /// The GMCP modules the connection was last told are wanted.
     supports: Vec<String>,
     /// Words scripts gave to complete with, under the name of each list.
     completions: Vec<(String, Vec<String>)>,

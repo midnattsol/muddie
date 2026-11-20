@@ -19,9 +19,7 @@ impl Tab {
         // Groups switched for the session keep how they were left, unless
         // what is saved for them is what changed.
         let (saved_before, session) = self.group_states();
-        // The scripts say again what they want announced and are told
-        // again how big the panel is.
-        self.supports.clear();
+        // The scripts are told again how big the panel is.
         self.completions.clear();
         self.panels_untold();
         self.fresh_runtime();
@@ -249,7 +247,6 @@ impl Tab {
                         self.add_to_panel(&name, &line);
                     }
                 }
-                Action::Supports(modules) => self.announce_modules(modules),
                 Action::Completions { name, words } => {
                     // A list keeps its place when a newer one replaces it.
                     let known = self.completions.iter().position(|(list, _)| *list == name);
@@ -285,5 +282,8 @@ impl Tab {
                 }
             }
         }
+        // A script loaded, unloaded or run may have changed what it asks
+        // the MUD for.
+        self.sync_modules();
     }
 }

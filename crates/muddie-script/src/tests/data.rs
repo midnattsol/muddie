@@ -117,7 +117,6 @@ fn client_events_modules_and_completions() {
     assert_eq!(
         engine.take_actions(),
         [
-            Action::Supports(vec!["Map.Render 1".into(), "Dev 1".into()]),
             Action::Completions {
                 name: "cmds".into(),
                 words: vec!["north".into(), "look".into()]
@@ -133,6 +132,19 @@ fn client_events_modules_and_completions() {
     // A package of the same name from the server is not the event.
     engine.on_gmcp("panel", r#"{"columns": 1, "rows": 1}"#);
     assert_eq!(engine.take_actions(), []);
+    assert_eq!(engine.supports(), ["Map.Render 1", "Dev 1"]);
+}
+
+#[test]
+fn the_modules_a_script_asks_for_go_with_it() {
+    let mut engine = Engine::new(Rc::default()).unwrap();
+    engine.exec_owned("one", "one", r#"supports("Comm 1", "Room 1")"#);
+    engine.exec_owned("two", "two", r#"supports("Room 1") supports("Room 1")"#);
+    assert_eq!(engine.supports(), ["Comm 1", "Room 1"]);
+    engine.unload("one");
+    assert_eq!(engine.supports(), ["Room 1"]);
+    engine.unload("two");
+    assert!(engine.supports().is_empty());
 }
 
 #[test]

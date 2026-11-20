@@ -42,6 +42,10 @@ pub enum Command {
         package: String,
         data: String,
     },
+    /// The GMCP modules wanted now, as `"Name version"`: the server is
+    /// told what was added and what was removed, or all of them when it
+    /// turns GMCP on.
+    GmcpSupports(Vec<String>),
     /// Send an MSDP message such as `REPORT` with variable names.
     Msdp {
         variable: String,
@@ -176,6 +180,9 @@ async fn drive(
                 Some(Command::Resize(w, h)) => pipeline.set_window(w, h, &mut outgoing),
                 Some(Command::Gmcp { package, data }) => {
                     pipeline.send_gmcp(&package, &data, &mut outgoing);
+                }
+                Some(Command::GmcpSupports(modules)) => {
+                    pipeline.set_gmcp_supports(modules, &mut outgoing);
                 }
                 Some(Command::Msdp { variable, values }) => {
                     pipeline.send_msdp(&variable, &values, &mut outgoing);

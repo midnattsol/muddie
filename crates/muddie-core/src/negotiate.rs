@@ -350,11 +350,35 @@ impl Negotiator {
             env!("CARGO_PKG_VERSION")
         );
         telnet::write_subneg(opt::GMCP, hello.as_bytes(), reply);
-        let modules: Vec<String> = (self.config.gmcp_supports.iter())
-            .map(|module| json_string(module))
+        let modules: Vec<&str> = (self.config.gmcp_supports.iter())
+            .map(String::as_str)
             .collect();
-        let supports = format!("Core.Supports.Set [{}]", modules.join(","));
-        telnet::write_subneg(opt::GMCP, supports.as_bytes(), reply);
+        write_gmcp_list("Core.Supports.Set", &modules, reply);
+    }
+
+    /// Changes the GMCP modules wanted, as `"Name version"`. Once GMCP is
+    /// on, the server is told only of the change: what is new is added,
+    /// and what is no longer wanted is removed, by its name alone. Before
+    /// that, they are what the greeting will ask for.
+    pub fn set_gmcp_supports(&mut self, modules: Vec<String>, reply: &mut Vec<u8>) {
+        if self.gmcp_enabled() {
+            let told = &self.config.gmcp_supports;
+            let removed: Vec<&str> = (told.iter())
+                .map(|module| module_name(module))
+                .filter(|name| !modules.iter().any(|module| module_name(module) == *name))
+                .collect();
+            let added: Vec<&str> = (modules.iter())
+                .filter(|module| !told.contains(module))
+                .map(String::as_str)
+                .collect();
+            if !removed.is_empty() {
+                write_gmcp_list("Core.Supports.Remove", &removed, reply);
+            }
+            if !added.is_empty() {
+                write_gmcp_list("Core.Supports.Add", &added, reply);
+            }
+        }
+        self.config.gmcp_supports = modules;
     }
 
     fn mtts(&self) -> u32 {
@@ -390,6 +414,18 @@ pub(crate) fn json_string(text: &str) -> String {
     }
     out.push('"');
     out
+}
+
+/// The name of a GMCP module given as `"Name version"`.
+fn module_name(module: &str) -> &str {
+    module.split_whitespace().next().unwrap_or_default()
+}
+
+/// Writes a GMCP message whose data is a list of strings.
+fn write_gmcp_list(package: &str, items: &[&str], reply: &mut Vec<u8>) {
+    let items: Vec<String> = items.iter().map(|item| json_string(item)).collect();
+    let message = format!("{package} [{}]", items.join(","));
+    telnet::write_subneg(opt::GMCP, message.as_bytes(), reply);
 }
 
 fn send(reply: &mut Vec<u8>, verb: Verb, option: u8) {

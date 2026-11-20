@@ -131,7 +131,14 @@ fn install_supports(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     add(
         "supports",
         lua.create_function(move |_, modules: mlua::Variadic<String>| {
-            (shared.borrow_mut().actions).push(Action::Supports(modules.into_iter().collect()));
+            let mut state = shared.borrow_mut();
+            let owner = state.owner.clone();
+            for module in modules {
+                let asked = (owner.clone(), module);
+                if !state.supports.contains(&asked) {
+                    state.supports.push(asked);
+                }
+            }
             Ok(())
         })?,
     )?;

@@ -106,6 +106,42 @@ fn gmcp_is_accepted_with_hello_and_supports() {
 }
 
 #[test]
+fn gmcp_modules_changed_are_added_and_removed_by_name() {
+    let mut n = Negotiator::new(Config {
+        gmcp_supports: vec!["Core 1".into(), "Comm 1".into()],
+        ..Config::default()
+    });
+    // Before GMCP is on, only what the greeting will ask for changes.
+    let mut reply = Vec::new();
+    n.set_gmcp_supports(vec!["Core 1".into(), "Room 1".into()], &mut reply);
+    assert!(reply.is_empty());
+    let (reply, _) = handle(&mut n, Event::Negotiate(Verb::Will, opt::GMCP));
+    let set = br#"Core.Supports.Set ["Core 1","Room 1"]"#;
+    assert!(reply.windows(set.len()).any(|window| window == set));
+    // On, the server is told of the change alone.
+    let mut reply = Vec::new();
+    n.set_gmcp_supports(vec!["Core 1".into(), "Char 1".into()], &mut reply);
+    let mut expected = Vec::new();
+    telnet::write_subneg(
+        opt::GMCP,
+        br#"Core.Supports.Remove ["Room"]"#,
+        &mut expected,
+    );
+    telnet::write_subneg(opt::GMCP, br#"Core.Supports.Add ["Char 1"]"#, &mut expected);
+    assert_eq!(reply, expected);
+    // A new version of a module is added; the old one is not removed.
+    let mut reply = Vec::new();
+    n.set_gmcp_supports(vec!["Core 1".into(), "Char 2".into()], &mut reply);
+    let mut expected = Vec::new();
+    telnet::write_subneg(opt::GMCP, br#"Core.Supports.Add ["Char 2"]"#, &mut expected);
+    assert_eq!(reply, expected);
+    // The same again says nothing.
+    let mut reply = Vec::new();
+    n.set_gmcp_supports(vec!["Core 1".into(), "Char 2".into()], &mut reply);
+    assert!(reply.is_empty());
+}
+
+#[test]
 fn msdp_is_accepted_with_a_report_request() {
     let mut n = Negotiator::new(Config {
         msdp_report: vec!["HEALTH".into(), "ROOM".into()],

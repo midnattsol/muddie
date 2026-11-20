@@ -61,8 +61,6 @@ pub enum Action {
     },
     /// Add the line a trigger is looking at to a panel, colours and all.
     ToPanel(String),
-    /// Announce these GMCP modules to the server, as `"Name version"`.
-    Supports(Vec<String>),
     /// Words to offer when completing, under a name; none removes them.
     Completions {
         name: String,

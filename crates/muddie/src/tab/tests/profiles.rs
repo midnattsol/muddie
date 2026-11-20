@@ -154,6 +154,36 @@ fn what_many_muds_send_alike_is_a_plugin_that_can_be_switched_off() {
 }
 
 #[test]
+fn what_the_mud_is_asked_for_follows_the_plugins_on_and_off() {
+    let mut harness = window(None);
+    let app = harness.state_mut().tab_mut();
+    let reinos = crate::bundled::find("reinos-de-leyenda").unwrap();
+    let common = crate::bundled::find(crate::bundled::COMMON).unwrap();
+    let (_events, mut sent) = fake_connection(app);
+    let mut told = || -> Vec<Vec<String>> {
+        std::iter::from_fn(|| sent.try_recv().ok())
+            .filter_map(|command| match command {
+                Command::GmcpSupports(modules) => Some(modules),
+                _ => None,
+            })
+            .collect()
+    };
+    let usual = muddie_core::Config::default().gmcp_supports;
+    app.set_included(reinos, true);
+    let with_comm = [usual.clone(), vec!["Comm 1".to_owned()]].concat();
+    assert_eq!(told(), [with_comm]);
+    // Switched off, what it asked for is no longer wanted.
+    app.set_included(reinos, false);
+    assert_eq!(told(), [usual]);
+    // Nothing is said when nothing changed.
+    app.run_actions();
+    assert_eq!(told(), Vec::<Vec<String>>::new());
+    // Without the standard plugin, only what is the client's own.
+    app.set_included(common, false);
+    assert_eq!(told(), [["Core 1", "Client.Media 1"].map(String::from)]);
+}
+
+#[test]
 fn a_profile_keeps_what_is_changed_in_the_settings_as_it_is_changed() {
     let dir = std::env::temp_dir().join(format!("muddie-autosave-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
