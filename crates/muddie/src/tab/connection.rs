@@ -22,15 +22,44 @@ pub(super) fn map_path(host: &str, port: u16) -> Option<PathBuf> {
 pub(super) const LOGIN_TIMEOUT: Duration = Duration::from_secs(60);
 
 impl Tab {
+    /// Connects to the host and port in the fields, with the map of where
+    /// it leads and what the client asks the MUD for.
     pub(super) fn connect(&mut self, ctx: &egui::Context) {
+        let Some((host, port)) = self.address_to_connect() else {
+            return;
+        };
+        self.user_disconnected = false;
+        self.reconnect_at = None;
+        self.started = true;
+        self.connected_with = Some(self.connection_key());
+        self.note(&trf(
+            "Connecting to {0}:{1}...",
+            &[&host, &port.to_string()],
+        ));
+        self.walk = None;
+        *self.map.borrow_mut() = self.map_for(&host, port);
+        let target = Target {
+            host,
+            port,
+            tls: self.tls,
+            verify_certificate: self.verify_certificate,
+        };
+        let Session { commands, events } = connect(target, self.connection_config());
+        let events = forward(events, ctx.clone());
+        self.connection = Some(Connection { commands, events });
+    }
+
+    /// The host and port to connect to, or nothing, said why, if they will
+    /// not do. An encoding not known is said, and the automatic one used.
+    fn address_to_connect(&mut self) -> Option<(String, u16)> {
         let host = self.host.trim().to_owned();
         let Ok(port) = self.port.trim().parse::<u16>() else {
             self.note(tr("The port must be a number from 1 to 65535."));
-            return;
+            return None;
         };
         if host.is_empty() {
             self.note(tr("Enter a host to connect to."));
-            return;
+            return None;
         }
         if muddie_core::decode::Decoder::for_label(&self.encoding).is_none() {
             let unknown = self.encoding.clone();
@@ -39,27 +68,21 @@ impl Tab {
                 &[&unknown],
             ));
         }
-        self.user_disconnected = false;
-        self.reconnect_at = None;
-        self.started = true;
-        self.connected_with = Some(self.connection_key());
-        self.note(&trf(
-            "Connecting to {0}:{1}...",
-            &[&host.to_string(), &port.to_string()],
-        ));
-        self.walk = None;
-        // A script may have chosen to keep the map in memory only.
-        let stored = if self.scripts.persist_map() {
-            // A profile keeps its map in its own folder.
-            let path = match (&self.profiles, &self.profile) {
-                (Some(profiles), Some(name)) => Some(profiles.map_path(name)),
-                _ => map_path(&host, port),
-            };
-            path.map(|path| Map::open(&path))
-        } else {
-            Some(Ok(Map::in_memory()))
+        Some((host, port))
+    }
+
+    /// The map of where the session leads: its profile's, one by its
+    /// address, or one kept in memory only if a script chose so or it
+    /// cannot be saved, which is said.
+    fn map_for(&mut self, host: &str, port: u16) -> Map {
+        if !self.scripts.persist_map() {
+            return Map::in_memory();
+        }
+        let path = match (&self.profiles, &self.profile) {
+            (Some(profiles), Some(name)) => Some(profiles.map_path(name)),
+            _ => map_path(host, port),
         };
-        let map = match stored {
+        match path.map(|path| Map::open(&path)) {
             Some(Ok(map)) => map,
             Some(Err(error)) => {
                 self.note(&trf(
@@ -72,53 +95,26 @@ impl Tab {
                 self.note(tr("The map will not be saved: no data folder was found."));
                 Map::in_memory()
             }
-        };
-        *self.map.borrow_mut() = map;
-        let target = Target {
-            host,
-            port,
-            tls: self.tls,
-            verify_certificate: self.verify_certificate,
-        };
-        let Session {
-            commands,
-            mut events,
-        } = connect(target, {
-            let mut config = Config {
-                screen_reader: self.voice.enabled(),
-                encoding: self.encoding.clone(),
-                ..Config::default()
-            };
-            // What many MUDs send the same way is asked for only while
-            // the plugin that makes something of it is on.
-            if !self.conventions() {
-                let ours =
-                    |module: &String| module.starts_with("Core ") || module.starts_with("Client.");
-                config.gmcp_supports.retain(ours);
-                config.msdp_report.clear();
-            }
-            config.gmcp_supports.extend(self.supports.iter().cloned());
-            config
-        });
+        }
+    }
 
-        // Forward events to the UI thread and wake it up for each one.
-        let (sender, receiver) = channel();
-        let ctx = ctx.clone();
-        tokio::spawn(async move {
-            while let Some(event) = events.recv().await {
-                if sender.send(event).is_err() {
-                    break;
-                }
-                // A moment later rather than at once: asked for at once,
-                // egui draws a second frame after the first, and what
-                // arrives together is drawn together this way.
-                ctx.request_repaint_after(Duration::from_millis(30));
-            }
-        });
-        self.connection = Some(Connection {
-            commands,
-            events: receiver,
-        });
+    /// What the client says of itself and asks the MUD for. What many MUDs
+    /// send the same way is asked for only while the plugin that makes
+    /// something of it is on.
+    fn connection_config(&self) -> Config {
+        let mut config = Config {
+            screen_reader: self.voice.enabled(),
+            encoding: self.encoding.clone(),
+            ..Config::default()
+        };
+        if !self.conventions() {
+            let ours =
+                |module: &String| module.starts_with("Core ") || module.starts_with("Client.");
+            config.gmcp_supports.retain(ours);
+            config.msdp_report.clear();
+        }
+        config.gmcp_supports.extend(self.supports.iter().cloned());
+        config
     }
 
     pub fn disconnect(&mut self) {
@@ -220,4 +216,24 @@ impl Tab {
             ctx.request_repaint_after(Duration::from_millis(250));
         }
     }
+}
+
+/// Passes what the connection says to the window's thread, and wakes it
+/// for each: a moment later rather than at once, as asked for at once
+/// egui draws a second frame after the first, and what arrives together
+/// is drawn together this way.
+fn forward(
+    mut events: tokio::sync::mpsc::UnboundedReceiver<Event>,
+    ctx: egui::Context,
+) -> Receiver<Event> {
+    let (sender, receiver) = channel();
+    tokio::spawn(async move {
+        while let Some(event) = events.recv().await {
+            if sender.send(event).is_err() {
+                break;
+            }
+            ctx.request_repaint_after(Duration::from_millis(30));
+        }
+    });
+    receiver
 }
