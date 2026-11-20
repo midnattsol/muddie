@@ -209,117 +209,152 @@ impl Pipeline {
         events: &mut Vec<Event>,
     ) -> usize {
         let used = self.parser.feed(input, &mut self.telnet_events);
-        for telnet_event in self.telnet_events.drain(..) {
-            match &telnet_event {
-                telnet::Event::Data(bytes) => {
-                    self.decoder.feed(bytes, &mut self.text);
-                    self.assembler.feed(&self.text, &mut self.lines);
-                    self.text.clear();
-                    events.extend(self.lines.drain(..).map(Event::Line));
-                    events.extend(self.assembler.take_asked().into_iter().map(Event::Mxp));
-                    if self.trace {
-                        events.extend(self.assembler.take_tags().into_iter().map(|tag| {
-                            let name = tag.trim_start_matches('/').split_whitespace().next();
-                            Event::Other {
-                                protocol: "MXP".to_owned(),
-                                name: name.unwrap_or_default().to_lowercase(),
-                                data: format!("<{tag}>"),
-                            }
-                        }));
-                    }
-                    // Answers to MXP queries go back as lines.
-                    for answer in self.assembler.take_replies() {
-                        telnet::escape_iac(&self.decoder.encode(&answer), reply);
-                        reply.extend_from_slice(b"\r\n");
-                    }
-                    continue;
-                }
-                telnet::Event::Subneg(opt::MCCP2, _) => {
-                    self.inflater = Some(Decompress::new(true));
-                    continue;
-                }
-                telnet::Event::Subneg(opt::GMCP, payload) => {
-                    let message = String::from_utf8_lossy(payload);
-                    let (package, data) = message.split_once(' ').unwrap_or((&message, ""));
-                    events.push(Event::Gmcp {
-                        package: package.to_owned(),
-                        data: data.trim().to_owned(),
-                    });
-                    continue;
-                }
-                telnet::Event::Subneg(opt::MSDP, payload) => {
-                    let variables = msdp::parse(payload);
-                    // Told which variables it can report, the server is
-                    // asked for them all, once: nothing has to be set up
-                    // to have what a MUD offers.
-                    let listed = (variables.iter())
-                        .find(|(variable, _)| variable == "REPORTABLE_VARIABLES")
-                        .map(|(_, data)| msdp::names(data));
-                    if let (Some(names), false) = (listed, self.msdp_asked) {
-                        self.msdp_asked = true;
-                        if !names.is_empty() {
-                            msdp::write("REPORT", &names, reply);
-                        }
-                    }
-                    let variables = variables.into_iter();
-                    events.extend(variables.map(|(variable, data)| Event::Msdp { variable, data }));
-                    continue;
-                }
-                telnet::Event::Subneg(opt::MSSP, payload) => {
-                    events.push(Event::Mssp(msdp::parse_mssp(payload)));
-                    continue;
-                }
-                _ => {}
-            }
-            // What comes with an option this client makes nothing of.
-            if self.trace
-                && let telnet::Event::Subneg(option, payload) = &telnet_event
-                && !matches!(*option, opt::TTYPE | opt::CHARSET | opt::NAWS | opt::MCCP3)
-            {
-                events.push(Event::Other {
-                    protocol: opt::name(*option),
-                    name: opt::name(*option),
-                    data: String::from_utf8_lossy(payload).into_owned(),
-                });
-            }
-            let signal = self.negotiator.handle(&telnet_event, reply);
-            // What the server offers is told, taken up or not.
-            if let telnet::Event::Negotiate(_, option) = telnet_event {
-                events.push(Event::Protocol {
-                    name: opt::name(option),
-                    on: self.negotiator.in_use(option),
-                });
-            }
-            match signal {
-                Some(Signal::Prompt) => {
-                    self.decoder.flush(&mut self.text);
-                    self.assembler.feed(&self.text, &mut self.lines);
-                    self.text.clear();
-                    events.extend(self.lines.drain(..).map(Event::Line));
-                    if let Some(prompt) = self.assembler.take_partial() {
-                        events.push(Event::Prompt(prompt));
-                    }
-                }
-                Some(Signal::ServerEcho(on)) => {
-                    self.input_hidden = on;
-                    events.push(Event::InputHidden(on));
-                }
-                Some(Signal::CompressOutgoing) => {
-                    self.deflater = Some(Compress::new(Compression::default(), true));
-                    self.deflate_from = Some(reply.len());
-                }
-                Some(Signal::Mxp) => self.assembler.enable_mxp(),
-                // What arrives from here on is in the encoding agreed.
-                Some(Signal::Charset(name)) => {
-                    if let Some(decoder) = Decoder::for_label(&name) {
-                        self.decoder.flush(&mut self.text);
-                        self.decoder = decoder;
-                    }
-                }
-                None => {}
+        // The buffer is lent out and given back, to keep what it holds.
+        let mut telnet_events = std::mem::take(&mut self.telnet_events);
+        for telnet_event in telnet_events.drain(..) {
+            if !self.take_known(&telnet_event, reply, events) {
+                self.negotiate(telnet_event, reply, events);
             }
         }
+        self.telnet_events = telnet_events;
         used
+    }
+
+    /// Takes what is the client's own to read: text, and the subnegotiations
+    /// of the options it makes something of. Returns whether it was one.
+    fn take_known(
+        &mut self,
+        telnet_event: &telnet::Event,
+        reply: &mut Vec<u8>,
+        events: &mut Vec<Event>,
+    ) -> bool {
+        match telnet_event {
+            telnet::Event::Data(bytes) => self.take_text(bytes, reply, events),
+            telnet::Event::Subneg(opt::MCCP2, _) => self.inflater = Some(Decompress::new(true)),
+            telnet::Event::Subneg(opt::GMCP, payload) => {
+                let message = String::from_utf8_lossy(payload);
+                let (package, data) = message.split_once(' ').unwrap_or((&message, ""));
+                events.push(Event::Gmcp {
+                    package: package.to_owned(),
+                    data: data.trim().to_owned(),
+                });
+            }
+            telnet::Event::Subneg(opt::MSDP, payload) => self.take_msdp(payload, reply, events),
+            telnet::Event::Subneg(opt::MSSP, payload) => {
+                events.push(Event::Mssp(msdp::parse_mssp(payload)))
+            }
+            _ => return false,
+        }
+        true
+    }
+
+    /// Text: decoded, made into lines, with what MXP asked for and, when
+    /// tracing, the tags it came in; answers to MXP queries go back as
+    /// lines.
+    fn take_text(&mut self, bytes: &[u8], reply: &mut Vec<u8>, events: &mut Vec<Event>) {
+        self.decoder.feed(bytes, &mut self.text);
+        self.assembler.feed(&self.text, &mut self.lines);
+        self.text.clear();
+        events.extend(self.lines.drain(..).map(Event::Line));
+        events.extend(self.assembler.take_asked().into_iter().map(Event::Mxp));
+        if self.trace {
+            events.extend(self.assembler.take_tags().into_iter().map(|tag| {
+                let name = tag.trim_start_matches('/').split_whitespace().next();
+                Event::Other {
+                    protocol: "MXP".to_owned(),
+                    name: name.unwrap_or_default().to_lowercase(),
+                    data: format!("<{tag}>"),
+                }
+            }));
+        }
+        for answer in self.assembler.take_replies() {
+            telnet::escape_iac(&self.decoder.encode(&answer), reply);
+            reply.extend_from_slice(b"\r\n");
+        }
+    }
+
+    /// MSDP variables. Told which variables it can report, the server is
+    /// asked for them all, once: nothing has to be set up to have what a
+    /// MUD offers.
+    fn take_msdp(&mut self, payload: &[u8], reply: &mut Vec<u8>, events: &mut Vec<Event>) {
+        let variables = msdp::parse(payload);
+        let listed = (variables.iter())
+            .find(|(variable, _)| variable == "REPORTABLE_VARIABLES")
+            .map(|(_, data)| msdp::names(data));
+        if let (Some(names), false) = (listed, self.msdp_asked) {
+            self.msdp_asked = true;
+            if !names.is_empty() {
+                msdp::write("REPORT", &names, reply);
+            }
+        }
+        events.extend(
+            variables
+                .into_iter()
+                .map(|(variable, data)| Event::Msdp { variable, data }),
+        );
+    }
+
+    /// What the negotiator makes of the rest: options offered and agreed,
+    /// and what that sets going. What comes with an option this client
+    /// makes nothing of is told when tracing; what the server offers is
+    /// told, taken up or not.
+    fn negotiate(
+        &mut self,
+        telnet_event: telnet::Event,
+        reply: &mut Vec<u8>,
+        events: &mut Vec<Event>,
+    ) {
+        if self.trace
+            && let telnet::Event::Subneg(option, payload) = &telnet_event
+            && !matches!(*option, opt::TTYPE | opt::CHARSET | opt::NAWS | opt::MCCP3)
+        {
+            events.push(Event::Other {
+                protocol: opt::name(*option),
+                name: opt::name(*option),
+                data: String::from_utf8_lossy(payload).into_owned(),
+            });
+        }
+        let signal = self.negotiator.handle(&telnet_event, reply);
+        if let telnet::Event::Negotiate(_, option) = telnet_event {
+            events.push(Event::Protocol {
+                name: opt::name(option),
+                on: self.negotiator.in_use(option),
+            });
+        }
+        if let Some(signal) = signal {
+            self.follow(signal, reply.len(), events);
+        }
+    }
+
+    /// Does what an agreement sets going.
+    fn follow(&mut self, signal: Signal, replied: usize, events: &mut Vec<Event>) {
+        match signal {
+            Signal::Prompt => {
+                self.decoder.flush(&mut self.text);
+                self.assembler.feed(&self.text, &mut self.lines);
+                self.text.clear();
+                events.extend(self.lines.drain(..).map(Event::Line));
+                if let Some(prompt) = self.assembler.take_partial() {
+                    events.push(Event::Prompt(prompt));
+                }
+            }
+            Signal::ServerEcho(on) => {
+                self.input_hidden = on;
+                events.push(Event::InputHidden(on));
+            }
+            Signal::CompressOutgoing => {
+                self.deflater = Some(Compress::new(Compression::default(), true));
+                self.deflate_from = Some(replied);
+            }
+            Signal::Mxp => self.assembler.enable_mxp(),
+            // What arrives from here on is in the encoding agreed.
+            Signal::Charset(name) => {
+                if let Some(decoder) = Decoder::for_label(&name) {
+                    self.decoder.flush(&mut self.text);
+                    self.decoder = decoder;
+                }
+            }
+        }
     }
 
     /// Encodes a GMCP message; `data` is JSON or empty. Nothing is written
