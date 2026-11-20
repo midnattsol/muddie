@@ -52,6 +52,7 @@ mod scripts;
 mod tests;
 mod view;
 mod walking;
+mod welcome;
 
 use client_commands::{COMMANDS, client_command};
 pub use messages::Notice;
