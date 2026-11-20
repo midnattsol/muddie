@@ -13,6 +13,7 @@ mod scripts;
 mod timers;
 mod triggers;
 mod undo;
+mod values;
 mod variables;
 
 pub(super) use scripts::Checks;
@@ -24,7 +25,7 @@ use crate::theme::Weight;
 use crate::widgets;
 use detail::*;
 use scripts::EXAMPLES;
-use variables::{TYPES, kind_of, shown_value};
+use values::*;
 
 /// The sections of the window, in the order of the sidebar.
 pub(super) const TRIGGERS: usize = 0;
