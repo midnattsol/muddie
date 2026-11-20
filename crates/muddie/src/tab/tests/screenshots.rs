@@ -1,23 +1,40 @@
 //! Images of every screen, for looking at by eye.
 
 use super::*;
-
-/// Renders the demo window to the PNG named by `MUDDIE_SCREENSHOT`, to
-/// look at the result. Needs a GPU or software Vulkan, so it is not
-/// part of the normal test run:
+/// Renders every screen of the demo to a PNG beside the one named by
+/// `MUDDIE_SCREENSHOT`, to look at the result. Needs a GPU or software
+/// Vulkan, so it is not part of the normal test run:
 /// `MUDDIE_SCREENSHOT=/tmp/muddie.png cargo test -p muddie -- --ignored`
 #[test]
 #[ignore = "needs a graphics adapter; writes an image for visual review"]
 fn screenshot() {
-    let path = std::env::var_os("MUDDIE_SCREENSHOT").map(PathBuf::from);
-    let save = |harness: &mut Harness<'_, App>, name: &str| {
-        let image = harness.render().expect("rendering failed");
-        if let Some(path) = &path {
-            let path = path.with_extension(format!("{name}.png"));
-            image.save(path).expect("could not write the screenshot");
-        }
-    };
-    // What a new session opens on.
+    shows_welcome();
+    shows_plugin_offer();
+    shows_channels();
+    shows_script();
+    shows_settings_and_fonts();
+    shows_plugins();
+    shows_editor();
+    shows_menu();
+    shows_unmapped();
+    shows_panels();
+    shows_palette();
+    shows_empty_line();
+    shows_find_and_themes();
+    shows_map();
+}
+
+/// Writes what the window shows to the image of this name, if asked to.
+fn save(harness: &mut Harness<'_, App>, name: &str) {
+    let image = harness.render().expect("rendering failed");
+    if let Some(path) = std::env::var_os("MUDDIE_SCREENSHOT").map(PathBuf::from) {
+        let path = path.with_extension(format!("{name}.png"));
+        image.save(path).expect("could not write the screenshot");
+    }
+}
+
+/// What a new session opens on.
+fn shows_welcome() {
     let dir = std::env::temp_dir().join(format!("muddie-shot-welcome-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     let profiles = Profiles::at(dir.clone());
@@ -46,15 +63,19 @@ fn screenshot() {
     welcome.run_steps(4);
     save(&mut welcome, "profile");
     std::fs::remove_dir_all(&dir).unwrap();
+}
 
-    // A plugin for the MUD connected to, offered over the command line.
+/// A plugin for the MUD connected to, offered over the command line.
+fn shows_plugin_offer() {
     let mut offer = connected_demo_window();
     let app = offer.state_mut().tab_mut();
     app.offer_plugin_for("rlmud.org", "");
     offer.run_steps(3);
     save(&mut offer, "plugin-offer");
+}
 
-    // The channels of the MUD, each with its tab in one panel.
+/// The channels of the MUD, each with its tab in one panel.
+fn shows_channels() {
     let mut channels = connected_demo_window();
     let app = channels.state_mut().tab_mut();
     app.scripts.exec(
@@ -71,8 +92,10 @@ fn screenshot() {
     app.run_actions();
     channels.run_steps(3);
     save(&mut channels, "channels");
+}
 
-    // A script, run from its button, and one that fails.
+/// A script, run from its button, and one that fails.
+fn shows_script() {
     let dir = std::env::temp_dir().join(format!("muddie-shot-script-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     let profiles = Profiles::at(dir.clone());
@@ -98,7 +121,11 @@ fn screenshot() {
     script.run_steps(4);
     save(&mut script, "script-error");
     std::fs::remove_dir_all(&dir).unwrap();
+}
 
+/// The settings, and the same text in each of the fonts that come with the
+/// program.
+fn shows_settings_and_fonts() {
     let mut settings = demo_window();
     settings
         .state_mut()
@@ -120,7 +147,10 @@ fn screenshot() {
         fonts.run_steps(4);
         save(&mut fonts, &format!("font-{}", name.replace(' ', "")));
     }
-    // The plugins, with one installed and enabled and one not.
+}
+
+/// The plugins, with one installed and enabled and one not.
+fn shows_plugins() {
     let dir = std::env::temp_dir().join(format!("muddie-shot-plugins-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     for plugin in ["aardwolf-mapper", "combat-gauges"] {
@@ -140,7 +170,10 @@ fn screenshot() {
     plugins.run_steps(3);
     save(&mut plugins, "plugins");
     std::fs::remove_dir_all(&dir).unwrap();
-    // The automation window, with rules of each kind to look at.
+}
+
+/// The automation window, with rules of each kind to look at.
+fn shows_editor() {
     let mut rules = demo_window();
     rules.set_size(egui::vec2(1500.0, 900.0));
     let app = rules.state_mut().tab_mut();
@@ -260,7 +293,10 @@ fn screenshot() {
     app.set_view(2);
     rules.run_steps(3);
     save(&mut rules, "data");
-    // The menus, as someone using Spanish sees them.
+}
+
+/// The menus, as someone using Spanish sees them.
+fn shows_menu() {
     {
         let mut menus = window(None);
         menus.state_mut().tab_mut().started = true;
@@ -269,7 +305,10 @@ fn screenshot() {
         menus.run_steps(4);
         save(&mut menus, "menu");
     }
-    // A session whose MUD has reported no room: the map says so.
+}
+
+/// A session whose MUD has reported no room: the map says so.
+fn shows_unmapped() {
     let mut unmapped = window(None);
     fake_connection(unmapped.state_mut().tab_mut());
     unmapped
@@ -278,7 +317,10 @@ fn screenshot() {
         .show_local("Bienvenido a Fimbulvetr.");
     unmapped.run_steps(3);
     save(&mut unmapped, "unmapped");
-    // The layout mode, and the gauges made from it.
+}
+
+/// The layout mode, and the gauges made from it.
+fn shows_panels() {
     let mut layout = connected_demo_window();
     layout.set_size(egui::vec2(1500.0, 900.0));
     let app = layout.state_mut().tab_mut();
@@ -344,7 +386,10 @@ fn screenshot() {
     layout.state_mut().tab_mut().editor.selected[4] = 1;
     layout.run_steps(4);
     save(&mut layout, "gauge-light");
-    // The palette of commands over the command line, and an answer.
+}
+
+/// The palette of commands over the command line, and an answer.
+fn shows_palette() {
     let mut palette = connected_demo_window();
     let app = palette.state_mut().tab_mut();
     app.scripts.exec(
@@ -365,12 +410,18 @@ fn screenshot() {
     palette.key_press(Key::Enter);
     palette.run_steps(3);
     save(&mut palette, "bar-note");
-    // The command line with nothing typed in it.
+}
+
+/// The command line with nothing typed in it.
+fn shows_empty_line() {
     let mut empty = connected_demo_window();
     empty.state_mut().tab_mut().input.clear();
     empty.run_steps(3);
     save(&mut empty, "empty");
-    // The find bar and the view of the latest lines while scrolled back.
+}
+
+/// The find bar and the view of the latest lines while scrolled back.
+fn shows_find_and_themes() {
     let mut find = connected_demo_window();
     let app = find.state_mut().tab_mut();
     (0..60).for_each(|n| app.show_local(&format!("line {n} of filler to scroll through")));
@@ -394,6 +445,13 @@ fn screenshot() {
     let ctx = find.ctx.clone();
     find.state_mut()
         .use_theme(&ctx, crate::settings::ThemeName::Dark);
+}
+
+/// The map: as walked, every area on a level, the menu of a room, a room
+/// avoided.
+fn shows_map() {
+    // The first is the image named itself.
+    let path = std::env::var_os("MUDDIE_SCREENSHOT").map(PathBuf::from);
     let mut harness = connected_demo_window();
     assert!(harness.query_by_label("Connection").is_none());
     let image = harness.render().expect("rendering failed");
