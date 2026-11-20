@@ -88,7 +88,9 @@ pub(super) fn install_map_api(
     map: &Rc<RefCell<Map>>,
 ) -> mlua::Result<()> {
     let api = lua.create_table()?;
-    install_rooms(lua, state, map, &api)?;
+    install_visiting(lua, state, map, &api)?;
+    install_finding(lua, map, &api)?;
+    install_changing(lua, map, &api)?;
     install_keeping(lua, state, map, &api)?;
     install_routes(lua, state, map, &api)?;
     install_exits(lua, map, &api)?;
@@ -101,8 +103,8 @@ fn saved(result: Result<(), muddie_mapper::Error>) -> mlua::Result<()> {
     result.map_err(|error| mlua::Error::runtime(format!("could not save the map: {error}")))
 }
 
-/// Visiting rooms, setting them, finding them, and changing them.
-fn install_rooms(
+/// Visiting a room, and setting one as the MUD describes it.
+fn install_visiting(
     lua: &Lua,
     state: &Rc<RefCell<State>>,
     map: &Rc<RefCell<Map>>,
@@ -131,7 +133,11 @@ fn install_rooms(
             Ok(id)
         })?,
     )?;
+    Ok(())
+}
 
+/// A room by its number or the text it is known by, rooms by name, and the areas.
+fn install_finding(lua: &Lua, map: &Rc<RefCell<Map>>, api: &Table) -> mlua::Result<()> {
     let world = Rc::clone(map);
     api.set(
         "room",
@@ -157,6 +163,26 @@ fn install_rooms(
         })?,
     )?;
 
+    let world = Rc::clone(map);
+    api.set(
+        "areas",
+        lua.create_function(move |_, ()| {
+            let areas: Vec<String> = (world.borrow().areas().into_iter())
+                .map(str::to_owned)
+                .collect();
+            Ok(areas)
+        })?,
+    )?;
+
+    api.set(
+        "id",
+        lua.create_function(|_, text: String| Ok(room_id(&text)))?,
+    )?;
+    Ok(())
+}
+
+/// Removing, moving, weighing and avoiding rooms.
+fn install_changing(lua: &Lua, map: &Rc<RefCell<Map>>, api: &Table) -> mlua::Result<()> {
     let world = Rc::clone(map);
     api.set(
         "remove_room",
@@ -204,22 +230,6 @@ fn install_rooms(
             saved(result.map(drop))?;
             Ok(found)
         })?,
-    )?;
-
-    let world = Rc::clone(map);
-    api.set(
-        "areas",
-        lua.create_function(move |_, ()| {
-            let areas: Vec<String> = (world.borrow().areas().into_iter())
-                .map(str::to_owned)
-                .collect();
-            Ok(areas)
-        })?,
-    )?;
-
-    api.set(
-        "id",
-        lua.create_function(|_, text: String| Ok(room_id(&text)))?,
     )?;
     Ok(())
 }
