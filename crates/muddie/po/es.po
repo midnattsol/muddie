@@ -1003,9 +1003,6 @@ msgstr "Valor"
 msgid "About Muddie"
 msgstr "Acerca de Muddie"
 
-msgid "This session has no saved profile, so its variables last until it is closed. Save the profile, in Session, Connection, to keep them."
-msgstr "Esta sesión no tiene un perfil guardado, así que sus variables duran hasta que se cierre. Guarda el perfil, en Sesión, Conexión, para conservarlas."
-
 msgid "Move up"
 msgstr "Subir"
 
@@ -1603,4 +1600,7 @@ msgstr "Instalar desde"
 #, python-brace-format
 msgid "{0} is now a script of profile {1}."
 msgstr "{0} es ahora un script del perfil {1}."
+
+msgid "This session has no profile, so its variables last until it is closed. Save it as a profile, from its tab's menu, to keep them."
+msgstr "Esta sesión no tiene perfil, así que sus variables duran hasta que se cierre. Guárdala como perfil, desde el menú de su pestaña, para conservarlas."
 
