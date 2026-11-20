@@ -63,10 +63,11 @@ pub mod size {
     /// else that is typed in or chosen from, all as wide as each other.
     pub const FIELD_S: f32 = 96.0;
     pub const FIELD_L: f32 = 250.0;
-    /// Windows: a question, a form, the settings.
+    /// Windows: a question, a form, the settings, the profiles.
     pub const DIALOG_S: f32 = 460.0;
     pub const DIALOG_M: f32 = 620.0;
     pub const DIALOG_L: f32 = 720.0;
+    pub const DIALOG_XL: f32 = 940.0;
     /// Gaps: inside a group, between groups, and between the sections
     /// of a page.
     pub const GAP_S: f32 = 6.0;

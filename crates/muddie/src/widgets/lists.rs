@@ -86,70 +86,6 @@ pub fn list_row(ui: &mut Ui, selected: bool, title: &str, detail: &str, active: 
     response
 }
 
-/// A row of a [`group`] that leads somewhere: its title, what it holds,
-/// a word about it in a pill at the right if there is one, and its menu.
-/// The whole row lights up under the pointer or the keyboard's focus.
-/// Returns the row and the button of its menu.
-pub fn link_row(
-    ui: &mut Ui,
-    title: &str,
-    detail: &str,
-    badge: Option<&str>,
-) -> (Response, Response) {
-    row_start(ui);
-    let theme = theme::current();
-    let height = theme::size::ROW + 14.0;
-    let (rect, open) = ui.allocate_exact_size(vec2(ui.available_width(), height), Sense::click());
-    let said = match badge {
-        Some(badge) => format!("{title}, {detail}, {badge}"),
-        None => format!("{title}, {detail}"),
-    };
-    open.widget_info(|| WidgetInfo::labeled(Role::Button, true, &said));
-    if ui.rect_contains_pointer(rect) || open.has_focus() {
-        let band = rect.expand2(vec2(8.0, -3.0));
-        ui.painter()
-            .rect_filled(band, CornerRadius::same(8), theme.hover);
-    }
-    let painter = ui.painter();
-    let (title_font, detail_font) = (
-        theme::font(Weight::Medium, 14.0),
-        theme::font(Weight::Regular, 12.0),
-    );
-    painter.text(
-        rect.left_center() - vec2(0.0, 9.0),
-        egui::Align2::LEFT_CENTER,
-        title,
-        title_font,
-        theme.text,
-    );
-    painter.text(
-        rect.left_center() + vec2(0.0, 10.0),
-        egui::Align2::LEFT_CENTER,
-        detail,
-        detail_font,
-        theme.text_dim,
-    );
-    let at_right = egui::UiBuilder::new()
-        .max_rect(rect)
-        .layout(Layout::right_to_left(Align::Center));
-    let more = ui
-        .scope_builder(at_right, |ui| {
-            let more = icon_button(
-                ui,
-                Icon::More,
-                &crate::i18n::trf("{0} options", &[title]),
-                false,
-            );
-            if let Some(badge) = badge {
-                ui.add_space(10.0);
-                super::badge(ui, badge, true);
-            }
-            more
-        })
-        .inner;
-    (open, more)
-}
-
 /// A saved profile to pick, as a card: a coloured initial, its name,
 /// where it leads.
 pub fn profile_card(ui: &mut Ui, width: f32, name: &str, place: &str) -> Response {
@@ -159,10 +95,7 @@ pub fn profile_card(ui: &mut Ui, width: f32, name: &str, place: &str) -> Respons
     if ui.is_rect_visible(rect) {
         let hovered = response.hovered() || response.has_focus();
         let lift = ui.ctx().animate_bool_with_time(response.id, hovered, 0.12);
-        // The same name always gets the same colour.
-        let hues = [12, 10, 11, 13, 14, 9];
-        let sum: usize = name.bytes().map(usize::from).sum();
-        let hue = theme.terminal[hues[sum % hues.len()]];
+        let hue = profile_hue(name);
         let painter = ui.painter();
         let fill = theme::mix(theme.raised, theme.hover, lift);
         painter.rect_filled(rect, CornerRadius::same(14), fill);
@@ -175,33 +108,111 @@ pub fn profile_card(ui: &mut Ui, width: f32, name: &str, place: &str) -> Respons
         );
         let tile =
             egui::Rect::from_center_size(rect.left_center() + vec2(35.0, 0.0), Vec2::splat(40.0));
-        painter.rect_filled(tile, CornerRadius::same(11), theme::mix(fill, hue, 0.22));
-        let initial: String = name.chars().take(1).flat_map(char::to_uppercase).collect();
-        painter.text(
-            tile.center(),
-            egui::Align2::CENTER_CENTER,
-            initial,
-            theme::font(Weight::Semibold, 16.0),
-            hue,
-        );
+        initial_tile(painter, tile, name, fill);
         let painter = painter.with_clip_rect(rect.shrink2(vec2(12.0, 0.0)));
-        let left = rect.left() + 68.0;
-        painter.text(
-            egui::pos2(left, rect.center().y - 9.0),
-            egui::Align2::LEFT_CENTER,
-            name,
-            theme::font(Weight::Medium, 14.5),
-            theme.text,
-        );
-        painter.text(
-            egui::pos2(left, rect.center().y + 10.0),
-            egui::Align2::LEFT_CENTER,
-            place,
-            theme::font(Weight::Regular, 12.5),
-            theme.text_dim,
+        two_lines(
+            &painter,
+            rect.left() + 68.0,
+            rect.center().y,
+            (name, 14.5),
+            (place, 12.5),
         );
     }
     response
+}
+
+/// A saved profile in the list of the Profiles window: its coloured
+/// initial, its name and where it leads, lit up when chosen or under the
+/// pointer, and a dot when a session plays with it.
+pub fn profile_row(ui: &mut Ui, selected: bool, name: &str, place: &str, in_use: bool) -> Response {
+    let theme = theme::current();
+    let (rect, response) = ui.allocate_exact_size(vec2(ui.available_width(), 52.0), Sense::click());
+    let said = match in_use {
+        true => format!("{name}, {place}, {}", crate::i18n::tr("In use")),
+        false => format!("{name}, {place}"),
+    };
+    response.widget_info(|| WidgetInfo::selected(Role::Tab, ui.is_enabled(), selected, &said));
+    if !ui.is_rect_visible(rect) {
+        return response;
+    }
+    let hovered = response.hovered() || response.has_focus();
+    let fill = match (selected, hovered) {
+        (true, _) => theme.raised,
+        (false, true) => theme.raised.gamma_multiply(0.6),
+        (false, false) => Color32::TRANSPARENT,
+    };
+    let painter = ui.painter();
+    painter.rect_filled(rect, CornerRadius::same(8), fill);
+    let tile =
+        egui::Rect::from_center_size(rect.left_center() + vec2(24.0, 0.0), Vec2::splat(32.0));
+    initial_tile(
+        painter,
+        tile,
+        name,
+        theme::mix(theme.surface, fill, fill.a() as f32 / 255.0),
+    );
+    let clip = rect.with_max_x(rect.right() - if in_use { 24.0 } else { 10.0 });
+    two_lines(
+        &painter.with_clip_rect(clip),
+        rect.left() + 50.0,
+        rect.center().y,
+        (name, 13.5),
+        (place, 12.0),
+    );
+    if in_use {
+        painter.circle_filled(rect.right_center() - vec2(14.0, 0.0), 3.5, theme.accent);
+    }
+    response
+}
+
+/// A profile's initial on a tile of its colour, over `ground`.
+pub fn initial_tile(painter: &egui::Painter, tile: egui::Rect, name: &str, ground: Color32) {
+    let hue = profile_hue(name);
+    let radius = CornerRadius::same((tile.height() * 0.28) as u8);
+    painter.rect_filled(tile, radius, theme::mix(ground, hue, 0.22));
+    let initial: String = name.chars().take(1).flat_map(char::to_uppercase).collect();
+    let size = tile.height() * 0.4;
+    painter.text(
+        tile.center(),
+        egui::Align2::CENTER_CENTER,
+        initial,
+        theme::font(Weight::Semibold, size),
+        hue,
+    );
+}
+
+/// The colour of a profile: the same name always gets the same one.
+fn profile_hue(name: &str) -> Color32 {
+    let hues = [12, 10, 11, 13, 14, 9];
+    let sum: usize = name.bytes().map(usize::from).sum();
+    theme::current().terminal[hues[sum % hues.len()]]
+}
+
+/// A name, and a line about it under it, starting at `left` and centred
+/// on `middle`; the sizes of their type are given with them.
+fn two_lines(
+    painter: &egui::Painter,
+    left: f32,
+    middle: f32,
+    (name, big): (&str, f32),
+    (under, small): (&str, f32),
+) {
+    let theme = theme::current();
+    let at = |dy: f32| egui::pos2(left, middle + dy);
+    painter.text(
+        at(-9.0),
+        egui::Align2::LEFT_CENTER,
+        name,
+        theme::font(Weight::Medium, big),
+        theme.text,
+    );
+    painter.text(
+        at(10.0),
+        egui::Align2::LEFT_CENTER,
+        under,
+        theme::font(Weight::Regular, small),
+        theme.text_dim,
+    );
 }
 
 /// A dot that says at a glance how something is doing.

@@ -62,6 +62,10 @@ impl App {
                 self.open_settings(Section::General);
                 ui.close();
             }
+            if widgets::menu_item(ui, tr("Profiles"), "").clicked() {
+                self.open_profiles(None);
+                ui.close();
+            }
             widgets::menu_separator(ui);
             if widgets::menu_item(ui, tr("Keyboard shortcuts"), "").clicked() {
                 self.show_shortcuts = true;

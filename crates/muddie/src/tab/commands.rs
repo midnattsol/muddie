@@ -67,6 +67,8 @@ pub enum AppRequest {
     CloseSession,
     /// The settings, at this page.
     Settings(crate::app::Section),
+    /// The Profiles window.
+    Profiles,
     Shortcuts,
     About,
     /// Something done with the saved profile of this name.

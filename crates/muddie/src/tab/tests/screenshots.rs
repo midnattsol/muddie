@@ -55,9 +55,7 @@ fn shows_welcome() {
     welcome.state_mut().tab_mut().started = false;
     welcome.run_steps(3);
     save(&mut welcome, "welcome");
-    welcome
-        .state_mut()
-        .open_settings(crate::app::Section::Profiles);
+    welcome.state_mut().open_profiles(Some("Discworld"));
     welcome.run_steps(4);
     save(&mut welcome, "profiles");
     // One in use, under the pointer.
@@ -71,21 +69,6 @@ fn shows_welcome() {
     welcome.state_mut().edit_profile("Aardwolf");
     welcome.run_steps(4);
     save(&mut welcome, "profile");
-    // Further down: how it is kept, its logs, and its plugins.
-    welcome
-        .get_all_by_label("Log every session")
-        .next()
-        .unwrap()
-        .scroll_to_me();
-    welcome.run_steps(3);
-    save(&mut welcome, "profile-middle");
-    welcome
-        .get_all_by_label("Install a plugin")
-        .next()
-        .unwrap()
-        .scroll_to_me();
-    welcome.run_steps(3);
-    save(&mut welcome, "profile-end");
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
@@ -173,17 +156,14 @@ fn shows_every_settings_page() {
             );
         }
         window.state_mut().edit_profile("Reinos de Leyenda");
-        window.run_steps(4);
-        save(&mut window, &format!("page-{language}-profile-1"));
-        for (number, below) in [(2, "Log every session"), (3, "Install a plugin")] {
-            let label = crate::i18n::tr(below);
-            window
-                .get_all_by_label(label)
-                .next()
-                .unwrap()
-                .scroll_to_me();
-            window.run_steps(3);
-            save(&mut window, &format!("page-{language}-profile-{number}"));
+        let tabs = crate::app::ProfileTab::ALL;
+        for (number, tab) in tabs.into_iter().enumerate() {
+            window.state_mut().show_profile_tab(tab);
+            window.run_steps(4);
+            save(
+                &mut window,
+                &format!("page-{language}-profile-{}", number + 1),
+            );
         }
         // Installing a plugin asks where from.
         window
@@ -241,6 +221,9 @@ fn shows_plugins() {
     profiles.save("Aardwolf", &profile).unwrap();
     let mut plugins = window(Some(profiles));
     plugins.state_mut().edit_profile("Aardwolf");
+    plugins
+        .state_mut()
+        .show_profile_tab(crate::app::ProfileTab::Plugins);
     plugins.run_steps(4);
     plugins.get_by_label("Update all").scroll_to_me();
     plugins.run_steps(3);

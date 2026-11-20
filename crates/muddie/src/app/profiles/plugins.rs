@@ -189,7 +189,7 @@ impl App {
             }
         }
         if self.tabs[active].uses_profile(&name) {
-            self.show_settings = false;
+            self.show_profiles = false;
         }
         self.tabs[active].note(&trf(
             "{0} is now a script of profile {1}.",

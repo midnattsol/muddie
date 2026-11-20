@@ -1530,9 +1530,6 @@ msgstr "{0} lo usa una sesión abierta: ciérrala antes."
 msgid "Delete {0}? Its scripts, rules, map and layout go with it."
 msgstr "¿Borrar {0}? Se borran con él sus scripts, reglas, mapa y disposición."
 
-msgid "Edit"
-msgstr "Editar"
-
 msgid "Profiles need a configuration folder, and none was found."
 msgstr "Los perfiles necesitan una carpeta de configuración, y no se ha encontrado ninguna."
 
@@ -1578,4 +1575,10 @@ msgstr "Paneles laterales entre los de arriba y abajo"
 
 msgid "Side panels at full height"
 msgstr "Paneles laterales a toda la altura"
+
+msgid "Connection"
+msgstr "Conexión"
+
+msgid "Plugins"
+msgstr "Complementos"
 

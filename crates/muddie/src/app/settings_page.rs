@@ -1,23 +1,21 @@
 use super::*;
 
-/// The pages of the settings, as tabs along their top: Muddie's own,
-/// the same for every profile, and the profiles.
+/// The pages of the settings, as tabs along their top: Muddie's own, the
+/// same for every profile. Each profile's are in the Profiles window.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Section {
     General,
     Appearance,
     Text,
     Speech,
-    Profiles,
 }
 
 impl Section {
-    pub const ALL: [Section; 5] = [
+    pub const ALL: [Section; 4] = [
         Section::General,
         Section::Appearance,
         Section::Text,
         Section::Speech,
-        Section::Profiles,
     ];
 
     pub fn name(self) -> &'static str {
@@ -26,7 +24,6 @@ impl Section {
             Section::Appearance => tr("Appearance"),
             Section::Text => tr("Text"),
             Section::Speech => tr("Speech"),
-            Section::Profiles => tr("Profiles"),
         }
     }
 }
@@ -36,16 +33,13 @@ impl App {
     pub fn open_settings(&mut self, section: Section) {
         self.show_settings = true;
         self.settings_section = section;
-        if section != Section::Profiles {
-            self.editing = None;
-        }
     }
 
     /// The settings: a tab for each page along the top, and the page
     /// under them.
     pub(super) fn settings_window(&mut self, ctx: &egui::Context) {
         if !self.show_settings {
-            return self.keep_profile(ctx, false);
+            return;
         }
         let before = self.settings.clone();
         let mut open = true;
@@ -78,7 +72,7 @@ impl App {
                         };
                         egui::Frame::new().inner_margin(room).show(ui, |ui| {
                             ui.spacing_mut().item_spacing.y = size::GAP_S;
-                            self.settings_page(ui, ctx);
+                            self.settings_page(ui);
                             if let Some(error) = &self.settings_error {
                                 ui.colored_label(theme::current().danger, error);
                             }
@@ -87,14 +81,13 @@ impl App {
             },
         );
         self.show_settings = open;
-        self.keep_profile(ctx, open);
         if self.settings != before {
             self.apply_settings(ctx);
         }
     }
 
     /// The page chosen.
-    fn settings_page(&mut self, ui: &mut Ui, ctx: &egui::Context) {
+    fn settings_page(&mut self, ui: &mut Ui) {
         match self.settings_section {
             Section::General => {
                 let languages = self.languages.get_or_insert_with(i18n::languages).clone();
@@ -103,8 +96,6 @@ impl App {
             Section::Appearance => appearance_settings(ui, &mut self.settings),
             Section::Text => text_settings(ui, &mut self.settings),
             Section::Speech => speech_settings(ui, &mut self.settings),
-            Section::Profiles if self.editing.is_some() => self.profile_page(ui, ctx),
-            Section::Profiles => self.profiles_list(ui),
         }
     }
 }

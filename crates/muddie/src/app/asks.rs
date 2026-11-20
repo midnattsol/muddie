@@ -222,8 +222,12 @@ impl App {
         name: &str,
     ) -> Result<Option<String>, String> {
         profiles.delete(name)?;
+        // The window goes on with another, if there is one.
         if self.editing.as_ref().is_some_and(|edit| edit.name == name) {
             self.editing = None;
+            if self.show_profiles {
+                self.open_profiles(None);
+            }
         }
         Ok(None)
     }

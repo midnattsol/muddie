@@ -15,8 +15,8 @@ repeated), and `--insecure` accepts a self-signed TLS certificate.
 
 At the top, at the left the two views of a session, **Game** and **Editor**
 (Ctrl+E); in the middle the field that opens the **palette**; at the right
-the **menu** (the three lines): a new session, the settings, the keyboard
-shortcuts and what Muddie is. At the bottom, the sessions as tabs, what the
+the **menu** (the three lines): a new session, the settings, the profiles,
+the keyboard shortcuts and what Muddie is. At the bottom, the sessions as tabs, what the
 one on screen is doing, and the **bell** of the messages the client has given
 in it, marked while some are new: what was said for a moment, such as the
 answer of a command, can be read there again.
@@ -42,19 +42,31 @@ arrives.
 
 A new session opens on a welcome screen. Type an address such as
 `mud.example.org:4000` and press Enter to connect, or pick one of your saved
-profiles below it. A right click on one of them, or its menu in the
-settings, edits, duplicates, renames or deletes it. **More options** there
+profiles below it. A right click on one of them, or on it in the Profiles
+window, edits, duplicates, renames or deletes it. **More options** there
 keeps the address typed as a new profile, asking only its name, and opens it
 to be filled in.
 
-Profiles are in the **settings**, on their own page, **Profiles**: all of
-them in a list, the one a session plays with marked. Choose one to see its
-page, with **‹ Profiles** to go back: where it connects, who to log in as,
-how the connection is kept, its logs and sounds, and its plugins. What is
-changed there is kept as it is changed, with no button to press, and a
-session playing with that profile takes it. A session connected otherwise
+Profiles have their own window, **Profiles**, in the menu: all of them in a
+list at the left, with their colour, where they lead and a dot on those a
+session plays with, and the one chosen at the right. Its page has its name,
+**Connect**, its menu (duplicate, rename, delete) and three tabs:
+
+- **Connection**: where it connects (host, port, TLS, text encoding) and who
+  to log in as (the character and its password, kept in the system's
+  keyring).
+- **Session**: reconnecting when the connection drops, keeping it alive and
+  how often, logging every session, and fetching the sounds the MUD asks for.
+- **Plugins**: those that come with Muddie, and others, installed with
+  **Install…** from the address of their git repository. Each has a switch
+  that enables it in that profile; its menu has the rest, and **Update all**
+  updates them all. Only install what you trust: a plugin can send commands
+  as you.
+
+What is changed there is kept as it is changed, with no button to press, and
+a session playing with that profile takes it. A session connected otherwise
 than its profile now says shows it, with **Reconnect** beside it. **New
-profile** makes an empty one. A profile also has its own scripts, triggers, map and remembered values,
+profile**, under the list, makes an empty one. A profile also has its own scripts, triggers, map and remembered values,
 all under `profiles/<name>/` in the configuration folder (`~/.config/muddie`
 on Linux, `%APPDATA%\muddie` on Windows).
 
@@ -207,15 +219,15 @@ menu (the three dots). There is no mode to enter to arrange them.
   output) to go before or after it, on its middle to share its place as a
   tab. Drag the edge between two panels, or between a panel and the output,
   to size them.
-- Its **menu** has the rest, for those who would rather not drag: its name,
-  the side it goes on, moving it before or after its neighbour, sharing the
-  place of the one before as tabs or leaving them, what goes with its kind,
-  hiding it, and removing it. **Full-height sides** there decides who gets
-  the corners: with it, the panels beside the output reach the top and the
+- Its **menu** has its name, what goes with its kind (the channels for one
+  of text, editing the gauges, the areas of the map), hiding it and removing
+  it.
+- **Side panels at full height**, in the palette, decides who gets the
+  corners: with it, the panels beside the output reach the top and the
   bottom of the window.
-- Panels are **added** from the menu, under Panels, or the palette: of text,
-  the map, or gauges. There is one map; of the others, as many as wanted.
-  The menu lists them all too, each to show or hide.
+- Panels are **added** from the palette: of text, the map, or gauges. There
+  is one map; of the others, as many as wanted. The palette lists them all
+  too, each to show or hide.
 - A tab that gets something while another is on show is marked.
 
 The layout is kept with the profile.
@@ -251,7 +263,7 @@ poisoned, green for not. Alt+0 reads the gauges aloud.
 ### Plugins that come with Muddie
 
 Muddie itself knows the ways of no MUD in particular: those are plugins, in
-each profile's page in the settings, under **Plugins**, switched on and off
+each profile's **Plugins** tab in the Profiles window, switched on and off
 per profile like the ones you install. Two come with it.
 
 - **Common GMCP and MSDP** makes something of what many MUDs send the same
@@ -265,8 +277,8 @@ per profile like the ones you install. Two come with it.
   you type `consentir gmcp on` in the game; if nothing has come a minute and
   a half after connecting, the plugin says so.
 
-Switching one does not run your scripts again. **Customize**, beside one
-written in Luau, makes it yours: its code becomes a script of the profile's,
+Switching one does not run your scripts again. **Customize**, in the menu
+of one written in Luau, makes it yours: its code becomes a script of the profile's,
 opened in the editor to change at will (to send the channels to another
 panel, say), and the one that came is switched off so as not to run twice.
 
@@ -407,7 +419,9 @@ what was agreed. Nothing here needs setting up.
 ## Settings
 
 **Settings**, in the menu (Ctrl+,), are one window with a tab for each of
-its pages. Every row has a line under it saying what it does.
+its pages; each profile's are in the Profiles window. A row says what it
+is at the left, with what it does under it when that needs saying, and has
+its control at the right.
 
 - **General**: the language, and the size the interface is drawn at.
 - **Appearance**: the theme (Dark, Graphite, Mocha, Dusk, Tokyo Night, Nord,
@@ -419,18 +433,6 @@ its pages. Every row has a line under it saying what it does.
   stays in the command line.
 - **Speech**: the speed and the language of the voice, and whether lines go
   to the screen reader instead.
-- **Profiles**: the saved profiles. Each one's page has:
-  - **Server**: host, port, TLS, text encoding.
-  - **Log in**: the character and its password.
-  - **Keeping the connection**: reconnecting when it drops, and keeping it
-    alive.
-  - **Logs and sounds**: logging every session, and fetching the sounds the
-    MUD asks for.
-  - **Plugins**: those that come with Muddie, and those made by others,
-    installed from the address of their git repository. Each has a switch
-    that enables it in that profile; its menu updates or removes it, and
-    **Update all** updates them all. Only install what you trust: a plugin
-    can send commands as you.
 
 A session without a profile connects, keeps its connection and logs as a new
 profile would. Muddie's settings are saved in `settings.toml`, each profile

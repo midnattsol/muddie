@@ -19,13 +19,13 @@ mod asks;
 mod bars;
 mod dialogs;
 mod keys;
-mod profiles_page;
+mod profiles;
 mod settings_page;
 
 use asks::Ask;
 use keys::drop_alt_typing;
-use profiles_page::ProfileEdit;
-pub use profiles_page::{ProfileAction, profile_menu};
+use profiles::ProfileEdit;
+pub use profiles::{ProfileAction, ProfileTab, profile_menu};
 pub use settings_page::Section;
 
 const NEW_SESSION: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, egui::Key::T);
@@ -45,8 +45,10 @@ pub struct App {
     show_settings: bool,
     /// The page of the settings on screen.
     settings_section: Section,
-    /// The profile open on the Profiles page, if one is.
+    /// The Profiles window, the profile chosen in it, and its tab.
+    show_profiles: bool,
     editing: Option<ProfileEdit>,
+    profile_tab: ProfileTab,
     /// What is being asked about a profile, and what was wrong with the
     /// answer.
     asking: Option<Ask>,
@@ -110,7 +112,9 @@ impl App {
             extra_scripts,
             show_settings: false,
             settings_section: Section::General,
+            show_profiles: false,
             editing: None,
+            profile_tab: ProfileTab::default(),
             asking: None,
             ask_error: None,
             alt_typing: false,
@@ -190,6 +194,7 @@ impl App {
             AppRequest::NewSession => self.new_tab(ctx),
             AppRequest::CloseSession => self.close_tab(self.active, ctx),
             AppRequest::Settings(section) => self.open_settings(section),
+            AppRequest::Profiles => self.open_profiles(None),
             AppRequest::Shortcuts => self.show_shortcuts = true,
             AppRequest::About => self.show_about = true,
             AppRequest::Profile(action, name) => self.profile_action(action, &name),
@@ -296,6 +301,7 @@ impl App {
     /// and what Muddie is.
     fn windows(&mut self, ctx: &egui::Context) {
         self.settings_window(ctx);
+        self.profiles_window(ctx);
         self.ask_window(ctx);
         self.shortcuts_window(ctx);
         self.about_window(ctx);

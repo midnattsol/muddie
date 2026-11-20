@@ -19,6 +19,11 @@ impl Tab {
                 Act::App(AppRequest::Settings(section)),
             )
         }));
+        acts.push(item(
+            tr("Profiles"),
+            settings,
+            Act::App(AppRequest::Profiles),
+        ));
         acts.extend(self.profile_acts());
         let help = tr("Help");
         acts.push(item(

@@ -186,10 +186,14 @@ fn a_profile_keeps_what_is_changed_in_the_settings_as_it_is_changed() {
     (harness.get_by_role_and_label(character().0, character().1)).type_text("Naylhena");
     harness.run_steps(2);
     // What depends on the MUD is the profile's, not every session's.
+    harness
+        .get_by_role_and_label(egui::accesskit::Role::Tab, "Session")
+        .click();
+    harness.run_steps(2);
     (harness.get_by_role_and_label(egui::accesskit::Role::Switch, "Keep the connection alive"))
         .click_accesskit();
     harness.run_steps(2);
-    // Closing the settings keeps what was changed, without a button, and
+    // Closing the window keeps what was changed, without a button, and
     // the session playing with the profile takes it.
     harness.get_by_label("Close").click();
     harness.run_steps(3);
@@ -218,6 +222,10 @@ fn a_plugin_that_comes_with_muddie_is_made_ones_own_to_change() {
     let plugin = crate::bundled::find("reinos-de-leyenda").unwrap();
     app.set_included(plugin, true);
     harness.state_mut().edit_profile("Reinos");
+    harness.run_steps(2);
+    harness
+        .get_by_role_and_label(egui::accesskit::Role::Tab, "Plugins")
+        .click();
     harness.run_steps(3);
     // In its menu.
     harness

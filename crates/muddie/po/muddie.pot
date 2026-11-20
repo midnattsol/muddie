@@ -17,8 +17,7 @@ msgstr ""
 msgid "Close"
 msgstr ""
 
-#, python-brace-format
-msgid "{0} options"
+msgid "In use"
 msgstr ""
 
 msgid "Search or run a command"
@@ -76,6 +75,9 @@ msgstr ""
 
 #, python-brace-format
 msgid "Edit {0}"
+msgstr ""
+
+msgid "Install a plugin"
 msgstr ""
 
 msgid "No map yet"
@@ -301,9 +303,6 @@ msgstr ""
 msgid "Filtering by this protocol"
 msgstr ""
 
-msgid "In use"
-msgstr ""
-
 msgid "Offered by the MUD, not used by Muddie"
 msgstr ""
 
@@ -373,6 +372,9 @@ msgstr ""
 msgid "Settings"
 msgstr ""
 
+msgid "Profiles"
+msgstr ""
+
 msgid "Help"
 msgstr ""
 
@@ -433,6 +435,12 @@ msgid "Add a panel of gauges"
 msgstr ""
 
 msgid "Add the map"
+msgstr ""
+
+msgid "Side panels between the top and bottom ones"
+msgstr ""
+
+msgid "Side panels at full height"
 msgstr ""
 
 msgid "Connect to profile"
@@ -1025,49 +1033,14 @@ msgstr ""
 msgid "All"
 msgstr ""
 
+#, python-brace-format
+msgid "{0} options"
+msgstr ""
+
 msgid "Show the MUD's channels here"
 msgstr ""
 
 msgid "Edit the gauges"
-msgstr ""
-
-msgid "Full-height sides"
-msgstr ""
-
-msgid "Side panels reach the top and the bottom"
-msgstr ""
-
-msgid "Place"
-msgstr ""
-
-msgid "At the left"
-msgstr ""
-
-msgid "At the right"
-msgstr ""
-
-msgid "Above"
-msgstr ""
-
-msgid "Below"
-msgstr ""
-
-msgid "Move up"
-msgstr ""
-
-msgid "Move down"
-msgstr ""
-
-msgid "Move left"
-msgstr ""
-
-msgid "Move right"
-msgstr ""
-
-msgid "Share the place of the one before, as tabs"
-msgstr ""
-
-msgid "Detach from tabs"
 msgstr ""
 
 #, python-brace-format
@@ -1095,9 +1068,6 @@ msgstr ""
 msgid "Appearance"
 msgstr ""
 
-msgid "Profiles"
-msgstr ""
-
 msgid "Language"
 msgstr ""
 
@@ -1108,6 +1078,9 @@ msgid "Interface scale"
 msgstr ""
 
 msgid "How large the whole window is drawn."
+msgstr ""
+
+msgid "Interface"
 msgstr ""
 
 msgid "Theme"
@@ -1176,22 +1149,22 @@ msgstr ""
 msgid "It stays selected: Enter sends it again, and typing replaces it."
 msgstr ""
 
-msgid "Speed"
-msgstr ""
-
 msgid "Fast"
 msgstr ""
 
 msgid "Slow"
 msgstr ""
 
+msgid "Speed"
+msgstr ""
+
 msgid "Language of the voice"
 msgstr ""
 
-msgid "The system's"
+msgid "The voice the text of the MUD is read with."
 msgstr ""
 
-msgid "The voice the text of the MUD is read with."
+msgid "The system's"
 msgstr ""
 
 msgid "Speak through the screen reader"
@@ -1221,6 +1194,12 @@ msgstr ""
 msgid "Duplicate"
 msgstr ""
 
+msgid "Install"
+msgstr ""
+
+msgid "Address of its git repository"
+msgstr ""
+
 #, python-brace-format
 msgid "There is a profile called {0} already."
 msgstr ""
@@ -1236,7 +1215,10 @@ msgstr ""
 msgid "Delete {0}? Its scripts, rules, map and layout go with it."
 msgstr ""
 
-msgid "Edit"
+msgid "Only install what you trust: a plugin can send commands as you."
+msgstr ""
+
+msgid "No profiles yet. A profile keeps a MUD's connection, scripts, map and layout."
 msgstr ""
 
 msgid "The changes take effect on reconnecting."
@@ -1275,13 +1257,16 @@ msgstr ""
 msgid "Muddie answers the first prompt with it."
 msgstr ""
 
+msgid "None: log in by hand"
+msgstr ""
+
 msgid "Password"
 msgstr ""
 
-msgid "Leave empty to keep it"
+msgid "Kept in the system's keyring, never in a file, and sent when the server hides typing."
 msgstr ""
 
-msgid "Kept in the system's keyring, never in a file, and sent when the server hides typing."
+msgid "Leave empty to keep it"
 msgstr ""
 
 msgid "Keeping the connection"
@@ -1323,32 +1308,22 @@ msgstr ""
 msgid "Update"
 msgstr ""
 
-msgid "Plugins"
-msgstr ""
-
 msgid "Customize"
 msgstr ""
 
-#, python-brace-format
-msgid "Customize {0}"
+msgid "Included plugins"
 msgstr ""
 
-msgid "Installed by you"
+msgid "Other plugins"
 msgstr ""
 
 msgid "Update all"
 msgstr ""
 
-msgid "No plugins yet. A plugin is a set of scripts someone made for a MUD: a mapper, triggers, gauges."
+msgid "A set of scripts someone made for a MUD, such as a mapper, from its git repository."
 msgstr ""
 
-msgid "Install from"
-msgstr ""
-
-msgid "Install"
-msgstr ""
-
-msgid "The address of the plugin's git repository. Only install what you trust: a plugin can send commands as you."
+msgid "Install…"
 msgstr ""
 
 msgid "Working…"
@@ -1361,7 +1336,10 @@ msgstr ""
 msgid "Profiles need a configuration folder, and none was found."
 msgstr ""
 
-msgid "No profiles yet. A profile keeps a MUD's connection, scripts, map and layout."
+msgid "Connection"
+msgstr ""
+
+msgid "Plugins"
 msgstr ""
 
 msgid "Typing"
