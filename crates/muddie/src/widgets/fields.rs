@@ -63,6 +63,34 @@ pub fn dropdown(id: &str) -> egui::ComboBox<'_> {
         .width(theme::size::FIELD_L)
 }
 
+/// One of a few values, chosen from a [`dropdown`] that names each. A
+/// value not among them is shown by `other`. The response is marked
+/// changed when another is chosen.
+pub fn choose<T: PartialEq + Copy>(
+    ui: &mut Ui,
+    id: &str,
+    value: &mut T,
+    choices: &[(T, String)],
+    other: impl Fn(T) -> String,
+) -> Response {
+    let shown = (choices.iter())
+        .find(|(choice, _)| *choice == *value)
+        .map_or_else(|| other(*value), |(_, name)| name.clone());
+    let mut changed = false;
+    let mut response = dropdown(id)
+        .selected_text(shown)
+        .show_ui(ui, |ui| {
+            for (choice, name) in choices {
+                changed |= choice_value(ui, value, *choice, name).changed();
+            }
+        })
+        .response;
+    if changed {
+        response.mark_changed();
+    }
+    response
+}
+
 /// A row of a [`dropdown`], ticked like a choice of a menu if it is the
 /// one chosen.
 pub fn choice(ui: &mut Ui, selected: bool, text: &str) -> Response {

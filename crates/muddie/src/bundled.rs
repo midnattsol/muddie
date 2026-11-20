@@ -30,8 +30,8 @@ pub const COMMON: &str = "common";
 pub const ALL: [Bundled; 2] = [
     Bundled {
         id: COMMON,
-        name: "Common GMCP and MSDP",
-        about: "What many MUDs send the same way: Char.Vitals as gauges, Room.Info as the map, Comm.Channel.Text as channels.",
+        name: "Standard GMCP and MSDP",
+        about: "Gauges from Char.Vitals, the map from Room.Info, channels from Comm.Channel.Text.",
         code: None,
         default_on: true,
         hosts: &[],
@@ -40,7 +40,7 @@ pub const ALL: [Bundled; 2] = [
     Bundled {
         id: "reinos-de-leyenda",
         name: "Reinos de Leyenda",
-        about: "The channels of the MUD, each in its tab. Needs: consentir gmcp on, typed in the game.",
+        about: "Its channels, each in a tab. Needs consentir gmcp on, typed in the game.",
         code: Some(include_str!("../plugins/reinos-de-leyenda.luau")),
         default_on: false,
         hosts: &["rlmud.org", "reinosdeleyenda"],

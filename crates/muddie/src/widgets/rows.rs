@@ -105,21 +105,6 @@ pub fn setting_row(
     row(ui, label, about, control)
 }
 
-/// A row that belongs to the one above it, as what is set once that one
-/// is on: set in under it, with no hairline between the two.
-pub fn setting_subrow(
-    ui: &mut Ui,
-    label: &str,
-    about: Option<&str>,
-    control: &mut dyn FnMut(&mut Ui) -> Response,
-) -> Response {
-    ui.horizontal(|ui| {
-        ui.add_space(theme::size::GAP_L - 4.0);
-        ui.vertical(|ui| row(ui, label, about, control)).inner
-    })
-    .inner
-}
-
 /// A row of a [`group`] with a switch.
 pub fn switch_setting(ui: &mut Ui, on: &mut bool, label: &str, about: Option<&str>) -> Response {
     row_start(ui);

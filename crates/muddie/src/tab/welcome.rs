@@ -180,8 +180,8 @@ impl Tab {
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = 9.0;
             ui.add_space(12.0);
-            widgets::switch(ui, &mut self.tls, tr("Secure connection (TLS)"));
-            let label = RichText::new(tr("Secure connection (TLS)"))
+            widgets::switch(ui, &mut self.tls, tr("TLS encryption"));
+            let label = RichText::new(tr("TLS encryption"))
                 .font(theme::font(Weight::Regular, 13.0))
                 .color(theme::current().text_dim);
             ui.add(Label::new(label).selectable(false));

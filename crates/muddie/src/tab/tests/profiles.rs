@@ -190,7 +190,7 @@ fn a_profile_keeps_what_is_changed_in_the_settings_as_it_is_changed() {
         .get_by_role_and_label(egui::accesskit::Role::Tab, "Session")
         .click();
     harness.run_steps(2);
-    (harness.get_by_role_and_label(egui::accesskit::Role::Switch, "Keep the connection alive"))
+    (harness.get_by_role_and_label(egui::accesskit::Role::Switch, "Auto-reconnect"))
         .click_accesskit();
     harness.run_steps(2);
     // Closing the window keeps what was changed, without a button, and
@@ -201,11 +201,8 @@ fn a_profile_keeps_what_is_changed_in_the_settings_as_it_is_changed() {
     let saved = Profiles::at(dir.clone()).load("Reinos").unwrap();
     assert_eq!(saved.character, "Naylhena");
     // It was on, as it is to begin with: off in this profile only.
-    assert_eq!(
-        saved.session.map(|session| session.keepalive_seconds),
-        Some(0)
-    );
-    assert_eq!(harness.state().app_settings().keepalive_seconds, 60);
+    assert_eq!(saved.session.map(|session| session.reconnect), Some(false));
+    assert!(harness.state().app_settings().reconnect);
     std::fs::remove_dir_all(&dir).unwrap();
 }
 

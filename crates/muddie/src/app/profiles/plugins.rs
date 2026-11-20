@@ -81,7 +81,7 @@ impl App {
             return;
         };
         let mut customize = None;
-        widgets::section(ui, tr("Included plugins"), |ui| {
+        widgets::section(ui, tr("Included"), |ui| {
             for plugin in crate::bundled::ALL.iter() {
                 if included_row(ui, plugin, &mut edit.draft) {
                     customize = Some(plugin);
@@ -94,14 +94,15 @@ impl App {
     }
 
     /// The plugins installed, each with its switch in this profile and its
-    /// menu; updating them all, and installing another; and what the last
-    /// commands about plugins said.
+    /// menu; updating them all and installing another, beside their
+    /// caption; and what the last commands about plugins said.
     pub(in crate::app) fn installed_group(&mut self, ui: &mut Ui) {
         let installed = (self.profiles.as_ref())
             .map(Profiles::packages)
             .unwrap_or_default();
-        let mut commands = Vec::new();
-        widgets::section_caption_with(ui, tr("Other plugins"), |ui| {
+        let (mut commands, mut install) = (Vec::new(), false);
+        widgets::section_caption_with(ui, tr("Installed"), |ui| {
+            install = widgets::button(ui, tr("Install from git…")).clicked();
             if !installed.is_empty() && widgets::button(ui, tr("Update all")).clicked() {
                 commands.extend(
                     installed
@@ -113,19 +114,15 @@ impl App {
         let Some(edit) = self.editing.as_mut() else {
             return;
         };
-        let mut install = false;
-        widgets::group(ui, |ui| {
-            for name in &installed {
-                commands.extend(installed_row(ui, &mut edit.draft.packages, name));
-            }
-            let about = tr(
-                "A set of scripts someone made for a MUD, such as a mapper, from its git repository.",
-            );
-            install = widgets::setting_row(ui, tr("Install a plugin"), Some(about), &mut |ui| {
-                widgets::button(ui, tr("Install…"))
-            })
-            .clicked();
-        });
+        if installed.is_empty() {
+            widgets::page_note(ui, tr("None installed."));
+        } else {
+            widgets::group(ui, |ui| {
+                for name in &installed {
+                    commands.extend(installed_row(ui, &mut edit.draft.packages, name));
+                }
+            });
+        }
         if install {
             self.asking = Some(Ask::Install(String::new()));
             self.ask_error = None;

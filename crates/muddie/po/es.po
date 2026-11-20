@@ -46,15 +46,6 @@ msgstr "No se pudieron cargar los ajustes: {0}"
 msgid "Sessions"
 msgstr "Sesiones"
 
-msgid "Show the time of each line"
-msgstr "Mostrar la hora de cada línea"
-
-msgid "Log every session"
-msgstr "Registrar todas las sesiones"
-
-msgid "Reconnect when the connection is lost"
-msgstr "Reconectar si se pierde la conexión"
-
 #, python-brace-format
 msgid "Logging stopped: {0}"
 msgstr "Registro detenido: {0}"
@@ -187,14 +178,8 @@ msgstr "Conectar"
 msgid "Speech"
 msgstr "Voz"
 
-msgid "Host"
-msgstr "Servidor"
-
 msgid "Port"
 msgstr "Puerto"
-
-msgid "Verify certificate"
-msgstr "Verificar certificado"
 
 msgid "Speech on."
 msgstr "Voz activada."
@@ -387,9 +372,6 @@ msgstr "¿Dónde quieres jugar?"
 msgid "Your profiles"
 msgstr "Tus perfiles"
 
-msgid "Secure connection (TLS)"
-msgstr "Conexión segura (TLS)"
-
 #, python-brace-format
 msgid "Connected to {0}, encrypted"
 msgstr "Conectado a {0}, cifrado"
@@ -421,9 +403,6 @@ msgstr "Dejar de caminar"
 
 msgid "Server"
 msgstr "Servidor"
-
-msgid "Text encoding"
-msgstr "Codificación del texto"
 
 msgid "All changes saved"
 msgstr "Todos los cambios guardados"
@@ -532,9 +511,6 @@ msgstr "Coincide:"
 msgid "Show all areas"
 msgstr "Mostrar todas las zonas"
 
-msgid "Log format"
-msgstr "Formato del registro"
-
 msgid "Address"
 msgstr "Dirección"
 
@@ -632,12 +608,6 @@ msgstr "Se dibuja al caminar, si el MUD dice en qué sala estás. Si el tuyo lo 
 
 msgid "Line"
 msgstr "Línea"
-
-msgid "Keep the command after sending it"
-msgstr "Dejar el comando tras enviarlo"
-
-msgid "It stays selected: Enter sends it again, and typing replaces it."
-msgstr "Queda seleccionado: Enter lo envía otra vez y escribir lo sustituye."
 
 msgid "One command per line. %1, %2… are the groups of the pattern."
 msgstr "Un comando por línea. %1, %2… son los grupos del patrón."
@@ -857,9 +827,6 @@ msgstr "General"
 msgid "Same as the system"
 msgstr "El del sistema"
 
-msgid "Font"
-msgstr "Tipografía"
-
 msgid "Size"
 msgstr "Tamaño"
 
@@ -884,14 +851,8 @@ msgstr "Editor"
 msgid "Switch between the game and the editor"
 msgstr "Cambiar entre el juego y el editor"
 
-msgid "Colours"
-msgstr "Colores"
-
 msgid "Vivid"
 msgstr "Vivos"
-
-msgid "Soft, to go with the theme"
-msgstr "Suaves, a juego con el tema"
 
 msgid "Classic terminal"
 msgstr "Terminal clásico"
@@ -1173,9 +1134,6 @@ msgstr "Relleno: en uso. Con borde: lo ofrece el MUD y Muddie no lo usa. Tenue: 
 msgid "A sound could not be fetched: {0}"
 msgstr "No se pudo descargar un sonido: {0}"
 
-msgid "Download the sounds a MUD asks to play"
-msgstr "Descargar los sonidos que un MUD pide reproducir"
-
 
 #, python-brace-format
 msgid "The MUD asks to go on at {0}, port {1}."
@@ -1209,17 +1167,8 @@ msgstr "Ahora no"
 msgid "Enable"
 msgstr "Activar"
 
-msgid "Common GMCP and MSDP"
-msgstr "GMCP y MSDP habituales"
-
-msgid "What many MUDs send the same way: Char.Vitals as gauges, Room.Info as the map, Comm.Channel.Text as channels."
-msgstr "Lo que muchos MUD mandan igual: Char.Vitals como indicadores, Room.Info como mapa, Comm.Channel.Text como canales."
-
 msgid "Reinos de Leyenda"
 msgstr "Reinos de Leyenda"
-
-msgid "The channels of the MUD, each in its tab. Needs: consentir gmcp on, typed in the game."
-msgstr "Los canales del MUD, cada uno en su pestaña. Necesita escribir en el juego: consentir gmcp on."
 
 msgid "Incoming data"
 msgstr "Datos recibidos"
@@ -1318,10 +1267,6 @@ msgstr "Conectar al perfil"
 msgid "Go to, open or run anything"
 msgstr "Ir a, abrir o ejecutar lo que sea"
 
-
-msgid "Leave empty to keep it"
-msgstr "Déjalo vacío para conservarla"
-
 msgid "Messages"
 msgstr "Mensajes"
 
@@ -1383,24 +1328,6 @@ msgstr "Editar {0}"
 msgid "Open in the editor"
 msgstr "Abrir en el editor"
 
-msgid "Log in"
-msgstr "Entrada"
-
-msgid "Logs and sounds"
-msgstr "Registro y sonidos"
-
-msgid "How large the whole window is drawn."
-msgstr "El tamaño con el que se dibuja toda la ventana."
-
-msgid "Lines kept"
-msgstr "Líneas que se guardan"
-
-msgid "The lines kept to scroll back to and search; older ones are let go."
-msgstr "Las líneas que se conservan para volver atrás y buscar; las más antiguas se descartan."
-
-msgid "The time each line arrived, at its left."
-msgstr "La hora a la que llegó cada línea, a su izquierda."
-
 msgid "Speed"
 msgstr "Velocidad"
 
@@ -1410,20 +1337,8 @@ msgstr "Rápida"
 msgid "Slow"
 msgstr "Lenta"
 
-msgid "Language of the voice"
-msgstr "Idioma de la voz"
-
 msgid "The system's"
 msgstr "El del sistema"
-
-msgid "The voice the text of the MUD is read with."
-msgstr "La voz con la que se lee el texto del MUD."
-
-msgid "Speak through the screen reader"
-msgstr "Hablar a través del lector de pantalla"
-
-msgid "Instead of its own voice, Muddie hands each line to the screen reader, which also shows it in braille."
-msgstr "En lugar de usar su propia voz, Muddie pasa cada línea al lector de pantalla, que además la muestra en braille."
 
 msgid "Customize"
 msgstr "Personalizar"
@@ -1437,41 +1352,8 @@ msgstr "Guardar como perfil"
 msgid "The changes take effect on reconnecting."
 msgstr "Los cambios se aplican al reconectar."
 
-msgid "Off only for a server with a certificate of its own making."
-msgstr "Desactívalo solo para un servidor con un certificado hecho por él mismo."
-
 msgid "Automatic"
 msgstr "Automática"
-
-msgid "Automatic suits nearly every MUD: UTF-8, or Latin-1 for what is not."
-msgstr "Automática sirve para casi todos los MUD: UTF-8, o Latin-1 para lo que no lo sea."
-
-msgid "Keeping the connection"
-msgstr "Mantener la conexión"
-
-msgid "When it drops without you closing it."
-msgstr "Cuando se corta sin que la cierres tú."
-
-msgid "Keep the connection alive"
-msgstr "Mantener viva la conexión"
-
-msgid "Some servers and routers close a connection that has been quiet for a while."
-msgstr "Algunos servidores y routers cierran una conexión que lleva un rato en silencio."
-
-msgid "Muddie answers the first prompt with it."
-msgstr "Muddie lo escribe en la primera petición del servidor."
-
-msgid "Kept in the system's keyring, never in a file, and sent when the server hides typing."
-msgstr "Se guarda en el llavero del sistema, nunca en un archivo, y se envía cuando el servidor oculta lo que escribes."
-
-msgid "Everything shown in the session, written to a file as it comes."
-msgstr "Todo lo que se muestra en la sesión, escrito en un archivo según llega."
-
-msgid "HTML keeps the colours."
-msgstr "HTML conserva los colores."
-
-msgid "A sound the MUD asks for that you do not have is fetched from the web and kept."
-msgstr "Si el MUD pide un sonido que no tienes, se descarga de internet y se guarda."
 
 msgid "Same, for the panel of channels"
 msgstr "Lo mismo, para el panel de canales"
@@ -1555,21 +1437,6 @@ msgstr "Dirección de su repositorio git"
 msgid "Only install what you trust: a plugin can send commands as you."
 msgstr "Instala solo lo que sea de confianza: un complemento puede enviar comandos en tu nombre."
 
-msgid "A set of scripts someone made for a MUD, such as a mapper, from its git repository."
-msgstr "Un conjunto de scripts que alguien hizo para un MUD, como un mapper, desde su repositorio git."
-
-msgid "Install…"
-msgstr "Instalar…"
-
-msgid "None: log in by hand"
-msgstr "Ninguno: entras a mano"
-
-msgid "Included plugins"
-msgstr "Complementos incluidos"
-
-msgid "Other plugins"
-msgstr "Otros complementos"
-
 msgid "Side panels between the top and bottom ones"
 msgstr "Paneles laterales entre los de arriba y abajo"
 
@@ -1582,3 +1449,120 @@ msgstr "Conexión"
 msgid "Plugins"
 msgstr "Complementos"
 
+msgid "TLS encryption"
+msgstr "Cifrado TLS"
+
+msgid "Install from git…"
+msgstr "Instalar desde git…"
+
+msgid "Palette"
+msgstr "Paleta"
+
+msgid "Soft (follows the theme)"
+msgstr "Suaves (según el tema)"
+
+msgid "Scrollback"
+msgstr "Historial"
+
+msgid "Lines kept to scroll back through and search."
+msgstr "Líneas que se conservan para desplazarse y buscar."
+
+msgid "Timestamps"
+msgstr "Marcas de tiempo"
+
+msgid "Keep the sent command"
+msgstr "Conservar el comando enviado"
+
+msgid "Enter sends it again; typing replaces it."
+msgstr "Enter lo repite; al escribir se sustituye."
+
+msgid "Voice language"
+msgstr "Idioma de la voz"
+
+msgid "Use the screen reader"
+msgstr "Usar el lector de pantalla"
+
+msgid "Instead of Muddie's voice; it also reaches a braille display."
+msgstr "En lugar de la voz de Muddie; también llega a la línea braille."
+
+msgid "Encryption"
+msgstr "Cifrado"
+
+msgid "Encoding"
+msgstr "Codificación"
+
+msgid "Automatic works with nearly every MUD."
+msgstr "Automática funciona con casi todos los MUD."
+
+msgid "TLS without verifying the certificate"
+msgstr "TLS sin verificar el certificado"
+
+msgid "Login"
+msgstr "Inicio de sesión"
+
+msgid "Sent on connecting."
+msgstr "Se envía al conectar."
+
+msgid "Optional"
+msgstr "Opcional"
+
+msgid "Kept in the system keyring."
+msgstr "Se guarda en el llavero del sistema."
+
+msgid "Auto-reconnect"
+msgstr "Reconectar automáticamente"
+
+msgid "Stops the server or a router from closing an idle connection."
+msgstr "Evita que el servidor o el router corten una conexión inactiva."
+
+msgid "Keep-alive"
+msgstr "Keep-alive"
+
+msgid "Off"
+msgstr "Desactivado"
+
+msgid "Logging and sound"
+msgstr "Registro y sonido"
+
+msgid "Saves everything shown to a file."
+msgstr "Guarda en un archivo todo lo que se muestra."
+
+msgid "Session log"
+msgstr "Registro de sesión"
+
+msgid "Those the MUD asks for that you do not have."
+msgstr "Los que pida el MUD y no tengas."
+
+msgid "Download sounds"
+msgstr "Descargar sonidos"
+
+msgid "Included"
+msgstr "Incluidos"
+
+msgid "Installed"
+msgstr "Instalados"
+
+msgid "None installed."
+msgstr "Ninguno instalado."
+
+msgid "Host"
+msgstr "Dirección"
+
+msgid "Standard GMCP and MSDP"
+msgstr "GMCP y MSDP estándar"
+
+msgid "Gauges from Char.Vitals, the map from Room.Info, channels from Comm.Channel.Text."
+msgstr "Indicadores desde Char.Vitals, el mapa desde Room.Info y los canales desde Comm.Channel.Text."
+
+msgid "Its channels, each in a tab. Needs consentir gmcp on, typed in the game."
+msgstr "Sus canales, cada uno en una pestaña. Necesita escribir en el juego: consentir gmcp on."
+
+msgid "Leave empty to keep it"
+msgstr "Déjala vacía para conservarla"
+
+msgid "Unencrypted"
+msgstr "Sin cifrar"
+
+
+msgid "Font"
+msgstr "Fuente"

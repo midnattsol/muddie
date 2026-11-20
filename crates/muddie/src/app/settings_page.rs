@@ -129,27 +129,22 @@ fn general_settings(ui: &mut Ui, settings: &mut Settings, languages: &[(String, 
                 })
                 .response
         });
-        widgets::setting_row(
-            ui,
-            tr("Interface scale"),
-            Some(tr("How large the whole window is drawn.")),
-            &mut |ui| {
-                let percent = (settings.ui_scale * 100.0).round() as u32;
-                let steps = [75, 90, 100, 110, 125, 150, 175, 200];
-                crate::widgets::dropdown("interface scale")
-                    .selected_text(format!("{percent} %"))
-                    .show_ui(ui, |ui| {
-                        for step in steps {
-                            if crate::widgets::choice(ui, step == percent, &format!("{step} %"))
-                                .clicked()
-                            {
-                                settings.ui_scale = step as f32 / 100.0;
-                            }
+        widgets::setting_row(ui, tr("Interface scale"), None, &mut |ui| {
+            let percent = (settings.ui_scale * 100.0).round() as u32;
+            let steps = [75, 90, 100, 110, 125, 150, 175, 200];
+            crate::widgets::dropdown("interface scale")
+                .selected_text(format!("{percent} %"))
+                .show_ui(ui, |ui| {
+                    for step in steps {
+                        if crate::widgets::choice(ui, step == percent, &format!("{step} %"))
+                            .clicked()
+                        {
+                            settings.ui_scale = step as f32 / 100.0;
                         }
-                    })
-                    .response
-            },
-        );
+                    }
+                })
+                .response
+        });
     });
 }
 
@@ -162,7 +157,7 @@ fn appearance_settings(ui: &mut Ui, settings: &mut Settings) {
         });
     });
     widgets::section(ui, tr("MUD text"), |ui| {
-        widgets::setting_row(ui, tr("Colours"), None, &mut |ui| {
+        widgets::setting_row(ui, tr("Palette"), None, &mut |ui| {
             palette_choice(ui, &mut settings.mud_palette)
         });
         widgets::setting_row(ui, tr("Font"), None, &mut |ui| font_choice(ui, settings));
@@ -225,7 +220,7 @@ fn theme_choice(ui: &mut Ui, chosen: &mut ThemeName) -> egui::Response {
 fn palette_choice(ui: &mut Ui, chosen: &mut MudPalette) -> egui::Response {
     let name = |palette: MudPalette| match palette {
         MudPalette::Vivid => tr("Vivid"),
-        MudPalette::Soft => tr("Soft, to go with the theme"),
+        MudPalette::Soft => tr("Soft (follows the theme)"),
         MudPalette::Classic => tr("Classic terminal"),
     };
     crate::widgets::dropdown("mud palette")
@@ -358,10 +353,8 @@ fn text_settings(ui: &mut Ui, settings: &mut Settings) {
     widgets::group(ui, |ui| {
         widgets::setting_row(
             ui,
-            tr("Lines kept"),
-            Some(tr(
-                "The lines kept to scroll back to and search; older ones are let go.",
-            )),
+            tr("Scrollback"),
+            Some(tr("Lines kept to scroll back through and search.")),
             &mut |ui| {
                 let steps = [
                     1_000, 5_000, 10_000, 20_000, 50_000, 100_000, 500_000, 1_000_000,
@@ -375,19 +368,12 @@ fn text_settings(ui: &mut Ui, settings: &mut Settings) {
                 )
             },
         );
-        widgets::switch_setting(
-            ui,
-            &mut settings.timestamps,
-            tr("Show the time of each line"),
-            Some(tr("The time each line arrived, at its left.")),
-        );
+        widgets::switch_setting(ui, &mut settings.timestamps, tr("Timestamps"), None);
         widgets::switch_setting(
             ui,
             &mut settings.keep_command,
-            tr("Keep the command after sending it"),
-            Some(tr(
-                "It stays selected: Enter sends it again, and typing replaces it.",
-            )),
+            tr("Keep the sent command"),
+            Some(tr("Enter sends it again; typing replaces it.")),
         );
     });
 }
@@ -421,49 +407,44 @@ fn speech_settings(ui: &mut Ui, settings: &mut Settings) {
         widgets::setting_row(ui, tr("Speed"), None, &mut |ui| {
             speed_control(ui, &mut settings.speech_rate)
         });
-        widgets::setting_row(
-            ui,
-            tr("Language of the voice"),
-            Some(tr("The voice the text of the MUD is read with.")),
-            &mut |ui| {
-                let languages = [
-                    ("", tr("The system's")),
-                    ("es", "Español"),
-                    ("en", "English"),
-                    ("ca", "Català"),
-                    ("gl", "Galego"),
-                    ("eu", "Euskara"),
-                    ("pt", "Português"),
-                    ("fr", "Français"),
-                    ("it", "Italiano"),
-                    ("de", "Deutsch"),
-                    ("nl", "Nederlands"),
-                    ("pl", "Polski"),
-                    ("ru", "Русский"),
-                ];
-                let current = settings.speech_language.trim().to_lowercase();
-                let shown = (languages.iter())
-                    .find(|(code, _)| *code == current)
-                    .map_or(current.clone(), |(_, name)| (*name).to_owned());
-                crate::widgets::dropdown("speech language")
-                    .selected_text(shown)
-                    .height(320.0)
-                    .show_ui(ui, |ui| {
-                        for (code, name) in languages {
-                            if crate::widgets::choice(ui, code == current, name).clicked() {
-                                settings.speech_language = code.to_owned();
-                            }
+        widgets::setting_row(ui, tr("Voice language"), None, &mut |ui| {
+            let languages = [
+                ("", tr("The system's")),
+                ("es", "Español"),
+                ("en", "English"),
+                ("ca", "Català"),
+                ("gl", "Galego"),
+                ("eu", "Euskara"),
+                ("pt", "Português"),
+                ("fr", "Français"),
+                ("it", "Italiano"),
+                ("de", "Deutsch"),
+                ("nl", "Nederlands"),
+                ("pl", "Polski"),
+                ("ru", "Русский"),
+            ];
+            let current = settings.speech_language.trim().to_lowercase();
+            let shown = (languages.iter())
+                .find(|(code, _)| *code == current)
+                .map_or(current.clone(), |(_, name)| (*name).to_owned());
+            crate::widgets::dropdown("speech language")
+                .selected_text(shown)
+                .height(320.0)
+                .show_ui(ui, |ui| {
+                    for (code, name) in languages {
+                        if crate::widgets::choice(ui, code == current, name).clicked() {
+                            settings.speech_language = code.to_owned();
                         }
-                    })
-                    .response
-            },
-        );
+                    }
+                })
+                .response
+        });
         widgets::switch_setting(
             ui,
             &mut settings.announce_with_screen_reader,
-            tr("Speak through the screen reader"),
+            tr("Use the screen reader"),
             Some(tr(
-                "Instead of its own voice, Muddie hands each line to the screen reader, which also shows it in braille.",
+                "Instead of Muddie's voice; it also reaches a braille display.",
             )),
         );
     });

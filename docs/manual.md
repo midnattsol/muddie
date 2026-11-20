@@ -52,13 +52,15 @@ list at the left, with their colour, where they lead and a dot on those a
 session plays with, and the one chosen at the right. Its page has its name,
 **Connect**, its menu (duplicate, rename, delete) and three tabs:
 
-- **Connection**: where it connects (host, port, TLS, text encoding) and who
-  to log in as (the character and its password, kept in the system's
-  keyring).
-- **Session**: reconnecting when the connection drops, keeping it alive and
-  how often, logging every session, and fetching the sounds the MUD asks for.
-- **Plugins**: those that come with Muddie, and others, installed with
-  **Install…** from the address of their git repository. Each has a switch
+- **Connection**: the **Server** (host, port, encryption: none, TLS, or TLS
+  without verifying the certificate; and the encoding) and the **Login**
+  (the character, and its password, kept in the system keyring).
+- **Session**: **Auto-reconnect** when the connection drops; **Keep-alive**,
+  off or every so often, so that an idle connection is not closed; the
+  **Session log**, off, as text or as HTML; and **Download sounds** the MUD
+  asks for.
+- **Plugins**: those **Included** with Muddie, and those **Installed**, with
+  **Install from git…** and the address of their git repository. Each has a switch
   that enables it in that profile; its menu has the rest, and **Update all**
   updates them all. Only install what you trust: a plugin can send commands
   as you.
@@ -266,7 +268,7 @@ Muddie itself knows the ways of no MUD in particular: those are plugins, in
 each profile's **Plugins** tab in the Profiles window, switched on and off
 per profile like the ones you install. Two come with it.
 
-- **Common GMCP and MSDP** makes something of what many MUDs send the same
+- **Standard GMCP and MSDP** makes something of what many MUDs send the same
   way: `Char.Vitals` as gauges, `Room.Info` as the map, `Comm.Channel.Text`
   as channels. It is on in a new profile; switched off, the client makes
   nothing of them by itself, and scripts still get them.
@@ -423,14 +425,14 @@ its pages; each profile's are in the Profiles window. A row says what it
 is at the left, with what it does under it when that needs saying, and has
 its control at the right.
 
-- **General**: the language, and the size the interface is drawn at.
+- **General**: the language, and the interface scale.
 - **Appearance**: the theme (Dark, Graphite, Mocha, Dusk, Tokyo Night, Nord,
-  Light, High contrast), and for the text of the MUD its colours, its font
+  Light, High contrast), and for the text of the MUD its palette, its font
   (MesloLGS NF unless another is chosen: JetBrains Mono, which also comes
   with the program, or any monospaced font installed), its size and its line
   spacing, with a sample.
-- **Text**: lines kept, the time of each line, and whether a sent command
-  stays in the command line.
+- **Text**: the scrollback, timestamps, and whether a sent command stays in
+  the command line.
 - **Speech**: the speed and the language of the voice, and whether lines go
   to the screen reader instead.
 
