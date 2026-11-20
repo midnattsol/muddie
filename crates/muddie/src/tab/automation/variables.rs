@@ -1,0 +1,504 @@
+//! The variables scripts keep: listing, adding and changing them, as text
+//! or by their kind.
+
+use super::*;
+
+/// The types a variable can be, by the names a script knows them by,
+/// which are the same in every language.
+pub(in crate::tab) const TYPES: [&str; 5] = ["string", "number", "boolean", "array", "table"];
+
+pub(in crate::tab) const NUMBER: usize = 1;
+
+pub(in crate::tab) const BOOLEAN: usize = 2;
+
+pub(in crate::tab) const ARRAY: usize = 3;
+
+pub(in crate::tab) const TABLE: usize = 4;
+
+/// A variable's value as it is shown to be edited: text as it is, the
+/// rest as JSON writes it.
+pub(in crate::tab) fn shown_value(value: &serde_json::Value) -> String {
+    match value {
+        serde_json::Value::String(text) => text.clone(),
+        serde_json::Value::Array(_) | serde_json::Value::Object(_) => {
+            serde_json::to_string_pretty(value).unwrap_or_default()
+        }
+        other => other.to_string(),
+    }
+}
+
+/// What was typed as a variable's value: a number, true or false, a table
+/// if it reads as one, and text otherwise.
+pub(in crate::tab) fn read_value(typed: &str) -> serde_json::Value {
+    let trimmed = typed.trim();
+    let table = trimmed.starts_with(['{', '[']);
+    let plain =
+        matches!(trimmed, "true" | "false") || trimmed.parse::<f64>().is_ok_and(f64::is_finite);
+    let read = (table || plain)
+        .then(|| serde_json::from_str(trimmed).ok())
+        .flatten();
+    read.unwrap_or_else(|| serde_json::Value::String(typed.to_owned()))
+}
+
+/// Which of [`TYPES`] a value is.
+pub(in crate::tab) fn kind_of(value: &serde_json::Value) -> usize {
+    use serde_json::Value;
+    match value {
+        Value::Number(_) => NUMBER,
+        Value::Bool(_) => BOOLEAN,
+        Value::Array(_) => ARRAY,
+        Value::Object(_) => TABLE,
+        Value::String(_) | Value::Null => 0,
+    }
+}
+
+/// A value as another type, keeping of it what that type can hold.
+pub(in crate::tab) fn converted(value: &serde_json::Value, kind: usize) -> serde_json::Value {
+    use serde_json::Value;
+    let truthy = |value: &Value| match value {
+        Value::Bool(flag) => *flag,
+        Value::Number(number) => number.as_f64() != Some(0.0),
+        Value::String(text) => !matches!(
+            text.trim().to_lowercase().as_str(),
+            "" | "0" | "false" | "no" | "off"
+        ),
+        Value::Array(items) => !items.is_empty(),
+        Value::Object(fields) => !fields.is_empty(),
+        Value::Null => false,
+    };
+    let empty =
+        |value: &Value| matches!(value, Value::String(text) if text.is_empty()) || value.is_null();
+    match kind {
+        NUMBER => {
+            let number = match value {
+                Value::Number(number) => number.as_f64(),
+                Value::String(text) => text.trim().parse().ok(),
+                Value::Bool(flag) => Some(f64::from(u8::from(*flag))),
+                _ => None,
+            };
+            read_value(
+                &number
+                    .filter(|number| number.is_finite())
+                    .unwrap_or(0.0)
+                    .to_string(),
+            )
+        }
+        BOOLEAN => Value::Bool(truthy(value)),
+        ARRAY => match value {
+            Value::Array(_) => value.clone(),
+            Value::Object(fields) => Value::Array(fields.values().cloned().collect()),
+            other if empty(other) => Value::Array(Vec::new()),
+            other => Value::Array(vec![other.clone()]),
+        },
+        TABLE => match value {
+            Value::Object(_) => value.clone(),
+            Value::Array(items) => {
+                let numbered = items
+                    .iter()
+                    .enumerate()
+                    .map(|(place, item)| ((place + 1).to_string(), item.clone()));
+                Value::Object(numbered.collect())
+            }
+            other if empty(other) => Value::Object(serde_json::Map::new()),
+            other => Value::Object([("value".to_owned(), other.clone())].into_iter().collect()),
+        },
+        _ => Value::String(shown_value(value)),
+    }
+}
+
+impl Tab {
+    /// Makes a variable with a name not yet taken and selects it.
+    pub(in crate::tab) fn add_variable(&mut self) {
+        let known: Vec<String> = self
+            .scripts
+            .variables()
+            .into_iter()
+            .map(|(name, _)| name)
+            .collect();
+        let names = (1..).map(|number| {
+            if number == 1 {
+                "variable".to_owned()
+            } else {
+                format!("variable{number}")
+            }
+        });
+        let Some(name) = names.take(500).find(|name| !known.contains(name)) else {
+            return;
+        };
+        if let Err(error) = self
+            .scripts
+            .set_variable(&name, Some(serde_json::Value::String(String::new())))
+        {
+            self.note(&error);
+        }
+        let place = self
+            .scripts
+            .variables()
+            .iter()
+            .position(|(known, _)| *known == name);
+        self.editor.selected[VARIABLES] = place.unwrap_or(0);
+        self.editor.filter.clear();
+    }
+
+    /// Fills what a variable is edited through from its value.
+    pub(in crate::tab) fn load_variable(&mut self, value: &serde_json::Value) {
+        use serde_json::Value;
+        self.editor.variable_kind = kind_of(value);
+        self.editor.variable_text = match value {
+            Value::String(text) => text.clone(),
+            _ => String::new(),
+        };
+        self.editor.variable_number = value.as_f64().unwrap_or(0.0);
+        self.editor.variable_flag = value.as_bool().unwrap_or(false);
+        // The items of an array by their place, the fields of a table by
+        // their key.
+        self.editor.variable_items = match value {
+            Value::Array(items) => items
+                .iter()
+                .map(|item| (String::new(), shown_value(item)))
+                .collect(),
+            Value::Object(fields) => fields
+                .iter()
+                .map(|(key, item)| (key.clone(), shown_value(item)))
+                .collect(),
+            _ => Vec::new(),
+        };
+    }
+
+    /// The value that what is being edited stands for.
+    pub(in crate::tab) fn edited_variable(&self) -> serde_json::Value {
+        use serde_json::Value;
+        match self.editor.variable_kind {
+            NUMBER => {
+                serde_json::Number::from_f64(self.editor.variable_number).map_or(
+                    Value::Null,
+                    |number| {
+                        // A whole number is kept as one, not as 3.0.
+                        let whole = self.editor.variable_number.fract() == 0.0
+                            && self.editor.variable_number.abs() < 9e15;
+                        if whole {
+                            Value::from(self.editor.variable_number as i64)
+                        } else {
+                            Value::Number(number)
+                        }
+                    },
+                )
+            }
+            BOOLEAN => Value::Bool(self.editor.variable_flag),
+            ARRAY => Value::Array(
+                self.editor
+                    .variable_items
+                    .iter()
+                    .map(|(_, text)| read_value(text))
+                    .collect(),
+            ),
+            TABLE => {
+                let fields = (self.editor.variable_items.iter())
+                    .filter(|(key, _)| !key.trim().is_empty())
+                    .map(|(key, text)| (key.trim().to_owned(), read_value(text)));
+                Value::Object(fields.collect())
+            }
+            _ => Value::String(self.editor.variable_text.clone()),
+        }
+    }
+
+    pub(in crate::tab) fn variable_detail(&mut self, ui: &mut egui::Ui, index: usize) -> bool {
+        let theme = theme::current();
+        let variables = self.scripts.variables();
+        let Some((name, value)) = variables.get(index).cloned() else {
+            return false;
+        };
+        if self.editor.variable_loaded.as_ref() != Some(&name) {
+            self.editor.variable_loaded = Some(name.clone());
+            self.editor.variable_name.clone_from(&name);
+            self.load_variable(&value);
+        }
+        let mut delete = false;
+        let mut renamed = false;
+        ui.horizontal(|ui| {
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                delete =
+                    widgets::icon_button(ui, widgets::Icon::Trash, tr("Delete"), false).clicked();
+                let title = TextEdit::singleline(&mut self.editor.variable_name)
+                    .font(egui::FontId::monospace(19.0))
+                    .frame(egui::Frame::NONE)
+                    .desired_width(f32::INFINITY);
+                let field = ui.add(title);
+                ui.ctx().accesskit_node_builder(field.id, |node| {
+                    node.set_label(tr("Name"));
+                });
+                // Renamed once its name is done being typed.
+                renamed = field.lost_focus();
+            });
+        });
+        ui.add(egui::Separator::default().spacing(2.0));
+        let wanted = self.editor.variable_name.trim().to_owned();
+        let is_a_name = wanted.starts_with(|ch: char| ch.is_ascii_alphabetic() || ch == '_')
+            && wanted
+                .chars()
+                .all(|ch| ch.is_ascii_alphanumeric() || ch == '_');
+        let taken = variables.iter().any(|(known, _)| *known == wanted);
+        if wanted != name && !is_a_name {
+            note(
+                ui,
+                tr("A name is made of letters, digits and _, and does not start with a digit."),
+            );
+        } else if wanted != name && taken {
+            note(ui, tr("There is already a variable of that name."));
+        } else if wanted != name && renamed {
+            let moved = (self.scripts.set_variable(&wanted, Some(value.clone())))
+                .and_then(|()| self.scripts.set_variable(&name, None));
+            if let Err(error) = moved {
+                self.note(&error);
+            }
+            self.editor.variable_loaded = Some(wanted.clone());
+            let place = self
+                .scripts
+                .variables()
+                .iter()
+                .position(|(known, _)| *known == wanted);
+            self.editor.selected[VARIABLES] = place.unwrap_or(0);
+            return false;
+        }
+
+        // Its type, by the name a script knows it by.
+        ui.horizontal(|ui| {
+            widgets::caption(ui, tr("Type"));
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if let Some(kind) = widgets::segmented(ui, &TYPES, self.editor.variable_kind) {
+                    // What it held is kept, as far as the new type can hold it.
+                    let held = self.edited_variable();
+                    self.load_variable(&converted(&held, kind));
+                    self.editor.variable_kind = kind;
+                }
+            });
+        });
+        ui.add_space(2.0);
+        widgets::caption(ui, tr("Value"));
+        match self.editor.variable_kind {
+            NUMBER => {
+                let field = ui.add(
+                    crate::widgets::number(&mut self.editor.variable_number)
+                        .speed(1.0)
+                        .max_decimals(6)
+                        .min_decimals(0)
+                        .update_while_editing(false),
+                );
+                ui.ctx().accesskit_node_builder(field.id, |node| {
+                    node.set_label(tr("Value"));
+                });
+                note(ui, tr("Drag it, or click it to type."));
+            }
+            BOOLEAN => {
+                ui.horizontal(|ui| {
+                    widgets::switch(ui, &mut self.editor.variable_flag, tr("Value"));
+                    let said = if self.editor.variable_flag {
+                        "true"
+                    } else {
+                        "false"
+                    };
+                    ui.label(
+                        RichText::new(said)
+                            .font(egui::FontId::monospace(13.5))
+                            .color(theme.text),
+                    );
+                });
+            }
+            ARRAY | TABLE => {
+                let keyed = self.editor.variable_kind == TABLE;
+                let mut removed = None;
+                if self.editor.variable_items.is_empty() {
+                    note(
+                        ui,
+                        if keyed {
+                            tr("No fields yet.")
+                        } else {
+                            tr("No items yet.")
+                        },
+                    );
+                }
+                widgets::group(ui, |ui| {
+                    for (place, (key, text)) in self.editor.variable_items.iter_mut().enumerate() {
+                        ui.horizontal(|ui| {
+                            ui.set_min_height(40.0);
+                            if keyed {
+                                let field = ui.add(
+                                    TextEdit::singleline(key)
+                                        .font(egui::FontId::monospace(13.0))
+                                        .hint_text(RichText::new("key").color(theme.text_faint))
+                                        .margin(egui::Margin::symmetric(9, 6))
+                                        .desired_width(150.0),
+                                );
+                                ui.ctx().accesskit_node_builder(field.id, |node| {
+                                    node.set_label(tr("Key"));
+                                });
+                                ui.label(
+                                    RichText::new("=")
+                                        .font(egui::FontId::monospace(13.0))
+                                        .color(theme.text_faint),
+                                );
+                            } else {
+                                // Counted from one, as a script counts them.
+                                let number = RichText::new(format!("{:>2}", place + 1))
+                                    .font(egui::FontId::monospace(12.5))
+                                    .color(theme.text_faint);
+                                ui.add(Label::new(number).selectable(false));
+                            }
+                            ui.with_layout(
+                                egui::Layout::right_to_left(egui::Align::Center),
+                                |ui| {
+                                    if widgets::close_button(ui, tr("Remove"), 22.0).clicked() {
+                                        removed = Some(place);
+                                    }
+                                    let field = ui.add(
+                                        TextEdit::singleline(text)
+                                            .font(egui::FontId::monospace(13.0))
+                                            .hint_text(
+                                                RichText::new("value").color(theme.text_faint),
+                                            )
+                                            .margin(egui::Margin::symmetric(9, 6))
+                                            .desired_width(f32::INFINITY),
+                                    );
+                                    ui.ctx().accesskit_node_builder(field.id, |node| {
+                                        node.set_label(tr("Value"));
+                                    });
+                                },
+                            );
+                        });
+                    }
+                });
+                if let Some(place) = removed {
+                    self.editor.variable_items.remove(place);
+                }
+                let add = if keyed {
+                    tr("Add a field")
+                } else {
+                    tr("Add an item")
+                };
+                if crate::widgets::button(ui, add).clicked() {
+                    self.editor
+                        .variable_items
+                        .push((String::new(), String::new()));
+                }
+                note(
+                    ui,
+                    tr(
+                        "What reads as a number, true or false is kept as that; the rest as a string. A table inside is written as JSON.",
+                    ),
+                );
+            }
+            _ => {
+                // As tall as what it holds, within reason.
+                let rows = self.editor.variable_text.lines().count().clamp(1, 10);
+                let field = ui.add(
+                    TextEdit::multiline(&mut self.editor.variable_text)
+                        .font(egui::FontId::monospace(13.0))
+                        .margin(egui::Margin::symmetric(12, 9))
+                        .desired_rows(rows)
+                        .desired_width(f32::INFINITY),
+                );
+                ui.ctx().accesskit_node_builder(field.id, |node| {
+                    node.set_label(tr("Value"));
+                });
+            }
+        }
+        // Kept as soon as it is other than what is kept.
+        let after = self.edited_variable();
+        if after != value
+            && let Err(error) = self.scripts.set_variable(&name, Some(after))
+        {
+            self.note(&error);
+        }
+        ui.add_space(8.0);
+        widgets::caption(ui, tr("Usage"));
+        // As it is written, in each of the two places.
+        let (in_commands, in_scripts) = match self.editor.variable_kind {
+            ARRAY => (format!("${name}.1"), format!("vars.{name}[1]")),
+            TABLE => {
+                let key = self
+                    .editor
+                    .variable_items
+                    .first()
+                    .map(|(key, _)| key.trim())
+                    .filter(|key| !key.is_empty())
+                    .unwrap_or("key");
+                (format!("${name}.{key}"), format!("vars.{name}.{key}"))
+            }
+            _ => (format!("${name}"), format!("vars.{name}")),
+        };
+        widgets::group(ui, |ui| {
+            for (place, written) in [
+                (tr("In the commands of a rule"), in_commands),
+                (tr("In a script"), in_scripts),
+            ] {
+                widgets::setting_row(ui, place, &mut |ui| {
+                    let copy = crate::widgets::button(ui, tr("Copy"));
+                    if copy.clicked() {
+                        ui.ctx().copy_text(written.clone());
+                    }
+                    ui.label(
+                        RichText::new(&written)
+                            .font(egui::FontId::monospace(13.0))
+                            .color(theme.text),
+                    );
+                    copy
+                });
+            }
+        });
+        // Where it is kept, which is with the session's profile or nowhere.
+        let kept = match &self.profile {
+            Some(profile) => trf("Saved in profile {0}.", &[profile]),
+            None => tr("This session has no saved profile, so its variables last until it is closed. Save the profile, in Session, Connection, to keep them.").to_owned(),
+        };
+        note(ui, &kept);
+        delete
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn values_are_read_as_what_they_look_like() {
+        use serde_json::json;
+        assert_eq!(read_value(" 42 "), json!(42));
+        assert_eq!(read_value("3.5"), json!(3.5));
+        assert_eq!(read_value("true"), json!(true));
+        assert_eq!(read_value("{\"hp\": 10}"), json!({"hp": 10}));
+        assert_eq!(read_value("[1, 2]"), json!([1, 2]));
+        // What only looks like one of those is text, kept as typed.
+        assert_eq!(read_value("{broken"), json!("{broken"));
+        assert_eq!(read_value("orc chieftain "), json!("orc chieftain "));
+        assert_eq!(read_value("NaN"), json!("NaN"));
+        assert_eq!(read_value(""), json!(""));
+        // And what is shown reads back as what it was.
+        for value in [json!(42), json!(true), json!("orc"), json!({"a": [1, 2]})] {
+            assert_eq!(read_value(&shown_value(&value)), value);
+        }
+    }
+
+    #[test]
+    fn a_variable_changes_type_keeping_what_the_new_one_can_hold() {
+        use serde_json::json;
+        let to = |value: serde_json::Value, kind: usize| converted(&value, kind);
+        assert_eq!(to(json!("12"), NUMBER), json!(12));
+        assert_eq!(to(json!("orc"), NUMBER), json!(0));
+        assert_eq!(to(json!(true), NUMBER), json!(1));
+        assert_eq!(to(json!(7.5), 0), json!("7.5"));
+        assert_eq!(to(json!("no"), BOOLEAN), json!(false));
+        assert_eq!(to(json!("yes"), BOOLEAN), json!(true));
+        assert_eq!(to(json!(0), BOOLEAN), json!(false));
+        assert_eq!(to(json!("orc"), ARRAY), json!(["orc"]));
+        assert_eq!(to(json!(""), ARRAY), json!([]));
+        assert_eq!(to(json!({"a": 1, "b": 2}), ARRAY), json!([1, 2]));
+        assert_eq!(to(json!(["axe", 3]), TABLE), json!({"1": "axe", "2": 3}));
+        assert_eq!(to(json!(5), TABLE), json!({"value": 5}));
+        // Each is the type it was made into, and stays so made again.
+        for kind in 0..TYPES.len() {
+            let made = to(json!("12"), kind);
+            assert_eq!(kind_of(&made), kind);
+            assert_eq!(to(made.clone(), kind), made);
+        }
+    }
+}

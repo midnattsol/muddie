@@ -1,0 +1,72 @@
+//! The details of a timer.
+
+use super::*;
+
+impl Tab {
+    pub(in crate::tab) fn timer_detail(&mut self, ui: &mut egui::Ui, index: usize) -> bool {
+        let groups = self.editor.draft.group_names();
+        let theme = theme::current();
+        let height = self.editor.detail_height;
+        let rule = &mut self.editor.draft.timers[index];
+        let delete = rule_header(ui, &mut rule.name, &mut rule.enabled, tr("Name this timer"));
+        group_row(ui, &mut rule.group, &groups);
+        widgets::caption(ui, tr("When"));
+        ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing.x = 10.0;
+            let current = usize::from(!rule.repeat);
+            if let Some(chosen) = widgets::segmented(ui, &[tr("Every"), tr("Once, after")], current)
+            {
+                rule.repeat = chosen == 0;
+            }
+            let mut seconds = f64::from(rule.tenths) / 10.0;
+            let field = ui.add(
+                crate::widgets::number(&mut seconds)
+                    .range(0.1..=86_400.0)
+                    .speed(0.5)
+                    .max_decimals(1),
+            );
+            ui.ctx().accesskit_node_builder(field.id, |node| {
+                node.set_label(tr("seconds"));
+            });
+            rule.tenths = (seconds * 10.0).round().clamp(1.0, 864_000.0) as u32;
+            ui.label(RichText::new(tr("seconds")).color(theme.text_dim));
+            // Said back in minutes when that is how one thinks of it.
+            if rule.tenths >= 600 {
+                let said = format!("= {}", rule.interval());
+                ui.label(RichText::new(said).color(theme.text_faint));
+            }
+        });
+        let counted = if rule.repeat {
+            tr("Counted from when the session starts or the rules are run again.")
+        } else {
+            tr("Goes off once, that long after the session starts or the rules are run again.")
+        };
+        ui.label(
+            RichText::new(counted)
+                .font(theme::font(Weight::Regular, 11.5))
+                .color(theme.text_faint),
+        );
+        ui.add_space(6.0);
+        let mistake = if rule.lua {
+            self.editor.checks.of(&self.scripts, &rule.script)
+        } else {
+            None
+        };
+        action_block(
+            ui,
+            ActionEdit {
+                lua: &mut rule.lua,
+                commands: &mut rule.send,
+                script: &mut rule.script,
+                matched: false,
+                commands_hint: "save",
+                script_hint: "if gmcp(\"Char.Vitals\").hp < 50 then\n\tsend(\"rest\")\nend",
+                about_commands: tr("One command per line."),
+                about_script: tr("Run each time the timer goes off."),
+            },
+            script_rows(height, 300.0),
+            mistake.as_ref(),
+        );
+        delete
+    }
+}
