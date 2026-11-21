@@ -110,11 +110,13 @@ impl Tab {
         &mut self,
         ui: &mut egui::Ui,
         kind: Kind,
-        depth: usize,
-        (open, active, count): (bool, bool, usize),
+        item: &list::TreeItem,
     ) -> egui::Rect {
-        let line = widgets::folder_row(ui, "", depth, open, active, count);
-        let place = widgets::folder_name_rect(line.rect, depth);
+        let Spot::Folder(path) = &item.spot else {
+            return egui::Rect::NOTHING;
+        };
+        let line = self.folder_look(path, item);
+        let line = widgets::FolderRow { name: "", ..line }.show(ui);
         let taken = self.section_folders(kind);
         let Some(renaming) = &mut self.editor.renaming else {
             return line.rect;
@@ -124,25 +126,9 @@ impl Tab {
         let wrong = name.is_empty()
             || name.contains('/')
             || (target != renaming.path && taken.contains(&target));
-        let theme = theme::current();
         let id = ui.make_persistent_id(("folder name", kind));
-        // Over the line, taking no room of its own in the list.
-        let mut over = ui.new_child(egui::UiBuilder::new().max_rect(place));
-        let field = over.add(
-            TextEdit::singleline(&mut renaming.typed)
-                .id(id)
-                .frame(egui::Frame::NONE)
-                .margin(egui::Margin::symmetric(4, 2))
-                .font(theme::font(Weight::Medium, 13.0))
-                .desired_width(place.width()),
-        );
-        let edge = if wrong { theme.danger } else { theme.accent };
-        ui.painter().rect_stroke(
-            place,
-            egui::CornerRadius::same(6),
-            egui::Stroke::new(1.0, edge),
-            egui::StrokeKind::Inside,
-        );
+        let field =
+            widgets::folder_name_field(ui, line.rect, item.depth, &mut renaming.typed, id, wrong);
         ui.ctx()
             .accesskit_node_builder(field.id, |node| node.set_label(tr("Folder name")));
         if renaming.fresh {
@@ -167,10 +153,18 @@ impl Tab {
             field.request_focus();
         } else if field.lost_focus()
             && let Some(Renaming { path, .. }) = self.editor.renaming.take()
-            && !wrong
-            && target != path
         {
-            self.move_folder(kind, &path, &target);
+            let named = match !wrong && target != path && self.move_folder(kind, &path, &target) {
+                true => target,
+                false => path,
+            };
+            // Named, it is the one chosen, with the keyboard back on it.
+            self.choose_folder(&named);
+            if entered {
+                let spot = Spot::Folder(named);
+                let id = list::item_id(self.editor.section, &spot);
+                ui.memory_mut(|memory| memory.request_focus(id));
+            }
         }
         line.rect
     }
@@ -203,6 +197,136 @@ impl Tab {
             }
         }
         true
+    }
+
+    /// The details of a folder: its name, with where it is, its switch and
+    /// the way to delete it, as a rule's are; then what it holds, and what
+    /// can be done in it.
+    pub(in crate::tab) fn folder_detail(&mut self, ui: &mut egui::Ui, kind: Kind, path: &str) {
+        let theme = theme::current();
+        ui.spacing_mut().item_spacing.y = 10.0;
+        let name = path.rsplit('/').next().unwrap_or(path).to_owned();
+        let mut on = self.editor.draft.folder_on(kind, path);
+        let state = on;
+        let mut delete = false;
+        let id = ui.make_persistent_id("folder header");
+        widgets::right_last(
+            ui,
+            id,
+            &mut (),
+            |_, ui| {
+                let heading = RichText::new(&name)
+                    .font(theme::font(Weight::Semibold, 20.0))
+                    .color(theme.text);
+                ui.add(egui::Label::new(heading).selectable(false));
+            },
+            |_, ui| {
+                off_badge(ui, state);
+                widgets::switch(ui, &mut on, tr("Enabled")).on_hover_text(tr("Enabled"));
+                delete = widgets::icon_button(ui, widgets::Icon::Trash, tr("Delete folder"), false)
+                    .clicked();
+            },
+        );
+        ui.add(egui::Separator::default().spacing(2.0));
+        if on != state {
+            self.editor.draft.set_folder_on(kind, path, on);
+        }
+        let below = format!("{path}/");
+        let things = (self.automation_rows().iter())
+            .filter(|row| row.folder == path || row.folder.starts_with(&below))
+            .count();
+        let folders = (self.section_folders(kind).iter())
+            .filter(|folder| folder.starts_with(&below))
+            .count();
+        let (mut add, mut inside, mut rename) = (false, false, false);
+        widgets::card(
+            ui,
+            Some(widgets::Glyph::Folder),
+            tr("Folder"),
+            |_| {},
+            |ui| {
+                let mut held = trn("{0} item", "{0} items", things as u64);
+                if folders > 0 {
+                    held = format!(
+                        "{held}, {}",
+                        trn("{0} folder", "{0} folders", folders as u64)
+                    );
+                }
+                ui.label(RichText::new(held).color(theme.text));
+                let parent = parent_of(path);
+                if !parent.is_empty() {
+                    widgets::sub_label(ui, &trf("In {0}", &[&parent.replace('/', " / ")]));
+                }
+                note(
+                    ui,
+                    tr(
+                        "Switched off, nothing in it runs. Deleted, what it holds moves to the folder above.",
+                    ),
+                );
+                ui.horizontal_wrapped(|ui| {
+                    add = widgets::button_with(ui, widgets::Glyph::Plus, tr("Add here")).clicked();
+                    inside =
+                        widgets::button_with(ui, widgets::Glyph::Folder, tr("New folder inside"))
+                            .clicked();
+                    rename = widgets::button(ui, tr("Rename")).clicked();
+                });
+            },
+        );
+        if add {
+            self.add_rule();
+        }
+        if inside {
+            self.new_folder(kind, path);
+        }
+        if rename {
+            self.start_renaming(path);
+        }
+        if delete {
+            self.delete_folder(kind, path);
+        }
+    }
+
+    /// Deletes a folder, to be had back for a while: what it held goes to
+    /// the folder it was in, and what is chosen is the line before it.
+    pub(in crate::tab) fn delete_folder(&mut self, kind: Kind, path: &str) {
+        let name = path.rsplit('/').next().unwrap_or(path).to_owned();
+        let what = match kind {
+            Kind::Script => {
+                let dir = self.own_scripts_dir().map(|dir| dir.join(path));
+                let held = (dir.into_iter())
+                    .flat_map(|dir| std::fs::read_dir(dir).into_iter().flatten().flatten())
+                    .map(|entry| {
+                        let entry = entry.path();
+                        let name = match entry.is_dir() {
+                            true => entry.file_name(),
+                            false => entry.file_stem(),
+                        };
+                        name.unwrap_or_default().to_string_lossy().into_owned()
+                    })
+                    .collect();
+                undo::Undone::ScriptFolder(path.to_owned(), held)
+            }
+            _ => undo::Undone::Rules(self.editor.draft.clone()),
+        };
+        let before = (self.editor.visible.iter())
+            .position(|spot| *spot == Spot::Folder(path.to_owned()))
+            .and_then(|at| at.checked_sub(1))
+            .and_then(|at| self.editor.visible.get(at).cloned());
+        self.remove_folder(kind, path);
+        self.editor.undo = Some(undo::Undo {
+            title: name,
+            section: self.editor.section,
+            index: self.editor.selected[self.editor.section],
+            what,
+            since: Instant::now(),
+        });
+        self.editor.folder = None;
+        match before {
+            Some(Spot::Folder(folder)) if self.section_folders(kind).contains(&folder) => {
+                self.choose_folder(&folder)
+            }
+            _ => {}
+        }
     }
 
     /// Takes a folder away; what it held goes to the folder it was in.

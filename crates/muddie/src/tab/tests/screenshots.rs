@@ -328,6 +328,22 @@ fn shows_editor() {
     save(&mut rules, "folder-name");
     let app = rules.state_mut().tab_mut();
     app.editor.renaming = None;
+    // A folder chosen, with its own details.
+    app.editor.folder = Some("Combat".into());
+    rules.run_steps(3);
+    save(&mut rules, "folder");
+    let app = rules.state_mut().tab_mut();
+    app.editor.folder = None;
+    // A new alias in a tall window: its editor takes the room under it,
+    // with its example on its first line.
+    app.editor.section = 1;
+    app.add_rule();
+    rules.set_size(egui::vec2(1500.0, 1200.0));
+    rules.run_steps(6);
+    save(&mut rules, "room");
+    rules.set_size(egui::vec2(1500.0, 900.0));
+    let app = rules.state_mut().tab_mut();
+    app.editor.section = 0;
     let app = rules.state_mut().tab_mut();
     app.scripts
         .set_variable("objetivo", Some(serde_json::json!("orco jefe")))

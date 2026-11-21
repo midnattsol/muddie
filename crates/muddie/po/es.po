@@ -1894,3 +1894,30 @@ msgstr "Ampliar el editor"
 msgid "Tab inserts a tab. To move to the next control, press Escape and then Tab."
 msgstr "Tab inserta una tabulación. Para pasar al siguiente control, pulsa Escape y después Tab."
 
+#, python-brace-format
+msgid "{0} folder"
+msgid_plural "{0} folders"
+msgstr[0] "{0} carpeta"
+msgstr[1] "{0} carpetas"
+
+#, python-brace-format
+msgid "In {0}"
+msgstr "En {0}"
+
+msgid "Switched off, nothing in it runs. Deleted, what it holds moves to the folder above."
+msgstr "Si se desactiva, no se ejecuta nada de su contenido. Si se elimina, su contenido pasa a la carpeta superior."
+
+msgid "Add here"
+msgstr "Añadir aquí"
+
+
+#, python-brace-format
+msgid "level {0}"
+msgstr "nivel {0}"
+
+msgid "expanded"
+msgstr "expandida"
+
+msgid "collapsed"
+msgstr "contraída"
+

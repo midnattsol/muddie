@@ -18,6 +18,9 @@ pub(in crate::tab) enum Undone {
     Rules(crate::rules::Rules),
     Variables(Vec<(String, serde_json::Value)>),
     Scripts(Vec<(PathBuf, String)>),
+    /// A folder of scripts, by its path, and the names of what it held,
+    /// which went to the folder it was in.
+    ScriptFolder(String, Vec<String>),
 }
 
 impl Tab {
@@ -49,6 +52,24 @@ impl Tab {
                 }
                 self.list_scripts();
                 self.run_actions();
+            }
+            Undone::ScriptFolder(path, held) => {
+                let made =
+                    (self.own_scripts_dir()).map(|dir| std::fs::create_dir_all(dir.join(&path)));
+                if let Some(Err(error)) = made {
+                    self.note(&trf(
+                        "Could not make the folder: {0}",
+                        &[&error.to_string()],
+                    ));
+                }
+                let parent = list::parent_of(&path).to_owned();
+                for name in held {
+                    let from = crate::rules::joined(&parent, &name);
+                    self.move_script_files(&from, &crate::rules::joined(&path, &name));
+                }
+                self.list_scripts();
+                self.open_automation(undo.section);
+                return self.choose_folder(&path);
             }
         }
         self.open_automation(undo.section);

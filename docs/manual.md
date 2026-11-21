@@ -195,7 +195,10 @@ The three, and what else there is:
 
 **Folders** keep each section in order: triggers, aliases, macros, timers
 and scripts. Make one with the folder button beside **+**; it is named as it
-is made, and named again from its menu (a right click) or with a double click.
+is made, and named again from its menu (a right click), with a double click
+or with **F2**. A click on a folder chooses it, and its details show what it
+holds, its switch, and buttons to add a rule or a folder in it, to rename it
+and to delete it; a click on its arrow opens or closes it.
 Drag a rule onto a folder to put it there, between two rules to put it in
 their place, or below the list to take it out of every folder; folders are
 dragged into one another the same way, and **Alt+↑** and **Alt+↓** move the
@@ -209,10 +212,13 @@ when a session starts, keeping the variables; under it, when that was done
 and how many failed, and the scripts that failed are marked in the list.
 `/reload` does the same.
 
-The list answers the keys any list does while no field is being typed in:
-**↑** and **↓** choose the one above or below, **Home** and **End** the
-first and the last, **F2** renames the one chosen, **Del** deletes what is
-chosen, and **Ctrl+Z** has it back. Escape leaves a field being typed in
+The list is a tree, and answers the keys a tree does while it has the
+keyboard (Tab stops on it once, at the one chosen) or nothing has:
+**↑** and **↓** go to the line above or below, folders included, **Home**
+and **End** to the first and the last, **←** closes a folder or goes to the
+folder around, **→** opens a folder or goes into it, **Enter** opens or
+closes it, **F2** renames what is chosen, **Del** deletes it, a folder too,
+and **Ctrl+Z** has it back. Escape leaves a field being typed in
 before it leaves the editor. Several things are chosen as in a file manager: **Ctrl+click** adds one or
 takes it away, **Shift+click** chooses all from the one chosen before,
 **Ctrl+A** all that is shown, **Shift+↑** and **Shift+↓** one more, and

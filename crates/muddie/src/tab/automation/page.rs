@@ -7,6 +7,20 @@ use super::*;
 /// read and controls far from their names.
 const DETAIL_WIDTH: f32 = 760.0;
 
+/// A section of the editor by its name.
+pub(in crate::tab) fn section_name(section: usize) -> &'static str {
+    match section {
+        TRIGGERS => tr("Triggers"),
+        ALIASES => tr("Aliases"),
+        MACROS => tr("Macros"),
+        TIMERS => tr("Timers"),
+        GAUGES => tr("Gauges"),
+        VARIABLES => tr("Variables"),
+        SCRIPTS => tr("Scripts"),
+        _ => tr("Incoming data"),
+    }
+}
+
 /// Where the parts of the editor's page go.
 struct Columns {
     sections: egui::Rect,
@@ -71,11 +85,19 @@ impl Tab {
                     .auto_shrink(false)
                     .show(ui, |ui| {
                         ui.set_max_width(ui.available_width().min(DETAIL_WIDTH));
+                        let top = ui.cursor().top();
                         tab.automation_detail(ui);
+                        // What is left empty under the details, for an
+                        // editor of code to take.
+                        let used = ui.cursor().top() - top;
+                        tab.editor.code.spare = ui.clip_rect().height() - used - 12.0;
                     });
             });
         });
-        self.editor.was_typing = ui.memory(|memory| memory.focused().is_some());
+        // An editor of code that gave Tab back after Escape has the
+        // keyboard but is not typed in: Escape again leaves the editor.
+        let focused = ui.memory(|memory| memory.focused());
+        self.editor.was_typing = focused.is_some() && focused != widgets::escaped_editor(ui.ctx());
         self.rules_autosave(ctx, !leaving);
     }
 
@@ -172,20 +194,9 @@ impl Tab {
             self.scripts.variable_count(),
             self.editor.script_files.len(),
         ];
-        let names = [
-            tr("Triggers"),
-            tr("Aliases"),
-            tr("Macros"),
-            tr("Timers"),
-            tr("Gauges"),
-            tr("Variables"),
-            tr("Scripts"),
-        ];
-        let data = (DATA, tr("Incoming data"), self.data_view.seen.len());
-        let rules = names
-            .into_iter()
-            .enumerate()
-            .map(|(section, name)| (section, name, counts[section]));
+        let data = (DATA, section_name(DATA), self.data_view.seen.len());
+        let rules =
+            (0..counts.len()).map(|section| (section, section_name(section), counts[section]));
         for (section, name, count) in rules.chain([data]) {
             // What the rules are made from stands apart from them.
             if section == DATA {
@@ -202,6 +213,7 @@ impl Tab {
             if item.clicked() {
                 self.flush_script();
                 self.editor.section = section;
+                self.editor.folder = None;
                 self.editor.marked.clear();
                 self.editor.sample.clear();
                 self.editor.recording_key = false;

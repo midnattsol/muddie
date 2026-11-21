@@ -20,6 +20,7 @@ mod values;
 mod variables;
 
 pub(super) use folders::{Dragged, Renaming};
+pub(super) use list::Spot;
 pub(super) use scripts::Checks;
 pub(super) use triggers::Extra;
 pub(super) use undo::Undo;
@@ -28,6 +29,7 @@ use crate::rules::{fill, tag_key};
 use crate::theme::Weight;
 use crate::widgets;
 use detail::*;
+use page::section_name;
 use scripts::EXAMPLES;
 use tags::*;
 use values::*;
@@ -64,6 +66,7 @@ impl Tab {
             self.editor.seen = self.rules.clone();
         }
         self.editor.section = section;
+        self.editor.folder = None;
         // Opened with the keyboard, the keyboard goes to the section.
         self.editor.focus_section |= !self.editor.open;
         self.editor.open = true;
@@ -130,9 +133,15 @@ pub(super) struct Editor {
     /// The rows of the current section chosen together, when several are;
     /// the one selected is among them.
     pub(super) marked: Vec<usize>,
-    /// The rows of the current section in the order they were shown, for
-    /// choosing a range of them.
-    pub(super) visible: Vec<usize>,
+    /// The lines of the current section's list in the order they are
+    /// shown, folders and things, for the keys and for choosing a range.
+    pub(super) visible: Vec<Spot>,
+    /// The folder chosen in the current section's list, if a folder is
+    /// what is chosen.
+    pub(super) folder: Option<String>,
+    /// What is chosen was gone to by the keys, and is to be brought into
+    /// sight.
+    pub(super) reveal: bool,
     /// The folders among the profile's scripts, as they were last looked
     /// for on the disk.
     pub(super) script_folders: Vec<String>,
@@ -216,6 +225,8 @@ impl Default for Editor {
             selected: [0; 8],
             marked: Vec::new(),
             visible: Vec::new(),
+            folder: None,
+            reveal: false,
             script_folders: Vec::new(),
             filter: String::new(),
             settle: Default::default(),

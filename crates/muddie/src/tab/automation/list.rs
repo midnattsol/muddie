@@ -22,7 +22,9 @@ pub(in crate::tab) struct Row {
     pub(in crate::tab) problem: bool,
 }
 
-/// Where a row or a folder was drawn, to find what the pointer is over.
+/// A line of the list: a thing, by its place in the section, or a folder,
+/// by its path.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(in crate::tab) enum Spot {
     Row(usize),
     Folder(String),
@@ -103,12 +105,13 @@ impl Tab {
 
     /// Whether the list is narrowed, so that what is in it cannot be put
     /// in order by dragging.
-    fn narrowed(&self) -> bool {
+    pub(in crate::tab) fn narrowed(&self) -> bool {
         !self.editor.filter.trim().is_empty() || self.tag_filter().is_some()
     }
 
     /// The list of the section chosen: the way to add to it and to search
-    /// it, then its folders and what is in them.
+    /// it, then its folders and what is in them, as a tree: one stop of Tab,
+    /// on what is chosen, and the arrows through the rest.
     pub(in crate::tab) fn automation_list(&mut self, ui: &mut egui::Ui) {
         if self.editor.section == DATA {
             return self.data_list(ui);
@@ -120,8 +123,18 @@ impl Tab {
         let folders = kind
             .map(|kind| self.section_folders(kind))
             .unwrap_or_default();
+        let items = self.tree_items(&rows, &folders, kind);
+        self.editor.visible = items.iter().map(|item| item.spot.clone()).collect();
+        // A folder chosen that is no longer shown (deleted, or narrowed
+        // out) gives way to what was chosen in the list before it.
+        if let Some(path) = &self.editor.folder
+            && !self.editor.visible.contains(&Spot::Folder(path.clone()))
+            && self.editor.renaming.is_none()
+        {
+            self.editor.folder = None;
+        }
         self.moved_by_keys(ui, &rows);
-        self.choosing_keys(ui);
+        self.choosing_keys(ui, &items);
         egui::ScrollArea::vertical()
             .auto_shrink(false)
             .show(ui, |ui| {
@@ -129,19 +142,56 @@ impl Tab {
                 if rows.is_empty() && folders.is_empty() && self.empty_list(ui) {
                     self.add_rule();
                 }
-                let mut spots = Vec::new();
-                let tree = Tree {
-                    kind,
-                    rows: &rows,
-                    folders: &folders,
+                let current = self.current_spot();
+                let mut spots = Vec::with_capacity(items.len());
+                // A tree where there are folders, else a list, under the
+                // section's name: a screen reader says where each line is
+                // in it, how deep, and whether a folder is open.
+                let role = match kind {
+                    Some(_) => egui::accesskit::Role::Tree,
+                    None => egui::accesskit::Role::List,
                 };
-                self.branch(ui, &tree, "", true, &mut spots);
-                self.editor.visible = (spots.iter())
-                    .filter_map(|(spot, _)| match spot {
-                        Spot::Row(index) => Some(*index),
-                        Spot::Folder(_) => None,
-                    })
-                    .collect();
+                let whole = egui::UiBuilder::new()
+                    .accessibility_role(role)
+                    .accessibility_label(section_name(self.editor.section));
+                ui.scope_builder(whole, |ui| {
+                    ui.spacing_mut().item_spacing.y = 2.0;
+                    for item in &items {
+                        let here = current.as_ref() == Some(&item.spot);
+                        let rect = match &item.spot {
+                            Spot::Folder(path) => {
+                                let renaming = (self.editor.renaming.as_ref())
+                                    .is_some_and(|named| named.path == *path);
+                                match out_of_sight(ui, widgets::FOLDER_ROW)
+                                    .filter(|_| !renaming && !here)
+                                {
+                                    Some(rect) => rect,
+                                    None => self.folder_line(
+                                        ui,
+                                        kind.unwrap_or(Kind::Trigger),
+                                        path,
+                                        item,
+                                    ),
+                                }
+                            }
+                            Spot::Row(index) => {
+                                let row = &rows[*index];
+                                let tall = match row.detail.is_empty() && row.parts.is_empty() {
+                                    true => widgets::ROW_SHORT,
+                                    false => widgets::ROW_TALL,
+                                };
+                                // Out of sight, only its room is taken: what is
+                                // drawn is what can be seen, and the one chosen,
+                                // which keeps the keyboard.
+                                match out_of_sight(ui, tall).filter(|_| !here) {
+                                    Some(rect) => rect,
+                                    None => self.list_line(ui, row, *index, item),
+                                }
+                            }
+                        };
+                        spots.push((item.spot.clone(), rect));
+                    }
+                });
                 // What is under the last row takes a drop at the top level.
                 let rest = ui.available_rect_before_wrap();
                 ui.allocate_rect(rest, egui::Sense::hover());
@@ -149,88 +199,111 @@ impl Tab {
             });
     }
 
-    /// The folders in `folder`, each with what is in it unless folded, then
-    /// what is in `folder` itself. `on` is whether the folders around it
-    /// are switched on.
-    fn branch(
-        &mut self,
-        ui: &mut egui::Ui,
-        tree: &Tree<'_>,
+    /// What the list shows, in the order it is shown: the folders of each
+    /// folder, each followed by what is in it unless it is folded, then what
+    /// is in the folder itself, with how deep each is, whether it is
+    /// switched on with all around it, and its place among those beside it.
+    /// What each folder holds is counted once for all.
+    pub(in crate::tab) fn tree_items(
+        &self,
+        rows: &[Row],
+        folders: &[String],
+        kind: Option<Kind>,
+    ) -> Vec<TreeItem> {
+        let wanted: Vec<bool> = rows.iter().map(|row| self.wanted(row)).collect();
+        let mut held: std::collections::HashMap<&str, usize> = Default::default();
+        for (row, _) in rows.iter().zip(&wanted).filter(|(_, wanted)| **wanted) {
+            let mut path = row.folder.as_str();
+            while !path.is_empty() {
+                *held.entry(path).or_default() += 1;
+                path = parent_of(path);
+            }
+        }
+        let mut items = Vec::new();
+        let walk = Walk {
+            rows,
+            folders,
+            kind,
+            wanted: &wanted,
+            held: &held,
+        };
+        self.walk(&walk, "", true, 0, &mut items);
+        // Each one's place among those in the same folder.
+        let mut sizes: std::collections::HashMap<String, usize> = Default::default();
+        for item in &items {
+            *sizes.entry(item.parent(rows).to_owned()).or_default() += 1;
+        }
+        let mut seen: std::collections::HashMap<String, usize> = Default::default();
+        for item in &mut items {
+            let parent = item.parent(rows).to_owned();
+            let at = seen.entry(parent.clone()).or_default();
+            *at += 1;
+            item.place = (*at, sizes[&parent]);
+        }
+        items
+    }
+
+    fn walk(
+        &self,
+        walk: &Walk<'_>,
         folder: &str,
         on: bool,
-        spots: &mut Vec<(Spot, egui::Rect)>,
+        depth: usize,
+        items: &mut Vec<TreeItem>,
     ) {
-        let depth = if folder.is_empty() {
-            0
-        } else {
-            folder.matches('/').count() + 1
-        };
-        if let Some(kind) = tree.kind {
-            for path in (tree.folders.iter()).filter(|path| parent_of(path) == folder) {
-                let count = (tree.rows.iter())
-                    .filter(|row| {
-                        row.folder == *path || row.folder.starts_with(&format!("{path}/"))
-                    })
-                    .filter(|row| self.wanted(row))
-                    .count();
+        if let Some(kind) = walk.kind {
+            for path in (walk.folders.iter()).filter(|path| parent_of(path) == folder) {
+                let count = walk.held.get(path.as_str()).copied().unwrap_or(0);
                 if count == 0 && self.narrowed() {
                     continue;
                 }
-                let folder_on = self.editor.draft.folder_on(kind, path);
+                let folder_on = on && self.editor.draft.folder_on(kind, path);
                 let open = !self.editor.folded.contains(&(kind, path.clone())) || self.narrowed();
-                let renaming =
-                    (self.editor.renaming.as_ref()).is_some_and(|named| named.path == *path);
-                let rect = match out_of_sight(ui, widgets::FOLDER_ROW).filter(|_| !renaming) {
-                    Some(rect) => rect,
-                    None => self.folder_line(ui, kind, path, depth, (open, on && folder_on), count),
-                };
-                spots.push((Spot::Folder(path.clone()), rect));
+                items.push(TreeItem {
+                    spot: Spot::Folder(path.clone()),
+                    depth,
+                    active: folder_on,
+                    open,
+                    count,
+                    place: (0, 0),
+                });
                 if open {
-                    self.branch(ui, tree, path, on && folder_on, spots);
+                    self.walk(walk, path, folder_on, depth + 1, items);
                 }
             }
         }
-        for (index, row) in tree.rows.iter().enumerate() {
-            if row.folder == folder && self.wanted(row) {
-                // Out of sight, only its room is taken: what is drawn is
-                // what can be seen, and the one chosen, which keeps the
-                // keyboard.
-                let tall = match row.detail.is_empty() && row.parts.is_empty() {
-                    true => widgets::ROW_SHORT,
-                    false => widgets::ROW_TALL,
-                };
-                let chosen = self.editor.selected[self.editor.section] == index;
-                let hidden = out_of_sight(ui, tall).filter(|_| !chosen);
-                let rect = match hidden {
-                    Some(rect) => rect,
-                    None => {
-                        let tags_on = row.tags.iter().all(|tag| self.editor.draft.tag_on(tag));
-                        self.list_line(ui, row, index, depth, on && row.on && tags_on)
-                    }
-                };
-                spots.push((Spot::Row(index), rect));
+        for (index, row) in walk.rows.iter().enumerate() {
+            if row.folder == folder && walk.wanted[index] {
+                let tags_on = row.tags.iter().all(|tag| self.editor.draft.tag_on(tag));
+                items.push(TreeItem {
+                    spot: Spot::Row(index),
+                    depth,
+                    active: on && row.on && tags_on,
+                    open: false,
+                    count: 0,
+                    place: (0, 0),
+                });
             }
         }
     }
 
-    /// A folder's line: opened and closed by a click, switched by its
-    /// switch, named again from its menu or by a double click, and dragged
-    /// into another. Returns where it is.
+    /// A folder's line: chosen by a click, opened and closed by its arrow,
+    /// by Enter or by the arrows, switched by its switch, named again from
+    /// its menu, by F2 or by a double click, and dragged into another.
+    /// Returns where it is.
     fn folder_line(
         &mut self,
         ui: &mut egui::Ui,
         kind: Kind,
         path: &str,
-        depth: usize,
-        (open, active): (bool, bool),
-        count: usize,
+        item: &TreeItem,
     ) -> egui::Rect {
         let name = path.rsplit('/').next().unwrap_or(path);
         let renaming =
             (self.editor.renaming.as_ref()).is_some_and(|renaming| renaming.path == path);
         let rect = match renaming {
-            true => self.folder_name_field(ui, kind, depth, (open, active, count)),
-            false => self.folder_handles(ui, kind, path, depth, (open, active, count)),
+            true => self.folder_name_field(ui, kind, item),
+            false => self.folder_handles(ui, kind, path, item),
         };
         // The switch, over the right end of the line, named or not.
         let place = egui::Rect::from_center_size(
@@ -249,26 +322,53 @@ impl Tab {
         rect
     }
 
-    /// A folder's line as it usually is: opened and closed by a click,
-    /// named again by a double click or from its menu, and dragged into
-    /// another. Returns where it is.
+    /// The line of a folder as it is drawn, chosen or not.
+    pub(in crate::tab) fn folder_look<'a>(
+        &self,
+        path: &'a str,
+        item: &TreeItem,
+    ) -> widgets::FolderRow<'a> {
+        let spot = Spot::Folder(path.to_owned());
+        let current = self.current_spot().as_ref() == Some(&spot);
+        widgets::FolderRow {
+            name: path.rsplit('/').next().unwrap_or(path),
+            depth: item.depth,
+            open: item.open,
+            active: item.active,
+            count: item.count,
+            selected: self.editor.folder.as_deref() == Some(path),
+            key: Some(item_id(self.editor.section, &spot)),
+            current,
+            place: Some(item.place),
+        }
+    }
+
+    /// A folder's line as it usually is. Returns where it is.
     fn folder_handles(
         &mut self,
         ui: &mut egui::Ui,
         kind: Kind,
         path: &str,
-        depth: usize,
-        (open, active, count): (bool, bool, usize),
+        item: &TreeItem,
     ) -> egui::Rect {
-        let name = path.rsplit('/').next().unwrap_or(path);
-        let line = widgets::folder_row(ui, name, depth, open, active, count);
-        let line = line.interact(egui::Sense::click_and_drag());
+        let line = self.folder_look(path, item).show(ui);
+        self.keep_keys(ui, &line);
+        // Dragged too, without making every line a stop of Tab.
+        let line = line.interact(egui::Sense::CLICK | egui::Sense::DRAG);
         if line.clicked() {
-            let key = (kind, path.to_owned());
-            match self.editor.folded.contains(&key) {
-                true => self.editor.folded.retain(|folded| *folded != key),
-                false => self.editor.folded.push(key),
+            // By the pointer on its arrow, or by the keyboard (Enter, or a
+            // screen reader's action), it opens or closes; anywhere else
+            // the pointer only chooses it.
+            let by_pointer = ui.input(|input| input.pointer.primary_released());
+            let on_arrow = (line.interact_pointer_pos())
+                .is_some_and(|at| at.x < widgets::folder_arrow_end(line.rect, item.depth));
+            if !by_pointer || on_arrow {
+                self.fold(ui.ctx(), kind, path, item.open);
             }
+            self.choose_folder(path);
+        }
+        if line.secondary_clicked() {
+            self.choose_folder(path);
         }
         if line.double_clicked() {
             self.start_renaming(path);
@@ -280,10 +380,43 @@ impl Tab {
         line.rect
     }
 
+    /// Closes a folder that is `open`, or opens it, and says which it now
+    /// is when the keyboard did it: screen readers are not told otherwise.
+    pub(in crate::tab) fn fold(&mut self, ctx: &egui::Context, kind: Kind, path: &str, open: bool) {
+        let key = (kind, path.to_owned());
+        self.editor.folded.retain(|folded| *folded != key);
+        if open {
+            self.editor.folded.push(key);
+        }
+        if widgets::keyboard_in_use(ctx) {
+            self.voice.say_now(widgets::folded_words(!open));
+        }
+    }
+
+    /// While the keyboard is on a line of the list, the arrows are the
+    /// list's, not for going to what is beside it; and the line is brought
+    /// into sight when it was gone to by the keys.
+    fn keep_keys(&mut self, ui: &mut egui::Ui, line: &egui::Response) {
+        if line.has_focus() {
+            let filter = egui::EventFilter {
+                horizontal_arrows: true,
+                vertical_arrows: true,
+                ..Default::default()
+            };
+            ui.memory_mut(|memory| memory.set_focus_lock_filter(line.id, filter));
+        }
+        let here = self
+            .current_spot()
+            .is_some_and(|spot| item_id(self.editor.section, &spot) == line.id);
+        if here && std::mem::take(&mut self.editor.reveal) {
+            line.scroll_to_me(None);
+        }
+    }
+
     /// What can be done with a folder, from its menu.
     fn folder_menu(&mut self, ui: &mut egui::Ui, kind: Kind, path: &str) {
         widgets::menu_width(ui);
-        if widgets::menu_item(ui, tr("Rename"), "").clicked() {
+        if widgets::menu_item(ui, tr("Rename"), "F2").clicked() {
             self.start_renaming(path);
             ui.close();
         }
@@ -292,8 +425,8 @@ impl Tab {
             ui.close();
         }
         widgets::menu_separator(ui);
-        if widgets::menu_item(ui, tr("Delete folder"), "").clicked() {
-            self.remove_folder(kind, path);
+        if widgets::menu_item(ui, tr("Delete folder"), tr("Del")).clicked() {
+            self.delete_folder(kind, path);
             ui.close();
         }
     }
@@ -306,22 +439,27 @@ impl Tab {
         ui: &mut egui::Ui,
         row: &Row,
         index: usize,
-        depth: usize,
-        active: bool,
+        item: &TreeItem,
     ) -> egui::Rect {
         let section = self.editor.section;
         let chosen = self.chosen().contains(&index);
+        let spot = Spot::Row(index);
+        let tree = section_kind(section).is_some();
         let line = widgets::ListRow {
             title: &row.title,
             detail: &row.detail,
             parts: &row.parts,
             tags: &row.tags,
             selected: chosen,
-            active,
-            depth,
+            active: item.active,
+            depth: item.depth,
             problem: row.problem,
+            key: Some(item_id(section, &spot)),
+            current: self.current_spot().as_ref() == Some(&spot),
+            place: tree.then_some(item.place),
         }
         .show(ui);
+        self.keep_keys(ui, &line);
         if line.clicked() {
             self.choose_row(index, ui.input(|input| input.modifiers));
         }
@@ -331,7 +469,7 @@ impl Tab {
         crate::widgets::context_menu_of(&line, |ui| self.row_menu(ui));
         let movable = section != VARIABLES && !self.narrowed();
         if movable {
-            let line = line.interact(egui::Sense::drag());
+            let line = line.interact(egui::Sense::DRAG);
             if line.drag_started() {
                 self.editor.dragged = Some(Dragged::Row(index));
             }
@@ -395,8 +533,12 @@ impl Tab {
         });
     }
 
-    /// The folder of the one chosen, where what is added goes.
+    /// The folder chosen, or the folder of the one chosen: where what is
+    /// added goes.
     pub(in crate::tab) fn chosen_folder(&self) -> String {
+        if let Some(folder) = &self.editor.folder {
+            return folder.clone();
+        }
         let rows = self.automation_rows();
         (rows.get(self.editor.selected[self.editor.section]))
             .map(|row| row.folder.clone())
@@ -450,12 +592,44 @@ impl Tab {
     }
 }
 
-/// A section's tree: its kind, if it has folders, what is in it, and its
-/// folders.
-struct Tree<'a> {
+/// What going through a section's tree needs: its kind, if it has
+/// folders, what is in it and whether each is shown, its folders, and how
+/// many shown each folder holds.
+struct Walk<'a> {
     kind: Option<Kind>,
     rows: &'a [Row],
     folders: &'a [String],
+    wanted: &'a [bool],
+    held: &'a std::collections::HashMap<&'a str, usize>,
+}
+
+/// One line of the list as it is shown: a folder or a thing, how many
+/// folders in, whether it is switched on with all around it, for a folder
+/// whether it is open and how many it holds, and its place among those in
+/// the same folder (counted from 1) and how many they are.
+pub(in crate::tab) struct TreeItem {
+    pub(in crate::tab) spot: Spot,
+    pub(in crate::tab) depth: usize,
+    pub(in crate::tab) active: bool,
+    pub(in crate::tab) open: bool,
+    pub(in crate::tab) count: usize,
+    pub(in crate::tab) place: (usize, usize),
+}
+
+impl TreeItem {
+    /// The folder it is in.
+    pub(in crate::tab) fn parent<'a>(&'a self, rows: &'a [Row]) -> &'a str {
+        match &self.spot {
+            Spot::Folder(path) => parent_of(path),
+            Spot::Row(index) => rows[*index].folder.as_str(),
+        }
+    }
+}
+
+/// The id of a line of the list, the same every frame, for the keyboard
+/// to be put on it.
+pub(in crate::tab) fn item_id(section: usize, spot: &Spot) -> egui::Id {
+    egui::Id::unique("automation item").with((section, spot))
 }
 
 /// The folder a place is in; empty for none.
@@ -522,6 +696,18 @@ fn shown_part(part: Part, text: String) -> (widgets::Glyph, String) {
     }
 }
 
+/// What a rule is called in the list, and wherever it is named: its name,
+/// or what sets it off, or that it is new.
+pub(in crate::tab) fn rule_title<T: crate::rules::When>(
+    rules: &Vec<crate::rules::Rule<T>>,
+    index: usize,
+) -> String {
+    match RuleList::title(rules, index) {
+        title if title.is_empty() => tr(T::NEW).to_owned(),
+        title => title,
+    }
+}
+
 /// The rows of rules of one kind, with what each does in a line.
 fn rule_rows<T: crate::rules::When>(
     rules: &Vec<crate::rules::Rule<T>>,
@@ -529,10 +715,7 @@ fn rule_rows<T: crate::rules::When>(
 ) -> Vec<Row> {
     (0..rules.len())
         .map(|index| {
-            let title = match RuleList::title(rules, index) {
-                title if title.is_empty() => tr(T::NEW).to_owned(),
-                title => title,
-            };
+            let title = rule_title(rules, index);
             let rule = &rules[index];
             let parts: Vec<(widgets::Glyph, String)> = (detail(rule).into_iter())
                 .filter(|(part, text)| *part == Part::Hide || !text.is_empty())

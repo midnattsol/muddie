@@ -8,6 +8,7 @@ impl Tab {
         let recording = self.editor.recording_key;
         let mut toggle = false;
         let delete = self.rule_head(ui, Kind::Macro, index, tr("Macro name"));
+        let name = list::rule_title(&self.editor.draft.macros, index);
         let rule = &mut self.editor.draft.macros[index];
         widgets::card(
             ui,
@@ -70,6 +71,7 @@ impl Tab {
                 about_commands: tr("One command per line, sent as if you had typed them."),
                 about_script: tr("Run when the key is pressed."),
                 sizes: &mut self.editor.code,
+                name,
             },
             mistake.as_ref(),
         );

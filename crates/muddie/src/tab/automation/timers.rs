@@ -6,6 +6,7 @@ impl Tab {
     pub(in crate::tab) fn timer_detail(&mut self, ui: &mut egui::Ui, index: usize) -> bool {
         let theme = theme::current();
         let delete = self.rule_head(ui, Kind::Timer, index, tr("Timer name"));
+        let name = list::rule_title(&self.editor.draft.timers, index);
         let rule = &mut self.editor.draft.timers[index];
         widgets::card(
             ui,
@@ -66,6 +67,7 @@ impl Tab {
                 about_commands: tr("One command per line."),
                 about_script: tr("Run each time the timer goes off."),
                 sizes: &mut self.editor.code,
+                name,
             },
             mistake.as_ref(),
         );

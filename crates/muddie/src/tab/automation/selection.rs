@@ -22,8 +22,11 @@ impl Tab {
     }
 
     /// What is chosen in the current section, in order: those marked, or
-    /// the one selected.
+    /// the one selected; nothing while a folder is chosen.
     pub(in crate::tab) fn chosen(&self) -> Vec<usize> {
+        if self.editor.folder.is_some() {
+            return Vec::new();
+        }
         if self.editor.marked.len() > 1 {
             let mut marked = self.editor.marked.clone();
             marked.sort_unstable();
@@ -40,14 +43,20 @@ impl Tab {
     /// Ctrl, added to or taken from what is chosen; with Shift, all from
     /// the one chosen before to it, in the order they are shown.
     pub(in crate::tab) fn choose_row(&mut self, index: usize, modifiers: Modifiers) {
+        self.editor.folder = None;
         let section = self.editor.section;
         let anchor = self.editor.selected[section];
         let marked = &mut self.editor.marked;
         if modifiers.shift {
-            let visible = &self.editor.visible;
-            let at = |row: usize| visible.iter().position(|&shown| shown == row);
+            let rows: Vec<usize> = (self.editor.visible.iter())
+                .filter_map(|spot| match spot {
+                    Spot::Row(index) => Some(*index),
+                    Spot::Folder(_) => None,
+                })
+                .collect();
+            let at = |row: usize| rows.iter().position(|&shown| shown == row);
             if let (Some(from), Some(to)) = (at(anchor), at(index)) {
-                *marked = visible[from.min(to)..=from.max(to)].to_vec();
+                *marked = rows[from.min(to)..=from.max(to)].to_vec();
             }
         } else if modifiers.command {
             if marked.is_empty() {
@@ -69,13 +78,53 @@ impl Tab {
         self.editor.recording_key = false;
     }
 
-    /// The keys of the list, while no field has them, as in any list:
-    /// the arrows go up and down it, Home and End to its ends; with Shift
-    /// they add the one above or below to what is chosen, and Ctrl+A
-    /// chooses all that is shown; Escape leaves one chosen; Delete deletes
-    /// what is chosen and F2 renames it.
-    pub(in crate::tab) fn choosing_keys(&mut self, ui: &mut egui::Ui) {
-        if ui.memory(|memory| memory.focused().is_some()) {
+    /// Chooses a folder, alone: what is done next is done to it.
+    pub(in crate::tab) fn choose_folder(&mut self, path: &str) {
+        self.editor.folder = Some(path.to_owned());
+        self.editor.marked.clear();
+        self.editor.sample.clear();
+        self.editor.recording_key = false;
+    }
+
+    /// The line of the list that is chosen, and has the keyboard when the
+    /// list has it: the folder chosen, or else the one selected.
+    pub(in crate::tab) fn current_spot(&self) -> Option<Spot> {
+        if let Some(path) = &self.editor.folder {
+            return Some(Spot::Folder(path.clone()));
+        }
+        let selected = self.editor.selected[self.editor.section];
+        (selected < self.section_len()).then_some(Spot::Row(selected))
+    }
+
+    /// Chooses a line, as the plain arrows do, and puts the keyboard on it
+    /// if it was in the list.
+    fn go_to_line(&mut self, ui: &mut egui::Ui, spot: &Spot, keyboard: bool) {
+        match spot {
+            Spot::Row(index) => self.choose_row(*index, Modifiers::NONE),
+            Spot::Folder(path) => self.choose_folder(path),
+        }
+        self.editor.reveal = true;
+        if keyboard {
+            let id = list::item_id(self.editor.section, spot);
+            ui.memory_mut(|memory| memory.request_focus(id));
+        }
+    }
+
+    /// The keys of the list, while it has the keyboard or nothing does, as
+    /// in any tree: the arrows go up and down it, Home and End to its ends,
+    /// the left one closes a folder or goes to the one around, the right
+    /// one opens it or goes into it; with Shift, the arrows choose more;
+    /// Ctrl+A chooses all that is shown; Escape leaves one chosen; Delete
+    /// deletes what is chosen, a folder too, and F2 renames it.
+    pub(in crate::tab) fn choosing_keys(&mut self, ui: &mut egui::Ui, items: &[list::TreeItem]) {
+        let current = self.current_spot();
+        let section = self.editor.section;
+        let focused = ui.memory(|memory| memory.focused());
+        let keyboard = focused.is_some();
+        let ours = current
+            .as_ref()
+            .is_some_and(|spot| focused == Some(list::item_id(section, spot)));
+        if keyboard && !ours {
             return;
         }
         // Those with Shift first: without it, the plain ones would take
@@ -93,16 +142,33 @@ impl Tab {
             pressed(Key::Home),
             pressed(Key::End),
         );
+        let (left, right) = (pressed(Key::ArrowLeft), pressed(Key::ArrowRight));
         let (delete, rename) = (pressed(Key::Delete), pressed(Key::F2));
         let all = ui.input_mut(|input| input.consume_key(Modifiers::COMMAND, Key::A));
         let back = self.editor.marked.len() > 1
             && ui.input_mut(|input| input.consume_key(Modifiers::NONE, Key::Escape));
         let visible = self.editor.visible.clone();
-        if all && visible.len() > 1 {
-            self.editor.marked = visible.clone();
+        let rows: Vec<usize> = (visible.iter())
+            .filter_map(|spot| match spot {
+                Spot::Row(index) => Some(*index),
+                Spot::Folder(_) => None,
+            })
+            .collect();
+        if all && rows.len() > 1 {
+            self.editor.folder = None;
+            self.editor.marked = rows.clone();
         }
         if back {
             self.editor.marked.clear();
+        }
+        let kind = section_kind(section);
+        if let (Some(Spot::Folder(path)), Some(kind)) = (&current, kind) {
+            if delete {
+                return self.delete_folder(kind, path);
+            }
+            if rename {
+                return self.start_renaming(path);
+            }
         }
         if delete && !self.chosen().is_empty() {
             self.delete_chosen();
@@ -112,13 +178,43 @@ impl Tab {
         if rename && self.chosen().len() == 1 {
             self.editor.rename = true;
         }
-        let chosen = self.chosen();
-        let at = |row: usize| visible.iter().position(|&shown| shown == row);
-        let shown: Vec<usize> = chosen.iter().filter_map(|&row| at(row)).collect();
-        let (first, last) = (shown.iter().min().copied(), shown.iter().max().copied());
-        let current = at(self.editor.selected[self.editor.section]);
-        // Going: to the one above or below the one selected, or to an end.
-        let to = match (up, down, home, end, current) {
+        let at = current
+            .as_ref()
+            .and_then(|spot| visible.iter().position(|shown| shown == spot));
+        // Left and right: a folder closed or opened, or the one around, or
+        // the first in it.
+        if left || right {
+            let Some(at) = at else { return };
+            let item = &items[at];
+            match (&item.spot, kind) {
+                (Spot::Folder(path), Some(kind)) if left && item.open && !self.narrowed() => {
+                    self.fold(ui.ctx(), kind, path, true)
+                }
+                (Spot::Folder(path), Some(kind)) if right && !item.open => {
+                    self.fold(ui.ctx(), kind, path, false)
+                }
+                (Spot::Folder(_), _) if right => {
+                    if let Some(next) = items.get(at + 1).filter(|next| next.depth > item.depth) {
+                        let spot = next.spot.clone();
+                        self.go_to_line(ui, &spot, keyboard);
+                    }
+                }
+                _ if left => {
+                    let around = items[..at]
+                        .iter()
+                        .rev()
+                        .find(|before| before.depth < item.depth);
+                    if let Some(around) = around {
+                        let spot = around.spot.clone();
+                        self.go_to_line(ui, &spot, keyboard);
+                    }
+                }
+                _ => {}
+            }
+            return;
+        }
+        // Going: to the one above or below the one chosen, or to an end.
+        let to = match (up, down, home, end, at) {
             (true, _, _, _, Some(at)) => Some(at.saturating_sub(1)),
             (_, true, _, _, Some(at)) => Some((at + 1).min(visible.len().saturating_sub(1))),
             (_, _, true, _, _) => Some(0),
@@ -126,14 +222,22 @@ impl Tab {
             (true, _, _, _, None) | (_, true, _, _, None) => Some(0),
             _ => None,
         };
-        if let Some(&row) = to.and_then(|to| visible.get(to)) {
-            self.choose_row(row, Modifiers::NONE);
+        if let Some(spot) = to.and_then(|to| visible.get(to)) {
+            self.go_to_line(ui, spot, keyboard);
             return;
         }
-        // Widening: what is chosen, and the one above or below it.
+        // Widening: what is chosen, and the one above or below it, of the
+        // things, not the folders.
+        if self.editor.folder.is_some() {
+            return;
+        }
+        let chosen = self.chosen();
+        let place = |row: usize| rows.iter().position(|&shown| shown == row);
+        let shown: Vec<usize> = chosen.iter().filter_map(|&row| place(row)).collect();
+        let (first, last) = (shown.iter().min().copied(), shown.iter().max().copied());
         let added = match (first, last, wider_up, wider_down) {
-            (Some(first), _, true, _) if first > 0 => Some(visible[first - 1]),
-            (_, Some(last), _, true) => visible.get(last + 1).copied(),
+            (Some(first), _, true, _) if first > 0 => Some(rows[first - 1]),
+            (_, Some(last), _, true) => rows.get(last + 1).copied(),
             _ => None,
         };
         if let Some(row) = added {

@@ -723,7 +723,8 @@ fn the_editor_of_what_a_rule_does_opens_larger() {
     harness.run_steps(4);
     assert!(harness.state().tab().editor.code.expanded);
     let dialog = harness.get_by_role(egui::accesskit::Role::Dialog);
-    assert_eq!(dialog.accesskit_node().label().as_deref(), Some("Commands"));
+    let title = dialog.accesskit_node().label();
+    assert_eq!(title.as_deref(), Some("Commands · New trigger"));
     let editors = harness.query_all_by_label("Commands").collect::<Vec<_>>();
     let typing = editors
         .iter()
@@ -765,4 +766,201 @@ fn escape_and_tab_leave_an_editor_of_code_for_what_is_next() {
     assert_eq!(harness.state().tab().editor.draft.triggers[0].send, "\t");
     let grip = harness.get_by_label("Editor height");
     assert!(grip.accesskit_node().is_focused());
+}
+
+/// A list with a folder holding two aliases, and one outside it.
+fn list_with_a_folder<'a>() -> Harness<'a, App> {
+    let mut harness = window(None);
+    harness.set_size(egui::vec2(1400.0, 900.0));
+    let app = harness.state_mut().tab_mut();
+    for (name, folder) in [("Alpha", "Travel"), ("Beta", "Travel"), ("Gamma", "")] {
+        app.rules.aliases.push(alias(&name.to_lowercase(), |rule| {
+            rule.name = name.into();
+            rule.folder = folder.into();
+        }));
+    }
+    app.open_automation(automation::ALIASES);
+    harness.run_steps(3);
+    harness
+}
+
+/// A folder is chosen as a thing of the list is, by a click on it, and
+/// then shows its own details; its arrow opens and closes it.
+#[test]
+fn a_folder_is_chosen_by_a_click_and_shows_its_details() {
+    let mut harness = list_with_a_folder();
+    let folder = harness.get_by_role_and_label(egui::accesskit::Role::TreeItem, "Travel");
+    folder.click();
+    harness.run_steps(3);
+    let app = harness.state().tab();
+    assert_eq!(app.editor.folder.as_deref(), Some("Travel"));
+    assert!(app.chosen().is_empty(), "no rule is chosen with it");
+    let folder = harness.get_by_role_and_label(egui::accesskit::Role::TreeItem, "Travel");
+    assert_eq!(folder.accesskit_node().is_selected(), Some(true));
+    assert_eq!(folder.accesskit_node().level(), Some(1));
+    harness.get_by_label("2 items");
+    harness.get_by_label("Add here");
+    // It is still open: a click on its name does not close it.
+    assert!(harness.state().tab().editor.folded.is_empty());
+    // Its arrow closes it.
+    let arrow = folder.rect().left_center() + egui::vec2(12.0, 0.0);
+    harness.hover_at(arrow);
+    for pressed in [true, false] {
+        harness.event(egui::Event::PointerButton {
+            pos: arrow,
+            button: egui::PointerButton::Primary,
+            pressed,
+            modifiers: Modifiers::NONE,
+        });
+    }
+    harness.run_steps(3);
+    assert_eq!(harness.state().tab().editor.folded.len(), 1);
+}
+
+/// The list is one stop of Tab, as a tree is: the arrows go through its
+/// folders and its things, left and right close and open a folder and go
+/// out of it, Delete deletes a folder, to be had back, and F2 names it.
+#[test]
+fn the_keys_go_through_folders_as_through_a_tree() {
+    let mut harness = list_with_a_folder();
+    let tree = egui::accesskit::Role::TreeItem;
+    // Only the one chosen is stopped at by Tab.
+    let app = harness.state_mut().tab_mut();
+    app.editor.selected[automation::ALIASES] = 2;
+    harness.run_steps(2);
+    let stops = harness
+        .query_all_by_role(tree)
+        .filter(|node| {
+            (node.accesskit_node().data()).supports_action(egui::accesskit::Action::Focus)
+        })
+        .count();
+    assert_eq!(stops, 1);
+    harness.get_by_role_and_label(tree, "Gamma").focus();
+    harness.run_steps(2);
+    let on = |harness: &Harness<'_, App>, name: &str| {
+        harness
+            .get_by_role_and_label(egui::accesskit::Role::TreeItem, name)
+            .accesskit_node()
+            .is_focused()
+    };
+    // Up, from Gamma: Beta, Alpha, then the folder, with the keyboard.
+    for name in ["Beta", "Alpha", "Travel"] {
+        harness.key_press(Key::ArrowUp);
+        harness.run_steps(2);
+        assert!(on(&harness, name), "the keyboard is not on {name}");
+    }
+    assert_eq!(
+        harness.state().tab().editor.folder.as_deref(),
+        Some("Travel")
+    );
+    // Left closes it; Down then skips what is in it.
+    harness.key_press(Key::ArrowLeft);
+    harness.run_steps(2);
+    assert_eq!(harness.state().tab().editor.folded.len(), 1);
+    harness.key_press(Key::ArrowDown);
+    harness.run_steps(2);
+    assert!(on(&harness, "Gamma"));
+    // Back up, Right opens it, and Right again goes into it.
+    harness.key_press(Key::ArrowUp);
+    harness.key_press(Key::ArrowRight);
+    harness.run_steps(2);
+    assert!(harness.state().tab().editor.folded.is_empty());
+    harness.key_press(Key::ArrowRight);
+    harness.run_steps(2);
+    assert!(on(&harness, "Alpha"));
+    // Left from in it goes to the folder.
+    harness.key_press(Key::ArrowLeft);
+    harness.run_steps(2);
+    assert!(on(&harness, "Travel"));
+    // F2 names it.
+    harness.key_press(Key::F2);
+    harness.run_steps(2);
+    harness.get_by_label("Folder name").type_text("Roads");
+    harness.key_press(Key::Enter);
+    harness.run_steps(3);
+    let app = harness.state().tab();
+    assert_eq!(app.section_folders(Kind::Alias), ["Roads"]);
+    assert_eq!(app.editor.folder.as_deref(), Some("Roads"));
+    assert!(on(&harness, "Roads"), "the keyboard is back on the folder");
+    // Delete deletes it; what it held is kept, out of it, to be had back.
+    harness.key_press(Key::Delete);
+    harness.run_steps(3);
+    let app = harness.state().tab();
+    assert!(app.section_folders(Kind::Alias).is_empty());
+    assert!(
+        app.editor
+            .draft
+            .aliases
+            .iter()
+            .all(|rule| rule.folder.is_empty())
+    );
+    harness.key_press_modifiers(Modifiers::COMMAND, Key::Z);
+    harness.run_steps(3);
+    let app = harness.state().tab();
+    assert_eq!(app.section_folders(Kind::Alias), ["Roads"]);
+}
+
+/// A new folder's name is typed in a field centred on its line.
+#[test]
+fn a_new_folders_name_is_typed_on_its_line() {
+    let mut harness = list_with_a_folder();
+    harness.get_by_label("New folder").click();
+    harness.run_steps(3);
+    let field = harness.get_by_label("Folder name");
+    let line = harness
+        .query_all_by_role(egui::accesskit::Role::TreeItem)
+        .find(|node| {
+            node.accesskit_node().data().is_expanded().is_some()
+                && node.rect().intersects(field.rect())
+        })
+        .expect("the field is on a folder's line")
+        .rect();
+    let (field, line) = (field.rect(), line);
+    assert!(
+        (field.center().y - line.center().y).abs() < 1.0,
+        "{field:?} {line:?}"
+    );
+}
+
+/// Where there is room under the page, the editor of what a rule does
+/// takes it, and the page is not scrolled for it.
+#[test]
+fn the_editor_of_code_takes_the_room_under_the_page() {
+    let mut harness = window(None);
+    harness.set_size(egui::vec2(1400.0, 1400.0));
+    let app = harness.state_mut().tab_mut();
+    app.open_automation(automation::ALIASES);
+    app.add_rule();
+    harness.run_steps(6);
+    let typing = egui::accesskit::Role::MultilineTextInput;
+    let editor = harness.get_by_role_and_label(typing, "Commands").rect();
+    assert!(editor.height() > 400.0, "{}", editor.height());
+    let grip = harness.get_by_label("Editor height").rect();
+    assert!(grip.bottom() < 1400.0);
+    // In a short window it is as tall as what it holds.
+    harness.set_size(egui::vec2(1400.0, 700.0));
+    harness.run_steps(6);
+    let editor = harness.get_by_role_and_label(typing, "Commands").rect();
+    assert!(editor.height() < 100.0, "{}", editor.height());
+}
+
+/// From an editor of code Escape gives Tab back, and Escape again leaves
+/// the editor, as from anywhere else.
+#[test]
+fn escape_twice_from_an_editor_of_code_leaves_the_editor() {
+    let mut harness = window(None);
+    harness.set_size(egui::vec2(1400.0, 900.0));
+    let app = harness.state_mut().tab_mut();
+    app.open_automation(automation::ALIASES);
+    app.add_rule();
+    harness.run_steps(3);
+    let typing = egui::accesskit::Role::MultilineTextInput;
+    harness.get_by_role_and_label(typing, "Commands").focus();
+    harness.run_steps(2);
+    harness.key_press(Key::Escape);
+    harness.run_steps(2);
+    assert!(harness.state().tab().editor.open);
+    harness.key_press(Key::Escape);
+    harness.run_steps(2);
+    assert!(!harness.state().tab().editor.open);
 }

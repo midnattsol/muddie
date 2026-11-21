@@ -207,11 +207,6 @@ fn code_body(
         let output = TextEdit::multiline(value)
             .id(id)
             .font(font.clone())
-            .hint_text(
-                RichText::new(hint)
-                    .font(font.clone())
-                    .color(theme.text_faint),
-            )
             .margin(margin)
             .desired_rows(rows.max(lines + 1))
             .lock_focus(!escaped)
@@ -220,6 +215,20 @@ fn code_body(
             .show(ui);
         // Inside what scrolls, so that the numbers scroll with the lines.
         line_numbers(ui, &output, gutter, mistake);
+        // While it is empty, an example in its place, where the first line
+        // is: on the line numbered 1.
+        if value.is_empty() {
+            let mut job = egui::text::LayoutJob::simple(
+                hint.to_owned(),
+                font.clone(),
+                theme.text_faint,
+                output.galley.rect.width().max(1.0),
+            );
+            job.wrap.max_width = output.response.response.rect.width() - gutter - 12.0;
+            let example = ui.fonts_mut(|fonts| fonts.layout_job(job));
+            let painter = ui.painter().with_clip_rect(output.response.response.rect);
+            painter.galley(output.galley_pos, example, theme.text_faint);
+        }
         output
     };
     let output = match most {
@@ -249,14 +258,37 @@ fn code_body(
     if now_escaped != escaped {
         ui.data_mut(|data| data.insert_temp(escaped_id, now_escaped));
     }
+    // Which editor has given Tab back, kept as an Option so that it can be
+    // cleared.
+    let freed = escaped_editor_id();
+    let known = ui
+        .data(|data| data.get_temp::<Option<egui::Id>>(freed))
+        .flatten();
+    if now_escaped {
+        ui.data_mut(|data| data.insert_temp(freed, Some(response.id)));
+    } else if known == Some(response.id) {
+        ui.data_mut(|data| data.insert_temp::<Option<egui::Id>>(freed, None));
+    }
     let how = crate::i18n::tr(
         "Tab inserts a tab. To move to the next control, press Escape and then Tab.",
     );
     ui.ctx().accesskit_node_builder(response.id, |node| {
         node.set_label(label);
         node.set_description(how);
+        node.set_placeholder(hint);
     });
     response
+}
+
+/// The editor of code which has the keyboard but has given Tab back,
+/// after Escape: the keyboard is in it, but it is not being typed in.
+pub fn escaped_editor(ctx: &egui::Context) -> Option<egui::Id> {
+    ctx.data(|data| data.get_temp::<Option<egui::Id>>(escaped_editor_id()))
+        .flatten()
+}
+
+fn escaped_editor_id() -> egui::Id {
+    egui::Id::unique("escaped code editor")
 }
 
 /// The margin above and below the lines of a [`code_editor`], together.
@@ -284,11 +316,14 @@ fn mistake_line(ui: &mut Ui, mistake: Option<&(usize, String)>) {
 }
 
 /// A [`code_editor`] which fits what it holds, from `language`'s fewest
-/// lines to [`MOST_LINES`], until it is made taller or shorter with the
-/// grip under it: dragged, or with the arrow keys once Tab is on it. A
-/// double click, or Home, gives it back its own height. `height` is the
-/// height it was made, 0 while it fits what it holds. Returns what to say
-/// when the keyboard changed it.
+/// lines to [`MOST_LINES`], and takes the room `spare` under the page it is
+/// on, which is what was left empty the frame before: what it holds is seen
+/// at once where there is room for it. Until it is made taller or shorter
+/// with the grip under it: dragged, or with the arrow keys once Tab is on
+/// it. A double click, or Home, gives it back its own height. `height` is
+/// the height it was made, 0 while it is its own. Returns what to say when
+/// the keyboard changed it.
+#[allow(clippy::too_many_arguments)]
 pub fn sizable_code_editor(
     ui: &mut Ui,
     label: &str,
@@ -296,32 +331,42 @@ pub fn sizable_code_editor(
     hint: &str,
     language: Language,
     height: &mut f32,
+    spare: f32,
     mistake: Option<&(usize, String)>,
 ) -> (Response, Option<String>) {
     let fewest = language.fewest_lines();
+    let line = code_line(ui);
+    let lines = value.split('\n').count();
+    let rows = |points: f32| (((points - CODE_EDGE) / line).floor() as usize).max(1);
+    let grip_id = ui.make_persistent_id(("code grip", label));
+    // Its own height: what it holds, or the room it had and what was left
+    // empty under the page, whichever is more.
+    let fit = (lines + 1).clamp(fewest, MOST_LINES);
+    let had = ui.data(|data| data.get_temp::<usize>(grip_id.with("shown")));
+    // Half a point over, so that a page which just fits is not taken for
+    // one a line short.
+    let room = had.map_or(0, |had| rows(had as f32 * line + CODE_EDGE + spare + 0.5));
+    let own = fit.max(room);
+    if had.is_some_and(|had| had != own) && *height <= 0.0 {
+        ui.ctx()
+            .request_discard("an editor of code took the room under it");
+    }
+    ui.data_mut(|data| data.insert_temp(grip_id.with("shown"), own));
     let size = match *height > 0.0 {
         true => CodeHeight::Fixed(*height),
         false => CodeHeight::Auto {
-            fewest,
-            most: MOST_LINES,
+            fewest: own,
+            most: own.max(MOST_LINES),
         },
     };
     let response = code_body(ui, label, value, hint, language, size, mistake);
-    let line = code_line(ui);
-    let lines = value.split('\n').count();
-    let shown = match *height > 0.0 {
-        true => *height,
-        false => (lines + 1).clamp(fewest, MOST_LINES) as f32 * line + CODE_EDGE,
+    let shown_rows = match *height > 0.0 {
+        true => rows(*height),
+        false => (lines + 1).clamp(own, own.max(MOST_LINES)),
     };
-    let rows = |points: f32| (((points - CODE_EDGE) / line).floor() as usize).max(1);
+    let shown = shown_rows as f32 * line + CODE_EDGE;
     let (rect, _) = ui.allocate_exact_size(vec2(ui.available_width(), 12.0), Sense::hover());
-    let grip = super::edge(
-        ui,
-        rect,
-        response.id.with("height"),
-        crate::i18n::tr("Editor height"),
-        false,
-    );
+    let grip = super::edge(ui, rect, grip_id, crate::i18n::tr("Editor height"), false);
     let mut said = None;
     if grip.moved != 0.0 {
         let by = match grip.by_keys {
@@ -343,7 +388,7 @@ pub fn sizable_code_editor(
     }
     let count = match *height > 0.0 {
         true => rows(*height),
-        false => (lines + 1).clamp(fewest, MOST_LINES),
+        false => shown_rows,
     };
     // How tall it is, in words: a number alone, as a value, would be read
     // as a percentage of the most it can be, which means nothing here.
@@ -413,8 +458,11 @@ fn line_numbers(
         .filter(|_| output.response.has_focus())
         .map(|range| output.galley.layout_from_cursor(range.primary).row);
     let (mut number, mut first_row) = (1, true);
+    // An empty line has no height of its own: it is as tall as any other.
+    let tall = code_line(ui);
     for (index, row) in output.galley.rows.iter().enumerate() {
         let placed = row.rect().translate(output.galley_pos.to_vec2());
+        let placed = placed.with_max_y(placed.top() + placed.height().max(tall));
         let current = writing == Some(index);
         if current {
             let band = egui::Rect::from_x_y_ranges(rect.x_range().shrink(1.0), placed.y_range());
@@ -453,6 +501,8 @@ fn line_numbers(
 pub struct CodeSizes {
     pub heights: [f32; 2],
     pub expanded: bool,
+    /// The room left empty under the page they are on, the frame before.
+    pub spare: f32,
 }
 
 /// What a [`code_editor`] holds, for its colours.

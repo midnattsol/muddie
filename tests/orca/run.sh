@@ -173,6 +173,33 @@ expect "the grip says, once, how tall the editor has been made" "SPEECH OUTPUT: 
 keys ctrl+e
 sleep 1
 
+# The list is a tree: a new folder is named where it is, and then has
+# the keyboard; the arrows go through the folder and the rule.
+remember
+keys ctrl+e
+sleep 1
+for _ in $(seq 25); do
+    since | grep -aqF "New folder button" && break
+    keys Tab
+    sleep 0.3
+done
+keys Return
+expect "a new folder's name is ready to be typed" "Folder name"
+type_text "Roads"
+keys Return
+expect "the folder named has the keyboard" "Roads"
+remember
+keys Down
+expect "Down goes to the rule after the folder" "New trigger"
+remember
+keys Up
+expect "Up goes back to the folder, and says it is open" "SPEECH OUTPUT: 'expanded, 0 items'"
+remember
+keys Left
+expect "Left closes the folder, and says so" "SPEECH OUTPUT: 'collapsed'"
+keys ctrl+e
+sleep 1
+
 # A screen reader started while Muddie runs is found, and said.
 kill -9 "$orca_pid"
 sleep 2

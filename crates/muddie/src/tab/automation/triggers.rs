@@ -33,6 +33,7 @@ impl Tab {
 
     /// What it does: its commands, or its script, checked as it is typed.
     fn trigger_does(&mut self, ui: &mut egui::Ui, index: usize) {
+        let name = list::rule_title(&self.editor.draft.triggers, index);
         let rule = &mut self.editor.draft.triggers[index];
         let mistake = if rule.lua {
             self.editor.checks.of(&self.scripts, &rule.script)
@@ -51,6 +52,7 @@ impl Tab {
                 about_commands: tr("One command per line. %1, %2… are the groups of the pattern."),
                 about_script: tr("m holds the match, line the whole line."),
                 sizes: &mut self.editor.code,
+                name,
             },
             mistake.as_ref(),
         );

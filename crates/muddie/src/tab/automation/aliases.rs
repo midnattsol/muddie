@@ -47,6 +47,7 @@ impl Tab {
                 });
             },
         );
+        let name = list::rule_title(&self.editor.draft.aliases, index);
         let rule = &mut self.editor.draft.aliases[index];
         let mistake = if rule.lua {
             self.editor.checks.of(&self.scripts, &rule.script)
@@ -65,6 +66,7 @@ impl Tab {
                 about_commands: tr("One command per line. %1 stands for what follows the word."),
                 about_script: tr("m holds the match, input what was typed."),
                 sizes: &mut self.editor.code,
+                name,
             },
             mistake.as_ref(),
         );

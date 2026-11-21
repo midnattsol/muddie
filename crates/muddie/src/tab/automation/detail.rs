@@ -32,6 +32,8 @@ pub(in crate::tab) struct ActionEdit<'a> {
     pub(in crate::tab) about_script: &'a str,
     /// How tall its editor was made, and whether it is open larger.
     pub(in crate::tab) sizes: &'a mut widgets::CodeSizes,
+    /// The rule's name, for the heading of its editor open larger.
+    pub(in crate::tab) name: String,
 }
 
 /// The part of a rule that says what it does, the same for triggers,
@@ -55,6 +57,7 @@ pub(in crate::tab) fn action_block(
         about_commands,
         about_script,
         sizes,
+        name,
     } = action;
     let mut expand = None;
     let said = widgets::card(
@@ -101,8 +104,10 @@ pub(in crate::tab) fn action_block(
                 ),
             };
             let height = &mut sizes.heights[language.slot()];
-            let (_, said) =
-                widgets::sizable_code_editor(ui, label, value, hint, language, height, mistake);
+            let spare = sizes.spare;
+            let (_, said) = widgets::sizable_code_editor(
+                ui, label, value, hint, language, height, spare, mistake,
+            );
             note(ui, about);
             said
         },
@@ -124,12 +129,16 @@ pub(in crate::tab) fn action_block(
     };
     // As large as the window lets it be, less the dialog's heading and
     // margins.
+    let title = match name.trim() {
+        "" => label.to_owned(),
+        name => format!("{label} · {name}"),
+    };
     let screen = ui.ctx().content_rect();
     let tall = (screen.height() - 190.0).max(160.0);
     widgets::dialog(
         ui.ctx(),
         "expanded editor",
-        label,
+        &title,
         &mut sizes.expanded,
         screen.width() - 120.0,
         |ui| {
@@ -529,6 +538,9 @@ impl Tab {
         }
         let section = self.editor.section;
         let index = self.editor.selected[section];
+        if let (Some(path), Some(kind)) = (self.editor.folder.clone(), section_kind(section)) {
+            return self.folder_detail(ui, kind, &path);
+        }
         if self.chosen().len() > 1 {
             return self.bulk_detail(ui);
         }

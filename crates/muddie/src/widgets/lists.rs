@@ -86,6 +86,53 @@ pub struct ListRow<'a> {
     pub depth: usize,
     /// It failed: its title is in the colour of what could not be done.
     pub problem: bool,
+    /// Its id, the same every frame, for the keyboard to be put on it.
+    pub key: Option<egui::Id>,
+    /// It is the one of its list Tab stops at; the others are gone to
+    /// with the arrows.
+    pub current: bool,
+    /// In a tree: its place among those beside it, from 1, and how many
+    /// they are. Its level is `depth`.
+    pub place: Option<(usize, usize)>,
+}
+
+/// Makes a line of a list, `height` tall: clicked, and stopped at by Tab
+/// only if it is `current`, as in a tree, where the arrows go through the
+/// rest; with `key` as its id, if given.
+fn list_line(ui: &mut Ui, height: f32, key: Option<egui::Id>, current: bool) -> Response {
+    let size = vec2(ui.available_width(), height);
+    let Some(key) = key else {
+        return ui.allocate_exact_size(size, Sense::click()).1;
+    };
+    let (rect, _) = ui.allocate_exact_size(size, Sense::hover());
+    let sense = match current {
+        true => Sense::click(),
+        false => Sense::CLICK,
+    };
+    ui.interact(rect, key, sense)
+}
+
+/// Tells a screen reader where a line is in a tree: how deep, and its
+/// place among those beside it.
+fn tree_place(node: &mut egui::accesskit::Node, depth: usize, place: (usize, usize)) {
+    node.set_level(depth + 1);
+    node.set_position_in_set(place.0);
+    node.set_size_of_set(place.1);
+}
+
+/// How deep a line of a tree is, in words, when it is in a folder: what
+/// screen readers on Linux are not told otherwise.
+fn level_words(depth: usize) -> Option<String> {
+    (depth > 0).then(|| crate::i18n::trf("level {0}", &[&(depth + 1).to_string()]))
+}
+
+/// Whether a folder is open, in words: on Linux, a screen reader is told
+/// so only by these.
+pub fn folded_words(open: bool) -> &'static str {
+    match open {
+        true => crate::i18n::tr("expanded"),
+        false => crate::i18n::tr("collapsed"),
+    }
 }
 
 impl ListRow<'_> {
@@ -96,18 +143,26 @@ impl ListRow<'_> {
         } else {
             48.0
         };
-        let (rect, response) =
-            ui.allocate_exact_size(vec2(ui.available_width(), height), Sense::click());
+        let response = list_line(ui, height, self.key, self.current);
+        let rect = response.rect;
         // Chosen, not ticked; what it does, and whether it is off, as it is
         // seen under its title and faded.
-        response.widget_info(|| WidgetInfo::labeled(Role::ListItem, ui.is_enabled(), self.title));
+        let role = match self.place {
+            Some(_) => Role::TreeItem,
+            None => Role::ListItem,
+        };
+        response.widget_info(|| WidgetInfo::labeled(role, ui.is_enabled(), self.title));
         (ui.ctx()).accesskit_node_builder(response.id, |node| {
             node.set_selected(self.selected);
+            if let Some(place) = self.place {
+                tree_place(node, self.depth, place);
+            }
             let mut about = vec![self.detail.trim().to_owned()];
             about.extend(self.tags.iter().cloned());
             if !self.active {
                 about.push(crate::i18n::tr("Disabled").to_owned());
             }
+            about.extend(self.place.and_then(|_| level_words(self.depth)));
             about.retain(|part| !part.is_empty());
             if !about.is_empty() {
                 node.set_description(about.join(", "));
@@ -256,90 +311,147 @@ pub fn tag_pill(
     pill
 }
 
-/// Where the name of a folder's line is, given the line and how many
-/// folders in it is: what is typed over to name it.
-pub fn folder_name_rect(line: egui::Rect, depth: usize) -> egui::Rect {
-    // Clear of the folder drawn before it; the text typed in it, with the
-    // field's margin, starts where the name does.
-    let left = line.left() + INDENT * depth as f32 + 38.0;
-    egui::Rect::from_min_max(
-        egui::pos2(left, line.center().y - 10.0),
-        egui::pos2(line.right() - 80.0, line.center().y + 10.0),
-    )
+/// Where the arrow of a folder's line ends, given the line and how many
+/// folders in it is: a click before it opens or closes the folder.
+pub fn folder_arrow_end(line: egui::Rect, depth: usize) -> f32 {
+    line.left() + INDENT * depth as f32 + 22.0
+}
+
+/// The field a folder's name is typed in, over its line, where the name
+/// is: in the name's own letters, centred on the line, framed as the other
+/// fields are, in the colour of a mistake if the name cannot be.
+pub fn folder_name_field(
+    ui: &mut Ui,
+    line: egui::Rect,
+    depth: usize,
+    name: &mut String,
+    id: egui::Id,
+    wrong: bool,
+) -> Response {
+    let theme = theme::current();
+    // Clear of the folder drawn before it, with room inside, and short of
+    // the count and the switch.
+    let left = line.left() + INDENT * depth as f32 + 40.0;
+    let place = egui::Rect::from_min_max(
+        egui::pos2(left, line.center().y - 12.0),
+        egui::pos2(line.right() - 70.0, line.center().y + 12.0),
+    );
+    ui.painter()
+        .rect_filled(place, CornerRadius::same(6), theme.surface);
+    // As much room above the text as under it: the text on the line's
+    // middle, where the name was.
+    let font = theme::font(Weight::Medium, 13.0);
+    let tall = ui.fonts_mut(|fonts| fonts.row_height(&font));
+    // Inside the frame: a field without one keeps no margin of its own.
+    let text = egui::Rect::from_center_size(place.center(), vec2(place.width() - 14.0, tall));
+    let mut over = ui.new_child(egui::UiBuilder::new().max_rect(text));
+    over.spacing_mut().interact_size.y = 0.0;
+    let field = over.add(
+        TextEdit::singleline(name)
+            .id(id)
+            .frame(Frame::NONE)
+            .margin(Margin::ZERO)
+            .font(font)
+            .desired_width(text.width()),
+    );
+    let edge = if wrong { theme.danger } else { theme.accent };
+    ui.painter().rect_stroke(
+        place,
+        CornerRadius::same(6),
+        Stroke::new(1.0, edge),
+        egui::StrokeKind::Inside,
+    );
+    field
 }
 
 /// A folder in a list: an arrow that points down when it is open, a folder,
 /// its name and how many it holds, `depth` folders in. Faded unless
-/// `active`. Room is left at the right for its switch.
-pub fn folder_row(
-    ui: &mut Ui,
-    name: &str,
-    depth: usize,
-    open: bool,
-    active: bool,
-    count: usize,
-) -> Response {
-    let theme = theme::current();
-    let (rect, response) =
-        ui.allocate_exact_size(vec2(ui.available_width(), FOLDER_ROW), Sense::click());
-    // Open or closed, not ticked; how many it holds, and whether it is
-    // off, as it is seen.
-    response.widget_info(|| WidgetInfo::labeled(Role::TreeItem, ui.is_enabled(), name));
-    (ui.ctx()).accesskit_node_builder(response.id, |node| {
-        node.set_expanded(open);
-        let many = crate::i18n::trn("{0} item", "{0} items", count as u64);
-        node.set_description(match active {
-            true => many,
-            false => format!("{many}, {}", crate::i18n::tr("Disabled")),
+/// `active`; marked as a thing of the list is when `selected`. Room is left
+/// at the right for its switch.
+pub struct FolderRow<'a> {
+    pub name: &'a str,
+    pub depth: usize,
+    pub open: bool,
+    pub active: bool,
+    pub count: usize,
+    pub selected: bool,
+    /// As for a [`ListRow`].
+    pub key: Option<egui::Id>,
+    pub current: bool,
+    pub place: Option<(usize, usize)>,
+}
+
+impl FolderRow<'_> {
+    pub fn show(self, ui: &mut Ui) -> Response {
+        let theme = theme::current();
+        let response = list_line(ui, FOLDER_ROW, self.key, self.current);
+        let rect = response.rect;
+        // Open or closed, not ticked; chosen; how many it holds, and
+        // whether it is off, as it is seen.
+        response.widget_info(|| WidgetInfo::labeled(Role::TreeItem, ui.is_enabled(), self.name));
+        (ui.ctx()).accesskit_node_builder(response.id, |node| {
+            node.set_expanded(self.open);
+            node.set_selected(self.selected);
+            if let Some(place) = self.place {
+                tree_place(node, self.depth, place);
+            }
+            let mut about = vec![
+                folded_words(self.open).to_owned(),
+                crate::i18n::trn("{0} item", "{0} items", self.count as u64),
+            ];
+            if !self.active {
+                about.push(crate::i18n::tr("Disabled").to_owned());
+            }
+            about.extend(level_words(self.depth));
+            node.set_description(about.join(", "));
         });
-    });
-    if !ui.is_rect_visible(rect) {
-        return response;
-    }
-    let body = indented(ui, rect, depth);
-    if response.hovered() || response.has_focus() {
-        ui.painter().rect_filled(
-            body,
-            CornerRadius::same(8),
-            theme.raised.gamma_multiply(0.7),
+        if !ui.is_rect_visible(rect) {
+            return response;
+        }
+        let body = indented(ui, rect, self.depth);
+        let fill = match (self.selected, response.hovered()) {
+            (true, _) => theme.accent.gamma_multiply(0.22),
+            (false, true) => theme.raised.gamma_multiply(0.7),
+            (false, false) => Color32::TRANSPARENT,
+        };
+        ui.painter().rect_filled(body, CornerRadius::same(8), fill);
+        let fade = if self.active { 1.0 } else { 0.45 };
+        let ink = theme.text_dim.gamma_multiply(fade);
+        let stroke = Stroke::new(1.4, ink);
+        let tip = body.left_center() + vec2(12.0, 0.0);
+        let arrow = match self.open {
+            true => vec![
+                tip + vec2(-4.0, -2.0),
+                tip + vec2(0.0, 2.0),
+                tip + vec2(4.0, -2.0),
+            ],
+            false => vec![
+                tip + vec2(-2.0, -4.0),
+                tip + vec2(2.0, 0.0),
+                tip + vec2(-2.0, 4.0),
+            ],
+        };
+        ui.painter().add(egui::Shape::line(arrow, stroke));
+        draw_folder(ui.painter(), body.left_center() + vec2(30.0, 0.0), stroke);
+        let painter = ui
+            .painter()
+            .with_clip_rect(body.with_max_x(body.right() - 80.0));
+        painter.text(
+            body.left_center() + vec2(42.0, 0.0),
+            egui::Align2::LEFT_CENTER,
+            self.name,
+            theme::font(Weight::Medium, 13.0),
+            theme.text.gamma_multiply(fade),
         );
+        ui.painter().text(
+            body.right_center() - vec2(58.0, 0.0),
+            egui::Align2::RIGHT_CENTER,
+            self.count.to_string(),
+            theme::font(Weight::Regular, 11.5),
+            theme.text_faint,
+        );
+        response
     }
-    let fade = if active { 1.0 } else { 0.45 };
-    let ink = theme.text_dim.gamma_multiply(fade);
-    let stroke = Stroke::new(1.4, ink);
-    let tip = body.left_center() + vec2(12.0, 0.0);
-    let arrow = match open {
-        true => vec![
-            tip + vec2(-4.0, -2.0),
-            tip + vec2(0.0, 2.0),
-            tip + vec2(4.0, -2.0),
-        ],
-        false => vec![
-            tip + vec2(-2.0, -4.0),
-            tip + vec2(2.0, 0.0),
-            tip + vec2(-2.0, 4.0),
-        ],
-    };
-    ui.painter().add(egui::Shape::line(arrow, stroke));
-    draw_folder(ui.painter(), body.left_center() + vec2(30.0, 0.0), stroke);
-    let painter = ui
-        .painter()
-        .with_clip_rect(body.with_max_x(body.right() - 80.0));
-    painter.text(
-        body.left_center() + vec2(42.0, 0.0),
-        egui::Align2::LEFT_CENTER,
-        name,
-        theme::font(Weight::Medium, 13.0),
-        theme.text.gamma_multiply(fade),
-    );
-    ui.painter().text(
-        body.right_center() - vec2(58.0, 0.0),
-        egui::Align2::RIGHT_CENTER,
-        count.to_string(),
-        theme::font(Weight::Regular, 11.5),
-        theme.text_faint,
-    );
-    response
 }
 
 /// A saved profile to pick, as a card: a coloured initial, its name,
