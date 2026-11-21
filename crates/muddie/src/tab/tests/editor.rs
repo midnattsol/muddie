@@ -1279,6 +1279,10 @@ fn a_closed_folder_opens_under_what_is_dragged_and_escape_gives_up() {
     pointer(&mut harness, chat, Some(false));
     let folders = harness.state().tab().section_folders(Kind::Alias);
     assert!(folders.contains(&"Travel".to_owned()), "{folders:?}");
+    assert!(
+        harness.state().tab().editor.open,
+        "Escape closed the editor too"
+    );
 }
 
 /// The right button opens a menu as it is pressed, as the desktop does, on
@@ -1301,8 +1305,10 @@ fn a_menu_opens_as_the_right_button_is_pressed() {
             pressed,
             modifiers: Modifiers::NONE,
         };
+        // Shown while the button is still held: the frame after the press,
+        // the one in which egui measures it.
         harness.event(button(true));
-        harness.step();
+        harness.run_steps(2);
         assert!(menu_item(&harness, item), "no menu on pressing on {line}");
         harness.event(button(false));
         harness.run_steps(2);
@@ -1317,5 +1323,63 @@ fn a_menu_opens_as_the_right_button_is_pressed() {
             harness.state().tab().editor.open,
             "Escape closed the editor too"
         );
+        let app = harness.state().tab();
+        let untouched = app.editor.folder.is_none() && app.chosen() == [0];
+        assert!(untouched, "the menu chose what it was opened on");
     }
+}
+
+/// The menu of a line not chosen acts on that line, and leaves what is
+/// chosen, and its details, as they were; of one among several chosen, on
+/// all of them.
+#[test]
+fn a_menu_acts_on_its_line_and_leaves_the_choice_alone() {
+    let mut harness = list_with_a_folder();
+    let open_menu = |harness: &mut Harness<'_, App>, line: &str| {
+        let at = line_of(harness, line).center();
+        harness.event(egui::Event::PointerMoved(at));
+        harness.step();
+        for pressed in [true, false] {
+            harness.event(egui::Event::PointerButton {
+                pos: at,
+                button: egui::PointerButton::Secondary,
+                pressed,
+                modifiers: Modifiers::NONE,
+            });
+            harness.run_steps(2);
+        }
+    };
+    let item = |harness: &Harness<'_, App>, name: &str| {
+        harness
+            .get_by_role_and_label(egui::accesskit::Role::MenuItem, name)
+            .click();
+    };
+    // Gamma, the third, is chosen; Beta's menu switches Beta off alone.
+    harness.state_mut().tab_mut().editor.selected[automation::ALIASES] = 2;
+    harness.run_steps(2);
+    open_menu(&mut harness, "Beta");
+    item(&harness, "Disable");
+    harness.run_steps(2);
+    let app = harness.state().tab();
+    let on: Vec<bool> = app
+        .editor
+        .draft
+        .aliases
+        .iter()
+        .map(|rule| rule.enabled)
+        .collect();
+    assert_eq!(on, [true, false, true]);
+    assert_eq!(app.chosen(), [2], "what was chosen still is");
+    // Deleted from its menu, Alpha goes, and Gamma, still chosen, is now
+    // the second.
+    open_menu(&mut harness, "Alpha");
+    item(&harness, "Delete");
+    harness.run_steps(2);
+    let app = harness.state().tab();
+    assert_eq!(app.editor.draft.aliases[app.chosen()[0]].name, "Gamma");
+    // A folder's menu leaves the choice alone too.
+    open_menu(&mut harness, "Travel");
+    harness.key_press(Key::Escape);
+    harness.run_steps(2);
+    assert!(harness.state().tab().editor.folder.is_none());
 }

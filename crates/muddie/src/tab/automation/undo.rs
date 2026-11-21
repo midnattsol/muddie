@@ -125,19 +125,36 @@ impl Tab {
     /// back at once: rules, gauges, which are taken off the screen too,
     /// variables, or scripts, with what they made.
     pub(in crate::tab) fn delete_chosen(&mut self) {
+        self.delete_rows(&self.chosen());
+    }
+
+    /// Deletes the things at `rows`, to be had back at once. What was
+    /// chosen stays chosen, where it now is, unless it was deleted: then
+    /// the one before the first deleted is.
+    pub(in crate::tab) fn delete_rows(&mut self, rows: &[usize]) {
         let section = self.editor.section;
-        let mut chosen = self.chosen();
-        chosen.sort_unstable();
-        let Some(&first) = chosen.first() else {
+        let mut rows = rows.to_vec();
+        rows.sort_unstable();
+        let Some(&first) = rows.first() else {
             return;
         };
-        self.keep_for_undo(section, &chosen);
+        self.keep_for_undo(section, &rows);
         // From the last, so that those before keep their places.
-        for &index in chosen.iter().rev() {
+        for &index in rows.iter().rev() {
             self.remove_entry(section, index);
         }
-        self.editor.marked.clear();
-        self.editor.selected[section] = first.saturating_sub(1);
+        // Those after one deleted are a place nearer the start.
+        let shifted = |index: usize| index - rows.iter().filter(|&&row| row < index).count();
+        let selected = self.editor.selected[section];
+        self.editor.selected[section] = match rows.contains(&selected) {
+            true => first.saturating_sub(1),
+            false => shifted(selected),
+        };
+        let marked: Vec<usize> = (self.editor.marked.iter())
+            .filter(|index| !rows.contains(index))
+            .map(|&index| shifted(index))
+            .collect();
+        self.editor.marked = if marked.len() > 1 { marked } else { Vec::new() };
         self.editor.recording_key = false;
     }
 

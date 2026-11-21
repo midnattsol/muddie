@@ -373,8 +373,11 @@ impl Tab {
             }
             self.choose_folder(path);
         }
+        // The menu acts on it, and does not choose it: it is ringed while
+        // the menu is open.
         if widgets::menu_pressed(&line) {
-            self.choose_folder(path);
+            let chosen = self.editor.folder.as_deref() == Some(path);
+            self.editor.menu_target = (!chosen).then(|| Spot::Folder(path.to_owned()));
         }
         if line.double_clicked() {
             self.start_renaming(path);
@@ -382,7 +385,8 @@ impl Tab {
         if line.drag_started() && !self.narrowed() {
             self.editor.dragged = Some(Dragged::Folder(path.to_owned()));
         }
-        crate::widgets::context_menu_of(&line, |ui| self.folder_menu(ui, kind, path));
+        let open = crate::widgets::context_menu_of(&line, |ui| self.folder_menu(ui, kind, path));
+        self.ring_menu_target(ui, &line, Spot::Folder(path.to_owned()), open.is_some());
         line.rect
     }
 
@@ -522,15 +526,35 @@ impl Tab {
         if parent_of(path) == parent {
             return;
         }
+        let chosen = self.editor.folder.as_deref() == Some(path);
         if let Some(now) = self.put_folder(kind, path, parent, None) {
-            self.choose_folder(&now);
-            self.editor.reveal = true;
-            if widgets::keyboard_in_use(ui.ctx()) {
+            self.editor.reveal = chosen;
+            if chosen && widgets::keyboard_in_use(ui.ctx()) {
                 let id = item_id(self.editor.section, &Spot::Folder(now));
                 ui.memory_mut(|memory| memory.request_focus(id));
             }
             self.say_moved(parent);
         }
+    }
+
+    /// While the menu opened on a line it does not choose is open, the line
+    /// is ringed, as what the menu acts on; once it closes, it is not.
+    fn ring_menu_target(&mut self, ui: &egui::Ui, line: &egui::Response, spot: Spot, open: bool) {
+        if self.editor.menu_target.as_ref() != Some(&spot) {
+            return;
+        }
+        if !open {
+            self.editor.menu_target = None;
+            return;
+        }
+        let ring = egui::Stroke::new(1.5, theme::current().accent);
+        let rect = line.rect.shrink(1.0);
+        ui.painter().rect_stroke(
+            rect,
+            egui::CornerRadius::same(8),
+            ring,
+            egui::StrokeKind::Inside,
+        );
     }
 
     /// What can be done with a folder, from its menu.
@@ -602,10 +626,13 @@ impl Tab {
         if line.clicked() {
             self.choose_row(index, ui.input(|input| input.modifiers));
         }
-        if widgets::menu_pressed(&line) && !chosen {
-            self.choose_row(index, Modifiers::NONE);
+        // The menu acts on it, or on all that is chosen if it is among
+        // them, and does not choose it: it is ringed while the menu is open.
+        if widgets::menu_pressed(&line) {
+            self.editor.menu_target = (!chosen).then_some(Spot::Row(index));
         }
-        crate::widgets::context_menu_of(&line, |ui| self.row_menu(ui));
+        let open = crate::widgets::context_menu_of(&line, |ui| self.row_menu(ui));
+        self.ring_menu_target(ui, &line, Spot::Row(index), open.is_some());
         let movable = section != VARIABLES && !self.narrowed();
         if movable {
             let line = line.interact(egui::Sense::DRAG);

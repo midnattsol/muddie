@@ -244,7 +244,11 @@ takes it away, **Shift+click** chooses all from the one chosen before,
 in common, and what is changed there is changed in all of them: their
 switch, their folder, their tags; deleting them deletes them all, to be had
 back at once with **Undo**. Dragged, they go together. A right click on a
-row offers the same: switch, move to a folder, delete.
+row offers the same: switch, move to a folder, rename, delete. Its menu acts
+on the row it is opened on, ringed while it is open, or on all that is
+chosen if the row is among them, and leaves what is chosen, and its details,
+as they were. Menus open as the right button is pressed, and Escape closes
+an open menu alone.
 
 **Tags** switch together what belongs together whatever its kind and its
 folder: a trigger, two aliases and a macro tagged *combat* go off together

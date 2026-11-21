@@ -287,7 +287,12 @@ impl Tab {
 
     /// Switches all that is chosen on or off.
     pub(in crate::tab) fn switch_chosen(&mut self, on: bool) {
-        for index in self.chosen() {
+        self.switch_rows(&self.chosen(), on);
+    }
+
+    /// Switches the things at `rows` on or off.
+    pub(in crate::tab) fn switch_rows(&mut self, rows: &[usize], on: bool) {
+        for &index in rows {
             match self.editor.section {
                 GAUGES => self.editor.draft.gauges[index].enabled = on,
                 SCRIPTS => {
@@ -319,7 +324,12 @@ impl Tab {
 
     /// Puts all that is chosen in a folder.
     pub(in crate::tab) fn file_chosen(&mut self, folder: &str) {
-        let chosen = self.chosen();
+        self.file_rows(&self.chosen(), folder);
+    }
+
+    /// Puts the things at `rows` in a folder.
+    pub(in crate::tab) fn file_rows(&mut self, rows: &[usize], folder: &str) {
+        let chosen = rows.to_vec();
         let section = self.editor.section;
         if section == SCRIPTS {
             let places: Vec<String> = (chosen.iter())
@@ -372,17 +382,26 @@ impl Tab {
         }
     }
 
-    /// What can be done with what is chosen, from the menu of a row:
-    /// switching it, putting it in a folder, deleting it.
+    /// What a row's menu acts on: the row it was opened on, if that is not
+    /// among what is chosen; else all that is chosen.
+    fn menu_rows(&self) -> Vec<usize> {
+        match &self.editor.menu_target {
+            Some(Spot::Row(index)) => vec![*index],
+            _ => self.chosen(),
+        }
+    }
+
+    /// What can be done with what a row's menu acts on, from the menu:
+    /// switching it, putting it in a folder, renaming it, deleting it.
     pub(in crate::tab) fn row_menu(&mut self, ui: &mut egui::Ui) {
         widgets::menu_width(ui);
-        let chosen = self.chosen();
+        let chosen = self.menu_rows();
         let switchable = self.editor.section != VARIABLES;
         if switchable {
             let on = self.chosen_on(&chosen);
             let label = if on { tr("Disable") } else { tr("Enable") };
             if widgets::menu_item(ui, label, "").clicked() {
-                self.switch_chosen(!on);
+                self.switch_rows(&chosen, !on);
                 ui.close();
             }
         }
@@ -390,7 +409,7 @@ impl Tab {
             widgets::menu_separator(ui);
             widgets::menu_heading(ui, tr("Move to folder"));
             if widgets::menu_item(ui, tr("None"), "").clicked() {
-                self.file_chosen("");
+                self.file_rows(&chosen, "");
                 ui.close();
             }
             for path in self.section_folders(kind) {
@@ -398,18 +417,22 @@ impl Tab {
                 let name = path.rsplit('/').next().unwrap_or(&path);
                 let label = format!("{}{name}", "    ".repeat(depth));
                 if widgets::menu_item(ui, &label, "").clicked() {
-                    self.file_chosen(&path);
+                    self.file_rows(&chosen, &path);
                     ui.close();
                 }
             }
         }
         widgets::menu_separator(ui);
-        if chosen.len() == 1 && widgets::menu_item(ui, tr("Rename"), "F2").clicked() {
+        // Its name is in its details: renamed, it is chosen.
+        if let [only] = chosen[..]
+            && widgets::menu_item(ui, tr("Rename"), "F2").clicked()
+        {
+            self.choose_row(only, Modifiers::NONE);
             self.editor.rename = true;
             ui.close();
         }
         if widgets::menu_item(ui, tr("Delete"), tr("Del")).clicked() {
-            self.delete_chosen();
+            self.delete_rows(&chosen);
             self.list_scripts();
             ui.close();
         }

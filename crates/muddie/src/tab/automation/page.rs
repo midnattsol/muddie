@@ -40,13 +40,14 @@ impl Tab {
         let ctx = &ui.ctx().clone();
         let theme = theme::current();
         // Escape first gives up a key being recorded, a field being typed
-        // in, and several chosen; only then the editor. Whether a field was
-        // being typed in is as it was before this frame: Escape has already
-        // taken it from the field.
+        // in, several chosen, a menu open and a drag; only then the editor.
+        // Whether a field was being typed in is as it was before this
+        // frame: Escape has already taken it from the field.
         self.history_keys(ui);
         let leaving = !self.editor.recording_key
             && !self.editor.was_typing
             && self.editor.marked.len() < 2
+            && self.editor.dragged.is_none()
             && widgets::take_escape(ui);
         let page = egui::Frame::new()
             .fill(theme.surface)

@@ -368,6 +368,22 @@ fn shows_editor() {
         modifiers: egui::Modifiers::NONE,
     });
     rules.run_steps(2);
+    // The menu of a rule that is not the one chosen: it is ringed, and
+    // the details stay those of the one chosen.
+    let howls = rules.get_by_label("The wind howls").rect().center();
+    rules.event(egui::Event::PointerMoved(howls));
+    for pressed in [true, false] {
+        rules.event(egui::Event::PointerButton {
+            pos: howls,
+            button: egui::PointerButton::Secondary,
+            pressed,
+            modifiers: egui::Modifiers::NONE,
+        });
+        rules.run_steps(2);
+    }
+    save(&mut rules, "row-menu");
+    rules.key_press(egui::Key::Escape);
+    rules.run_steps(2);
     let app = rules.state_mut().tab_mut();
     app.editor.folder = None;
     // A new alias in a tall window: its editor takes the room under it,

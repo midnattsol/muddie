@@ -154,6 +154,9 @@ pub(super) struct Editor {
     /// The closed folder what is dragged is held over, and since when: it
     /// opens after a moment.
     pub(super) drag_hover: Option<(String, Instant)>,
+    /// The line a menu was opened on, while the menu is open, if it is not
+    /// what is chosen: what the menu acts on.
+    pub(super) menu_target: Option<Spot>,
     /// The folders among the profile's scripts, as they were last looked
     /// for on the disk.
     pub(super) script_folders: Vec<String>,
@@ -242,6 +245,7 @@ impl Default for Editor {
             folder: None,
             reveal: false,
             drag_hover: None,
+            menu_target: None,
             script_folders: Vec::new(),
             filter: String::new(),
             settle: Default::default(),

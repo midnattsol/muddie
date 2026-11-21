@@ -45,6 +45,8 @@ pub(in crate::tab) struct Renaming {
     pub(in crate::tab) path: String,
     pub(in crate::tab) typed: String,
     pub(in crate::tab) fresh: bool,
+    /// It is chosen once named: a folder made, or one that was chosen.
+    pub(in crate::tab) choose: bool,
 }
 
 impl Tab {
@@ -106,6 +108,7 @@ impl Tab {
             path,
             typed: name,
             fresh: true,
+            choose: true,
         });
     }
 
@@ -116,6 +119,7 @@ impl Tab {
             path: path.to_owned(),
             typed: name,
             fresh: true,
+            choose: self.editor.folder.as_deref() == Some(path),
         });
     }
 
@@ -170,14 +174,17 @@ impl Tab {
             // Kept, to be changed.
             field.request_focus();
         } else if field.lost_focus()
-            && let Some(Renaming { path, .. }) = self.editor.renaming.take()
+            && let Some(Renaming { path, choose, .. }) = self.editor.renaming.take()
         {
             let named = match !wrong && target != path && self.move_folder(kind, &path, &target) {
                 true => target,
                 false => path,
             };
-            // Named, it is the one chosen, with the keyboard back on it.
-            self.choose_folder(&named);
+            // A folder made is chosen once named, with the keyboard back on
+            // it; one renamed is chosen if it was.
+            if choose {
+                self.choose_folder(&named);
+            }
             if entered {
                 let spot = Spot::Folder(named);
                 let id = list::item_id(self.editor.section, &spot);
@@ -205,14 +212,23 @@ impl Tab {
         } else {
             self.editor.draft.move_folder(kind, from, to);
         }
+        // What is known by its path goes with it: the folders closed, the
+        // one chosen, and the one a menu was opened on.
+        let follow = |path: &mut String| match path.strip_prefix(from) {
+            Some("") => *path = to.to_owned(),
+            Some(rest) if rest.starts_with('/') => *path = format!("{to}{rest}"),
+            _ => {}
+        };
         for (folded_kind, path) in &mut self.editor.folded {
             if *folded_kind == kind {
-                match path.strip_prefix(from) {
-                    Some("") => *path = to.to_owned(),
-                    Some(rest) if rest.starts_with('/') => *path = format!("{to}{rest}"),
-                    _ => {}
-                }
+                follow(path);
             }
+        }
+        if let Some(path) = &mut self.editor.folder {
+            follow(path);
+        }
+        if let Some(Spot::Folder(path)) = &mut self.editor.menu_target {
+            follow(path);
         }
         true
     }
@@ -343,12 +359,15 @@ impl Tab {
             what,
             since: Instant::now(),
         });
-        self.editor.folder = None;
-        match before {
-            Some(Spot::Folder(folder)) if self.section_folders(kind).contains(&folder) => {
-                self.choose_folder(&folder)
+        // What was chosen stays chosen, unless it was the folder deleted:
+        // then the line before it is.
+        if self.editor.folder.as_deref() == Some(path) {
+            self.editor.folder = None;
+            if let Some(Spot::Folder(folder)) = before
+                && self.section_folders(kind).contains(&folder)
+            {
+                self.choose_folder(&folder);
             }
-            _ => {}
         }
     }
 
