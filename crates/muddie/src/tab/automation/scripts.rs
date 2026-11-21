@@ -192,22 +192,26 @@ impl Tab {
         let path = self.editor.script_files[index].clone();
         self.load_script(&path);
         let (delete, run) = self.script_heading(ui, &path);
-        note(ui, &path.display().to_string());
+        file_chip(ui, &path);
         if run {
             self.run_scripts();
         }
         self.script_status(ui);
         let rows = script_rows(self.editor.detail_height, 118.0);
         let hint = "-- Luau\non_gmcp(\"Room.Info\", function(room)\n\tmap.visit({id = room.num, name = room.name, exits = room.exits})\nend)";
-        let mistake = self
+        // What keeps it from being read, or else what went wrong when it
+        // last ran: shown at its line, in the editor.
+        let mistake = (self
             .editor
             .checks
-            .of(&self.scripts, &self.editor.script_text);
+            .of(&self.scripts, &self.editor.script_text))
+        .or_else(|| self.run_mistake(&path));
         widgets::code_editor(
             ui,
             tr("Script"),
             &mut self.editor.script_text,
             hint,
+            widgets::Language::Luau,
             rows,
             mistake.as_ref(),
         );
@@ -293,18 +297,26 @@ impl Tab {
         }
     }
 
-    /// Whether it ran, and when; or what kept it from running.
+    /// Whether it ran, and when. What kept it from running is shown at its
+    /// line, in the editor.
     fn script_status(&self, ui: &mut egui::Ui) {
         match &self.editor.script_ran {
-            Some((_, Some(error))) => {
-                let said = RichText::new(error)
-                    .font(theme::font(Weight::Regular, 11.5))
-                    .color(theme::current().danger);
-                ui.add(Label::new(said).wrap());
-            }
+            Some((_, Some(_))) => {}
             Some((at, None)) => note(ui, &trf("Last run: {0}", &[at])),
             None => note(ui, tr("Runs when saved, shortly after you stop typing.")),
         }
+    }
+
+    /// What went wrong when the script at `path` last ran, at its line, if
+    /// the error names one of this file.
+    fn run_mistake(&self, path: &std::path::Path) -> Option<(usize, String)> {
+        let Some((_, Some(error))) = &self.editor.script_ran else {
+            return None;
+        };
+        let file = path.file_name()?.to_str()?;
+        let after = error.split(&format!("{file}:")).nth(1)?;
+        let (line, message) = after.split_once(':')?;
+        Some((line.trim().parse().ok()?, message.trim().to_owned()))
     }
 }
 
@@ -325,4 +337,30 @@ impl Checks {
         self.0.push((key, found.clone()));
         found
     }
+}
+
+/// Where a script is kept, as a chip, with the way to open its folder.
+fn file_chip(ui: &mut egui::Ui, path: &std::path::Path) {
+    let theme = theme::current();
+    ui.horizontal(|ui| {
+        egui::Frame::new()
+            .fill(theme.field)
+            .corner_radius(egui::CornerRadius::same(8))
+            .inner_margin(egui::Margin::symmetric(10, 4))
+            .show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    widgets::glyph(ui, widgets::Glyph::Script, 11.0, theme.text_faint);
+                    let shown = RichText::new(path.display().to_string())
+                        .font(theme::font(Weight::Regular, 12.0))
+                        .color(theme.text_dim);
+                    ui.add(Label::new(shown).truncate());
+                });
+            });
+        let folder = path.parent().map(std::path::Path::to_path_buf);
+        if let Some(folder) = folder
+            && widgets::glyph_button(ui, widgets::Glyph::Folder, tr("Open the folder")).clicked()
+        {
+            crate::widgets::open_path(&folder);
+        }
+    });
 }

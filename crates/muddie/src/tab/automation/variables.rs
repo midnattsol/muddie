@@ -115,15 +115,26 @@ impl Tab {
         if self.rename_variable(ui, &variables, &name, &value, renamed) {
             return false;
         }
-        self.variable_type_row(ui);
-        ui.add_space(2.0);
-        widgets::caption(ui, tr("Value"));
-        match self.editor.variable_kind {
-            NUMBER => self.number_value(ui),
-            BOOLEAN => flag_value(ui, &mut self.editor.variable_flag),
-            ARRAY | TABLE => self.items_value(ui),
-            _ => text_value(ui, &mut self.editor.variable_text),
-        }
+        widgets::card(
+            ui,
+            Some(widgets::Glyph::Type),
+            tr("Value"),
+            |_| {},
+            |ui| {
+                if let Some(kind) = widgets::segmented(ui, &TYPES, self.editor.variable_kind) {
+                    let held = self.edited_variable();
+                    self.load_variable(&converted(&held, kind));
+                    self.editor.variable_kind = kind;
+                }
+                ui.add_space(4.0);
+                match self.editor.variable_kind {
+                    NUMBER => self.number_value(ui),
+                    BOOLEAN => flag_value(ui, &mut self.editor.variable_flag),
+                    ARRAY | TABLE => self.items_value(ui),
+                    _ => text_value(ui, &mut self.editor.variable_text),
+                }
+            },
+        );
         // Kept as soon as it is other than what is kept.
         let after = self.edited_variable();
         if after != value
@@ -131,7 +142,6 @@ impl Tab {
         {
             self.note(&error);
         }
-        ui.add_space(8.0);
         self.variable_usage(ui, &name);
         let kept = match &self.profile {
             Some(profile) => trf("Saved in profile {0}.", &[profile]),
@@ -150,7 +160,7 @@ impl Tab {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 delete =
                     widgets::icon_button(ui, widgets::Icon::Trash, tr("Delete"), false).clicked();
-                let font = egui::FontId::monospace(19.0);
+                let font = theme::font(Weight::Semibold, 20.0);
                 let (name, rename) = (&mut self.editor.variable_name, &mut self.editor.rename);
                 renamed = name_field(ui, name, font, "", rename, true).lost_focus();
             });
@@ -207,21 +217,6 @@ impl Tab {
         true
     }
 
-    /// Its type, by the name a script knows it by. What it held is kept,
-    /// as far as the new type can hold it.
-    fn variable_type_row(&mut self, ui: &mut egui::Ui) {
-        ui.horizontal(|ui| {
-            widgets::caption(ui, tr("Type"));
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if let Some(kind) = widgets::segmented(ui, &TYPES, self.editor.variable_kind) {
-                    let held = self.edited_variable();
-                    self.load_variable(&converted(&held, kind));
-                    self.editor.variable_kind = kind;
-                }
-            });
-        });
-    }
-
     /// A number: dragged, or typed.
     fn number_value(&mut self, ui: &mut egui::Ui) {
         let field = ui.add(
@@ -266,7 +261,7 @@ impl Tab {
         } else {
             tr("Add an item")
         };
-        if crate::widgets::button(ui, add).clicked() {
+        if widgets::add_button(ui, add).clicked() {
             self.editor
                 .variable_items
                 .push((String::new(), String::new()));
@@ -282,7 +277,6 @@ impl Tab {
     /// How it is written in the commands of a rule and in a script, to
     /// copy.
     fn variable_usage(&self, ui: &mut egui::Ui, name: &str) {
-        widgets::caption(ui, tr("Usage"));
         let (in_commands, in_scripts) = match self.editor.variable_kind {
             ARRAY => (format!("${name}.1"), format!("vars.{name}[1]")),
             TABLE => {
@@ -296,24 +290,30 @@ impl Tab {
             }
             _ => (format!("${name}"), format!("vars.{name}")),
         };
-        widgets::group(ui, |ui| {
-            for (place, written) in [
-                (tr("In the commands of a rule"), in_commands),
-                (tr("In a script"), in_scripts),
-            ] {
-                widgets::setting_row(ui, place, None, &mut |ui| {
-                    let copy = crate::widgets::button(ui, tr("Copy"));
-                    if copy.clicked() {
-                        ui.ctx().copy_text(written.clone());
-                    }
-                    let shown = RichText::new(&written)
-                        .font(egui::FontId::monospace(13.0))
-                        .color(theme::current().text);
-                    ui.label(shown);
-                    copy
-                });
-            }
-        });
+        widgets::card(
+            ui,
+            Some(widgets::Glyph::Code),
+            tr("Usage"),
+            |_| {},
+            |ui| {
+                for (place, written) in [
+                    (tr("In the commands of a rule"), in_commands),
+                    (tr("In a script"), in_scripts),
+                ] {
+                    widgets::setting_row(ui, place, None, &mut |ui| {
+                        let copy = widgets::button_with(ui, widgets::Glyph::Copy, tr("Copy"));
+                        if copy.clicked() {
+                            ui.ctx().copy_text(written.clone());
+                        }
+                        let shown = RichText::new(&written)
+                            .font(egui::FontId::monospace(13.0))
+                            .color(theme::current().text);
+                        ui.label(shown);
+                        copy
+                    });
+                }
+            },
+        );
     }
 }
 

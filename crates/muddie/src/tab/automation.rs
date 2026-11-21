@@ -184,6 +184,8 @@ pub(super) struct Editor {
     pub(super) undo: Option<automation::Undo>,
     /// What checking the scripts being edited said.
     pub(super) checks: automation::Checks,
+    /// The pattern being tried, as it was last compiled.
+    pub(super) patterns: automation::Patterns,
     /// The variable being edited: which, its name as typed, its value as
     /// typed.
     pub(super) variable_loaded: Option<String>,
@@ -236,6 +238,7 @@ impl Default for Editor {
             gauge_here: None,
             undo: None,
             checks: automation::Checks::default(),
+            patterns: automation::Patterns::default(),
             variable_loaded: None,
             variable_name: String::new(),
             variable_text: String::new(),

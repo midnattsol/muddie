@@ -103,12 +103,17 @@ pub fn menu_heading(ui: &mut Ui, text: &str) {
 /// A choice in a menu, with its keyboard shortcut at the right if it has
 /// one.
 pub fn menu_item(ui: &mut Ui, text: &str, shortcut: &str) -> Response {
-    menu_row(ui, None, text, shortcut)
+    menu_row(ui, None, None, text, shortcut)
+}
+
+/// A choice in a menu with a picture before it.
+pub fn menu_item_with(ui: &mut Ui, glyph: Glyph, text: &str, shortcut: &str) -> Response {
+    menu_row(ui, None, Some(glyph), text, shortcut)
 }
 
 /// A choice in a menu that is on or off; a tick shows it is on.
 pub fn menu_check(ui: &mut Ui, on: &mut bool, text: &str) -> Response {
-    let mut response = menu_row(ui, Some(*on), text, "");
+    let mut response = menu_row(ui, Some(*on), None, text, "");
     if response.clicked() {
         *on = !*on;
         response.mark_changed();
@@ -116,7 +121,13 @@ pub fn menu_check(ui: &mut Ui, on: &mut bool, text: &str) -> Response {
     response
 }
 
-pub(super) fn menu_row(ui: &mut Ui, checked: Option<bool>, text: &str, shortcut: &str) -> Response {
+pub(super) fn menu_row(
+    ui: &mut Ui,
+    checked: Option<bool>,
+    glyph: Option<Glyph>,
+    text: &str,
+    shortcut: &str,
+) -> Response {
     let theme = theme::current();
     let font = theme::font(Weight::Regular, 13.5);
     let small = theme::font(Weight::Regular, 12.0);
@@ -133,7 +144,8 @@ pub(super) fn menu_row(ui: &mut Ui, checked: Option<bool>, text: &str, shortcut:
     } else {
         measure(shortcut, &small) + 28.0 + tick
     };
-    let needed = 10.0 + measure(text, &font) + right + 10.0;
+    let indent = if glyph.is_some() { 32.0 } else { 10.0 };
+    let needed = indent + measure(text, &font) + right + 10.0;
     let width = menu_row_width(ui, needed);
     let size = vec2(width, 30.0);
     let (rect, response) = ui.allocate_exact_size(size, Sense::click());
@@ -152,8 +164,19 @@ pub(super) fn menu_row(ui: &mut Ui, checked: Option<bool>, text: &str, shortcut:
         } else {
             theme.text_faint
         };
+        if let Some(glyph) = glyph {
+            let at = rect.left_center() + vec2(12.0, 0.0);
+            paint_glyph(
+                painter,
+                at,
+                egui::Align2::LEFT_CENTER,
+                glyph,
+                12.0,
+                theme.text_dim,
+            );
+        }
         painter.text(
-            rect.left_center() + vec2(10.0, 0.0),
+            rect.left_center() + vec2(indent, 0.0),
             egui::Align2::LEFT_CENTER,
             text,
             font,

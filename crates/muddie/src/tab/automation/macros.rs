@@ -5,49 +5,54 @@ use super::*;
 impl Tab {
     pub(in crate::tab) fn macro_detail(&mut self, ui: &mut egui::Ui, index: usize) -> bool {
         let theme = theme::current();
-        let height = self.editor.detail_height;
         let recording = self.editor.recording_key;
         let mut toggle = false;
         let delete = self.rule_head(ui, Kind::Macro, index, tr("Name this macro"));
         let rule = &mut self.editor.draft.macros[index];
-        widgets::caption(ui, tr("Key"));
-        ui.horizontal(|ui| {
-            let shown = if recording {
-                tr("Press the key…").to_owned()
-            } else if rule.when.key.trim().is_empty() {
-                tr("None").to_owned()
-            } else {
-                rule.when.key.trim().to_uppercase().replace('+', " + ")
-            };
-            let (colour, edge) = if recording {
-                (theme.accent, theme.accent)
-            } else {
-                (theme.text, theme.border)
-            };
-            egui::Frame::new()
-                .fill(theme.surface)
-                .stroke(egui::Stroke::new(1.0, edge))
-                .corner_radius(egui::CornerRadius::same(8))
-                .inner_margin(egui::Margin::symmetric(14, 7))
-                .show(ui, |ui| {
-                    ui.label(
-                        RichText::new(shown)
-                            .font(theme::font(Weight::Medium, 13.5))
-                            .color(colour),
-                    );
-                });
-            let label = if recording {
-                tr("Cancel")
-            } else {
-                tr("Record a key")
-            };
-            toggle = crate::widgets::button(ui, label).clicked();
-        });
-        note(
+        widgets::card(
             ui,
-            tr("Function keys, keys with Ctrl or Alt, and the numeric keypad can be used."),
+            Some(widgets::Glyph::Key),
+            tr("Key"),
+            |_| {},
+            |ui| {
+                ui.horizontal(|ui| {
+                    let shown = if recording {
+                        tr("Press the key…").to_owned()
+                    } else if rule.when.key.trim().is_empty() {
+                        tr("None").to_owned()
+                    } else {
+                        rule.when.key.trim().to_uppercase().replace('+', " + ")
+                    };
+                    let (colour, edge) = if recording {
+                        (theme.accent, theme.accent)
+                    } else {
+                        (theme.text, theme.border)
+                    };
+                    egui::Frame::new()
+                        .fill(theme.surface)
+                        .stroke(egui::Stroke::new(1.0, edge))
+                        .corner_radius(egui::CornerRadius::same(8))
+                        .inner_margin(egui::Margin::symmetric(14, 7))
+                        .show(ui, |ui| {
+                            ui.label(
+                                RichText::new(shown)
+                                    .font(theme::font(Weight::Medium, 13.5))
+                                    .color(colour),
+                            );
+                        });
+                    let label = if recording {
+                        tr("Cancel")
+                    } else {
+                        tr("Record a key")
+                    };
+                    toggle = crate::widgets::button(ui, label).clicked();
+                });
+                note(
+                    ui,
+                    tr("Function keys, keys with Ctrl or Alt, and the numeric keypad can be used."),
+                );
+            },
         );
-        ui.add_space(6.0);
         let mistake = if rule.lua {
             self.editor.checks.of(&self.scripts, &rule.script)
         } else {
@@ -65,7 +70,6 @@ impl Tab {
                 about_commands: tr("One command per line, sent as if you had typed them."),
                 about_script: tr("Run when the key is pressed."),
             },
-            script_rows(height, 300.0),
             mistake.as_ref(),
         );
         if toggle {

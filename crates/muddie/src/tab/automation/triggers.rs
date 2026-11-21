@@ -24,10 +24,8 @@ impl Tab {
         }
         let delete = self.rule_head(ui, Kind::Trigger, index, tr("Name this trigger"));
         let rule = &mut self.editor.draft.triggers[index];
-        when(ui, rule, &mut self.editor.sample);
-        ui.add_space(6.0);
+        when(ui, rule, &mut self.editor.sample, &mut self.editor.patterns);
         self.trigger_does(ui, index);
-        ui.add_space(6.0);
         let rule = &mut self.editor.draft.triggers[index];
         also(ui, rule, &mut self.editor.extras_added.1, &text_panels);
         delete
@@ -35,7 +33,6 @@ impl Tab {
 
     /// What it does: its commands, or its script, checked as it is typed.
     fn trigger_does(&mut self, ui: &mut egui::Ui, index: usize) {
-        let height = self.editor.detail_height;
         let rule = &mut self.editor.draft.triggers[index];
         let mistake = if rule.lua {
             self.editor.checks.of(&self.scripts, &rule.script)
@@ -54,31 +51,52 @@ impl Tab {
                 about_commands: tr("One command per line. %1, %2… are the groups of the pattern."),
                 about_script: tr("m holds the match, line the whole line."),
             },
-            script_rows(height, 560.0),
             mistake.as_ref(),
         );
     }
 }
 
 /// When it goes off: how the pattern is read, the pattern, and a line to
-/// try it on with what it would do, all together.
-fn when(ui: &mut egui::Ui, rule: &mut crate::rules::Trigger, sample: &mut String) {
-    widgets::caption(ui, tr("When"));
-    let kinds = [tr("Contains"), tr("Regular expression")];
-    if let Some(kind) = widgets::segmented(ui, &kinds, usize::from(rule.when.regex)) {
-        rule.when.regex = kind == 1;
-    }
-    let label = if rule.when.regex {
-        tr("A line matches this regular expression")
-    } else {
-        tr("A line contains this text")
-    };
-    widgets::field(ui, label, &mut rule.when.pattern, tr("tells you"));
-    widgets::text_box(ui, sample, tr("Paste a line from the MUD to try it"));
-    let outcome = try_pattern(&rule.when.regex_source(), sample, |captures| {
-        effects(rule, captures)
-    });
-    show_outcome(ui, outcome);
+/// try it on with what it would do, together in a card.
+fn when(
+    ui: &mut egui::Ui,
+    rule: &mut crate::rules::Trigger,
+    sample: &mut String,
+    patterns: &mut Patterns,
+) {
+    widgets::card(
+        ui,
+        Some(widgets::Glyph::When),
+        tr("When"),
+        |_| {},
+        |ui| {
+            let kinds = [tr("Contains"), tr("Regular expression")];
+            if let Some(kind) = widgets::segmented(ui, &kinds, usize::from(rule.when.regex)) {
+                rule.when.regex = kind == 1;
+            }
+            let label = if rule.when.regex {
+                tr("A line matches this regular expression")
+            } else {
+                tr("A line contains this text")
+            };
+            let source = rule.when.regex_source();
+            let invalid = patterns.of(&source).err().map(str::to_owned);
+            pattern_field(
+                ui,
+                label,
+                &mut rule.when.pattern,
+                rule.when.regex,
+                tr("tells you"),
+                invalid.as_deref(),
+            );
+            let source = rule.when.regex_source();
+            try_block(ui, sample, tr("Paste a line from the MUD"), |sample| {
+                try_pattern(patterns, &source, sample, |captures| {
+                    effects(rule, captures)
+                })
+            });
+        },
+    );
 }
 
 /// What a trigger would do with a match, said in a line.
@@ -102,8 +120,9 @@ fn effects(rule: &crate::rules::Trigger, captures: &regex::Captures) -> String {
     effects.join(" · ")
 }
 
-/// What it does besides: only what it was given, or asked for here, each
-/// to take away again; and the rest to add.
+/// What it does besides, in a card: only what it was given, or asked for
+/// here, each on a line of its own with what it takes and the cross that
+/// takes it away; and a button to add the rest.
 fn also(
     ui: &mut egui::Ui,
     rule: &mut crate::rules::Trigger,
@@ -127,74 +146,95 @@ fn also(
     let (shown, missing): (Vec<Extra>, Vec<Extra>) = all
         .into_iter()
         .partition(|extra| given(*extra) || added.contains(extra));
-    if !shown.is_empty() {
-        widgets::caption(ui, tr("Also"));
-    }
-    let mut removed = None;
-    for extra in shown {
-        if extra_row(ui, rule, extra, text_panels) {
-            removed = Some(extra);
-        }
-    }
-    if let Some(extra) = removed {
-        added.retain(|known| *known != extra);
-        extra.take_from(rule);
-    }
-    if rule.when.gag && !rule.when.panel.trim().is_empty() {
-        note(ui, tr("With the line hidden, it is only in the panel."));
-    }
-    if missing.is_empty() {
-        return;
-    }
-    let add = widgets::quiet_button(ui, tr("+ Add an action"));
-    crate::widgets::menu_of(&add).show(|ui| {
-        widgets::menu_width(ui);
-        for extra in missing {
-            if widgets::menu_item(ui, extra.label(), "").clicked() {
-                added.push(extra);
-                if extra == Extra::Hide {
-                    rule.when.gag = true;
+    widgets::card(
+        ui,
+        Some(widgets::Glyph::Also),
+        tr("Also"),
+        |_| {},
+        |ui| {
+            let mut removed = None;
+            for extra in &shown {
+                if extra_row(ui, rule, *extra, text_panels) {
+                    removed = Some(*extra);
                 }
-                ui.close();
             }
-        }
-    });
+            if let Some(extra) = removed {
+                added.retain(|known| *known != extra);
+                extra.take_from(rule);
+            }
+            if rule.when.gag && !rule.when.panel.trim().is_empty() {
+                note(ui, tr("With the line hidden, it is only in the panel."));
+            }
+            if missing.is_empty() {
+                return;
+            }
+            let add = widgets::add_button(ui, tr("Add an action"));
+            crate::widgets::menu_of(&add).show(|ui| {
+                widgets::menu_width(ui);
+                for extra in missing {
+                    if widgets::menu_item_with(ui, extra.glyph(), extra.label(), "").clicked() {
+                        added.push(extra);
+                        if extra == Extra::Hide {
+                            rule.when.gag = true;
+                        }
+                        ui.close();
+                    }
+                }
+            });
+        },
+    );
 }
 
-/// One thing it does besides: its name, with the cross that takes it away
-/// at the far end, and what it takes under them. Returns whether taking it
-/// away was asked.
+/// One thing it does besides, on a line: its picture and its name, what it
+/// takes, and the cross that takes it away, next to it. Returns whether
+/// taking it away was asked.
 fn extra_row(
     ui: &mut egui::Ui,
     rule: &mut crate::rules::Trigger,
     extra: Extra,
     text_panels: &[String],
 ) -> bool {
+    let theme = theme::current();
     let mut removed = false;
-    ui.horizontal(|ui| {
-        let label = RichText::new(extra.label()).color(theme::current().text_dim);
-        ui.add(Label::new(label).selectable(false));
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+    let id = ui.make_persistent_id(("extra", extra.label()));
+    widgets::right_last(
+        ui,
+        id,
+        |ui| {
+            widgets::glyph(ui, extra.glyph(), 12.0, theme.text_dim);
+            // The names as wide as each other, so that what they take
+            // lines up.
+            let label = RichText::new(extra.label()).color(theme.text);
+            ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                ui.set_width(150.0);
+                ui.add(Label::new(label).selectable(false).truncate());
+            });
+            ui.scope(|ui| {
+                ui.set_width(ui.available_width());
+                match extra {
+                    Extra::Say => {
+                        widgets::text_box(ui, &mut rule.when.speak, tr("%1 is here"));
+                    }
+                    Extra::Sound => {
+                        widgets::text_box(ui, &mut rule.when.sound, "alert.ogg");
+                    }
+                    Extra::Colour => {
+                        widgets::text_box(ui, &mut rule.when.highlight, "yellow, #ffcc00");
+                    }
+                    Extra::Hide => {
+                        let text =
+                            RichText::new(tr("The line is not shown.")).color(theme.text_dim);
+                        ui.label(text);
+                    }
+                    Extra::Panel => panel_choice(ui, &mut rule.when.panel, text_panels),
+                }
+            });
+        },
+        |ui| {
             let what = trf("Remove “{0}”", &[extra.label()]);
             removed = widgets::close_button(ui, &what, 20.0).clicked();
-        });
-    });
-    match extra {
-        Extra::Say => drop(widgets::text_box(
-            ui,
-            &mut rule.when.speak,
-            tr("%1 is here"),
-        )),
-        Extra::Sound => drop(widgets::text_box(ui, &mut rule.when.sound, "alert.ogg")),
-        Extra::Colour => drop(widgets::text_box(
-            ui,
-            &mut rule.when.highlight,
-            "yellow, #ffcc00",
-        )),
-        Extra::Hide => rule.when.gag = true,
-        Extra::Panel => panel_choice(ui, &mut rule.when.panel, text_panels),
-    }
-    ui.add_space(4.0);
+        },
+    );
     removed
 }
 
@@ -224,6 +264,16 @@ impl Extra {
             Extra::Colour => rule.when.highlight.clear(),
             Extra::Hide => rule.when.gag = false,
             Extra::Panel => rule.when.panel.clear(),
+        }
+    }
+
+    fn glyph(self) -> widgets::Glyph {
+        match self {
+            Extra::Say => widgets::Glyph::Say,
+            Extra::Sound => widgets::Glyph::Sound,
+            Extra::Colour => widgets::Glyph::Colour,
+            Extra::Hide => widgets::Glyph::Hide,
+            Extra::Panel => widgets::Glyph::Panel,
         }
     }
 

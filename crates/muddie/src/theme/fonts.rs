@@ -113,6 +113,8 @@ pub(super) fn install_fonts(ctx: &egui::Context, settings: &Settings) -> Result<
         names.extend(fallbacks.iter().cloned());
         fonts.families.insert(family, names);
     }
+    // The pictures of the interface come from its icons.
+    (fonts.families).insert(FontFamily::Name("icons".into()), vec!["meslo".to_owned()]);
     let monospace = fonts.families.entry(FontFamily::Monospace).or_default();
     monospace.insert(0, "meslo".to_owned());
     // The symbol and emoji fonts too: MUDs send them, and code can hold them.

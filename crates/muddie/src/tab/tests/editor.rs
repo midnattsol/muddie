@@ -67,7 +67,9 @@ fn a_variable_is_edited_as_its_type() {
     harness.get_by_label("boolean").click();
     harness.run_steps(3);
     assert_eq!(kept(harness.state().tab()), serde_json::json!(true));
-    harness.get_by_label("Value").click();
+    harness
+        .get_by_role_and_label(egui::accesskit::Role::Switch, "Value")
+        .click();
     harness.run_steps(3);
     assert_eq!(kept(harness.state().tab()), serde_json::json!(false));
 }

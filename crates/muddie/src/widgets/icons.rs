@@ -62,13 +62,15 @@ pub fn icon_button(ui: &mut Ui, icon: Icon, label: &str, on: bool) -> Response {
     response.on_hover_text(label)
 }
 
-/// The colour an icon is drawn in: running is green and deleting red, as
-/// they are everywhere; the rest as the button is.
+/// The colour an icon is drawn in: running is green, and deleting red
+/// under the pointer or the keyboard; the rest as the button is.
 fn icon_colour(icon: Icon, on: bool, hovered: bool) -> Color32 {
     let theme = theme::current();
     match (icon, on, hovered) {
         (Icon::Play, ..) => theme.good,
-        (Icon::Trash, ..) => theme.danger,
+        // Deleting is red only when it is about to be done.
+        (Icon::Trash, _, true) => theme.danger,
+        (Icon::Trash, _, false) => theme.text_dim,
         (_, true, _) => theme.accent,
         (_, false, true) => theme.text,
         (_, false, false) => theme.text_dim,

@@ -21,6 +21,7 @@ mod profile;
 mod rules;
 mod secrets;
 mod settings;
+mod syntax;
 mod tab;
 mod theme;
 mod voice;

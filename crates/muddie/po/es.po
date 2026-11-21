@@ -466,9 +466,6 @@ msgstr "El patrón no es válido:"
 msgid "Does not match."
 msgstr "No coincide."
 
-msgid "Matches."
-msgstr "Coincide."
-
 msgid "Matches:"
 msgstr "Coincide:"
 
@@ -1161,9 +1158,6 @@ msgstr "Deshacer"
 msgid "Contains"
 msgstr "Contiene"
 
-msgid "Paste a line from the MUD to try it"
-msgstr "Pega una línea del MUD para probarlo"
-
 msgid "Choose a panel"
 msgstr "Elige un panel"
 
@@ -1173,9 +1167,6 @@ msgstr "Quitar «{0}»"
 
 msgid "With the line hidden, it is only in the panel."
 msgstr "Con la línea oculta, solo está en el panel."
-
-msgid "+ Add an action"
-msgstr "+ Añadir una acción"
 
 #, python-brace-format
 msgid "{0} options"
@@ -1857,3 +1848,21 @@ msgstr "Mayús+F10  Tecla de menú"
 
 msgid "Open the menu of what has the keyboard"
 msgstr "Abrir el menú de lo que tiene el teclado"
+
+
+msgid "Open the folder"
+msgstr "Abrir la carpeta"
+
+
+msgid "Word"
+msgstr "Palabra"
+
+msgid "Paste a line from the MUD"
+msgstr "Pega una línea del MUD"
+
+msgid "Add an action"
+msgstr "Añadir una acción"
+
+msgid "The line is not shown."
+msgstr "La línea no se muestra."
+

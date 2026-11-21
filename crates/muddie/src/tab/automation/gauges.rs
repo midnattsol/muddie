@@ -9,7 +9,6 @@ impl Tab {
             .filter(|panel| panel.kind == super::layout::Kind::Gauges)
             .map(|panel| (panel.id, panel.name.clone()))
             .collect();
-        ui.set_max_width(ui.available_width().min(760.0));
         let rule = &mut self.editor.draft.gauges[index];
         let hint = tr("Name this gauge");
         let delete = rule_header(
@@ -22,9 +21,6 @@ impl Tab {
         kind_row(ui, rule);
         follows(ui, rule);
         colours(ui, rule);
-        if rule.kind.has_level() {
-            levels(ui, rule);
-        }
         let add_panel = shown_in(ui, rule, &panels);
         preview(ui, rule);
         if add_panel {
@@ -43,9 +39,12 @@ fn kind_row(ui: &mut egui::Ui, rule: &mut Gauge) {
         GaugeKind::Light,
         GaugeKind::Text,
     ];
-    ui.horizontal(|ui| {
-        widgets::caption(ui, tr("Type"));
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+    widgets::card(
+        ui,
+        Some(widgets::Glyph::Type),
+        tr("Type"),
+        |_| {},
+        |ui| {
             let names = [
                 tr("Bar"),
                 tr("Cells"),
@@ -60,62 +59,85 @@ fn kind_row(ui: &mut egui::Ui, rule: &mut Gauge) {
             if let Some(chosen) = widgets::segmented(ui, &names, current) {
                 rule.kind = kinds[chosen];
             }
-        });
-    });
-    let about = match rule.kind {
-        GaugeKind::Bar | GaugeKind::Cells => tr("How full something is, of its maximum."),
-        GaugeKind::Number => tr("A number as it is: gold, level, experience."),
-        GaugeKind::Light => tr("On or off, for what is so or is not: hidden, poisoned, in combat."),
-        GaugeKind::Text => tr("What the MUD says, as words: a stance, a target, a place."),
-    };
-    note(ui, about);
-    ui.add_space(4.0);
+            let about = match rule.kind {
+                GaugeKind::Bar | GaugeKind::Cells => tr("How full something is, of its maximum."),
+                GaugeKind::Number => tr("A number as it is: gold, level, experience."),
+                GaugeKind::Light => {
+                    tr("On or off, for what is so or is not: hidden, poisoned, in combat.")
+                }
+                GaugeKind::Text => tr("What the MUD says, as words: a stance, a target, a place."),
+            };
+            note(ui, about);
+        },
+    );
 }
 
 /// What it follows: the value, and its maximum for those with a level.
 fn follows(ui: &mut egui::Ui, rule: &mut Gauge) {
-    widgets::caption(ui, tr("Follows"));
-    if rule.kind.has_level() {
-        ui.columns(2, |columns| {
-            widgets::field(
-                &mut columns[0],
-                tr("Value"),
-                &mut rule.value,
-                "Char.Vitals.hp",
-            );
-            let none = if rule.kind == GaugeKind::Number {
-                tr("none")
+    widgets::card(
+        ui,
+        Some(widgets::Glyph::Data),
+        tr("Follows"),
+        |_| {},
+        |ui| {
+            if rule.kind.has_level() {
+                ui.columns(2, |columns| {
+                    widgets::field(
+                        &mut columns[0],
+                        tr("Value"),
+                        &mut rule.value,
+                        "Char.Vitals.hp",
+                    );
+                    let none = if rule.kind == GaugeKind::Number {
+                        tr("none")
+                    } else {
+                        "100"
+                    };
+                    widgets::field(&mut columns[1], tr("Maximum"), &mut rule.max, none);
+                });
             } else {
-                "100"
+                widgets::field(ui, tr("Value"), &mut rule.value, "Char.Status.poisoned");
+            }
+            let hint = match rule.kind {
+                GaugeKind::Light => tr(
+                    "It is on when the value is true, a number other than 0, or words other than no, false or off.",
+                ),
+                _ => tr(
+                    "Where the MUD reports it: a GMCP package and the fields inside it, such as Char.Vitals.health.current, or the name of a MSDP variable. The maximum can also be a number. Incoming data, in the editor, shows what there is.",
+                ),
             };
-            widgets::field(&mut columns[1], tr("Maximum"), &mut rule.max, none);
-        });
-    } else {
-        widgets::field(ui, tr("Value"), &mut rule.value, "Char.Status.poisoned");
-    }
-    let hint = match rule.kind {
-        GaugeKind::Light => tr(
-            "It is on when the value is true, a number other than 0, or words other than no, false or off.",
-        ),
-        _ => tr(
-            "Where the MUD reports it: a GMCP package and the fields inside it, such as Char.Vitals.health.current, or the name of a MSDP variable. The maximum can also be a number. Incoming data, in the editor, shows what there is.",
-        ),
-    };
-    note(ui, hint);
-    ui.add_space(4.0);
+            note(ui, hint);
+        },
+    );
 }
 
-/// Its colour, or for a light, its colours when on and when off.
+/// Its colour, or for a light, its colours when on and when off; and for
+/// one with a level, the colours it turns as it gets low.
 fn colours(ui: &mut egui::Ui, rule: &mut Gauge) {
-    if rule.kind != GaugeKind::Light {
-        widgets::caption(ui, tr("Colour"));
-        swatches(ui, &mut rule.colour);
-        return;
-    }
-    widgets::caption(ui, tr("Colour when on"));
+    widgets::card(
+        ui,
+        Some(widgets::Glyph::Colour),
+        tr("Colour"),
+        |_| {},
+        |ui| {
+            if rule.kind != GaugeKind::Light {
+                swatches(ui, &mut rule.colour);
+            } else {
+                light_colours(ui, rule);
+            }
+            if rule.kind.has_level() {
+                levels(ui, rule);
+            }
+        },
+    );
+}
+
+/// A light's colours, when on and when off.
+fn light_colours(ui: &mut egui::Ui, rule: &mut Gauge) {
+    widgets::sub_label(ui, tr("Colour when on"));
     swatches(ui, &mut rule.colour);
     ui.add_space(4.0);
-    widgets::caption(ui, tr("Colour when off"));
+    widgets::sub_label(ui, tr("Colour when off"));
     ui.horizontal(|ui| {
         swatches(ui, &mut rule.off_colour);
         let unlit = rule.off_colour.trim().is_empty();
@@ -134,8 +156,8 @@ fn colours(ui: &mut egui::Ui, rule: &mut Gauge) {
 /// The colours it turns as it gets low, each under a level, kept in order
 /// highest first; and the way to add one.
 fn levels(ui: &mut egui::Ui, rule: &mut Gauge) {
-    ui.add_space(4.0);
-    widgets::caption(ui, tr("Colour by level"));
+    ui.add_space(6.0);
+    widgets::sub_label(ui, tr("Colour by level"));
     if rule.steps.is_empty() {
         note(
             ui,
@@ -168,7 +190,7 @@ fn levels(ui: &mut egui::Ui, rule: &mut Gauge) {
     if !busy {
         rule.steps.sort_by_key(|step| std::cmp::Reverse(step.under));
     }
-    if crate::widgets::button(ui, tr("Add a level")).clicked() {
+    if widgets::add_button(ui, tr("Add a level")).clicked() {
         // Under the lowest there is, or a first one at 60 %.
         let (under, colour) = match rule.steps.iter().map(|step| step.under).min() {
             None => (60, "yellow"),
@@ -184,8 +206,16 @@ fn levels(ui: &mut egui::Ui, rule: &mut Gauge) {
 /// Which panel of gauges it is shown in. Returns whether a panel was asked
 /// for, there being none.
 fn shown_in(ui: &mut egui::Ui, rule: &mut Gauge, panels: &[(u32, String)]) -> bool {
-    ui.add_space(4.0);
-    widgets::caption(ui, tr("Shown in"));
+    widgets::card(
+        ui,
+        Some(widgets::Glyph::Panel),
+        tr("Shown in"),
+        |_| {},
+        |ui| shown_in_card(ui, rule, panels),
+    )
+}
+
+fn shown_in_card(ui: &mut egui::Ui, rule: &mut Gauge, panels: &[(u32, String)]) -> bool {
     if panels.is_empty() {
         let mut add = false;
         ui.horizontal(|ui| {
@@ -216,8 +246,16 @@ fn shown_in(ui: &mut egui::Ui, rule: &mut Gauge, panels: &[(u32, String)]) -> bo
 
 /// How it will look under the output, at the levels that matter.
 fn preview(ui: &mut egui::Ui, rule: &Gauge) {
-    ui.add_space(4.0);
-    widgets::caption(ui, tr("Preview"));
+    widgets::card(
+        ui,
+        Some(widgets::Glyph::Gauge),
+        tr("Preview"),
+        |_| {},
+        |ui| preview_card(ui, rule),
+    );
+}
+
+fn preview_card(ui: &mut egui::Ui, rule: &Gauge) {
     let name = if rule.name.trim().is_empty() {
         tr("Gauge")
     } else {

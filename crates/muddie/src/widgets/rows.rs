@@ -55,6 +55,64 @@ pub fn badge(ui: &mut Ui, text: &str, strong: bool) {
         .galley(rect.center() - galley.size() / 2.0, galley, colour);
 }
 
+/// The name of a part of a [`card`], over it.
+pub fn sub_label(ui: &mut Ui, text: &str) {
+    let label = RichText::new(text)
+        .font(theme::font(Weight::Regular, 12.5))
+        .color(theme::current().text_dim);
+    ui.add(egui::Label::new(label).selectable(false));
+}
+
+/// A card of a page, as the settings have, with a heading of its own: a
+/// picture, its title, and at the right what acts on the whole of it. A
+/// screen reader is told it is a group, by its title.
+pub fn card<R>(
+    ui: &mut Ui,
+    glyph: Option<Glyph>,
+    title: &str,
+    right: impl FnOnce(&mut Ui),
+    body: impl FnOnce(&mut Ui) -> R,
+) -> R {
+    let theme = theme::current();
+    let builder = egui::UiBuilder::new()
+        .accessibility_role(Role::Group)
+        .accessibility_label(title);
+    ui.scope_builder(builder, |ui| {
+        Frame::new()
+            .fill(theme.field)
+            .corner_radius(CornerRadius::same(12))
+            .inner_margin(Margin {
+                left: 16,
+                right: 16,
+                top: 12,
+                bottom: 14,
+            })
+            .show(ui, |ui| {
+                ui.set_width(ui.available_width());
+                theme::field_look(ui.visuals_mut(), theme.surface, &theme);
+                let id = ui.make_persistent_id(("card", title));
+                right_last(
+                    ui,
+                    id,
+                    |ui| {
+                        if let Some(glyph) = glyph {
+                            super::glyph(ui, glyph, 13.0, theme.accent);
+                        }
+                        let heading = RichText::new(title)
+                            .font(theme::font(Weight::Semibold, 13.5))
+                            .color(theme.text);
+                        ui.add(egui::Label::new(heading).selectable(false));
+                    },
+                    right,
+                );
+                ui.add_space(8.0);
+                body(ui)
+            })
+            .inner
+    })
+    .inner
+}
+
 /// A card holding rows of settings that belong together, in place of a
 /// form, with a hairline between rows. See [`setting_row`].
 pub fn group<R>(ui: &mut Ui, add_rows: impl FnOnce(&mut Ui) -> R) -> R {

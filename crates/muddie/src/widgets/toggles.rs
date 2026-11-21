@@ -61,9 +61,3 @@ pub fn switch(ui: &mut Ui, on: &mut bool, label: &str) -> Response {
     }
     response
 }
-
-/// A switch with its label at the left and the switch at the right edge,
-/// as tall as a row of settings.
-pub fn switch_row(ui: &mut Ui, on: &mut bool, label: &str) -> Response {
-    row(ui, label, None, &mut |ui| switch(ui, on, label))
-}

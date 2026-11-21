@@ -104,43 +104,55 @@ pub(in crate::tab) fn seen_heading(ui: &mut egui::Ui, seen: &Seen) {
 /// number, a gauge to make of it. Returns the path a gauge was asked for.
 pub(in crate::tab) fn values_group(ui: &mut egui::Ui, seen: &Seen, all: &[Leaf]) -> Option<String> {
     let theme = theme::current();
-    widgets::caption(ui, tr("Values"));
-    if seen.json.is_empty() {
-        ui.label(RichText::new(tr("Empty message.")).color(theme.text_faint));
-    }
     let mut gauge = None;
-    widgets::group(ui, |ui| {
-        for leaf in all {
-            widgets::setting_row(ui, &leaf.path, None, &mut |ui| {
-                if leaf.gauge && crate::widgets::button(ui, tr("Make a gauge")).clicked() {
-                    gauge = Some(leaf.path.clone());
-                }
-                let copy = crate::widgets::button(ui, tr("Copy the path"));
-                if copy.clicked() {
-                    ui.ctx().copy_text(leaf.path.clone());
-                }
-                let shown = RichText::new(&leaf.shown)
-                    .font(egui::FontId::monospace(13.0))
-                    .color(theme.text);
-                ui.add(Label::new(shown).truncate());
-                copy
-            });
-        }
-    });
-    if !all.is_empty() {
-        let how = tr("A path is what a gauge follows, and what a script reads after gmcp(\"…\").");
-        ui.label(
-            RichText::new(how)
-                .font(theme::font(Weight::Regular, 11.5))
-                .color(theme.text_faint),
-        );
-    }
+    widgets::card(
+        ui,
+        Some(widgets::Glyph::Data),
+        tr("Values"),
+        |_| {},
+        |ui| {
+            if seen.json.is_empty() {
+                ui.label(RichText::new(tr("Empty message.")).color(theme.text_faint));
+            }
+            ui.spacing_mut().item_spacing.y = 0.0;
+            for leaf in all {
+                widgets::setting_row(ui, &leaf.path, None, &mut |ui| {
+                    let copy = widgets::glyph_button(ui, widgets::Glyph::Copy, tr("Copy the path"));
+                    if copy.clicked() {
+                        ui.ctx().copy_text(leaf.path.clone());
+                    }
+                    if leaf.gauge
+                        && widgets::glyph_button(ui, widgets::Glyph::Gauge, tr("Make a gauge"))
+                            .clicked()
+                    {
+                        gauge = Some(leaf.path.clone());
+                    }
+                    let shown = RichText::new(&leaf.shown)
+                        .font(egui::FontId::monospace(13.0))
+                        .color(theme.text);
+                    ui.add(Label::new(shown).truncate());
+                    copy
+                });
+            }
+            if !all.is_empty() {
+                ui.add_space(6.0);
+                let how = tr(
+                    "A path is what a gauge follows, and what a script reads after gmcp(\"…\").",
+                );
+                ui.label(
+                    RichText::new(how)
+                        .font(theme::font(Weight::Regular, 11.5))
+                        .color(theme.text_faint),
+                );
+            }
+        },
+    );
     gauge
 }
 
 /// The message as it came, laid out to be read, and copied.
 pub(in crate::tab) fn raw_message(ui: &mut egui::Ui, seen: &Seen, value: &Value) {
-    widgets::caption(ui, tr("Raw message"));
+    let theme = theme::current();
     let pretty = serde_json::to_string_pretty(value).unwrap_or_default();
     let mut raw = if seen.json.is_empty() {
         ""
@@ -148,12 +160,29 @@ pub(in crate::tab) fn raw_message(ui: &mut egui::Ui, seen: &Seen, value: &Value)
         pretty.as_str()
     };
     let rows = pretty.lines().count().clamp(1, 16);
-    ui.add(
-        TextEdit::multiline(&mut raw)
-            .font(egui::FontId::monospace(13.0))
-            .margin(egui::Margin::symmetric(12, 10))
-            .desired_rows(rows)
-            .desired_width(f32::INFINITY),
+    let font = egui::FontId::monospace(13.0);
+    let mut coloured = |ui: &egui::Ui, text: &dyn egui::TextBuffer, wrap_width: f32| {
+        let tokens = crate::syntax::json_tokens(text.as_str());
+        let mut job = crate::syntax::layout(&tokens, &font, &theme);
+        job.wrap.max_width = wrap_width;
+        ui.fonts_mut(|fonts| fonts.layout_job(job))
+    };
+    widgets::card(
+        ui,
+        Some(widgets::Glyph::Code),
+        tr("Raw message"),
+        |_| {},
+        |ui| {
+            let shown = ui.add(
+                TextEdit::multiline(&mut raw)
+                    .font(egui::FontId::monospace(13.0))
+                    .margin(egui::Margin::symmetric(12, 10))
+                    .desired_rows(rows)
+                    .desired_width(f32::INFINITY)
+                    .layouter(&mut coloured),
+            );
+            (ui.ctx()).accesskit_node_builder(shown.id, |node| node.set_label(tr("Raw message")));
+        },
     );
 }
 
@@ -162,14 +191,20 @@ pub(in crate::tab) fn history(ui: &mut egui::Ui, seen: &Seen) {
     if seen.earlier.is_empty() {
         return;
     }
-    ui.add_space(6.0);
-    widgets::caption(ui, tr("History"));
-    for (at, json) in &seen.earlier {
-        let line = RichText::new(format!("{at}  {json}"))
-            .font(egui::FontId::monospace(12.0))
-            .color(theme::current().text_dim);
-        ui.add(Label::new(line).truncate());
-    }
+    widgets::card(
+        ui,
+        Some(widgets::Glyph::Timer),
+        tr("History"),
+        |_| {},
+        |ui| {
+            for (at, json) in &seen.earlier {
+                let line = RichText::new(format!("{at}  {json}"))
+                    .font(egui::FontId::monospace(12.0))
+                    .color(theme::current().text_dim);
+                ui.add(Label::new(line).truncate());
+            }
+        },
+    );
 }
 
 impl Tab {

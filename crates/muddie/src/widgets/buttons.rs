@@ -2,12 +2,145 @@
 
 use super::*;
 
-/// The ordinary button, for something to do that is not the main thing.
+/// The ordinary button, for something to do that is not the main thing:
+/// outlined, filled only under the pointer. With [`primary_button`] and
+/// [`quiet_button`], the three weights a button has.
 pub fn button(ui: &mut Ui, text: impl Into<egui::WidgetText>) -> Response {
-    raised(
-        ui,
-        egui::Button::new(text).min_size(vec2(0.0, theme::size::CONTROL)),
-    )
+    let theme = theme::current();
+    let kept = ui.visuals().widgets.clone();
+    theme::button_look(&mut ui.visuals_mut().widgets, &theme);
+    let widgets = &mut ui.visuals_mut().widgets;
+    let edge = Stroke::new(1.0, theme::mix(theme.border, theme.text, 0.14));
+    widgets.inactive.bg_fill = Color32::TRANSPARENT;
+    widgets.inactive.weak_bg_fill = Color32::TRANSPARENT;
+    widgets.inactive.bg_stroke = edge;
+    widgets.hovered.bg_stroke = edge;
+    let response = ui.add(egui::Button::new(text).min_size(vec2(0.0, theme::size::CONTROL)));
+    ui.visuals_mut().widgets = kept;
+    response
+}
+
+/// A button with a picture before its words.
+pub fn button_with(ui: &mut Ui, glyph: Glyph, text: &str) -> Response {
+    let theme = theme::current();
+    let response = button(ui, format!("     {text}"));
+    let at = response.rect.left_center() + vec2(14.0, 0.0);
+    let colour = if response.hovered() {
+        theme.text
+    } else {
+        theme.text_dim
+    };
+    paint_glyph(
+        ui.painter(),
+        at,
+        egui::Align2::LEFT_CENTER,
+        glyph,
+        12.5,
+        colour,
+    );
+    // What it says is its words: the room for the picture is not read.
+    (ui.ctx()).accesskit_node_builder(response.id, |node| node.set_label(text));
+    response
+}
+
+/// A button that adds one more to a list: a dashed outline round a plus
+/// and what it adds, so that it reads as a place for something new.
+pub fn add_button(ui: &mut Ui, text: &str) -> Response {
+    let theme = theme::current();
+    let font = theme::font(Weight::Medium, 13.0);
+    let galley = ui
+        .painter()
+        .layout_no_wrap(text.to_owned(), font, theme.text_dim);
+    let size = vec2(galley.size().x + 44.0, theme::size::CONTROL);
+    let (rect, response) = ui.allocate_exact_size(size, Sense::click());
+    response.widget_info(|| WidgetInfo::labeled(Role::Button, ui.is_enabled(), text));
+    if ui.is_rect_visible(rect) {
+        let painter = ui.painter();
+        let hovered = response.hovered() || response.has_focus();
+        if hovered {
+            painter.rect_filled(rect, CornerRadius::same(8), theme.hover);
+        }
+        let colour = if hovered {
+            theme.accent
+        } else {
+            theme::mix(theme.border, theme.text, 0.3)
+        };
+        dashed_round(painter, rect.shrink(0.5), 8.0, Stroke::new(1.0, colour));
+        let text_colour = if hovered { theme.text } else { theme.text_dim };
+        paint_glyph(
+            painter,
+            rect.left_center() + vec2(14.0, 0.0),
+            egui::Align2::LEFT_CENTER,
+            Glyph::Plus,
+            11.0,
+            text_colour,
+        );
+        painter.galley(
+            egui::pos2(rect.left() + 30.0, rect.center().y - galley.size().y / 2.0),
+            galley,
+            text_colour,
+        );
+        if response.has_focus() {
+            painter.rect_stroke(
+                rect.expand(2.0),
+                CornerRadius::same(10),
+                ui.visuals().selection.stroke,
+                egui::StrokeKind::Outside,
+            );
+        }
+    }
+    response
+}
+
+/// The dashed outline of a rounded rectangle.
+fn dashed_round(painter: &egui::Painter, rect: egui::Rect, radius: f32, stroke: Stroke) {
+    let (dash, gap) = (4.0, 3.0);
+    let r = radius;
+    let lines = [
+        [
+            egui::pos2(rect.left() + r, rect.top()),
+            egui::pos2(rect.right() - r, rect.top()),
+        ],
+        [
+            egui::pos2(rect.left() + r, rect.bottom()),
+            egui::pos2(rect.right() - r, rect.bottom()),
+        ],
+        [
+            egui::pos2(rect.left(), rect.top() + r),
+            egui::pos2(rect.left(), rect.bottom() - r),
+        ],
+        [
+            egui::pos2(rect.right(), rect.top() + r),
+            egui::pos2(rect.right(), rect.bottom() - r),
+        ],
+    ];
+    for line in lines {
+        painter.extend(egui::Shape::dashed_line(&line, stroke, dash, gap));
+    }
+    // The corners, as quarter circles.
+    for (centre, from) in [
+        (
+            egui::pos2(rect.left() + r, rect.top() + r),
+            std::f32::consts::PI,
+        ),
+        (
+            egui::pos2(rect.right() - r, rect.top() + r),
+            1.5 * std::f32::consts::PI,
+        ),
+        (egui::pos2(rect.right() - r, rect.bottom() - r), 0.0),
+        (
+            egui::pos2(rect.left() + r, rect.bottom() - r),
+            0.5 * std::f32::consts::PI,
+        ),
+    ] {
+        let points: Vec<egui::Pos2> = (0..=6)
+            .map(|step| {
+                let angle = from + step as f32 / 6.0 * std::f32::consts::FRAC_PI_2;
+                centre + vec2(angle.cos(), angle.sin()) * r
+            })
+            .collect();
+        painter.add(egui::Shape::line(points, stroke));
+    }
 }
 
 /// The button for the main thing to do in a view, filled with the accent.

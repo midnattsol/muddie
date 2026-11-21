@@ -3,6 +3,10 @@
 
 use super::*;
 
+/// How wide the details of a rule are at most: wider, lines are long to
+/// read and controls far from their names.
+const DETAIL_WIDTH: f32 = 760.0;
+
 /// Where the parts of the editor's page go.
 struct Columns {
     sections: egui::Rect,
@@ -41,7 +45,6 @@ impl Tab {
             let columns = self.columns(ui.available_rect_before_wrap());
             let card = egui::CornerRadius::same(14);
             ui.painter().rect_filled(columns.list, card, theme.field);
-            ui.painter().rect_filled(columns.detail, card, theme.field);
             self.pane(
                 ui,
                 "sections",
@@ -58,13 +61,18 @@ impl Tab {
             );
             // Between the list and the details, where the keyboard goes.
             self.pane_handle(ui, columns.handle);
-            let inner = columns.detail.shrink2(egui::vec2(26.0, 18.0));
-            self.pane(ui, "detail", inner, true, |tab, ui| {
+            // The details stand on the page, in cards as the settings
+            // have, no wider than reads well.
+            let inner = columns.detail.shrink2(egui::vec2(14.0, 6.0));
+            self.pane(ui, "detail", inner, false, |tab, ui| {
                 tab.undo_bar(ui);
                 tab.editor.detail_height = inner.height();
                 egui::ScrollArea::vertical()
                     .auto_shrink(false)
-                    .show(ui, |ui| tab.automation_detail(ui));
+                    .show(ui, |ui| {
+                        ui.set_max_width(ui.available_width().min(DETAIL_WIDTH));
+                        tab.automation_detail(ui);
+                    });
             });
         });
         self.editor.was_typing = ui.memory(|memory| memory.focused().is_some());

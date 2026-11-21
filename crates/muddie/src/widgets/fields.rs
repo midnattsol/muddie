@@ -98,7 +98,7 @@ pub fn choose<T: PartialEq + Copy>(
 /// A row of a [`dropdown`], ticked like a choice of a menu if it is the
 /// one chosen.
 pub fn choice(ui: &mut Ui, selected: bool, text: &str) -> Response {
-    menu_row(ui, Some(selected), text, "")
+    menu_row(ui, Some(selected), None, text, "")
 }
 
 /// A row of a [`dropdown`] that sets `current` to `value` when chosen.
@@ -111,9 +111,9 @@ pub fn choice_value<V: PartialEq>(ui: &mut Ui, current: &mut V, value: V, text: 
     response
 }
 
-/// An editor for Luau code: coloured as it is typed, with the lines
-/// numbered and the one being written marked, as tall as `rows` lines at
-/// least. `mistake` is the line and the message of what keeps the code
+/// An editor of code, coloured as `language` is as it is typed, with the lines
+/// numbered and the one being written marked, as tall as what it holds
+/// and a line more, and `rows` lines at least. `mistake` is the line and the message of what keeps the code
 /// from running, shown at that line and under the editor. `label` names
 /// the editor for screen readers.
 pub fn code_editor(
@@ -121,17 +121,27 @@ pub fn code_editor(
     label: &str,
     value: &mut String,
     hint: &str,
+    language: Language,
     rows: usize,
     mistake: Option<&(usize, String)>,
 ) -> Response {
     let theme = theme::current();
     let font = egui::FontId::monospace(13.0);
+    // As tall as what it holds, and a line to go on: `rows` at least.
+    let lines = value.split('\n').count();
+    let rows = rows.max(lines + 1);
     // Room for the numbers of as many lines as there are, or will fit.
-    let lines = value.split('\n').count().max(rows);
+    let lines = lines.max(rows);
     let digit = ui.fonts_mut(|fonts| fonts.glyph_width(&egui::FontId::monospace(11.5), '0'));
     let gutter = lines.to_string().len().max(2) as f32 * digit + 26.0;
     let mut coloured = |ui: &Ui, text: &dyn egui::TextBuffer, wrap_width: f32| {
-        let mut job = crate::luau::highlight(text.as_str(), &font, &theme);
+        let source = text.as_str();
+        let mut job = match language {
+            Language::Luau => crate::luau::highlight(source, &font, &theme),
+            Language::Commands => {
+                crate::syntax::layout(&crate::syntax::command_tokens(source), &font, &theme)
+            }
+        };
         job.wrap.max_width = wrap_width;
         ui.fonts_mut(|fonts| fonts.layout_job(job))
     };
@@ -223,6 +233,14 @@ fn line_numbers(
         }
         first_row = row.ends_with_newline;
     }
+}
+
+/// What a [`code_editor`] holds, for its colours.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Language {
+    Luau,
+    /// The commands a rule sends, a line each.
+    Commands,
 }
 
 /// The tags of something: each a pill with a cross to take it off, a
