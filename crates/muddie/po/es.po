@@ -2338,3 +2338,12 @@ msgstr "{0} instalado de nuevo."
 
 msgid "{0} has changed in this version of Muddie. To have the changes, install it again, from its menu in the profile's plugins: what it installed is put back as it comes, and what you added is kept."
 msgstr "{0} ha cambiado en esta versión de Muddie. Para tener los cambios, instálalo de nuevo desde su menú en los plugins del perfil: lo que instaló vuelve a quedar como viene y lo que hayas añadido se conserva."
+
+msgid "Another, filled in by hand"
+msgstr "Otro, rellenado a mano"
+
+msgid "Ready to play {0}: its address, and its plugins, which install what they bring the first time you connect."
+msgstr "Listo para jugar a {0}: su dirección y sus plugins, que instalan lo que traen la primera vez que conectes."
+
+msgid "A template could not be read: {0}"
+msgstr "No se ha podido leer una plantilla: {0}"

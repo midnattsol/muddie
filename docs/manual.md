@@ -89,9 +89,25 @@ What is changed there is kept as it is changed, with no button to press, and
 a session playing with that profile takes it. While the session on screen is
 connected otherwise than its profile now says, the profile is marked
 **Changes pending** and its **Connect** button is **Reconnect**. **New
-profile**, under the list, makes an empty one. A profile also has its own scripts, triggers, map and remembered values,
-all under `profiles/<name>/` in the configuration folder (`~/.config/muddie`
-on Linux, `%APPDATA%\muddie` on Windows).
+profile**, under the list, makes one: empty, to fill in by hand, or for a
+**Game** chosen from the templates, with its address and its plugins on,
+which install what they bring the first time you connect. A profile also
+has its own scripts, triggers, map and remembered values, all under
+`profiles/<name>/` in the configuration folder (`~/.config/muddie` on Linux,
+`%APPDATA%\muddie` on Windows).
+
+Muddie comes with a template for Reinos de Leyenda. More are read from the
+`templates` folder of the configuration folder, one TOML file each; one of
+the same name as one that comes takes its place:
+
+```toml
+name = "Reinos de Leyenda"
+host = "reinosdeleyenda.es"
+port = 5001
+tls = false                       # optional
+encoding = "auto"                 # optional
+plugins = ["reinos-de-leyenda"]   # optional: plugins that come with Muddie
+```
 
 With a character name saved, Muddie answers the first prompt with it. The
 password is kept in the system's keyring, never in a file, and is sent when

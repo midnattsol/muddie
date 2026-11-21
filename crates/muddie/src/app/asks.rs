@@ -8,8 +8,12 @@ use crate::profile::{Profile, SessionPrefs};
 /// A question asked before something is done, with what was typed so far.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum Ask {
-    /// The name of a new, empty profile.
-    New(String),
+    /// The name of a new profile, and the template it is made from, by
+    /// its name: none for one filled in by hand.
+    New {
+        name: String,
+        game: Option<String>,
+    },
     /// The name to keep the session on screen under.
     SaveSession(String),
     Rename {
@@ -28,7 +32,7 @@ pub(super) enum Ask {
 impl Ask {
     fn title(&self) -> &'static str {
         match self {
-            Ask::New(_) => tr("New profile"),
+            Ask::New { .. } => tr("New profile"),
             Ask::SaveSession(_) => tr("Save as profile"),
             Ask::Rename { .. } => tr("Rename profile"),
             Ask::Duplicate { .. } => tr("Duplicate profile"),
@@ -40,7 +44,7 @@ impl Ask {
     /// What doing it is called, on its button.
     fn verb(&self) -> &'static str {
         match self {
-            Ask::New(_) => tr("Create"),
+            Ask::New { .. } => tr("Create"),
             Ask::SaveSession(_) => tr("Save"),
             Ask::Rename { .. } => tr("Rename"),
             Ask::Duplicate { .. } => tr("Duplicate"),
@@ -53,7 +57,7 @@ impl Ask {
     /// it is called and an example of it.
     fn typed_mut(&mut self) -> Option<(&mut String, &'static str, &'static str)> {
         match self {
-            Ask::New(name) | Ask::SaveSession(name) => Some((name, tr("Name"), "")),
+            Ask::New { name, .. } | Ask::SaveSession(name) => Some((name, tr("Name"), "")),
             Ask::Rename { to, .. } | Ask::Duplicate { to, .. } => Some((to, tr("Name"), "")),
             Ask::Install(address) => Some((
                 address,
@@ -108,6 +112,24 @@ impl App {
             _ => false,
         };
         let (mut open, mut answer) = (true, None);
+        let profiles = self.profiles.clone();
+        let templates = match (&ask, &profiles) {
+            (Ask::New { .. }, Some(profiles)) => {
+                let (templates, problems) = crate::templates::all(Some(&profiles.templates_dir()));
+                (
+                    templates
+                        .into_iter()
+                        .map(|template| template.name)
+                        .collect(),
+                    problems,
+                )
+            }
+            _ => (Vec::new(), Vec::new()),
+        };
+        let unused = |name: &str| {
+            (profiles.as_ref())
+                .map_or_else(|| name.to_owned(), |profiles| profiles.unused_name(name))
+        };
         widgets::dialog(
             ctx,
             "profile question",
@@ -116,7 +138,14 @@ impl App {
             size::DIALOG_S,
             |ui| {
                 ui.spacing_mut().item_spacing.y = size::GAP_S;
-                answer = ask_body(ui, &mut ask, in_use, self.ask_error.as_deref());
+                answer = ask_body(
+                    ui,
+                    &mut ask,
+                    in_use,
+                    self.ask_error.as_deref(),
+                    &templates,
+                    &unused,
+                );
             },
         );
         self.asking = (open && answer != Some(false)).then_some(ask.clone());
@@ -132,7 +161,7 @@ impl App {
             return;
         };
         let done = match &ask {
-            Ask::New(name) => self.create_profile(&profiles, name),
+            Ask::New { name, game } => self.create_profile(&profiles, name, game.as_deref()),
             Ask::SaveSession(name) => self.save_session_as(&profiles, name),
             Ask::Rename { from, to } => self.rename_profile(&profiles, from, to),
             Ask::Duplicate { from, to } => profiles
@@ -158,20 +187,29 @@ impl App {
         }
     }
 
-    /// Makes an empty profile, to be filled in. Returns its name.
+    /// Makes a profile, empty to be filled in, or for a game: with where
+    /// it is played and its plugin on, which is installed when the profile
+    /// is first played with. Returns its name.
     fn create_profile(
         &mut self,
         profiles: &Profiles,
         name: &str,
+        game: Option<&str>,
     ) -> Result<Option<String>, String> {
         let name = name.trim();
         if profiles.exists(name) {
             return Err(trf("There is a profile called {0} already.", &[name]));
         }
-        let profile = Profile {
+        let mut profile = Profile {
             session: Some(SessionPrefs::from(&self.settings)),
             ..Profile::default()
         };
+        let (templates, _) = crate::templates::all(Some(&profiles.templates_dir()));
+        if let Some(template) =
+            (templates.iter()).find(|template| Some(template.name.as_str()) == game)
+        {
+            template.fill(&mut profile);
+        }
         profiles.save(name, &profile)?;
         Ok(Some(name.to_owned()))
     }
@@ -233,12 +271,76 @@ impl App {
     }
 }
 
+/// The game a new profile is for, chosen from the templates, or another,
+/// filled in by hand. Choosing one names the profile after it, unless it
+/// was named otherwise already, and says what it brings. Templates that
+/// could not be read are said too.
+fn choose_game(
+    ui: &mut Ui,
+    name: &mut String,
+    game: &mut Option<String>,
+    (templates, problems): &(Vec<String>, Vec<String>),
+    unused: &dyn Fn(&str) -> String,
+) {
+    let theme = theme::current();
+    let label = ui.label(
+        RichText::new(tr("Game"))
+            .font(theme::font(Weight::Medium, 12.5))
+            .color(theme.text_dim),
+    );
+    let by_hand = tr("Another, filled in by hand");
+    let before = game.clone();
+    widgets::dropdown("new profile game")
+        .selected_text(game.clone().unwrap_or_else(|| by_hand.to_owned()))
+        .show_ui(ui, |ui| {
+            widgets::choice_value(ui, game, None, by_hand);
+            for template in templates {
+                widgets::choice_value(ui, game, Some(template.clone()), template);
+            }
+        })
+        .response
+        .labelled_by(label.id);
+    if *game != before {
+        // Named after the game, unless named otherwise already.
+        let default = |game: &Option<String>| unused(game.as_deref().unwrap_or(tr("New profile")));
+        if *name == default(&before) || name.trim().is_empty() {
+            *name = default(game);
+        }
+    }
+    if let Some(game) = game {
+        widgets::page_note(
+            ui,
+            &trf(
+                "Ready to play {0}: its address, and its plugins, which install what they bring the first time you connect.",
+                &[game],
+            ),
+        );
+    }
+    for problem in problems {
+        ui.colored_label(
+            theme.danger,
+            trf("A template could not be read: {0}", &[problem]),
+        );
+    }
+    ui.add_space(size::GAP_S);
+}
+
 /// What is asked: what to type, under what it is called, or what is
 /// about to happen; then Cancel and the button that does it, which stays
 /// greyed out until there is something to do it with. Returns true when
 /// it is to be done, false when cancelled.
-fn ask_body(ui: &mut Ui, ask: &mut Ask, in_use: bool, error: Option<&str>) -> Option<bool> {
+fn ask_body(
+    ui: &mut Ui,
+    ask: &mut Ask,
+    in_use: bool,
+    error: Option<&str>,
+    templates: &(Vec<String>, Vec<String>),
+    unused: &dyn Fn(&str) -> String,
+) -> Option<bool> {
     let verb = ask.verb();
+    if let Ask::New { name, game } = ask {
+        choose_game(ui, name, game, templates, unused);
+    }
     let mut ready = true;
     let mut entered = false;
     match ask {

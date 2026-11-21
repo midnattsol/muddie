@@ -67,7 +67,7 @@ impl App {
         if widgets::primary_button(ui, tr("New profile")).clicked() {
             let name =
                 (self.profiles.as_ref()).map(|profiles| profiles.unused_name(tr("New profile")));
-            self.asking = name.map(Ask::New);
+            self.asking = name.map(|name| Ask::New { name, game: None });
             self.ask_error = None;
         }
     }

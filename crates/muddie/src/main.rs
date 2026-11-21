@@ -26,6 +26,7 @@ mod settings;
 mod shortcuts;
 mod syntax;
 mod tab;
+mod templates;
 mod theme;
 mod voice;
 mod widgets;

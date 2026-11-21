@@ -175,6 +175,12 @@ impl Profiles {
         self.folders_with("profiles", "profile.toml")
     }
 
+    /// Where templates for new profiles are read from, besides those that
+    /// come with Muddie.
+    pub fn templates_dir(&self) -> PathBuf {
+        self.dir.join("templates")
+    }
+
     /// Where script packages are installed.
     pub fn packages_dir(&self) -> PathBuf {
         self.dir.join("packages")

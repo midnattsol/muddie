@@ -44,7 +44,10 @@ impl App {
             });
         ui.with_layout(egui::Layout::bottom_up(egui::Align::Min), |ui| {
             if widgets::button(ui, tr("New profile")).clicked() {
-                self.asking = Some(Ask::New(profiles.unused_name(tr("New profile"))));
+                self.asking = Some(Ask::New {
+                    name: profiles.unused_name(tr("New profile")),
+                    game: None,
+                });
                 self.ask_error = None;
             }
         });

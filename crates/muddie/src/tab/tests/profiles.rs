@@ -395,3 +395,39 @@ fn welcome_screen_lists_the_profiles_and_gives_way_once_connecting() {
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// A new profile can be made for a game Muddie has a plugin for: with its
+/// address and its plugin on, named after it.
+#[test]
+fn a_new_profile_is_made_for_a_game_with_its_address_and_plugin() {
+    let dir = std::env::temp_dir().join(format!("muddie-game-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let profiles = Profiles::at(dir.clone());
+    let mut harness = window(Some(profiles.clone()));
+    harness.set_size(egui::vec2(1300.0, 860.0));
+    harness.state_mut().open_profiles(None);
+    harness.run_steps(2);
+    // In the list and on the page, with no profile yet: either.
+    harness
+        .get_all_by_label("New profile")
+        .next()
+        .unwrap()
+        .click();
+    harness.run_steps(2);
+    harness
+        .get_by_role_and_label(egui::accesskit::Role::ComboBox, "Game")
+        .click();
+    harness.run_steps(2);
+    harness.get_by_label("Reinos de Leyenda").click();
+    harness.run_steps(2);
+    harness.get_by_label_contains("Ready to play Reinos de Leyenda");
+    harness.get_by_label("Create").click();
+    harness.run_steps(3);
+    let saved = profiles.load("Reinos de Leyenda").unwrap();
+    assert_eq!(
+        (saved.host.as_str(), saved.port, saved.tls),
+        ("reinosdeleyenda.es", 5001, false)
+    );
+    assert_eq!(saved.included_on, ["reinos-de-leyenda"]);
+    std::fs::remove_dir_all(&dir).unwrap();
+}
