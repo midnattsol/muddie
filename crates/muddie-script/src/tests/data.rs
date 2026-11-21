@@ -188,3 +188,31 @@ fn the_size_of_a_panel_can_be_asked_for() {
         [send("none"), send("42x20"), send("12x6"), send("none")]
     );
 }
+
+#[test]
+fn a_package_that_sends_only_what_changed_is_merged_when_asked() {
+    let mut engine = engine(
+        r#"gmcp_merge("Char.Status")
+        on_gmcp("Char.Status", function(data) echo(`came {data.pvs.min} {data.pe}`) end)"#,
+    );
+    engine.on_gmcp(
+        "Char.Status",
+        r#"{"pvs": {"min": 80, "max": 100}, "pe": 5}"#,
+    );
+    engine.on_gmcp("Char.Status", r#"{"pvs": {"min": 70}}"#);
+    engine.on_input("/lua local s = gmcp('Char.Status') echo(`{s.pvs.min}/{s.pvs.max} {s.pe}`)");
+    assert_eq!(
+        engine.take_actions(),
+        [
+            Action::Echo("came 80 5".into()),
+            // Handlers get what came.
+            Action::Echo("came 70 nil".into()),
+            Action::Echo("70/100 5".into()),
+        ]
+    );
+    // Others are as they come.
+    engine.on_gmcp("Room.Info", r#"{"exits": ["n", "s"]}"#);
+    engine.on_gmcp("Room.Info", r#"{"name": "Plaza"}"#);
+    engine.on_input("/lua echo(`{gmcp('Room.Info').exits}`)");
+    assert_eq!(engine.take_actions(), [Action::Echo("nil".into())]);
+}

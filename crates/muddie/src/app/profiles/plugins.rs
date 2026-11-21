@@ -40,22 +40,22 @@ pub(in crate::app) fn installed_row(
 }
 
 /// A plugin that comes with Muddie: its switch, what it does, and for one
-/// in Luau a menu to make it the profile's own. Returns whether that was
-/// asked.
+/// installed in the profile, a menu to install it again. Returns whether
+/// that was asked.
 fn included_row(ui: &mut Ui, plugin: &crate::bundled::Bundled, draft: &mut Profile) -> bool {
     let mut on = plugin.is_on(&draft.included_on, &draft.included_off);
     let name = tr(plugin.name);
-    let mut customize = false;
+    let mut again = false;
     let switch = widgets::setting_row(ui, name, Some(tr(plugin.about)), &mut |ui| {
         let switch = widgets::switch(ui, &mut on, name);
-        if plugin.code.is_some() {
+        if plugin.installs() && draft.included_installed.contains_key(plugin.id) {
             ui.add_space(size::GAP_S);
             let more =
                 widgets::icon_button(ui, widgets::Icon::More, &trf("{0} options", &[name]), false);
             crate::widgets::menu_of(&more).show(|ui| {
                 widgets::menu_width(ui);
-                if widgets::menu_item(ui, tr("Customize"), "").clicked() {
-                    customize = true;
+                if widgets::menu_item(ui, tr("Install again"), "").clicked() {
+                    again = true;
                     ui.close();
                 }
             });
@@ -65,7 +65,7 @@ fn included_row(ui: &mut Ui, plugin: &crate::bundled::Bundled, draft: &mut Profi
     if switch.changed() {
         plugin.switch(&mut draft.included_on, &mut draft.included_off, on);
     }
-    customize
+    again
 }
 
 impl App {
@@ -80,16 +80,16 @@ impl App {
         let Some(edit) = self.editing.as_mut() else {
             return;
         };
-        let mut customize = None;
+        let mut again = None;
         widgets::section(ui, tr("Included"), |ui| {
             for plugin in crate::bundled::ALL.iter() {
                 if included_row(ui, plugin, &mut edit.draft) {
-                    customize = Some(plugin);
+                    again = Some(plugin);
                 }
             }
         });
-        if let Some(plugin) = customize {
-            self.customize(plugin);
+        if let Some(plugin) = again {
+            self.install_again(plugin);
         }
     }
 
@@ -152,45 +152,15 @@ impl App {
         }
     }
 
-    /// Makes a plugin that comes with Muddie the profile's own: its code
-    /// becomes a script of the profile's, to change at will, and the one
-    /// that came is switched off so as not to run twice.
-    pub(in crate::app) fn customize(&mut self, plugin: &'static crate::bundled::Bundled) {
-        let (Some(profiles), Some(edit), Some(code)) =
-            (self.profiles.clone(), self.editing.as_mut(), plugin.code)
-        else {
+    /// Installs a plugin that comes with Muddie again in the profile being
+    /// edited, in the sessions that use it: what it installed is put back
+    /// as it came, and what was added is kept.
+    pub(in crate::app) fn install_again(&mut self, plugin: &'static crate::bundled::Bundled) {
+        let Some(name) = self.editing.as_ref().map(|edit| edit.name.clone()) else {
             return;
         };
-        let path = profiles
-            .scripts_dir(&edit.name)
-            .join(format!("{}.luau", plugin.id));
-        // One made before is kept as it is: it may have been changed.
-        if !path.exists()
-            && let Err(error) = std::fs::write(&path, code)
-        {
-            self.settings_error =
-                Some(trf("Could not save the script: {0}", &[&error.to_string()]));
-            return;
+        for tab in self.tabs.iter_mut().filter(|tab| tab.uses_profile(&name)) {
+            tab.install_included_again(plugin);
         }
-        plugin.switch(
-            &mut edit.draft.included_on,
-            &mut edit.draft.included_off,
-            false,
-        );
-        let name = edit.name.clone();
-        self.save_profile_now();
-        let active = self.active;
-        for (index, tab) in self.tabs.iter_mut().enumerate() {
-            if tab.uses_profile(&name) {
-                tab.adopt_script(&path, index == active);
-            }
-        }
-        if self.tabs[active].uses_profile(&name) {
-            self.show_profiles = false;
-        }
-        self.tabs[active].note(&trf(
-            "{0} is now a script of profile {1}.",
-            &[tr(plugin.name), &name],
-        ));
     }
 }

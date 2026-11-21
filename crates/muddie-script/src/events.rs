@@ -133,7 +133,21 @@ impl Engine {
         };
         let callbacks: Vec<(u64, String, Function)> = {
             let mut state = self.state.borrow_mut();
-            state.data.insert(key.clone(), data.clone());
+            // A package that sends only what changed is merged into what
+            // was kept of it; its handlers still get what came.
+            let kept = match (state.data.get(&key), &data) {
+                (Some(Value::Table(old)), Value::Table(new)) if state.merged.contains(&key) => {
+                    match merged(&self.lua, old, new) {
+                        Ok(both) => Value::Table(both),
+                        Err(error) => {
+                            drop(state);
+                            return self.error(format!("bad data for {name}: {error}"));
+                        }
+                    }
+                }
+                _ => data.clone(),
+            };
+            state.data.insert(key.clone(), kept);
             (state.data_handlers.iter())
                 .filter(|handler| handler.covers(&key))
                 .map(|handler| (handler.id, handler.owner.clone(), handler.callback.clone()))
@@ -334,4 +348,23 @@ fn make_set(
         let _ = made.send((patterns, set));
     });
     making
+}
+
+/// A copy of `old` with what is in `new` put over it, tables inside both
+/// merged the same way.
+fn merged(lua: &Lua, old: &mlua::Table, new: &mlua::Table) -> mlua::Result<mlua::Table> {
+    let both = lua.create_table()?;
+    for pair in old.pairs::<Value, Value>() {
+        let (key, value) = pair?;
+        both.raw_set(key, value)?;
+    }
+    for pair in new.pairs::<Value, Value>() {
+        let (key, value) = pair?;
+        let value = match (both.raw_get::<Value>(key.clone())?, value) {
+            (Value::Table(before), Value::Table(now)) => Value::Table(merged(lua, &before, &now)?),
+            (_, now) => now,
+        };
+        both.raw_set(key, value)?;
+    }
+    Ok(both)
 }

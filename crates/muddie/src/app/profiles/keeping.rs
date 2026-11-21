@@ -80,6 +80,9 @@ impl App {
                 draft
                     .included_declined
                     .clone_from(&stored.included_declined);
+                draft
+                    .included_installed
+                    .clone_from(&stored.included_installed);
             }
         }
     }

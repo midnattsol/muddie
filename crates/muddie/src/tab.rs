@@ -207,6 +207,12 @@ pub struct Tab {
     included_on: Vec<String>,
     included_off: Vec<String>,
     included_declined: Vec<String>,
+    /// The plugins that come with Muddie installed in the profile, each
+    /// with the mark of what it was made of.
+    included_installed: std::collections::BTreeMap<String, String>,
+    /// Whether it was said that some installed differ from those that
+    /// come with this version.
+    included_changes_told: bool,
     plugin_offer: Option<&'static crate::bundled::Bundled>,
     /// Package installs and updates under way; the flag says to enable
     /// the package when its job ends well.
@@ -322,6 +328,8 @@ impl Tab {
             included_on: Vec::new(),
             included_off: Vec::new(),
             included_declined: Vec::new(),
+            included_installed: Default::default(),
+            included_changes_told: false,
             plugin_offer: None,
             package_jobs: Vec::new(),
             fetching: media::Fetching::default(),

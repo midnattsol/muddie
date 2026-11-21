@@ -37,6 +37,9 @@ pub struct Profile {
     pub included_on: Vec<String>,
     pub included_off: Vec<String>,
     pub included_declined: Vec<String>,
+    /// Those installed in it, each with the mark of what it was made of
+    /// when it was (see [`crate::bundled::Bundled::fingerprint`]).
+    pub included_installed: std::collections::BTreeMap<String, String>,
     /// How its sessions go: none in a profile saved before they were
     /// kept with it, which then has those of the settings.
     pub session: Option<SessionPrefs>,
@@ -91,6 +94,7 @@ impl Default for Profile {
             included_on: Vec::new(),
             included_off: Vec::new(),
             included_declined: Vec::new(),
+            included_installed: Default::default(),
             session: None,
         }
     }
@@ -467,6 +471,7 @@ mod tests {
             included_on: vec!["reinos-de-leyenda".into()],
             included_off: vec!["common".into()],
             included_declined: Vec::new(),
+            included_installed: Default::default(),
             session: Some(SessionPrefs {
                 reconnect: false,
                 ..SessionPrefs::default()

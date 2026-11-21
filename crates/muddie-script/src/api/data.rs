@@ -129,6 +129,20 @@ fn install_supports(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     let add = |name: &str, function: Function| globals.set(name, function);
     let shared = Rc::clone(state);
     add(
+        "gmcp_merge",
+        lua.create_function(move |_, packages: mlua::Variadic<String>| {
+            let mut state = shared.borrow_mut();
+            for package in packages {
+                let key = package.to_lowercase();
+                if !state.merged.contains(&key) {
+                    state.merged.push(key);
+                }
+            }
+            Ok(())
+        })?,
+    )?;
+    let shared = Rc::clone(state);
+    add(
         "supports",
         lua.create_function(move |_, modules: mlua::Variadic<String>| {
             let mut state = shared.borrow_mut();

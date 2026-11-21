@@ -125,6 +125,9 @@ pub(super) struct State {
     pub(crate) supports: Vec<(String, String)>,
     /// Data last received per GMCP package or MSDP variable.
     pub(crate) data: HashMap<String, Value>,
+    /// The GMCP packages that send only what changed, by key: what comes is
+    /// merged into what was kept.
+    pub(crate) merged: Vec<String>,
     /// The server's MSSP status, as `(name, value)` pairs.
     pub(crate) mssp: Vec<(String, String)>,
     pub(crate) actions: Vec<Action>,

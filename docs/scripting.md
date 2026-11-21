@@ -144,6 +144,7 @@ send_msdp("REPORT", "HEALTH", "MANA")
 | `gmcp(package)` | The data last received for exactly that package. |
 | `send_gmcp(package, data)` | Sends a GMCP message. |
 | `on_msdp(variable, fn)`, `msdp(variable)`, `send_msdp(command, ...)` | The same for MSDP. Values arrive as strings. |
+| `gmcp_merge(package, ...)` | For packages the server sends only what changed of, as `Char.Status` with only the life that changed: what comes is merged into what `gmcp(package)` and the gauges keep, tables inside merged too. Handlers still get what came. |
 | `supports(module, ...)` | Announces GMCP modules to the server besides the usual ones, as `"Name version"`: `supports("Map.Render 1")`. Some servers only send what was announced. They are asked for while the script is loaded: when it is switched off or removed, the server is told it no longer wants them. |
 | `on_event(name, fn)` | Calls `fn` when something happens in the client: `"connect"`, `"disconnect"`, `"mxp"` with `{name, value}` when the MUD names a value with MXP (a variable, an entity, or what a flagged element held, such as `RoomName`), or `"panel"` with `{name, map, columns, rows}`: the size in characters of a panel that shows a drawing, once it stops changing, after connecting and after the script is run. `map` is true for the map's panel, whatever it is called. |
 | `panel_size(name)` | The size in characters of a panel, as `{columns, rows}`, at once; `nil` if it has not been on the screen. With no name, the map's panel. |

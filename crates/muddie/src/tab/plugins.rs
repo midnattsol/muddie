@@ -16,23 +16,32 @@ impl Tab {
 
     /// Switches a plugin that comes with Muddie on or off, at once and
     /// without running the other scripts again, and keeps that with the
-    /// profile if there is one.
+    /// profile if there is one. One installed in the profile needs one.
     pub(super) fn set_included(&mut self, plugin: &'static crate::bundled::Bundled, on: bool) {
+        if on && plugin.installs() && self.own_scripts_dir().is_none() {
+            self.refuse(tr(
+                "This plugin is installed in a profile: save this session as a profile, then switch it on.",
+            ));
+            self.app_request = Some(AppRequest::SaveAsProfile);
+            return;
+        }
         plugin.switch(&mut self.included_on, &mut self.included_off, on);
         self.run_included(plugin, on);
         self.keep_included();
     }
 
-    /// Starts or stops a plugin that comes with Muddie in this session.
+    /// Starts or stops a plugin that comes with Muddie in this session:
+    /// one installed in the profile is installed the first time, and then
+    /// its folder of scripts and its gauges are switched on or off.
     pub(super) fn run_included(&mut self, plugin: &'static crate::bundled::Bundled, on: bool) {
         if self.plugin_offer == Some(plugin) {
             self.plugin_offer = None;
         }
-        let owner = crate::bundled::owner(plugin);
-        self.scripts.unload(&owner);
-        if let (Some(code), true) = (plugin.code, on) {
-            let name = format!("{}.luau", plugin.id);
-            self.scripts.exec_owned(&owner, &name, code);
+        if plugin.installs() && self.own_scripts_dir().is_some() {
+            if on && !self.included_installed.contains_key(plugin.id) {
+                self.install_included(plugin, false);
+            }
+            self.switch_installed(plugin, on);
         }
         self.run_actions();
         // The one that is part of the program changes what is asked for by
@@ -40,18 +49,146 @@ impl Tab {
         self.sync_modules();
     }
 
+    /// Installs a plugin that comes with Muddie in the profile: its
+    /// scripts in a folder named after it, its gauges among the profile's.
+    /// What there is of it already is kept; installed `again`, what it
+    /// installed is put back as it came. What was added is kept either way.
+    /// Returns whether it was.
+    fn install_included(&mut self, plugin: &'static crate::bundled::Bundled, again: bool) -> bool {
+        let Some(folder) = self.own_scripts_dir().map(|dir| dir.join(plugin.folder())) else {
+            return false;
+        };
+        let written = std::fs::create_dir_all(&folder).and_then(|()| {
+            for (name, code) in plugin.scripts {
+                let path = folder.join(name);
+                if again || !path.exists() {
+                    std::fs::write(&path, code)?;
+                }
+            }
+            Ok(())
+        });
+        if let Err(error) = written {
+            self.refuse(&trf(
+                "{0} could not be installed: {1}",
+                &[tr(plugin.name), &error.to_string()],
+            ));
+            return false;
+        }
+        let theirs = plugin.read_rules();
+        self.change_rules(|rules| {
+            for gauge in &theirs.gauges {
+                let known = (rules.gauges.iter())
+                    .position(|known| known.shown_name() == gauge.shown_name());
+                match known {
+                    Some(at) if again => rules.gauges[at] = gauge.clone(),
+                    Some(_) => {}
+                    None => rules.gauges.push(gauge.clone()),
+                }
+            }
+        });
+        (self.included_installed).insert(plugin.id.to_owned(), plugin.fingerprint());
+        self.keep_included();
+        true
+    }
+
+    /// Installs a plugin that comes with Muddie again, putting back what it
+    /// installed as it came, and runs its scripts again.
+    pub fn install_included_again(&mut self, plugin: &'static crate::bundled::Bundled) {
+        if !self.install_included(plugin, true) {
+            return;
+        }
+        if let Some(folder) = self.own_scripts_dir().map(|dir| dir.join(plugin.folder())) {
+            for (name, _) in plugin.scripts {
+                let path = folder.join(name);
+                if self.scripts.is_loaded(&path) {
+                    self.scripts.reload_file(&path);
+                }
+            }
+        }
+        self.run_actions();
+        self.note(&trf("{0} installed again.", &[tr(plugin.name)]));
+    }
+
+    /// Switches the folder of scripts and the gauges a plugin installed on
+    /// or off, as saved.
+    fn switch_installed(&mut self, plugin: &'static crate::bundled::Bundled, on: bool) {
+        let theirs = plugin.read_rules();
+        let names: Vec<&str> = theirs
+            .gauges
+            .iter()
+            .map(crate::rules::Gauge::shown_name)
+            .collect();
+        self.change_rules(|rules| {
+            rules.set_folder_on(Kind::Script, plugin.folder(), on);
+            for gauge in &mut rules.gauges {
+                if names.contains(&gauge.shown_name()) {
+                    gauge.enabled = on;
+                }
+            }
+        });
+        self.scripts_synced = None;
+        self.sync_scripts();
+    }
+
+    /// Installs the plugins that come with Muddie that are switched on and
+    /// not installed yet, as those switched on in the profile's settings,
+    /// and says, once, of those installed that are not as they come now.
+    /// Returns whether one was installed.
+    pub(super) fn install_switched_on(&mut self) -> bool {
+        if self.own_scripts_dir().is_none() {
+            return false;
+        }
+        let on = (crate::bundled::ALL.iter())
+            .filter(|plugin| plugin.installs() && self.included(plugin));
+        let (mut installed, mut changed) = (false, Vec::new());
+        for plugin in on.collect::<Vec<_>>() {
+            match self.included_installed.get(plugin.id) {
+                None => installed |= self.install_included(plugin, false),
+                Some(mark) if *mark != plugin.fingerprint() => changed.push(tr(plugin.name)),
+                Some(_) => {}
+            }
+        }
+        if !changed.is_empty() && !self.included_changes_told {
+            self.included_changes_told = true;
+            self.note(&trf(
+                "{0} has changed in this version of Muddie. To have the changes, install it again, from its menu in the profile's plugins: what it installed is put back as it comes, and what you added is kept.",
+                &[&changed.join(", ")],
+            ));
+        }
+        installed
+    }
+
+    /// Changes the rules as saved, and in the editor if it is open, and
+    /// puts them to work.
+    pub(super) fn change_rules(&mut self, change: impl Fn(&mut Rules)) {
+        let mut rules = self.rules.clone();
+        change(&mut rules);
+        if self.editor.open {
+            change(&mut self.editor.draft);
+            change(&mut self.editor.seen);
+        }
+        if let Some(profiles) = &self.profiles
+            && let Err(error) = rules.save(&profiles.rules_path(self.profile.as_deref()))
+        {
+            self.note(&trf("Could not save the rules: {0}", &[&error]));
+        }
+        self.reload_rules(Some(rules));
+    }
+
     /// Saves which plugins are on with the profile, if there is one;
     /// without one they are as set for as long as the session lasts.
     pub(super) fn keep_included(&mut self) {
-        let (on, off, declined) = (
+        let (on, off, declined, installed) = (
             self.included_on.clone(),
             self.included_off.clone(),
             self.included_declined.clone(),
+            self.included_installed.clone(),
         );
         self.keep_in_profile(move |profile| {
             profile.included_on = on;
             profile.included_off = off;
             profile.included_declined = declined;
+            profile.included_installed = installed;
         });
     }
 

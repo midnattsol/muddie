@@ -81,16 +81,25 @@ fn sent_lines(sent: &mut tokio::sync::mpsc::UnboundedReceiver<Command>) -> Vec<S
         .collect()
 }
 
+/// Reinos de Leyenda's plugin, as installed: its script running, and its
+/// rules among the session's.
+fn reinos(app: &mut Tab) {
+    let plugin = crate::bundled::find("reinos-de-leyenda").unwrap();
+    for (name, code) in plugin.scripts {
+        app.scripts.exec(name, code);
+    }
+    app.rules.gauges.extend(plugin.read_rules().gauges);
+    app.run_rules();
+    app.run_actions();
+}
+
 #[test]
 fn reinos_de_leyenda_is_followed_by_the_rooms_it_shows_and_walked_in_its_words() {
     let mut harness = window(None);
     let app = harness.state_mut().tab_mut();
     let (events, mut sent) = fake_connection(app);
     desert(app);
-    app.scripts.exec(
-        "reinos",
-        include_str!("../../../plugins/reinos-de-leyenda.luau"),
-    );
+    reinos(app);
     let gmcp = |package: &str, data: &str| Event::Gmcp {
         package: package.into(),
         data: data.into(),
@@ -210,10 +219,7 @@ fn the_plugin_takes_the_servers_map_at_once_and_it_is_said_aside() {
     let app = harness.state_mut().tab_mut();
     let (_events, _sent) = fake_connection(app);
     app.set_map_shown(false);
-    app.scripts.exec(
-        "reinos",
-        include_str!("../../../plugins/reinos-de-leyenda.luau"),
-    );
+    reinos(app);
     harness.run_steps(2);
     let said = harness.state().tab().notices().0.to_vec();
     let taking = (said.iter())
@@ -256,10 +262,7 @@ fn reinos_is_followed_through_lag_and_put_right_by_the_room_written() {
     let app = harness.state_mut().tab_mut();
     let (events, _sent) = fake_connection(app);
     desert(app);
-    app.scripts.exec(
-        "reinos",
-        include_str!("../../../plugins/reinos-de-leyenda.luau"),
-    );
+    reinos(app);
     let here = |harness: &Harness<'_, App>| {
         harness
             .state()
@@ -317,10 +320,7 @@ fn reinos_is_followed_by_its_moves_after_connecting_opened_the_map() {
     let mut harness = window(None);
     let ctx = harness.ctx.clone();
     let app = harness.state_mut().tab_mut();
-    app.scripts.exec(
-        "reinos",
-        include_str!("../../../plugins/reinos-de-leyenda.luau"),
-    );
+    reinos(app);
     app.run_actions();
     // Connecting opens the map of where it leads; nothing listens there.
     let runtime = tokio::runtime::Runtime::new().unwrap();
@@ -355,10 +355,7 @@ fn reinos_gives_gauges_states_and_channels_by_themselves() {
     let app = harness.state_mut().tab_mut();
     let (events, _sent) = fake_connection(app);
     desert(app);
-    app.scripts.exec(
-        "reinos",
-        include_str!("../../../plugins/reinos-de-leyenda.luau"),
-    );
+    reinos(app);
     let gmcp = |package: &str, data: &str| Event::Gmcp {
         package: package.into(),
         data: data.into(),
@@ -422,10 +419,7 @@ fn a_move_by_an_exit_the_map_does_not_have_is_said() {
     let app = harness.state_mut().tab_mut();
     let (events, _sent) = fake_connection(app);
     desert(app);
-    app.scripts.exec(
-        "reinos",
-        include_str!("../../../plugins/reinos-de-leyenda.luau"),
-    );
+    reinos(app);
     assert!(app.map.borrow_mut().set_current(4));
     events
         .send(Event::Gmcp {

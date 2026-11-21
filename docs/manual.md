@@ -399,20 +399,28 @@ per profile like the ones you install. Two come with it.
   way: `Char.Vitals` as gauges, `Room.Info` as the map, `Comm.Channel.Text`
   as channels. It is on in a new profile; switched off, the client makes
   nothing of them by itself, and scripts still get them.
-- **Reinos de Leyenda** shows the channels of that MUD, each in its tab, and
-  gives it its map: the one the MUD publishes, taken as soon as the plugin
-  is on and brought up to date when it changes. It follows you on it from
-  the rooms the MUD shows, and walks in Spanish. It
+- **Reinos de Leyenda** gives that MUD its gauges (life, energy, and faith
+  and the shield for a character who has them), shows its channels, each in
+  its tab, and gives it its map: the one the MUD publishes, taken as soon as
+  the plugin is on and brought up to date when it changes. It follows you on
+  it by each move, checked by the room the game writes, so that lag does
+  not lose it, and walks in Spanish. It
   is off until asked for. On connecting to that MUD it is offered in a
   notice over the bottom right corner: **Enable** switches it on there and then, and **Not now**
   puts the offer away for that profile. The MUD sends nothing over GMCP until
   you type `consentir gmcp on` in the game; if nothing has come a minute and
   a half after connecting, the plugin says so.
 
-Switching one does not run your scripts again. **Customize**, in the menu
-of one written in Luau, makes it yours: its code becomes a script of the profile's,
-opened in the editor to change at will (to send the channels to another
-panel, say), and the one that came is switched off so as not to run twice.
+Switching one does not run your scripts again. One made of scripts, as
+Reinos de Leyenda, is installed in the profile the first time it is
+switched on, in sight in the editor: its scripts in a folder of **Scripts**
+named after it, its gauges among those of **Gauges**. They are the
+profile's to change, as any of yours; switching the plugin off switches
+them off. It is not installed again by itself: when a new version of
+Muddie brings changes to it, a notice says so, and **Install again**, in
+its menu, puts back what it installed as it comes, keeping what you added.
+It needs a profile to be installed in: in a session without one, you are
+asked to save it as one first.
 
 ### Channels
 

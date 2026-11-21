@@ -1180,9 +1180,6 @@ msgstr "Lenta"
 msgid "The system's"
 msgstr "El del sistema"
 
-msgid "Customize"
-msgstr "Personalizar"
-
 msgid "Update all"
 msgstr "Actualizar todos"
 
@@ -1378,8 +1375,8 @@ msgstr "GMCP y MSDP estándar"
 msgid "Gauges from Char.Vitals, the map from Room.Info, channels from Comm.Channel.Text."
 msgstr "Indicadores desde Char.Vitals, el mapa desde Room.Info y los canales desde Comm.Channel.Text."
 
-msgid "Its channels, each in a tab. Needs consentir gmcp on, typed in the game."
-msgstr "Muestra cada canal en su propia pestaña. Requiere activar el GMCP en el juego con «consentir gmcp on»."
+msgid "Its gauges, channels and map. Needs consentir gmcp on, typed in the game."
+msgstr "Sus indicadores, canales y mapa. Requiere activar el GMCP en el juego con «consentir gmcp on»."
 
 msgid "Leave empty to keep it"
 msgstr "Déjala vacía para conservarla"
@@ -2326,3 +2323,18 @@ msgstr "ir"
 
 msgid "the way"
 msgstr "el camino"
+
+msgid "Install again"
+msgstr "Instalar de nuevo"
+
+msgid "This plugin is installed in a profile: save this session as a profile, then switch it on."
+msgstr "Este plugin se instala en un perfil: guarda esta sesión como perfil y actívalo después."
+
+msgid "{0} could not be installed: {1}"
+msgstr "No se ha podido instalar {0}: {1}"
+
+msgid "{0} installed again."
+msgstr "{0} instalado de nuevo."
+
+msgid "{0} has changed in this version of Muddie. To have the changes, install it again, from its menu in the profile's plugins: what it installed is put back as it comes, and what you added is kept."
+msgstr "{0} ha cambiado en esta versión de Muddie. Para tener los cambios, instálalo de nuevo desde su menú en los plugins del perfil: lo que instaló vuelve a quedar como viene y lo que hayas añadido se conserva."

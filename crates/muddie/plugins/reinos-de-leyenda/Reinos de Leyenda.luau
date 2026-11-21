@@ -1,6 +1,7 @@
--- Reinos de Leyenda (rlmud.org), as it is played: the character's gauges
--- and states, what is said on its channels, each in its tab, and the map,
--- which the MUD publishes made with Mudlet, following the player on it.
+-- Reinos de Leyenda (rlmud.org), as it is played: the character's states,
+-- what is said on its channels, each in its tab, and the map, which the
+-- MUD publishes made with Mudlet, following the player on it. Its gauges
+-- are among those of the editor.
 -- All by GMCP, in packages of the MUD's own; this is what it sends, as a
 -- session shows:
 --
@@ -39,53 +40,14 @@ local function text_of(value)
 end
 
 ---------------------------------------------------------------------------
--- Gauges, for what is urgent in a fight: life, energy and faith (and the
--- shield, while there is one). Char.Status gives each as {min = now, max =
--- most}, at first all of them and then only what changed, so what came
--- before is kept. All alike: green, yellow under 60 %, red under 30 %, a
--- whole bar. Faith and the shield are shown only for a character who has
--- them; experience is not, the game shows it well enough.
+-- Gauges: they are among the gauges of the editor, made from Char.Status,
+-- life, energy, faith and the shield. Char.Status gives each as {min = now,
+-- max = most}, at first all of them and then only what changed: it is
+-- merged into what came before, for the gauges to have it whole.
 
-local GAUGES = {
-    { key = "pvs", name = "Vida", always = true },
-    { key = "pe", name = "Energía", always = true },
-    { key = "fe", name = "Fe" },
-    { key = "escudo", name = "Escudo" },
-}
-
-local LOOK = {
-    colour = "#5fb85f",
-    style = "bar",
-    steps = { { 60, "#e0c040" }, { 30, "#e05050" } },
-}
-
-local status = {}
-
-on_gmcp("Char.Status", function(data, package)
-    -- Char.Status.Estados comes here too: that is below.
-    if package ~= "Char.Status" or type(data) ~= "table" then
-        return
-    end
+gmcp_merge("Char.Status")
+on_gmcp("Char", function()
     heard = true
-    for key, value in pairs(data) do
-        if type(value) == "table" then
-            local known = status[key] or {}
-            for field, number in pairs(value) do
-                known[field] = number
-            end
-            status[key] = known
-        end
-    end
-    for _, shown in GAUGES do
-        local value = status[shown.key]
-        if value and value.max then
-            if shown.always or value.max > 0 then
-                gauge(shown.name, value.min or 0, value.max, LOOK)
-            else
-                gauge(shown.name)
-            end
-        end
-    end
 end)
 
 ---------------------------------------------------------------------------
@@ -278,7 +240,6 @@ end)
 on_event("connect", function()
     heard = false
     shown = nil
-    status = {}
     map.import(MAP)
     after(90, function()
         if not heard then

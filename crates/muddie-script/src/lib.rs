@@ -72,6 +72,8 @@
 //!   the screen yet; the map's panel if none is named.
 //! - `supports(module, ...)`: announce GMCP modules to the server while
 //!   the script is loaded.
+//! - `gmcp_merge(package, ...)`: for packages the server sends only what
+//!   changed of: what comes is merged into what `gmcp(package)` keeps.
 //! - `completions(name, words)`: words for Tab to offer.
 //! - `gauge(name, value, max, options)`: show or update a bar in the status
 //!   strip; `gauge(name)` removes it. `options` may give a `colour`, a

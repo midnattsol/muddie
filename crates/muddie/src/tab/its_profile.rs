@@ -35,6 +35,7 @@ impl Tab {
             included_on: self.included_on.clone(),
             included_off: self.included_off.clone(),
             included_declined: self.included_declined.clone(),
+            included_installed: self.included_installed.clone(),
             session: Some(self.prefs.clone()),
         })
     }
@@ -83,6 +84,8 @@ impl Tab {
         self.included_off.clone_from(&profile.included_off);
         self.included_declined
             .clone_from(&profile.included_declined);
+        self.included_installed
+            .clone_from(&profile.included_installed);
         for (plugin, on) in switched {
             self.run_included(plugin, on);
         }
@@ -141,24 +144,6 @@ impl Tab {
         self.save_profile();
     }
 
-    /// Takes a script added to its profile, and with `open`, opens it in
-    /// the editor.
-    pub fn adopt_script(&mut self, path: &std::path::Path, open: bool) {
-        self.scripts.reload_file(path);
-        self.run_actions();
-        if open {
-            self.open_automation(automation::SCRIPTS);
-            if let Some(index) = self
-                .editor
-                .script_files
-                .iter()
-                .position(|file| file == path)
-            {
-                self.select_rule(automation::SCRIPTS, index);
-            }
-        }
-    }
-
     /// Runs a command about the installed plugins, whose answers are then
     /// shown where it was asked.
     pub fn plugin_command(&mut self, command: &str) {
@@ -212,6 +197,7 @@ impl Tab {
             self.included_on = profile.included_on;
             self.included_off = profile.included_off;
             self.included_declined = profile.included_declined;
+            self.included_installed = profile.included_installed;
             self.prefs = (profile.session)
                 .unwrap_or_else(|| crate::profile::SessionPrefs::from(&self.settings));
         } else {

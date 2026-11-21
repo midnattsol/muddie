@@ -20,17 +20,14 @@ impl Tab {
         self.completions.clear();
         self.panels_untold();
         self.fresh_runtime();
-        let files = self.script_files_to_run();
+        let mut files = self.script_files_to_run();
+        // The plugins that come with Muddie are among the player's own once
+        // installed; one switched on and not installed yet is installed now.
+        if self.install_switched_on() {
+            files = self.script_files_to_run();
+        }
         self.scripts.set_switches(session);
         self.rebase_switches(&before);
-        // The plugins that come with Muddie and are on, before the
-        // player's own scripts, which may build on them.
-        for plugin in &crate::bundled::ALL {
-            if let (Some(code), true) = (plugin.code, self.included(plugin)) {
-                let name = format!("{}.luau", plugin.id);
-                (self.scripts).exec_owned(&crate::bundled::owner(plugin), &name, code);
-            }
-        }
         // The player's own, unless they are switched off.
         let (own, switches) = (self.own_scripts(), self.scripts.switches());
         for file in &files {

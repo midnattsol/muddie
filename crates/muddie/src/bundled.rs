@@ -2,6 +2,12 @@
 //! so that the client itself knows those of none: they are switched on
 //! and off per profile like any other plugin, and one for a MUD is
 //! offered when that MUD is connected to.
+//!
+//! One made of scripts and rules is installed in the profile when it is
+//! first switched on: its scripts in a folder of the profile's named after
+//! it, its gauges among the profile's, all in sight in the editor and the
+//! profile's to change. It is not installed again unless asked, and then
+//! what it installed is put back as it came.
 
 /// A plugin that comes with the program.
 #[derive(Debug, PartialEq, Eq)]
@@ -12,8 +18,11 @@ pub struct Bundled {
     /// `tr` to be shown.
     pub name: &'static str,
     pub about: &'static str,
-    /// Its script; none for one that is part of the program itself.
-    pub code: Option<&'static str>,
+    /// Its scripts, each by the name of its file; none for one that is
+    /// part of the program itself.
+    pub scripts: &'static [(&'static str, &'static str)],
+    /// Its rules, as in a profile's `rules.toml`: so far, its gauges.
+    pub rules: &'static str,
     /// On in a profile until switched off, rather than off until
     /// switched on.
     pub default_on: bool,
@@ -32,7 +41,8 @@ pub const ALL: [Bundled; 2] = [
         id: COMMON,
         name: "Standard GMCP and MSDP",
         about: "Gauges from Char.Vitals, the map from Room.Info, channels from Comm.Channel.Text.",
-        code: None,
+        scripts: &[],
+        rules: "",
         default_on: true,
         hosts: &[],
         names: &[],
@@ -40,8 +50,12 @@ pub const ALL: [Bundled; 2] = [
     Bundled {
         id: "reinos-de-leyenda",
         name: "Reinos de Leyenda",
-        about: "Its channels, each in a tab. Needs consentir gmcp on, typed in the game.",
-        code: Some(include_str!("../plugins/reinos-de-leyenda.luau")),
+        about: "Its gauges, channels and map. Needs consentir gmcp on, typed in the game.",
+        scripts: &[(
+            "Reinos de Leyenda.luau",
+            include_str!("../plugins/reinos-de-leyenda/Reinos de Leyenda.luau"),
+        )],
+        rules: include_str!("../plugins/reinos-de-leyenda/rules.toml"),
         default_on: false,
         hosts: &["rlmud.org", "reinosdeleyenda"],
         names: &["reinos de leyenda"],
@@ -49,6 +63,37 @@ pub const ALL: [Bundled; 2] = [
 ];
 
 impl Bundled {
+    /// Whether it is installed in the profile, being made of scripts and
+    /// rules, rather than part of the program.
+    pub fn installs(&self) -> bool {
+        !self.scripts.is_empty() || !self.rules.is_empty()
+    }
+
+    /// The folder its scripts are put in, which is what it is called.
+    pub fn folder(&self) -> &'static str {
+        self.name
+    }
+
+    /// Its rules, read.
+    pub fn read_rules(&self) -> crate::rules::Rules {
+        toml::from_str(self.rules).expect("checked by the tests")
+    }
+
+    /// A mark of what it is made of, to tell when the one that comes with
+    /// the program is not the one installed: the same on every build.
+    pub fn fingerprint(&self) -> String {
+        // FNV-1a, which does not change between builds as the standard
+        // hasher may.
+        let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+        let parts = (self.scripts.iter()).flat_map(|(name, code)| [*name, *code]);
+        for part in parts.chain([self.rules]) {
+            for byte in part.bytes().chain([0]) {
+                hash = (hash ^ u64::from(byte)).wrapping_mul(0x0000_0100_0000_01b3);
+            }
+        }
+        format!("{hash:016x}")
+    }
+
     /// Whether it is on in a profile that lists these as switched on and
     /// off: one on unless asked not is on unless in `off`, and the other
     /// way round.
@@ -90,12 +135,6 @@ pub fn for_mud(host: &str, name: &str) -> Option<&'static Bundled> {
     })
 }
 
-/// What a plugin's script is run as, to be taken away when it is
-/// switched off.
-pub fn owner(plugin: &Bundled) -> String {
-    format!("included {}", plugin.id)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -111,16 +150,22 @@ mod tests {
         );
         assert_eq!(found("mud.example.org", "Another MUD"), None);
         assert_eq!(found("", ""), None);
-        // Every one has an id of its own, and those with a script have one
-        // that can be run.
+        // Every one has an id of its own, its scripts can be run and its
+        // rules read.
         let mut ids: Vec<&str> = ALL.iter().map(|plugin| plugin.id).collect();
         ids.dedup();
         assert_eq!(ids.len(), ALL.len());
         let engine = muddie_script::Engine::new(Default::default()).unwrap();
         for plugin in &ALL {
-            if let Some(code) = plugin.code {
-                assert_eq!(engine.check(code), None, "{}", plugin.id);
+            for (name, code) in plugin.scripts {
+                assert_eq!(engine.check(code), None, "{} {name}", plugin.id);
             }
+            let rules: crate::rules::Rules = toml::from_str(plugin.rules).unwrap();
+            assert!(plugin.rules.is_empty() || !rules.gauges.is_empty());
         }
+        // What they are made of marks each.
+        let reinos = find("reinos-de-leyenda").unwrap();
+        assert_ne!(reinos.fingerprint(), find(COMMON).unwrap().fingerprint());
+        assert_eq!(reinos.fingerprint(), reinos.fingerprint());
     }
 }

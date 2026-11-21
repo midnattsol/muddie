@@ -155,8 +155,13 @@ fn what_many_muds_send_alike_is_a_plugin_that_can_be_switched_off() {
 
 #[test]
 fn what_the_mud_is_asked_for_follows_the_plugins_on_and_off() {
-    let mut harness = window(None);
+    let dir = std::env::temp_dir().join(format!("muddie-asked-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let profiles = Profiles::at(dir.clone());
+    profiles.save("Reinos", &Profile::default()).unwrap();
+    let mut harness = window(Some(profiles));
     let app = harness.state_mut().tab_mut();
+    assert!(app.select_profile(Some("Reinos".into())));
     let reinos = crate::bundled::find("reinos-de-leyenda").unwrap();
     let common = crate::bundled::find(crate::bundled::COMMON).unwrap();
     let (_events, mut sent) = fake_connection(app);
@@ -169,6 +174,9 @@ fn what_the_mud_is_asked_for_follows_the_plugins_on_and_off() {
             .collect()
     };
     let usual = muddie_core::Config::default().gmcp_supports;
+    // What is asked for to begin with.
+    app.sync_modules();
+    told();
     app.set_included(reinos, true);
     let with_comm = [usual.clone(), vec!["Comm 1".to_owned()]].concat();
     assert_eq!(told(), [with_comm]);
@@ -181,6 +189,7 @@ fn what_the_mud_is_asked_for_follows_the_plugins_on_and_off() {
     // Without the standard plugin, only what is the client's own.
     app.set_included(common, false);
     assert_eq!(told(), [["Core 1", "Client.Media 1"].map(String::from)]);
+    std::fs::remove_dir_all(&dir).unwrap();
 }
 
 #[test]
@@ -236,9 +245,14 @@ fn a_profile_keeps_what_is_changed_in_the_settings_as_it_is_changed() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+/// A plugin that comes with Muddie is installed in the profile when it is
+/// switched on, in sight in the editor and the profile's to change: its
+/// scripts in a folder named after it, its gauges among the profile's.
+/// Switched off, they are; it is not installed again unless asked, and then
+/// what it installed is put back, and what was added is kept.
 #[test]
-fn a_plugin_that_comes_with_muddie_is_made_ones_own_to_change() {
-    let dir = std::env::temp_dir().join(format!("muddie-customize-{}", std::process::id()));
+fn a_plugin_that_comes_with_muddie_is_installed_in_sight_and_the_profiles() {
+    let dir = std::env::temp_dir().join(format!("muddie-install-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     let profiles = Profiles::at(dir.clone());
     profiles.save("Reinos", &Profile::default()).unwrap();
@@ -248,38 +262,105 @@ fn a_plugin_that_comes_with_muddie_is_made_ones_own_to_change() {
     assert!(app.select_profile(Some("Reinos".into())));
     let plugin = crate::bundled::find("reinos-de-leyenda").unwrap();
     app.set_included(plugin, true);
+    let script = (profiles.scripts_dir("Reinos"))
+        .join("Reinos de Leyenda")
+        .join("Reinos de Leyenda.luau");
+    assert_eq!(
+        std::fs::read_to_string(&script).unwrap(),
+        plugin.scripts[0].1
+    );
+    assert!(app.scripts.is_loaded(&script));
+    let rules = || Rules::load(&profiles.rules_path(Some("Reinos"))).unwrap();
+    let gauges = |rules: &Rules| -> Vec<(String, bool)> {
+        (rules.gauges.iter())
+            .map(|gauge| (gauge.name.clone(), gauge.enabled))
+            .collect()
+    };
+    let all = |on: bool| -> Vec<(String, bool)> {
+        ["Vida", "Energía", "Fe", "Escudo"]
+            .map(|name| (name.to_owned(), on))
+            .to_vec()
+    };
+    assert_eq!(gauges(&rules()), all(true));
+    let saved = profiles.load("Reinos").unwrap();
+    assert_eq!(saved.included_installed[plugin.id], plugin.fingerprint());
+    // Changed by the player: theirs.
+    let mine = "-- mine\n";
+    std::fs::write(&script, mine).unwrap();
+    let app = harness.state_mut().tab_mut();
+    app.change_rules(|rules| rules.gauges[0].colour = "#ffffff".into());
+    // Switched off, its folder and gauges are; on again, they are, and
+    // nothing is installed again.
+    app.set_included(plugin, false);
+    assert!(!app.scripts.is_loaded(&script));
+    assert_eq!(gauges(&rules()), all(false));
+    assert!(!rules().folder_on(Kind::Script, "Reinos de Leyenda"));
+    app.set_included(plugin, true);
+    assert!(app.scripts.is_loaded(&script));
+    assert_eq!(gauges(&rules()), all(true));
+    assert_eq!(std::fs::read_to_string(&script).unwrap(), mine);
+    assert_eq!(rules().gauges[0].colour, "#ffffff");
+
+    // Installed with another version of it: said, once.
+    let mut saved = profiles.load("Reinos").unwrap();
+    saved
+        .included_installed
+        .insert(plugin.id.into(), "older".into());
+    profiles.save("Reinos", &saved).unwrap();
+    let app = harness.state_mut().tab_mut();
+    app.included_installed
+        .insert(plugin.id.into(), "older".into());
+    app.load_scripts();
+    app.load_scripts();
+    let changed = (notes(app).iter())
+        .filter(|said| said.contains("has changed in this version of Muddie"))
+        .count();
+    assert_eq!(changed, 1);
+    // Installed again from its menu in the profile's plugins: what it
+    // installed is as it came, what was added is kept.
+    app.change_rules(|rules| rules.gauges.push(Default::default()));
     harness.state_mut().edit_profile("Reinos");
     harness.run_steps(2);
     harness
         .get_by_role_and_label(egui::accesskit::Role::Tab, "Plugins")
         .click();
     harness.run_steps(3);
-    // In its menu.
     harness
         .get_by_label("Reinos de Leyenda options")
         .click_accesskit();
     harness.run_steps(2);
-    harness.get_by_label("Customize").click_accesskit();
+    harness.get_by_label("Install again").click_accesskit();
     harness.run_steps(4);
-    // Its code is a script of the profile's, open in the editor, and the
-    // one that came is off so as not to run twice.
-    let path = profiles
-        .scripts_dir("Reinos")
-        .join("reinos-de-leyenda.luau");
     assert_eq!(
-        std::fs::read_to_string(&path).unwrap(),
-        plugin.code.unwrap()
+        std::fs::read_to_string(&script).unwrap(),
+        plugin.scripts[0].1
     );
-    let app = harness.state().tab();
-    assert!(!app.included(plugin));
-    assert_eq!((app.view(), app.editor.section), (1, automation::SCRIPTS));
-    assert_eq!(
-        app.editor
-            .script_files
-            .get(app.editor.selected[automation::SCRIPTS]),
-        Some(&path)
-    );
+    let after = rules();
+    assert_eq!(after.gauges.len(), 5);
+    assert_eq!(after.gauges[0].colour, "#5fb85f");
+    let saved = profiles.load("Reinos").unwrap();
+    assert_eq!(saved.included_installed[plugin.id], plugin.fingerprint());
     std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// Without a profile there is nowhere to install it: it is said, and the
+/// session is offered to be saved as one.
+#[test]
+fn a_plugin_that_comes_with_muddie_needs_a_profile() {
+    let mut harness = window(None);
+    let app = harness.state_mut().tab_mut();
+    let plugin = crate::bundled::find("reinos-de-leyenda").unwrap();
+    app.set_included(plugin, true);
+    assert!(!app.included(plugin));
+    assert!(
+        notes(app)
+            .iter()
+            .any(|said| said.contains("save this session as a profile"))
+    );
+    assert!(matches!(
+        app.take_app_request(),
+        Some(AppRequest::SaveAsProfile)
+    ));
 }
 
 #[test]

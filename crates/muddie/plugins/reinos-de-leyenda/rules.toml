@@ -1,0 +1,35 @@
+# The gauges of Reinos de Leyenda, for what is urgent in a fight: life,
+# energy, and faith and the shield for a character who has them. All
+# alike: green, yellow under 60 %, red under 30 %, a whole bar.
+
+[[gauge]]
+name = "Vida"
+value = "Char.Status.pvs.min"
+max = "Char.Status.pvs.max"
+colour = "#5fb85f"
+kind = "bar"
+step = [{ under = 60, colour = "#e0c040" }, { under = 30, colour = "#e05050" }]
+
+[[gauge]]
+name = "Energía"
+value = "Char.Status.pe.min"
+max = "Char.Status.pe.max"
+colour = "#5fb85f"
+kind = "bar"
+step = [{ under = 60, colour = "#e0c040" }, { under = 30, colour = "#e05050" }]
+
+[[gauge]]
+name = "Fe"
+value = "Char.Status.fe.min"
+max = "Char.Status.fe.max"
+colour = "#5fb85f"
+kind = "bar"
+step = [{ under = 60, colour = "#e0c040" }, { under = 30, colour = "#e05050" }]
+
+[[gauge]]
+name = "Escudo"
+value = "Char.Status.escudo.min"
+max = "Char.Status.escudo.max"
+colour = "#5fb85f"
+kind = "bar"
+step = [{ under = 60, colour = "#e0c040" }, { under = 30, colour = "#e05050" }]

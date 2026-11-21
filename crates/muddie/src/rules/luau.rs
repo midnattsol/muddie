@@ -178,7 +178,18 @@ impl Gauge {
                  \t\tgauge({name}, 0, 0, {{{look}, text = tostring(said)}})\n\
                  \tend\n"
             ),
-            _ => format!(
+            // A bar of nothing, as the shield of one who has none, is not
+            // shown; a number is, as it has no maximum.
+            GaugeKind::Bar | GaugeKind::Cells => format!(
+                "\tlocal value, max = dig({value}), dig({max})\n\
+                 \tif value and max and max > 0 then\n\
+                 \t\tgauge({name}, value, max, {{{look}}})\n\
+                 \telseif value and max then\n\
+                 \t\tgauge({name})\n\
+                 \tend\n",
+                max = quoted(self.maximum()),
+            ),
+            GaugeKind::Number => format!(
                 "\tlocal value, max = dig({value}), dig({max})\n\
                  \tif value and max then\n\
                  \t\tgauge({name}, value, max, {{{look}}})\n\
