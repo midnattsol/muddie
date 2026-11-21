@@ -209,6 +209,7 @@ impl Tab {
                         .max_height(ROWS as f32 * ROW)
                         .auto_shrink([false, true])
                         .show(ui, |ui| {
+                            crate::widgets::keep_clear_of_bar(ui);
                             for (index, item) in items.iter().enumerate() {
                                 let chosen = index == self.palette.chosen;
                                 let row = palette_row(ui, item, chosen);

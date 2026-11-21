@@ -23,7 +23,8 @@ impl App {
             .max_height(room)
             .auto_shrink([false, true])
             .show(ui, |ui| {
-                ui.spacing_mut().item_spacing.y = 2.0;
+                widgets::keep_clear_of_bar(ui);
+                ui.spacing_mut().item_spacing.y = widgets::LINE_GAP;
                 for name in profiles.names() {
                     let place = (profiles.load(&name).ok())
                         .map(|profile| format!("{}:{}", profile.host, profile.port))

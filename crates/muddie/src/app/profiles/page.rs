@@ -24,19 +24,13 @@ impl App {
             .id_salt(("profile", self.profile_tab))
             .auto_shrink([false, false])
             .show(ui, |ui| {
-                // Room at the right for the bar it scrolls by.
-                let room = egui::Margin {
-                    right: 14,
-                    ..egui::Margin::ZERO
-                };
-                egui::Frame::new().inner_margin(room).show(ui, |ui| {
-                    ui.spacing_mut().item_spacing.y = size::GAP_S;
-                    self.profile_tab_page(ui);
-                    if let Some(error) = &self.settings_error {
-                        ui.colored_label(theme::current().danger, error);
-                    }
-                    ui.add_space(size::GAP_M);
-                });
+                widgets::keep_clear_of_bar(ui);
+                ui.spacing_mut().item_spacing.y = size::GAP_S;
+                self.profile_tab_page(ui);
+                if let Some(error) = &self.settings_error {
+                    ui.colored_label(theme::current().danger, error);
+                }
+                ui.add_space(size::GAP_M);
             });
     }
 

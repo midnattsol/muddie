@@ -95,6 +95,7 @@ impl Tab {
                 egui::ScrollArea::vertical()
                     .max_height(room)
                     .show(ui, |ui| {
+                        widgets::keep_clear_of_bar(ui);
                         delete = self.gauge_detail(ui, index);
                     });
                 ui.add_space(6.0);

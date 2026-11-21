@@ -86,6 +86,7 @@ impl Tab {
                 egui::ScrollArea::vertical()
                     .auto_shrink(false)
                     .show(ui, |ui| {
+                        widgets::keep_clear_of_bar(ui);
                         ui.set_max_width(ui.available_width().min(DETAIL_WIDTH));
                         let top = ui.cursor().top();
                         tab.automation_detail(ui);

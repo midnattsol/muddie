@@ -610,13 +610,7 @@ impl Tab {
                         .iter()
                         .find(|(spot, _)| *spot == Spot::Folder(path.clone()))
                 {
-                    let stroke = egui::Stroke::new(2.0, accent);
-                    ui.painter().rect_stroke(
-                        *rect,
-                        egui::CornerRadius::same(8),
-                        stroke,
-                        egui::StrokeKind::Inside,
-                    );
+                    widgets::target_ring(ui, *rect);
                 }
                 ui.ctx().set_cursor_icon(egui::CursorIcon::Grabbing);
                 let said = match landing.folder(rows) {

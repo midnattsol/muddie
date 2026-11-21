@@ -280,6 +280,7 @@ fn notices_list(ui: &mut Ui, said: &[crate::tab::Notice]) -> bool {
     egui::ScrollArea::vertical()
         .max_height(360.0)
         .show(ui, |ui| {
+            widgets::keep_clear_of_bar(ui);
             for notice in said {
                 ui.horizontal_top(|ui| {
                     let time = RichText::new(&notice.time)

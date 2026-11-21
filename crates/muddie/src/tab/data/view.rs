@@ -305,7 +305,8 @@ impl Tab {
         egui::ScrollArea::vertical()
             .auto_shrink(false)
             .show(ui, |ui| {
-                ui.spacing_mut().item_spacing.y = 2.0;
+                widgets::keep_clear_of_bar(ui);
+                ui.spacing_mut().item_spacing.y = widgets::LINE_GAP;
                 if self.data_view.seen.is_empty() {
                     ui.add_space(24.0);
                     let none = RichText::new(tr("No data received since this view was opened."))

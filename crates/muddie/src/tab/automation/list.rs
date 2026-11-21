@@ -144,7 +144,8 @@ impl Tab {
         egui::ScrollArea::vertical()
             .auto_shrink(false)
             .show(ui, |ui| {
-                ui.spacing_mut().item_spacing.y = 2.0;
+                widgets::keep_clear_of_bar(ui);
+                ui.spacing_mut().item_spacing.y = widgets::LINE_GAP;
                 if rows.is_empty() && folders.is_empty() && self.empty_list(ui) {
                     self.add_rule();
                 }
@@ -161,7 +162,7 @@ impl Tab {
                     .accessibility_role(role)
                     .accessibility_label(section_name(self.editor.section));
                 ui.scope_builder(whole, |ui| {
-                    ui.spacing_mut().item_spacing.y = 2.0;
+                    ui.spacing_mut().item_spacing.y = widgets::LINE_GAP;
                     for item in &items {
                         let here = current.as_ref() == Some(&item.spot);
                         let rect = match &item.spot {
@@ -547,14 +548,7 @@ impl Tab {
             self.editor.menu_target = None;
             return;
         }
-        let ring = egui::Stroke::new(1.5, theme::current().accent);
-        let rect = line.rect.shrink(1.0);
-        ui.painter().rect_stroke(
-            rect,
-            egui::CornerRadius::same(8),
-            ring,
-            egui::StrokeKind::Inside,
-        );
+        widgets::target_ring(ui, line.rect);
     }
 
     /// What can be done with a folder, from its menu.

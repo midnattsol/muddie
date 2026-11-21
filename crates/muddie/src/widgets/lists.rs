@@ -112,6 +112,50 @@ fn list_line(ui: &mut Ui, height: f32, key: Option<egui::Id>, current: bool) -> 
     ui.interact(rect, key, sense)
 }
 
+/// The room at the right of what scrolls for the bar it scrolls by, which
+/// is drawn over what is under it.
+const BAR_ROOM: f32 = 14.0;
+
+/// Keeps what is laid out next in `ui`, inside something that scrolls,
+/// clear of the bar it scrolls by: switches, counts and highlights are not
+/// under it, nor taken by it.
+pub fn keep_clear_of_bar(ui: &mut Ui) {
+    ui.set_max_width(ui.available_width() - BAR_ROOM);
+}
+
+/// How far apart the lines of a list are: their highlights never touch.
+pub const LINE_GAP: f32 = 4.0;
+
+/// Under a line of a list, as it is chosen or pointed at: chosen, a fill in
+/// the accent with a bar at its left; pointed at, a faint fill; the two
+/// never alike, and nothing more where it is chosen.
+fn line_backdrop(ui: &Ui, body: egui::Rect, selected: bool, hovered: bool) {
+    let theme = theme::current();
+    let round = CornerRadius::same(8);
+    if selected {
+        ui.painter()
+            .rect_filled(body, round, theme.accent.gamma_multiply(0.2));
+        let bar = egui::Rect::from_min_size(
+            body.left_top() + vec2(0.0, 7.0),
+            vec2(3.0, (body.height() - 14.0).max(4.0)),
+        );
+        ui.painter()
+            .rect_filled(bar, CornerRadius::same(2), theme.accent);
+    } else if hovered {
+        ui.painter()
+            .rect_filled(body, round, theme.raised.gamma_multiply(0.45));
+    }
+}
+
+/// Around a line of a list, what is about to act on it: where what is
+/// dragged would go, or what a menu open acts on. Unlike the line chosen.
+pub fn target_ring(ui: &Ui, rect: egui::Rect) {
+    let ring = Stroke::new(1.5, theme::current().accent);
+    let round = CornerRadius::same(8);
+    ui.painter()
+        .rect_stroke(rect.shrink(1.0), round, ring, egui::StrokeKind::Inside);
+}
+
 /// Tells a screen reader where a line is in a tree: how deep, and its
 /// place among those beside it.
 fn tree_place(node: &mut egui::accesskit::Node, depth: usize, place: (usize, usize)) {
@@ -178,12 +222,7 @@ impl ListRow<'_> {
             return response;
         }
         let body = indented(ui, rect, self.depth);
-        let fill = match (self.selected, response.hovered()) {
-            (true, _) => theme.accent.gamma_multiply(0.22),
-            (false, true) => theme.raised.gamma_multiply(0.7),
-            (false, false) => Color32::TRANSPARENT,
-        };
-        ui.painter().rect_filled(body, CornerRadius::same(8), fill);
+        line_backdrop(ui, body, self.selected, response.hovered());
         let fade = if self.active { 1.0 } else { 0.45 };
         let painter = ui.painter().with_clip_rect(body.shrink2(vec2(8.0, 0.0)));
         let left = body.left() + 12.0;
@@ -416,12 +455,7 @@ impl FolderRow<'_> {
             return response;
         }
         let body = indented(ui, rect, self.depth);
-        let fill = match (self.selected, response.hovered()) {
-            (true, _) => theme.accent.gamma_multiply(0.22),
-            (false, true) => theme.raised.gamma_multiply(0.7),
-            (false, false) => Color32::TRANSPARENT,
-        };
-        ui.painter().rect_filled(body, CornerRadius::same(8), fill);
+        line_backdrop(ui, body, self.selected, response.hovered());
         let fade = if self.active { 1.0 } else { 0.45 };
         let ink = theme.text_dim.gamma_multiply(fade);
         let stroke = Stroke::new(1.4, ink);

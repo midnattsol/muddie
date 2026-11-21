@@ -587,3 +587,93 @@ fn line_costs() {
         );
     }
 }
+
+/// Every control has a name a screen reader says, in every view: the game,
+/// each section of the editor (with folders, rules, scripts and a folder
+/// chosen), what the MUD sends, the palette and each page of the settings.
+#[test]
+fn every_control_has_a_name() {
+    use egui::accesskit::Role;
+    let controls = [
+        Role::Button,
+        Role::CheckBox,
+        Role::Switch,
+        Role::TextInput,
+        Role::MultilineTextInput,
+        Role::SearchInput,
+        Role::ComboBox,
+        Role::Slider,
+        Role::SpinButton,
+        Role::Tab,
+        Role::TreeItem,
+        Role::ListItem,
+        Role::MenuItem,
+        Role::Splitter,
+        Role::Link,
+    ];
+    let seen = std::cell::Cell::new(0);
+    let unnamed = |harness: &Harness<'_, App>, view: &str| -> Vec<String> {
+        (harness.query_all(egui_kittest::kittest::by()))
+            .inspect(|_| seen.set(seen.get() + 1))
+            .filter(|node| controls.contains(&node.accesskit_node().role()))
+            .filter(|node| {
+                let node = node.accesskit_node();
+                let label = node.label().unwrap_or_default();
+                label.trim().is_empty() && !node.is_hidden()
+            })
+            .map(|node| {
+                format!(
+                    "{view}: {:?} {:?}",
+                    node.accesskit_node().role(),
+                    node.accesskit_node().value()
+                )
+            })
+            .collect()
+    };
+    let mut harness = connected_demo_window();
+    harness.set_size(egui::vec2(1400.0, 900.0));
+    let app = harness.state_mut().tab_mut();
+    app.rules
+        .triggers
+        .push(trigger("tells you", |rule| rule.folder = "Social".into()));
+    app.rules
+        .aliases
+        .push(alias("k", |rule| rule.folder = "Combat".into()));
+    app.saw_data("Char.Vitals", false, r#"{"hp": 80, "maxhp": 100}"#);
+    harness.run_steps(3);
+    let mut missing = unnamed(&harness, "game");
+    for section in 0..=automation::DATA {
+        harness.state_mut().tab_mut().open_automation(section);
+        harness.run_steps(3);
+        missing.extend(unnamed(&harness, &format!("editor section {section}")));
+    }
+    harness
+        .state_mut()
+        .tab_mut()
+        .open_automation(automation::TRIGGERS);
+    harness.state_mut().tab_mut().choose_folder("Social");
+    harness.run_steps(3);
+    missing.extend(unnamed(&harness, "a folder"));
+    harness.state_mut().tab_mut().set_view(0);
+    harness.run_steps(2);
+    harness.key_press_modifiers(Modifiers::COMMAND, Key::K);
+    harness.run_steps(3);
+    missing.extend(unnamed(&harness, "palette"));
+    harness.key_press(Key::Escape);
+    harness.run_steps(2);
+    for section in crate::app::Section::ALL {
+        harness.state_mut().open_settings(section);
+        harness.run_steps(3);
+        missing.extend(unnamed(&harness, section.name()));
+    }
+    assert!(
+        seen.get() > 1000,
+        "only {} nodes were looked at",
+        seen.get()
+    );
+    assert!(
+        missing.is_empty(),
+        "controls with no name:\n{}",
+        missing.join("\n")
+    );
+}
