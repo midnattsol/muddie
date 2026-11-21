@@ -18,21 +18,25 @@ pub fn field(ui: &mut Ui, label: &str, value: &mut String, hint: &str) -> Respon
 
 /// A single-line text box, as wide as the space allows.
 pub fn text_box(ui: &mut Ui, value: &mut String, hint: &str) -> Response {
-    ui.add(single_line(value, hint, f32::INFINITY))
+    named_by_hint(ui.add(single_line(value, hint, f32::INFINITY)), hint)
 }
 
 /// A field for something secret, as a password: its characters hidden.
 pub fn secret_field(ui: &mut Ui, value: &mut String, hint: &str, width: f32) -> Response {
-    ui.add(single_line(value, hint, width).password(true))
+    named_by_hint(ui.add(single_line(value, hint, width).password(true)), hint)
 }
 
 /// A text field for the right-hand side of a [`setting_row`].
 pub fn row_field(ui: &mut Ui, value: &mut String, hint: &str, width: f32) -> Response {
-    ui.add(single_line(value, hint, width))
+    named_by_hint(ui.add(single_line(value, hint, width)), hint)
 }
 
 /// One line to type in, `width` wide and as tall as every other control,
 /// with `hint` in it while it is empty.
+///
+/// A field with only a hint is named by it for a screen reader, which
+/// otherwise reads the hint as what is in it; one in a row is named by the
+/// row, after.
 fn single_line<'a>(value: &'a mut String, hint: &str, width: f32) -> TextEdit<'a> {
     TextEdit::singleline(value)
         .hint_text(RichText::new(hint).color(theme::current().text_faint))
@@ -318,4 +322,15 @@ fn tag_chip(ui: &mut Ui, tag: &str) -> Response {
         node.set_label(crate::i18n::trf("Remove the tag {0}", &[tag]));
     });
     chip.on_hover_text(crate::i18n::trf("Remove the tag {0}", &[tag]))
+}
+
+/// Names a field by its hint for a screen reader, when nothing else names
+/// it.
+fn named_by_hint(field: Response, hint: &str) -> Response {
+    (field.ctx).accesskit_node_builder(field.id, |node| {
+        if node.label().is_none() {
+            node.set_label(hint);
+        }
+    });
+    field
 }

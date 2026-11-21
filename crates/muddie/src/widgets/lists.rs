@@ -9,6 +9,11 @@ pub fn nav_item(ui: &mut Ui, selected: bool, text: &str, count: Option<usize>) -
     let (rect, response) =
         ui.allocate_exact_size(vec2(ui.available_width(), height), Sense::click());
     response.widget_info(|| WidgetInfo::selected(Role::Tab, ui.is_enabled(), selected, text));
+    // How many there are, as it is seen at its right.
+    if let Some(count) = count {
+        let many = crate::i18n::trn("{0} item", "{0} items", count as u64);
+        (ui.ctx()).accesskit_node_builder(response.id, |node| node.set_description(many));
+    }
     if ui.is_rect_visible(rect) {
         let fill = match (selected, response.hovered()) {
             (true, _) => theme.raised,
@@ -80,8 +85,20 @@ impl ListRow<'_> {
         let height = if self.detail.is_empty() { 34.0 } else { 48.0 };
         let (rect, response) =
             ui.allocate_exact_size(vec2(ui.available_width(), height), Sense::click());
-        response.widget_info(|| {
-            WidgetInfo::selected(Role::ListItem, ui.is_enabled(), self.selected, self.title)
+        // Chosen, not ticked; what it does, and whether it is off, as it is
+        // seen under its title and faded.
+        response.widget_info(|| WidgetInfo::labeled(Role::ListItem, ui.is_enabled(), self.title));
+        (ui.ctx()).accesskit_node_builder(response.id, |node| {
+            node.set_selected(self.selected);
+            let mut about = vec![self.detail.trim().to_owned()];
+            about.extend(self.tags.iter().cloned());
+            if !self.active {
+                about.push(crate::i18n::tr("Disabled").to_owned());
+            }
+            about.retain(|part| !part.is_empty());
+            if !about.is_empty() {
+                node.set_description(about.join(", "));
+            }
         });
         if !ui.is_rect_visible(rect) {
             return response;
@@ -190,7 +207,17 @@ pub fn folder_row(
 ) -> Response {
     let theme = theme::current();
     let (rect, response) = ui.allocate_exact_size(vec2(ui.available_width(), 32.0), Sense::click());
-    response.widget_info(|| WidgetInfo::selected(Role::TreeItem, ui.is_enabled(), open, name));
+    // Open or closed, not ticked; how many it holds, and whether it is
+    // off, as it is seen.
+    response.widget_info(|| WidgetInfo::labeled(Role::TreeItem, ui.is_enabled(), name));
+    (ui.ctx()).accesskit_node_builder(response.id, |node| {
+        node.set_expanded(open);
+        let many = crate::i18n::trn("{0} item", "{0} items", count as u64);
+        node.set_description(match active {
+            true => many,
+            false => format!("{many}, {}", crate::i18n::tr("Disabled")),
+        });
+    });
     if !ui.is_rect_visible(rect) {
         return response;
     }
@@ -246,6 +273,8 @@ pub fn profile_card(ui: &mut Ui, width: f32, name: &str, place: &str) -> Respons
     let theme = theme::current();
     let (rect, response) = ui.allocate_exact_size(vec2(width, 68.0), Sense::click());
     response.widget_info(|| WidgetInfo::labeled(Role::Button, ui.is_enabled(), name));
+    // Where it leads, as it is seen under its name.
+    (ui.ctx()).accesskit_node_builder(response.id, |node| node.set_description(place));
     if ui.is_rect_visible(rect) {
         let hovered = response.hovered() || response.has_focus();
         let lift = ui.ctx().animate_bool_with_time(response.id, hovered, 0.12);

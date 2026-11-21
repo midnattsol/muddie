@@ -34,7 +34,7 @@ impl App {
                     if row.clicked() {
                         asked = Some((ProfileAction::Edit, name.clone()));
                     }
-                    row.context_menu(|ui| {
+                    crate::widgets::context_menu_of(&row, |ui| {
                         if let Some(action) = profile_menu(ui) {
                             asked = Some((action, name.clone()));
                         }

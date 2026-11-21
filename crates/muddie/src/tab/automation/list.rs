@@ -252,7 +252,7 @@ impl Tab {
         if line.drag_started() && !self.narrowed() {
             self.editor.dragged = Some(Dragged::Folder(path.to_owned()));
         }
-        line.context_menu(|ui| self.folder_menu(ui, kind, path));
+        crate::widgets::context_menu_of(&line, |ui| self.folder_menu(ui, kind, path));
         line.rect
     }
 
@@ -303,7 +303,7 @@ impl Tab {
         if line.secondary_clicked() && !chosen {
             self.choose_row(index, Modifiers::NONE);
         }
-        line.context_menu(|ui| self.row_menu(ui));
+        crate::widgets::context_menu_of(&line, |ui| self.row_menu(ui));
         let movable = section != VARIABLES && !self.narrowed();
         if movable {
             let line = line.interact(egui::Sense::drag());
@@ -420,6 +420,8 @@ impl Tab {
         self.editor.selected[section] = index;
         self.editor.filter.clear();
         self.editor.sample.clear();
+        // Its name is chosen, to be typed over at once.
+        self.editor.rename = true;
     }
 }
 

@@ -54,7 +54,7 @@ pub(super) fn row_links(
     if let Some((of, items)) = menu.as_ref()
         && *of == serial
     {
-        response.context_menu(|ui| {
+        crate::widgets::context_menu_of(response, |ui| {
             crate::widgets::menu_width(ui);
             for (called, text) in items {
                 if crate::widgets::menu_item(ui, called, "").clicked() {

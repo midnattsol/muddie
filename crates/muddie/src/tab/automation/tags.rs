@@ -222,7 +222,8 @@ fn filing_line(ui: &mut egui::Ui, label: &str, control: impl FnOnce(&mut egui::U
             theme::font(Weight::Regular, 13.5),
             theme::current().text_dim,
         );
-        control(ui);
+        // The control is named by what is written at its left.
+        ui.name_inputs(label, control);
     });
 }
 

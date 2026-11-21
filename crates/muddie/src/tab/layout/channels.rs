@@ -240,7 +240,7 @@ impl Tab {
                 if !name.is_empty() {
                     let mut read = !self.channel_quiet(name);
                     let mut changed = false;
-                    tab.context_menu(|ui| {
+                    crate::widgets::context_menu_of(&tab, |ui| {
                         widgets::menu_width(ui);
                         changed = widgets::menu_check(ui, &mut read, tr("Read aloud")).clicked();
                         if changed {

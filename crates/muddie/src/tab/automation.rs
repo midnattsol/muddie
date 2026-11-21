@@ -64,6 +64,8 @@ impl Tab {
             self.editor.seen = self.rules.clone();
         }
         self.editor.section = section;
+        // Opened with the keyboard, the keyboard goes to the section.
+        self.editor.focus_section |= !self.editor.open;
         self.editor.open = true;
         self.editor.marked.clear();
         self.list_scripts();
@@ -167,6 +169,8 @@ pub(super) struct Editor {
     pub(super) rename: bool,
     /// Whether a field had the keys at the end of the last frame.
     pub(super) was_typing: bool,
+    /// The keyboard is to go to the section chosen, as the editor opens.
+    pub(super) focus_section: bool,
     /// When the scripts were last restarted, and the scripts' files (or
     /// the rules) that failed then.
     pub(super) restarted: Option<String>,
@@ -225,6 +229,7 @@ impl Default for Editor {
             renaming: None,
             rename: false,
             was_typing: false,
+            focus_section: false,
             restarted: None,
             failed: Vec::new(),
             extras_added: (usize::MAX, Vec::new()),

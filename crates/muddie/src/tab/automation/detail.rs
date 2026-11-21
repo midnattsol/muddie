@@ -139,15 +139,23 @@ pub(in crate::tab) fn rule_header(
     rename: &mut bool,
 ) -> bool {
     let mut delete = false;
-    ui.horizontal(|ui| {
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            delete = widgets::icon_button(ui, widgets::Icon::Trash, tr("Delete"), false).clicked();
+    // The name, then what is at the right of it, in the order they are
+    // read.
+    let id = ui.make_persistent_id("rule header");
+    let font = theme::font(Weight::Semibold, 20.0);
+    let state = *enabled;
+    widgets::right_last(
+        ui,
+        id,
+        |ui| {
+            name_field(ui, name, font.clone(), hint, rename, true);
+        },
+        |ui| {
+            off_badge(ui, state);
             widgets::switch(ui, enabled, tr("Enabled")).on_hover_text(tr("Enabled"));
-            off_badge(ui, *enabled);
-            let font = theme::font(Weight::Semibold, 20.0);
-            name_field(ui, name, font, hint, rename, true);
-        });
-    });
+            delete = widgets::icon_button(ui, widgets::Icon::Trash, tr("Delete"), false).clicked();
+        },
+    );
     ui.add(egui::Separator::default().spacing(2.0));
     delete
 }

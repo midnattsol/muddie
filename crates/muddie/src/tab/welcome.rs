@@ -153,9 +153,11 @@ impl Tab {
         let mut connect = false;
         pill.show(ui, |ui| {
             let row = egui::vec2(ui.available_width(), 38.0);
-            let centred = egui::Layout::right_to_left(egui::Align::Center);
+            let centred = egui::Layout::left_to_right(egui::Align::Center);
+            // The field, then the button at its end: in the order they are
+            // read, which is the order the keyboard goes through them.
             ui.allocate_ui_with_layout(row, centred, |ui| {
-                let pressed = widgets::go_button(ui, tr("Connect"), 38.0).clicked();
+                let room = ui.available_width() - 38.0 - ui.spacing().item_spacing.x;
                 let field = ui.add(
                     TextEdit::singleline(&mut self.address)
                         .id(id)
@@ -163,10 +165,20 @@ impl Tab {
                         .hint_text(RichText::new("mud.example.org:4000").color(theme.text_faint))
                         .font(theme::font(Weight::Regular, 16.0))
                         .align(egui::Align2::LEFT_CENTER)
-                        .desired_width(f32::INFINITY),
+                        .desired_width(room),
                 );
-                ui.ctx()
-                    .accesskit_node_builder(field.id, |node| node.set_label(tr("Address")));
+                ui.ctx().accesskit_node_builder(field.id, |node| {
+                    node.set_label(tr("Address"));
+                    node.set_description(tr("Where do you want to play?"));
+                });
+                // The keyboard is in it while nothing else has it: what is
+                // typed first is where to play.
+                if ui.memory(|memory| {
+                    memory.focused().is_none() && memory.top_modal_layer().is_none()
+                }) {
+                    field.request_focus();
+                }
+                let pressed = widgets::go_button(ui, tr("Connect"), 38.0).clicked();
                 let entered = field.lost_focus() && ui.input(|input| input.key_pressed(Key::Enter));
                 connect = pressed || entered;
             });
@@ -221,7 +233,7 @@ impl Tab {
                         chosen = Some(name.clone());
                     }
                     // What can be done with it, as anywhere else.
-                    pressed.context_menu(|ui| {
+                    crate::widgets::context_menu_of(&pressed, |ui| {
                         if let Some(action) = crate::app::profile_menu(ui) {
                             self.app_request = Some(AppRequest::Profile(action, name.clone()));
                         }

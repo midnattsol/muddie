@@ -271,31 +271,26 @@ impl Tab {
         scale: f32,
     ) {
         let edge = along.span(at, EDGE);
-        let cursor = if along.stacked {
-            egui::CursorIcon::ResizeVertical
-        } else {
-            egui::CursorIcon::ResizeHorizontal
-        };
         let id = ui.make_persistent_id(("panel edge", self.layout.panels[lead].id));
-        let handle = ui
-            .interact(edge, id, egui::Sense::drag())
-            .on_hover_cursor(cursor);
-        handle.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Splitter, true, tr("Resize")));
-        if handle.dragged() {
-            let moved = if along.stacked {
-                handle.drag_delta().y
-            } else {
-                handle.drag_delta().x
-            };
+        let names = [lead, next].map(|index| self.layout.panels[index].shown_name());
+        let label = trf("Between {0} and {1}", &[&names[0], &names[1]]);
+        let moved = widgets::edge(ui, edge, id, &label, !along.stacked);
+        if moved.moved != 0.0 {
             let least = 48.0 * scale;
-            let give = (moved * scale)
+            let give = (moved.moved * scale)
                 .min(self.layout.panels[next].weight - least)
                 .max(least - self.layout.panels[lead].weight);
             self.layout.panels[lead].weight += give;
             self.layout.panels[next].weight -= give;
-            ui.ctx().set_cursor_icon(cursor);
         }
-        if handle.hovered() || handle.dragged() {
+        if moved.by_keys {
+            let (lead, next) = (&self.layout.panels[lead], &self.layout.panels[next]);
+            let share = (100.0 * lead.weight / (lead.weight + next.weight)).round() as u32;
+            let text = trf("{0}: {1} %", &[&names[0], &share.to_string()]);
+            self.voice.say_now(&text);
+        }
+        let handle = moved.response;
+        if handle.hovered() || handle.dragged() || handle.has_focus() {
             let reach = if along.stacked {
                 egui::vec2(18.0, 0.0)
             } else {

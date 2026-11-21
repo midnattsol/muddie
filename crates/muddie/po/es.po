@@ -557,9 +557,6 @@ msgstr "Atardecer"
 msgid "Graphite"
 msgstr "Grafito"
 
-msgid "Resize"
-msgstr "Redimensionar"
-
 msgid "No map yet"
 msgstr "Aún no hay mapa"
 
@@ -1826,3 +1823,37 @@ msgstr "{0} apagada"
 #, python-brace-format
 msgid "{0} {1} of {2}"
 msgstr "{0} {1} de {2}"
+
+
+msgid "Width of the list"
+msgstr "Ancho de la lista"
+
+#, python-brace-format
+msgid "{0} points"
+msgstr "{0} puntos"
+
+#, python-brace-format
+msgid "Between {0} and {1}"
+msgstr "Entre {0} y {1}"
+
+#, python-brace-format
+msgid "{0}: {1} %"
+msgstr "{0}: {1} %"
+
+msgid "← →  ↑ ↓ on an edge"
+msgstr "← →  ↑ ↓ en un borde"
+
+msgid "Make the panels larger or smaller"
+msgstr "Agrandar o encoger los paneles"
+
+msgid "Anywhere"
+msgstr "En cualquier sitio"
+
+msgid "Go to the next or previous control"
+msgstr "Ir al control siguiente o al anterior"
+
+msgid "Shift+F10  Menu key"
+msgstr "Mayús+F10  Tecla de menú"
+
+msgid "Open the menu of what has the keyboard"
+msgstr "Abrir el menú de lo que tiene el teclado"

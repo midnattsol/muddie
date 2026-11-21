@@ -10,7 +10,7 @@ impl App {
             &mut self.show_shortcuts,
             size::DIALOG_S,
             |ui| {
-                let groups: [(&str, &[(&str, &str)]); 5] = [
+                let groups: [(&str, &[(&str, &str)]); 6] = [
                     (
                         tr("Typing"),
                         &[
@@ -57,7 +57,26 @@ impl App {
                             ("Ctrl+Z", tr("Undo")),
                         ],
                     ),
-                    (tr("Panels"), &[("Ctrl+M", tr("Show or hide the map"))]),
+                    (
+                        tr("Panels"),
+                        &[
+                            ("Ctrl+M", tr("Show or hide the map")),
+                            (
+                                tr("← →  ↑ ↓ on an edge"),
+                                tr("Make the panels larger or smaller"),
+                            ),
+                        ],
+                    ),
+                    (
+                        tr("Anywhere"),
+                        &[
+                            ("Tab  Shift+Tab", tr("Go to the next or previous control")),
+                            (
+                                tr("Shift+F10  Menu key"),
+                                tr("Open the menu of what has the keyboard"),
+                            ),
+                        ],
+                    ),
                 ];
                 for (title, shortcuts) in groups {
                     widgets::caption(ui, title);

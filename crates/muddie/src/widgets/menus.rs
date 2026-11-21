@@ -13,6 +13,58 @@ pub fn menu_of(button: &Response) -> egui::Popup<'_> {
     egui::Popup::menu(button)
 }
 
+/// The menu of a right click on `response`, which Shift+F10 and the menu
+/// key open too while it has the keyboard: under it then, with the keyboard
+/// on its first item.
+pub fn context_menu_of(
+    response: &Response,
+    add_contents: impl FnOnce(&mut Ui),
+) -> Option<egui::InnerResponse<()>> {
+    let ctx = &response.ctx;
+    let by_keys = response.id.with("menu by keys");
+    let asked = response.has_focus()
+        && ctx.input_mut(|input| {
+            input.consume_key(egui::Modifiers::SHIFT, egui::Key::F10)
+                || input.consume_key(egui::Modifiers::NONE, egui::Key::Menu)
+        });
+    if asked {
+        ctx.data_mut(|data| data.insert_temp(by_keys, true));
+    }
+    let mut popup = egui::Popup::context_menu(response);
+    if asked {
+        popup = popup.open_memory(egui::SetOpenCommand::Bool(true));
+    }
+    if ctx
+        .data(|data| data.get_temp::<bool>(by_keys))
+        .unwrap_or(false)
+    {
+        popup = popup.at_position(response.rect.left_bottom());
+    }
+    // The keyboard goes to its first item once it is laid out, in the
+    // frame after it opens: it is right under what it was opened on.
+    let first = response.id.with("menu first item");
+    if ctx
+        .data_mut(|data| data.remove_temp::<bool>(first))
+        .unwrap_or(false)
+    {
+        ctx.memory_mut(|memory| memory.move_focus(egui::FocusDirection::Down));
+    }
+    if asked {
+        ctx.data_mut(|data| data.insert_temp(first, true));
+        ctx.request_repaint();
+    }
+    let shown = popup.show(add_contents);
+    // Closed, the keyboard goes back where it was.
+    if shown.is_none()
+        && ctx
+            .data_mut(|data| data.remove_temp::<bool>(by_keys))
+            .unwrap_or(false)
+    {
+        response.request_focus();
+    }
+    shown
+}
+
 /// Gives a menu room to breathe; call it first in the menu.
 pub fn menu_width(ui: &mut Ui) {
     ui.set_min_width(232.0);

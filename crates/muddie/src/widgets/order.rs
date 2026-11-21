@@ -63,3 +63,52 @@ pub fn keyboard_in_use(ctx: &egui::Context) -> bool {
 fn keyboard_id() -> egui::Id {
     egui::Id::unique("keyboard in use")
 }
+
+/// Draws `left` in a row of `ui`, leaving room at its right end, and then
+/// `right` there, left to right too: everything is reached with Tab as it
+/// is read. The room, and the
+/// height of the row, are what the two took the time before; when that
+/// changes, the pass is drawn again.
+pub fn right_last(
+    ui: &mut Ui,
+    id: egui::Id,
+    left: impl FnOnce(&mut Ui),
+    right: impl FnOnce(&mut Ui),
+) {
+    let (room, height) = ui
+        .data(|data| data.get_temp::<(f32, f32)>(id))
+        .unwrap_or((0.0, 0.0));
+    let row = egui::Rect::from_min_size(
+        ui.available_rect_before_wrap().min,
+        egui::vec2(ui.available_width(), height),
+    );
+    let room = room.clamp(0.0, row.width());
+    let gap = ui.spacing().item_spacing.x;
+    let start = egui::Rect::from_min_max(row.min, egui::pos2(row.max.x - room - gap, row.max.y));
+    let layout = egui::Layout::left_to_right(egui::Align::Center);
+    let tall = ui
+        .scope_builder(
+            egui::UiBuilder::new().max_rect(start).layout(layout),
+            |ui| {
+                left(ui);
+                ui.min_rect().height()
+            },
+        )
+        .inner;
+    let end = egui::Rect::from_min_max(egui::pos2(row.max.x - room, row.min.y), row.max);
+    let (wide, tall_right) = ui
+        .scope_builder(egui::UiBuilder::new().max_rect(end).layout(layout), |ui| {
+            right(ui);
+            (ui.min_rect().width(), ui.min_rect().height())
+        })
+        .inner;
+    let now = (wide, tall.max(tall_right));
+    if (now.0 - room).abs() > 0.5 || (now.1 - height).abs() > 0.5 {
+        ui.data_mut(|data| data.insert_temp(id, now));
+        ui.ctx().request_discard("a row's parts changed size");
+    }
+    ui.advance_cursor_after_rect(egui::Rect::from_min_size(
+        row.min,
+        egui::vec2(row.width(), now.1),
+    ));
+}

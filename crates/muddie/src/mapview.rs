@@ -276,7 +276,7 @@ impl MapView {
     /// area, show all areas. Returns what was chosen.
     fn room_menu(&mut self, response: &Response, map: &Map, area: &str) -> Option<MapAction> {
         let mut chosen = None;
-        response.context_menu(|ui| {
+        crate::widgets::context_menu_of(response, |ui| {
             widgets::menu_width(ui);
             let room = self.menu_room.and_then(|id| map.room(id));
             if let Some(room) = room {

@@ -39,7 +39,6 @@ impl Tab {
             });
         CentralPanel::default().frame(page).show(ui, |ui| {
             let columns = self.columns(ui.available_rect_before_wrap());
-            self.pane_handle(ui, columns.handle);
             let card = egui::CornerRadius::same(14);
             ui.painter().rect_filled(columns.list, card, theme.field);
             ui.painter().rect_filled(columns.detail, card, theme.field);
@@ -57,6 +56,8 @@ impl Tab {
                 true,
                 |tab, ui| tab.automation_list(ui),
             );
+            // Between the list and the details, where the keyboard goes.
+            self.pane_handle(ui, columns.handle);
             let inner = columns.detail.shrink2(egui::vec2(26.0, 18.0));
             self.pane(ui, "detail", inner, true, |tab, ui| {
                 tab.undo_bar(ui);
@@ -101,16 +102,14 @@ impl Tab {
     /// widths, with a short grip only while it can be taken.
     fn pane_handle(&mut self, ui: &mut egui::Ui, handle: egui::Rect) {
         let id = ui.make_persistent_id("automation handle");
-        let response = ui
-            .interact(handle, id, egui::Sense::drag())
-            .on_hover_cursor(egui::CursorIcon::ResizeHorizontal);
-        response
-            .widget_info(|| egui::WidgetInfo::labeled(egui::Role::Splitter, true, tr("Resize")));
-        if response.dragged() {
-            self.editor.panes[1] += response.drag_delta().x;
-            ui.ctx().set_cursor_icon(egui::CursorIcon::ResizeHorizontal);
+        let edge = widgets::edge(ui, handle, id, tr("Width of the list"), true);
+        self.editor.panes[1] += edge.moved;
+        if edge.by_keys {
+            let width = (self.editor.panes[1].round() as u32).to_string();
+            self.voice.say_now(&trf("{0} points", &[&width]));
         }
-        if response.hovered() || response.dragged() {
+        let response = edge.response;
+        if response.hovered() || response.dragged() || response.has_focus() {
             let grip = handle.center();
             let stroke = egui::Stroke::new(3.0, theme::current().accent);
             ui.painter().line_segment(
@@ -185,7 +184,14 @@ impl Tab {
                 ui.add_space(10.0);
             }
             let selected = self.editor.section == section;
-            if widgets::nav_item(ui, selected, name, Some(count)).clicked() {
+            let item = widgets::nav_item(ui, selected, name, Some(count));
+            if selected
+                && std::mem::take(&mut self.editor.focus_section)
+                && widgets::keyboard_in_use(ui.ctx())
+            {
+                item.request_focus();
+            }
+            if item.clicked() {
                 self.flush_script();
                 self.editor.section = section;
                 self.editor.marked.clear();

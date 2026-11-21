@@ -429,6 +429,12 @@ one being said, for games where what came before is soon old.
 | Alt+0 | Reads the gauges |
 | Alt+M | Says where you are by the map, and how far a walk has left |
 
+Everything can be done from the keyboard. Tab goes through the window as
+it is read, top to bottom; Shift+F10 or the menu key opens what a right
+click opens; the arrows move an edge between panels once Tab is on it, and
+the new size is said; and opening a dialog with the keyboard puts it on
+its first control.
+
 A gauge is said as soon as it falls under one of its warnings (a step
 where it changes colour, or its low mark), as it is seen turning colour.
 
