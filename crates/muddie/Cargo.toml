@@ -43,3 +43,33 @@ winit = { version = "0.30", default-features = false, features = [
 
 [dev-dependencies]
 egui_kittest = { version = "0.37.0", features = ["wgpu", "snapshot", "eframe"] }
+
+# The Debian package: `cargo deb -p muddie`, as the CI does for a release.
+[package.metadata.deb]
+name = "muddie"
+maintainer = "Muddie developers"
+copyright = "Muddie developers"
+section = "games"
+priority = "optional"
+extended-description = """\
+Muddie is a MUD client made to be heard as well as seen: every line is read \
+by the screen reader in use, and so reaches a braille display, or by the \
+system's voice. Scriptable in Luau, with triggers, aliases, keys, gauges, \
+an automapper, GMCP, MSDP, MXP and TLS."""
+depends = "$auto"
+recommends = "speech-dispatcher"
+assets = [
+    ["target/release/muddie", "usr/bin/", "755"],
+    ["../../assets/io.github.midnattsol.Muddie.desktop", "usr/share/applications/", "644"],
+    ["../../assets/io.github.midnattsol.Muddie.metainfo.xml", "usr/share/metainfo/", "644"],
+    ["../../assets/icons/hicolor/16x16/apps/io.github.midnattsol.Muddie.png", "usr/share/icons/hicolor/16x16/apps/", "644"],
+    ["../../assets/icons/hicolor/24x24/apps/io.github.midnattsol.Muddie.png", "usr/share/icons/hicolor/24x24/apps/", "644"],
+    ["../../assets/icons/hicolor/32x32/apps/io.github.midnattsol.Muddie.png", "usr/share/icons/hicolor/32x32/apps/", "644"],
+    ["../../assets/icons/hicolor/48x48/apps/io.github.midnattsol.Muddie.png", "usr/share/icons/hicolor/48x48/apps/", "644"],
+    ["../../assets/icons/hicolor/64x64/apps/io.github.midnattsol.Muddie.png", "usr/share/icons/hicolor/64x64/apps/", "644"],
+    ["../../assets/icons/hicolor/128x128/apps/io.github.midnattsol.Muddie.png", "usr/share/icons/hicolor/128x128/apps/", "644"],
+    ["../../assets/icons/hicolor/256x256/apps/io.github.midnattsol.Muddie.png", "usr/share/icons/hicolor/256x256/apps/", "644"],
+    ["../../assets/icons/hicolor/512x512/apps/io.github.midnattsol.Muddie.png", "usr/share/icons/hicolor/512x512/apps/", "644"],
+    ["../../README.md", "usr/share/doc/muddie/", "644"],
+    ["../../docs/manual.md", "usr/share/doc/muddie/", "644"],
+]

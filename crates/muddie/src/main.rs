@@ -1,3 +1,6 @@
+// A window of its own on Windows, with no console behind it.
+#![cfg_attr(windows, windows_subsystem = "windows")]
+
 mod app;
 mod autosave;
 mod brand;

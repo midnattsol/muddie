@@ -46,11 +46,15 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - if: matrix.os == 'ubuntu-latest'
         run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev libspeechd-dev pkg-config
+      - id: version
+        shell: bash
+        run: echo "version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)" >> "$GITHUB_OUTPUT"
       - run: cargo build --release -p muddie
-      - name: Package
+      # What to unpack and run as it is, on every system.
+      - name: Archive
         shell: bash
         run: |
-          mkdir muddie-${{ matrix.name }}
+          mkdir -p dist muddie-${{ matrix.name }}
           cp target/release/${{ matrix.binary }} README.md README.es.md LICENSE-MIT LICENSE-APACHE muddie-${{ matrix.name }}/
           cp -r docs examples muddie-${{ matrix.name }}/
           # On Linux, what install.sh puts in the menu: ./install.sh --no-build
@@ -61,16 +65,29 @@ jobs:
             cp -r assets muddie-${{ matrix.name }}/
           fi
           if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            7z a muddie-${{ matrix.name }}.zip muddie-${{ matrix.name }}
+            7z a dist/muddie-${{ matrix.name }}.zip muddie-${{ matrix.name }}
           else
-            tar czf muddie-${{ matrix.name }}.tar.gz muddie-${{ matrix.name }}
+            tar czf dist/muddie-${{ matrix.name }}.tar.gz muddie-${{ matrix.name }}
           fi
+      # What installs it as programs are installed on each system.
+      - name: Debian package
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          cargo install cargo-deb --locked
+          cargo deb -p muddie --no-build --output dist/
+      - name: Windows installer
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          choco install innosetup -y --no-progress
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=${{ steps.version.outputs.version }}" packaging\windows\muddie.iss
+      - name: macOS disk image
+        if: matrix.os == 'macos-latest'
+        run: packaging/macos/make-dmg.sh "${{ steps.version.outputs.version }}" dist/muddie-${{ matrix.name }}.dmg
       - uses: actions/upload-artifact@v4
         with:
           name: muddie-${{ matrix.name }}
-          path: |
-            muddie-${{ matrix.name }}.zip
-            muddie-${{ matrix.name }}.tar.gz
+          path: dist/*
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
@@ -84,6 +101,4 @@ jobs:
           merge-multiple: true
       - uses: softprops/action-gh-release@v2
         with:
-          files: |
-            muddie-*.zip
-            muddie-*.tar.gz
+          files: muddie*

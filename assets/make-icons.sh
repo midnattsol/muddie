@@ -26,3 +26,7 @@ for size in 16 24 32 48 64 128 256 512; do
     [ "$size" -le 32 ] && from=$work/small.png
     magick "$from" -filter Lanczos -resize "${size}x${size}" -strip "PNG32:$dir/$id.png"
 done
+# Windows' icon holds the sizes it asks for, up to 256, in one file.
+magick $(for size in 16 24 32 48 64 128 256; do
+    echo "icons/hicolor/${size}x${size}/apps/$id.png"
+done) muddie.ico

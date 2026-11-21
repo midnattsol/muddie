@@ -17,6 +17,21 @@ Un cliente de MUD moderno y accesible, escrito en Rust.
   reconexión, búsqueda, enlaces, temas, y español e inglés.
 - **Protocolos:** GMCP, MSDP, MSSP, MCCP2, MCCP3, MXP, MSP, TLS.
 
+## Instalar
+
+Cada versión trae, en la
+[página de versiones](https://github.com/midnattsol/muddie/releases):
+
+- **Windows**: `muddie-windows-x86_64-setup.exe`, un instalador que pone
+  Muddie en el menú Inicio y en Configuración para desinstalarlo.
+- **macOS**: `muddie-macos-aarch64.dmg`; arrastra Muddie a Aplicaciones. No
+  está firmado por un desarrollador conocido por Apple, así que la primera
+  vez ábrelo con Abrir en el menú del clic derecho.
+- **Debian y Ubuntu**: `muddie_*.deb`, que se abre con el instalador de
+  software o con `sudo apt install ./muddie_*.deb`.
+- **Cualquier Linux, Windows o macOS**: un archivo para descomprimir y
+  ejecutar tal cual.
+
 ## Compilar
 
 ```
@@ -29,7 +44,7 @@ Speech Dispatcher (`sudo apt install cmake libdbus-1-dev libspeechd-dev
 pkg-config` en Debian y Ubuntu), sin los que el programa sale mudo. El sonido
 usa `pw-play`, `paplay`, `ffplay` o `aplay`, el que haya instalado.
 
-## Instalar en Linux
+## Instalar en Linux desde el código
 
 ```
 ./install.sh

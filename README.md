@@ -19,6 +19,20 @@ A modern, accessible MUD client written in Rust.
 
 Leer en [español](README.es.md).
 
+## Installing
+
+Each release has, on the
+[releases page](https://github.com/midnattsol/muddie/releases):
+
+- **Windows**: `muddie-windows-x86_64-setup.exe`, an installer that puts
+  Muddie in the Start menu and in Settings to be removed.
+- **macOS**: `muddie-macos-aarch64.dmg`; drag Muddie to Applications. It is
+  not signed by a developer known to Apple, so the first time open it with
+  Open in the menu of a right click.
+- **Debian and Ubuntu**: `muddie_*.deb`, opened with the software installer
+  or `sudo apt install ./muddie_*.deb`.
+- **Any Linux, Windows or macOS**: an archive to unpack and run as it is.
+
 ## Building
 
 ```
@@ -31,7 +45,7 @@ compiler; on Linux also the development files of D-Bus and Speech Dispatcher
 and Ubuntu), without which the program is built mute. Sound uses `pw-play`,
 `paplay`, `ffplay` or `aplay`, whichever is installed.
 
-## Installing on Linux
+## Installing on Linux from the source
 
 ```
 ./install.sh
