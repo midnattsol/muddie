@@ -1921,3 +1921,26 @@ msgstr "expandida"
 msgid "collapsed"
 msgstr "contraída"
 
+msgid "Collapse all folders"
+msgstr "Contraer todas las carpetas"
+
+msgid "Expand all folders"
+msgstr "Expandir todas las carpetas"
+
+msgid "All folders collapsed."
+msgstr "Todas las carpetas contraídas."
+
+msgid "All folders expanded."
+msgstr "Todas las carpetas expandidas."
+
+
+msgid "Copy line"
+msgstr "Copiar la línea"
+
+msgid "Copy all output"
+msgstr "Copiar toda la salida"
+
+
+msgid "Output copied."
+msgstr "Salida copiada."
+

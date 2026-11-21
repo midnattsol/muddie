@@ -211,3 +211,132 @@ fn sent_command_stays_selected_to_repeat_or_type_over() {
     assert_eq!(sent.try_recv().unwrap(), send("south"));
     assert_eq!(harness.state().tab().input, "");
 }
+
+/// A click on the output, to choose text in it, leaves the keyboard in the
+/// command line, in every frame: it does not go and come back, which drew
+/// the line a frame without it, and made the command kept there, chosen
+/// whole, blink.
+#[test]
+fn a_click_on_the_output_leaves_the_keyboard_in_the_command_line() {
+    let mut harness = window(None);
+    let (_events, _sent) = fake_connection(harness.state_mut().tab_mut());
+    let app = harness.state_mut().tab_mut();
+    app.settings.keep_command = true;
+    app.show_local("An orc arrives.");
+    app.input = "north".into();
+    harness.run_steps(3);
+    harness.key_press(Key::Enter);
+    harness.run_steps(3);
+    // Drawn with the keyboard in it, its text is chosen as it is drawn.
+    let chosen = |harness: &Harness<'_, App>| {
+        let command = harness.get_by_label("Command");
+        let node = command.accesskit_node();
+        node.is_focused() && node.data().text_selection().is_some()
+    };
+    assert!(chosen(&harness));
+    harness.get_by_label("An orc arrives.").click();
+    for _ in 0..4 {
+        harness.step();
+        assert!(
+            chosen(&harness),
+            "the command line was drawn without the keyboard"
+        );
+    }
+}
+
+/// The output's menu, by the other button, copies the line it is opened
+/// on, or all the output; and the palette copies all of it too.
+#[test]
+fn the_outputs_menu_copies_a_line_or_all_of_it() {
+    let mut harness = window(None);
+    let (_events, _sent) = fake_connection(harness.state_mut().tab_mut());
+    let app = harness.state_mut().tab_mut();
+    app.show_local("An orc arrives.");
+    app.show_local("The orc leaves.");
+    harness.run_steps(3);
+    let copied = |harness: &Harness<'_, App>| {
+        (harness.output().platform_output.commands.iter()).find_map(|command| match command {
+            egui::OutputCommand::CopyText(text) => Some(text.clone()),
+            _ => None,
+        })
+    };
+    harness.get_by_label("An orc arrives.").click_secondary();
+    harness.run_steps(2);
+    harness.get_by_label("Copy line").click();
+    harness.step();
+    assert_eq!(copied(&harness).as_deref(), Some("An orc arrives."));
+    harness.run_steps(2);
+    harness.get_by_label("The orc leaves.").click_secondary();
+    harness.run_steps(2);
+    harness.get_by_label("Copy all output").click();
+    harness.step();
+    let all = copied(&harness).unwrap_or_default();
+    assert!(all.contains("An orc arrives.\nThe orc leaves.\n"), "{all}");
+}
+
+/// A line of the output keeps who it is as old lines go and new ones
+/// come: text chosen in it stays chosen in it, not in the line that took
+/// its place.
+#[test]
+fn a_line_of_the_output_stays_itself_as_old_lines_go() {
+    let mut harness = window(None);
+    let (_events, _sent) = fake_connection(harness.state_mut().tab_mut());
+    let app = harness.state_mut().tab_mut();
+    app.output.restyle(100, false);
+    for n in 0..100 {
+        app.show_local(&format!("line {n}"));
+    }
+    harness.run_steps(3);
+    let id = |harness: &Harness<'_, App>| harness.get_by_label("line 99").accesskit_node().id();
+    let before = id(&harness);
+    harness.state_mut().tab_mut().show_local("line 100");
+    harness.run_steps(3);
+    assert!(
+        harness.query_by_label("line 0").is_none(),
+        "the oldest went"
+    );
+    assert_eq!(id(&harness), before);
+}
+
+/// Text chosen in the output by dragging over it is copied from its menu,
+/// as Ctrl+C copies it.
+#[test]
+fn text_chosen_in_the_output_is_copied_from_its_menu() {
+    let mut harness = window(None);
+    let (_events, _sent) = fake_connection(harness.state_mut().tab_mut());
+    harness.state_mut().tab_mut().show_local("An orc arrives.");
+    harness.run_steps(3);
+    let line = harness.get_by_label("An orc arrives.").rect();
+    let (from, to) = (
+        line.left_center() + egui::vec2(1.0, 0.0),
+        line.right_center() - egui::vec2(1.0, 0.0),
+    );
+    let press = |harness: &mut Harness<'_, App>, pos, pressed| {
+        harness.event(egui::Event::PointerButton {
+            pos,
+            button: egui::PointerButton::Primary,
+            pressed,
+            modifiers: Modifiers::NONE,
+        });
+        harness.step();
+    };
+    harness.hover_at(from);
+    harness.step();
+    press(&mut harness, from, true);
+    for step in 1..=5 {
+        harness.hover_at(from + (to - from) * (step as f32 / 5.0));
+        harness.step();
+    }
+    press(&mut harness, to, false);
+    harness.run_steps(2);
+    harness.get_by_label("An orc arrives.").click_secondary();
+    harness.run_steps(2);
+    harness.get_by_label("Copy").click();
+    harness.step();
+    let copied =
+        (harness.output().platform_output.commands.iter()).find_map(|command| match command {
+            egui::OutputCommand::CopyText(text) => Some(text.clone()),
+            _ => None,
+        });
+    assert_eq!(copied.as_deref(), Some("An orc arrives."));
+}

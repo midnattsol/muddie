@@ -100,6 +100,12 @@ else, such as `big5` or `koi8-r`.
 | Tab | Completes the word being typed from recent output |
 | Ctrl+F | Searches the scrollback; Enter goes to the previous match, Shift+Enter to the next |
 
+Text is chosen in the output by dragging over it, and Ctrl+C copies it; the
+keyboard stays in the command line meanwhile, and the output holds still
+while text is being chosen. A right click on the output copies what is
+chosen, the line under the pointer or all of it, or searches it; the
+palette (Ctrl+K) has **Copy all output** too.
+
 While scrolled back, the latest lines stay in view at the bottom. Web
 addresses in the output can be clicked, as can links the server marks.
 
@@ -198,7 +204,8 @@ and scripts. Make one with the folder button beside **+**; it is named as it
 is made, and named again from its menu (a right click), with a double click
 or with **F2**. A click on a folder chooses it, and its details show what it
 holds, its switch, and buttons to add a rule or a folder in it, to rename it
-and to delete it; a click on its arrow opens or closes it.
+and to delete it; a click on its arrow opens or closes it. The button beside the
+folder button closes every folder, or opens them all when all are closed.
 Drag a rule onto a folder to put it there, between two rules to put it in
 their place, or below the list to take it out of every folder; folders are
 dragged into one another the same way, and **Alt+↑** and **Alt+↓** move the

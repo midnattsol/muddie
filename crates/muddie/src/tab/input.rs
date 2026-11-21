@@ -48,7 +48,19 @@ impl Tab {
         // What the last command said takes the place of the hint; with
         // something typed, it is said at the other end of the line.
         let said = self.bar_said(ui);
+        // A click on what takes no keyboard (the output, to choose text in
+        // it; a button) leaves the keyboard here: given up and taken back,
+        // the line would be drawn a frame without it, and its choice
+        // blink. What takes the keyboard, a field, takes it all the same.
+        let surrender = |ui: &egui::Ui, how| {
+            ui.ctx()
+                .options_mut(|options| options.input_options.surrender_focus_on = how)
+        };
+        if focused {
+            surrender(ui, egui::SurrenderFocusOn::Never);
+        }
         let (bar, mut output) = self.command_field(ui, id, focused, said.clone());
+        surrender(ui, egui::SurrenderFocusOn::Clicks);
         self.place_cursor(ui, id, &mut output, completing);
         let response = output.response;
         ui.ctx()

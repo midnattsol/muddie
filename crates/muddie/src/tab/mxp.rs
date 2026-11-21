@@ -3,7 +3,8 @@
 use super::*;
 
 impl Tab {
-    /// Does what a link of the server's that was clicked asks for.
+    /// Does what a link of the server's that was clicked asks for, or the
+    /// output's menu.
     pub(super) fn link_clicked(&mut self, clicked: crate::output::Clicked) {
         match clicked {
             crate::output::Clicked::Send(command) => self.send(command),
@@ -12,6 +13,10 @@ impl Tab {
                 self.input = format!("{command} ");
                 self.kept_input = None;
                 self.cursor_to_end = true;
+            }
+            crate::output::Clicked::Find => {
+                self.find.open = true;
+                self.find.wants_focus = true;
             }
         }
     }

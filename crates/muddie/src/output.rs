@@ -40,6 +40,8 @@ pub enum Clicked {
     Send(String),
     /// A command to put in the command line, to be finished there.
     Prompt(String),
+    /// To look for something in it, from its menu.
+    Find,
 }
 
 pub struct Output {
@@ -263,11 +265,19 @@ impl Output {
             .ctx()
             .options(|options| options.input_options.line_scroll_speed);
         let step = WHEEL_ROWS * self.row_height(ui) / wheel_line.max(1.0);
+        // While text is being chosen in it with the pointer, it holds
+        // still: what is chosen does not run away from the pointer as lines
+        // come.
+        let here = ui.available_rect_before_wrap();
+        let choosing = ui.input(|input| {
+            input.pointer.primary_down()
+                && (input.pointer.press_origin()).is_some_and(|at| here.contains(at))
+        });
         let area = ScrollArea::vertical()
             .id_salt(name)
             .auto_shrink(false)
             // Only while following the end: reading back, nothing pulls.
-            .stick_to_bottom(!self.reading)
+            .stick_to_bottom(!self.reading && !choosing)
             .wheel_scroll_multiplier(vec2(1.0, step));
         let shown = area.show_viewport(ui, |ui, viewport| self.show_rows(ui, viewport));
         if self.reading && !self.rows.is_empty() {
@@ -344,6 +354,19 @@ impl Output {
                 link.name.is_empty() || !(name.is_empty() || link.name.eq_ignore_ascii_case(name))
             });
         }
+    }
+
+    /// All of it as text, a line a row, as it would be copied.
+    pub fn all_text(&self) -> String {
+        let mut text = String::new();
+        for row in &self.rows {
+            text.push_str(&row.text);
+            text.push('\n');
+        }
+        if let Some(partial) = &self.partial {
+            text.push_str(&partial.text());
+        }
+        text
     }
 
     /// Empties it.

@@ -46,6 +46,9 @@ pub enum Act {
     Reconnect,
     Disconnect,
     Find,
+    /// Copies all the output, for those who do not choose it with the
+    /// pointer.
+    CopyOutput,
     /// Starts or stops writing the session to a file.
     Log,
     /// Switches the voice on or off.

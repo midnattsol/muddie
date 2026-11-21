@@ -392,6 +392,7 @@ fn look_of(item: &Item) -> (widgets::Glyph, &'static str) {
         Act::Reconnect => (Glyph::Restart, "Alt+R"),
         Act::Disconnect => (Glyph::Close, ""),
         Act::Find => (Glyph::Search, "Ctrl+F"),
+        Act::CopyOutput => (Glyph::Copy, ""),
         Act::Log => (Glyph::Text, ""),
         Act::Speech | Act::ReadChannel(..) => (Glyph::Say, ""),
         Act::AddPanel(_) | Act::Panel(_) | Act::FullHeight | Act::Side(_) => (Glyph::Panel, ""),

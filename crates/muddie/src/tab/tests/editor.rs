@@ -964,3 +964,36 @@ fn escape_twice_from_an_editor_of_code_leaves_the_editor() {
     harness.run_steps(2);
     assert!(!harness.state().tab().editor.open);
 }
+
+/// One button closes every folder, and then opens them all, saying which
+/// it did; what was chosen in a folder closed gives way to the folder.
+#[test]
+fn one_button_collapses_and_expands_all_folders() {
+    let mut harness = list_with_a_folder();
+    let app = harness.state_mut().tab_mut();
+    app.voice.force_voice();
+    app.editor.selected[automation::ALIASES] = 0;
+    harness.run_steps(2);
+    harness.get_by_label("Collapse all folders").click();
+    harness.run_steps(3);
+    let app = harness.state().tab();
+    assert_eq!(app.editor.folded.len(), 1);
+    assert_eq!(app.editor.folder.as_deref(), Some("Travel"));
+    assert_eq!(
+        app.voice.said.last().map(String::as_str),
+        Some("All folders collapsed.")
+    );
+    assert!(
+        harness.query_by_label("Alpha").is_none(),
+        "what is in it is hidden"
+    );
+    harness.get_by_label("Expand all folders").click();
+    harness.run_steps(3);
+    let app = harness.state().tab();
+    assert!(app.editor.folded.is_empty());
+    assert_eq!(
+        app.voice.said.last().map(String::as_str),
+        Some("All folders expanded.")
+    );
+    harness.get_by_label("Alpha");
+}

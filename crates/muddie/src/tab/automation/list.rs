@@ -380,6 +380,53 @@ impl Tab {
         line.rect
     }
 
+    /// The button that closes every folder while one is open, and else
+    /// opens them all, as in a file tree; with none, it is not there. What
+    /// was done is said, as the button's name changes under the keyboard.
+    fn fold_all_button(&mut self, ui: &mut egui::Ui, kind: Kind) {
+        let folders = self.section_folders(kind);
+        if folders.is_empty() {
+            return;
+        }
+        let any_open =
+            (folders.iter()).any(|path| !self.editor.folded.contains(&(kind, path.clone())));
+        let (icon, label) = match any_open {
+            true => (widgets::Icon::CollapseAll, tr("Collapse all folders")),
+            false => (widgets::Icon::ExpandAll, tr("Expand all folders")),
+        };
+        if !widgets::icon_button(ui, icon, label, false).clicked() {
+            return;
+        }
+        self.editor.folded.retain(|(of, _)| *of != kind);
+        if any_open {
+            self.editor
+                .folded
+                .extend(folders.into_iter().map(|path| (kind, path)));
+            // What was chosen inside a folder now closed gives way to the
+            // folder it is in, at the top, so that what is chosen is seen.
+            if let Some(spot) = self.current_spot() {
+                let folder = match &spot {
+                    Spot::Row(index) => self
+                        .automation_rows()
+                        .get(*index)
+                        .map(|row| row.folder.clone()),
+                    Spot::Folder(path) => Some(path.clone()),
+                };
+                let top = folder
+                    .as_deref()
+                    .and_then(|path| path.split('/').next())
+                    .filter(|top| !top.is_empty());
+                if let Some(top) = top {
+                    self.choose_folder(top);
+                }
+            }
+        }
+        self.voice.say_now(match any_open {
+            true => tr("All folders collapsed."),
+            false => tr("All folders expanded."),
+        });
+    }
+
     /// Closes a folder that is `open`, or opens it, and says which it now
     /// is when the keyboard did it: screen readers are not told otherwise.
     pub(in crate::tab) fn fold(&mut self, ctx: &egui::Context, kind: Kind, path: &str, open: bool) {
@@ -528,6 +575,7 @@ impl Tab {
                     let folder = self.chosen_folder();
                     self.new_folder(kind, &folder);
                 }
+                self.fold_all_button(ui, kind);
             }
             widgets::text_box(ui, &mut self.editor.filter, tr("Search"));
         });

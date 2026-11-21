@@ -55,6 +55,7 @@ impl Tab {
             Act::App(AppRequest::CloseSession),
         ));
         acts.push(item(tr("Find"), session, Act::Find));
+        acts.push(item(tr("Copy all output"), session, Act::CopyOutput));
         let log = if self.log.is_some() {
             tr("Stop logging this session")
         } else {
@@ -187,6 +188,10 @@ impl Tab {
                     }
                 }
             },
+            Act::CopyOutput => {
+                ctx.copy_text(self.output.all_text());
+                self.note(tr("Output copied."));
+            }
             Act::Find => {
                 self.find.open = true;
                 self.find.wants_focus = true;

@@ -74,7 +74,112 @@ pub(super) fn row_links(
     command
 }
 
+/// What can be asked of the output from its menu.
+pub(super) enum Asked {
+    /// What is chosen in it, as Ctrl+C copies it.
+    Copy,
+    /// One line, the one the menu was opened on.
+    CopyLine(String),
+    CopyAll,
+    Find,
+}
+
+/// The text last chosen in labels, the output's among them, as egui says
+/// when the choosing is over: a press on a menu takes the choice away
+/// before the menu's item is clicked, so what was chosen is kept here.
+/// Whether text was chosen when the output's menu was last opened is kept
+/// too, as by the time its Copy is clicked, nothing is.
+#[derive(Default)]
+pub struct ChosenText {
+    text: Option<String>,
+    when_opened: bool,
+}
+
+impl eframe::egui::plugin::Plugin for ChosenText {
+    fn debug_name(&self) -> &'static str {
+        "chosen text"
+    }
+
+    fn output_hook(&mut self, _ctx: &eframe::egui::Context, output: &mut eframe::egui::FullOutput) {
+        for command in &output.platform_output.commands {
+            if let eframe::egui::OutputCommand::TextSelectionSettled(text) = command {
+                self.text = Some(text.clone());
+            }
+        }
+    }
+}
+
+/// The menu of the output, opened with the other button on it: copying
+/// what is chosen in it, the line it was opened on, or all of it, and
+/// looking for something in it.
+fn output_menu(response: &eframe::egui::Response, line: Option<&str>, asked: &mut Option<Asked>) {
+    // Looked at only as the menu opens and while it is open, not for
+    // every line every frame.
+    if response.secondary_clicked() {
+        let selection = response
+            .ctx
+            .plugin::<eframe::egui::text_selection::LabelSelectionState>();
+        let chosen = selection.lock().has_selection();
+        response
+            .ctx
+            .plugin_or_default::<ChosenText>()
+            .lock()
+            .when_opened = chosen;
+    }
+    crate::widgets::context_menu_of(response, |ui| {
+        crate::widgets::menu_width(ui);
+        let chosen = ui
+            .ctx()
+            .plugin_or_default::<ChosenText>()
+            .lock()
+            .when_opened;
+        let copy = ui.add_enabled_ui(chosen, |ui| {
+            crate::widgets::menu_item(ui, tr("Copy"), "Ctrl+C")
+        });
+        if copy.inner.clicked() {
+            *asked = Some(Asked::Copy);
+            ui.close();
+        }
+        if let Some(line) = line
+            && crate::widgets::menu_item(ui, tr("Copy line"), "").clicked()
+        {
+            *asked = Some(Asked::CopyLine(line.to_owned()));
+            ui.close();
+        }
+        if crate::widgets::menu_item(ui, tr("Copy all output"), "").clicked() {
+            *asked = Some(Asked::CopyAll);
+            ui.close();
+        }
+        crate::widgets::menu_separator(ui);
+        if crate::widgets::menu_item(ui, tr("Find"), "Ctrl+F").clicked() {
+            *asked = Some(Asked::Find);
+            ui.close();
+        }
+    });
+}
+
 impl Output {
+    /// Does what was asked from the output's menu.
+    fn do_asked(&self, ui: &Ui, asked: Asked) -> Option<Clicked> {
+        match asked {
+            Asked::Copy => {
+                let chosen = ui
+                    .ctx()
+                    .plugin_or_default::<ChosenText>()
+                    .lock()
+                    .text
+                    .clone();
+                if let Some(text) = chosen {
+                    ui.ctx().copy_text(text);
+                }
+            }
+            Asked::CopyLine(line) => ui.ctx().copy_text(line),
+            Asked::CopyAll => ui.ctx().copy_text(self.all_text()),
+            Asked::Find => return Some(Clicked::Find),
+        }
+        None
+    }
+
     /// Draws the rows that are on screen, and what is not yet a whole line,
     /// in a space as tall as all of them. Returns what a click on a link
     /// asked for.
@@ -113,7 +218,19 @@ impl Output {
             max_rect.min + vec2(0.0, top),
             vec2(max_rect.width(), total - top),
         );
-        let (command, learned) = self.draw_rows(ui, rect, first, top, viewport, partial);
+        // Kept from the start, to have the text chosen when it is asked
+        // for from the menu.
+        ui.ctx().plugin_or_default::<ChosenText>();
+        // Where there is no line, the menu is the output's all the same.
+        let mut asked = None;
+        let seen = ui.clip_rect();
+        let under = ui.interact(seen, ui.scope_id().with("output background"), Sense::CLICK);
+        output_menu(&under, None, &mut asked);
+        let (mut command, learned, from_row) =
+            self.draw_rows(ui, rect, first, top, viewport, partial);
+        if let Some(asked) = from_row.or(asked) {
+            command = command.or(self.do_asked(ui, asked));
+        }
         if !learned.is_empty() {
             ui.ctx().request_repaint();
         }
@@ -264,16 +381,16 @@ impl Output {
         top: f32,
         viewport: Rect,
         partial: Option<Arc<Galley>>,
-    ) -> (Option<Clicked>, Vec<(usize, f32)>) {
+    ) -> (Option<Clicked>, Vec<(usize, f32)>, Option<Asked>) {
         let (timestamps, found, width) = (self.timestamps, self.found, self.width);
         let first_serial = self.pushed - self.rows.len() as u64;
         // The commands a link offers, shown by the other button, and the
         // row they are of: it is the row's menu while it is open.
         let mut menu = self.menu.clone();
-        let (mut command, mut learned) = (None, Vec::new());
+        let (mut command, mut learned, mut asked) = (None, Vec::new(), None);
+        // The rows' ids hang from the output's, not from their place.
+        let lines = ui.scope_id().with("lines");
         ui.scope_builder(UiBuilder::new().max_rect(rect), |ui| {
-            // Keep widget ids stable while scrolling.
-            ui.skip_ahead_auto_ids(first);
             let mut y = top;
             for (index, row) in self.rows.iter().enumerate().skip(first) {
                 if y > viewport.max.y {
@@ -288,17 +405,24 @@ impl Output {
                 if !row.links.is_empty() {
                     label = label.sense(Sense::click());
                 }
-                let response = ui.add(label);
+                // Known by the line it shows, not by its place: as old lines
+                // go and new ones come, what is chosen stays on its line.
+                let serial = first_serial + index as u64;
+                let own = UiBuilder::new().scope_id(lines.with(serial));
+                let response = ui.scope_builder(own, |ui| ui.add(label)).inner;
                 if found == Some(index) {
                     let mark = theme::current().accent.gamma_multiply(0.22);
                     ui.painter()
                         .rect_filled(response.rect.expand2(vec2(2.0, 0.0)), 2.0, mark);
                 }
-                let serial = first_serial + index as u64;
                 if let Some(asked) =
                     row_links(ui, &response, row, &galley, timestamps, serial, &mut menu)
                 {
                     command = Some(asked);
+                }
+                // The output's menu, unless the line's link has its own.
+                if menu.as_ref().is_none_or(|(of, _)| *of != serial) {
+                    output_menu(&response, Some(&row.text), &mut asked);
                 }
             }
             if let Some(galley) = partial {
@@ -306,6 +430,6 @@ impl Output {
             }
         });
         self.menu = menu;
-        (command, learned)
+        (command, learned, asked)
     }
 }

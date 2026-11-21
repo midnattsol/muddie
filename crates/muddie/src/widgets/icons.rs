@@ -27,6 +27,10 @@ pub enum Icon {
     Unfold(Edge),
     /// A folder with a plus: a new folder.
     NewFolder,
+    /// Two boxes, the front one with a minus: close every folder.
+    CollapseAll,
+    /// Two boxes, the front one with a plus: open every folder.
+    ExpandAll,
 }
 
 /// A side of the window.
@@ -118,6 +122,24 @@ fn draw_icon(painter: &egui::Painter, icon: Icon, centre: egui::Pos2, colour: Co
             painter.line_segment([plus - vec2(0.0, 3.0), plus + vec2(0.0, 3.0)], stroke);
         }
         Icon::Trash => draw_trash(painter, centre, stroke),
+        Icon::CollapseAll | Icon::ExpandAll => {
+            // A box behind, as its top and right edges, and one in front.
+            let front = egui::Rect::from_center_size(centre + vec2(-1.5, 1.5), Vec2::splat(9.0));
+            let back = front.translate(vec2(3.0, -3.0));
+            painter.line_segment([back.left_top(), back.right_top()], stroke);
+            painter.line_segment([back.right_top(), back.right_bottom()], stroke);
+            painter.rect_stroke(
+                front,
+                CornerRadius::same(1),
+                stroke,
+                egui::StrokeKind::Middle,
+            );
+            let middle = front.center();
+            painter.line_segment([middle - vec2(2.5, 0.0), middle + vec2(2.5, 0.0)], stroke);
+            if icon == Icon::ExpandAll {
+                painter.line_segment([middle - vec2(0.0, 2.5), middle + vec2(0.0, 2.5)], stroke);
+            }
+        }
     }
 }
 

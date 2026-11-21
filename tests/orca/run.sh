@@ -197,6 +197,14 @@ expect "Up goes back to the folder, and says it is open" "SPEECH OUTPUT: 'expand
 remember
 keys Left
 expect "Left closes the folder, and says so" "SPEECH OUTPUT: 'collapsed'"
+# Back over the search, the button that opens or closes every folder,
+# named by what it will do, and saying what it did.
+remember
+keys shift+Tab shift+Tab
+expect "the button for every folder says what it does" "Expand all folders button"
+remember
+keys Return
+expect "opening every folder is said" "All folders expanded."
 keys ctrl+e
 sleep 1
 
