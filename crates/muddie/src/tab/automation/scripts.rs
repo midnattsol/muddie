@@ -284,7 +284,7 @@ impl Tab {
         folder_row(ui, &mut folder, &folders, false);
         tags_row(ui, ("script tags", place), &mut kept.tags, &known);
         if folder != folder_of(place) {
-            let name = place.rsplit('/').next().unwrap_or(place);
+            let name = name_of(place);
             let to = crate::rules::joined(&folder, name);
             if self.move_script_files(place, &to) {
                 kept.path = to;
@@ -343,9 +343,7 @@ impl Checks {
 fn file_chip(ui: &mut egui::Ui, path: &std::path::Path) {
     let theme = theme::current();
     ui.horizontal(|ui| {
-        egui::Frame::new()
-            .fill(theme.field)
-            .corner_radius(egui::CornerRadius::same(8))
+        crate::widgets::inset(theme.field)
             .inner_margin(egui::Margin::symmetric(10, 4))
             .show(ui, |ui| {
                 ui.horizontal(|ui| {

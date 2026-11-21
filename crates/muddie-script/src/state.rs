@@ -3,11 +3,53 @@
 
 use super::*;
 
+/// A trigger's or an alias's pattern: checked when it is made, and
+/// compiled the first time it is tried on a line. Most triggers are seldom
+/// tried, as the set of all their patterns says which may match, and one
+/// compiled, with `\w`, every letter of every language, holds some 100 KB.
+pub(crate) struct Pattern {
+    source: String,
+    compiled: std::cell::OnceCell<Option<Regex>>,
+}
+
+impl Pattern {
+    /// The pattern, if it is one; else what is wrong with it, as the
+    /// regex crate says it.
+    pub(crate) fn new(source: &str) -> Result<Self, String> {
+        if regex_syntax::Parser::new().parse(source).is_err() {
+            let wrong = Regex::new(source).err().map(|error| error.to_string());
+            return Err(wrong.unwrap_or_else(|| "not a pattern".to_owned()));
+        }
+        Ok(Self {
+            source: source.to_owned(),
+            compiled: std::cell::OnceCell::new(),
+        })
+    }
+
+    pub(crate) fn as_str(&self) -> &str {
+        &self.source
+    }
+
+    /// Whether it was compiled yet.
+    #[cfg(test)]
+    pub(crate) fn is_compiled(&self) -> bool {
+        self.compiled.get().is_some()
+    }
+
+    /// The pattern compiled, the first time it is asked for; None if it
+    /// cannot be, too big as it is.
+    pub(crate) fn regex(&self) -> Option<&Regex> {
+        self.compiled
+            .get_or_init(|| Regex::new(&self.source).ok())
+            .as_ref()
+    }
+}
+
 pub(super) struct Matcher {
     pub(crate) id: u64,
     /// The script that made it, which takes it away when run again.
     pub(crate) owner: String,
-    pub(crate) regex: Regex,
+    pub(crate) pattern: Pattern,
     pub(crate) callback: Function,
     /// What it is switched on and off by.
     pub(crate) belongs: Belongs,
@@ -76,9 +118,6 @@ pub(super) struct State {
     /// The triggers' patterns in one set, to find in one pass which may
     /// match a line.
     pub(crate) trigger_set: TriggerSet,
-    /// Patterns as they were compiled, kept for when the rules are put to
-    /// work again: each takes a while, and most are as they were.
-    pub(crate) compiled: HashMap<String, regex::Regex>,
     pub(crate) aliases: Vec<Matcher>,
     pub(crate) timers: Vec<Timer>,
     pub(crate) data_handlers: Vec<DataHandler>,
@@ -137,14 +176,20 @@ pub(super) struct Hit {
     pub(crate) named: Vec<(String, String)>,
 }
 
-/// The triggers' patterns in one set, by the ids of the triggers it is made
-/// of. With many patterns it takes a moment to make, so it is made on a
-/// thread of its own; until it is ready, lines are tried on each trigger,
-/// with the same result, only slower.
+/// The triggers' patterns in one set. With many patterns it takes a moment
+/// to make, so it is made on a thread of its own; until it is, the set
+/// before says for the patterns it had, and the others are tried each,
+/// with the same result.
 #[derive(Default)]
 pub(crate) struct TriggerSet {
+    /// The triggers it was last asked for.
     pub(crate) ids: Vec<u64>,
-    /// None if the patterns could not be put in one set, or until it is.
+    /// The set there is, and the patterns it was made of; None if they
+    /// could not be put in one, or until it is made.
     pub(crate) set: Option<regex::RegexSet>,
-    pub(crate) making: Option<std::sync::mpsc::Receiver<Option<regex::RegexSet>>>,
+    pub(crate) patterns: Vec<String>,
+    /// Where each trigger's pattern is in the set; None for one not in it.
+    pub(crate) places: Vec<Option<usize>>,
+    /// The set being made of the triggers' patterns, as they now are.
+    pub(crate) making: Option<std::sync::mpsc::Receiver<(Vec<String>, Option<regex::RegexSet>)>>,
 }

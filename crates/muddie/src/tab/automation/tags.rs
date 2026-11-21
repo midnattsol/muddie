@@ -186,9 +186,7 @@ pub(in crate::tab) fn folder_row(
                     picked = true;
                 }
                 for path in folders {
-                    let depth = path.matches('/').count();
-                    let name = path.rsplit('/').next().unwrap_or(path);
-                    let label = format!("{}{name}", "    ".repeat(depth));
+                    let label = folder_label(path);
                     if widgets::choice(ui, !several && folder == path, &label).clicked() {
                         folder.clone_from(path);
                         picked = true;

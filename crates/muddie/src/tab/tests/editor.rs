@@ -1238,6 +1238,15 @@ fn folders_are_moved_by_the_keys() {
         place(&before).map(|at| at - 1),
         "{before:?} {after:?}"
     );
+    let said = harness
+        .state()
+        .tab()
+        .voice
+        .said
+        .last()
+        .cloned()
+        .unwrap_or_default();
+    assert!(said.starts_with("Moved up, "), "{said}");
     // From its menu, into Chat.
     harness
         .get_by_role_and_label(egui::accesskit::Role::TreeItem, "Roads")
@@ -1382,4 +1391,22 @@ fn a_menu_acts_on_its_line_and_leaves_the_choice_alone() {
     harness.key_press(Key::Escape);
     harness.run_steps(2);
     assert!(harness.state().tab().editor.folder.is_none());
+}
+
+/// A rule moved up or down by the keys says where it now is.
+#[test]
+fn a_rule_moved_by_the_keys_says_where_it_is() {
+    let mut harness = list_with_a_folder();
+    let app = harness.state_mut().tab_mut();
+    app.voice.force_voice();
+    app.editor.selected[automation::ALIASES] = 1;
+    harness.run_steps(2);
+    harness.key_press_modifiers(Modifiers::ALT, Key::ArrowUp);
+    harness.run_steps(2);
+    let app = harness.state().tab();
+    assert_eq!(app.editor.draft.aliases[0].name, "Beta");
+    assert_eq!(
+        app.voice.said.last().map(String::as_str),
+        Some("Moved up, 1 of 2.")
+    );
 }

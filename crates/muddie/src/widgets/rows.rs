@@ -179,6 +179,17 @@ const ROW_GAP: f32 = 16.0;
 /// The most of a row its control may take.
 const CONTROL_SHARE: f32 = 0.6;
 
+/// A box set into what it is on, `fill` as it is set into: the foot of the
+/// sections, the bar of what was deleted, the place to try a rule, the find
+/// bar, a script's file, a key being recorded. All are rounded alike; those
+/// that need a margin or an edge of their own say so over it.
+pub fn inset(fill: Color32) -> Frame {
+    Frame::new()
+        .fill(fill)
+        .corner_radius(CornerRadius::same(10))
+        .inner_margin(Margin::symmetric(12, 8))
+}
+
 /// The words and the control of a row, with no hairline above. How tall
 /// the words are is known once they are laid out, so it is kept for the
 /// next frame, and a frame laid out with the wrong height is done again.

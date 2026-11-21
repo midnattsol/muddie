@@ -305,7 +305,7 @@ impl Tab {
         path: &str,
         item: &TreeItem,
     ) -> egui::Rect {
-        let name = path.rsplit('/').next().unwrap_or(path);
+        let name = name_of(path);
         let renaming =
             (self.editor.renaming.as_ref()).is_some_and(|renaming| renaming.path == path);
         let rect = match renaming {
@@ -338,7 +338,7 @@ impl Tab {
         let spot = Spot::Folder(path.to_owned());
         let current = self.current_spot().as_ref() == Some(&spot);
         widgets::FolderRow {
-            name: path.rsplit('/').next().unwrap_or(path),
+            name: name_of(path),
             depth: item.depth,
             open: item.open,
             active: item.active,
@@ -567,16 +567,7 @@ impl Tab {
         let here = parent_of(path).to_owned();
         let places = std::iter::once(String::new()).chain(self.folders_for(kind, path));
         for place in places.filter(|place| *place != here) {
-            let depth = place.matches('/').count();
-            let label = match place.as_str() {
-                "" => tr("None").to_owned(),
-                place => format!(
-                    "{}{}",
-                    "    ".repeat(depth),
-                    place.rsplit('/').next().unwrap_or(place)
-                ),
-            };
-            if widgets::menu_item(ui, &label, "").clicked() {
+            if widgets::menu_item(ui, &folder_label(&place), "").clicked() {
                 self.folder_moved_to(ui, kind, path, &place);
                 ui.close();
             }
@@ -682,12 +673,24 @@ impl Tab {
             .filter(|&index| rows[index].folder == chosen.folder)
             .collect();
         let at = alike.iter().position(|&index| index == from).unwrap_or(0);
-        let to = match (up, down) {
-            (true, _) if at > 0 => alike[at - 1],
-            (_, true) if at + 1 < alike.len() => alike[at + 1] + 1,
+        let (to, now) = match (up, down) {
+            (true, _) if at > 0 => (alike[at - 1], at - 1),
+            (_, true) if at + 1 < alike.len() => (alike[at + 1] + 1, at + 1),
             _ => return,
         };
         self.move_rows(&[from], to);
+        self.say_place(up, now, alike.len());
+    }
+
+    /// Says where something moved up or down by the keys now is among those
+    /// beside it, from 1: a screen reader is not told otherwise.
+    fn say_place(&mut self, up: bool, at: usize, of: usize) {
+        let (place, count) = ((at + 1).to_string(), of.to_string());
+        let said = match up {
+            true => trf("Moved up, {0} of {1}.", &[&place, &count]),
+            false => trf("Moved down, {0} of {1}.", &[&place, &count]),
+        };
+        self.voice.say_now(&said);
     }
 
     /// A folder moved by the keys: up or down among the folders beside it,
@@ -713,12 +716,17 @@ impl Tab {
             let Some(at) = beside.iter().position(|folder| *folder == path) else {
                 return;
             };
-            let (next, after) = match (up, down) {
-                (true, _) if at > 0 => (beside[at - 1].clone(), false),
-                (_, true) if at + 1 < beside.len() => (beside[at + 1].clone(), true),
+            let (next, after, now) = match (up, down) {
+                (true, _) if at > 0 => (beside[at - 1].clone(), false, at - 1),
+                (_, true) if at + 1 < beside.len() => (beside[at + 1].clone(), true, at + 1),
                 _ => return,
             };
-            self.put_folder(kind, path, &parent, Some((&next, after)))
+            let count = beside.len();
+            let moved = self.put_folder(kind, path, &parent, Some((&next, after)));
+            if moved.is_some() {
+                self.say_place(up, now, count);
+            }
+            moved
         };
         let Some(now) = moved else {
             return;
@@ -864,6 +872,34 @@ pub(in crate::tab) fn item_id(section: usize, spot: &Spot) -> egui::Id {
 /// The folder a place is in; empty for none.
 pub(in crate::tab) fn parent_of(path: &str) -> &str {
     path.rsplit_once('/').map_or("", |(parent, _)| parent)
+}
+
+/// The things among lines of the list, in their order, not the folders.
+pub(in crate::tab) fn rows_in(spots: &[Spot]) -> Vec<usize> {
+    (spots.iter())
+        .filter_map(|spot| match spot {
+            Spot::Row(index) => Some(*index),
+            Spot::Folder(_) => None,
+        })
+        .collect()
+}
+
+/// The last part of a place: a folder's or a script's own name.
+pub(in crate::tab) fn name_of(path: &str) -> &str {
+    path.rsplit('/').next().unwrap_or(path)
+}
+
+/// A folder as it is offered to be chosen: its name, set in as deep as it
+/// is; and the top level, which is no folder, as None.
+pub(in crate::tab) fn folder_label(path: &str) -> String {
+    match path {
+        "" => tr("None").to_owned(),
+        path => format!(
+            "{}{}",
+            "    ".repeat(path.matches('/').count()),
+            name_of(path)
+        ),
+    }
 }
 
 impl Tab {

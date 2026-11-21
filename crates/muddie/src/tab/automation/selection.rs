@@ -48,12 +48,7 @@ impl Tab {
         let anchor = self.editor.selected[section];
         let marked = &mut self.editor.marked;
         if modifiers.shift {
-            let rows: Vec<usize> = (self.editor.visible.iter())
-                .filter_map(|spot| match spot {
-                    Spot::Row(index) => Some(*index),
-                    Spot::Folder(_) => None,
-                })
-                .collect();
+            let rows = list::rows_in(&self.editor.visible);
             let at = |row: usize| rows.iter().position(|&shown| shown == row);
             if let (Some(from), Some(to)) = (at(anchor), at(index)) {
                 *marked = rows[from.min(to)..=from.max(to)].to_vec();
@@ -147,12 +142,7 @@ impl Tab {
         let all = ui.input_mut(|input| input.consume_key(Modifiers::COMMAND, Key::A));
         let back = self.editor.marked.len() > 1 && widgets::take_escape(ui);
         let visible = self.editor.visible.clone();
-        let rows: Vec<usize> = (visible.iter())
-            .filter_map(|spot| match spot {
-                Spot::Row(index) => Some(*index),
-                Spot::Folder(_) => None,
-            })
-            .collect();
+        let rows = list::rows_in(&visible);
         if all && rows.len() > 1 {
             self.editor.folder = None;
             self.editor.marked = rows.clone();
@@ -337,7 +327,7 @@ impl Tab {
                 .map(|file| self.script_place(file))
                 .collect();
             for place in places {
-                let name = place.rsplit('/').next().unwrap_or(&place).to_owned();
+                let name = name_of(&place).to_owned();
                 if list::parent_of(&place) != folder {
                     self.move_script_files(&place, &joined(folder, &name));
                 }
@@ -408,16 +398,10 @@ impl Tab {
         if let Some(kind) = section_kind(self.editor.section) {
             widgets::menu_separator(ui);
             widgets::menu_heading(ui, tr("Move to folder"));
-            if widgets::menu_item(ui, tr("None"), "").clicked() {
-                self.file_rows(&chosen, "");
-                ui.close();
-            }
-            for path in self.section_folders(kind) {
-                let depth = path.matches('/').count();
-                let name = path.rsplit('/').next().unwrap_or(&path);
-                let label = format!("{}{name}", "    ".repeat(depth));
-                if widgets::menu_item(ui, &label, "").clicked() {
-                    self.file_rows(&chosen, &path);
+            let places = std::iter::once(String::new()).chain(self.section_folders(kind));
+            for place in places {
+                if widgets::menu_item(ui, &folder_label(&place), "").clicked() {
+                    self.file_rows(&chosen, &place);
                     ui.close();
                 }
             }

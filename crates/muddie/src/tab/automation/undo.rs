@@ -96,11 +96,8 @@ impl Tab {
             false => trf("Deleted {0}.", &[undo.title.trim()]),
         };
         let mut again = false;
-        egui::Frame::new()
-            .fill(theme.raised)
+        crate::widgets::inset(theme.raised)
             .stroke(egui::Stroke::new(1.0, theme.border))
-            .corner_radius(egui::CornerRadius::same(10))
-            .inner_margin(egui::Margin::symmetric(12, 6))
             .show(ui, |ui| {
                 ui.horizontal(|ui| {
                     ui.label(RichText::new(said).color(theme.text));

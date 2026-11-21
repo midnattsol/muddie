@@ -252,10 +252,8 @@ impl Tab {
         let mut asked = None;
         let mut close = false;
         ui.horizontal(|ui| {
-            egui::Frame::new()
-                .fill(theme.field)
+            crate::widgets::inset(theme.field)
                 .stroke(egui::Stroke::new(1.0, theme.border))
-                .corner_radius(egui::CornerRadius::same(10))
                 .inner_margin(egui::Margin::symmetric(10, 2))
                 .show(ui, |ui| {
                     ui.spacing_mut().item_spacing.x = 4.0;

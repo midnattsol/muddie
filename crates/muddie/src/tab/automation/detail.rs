@@ -343,32 +343,28 @@ pub(in crate::tab) fn try_block(
     outcome: impl FnOnce(&str) -> Outcome,
 ) {
     let theme = theme::current();
-    egui::Frame::new()
-        .fill(theme.surface)
-        .corner_radius(egui::CornerRadius::same(10))
-        .inner_margin(egui::Margin::symmetric(12, 10))
-        .show(ui, |ui| {
-            ui.set_width(ui.available_width());
-            ui.horizontal(|ui| {
-                widgets::glyph(ui, widgets::Glyph::Try, 12.0, theme.text_dim);
-                let title = RichText::new(tr("Try it"))
-                    .font(theme::font(Weight::Medium, 12.5))
-                    .color(theme.text_dim);
-                ui.add(egui::Label::new(title).selectable(false));
-            });
-            theme::field_look(ui.visuals_mut(), theme.field, &theme);
-            widgets::text_box(ui, sample, hint);
-            match outcome(sample) {
-                Outcome::Idle | Outcome::Invalid => {}
-                Outcome::NoMatch => {
-                    ui.horizontal(|ui| {
-                        widgets::glyph(ui, widgets::Glyph::Close, 11.0, theme.text_faint);
-                        ui.label(RichText::new(tr("Does not match.")).color(theme.text_dim));
-                    });
-                }
-                Outcome::Match(matched) => show_match(ui, sample, &matched),
-            }
+    crate::widgets::inset(theme.surface).show(ui, |ui| {
+        ui.set_width(ui.available_width());
+        ui.horizontal(|ui| {
+            widgets::glyph(ui, widgets::Glyph::Try, 12.0, theme.text_dim);
+            let title = RichText::new(tr("Try it"))
+                .font(theme::font(Weight::Medium, 12.5))
+                .color(theme.text_dim);
+            ui.add(egui::Label::new(title).selectable(false));
         });
+        theme::field_look(ui.visuals_mut(), theme.field, &theme);
+        widgets::text_box(ui, sample, hint);
+        match outcome(sample) {
+            Outcome::Idle | Outcome::Invalid => {}
+            Outcome::NoMatch => {
+                ui.horizontal(|ui| {
+                    widgets::glyph(ui, widgets::Glyph::Close, 11.0, theme.text_faint);
+                    ui.label(RichText::new(tr("Does not match.")).color(theme.text_dim));
+                });
+            }
+            Outcome::Match(matched) => show_match(ui, sample, &matched),
+        }
+    });
 }
 
 /// A match shown: the sample with the match marked and each group in its

@@ -21,7 +21,7 @@ mod values;
 mod variables;
 
 pub(super) use folders::{Dragged, Renaming};
-pub(super) use list::Spot;
+pub(super) use list::{Spot, folder_label, name_of};
 pub(super) use scripts::Checks;
 pub(super) use triggers::Extra;
 pub(super) use undo::Undo;

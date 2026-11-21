@@ -29,10 +29,8 @@ impl Tab {
                     } else {
                         (theme.text, theme.border)
                     };
-                    egui::Frame::new()
-                        .fill(theme.surface)
+                    crate::widgets::inset(theme.surface)
                         .stroke(egui::Stroke::new(1.0, edge))
-                        .corner_radius(egui::CornerRadius::same(8))
                         .inner_margin(egui::Margin::symmetric(14, 7))
                         .show(ui, |ui| {
                             ui.label(

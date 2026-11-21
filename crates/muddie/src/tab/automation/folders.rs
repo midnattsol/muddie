@@ -114,7 +114,7 @@ impl Tab {
 
     /// Starts typing a folder's name.
     pub(in crate::tab) fn start_renaming(&mut self, path: &str) {
-        let name = path.rsplit('/').next().unwrap_or(path).to_owned();
+        let name = name_of(path).to_owned();
         self.editor.renaming = Some(Renaming {
             path: path.to_owned(),
             typed: name,
@@ -239,7 +239,7 @@ impl Tab {
     pub(in crate::tab) fn folder_detail(&mut self, ui: &mut egui::Ui, kind: Kind, path: &str) {
         let theme = theme::current();
         ui.spacing_mut().item_spacing.y = 10.0;
-        let name = path.rsplit('/').next().unwrap_or(path).to_owned();
+        let name = name_of(path).to_owned();
         let mut on = self.editor.draft.folder_on(kind, path);
         let state = on;
         let mut delete = false;
@@ -328,7 +328,7 @@ impl Tab {
     /// Deletes a folder, to be had back for a while: what it held goes to
     /// the folder it was in, and what is chosen is the line before it.
     pub(in crate::tab) fn delete_folder(&mut self, kind: Kind, path: &str) {
-        let name = path.rsplit('/').next().unwrap_or(path).to_owned();
+        let name = name_of(path).to_owned();
         let what = match kind {
             Kind::Script => {
                 let dir = self.own_scripts_dir().map(|dir| dir.join(path));
@@ -478,7 +478,7 @@ impl Tab {
         if !Self::folder_fits(path, parent) {
             return None;
         }
-        let name = path.rsplit('/').next().unwrap_or(path);
+        let name = name_of(path);
         let to = joined(parent, name);
         if to != path && !self.move_folder(kind, path, &to) {
             return None;
@@ -494,10 +494,7 @@ impl Tab {
     pub(in crate::tab) fn say_moved(&mut self, folder: &str) {
         let said = match folder {
             "" => tr("Moved to the top level.").to_owned(),
-            folder => trf(
-                "Moved into {0}.",
-                &[folder.rsplit('/').next().unwrap_or(folder)],
-            ),
+            folder => trf("Moved into {0}.", &[name_of(folder)]),
         };
         self.voice.say_now(&said);
     }
@@ -615,10 +612,7 @@ impl Tab {
                 ui.ctx().set_cursor_icon(egui::CursorIcon::Grabbing);
                 let said = match landing.folder(rows) {
                     "" => tr("Move to the top level").to_owned(),
-                    folder => trf(
-                        "Move into {0}",
-                        &[folder.rsplit('/').next().unwrap_or(folder)],
-                    ),
+                    folder => trf("Move into {0}", &[name_of(folder)]),
                 };
                 egui::Area::new(egui::Id::unique("drop hint"))
                     .order(egui::Order::Tooltip)

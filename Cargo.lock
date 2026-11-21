@@ -2599,6 +2599,7 @@ dependencies = [
  "muddie-core",
  "muddie-mapper",
  "regex",
+ "regex-syntax",
  "serde",
  "serde_json",
 ]

@@ -1986,3 +1986,12 @@ msgstr "Mover a {0}"
 
 msgid "Move out of its folder"
 msgstr "Sacar de su carpeta"
+
+
+#, python-brace-format
+msgid "Moved up, {0} of {1}."
+msgstr "Movido arriba, {0} de {1}."
+
+#, python-brace-format
+msgid "Moved down, {0} of {1}."
+msgstr "Movido abajo, {0} de {1}."

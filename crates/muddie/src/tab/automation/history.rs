@@ -120,7 +120,7 @@ impl Tab {
             (Some((section, path)), _) => {
                 self.editor.section = section;
                 self.choose_folder(&path);
-                Some(path.rsplit('/').next().unwrap_or(&path).to_owned())
+                Some(name_of(&path).to_owned())
             }
             (None, Some((section, index))) => {
                 self.editor.section = section;

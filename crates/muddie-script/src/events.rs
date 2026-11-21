@@ -193,7 +193,7 @@ impl Engine {
             Kind::Alias => &state.aliases,
             _ => &state.triggers,
         };
-        let candidate = |index: usize| (candidates.as_ref()).is_none_or(|set| set.matched(index));
+        let candidate = |index: usize| (candidates.as_ref()).is_none_or(|may| may[index]);
         let listed = list
             .iter()
             .enumerate()
@@ -202,7 +202,8 @@ impl Engine {
             .map(|(_, matcher)| matcher)
             .filter(enabled)
             .filter_map(|matcher| {
-                let captures = matcher.regex.captures(text)?;
+                let regex = matcher.pattern.regex()?;
+                let captures = regex.captures(text)?;
                 let group = |m: regex::Match| m.as_str().to_owned();
                 Some(Hit {
                     id: matcher.id,
@@ -211,7 +212,7 @@ impl Engine {
                     range: captures.get(0).map_or((0, 0), |m| (m.start(), m.end())),
                     callback: matcher.callback.clone(),
                     groups: captures.iter().map(|m| m.map(group)).collect(),
-                    named: (matcher.regex.capture_names().flatten())
+                    named: (regex.capture_names().flatten())
                         .filter_map(|name| Some((name.to_owned(), group(captures.name(name)?))))
                         .collect(),
                 })
@@ -219,56 +220,57 @@ impl Engine {
         matches.take(limit).collect()
     }
 
-    /// Which triggers match a line, learned in one pass over it with all
-    /// their patterns in one set: with many triggers, much quicker than
-    /// trying each. None with few, or if they cannot be put in one set.
-    fn matching_triggers(&self, text: &str) -> Option<regex::SetMatches> {
+    /// Which triggers may match a line, learned in one pass over it with
+    /// all their patterns in one set: with many triggers, much quicker
+    /// than trying each. None with few. While the set of patterns changed
+    /// is made, the set before says for the triggers whose patterns it
+    /// had, and the others are tried each: as one is being written, only it.
+    fn matching_triggers(&self, text: &str) -> Option<Vec<bool>> {
         /// Below this many, trying each is as quick.
         const SET_FROM: usize = 16;
-        /// How big the set may grow: patterns with `\w`, which is every
-        /// letter of every language, are big, and three hundred of them do
-        /// not fit in what the regex crate allows by default, which left
-        /// every line tried on every trigger.
-        const SET_SIZE: usize = 128 << 20;
         let mut state = self.state.borrow_mut();
         if state.triggers.len() < SET_FROM {
             return None;
         }
         let state = &mut *state;
-        let known = &state.trigger_set.ids;
-        let same = known.len() == state.triggers.len()
-            && known
-                .iter()
-                .zip(&state.triggers)
-                .all(|(id, matcher)| *id == matcher.id);
+        let set = &mut state.trigger_set;
+        let same = set.ids.len() == state.triggers.len()
+            && (set.ids.iter().zip(&state.triggers)).all(|(id, matcher)| *id == matcher.id);
+        let mut remap = !same;
         if !same {
             let patterns: Vec<String> = (state.triggers.iter())
-                .map(|matcher| matcher.regex.as_str().to_owned())
+                .map(|matcher| matcher.pattern.as_str().to_owned())
                 .collect();
-            let (made, making) = std::sync::mpsc::channel();
-            std::thread::spawn(move || {
-                let set = regex::RegexSetBuilder::new(patterns)
-                    .size_limit(SET_SIZE)
-                    .dfa_size_limit(SET_SIZE)
-                    .build()
-                    .ok();
-                let _ = made.send(set);
-            });
-            state.trigger_set = crate::state::TriggerSet {
-                ids: state.triggers.iter().map(|matcher| matcher.id).collect(),
-                set: None,
-                making: Some(making),
-            };
+            set.ids = state.triggers.iter().map(|matcher| matcher.id).collect();
+            set.making = Some(make_set(patterns));
         }
-        let set = &mut state.trigger_set;
-        if let Some(made) = set
-            .making
-            .as_ref()
-            .and_then(|making| making.try_recv().ok())
-        {
-            (set.set, set.making) = (made, None);
+        // With no set before, the first is waited for, once: trying the
+        // lines on each trigger meanwhile would compile every pattern.
+        let first = set.set.is_none() && set.patterns.is_empty();
+        let made = set.making.as_ref().and_then(|making| match first {
+            true => making.recv().ok(),
+            false => making.try_recv().ok(),
+        });
+        if let Some((patterns, made)) = made {
+            (set.patterns, set.set, set.making) = (patterns, made, None);
+            remap = true;
         }
-        Some(set.set.as_ref()?.matches(text))
+        if remap {
+            // Where each trigger's pattern is in the set there is.
+            let place: HashMap<&str, usize> = (set.patterns.iter().enumerate())
+                .map(|(at, pattern)| (pattern.as_str(), at))
+                .collect();
+            set.places = (state.triggers.iter())
+                .map(|matcher| place.get(matcher.pattern.as_str()).copied())
+                .collect();
+        }
+        let matches = set.set.as_ref()?.matches(text);
+        Some(
+            set.places
+                .iter()
+                .map(|place| place.is_none_or(|at| matches.matched(at)))
+                .collect(),
+        )
     }
 
     /// Waits for the set of the triggers' patterns being made, if it is:
@@ -277,8 +279,11 @@ impl Engine {
     pub(crate) fn trigger_set_made(&self) -> bool {
         let mut state = self.state.borrow_mut();
         let set = &mut state.trigger_set;
-        if let Some(making) = set.making.take() {
-            set.set = making.recv().ok().flatten();
+        if let Some(making) = set.making.take()
+            && let Ok((patterns, made)) = making.recv()
+        {
+            (set.patterns, set.set) = (patterns, made);
+            set.places = (0..set.patterns.len()).map(Some).collect();
         }
         set.set.is_some()
     }
@@ -306,4 +311,27 @@ impl Engine {
     pub fn next_deadline(&self) -> Option<Instant> {
         self.state.borrow().timers.iter().map(|t| t.due).min()
     }
+}
+
+/// Puts patterns in one set, on a thread of its own, as many take a
+/// moment: what it sends is the patterns and the set, None if they cannot
+/// be one.
+fn make_set(
+    patterns: Vec<String>,
+) -> std::sync::mpsc::Receiver<(Vec<String>, Option<regex::RegexSet>)> {
+    /// How big the set may grow: patterns with `\w`, which is every letter
+    /// of every language, are big, and three hundred of them do not fit in
+    /// what the regex crate allows by default, which left every line tried
+    /// on every trigger.
+    const SET_SIZE: usize = 128 << 20;
+    let (made, making) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let set = regex::RegexSetBuilder::new(&patterns)
+            .size_limit(SET_SIZE)
+            .dfa_size_limit(SET_SIZE)
+            .build()
+            .ok();
+        let _ = made.send((patterns, set));
+    });
+    making
 }

@@ -338,3 +338,42 @@ fn many_wide_patterns_are_put_in_one_set() {
     engine.on_line("Ñandú attacks you with garras 250");
     assert_eq!(engine.take_actions(), [send("Ñandú 250")]);
 }
+
+/// A trigger's pattern is checked when it is made, and compiled only once
+/// a line may match it: those that never do hold nothing compiled.
+#[test]
+fn patterns_are_compiled_only_once_tried() {
+    let mut code = String::new();
+    for n in 0..30 {
+        code.push_str(&format!("trigger(\"^word {n}$\", function() end)\n"));
+    }
+    let mut engine = engine(&code);
+    engine.on_line("nothing");
+    assert!(engine.trigger_set_made());
+    engine.on_line("word 7");
+    let compiled: Vec<bool> = (engine.state.borrow().triggers.iter())
+        .map(|trigger| trigger.pattern.is_compiled())
+        .collect();
+    assert_eq!(
+        compiled.iter().filter(|done| **done).count(),
+        1,
+        "{compiled:?}"
+    );
+    assert!(compiled[7]);
+    // One added: while the set is made again, the one before says for the
+    // others, and only the new one is tried on its own.
+    engine.exec("t", r#"trigger("^new one$", function() end)"#);
+    engine.on_line("something else");
+    let compiled: Vec<bool> = (engine.state.borrow().triggers.iter())
+        .map(|trigger| trigger.pattern.is_compiled())
+        .collect();
+    let count = compiled.iter().filter(|done| **done).count();
+    assert_eq!(count, 2, "{compiled:?}");
+    // A pattern that is not one is said at once, as before.
+    engine.exec("t", r#"trigger("(unclosed", function() end)"#);
+    let actions = engine.take_actions();
+    assert!(
+        format!("{actions:?}").contains("unclosed group"),
+        "{actions:?}"
+    );
+}

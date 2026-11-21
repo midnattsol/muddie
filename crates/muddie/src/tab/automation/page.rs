@@ -282,10 +282,7 @@ impl Tab {
         };
         let when = (self.editor.restarted.as_ref()).map(|at| trf("Restarted at {0}", &[at]));
         let mut restart = false;
-        egui::Frame::new()
-            .fill(theme.field)
-            .corner_radius(egui::CornerRadius::same(10))
-            .inner_margin(egui::Margin::symmetric(12, 8))
+        crate::widgets::inset(theme.field)
             .show(&mut foot, |ui| {
                 ui.set_width(ui.available_width());
                 let id = ui.make_persistent_id("sidebar foot");
