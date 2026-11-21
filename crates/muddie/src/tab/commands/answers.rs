@@ -78,8 +78,8 @@ impl Tab {
                 let items = said.into_iter().map(|said| Item {
                     insert: said.run.unwrap_or_default(),
                     usage: said.text,
+                    group: String::new(),
                     about: said.about,
-                    detail: String::new(),
                     more: false,
                     act: None,
                 });

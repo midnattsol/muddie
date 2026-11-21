@@ -2317,3 +2317,12 @@ msgid "nearest of {0}"
 msgid_plural "nearest of {0}"
 msgstr[0] "la más cercana de {0}"
 msgstr[1] "la más cercana de {0}"
+
+msgid "Recent"
+msgstr "Recientes"
+
+msgid "go"
+msgstr "ir"
+
+msgid "the way"
+msgstr "el camino"

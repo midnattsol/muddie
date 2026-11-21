@@ -114,8 +114,8 @@ fn item(insert: String, usage: String, about: &str, more: bool) -> Item {
     Item {
         insert,
         usage,
+        group: tr("Commands").to_owned(),
         about: about.to_owned(),
-        detail: String::new(),
         more,
         act: None,
     }

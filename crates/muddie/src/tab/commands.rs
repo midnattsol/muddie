@@ -24,10 +24,11 @@ pub struct Item {
     pub insert: String,
     /// How it is shown: the command as it is typed.
     pub usage: String,
-    /// What it is for: for what the palette does, the group it is in.
+    /// The group it is shown under; none for what a command listed.
+    pub group: String,
+    /// What it is, or for, shown after it: what a command does, or where
+    /// a place is and how far.
     pub about: String,
-    /// More about it, shown after it: for a place, where it is and how far.
-    pub detail: String,
     /// Whether it takes something that has yet to be typed, so that
     /// choosing it completes it rather than runs it.
     pub more: bool,
@@ -109,9 +110,21 @@ impl Tab {
         self.palette.results = None;
         self.palette.title = None;
         self.palette.message = None;
+        self.palette.spoken_group = None;
         self.palette.focus = self.palette.open;
         // The press that opened it is not one elsewhere.
         self.palette.fresh = self.palette.open;
+    }
+
+    /// Keeps what was run from the palette, to offer it first with nothing
+    /// typed: the last few, each once.
+    fn remember_chosen(&mut self, mut item: Item) {
+        const RECENT: usize = 5;
+        item.group = tr("Recent").to_owned();
+        let recent = &mut self.palette.recent;
+        recent.retain(|known| known.usage != item.usage);
+        recent.insert(0, item);
+        recent.truncate(RECENT);
     }
 
     fn close_palette(&mut self) {
@@ -165,7 +178,7 @@ impl Tab {
         let query = self.palette.query.trim().to_lowercase();
         let acts = self.palette_acts();
         let named = |item: &&Item| {
-            let words = format!("{} {}", item.usage, item.about).to_lowercase();
+            let words = format!("{} {} {}", item.usage, item.about, item.group).to_lowercase();
             query.split_whitespace().all(|word| words.contains(word))
         };
         let mut items: Vec<Item> = acts.iter().filter(named).cloned().collect();
@@ -180,15 +193,11 @@ impl Tab {
         } else {
             items.extend(commands);
         }
-        // Each group together, in the order they first come.
-        let mut groups: Vec<String> = Vec::new();
-        for item in &items {
-            let group = group_of(item);
-            if !groups.contains(&group) {
-                groups.push(group);
-            }
+        // With nothing typed, what was run last comes first.
+        if query.is_empty() {
+            items.splice(0..0, self.palette.recent.iter().cloned());
         }
-        items.sort_by_key(|item| groups.iter().position(|group| *group == group_of(item)));
+        order_by_relevance(&mut items, &query);
         self.palette.cache = Some((self.palette.query.clone(), items.clone()));
         items
     }
@@ -199,6 +208,7 @@ impl Tab {
     /// typed.
     fn choose(&mut self, item: &Item, typed_more: bool, ctx: &egui::Context) {
         if let Some(act) = item.act.clone() {
+            self.remember_chosen(item.clone());
             self.close_palette();
             return self.act(act, ctx);
         }
@@ -219,6 +229,13 @@ impl Tab {
             item.insert.clone()
         };
         self.history.add(&line);
+        self.remember_chosen(Item {
+            insert: line.clone(),
+            usage: line.clone(),
+            about: String::new(),
+            more: false,
+            ..item.clone()
+        });
         self.palette.query.clear();
         self.run_command_from(&line, true);
         // What it answered stays in sight; a command that answers nothing
@@ -229,13 +246,52 @@ impl Tab {
     }
 }
 
+/// How well `item` answers what is typed: its name beginning so first,
+/// then one of its words, then having it anywhere, then only what it says
+/// of itself having it.
+fn relevance(item: &Item, typed: &str) -> usize {
+    let name = shown_usage(&item.usage).to_lowercase();
+    let typed = typed.trim_start_matches('/');
+    if typed.is_empty() || name.starts_with(typed) {
+        0
+    } else if (name.split(|c: char| !c.is_alphanumeric())).any(|word| word.starts_with(typed)) {
+        1
+    } else if name.contains(typed) {
+        2
+    } else {
+        3
+    }
+}
+
+/// Puts each group together, the groups by how well the best of each
+/// answers what is typed and then in the order they first come, and in
+/// each group the best first, as they came for the rest.
+fn order_by_relevance(items: &mut Vec<Item>, typed: &str) {
+    let mut groups: Vec<(String, usize)> = Vec::new();
+    for item in items.iter() {
+        let (group, score) = (group_of(item), relevance(item, typed));
+        match groups.iter_mut().find(|(known, _)| *known == group) {
+            Some((_, best)) => *best = (*best).min(score),
+            None => groups.push((group, score)),
+        }
+    }
+    let rank = |item: &Item| {
+        let group = group_of(item);
+        let at = groups
+            .iter()
+            .position(|(known, _)| *known == group)
+            .unwrap_or(0);
+        (groups[at].1, at, relevance(item, typed))
+    };
+    let mut ranked: Vec<(usize, Item)> = items.drain(..).enumerate().collect();
+    ranked.sort_by_key(|(index, item)| (rank(item), *index));
+    items.extend(ranked.into_iter().map(|(_, item)| item));
+}
+
 /// The group something offered is shown under: what it does, for what
 /// the palette does; the commands, for the commands.
 pub(super) fn group_of(item: &Item) -> String {
-    match item.act {
-        Some(_) => item.about.clone(),
-        None => tr("Commands").to_owned(),
-    }
+    item.group.clone()
 }
 
 /// The palette of commands: whether it is open, what is typed in it, what
@@ -265,6 +321,11 @@ pub(super) struct Palette {
     /// whether that line is of something that could not be done.
     pub(super) results: Option<Vec<commands::Item>>,
     pub(super) title: Option<String>,
+    /// The group said last, to say the next when it is another.
+    pub(super) spoken_group: Option<String>,
+    /// What was run from it last, newest first, to offer with nothing
+    /// typed.
+    pub(super) recent: Vec<commands::Item>,
     pub(super) message: Option<(String, bool)>,
     /// When what is typed last changed, until what it finds is said.
     pub(super) typed_at: Option<Instant>,

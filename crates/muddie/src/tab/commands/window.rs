@@ -79,6 +79,10 @@ impl Tab {
             self.move_choice(items, step);
         }
         let Some(chosen) = items.get(self.palette.chosen).cloned() else {
+            // Nothing to run: it is said, and nothing moves.
+            if enter || way {
+                self.voice.say_now(tr("No matches."));
+            }
             return false;
         };
         let typed = format!("/{}", self.palette.query.trim_start_matches('/'));
@@ -122,11 +126,23 @@ impl Tab {
         self.say_chosen(items);
     }
 
-    /// Says the one chosen aloud, with where it is in the list.
+    /// Says the one chosen aloud: the group, when it is another than the
+    /// one said last; the thing, what it is or is for, and where it is in
+    /// the list.
     fn say_chosen(&mut self, items: &[Item]) {
         let Some(chosen) = items.get(self.palette.chosen) else {
             return self.voice.say_now(tr("No matches."));
         };
+        let group = super::group_of(chosen);
+        let mut said = String::new();
+        if !group.is_empty() && self.palette.spoken_group.as_ref() != Some(&group) {
+            said = format!("{group}. ");
+        }
+        self.palette.spoken_group = Some(group);
+        said.push_str(shown_usage(&chosen.usage));
+        if !chosen.about.is_empty() {
+            said = format!("{said}. {}", chosen.about);
+        }
         let place = trf(
             "{0} of {1}",
             &[
@@ -134,11 +150,7 @@ impl Tab {
                 &items.len().to_string(),
             ],
         );
-        self.voice.say_now(&format!(
-            "{}. {}. {place}",
-            shown_usage(&chosen.usage),
-            chosen.about
-        ));
+        self.voice.say_now(&format!("{said}. {place}"));
     }
 
     /// Once what is typed has been left as it is for a moment, says what it
@@ -201,59 +213,67 @@ impl Tab {
                     };
                     rule(ui);
                     ui.add_space(6.0);
-                    if let Some((text, problem)) = self.palette.message.clone() {
-                        answered(ui, &text, problem);
-                    }
-                    if let Some(title) = self.palette.title.clone() {
-                        group_heading(ui, &title, true);
-                    }
-                    if items.is_empty() && self.palette.message.is_none() {
-                        ui.horizontal(|ui| {
-                            ui.add_space(14.0);
-                            widgets::page_note(ui, tr("No matches."));
-                        });
-                        ui.add_space(10.0);
-                    }
-                    if !items.is_empty() {
-                        // A list to scroll, by the wheel or its bar too, as
-                        // tall as a page of it at most.
-                        let reveal = std::mem::take(&mut self.palette.reveal);
-                        let grouped = self.palette.title.is_none();
-                        egui::ScrollArea::vertical()
-                            .id_salt("palette list")
-                            .max_height(most)
-                            .auto_shrink([false, true])
-                            .show(ui, |ui| {
-                                crate::widgets::keep_clear_of_bar(ui);
-                                // How long it is, told to a screen reader.
-                                let found = trn("{0} result", "{0} results", items.len() as u64);
-                                let list = egui::UiBuilder::new()
-                                    .accessibility_role(egui::accesskit::Role::List)
-                                    .accessibility_label(found);
-                                ui.scope_builder(list, |ui| {
-                                    ui.spacing_mut().item_spacing.y = 0.0;
-                                    let mut group = None;
-                                    for (index, item) in items.iter().enumerate() {
-                                        let this = super::group_of(item);
-                                        if grouped && group.as_ref() != Some(&this) {
-                                            group_heading(ui, &this, false);
-                                            group = Some(this);
-                                        }
-                                        let chosen = index == self.palette.chosen;
-                                        let row = palette_row(ui, item, chosen);
-                                        if row.clicked() {
-                                            clicked = Some(index);
-                                        }
-                                        if chosen && reveal {
-                                            row.scroll_to_me(None);
-                                        }
-                                    }
-                                });
+                    // As tall whatever it shows, a list or a line: it does
+                    // not jump as it changes.
+                    let body = egui::vec2(ui.available_width(), most);
+                    let top = egui::Layout::top_down(egui::Align::Min);
+                    ui.allocate_ui_with_layout(body, top, |ui| {
+                        ui.set_min_height(most);
+                        if let Some((text, problem)) = self.palette.message.clone() {
+                            answered(ui, &text, problem);
+                        }
+                        if let Some(title) = self.palette.title.clone() {
+                            group_heading(ui, &title, true);
+                        }
+                        if items.is_empty() && self.palette.message.is_none() {
+                            ui.horizontal(|ui| {
+                                ui.add_space(14.0);
+                                widgets::page_note(ui, tr("No matches."));
                             });
-                    }
+                            ui.add_space(10.0);
+                        }
+                        if !items.is_empty() {
+                            // A list to scroll, by the wheel or its bar too, as
+                            // tall as a page of it at most.
+                            let reveal = std::mem::take(&mut self.palette.reveal);
+                            let grouped = self.palette.title.is_none();
+                            egui::ScrollArea::vertical()
+                                .id_salt("palette list")
+                                .max_height(most)
+                                .auto_shrink([false, true])
+                                .show(ui, |ui| {
+                                    crate::widgets::keep_clear_of_bar(ui);
+                                    // How long it is, told to a screen reader.
+                                    let found =
+                                        trn("{0} result", "{0} results", items.len() as u64);
+                                    let list = egui::UiBuilder::new()
+                                        .accessibility_role(egui::accesskit::Role::List)
+                                        .accessibility_label(found);
+                                    ui.scope_builder(list, |ui| {
+                                        ui.spacing_mut().item_spacing.y = 0.0;
+                                        let mut group = None;
+                                        for (index, item) in items.iter().enumerate() {
+                                            let this = super::group_of(item);
+                                            if grouped && group.as_ref() != Some(&this) {
+                                                group_heading(ui, &this, false);
+                                                group = Some(this);
+                                            }
+                                            let chosen = index == self.palette.chosen;
+                                            let row = palette_row(ui, item, chosen);
+                                            if row.clicked() {
+                                                clicked = Some(index);
+                                            }
+                                            if chosen && reveal {
+                                                row.scroll_to_me(None);
+                                            }
+                                        }
+                                    });
+                                });
+                        }
+                    });
                     ui.add_space(4.0);
                     rule(ui);
-                    keys_at_the_foot(ui);
+                    keys_at_the_foot(ui, items.get(self.palette.chosen));
                 });
             });
         (area.response, clicked)
@@ -316,6 +336,7 @@ impl Tab {
         });
         if edit.response.changed() {
             self.palette.chosen = 0;
+            self.palette.spoken_group = None;
             self.palette.results = None;
             self.palette.title = None;
             self.palette.message = None;
@@ -388,19 +409,24 @@ fn answered(ui: &mut egui::Ui, text: &str, problem: bool) {
         });
 }
 
-/// The keys of the palette, at its foot, each with what it does.
-fn keys_at_the_foot(ui: &mut egui::Ui) {
+/// The keys of the palette, at its foot, each with what it does: those
+/// that do something with the one chosen.
+fn keys_at_the_foot(ui: &mut egui::Ui, chosen: Option<&Item>) {
     let theme = theme::current();
     ui.add_space(6.0);
     ui.horizontal(|ui| {
         ui.add_space(12.0);
         ui.spacing_mut().item_spacing.x = 6.0;
-        for (keys, does) in [
-            ("↑ ↓", tr("choose")),
-            ("Enter", tr("run")),
-            ("Tab", tr("complete")),
-            ("Esc", tr("close")),
-        ] {
+        let place = chosen.is_some_and(|item| matches!(item.act, Some(Act::Place(_))));
+        let more = chosen.is_some_and(|item| item.more);
+        let keys = [
+            Some(("↑ ↓", tr("choose"))),
+            chosen.map(|_| ("Enter", if place { tr("go") } else { tr("run") })),
+            place.then(|| ("⇧ Enter", tr("the way"))),
+            more.then(|| ("Tab", tr("complete"))),
+            Some(("Esc", tr("close"))),
+        ];
+        for (keys, does) in keys.into_iter().flatten() {
             let chip = RichText::new(keys)
                 .font(theme::font(Weight::Medium, 11.0))
                 .color(theme.text_dim);
@@ -426,13 +452,7 @@ fn palette_row(ui: &mut egui::Ui, item: &Item, chosen: bool) -> egui::Response {
     let theme = theme::current();
     let (rect, row) =
         ui.allocate_exact_size(egui::vec2(ui.available_width(), ROW), egui::Sense::click());
-    let command = item.act.is_none();
-    // What it is for is said with it; for what the palette does, its
-    // group says that already, and its detail says the rest.
-    let about = match command {
-        true => item.about.as_str(),
-        false => item.detail.as_str(),
-    };
+    let about = item.about.as_str();
     row.widget_info(|| {
         let usage = shown_usage(&item.usage);
         let said = match about.is_empty() {

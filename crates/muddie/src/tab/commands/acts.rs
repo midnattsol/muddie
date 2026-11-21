@@ -238,8 +238,8 @@ fn item(label: &str, place: &str, act: Act) -> Item {
     Item {
         insert: String::new(),
         usage: label.to_owned(),
-        about: place.to_owned(),
-        detail: String::new(),
+        group: place.to_owned(),
+        about: String::new(),
         more: false,
         act: Some(act),
     }

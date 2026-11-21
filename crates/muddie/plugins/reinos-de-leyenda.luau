@@ -38,16 +38,24 @@ local function text_of(value)
 end
 
 ---------------------------------------------------------------------------
--- Gauges. Char.Status gives each as {min = now, max = most}, at first all
--- of them and then only what changed, so what came before is kept. Faith
--- and the shield are shown only for a character who has them.
+-- Gauges, for what is urgent in a fight: life, energy and faith (and the
+-- shield, while there is one). Char.Status gives each as {min = now, max =
+-- most}, at first all of them and then only what changed, so what came
+-- before is kept. All alike: green, yellow under 60 %, red under 30 %, a
+-- whole bar. Faith and the shield are shown only for a character who has
+-- them; experience is not, the game shows it well enough.
 
 local GAUGES = {
-    { key = "pvs", name = "Vida", colour = "#e05a5a", low = 30, always = true },
-    { key = "pe", name = "Energía", colour = "#e0b648", low = 20, always = true },
-    { key = "fe", name = "Fe", colour = "#a990e0" },
-    { key = "escudo", name = "Escudo", colour = "#7fa6c9" },
-    { key = "xp", name = "Experiencia", colour = "#62b862", always = true },
+    { key = "pvs", name = "Vida", always = true },
+    { key = "pe", name = "Energía", always = true },
+    { key = "fe", name = "Fe" },
+    { key = "escudo", name = "Escudo" },
+}
+
+local LOOK = {
+    colour = "#5fb85f",
+    style = "bar",
+    steps = { { 60, "#e0c040" }, { 30, "#e05050" } },
 }
 
 local status = {}
@@ -71,7 +79,7 @@ on_gmcp("Char.Status", function(data, package)
         local value = status[shown.key]
         if value and value.max then
             if shown.always or value.max > 0 then
-                gauge(shown.name, value.min or 0, value.max, { colour = shown.colour, low = shown.low })
+                gauge(shown.name, value.min or 0, value.max, LOOK)
             else
                 gauge(shown.name)
             end

@@ -427,11 +427,11 @@ impl Tab {
             .current()
             .map(|here| map.moves_from(here.id))
             .unwrap_or_default();
-        let place = |name: &str, detail: String| commands::Item {
+        let place = |name: &str, about: String| commands::Item {
             insert: String::new(),
             usage: name.to_owned(),
-            about: tr("Places").to_owned(),
-            detail,
+            group: tr("Places").to_owned(),
+            about,
             more: false,
             act: Some(commands::Act::Place(name.to_owned())),
         };

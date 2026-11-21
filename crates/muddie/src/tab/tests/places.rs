@@ -219,8 +219,21 @@ fn the_plugin_takes_the_servers_map_at_once_and_it_is_said_aside() {
         .find(|notice| notice.text.starts_with("Taking the map from https://"))
         .unwrap();
     assert!(taking.corner);
-    // Tests do not reach the web: it failed, and says so aside too.
-    let failed = harness.state().tab().notices().0.last().cloned().unwrap();
+    // Tests do not reach the web: it failed, and says so aside too, once
+    // the thread that tried has said so, however busy the machine.
+    let failed = |harness: &Harness<'_, App>| {
+        (harness.state().tab().notices().0.iter())
+            .find(|notice| notice.text.starts_with("Could not take the map"))
+            .cloned()
+    };
+    for _ in 0..100 {
+        if failed(&harness).is_some() {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(50));
+        harness.run_steps(1);
+    }
+    let failed = failed(&harness).expect("the failure said");
     assert!(failed.corner && failed.problem, "{failed:?}");
     assert!(failed.text.starts_with("Could not take the map"));
     // Over the corner, though the game is in sight.
@@ -324,17 +337,12 @@ fn reinos_gives_gauges_states_and_channels_by_themselves() {
         .unwrap();
     harness.run_steps(2);
     let summary = harness.state().tab().gauges.summary();
-    for shown in [
-        "Vida 3900 of 4141",
-        "Energía 1300 of 1300",
-        "Fe 220 of 220",
-        "Experiencia",
-    ] {
+    for shown in ["Vida 3900 of 4141", "Energía 1300 of 1300", "Fe 220 of 220"] {
         assert!(summary.contains(shown), "{shown} in {summary}");
     }
-    // No shield now, and the trade is not shown.
+    // No shield now, and neither experience nor the trade is shown.
     assert!(
-        !summary.contains("Escudo") && !summary.contains("70"),
+        !summary.contains("Escudo") && !summary.contains("Experiencia") && !summary.contains("70"),
         "{summary}"
     );
     // States come and go, among the gauges.
@@ -446,7 +454,7 @@ fn places_are_found_in_the_palette_and_a_walk_stops_with_escape() {
     let items = harness.state_mut().tab_mut().palette_items();
     let places: Vec<(String, String)> = (items.iter())
         .filter(|item| matches!(item.act, Some(super::super::commands::Act::Place(_))))
-        .map(|item| (item.usage.clone(), item.detail.clone()))
+        .map(|item| (item.usage.clone(), item.about.clone()))
         .collect();
     assert_eq!(
         places,
