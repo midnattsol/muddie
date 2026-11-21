@@ -1,5 +1,6 @@
 # A MUD of the tests' own: it sends every client each line appended to
-# mud.txt in the folder given, and keeps what clients send in mud.sent.
+# mud.txt in the folder given, and keeps what clients send in mud.sent. It
+# listens on a free port, which it writes to mud.port.
 import os
 import socket
 import sys
@@ -11,8 +12,10 @@ lines = os.path.join(folder, "mud.txt")
 open(lines, "a").close()
 server = socket.socket()
 server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-server.bind(("127.0.0.1", 47777))
+server.bind(("127.0.0.1", 0))
 server.listen(5)
+with open(os.path.join(folder, "mud.port"), "w") as port:
+    port.write(str(server.getsockname()[1]))
 
 
 def serve(conn):

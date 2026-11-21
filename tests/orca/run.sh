@@ -59,9 +59,11 @@ gdbus call --session --dest org.a11y.Bus --object-path /org/a11y/bus \
     --method org.freedesktop.DBus.Properties.Set org.a11y.Status IsEnabled '<true>' > /dev/null
 /usr/bin/python3 -I "$here/mud.py" "$work" > "$work/mud.log" 2>&1 &
 started+=($!)
+for _ in $(seq 50); do [ -s "$work/mud.port" ] && break; sleep 0.1; done
+port=$(cat "$work/mud.port")
 
-log=$work/orca.log
 failures=0
+runs=0
 mark=0
 
 # What Orca presented since the last mark: said, and put on the display.
@@ -83,6 +85,9 @@ expect() {
 }
 
 start_orca() {
+    # Each run of Orca logs to a file of its own: all are kept.
+    runs=$((runs + 1))
+    log=$work/orca-$runs.log
     orca --debug-file "$log" > "$work/orca.out" 2>&1 &
     orca_pid=$!
     started+=($orca_pid)
@@ -104,9 +109,9 @@ mud() { printf '%s\n' "$@" >> "$work/mud.txt"; }
 
 start_orca
 remember
-"$muddie" 127.0.0.1 47777 > "$work/muddie.log" 2>&1 &
+"$muddie" 127.0.0.1 "$port" > "$work/muddie.log" 2>&1 &
 started+=($!)
-expect "what the client says is presented" "PresentMessage called with: 'Connecting to 127.0.0.1:47777"
+expect "what the client says is presented" "PresentMessage called with: 'Connecting to 127.0.0.1:$port"
 expect "connecting is said" "PresentMessage called with: 'Connected.'"
 sleep 1
 
@@ -137,6 +142,22 @@ expect "a dialog says its name" "SPEECH OUTPUT: 'Settings dialog"
 expect "a dialog has the keyboard" "SPEECH OUTPUT: 'Close button'"
 keys Escape
 expect "closing a dialog gives the command line the keyboard" "SPEECH OUTPUT: 'Command entry"
+
+# The editor: it opens on its section, a new rule has its name ready to
+# be typed, and its cards are groups with their names.
+remember
+keys ctrl+e
+expect "the editor opens on its section" "SPEECH OUTPUT: 'Triggers"
+for _ in $(seq 9); do keys Tab; sleep 0.3; done
+keys Return
+expect "a new rule has its name ready" "SPEECH OUTPUT: 'Name entry"
+for _ in $(seq 5); do keys Tab; sleep 0.3; done
+# The card a control is in is named, as the braille display shows: Orca
+# says ancestors aloud only once it knows where the keyboard was before,
+# which a display with no window manager does not let it know.
+expect "a card says its name" "When panel Contains page tab"
+keys ctrl+e
+sleep 1
 
 # A screen reader started while Muddie runs is found, and said.
 kill -9 "$orca_pid"
