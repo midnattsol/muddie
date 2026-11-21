@@ -997,3 +997,102 @@ fn one_button_collapses_and_expands_all_folders() {
     );
     harness.get_by_label("Alpha");
 }
+
+/// Every change to the rules is undone with Ctrl+Z and redone with
+/// Ctrl+Shift+Z or Ctrl+Y, saying what; typing on in one field is one step,
+/// undone from the field itself.
+#[test]
+fn changes_in_the_editor_are_undone_and_redone() {
+    let mut harness = list_with_a_folder();
+    let app = harness.state_mut().tab_mut();
+    app.voice.force_voice();
+    app.editor.selected[automation::ALIASES] = 2;
+    harness.run_steps(2);
+    let said = |harness: &Harness<'_, App>| harness.state().tab().voice.said.last().cloned();
+    let on = |harness: &Harness<'_, App>| harness.state().tab().editor.draft.aliases[2].enabled;
+    // A switch: off, undone, redone, undone again.
+    harness
+        .get_by_role_and_label(egui::accesskit::Role::Switch, "Enabled")
+        .click();
+    harness.run_steps(2);
+    assert!(!on(&harness));
+    harness.key_press_modifiers(Modifiers::COMMAND, Key::Z);
+    harness.run_steps(2);
+    assert!(on(&harness));
+    assert_eq!(said(&harness).as_deref(), Some("Undone: Gamma."));
+    harness.key_press_modifiers(Modifiers::COMMAND | Modifiers::SHIFT, Key::Z);
+    harness.run_steps(2);
+    assert!(!on(&harness));
+    assert_eq!(said(&harness).as_deref(), Some("Redone: Gamma."));
+    harness.key_press_modifiers(Modifiers::COMMAND, Key::Z);
+    harness.run_steps(2);
+    harness.key_press_modifiers(Modifiers::COMMAND, Key::Y);
+    harness.run_steps(2);
+    assert!(!on(&harness));
+    // Typing in the name, in two goes close together, is one step, undone
+    // from the field, which keeps the keyboard.
+    harness.key_press(Key::F2);
+    harness.run_steps(2);
+    harness.get_by_label("Name").type_text("Road");
+    harness.run_steps(2);
+    harness.get_by_label("Name").type_text("s");
+    harness.run_steps(2);
+    let name =
+        |harness: &Harness<'_, App>| harness.state().tab().editor.draft.aliases[2].name.clone();
+    assert_eq!(name(&harness), "Roads");
+    harness.key_press_modifiers(Modifiers::COMMAND, Key::Z);
+    harness.run_steps(2);
+    assert_eq!(name(&harness), "Gamma");
+    assert!(harness.get_by_label("Name").accesskit_node().is_focused());
+    // Everything undone, there is nothing more, and that is said.
+    for _ in 0..3 {
+        harness.key_press_modifiers(Modifiers::COMMAND, Key::Z);
+        harness.run_steps(2);
+    }
+    assert_eq!(said(&harness).as_deref(), Some("Nothing to undo."));
+    assert!(on(&harness));
+}
+
+/// Undone, what changed in another rule is chosen, to be seen: and a
+/// folder had back is chosen itself.
+#[test]
+fn what_is_undone_is_chosen() {
+    let mut harness = list_with_a_folder();
+    let app = harness.state_mut().tab_mut();
+    app.editor.draft.aliases[0].enabled = false;
+    harness.run_steps(2);
+    let app = harness.state_mut().tab_mut();
+    app.editor.selected[automation::ALIASES] = 2;
+    harness.run_steps(2);
+    harness.key_press_modifiers(Modifiers::COMMAND, Key::Z);
+    harness.run_steps(2);
+    let app = harness.state().tab();
+    assert!(app.editor.draft.aliases[0].enabled);
+    assert_eq!(app.chosen(), [0]);
+    // A folder deleted and had back is chosen.
+    let app = harness.state_mut().tab_mut();
+    app.delete_folder(Kind::Alias, "Travel");
+    harness.run_steps(2);
+    harness.key_press_modifiers(Modifiers::COMMAND, Key::Z);
+    harness.run_steps(2);
+    let app = harness.state().tab();
+    assert_eq!(app.section_folders(Kind::Alias), ["Travel"]);
+    assert_eq!(app.editor.folder.as_deref(), Some("Travel"));
+}
+
+/// The bar of a deletion is about it: once something else is changed,
+/// its Undo would undo that, and the bar goes.
+#[test]
+fn a_deletions_bar_goes_once_something_else_changes() {
+    let mut harness = list_with_a_folder();
+    let app = harness.state_mut().tab_mut();
+    app.editor.selected[automation::ALIASES] = 2;
+    harness.run_steps(2);
+    harness.key_press(Key::Delete);
+    harness.run_steps(2);
+    harness.get_by_label("Undo");
+    let app = harness.state_mut().tab_mut();
+    app.editor.draft.aliases[0].enabled = false;
+    harness.run_steps(2);
+    assert!(harness.query_by_label("Undo").is_none());
+}

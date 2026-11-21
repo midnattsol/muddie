@@ -14,8 +14,9 @@ pub(in crate::tab) struct Undo {
 
 /// What it takes to put back what was deleted.
 pub(in crate::tab) enum Undone {
-    /// The rules as they were: of all of them, as the list is one.
-    Rules(crate::rules::Rules),
+    /// A step of the editor's history, which undoes it: the bar is shown
+    /// while the history has this many steps.
+    Step(usize),
     Variables(Vec<(String, serde_json::Value)>),
     Scripts(Vec<(PathBuf, String)>),
     /// A folder of scripts, by its path, and the names of what it held,
@@ -30,7 +31,7 @@ impl Tab {
             return;
         };
         match undo.what {
-            Undone::Rules(rules) => self.editor.draft = rules,
+            Undone::Step(_) => return self.undo_step(false),
             Undone::Variables(variables) => {
                 for (name, value) in variables {
                     if let Err(error) = self.scripts.set_variable(&name, Some(value)) {
@@ -109,7 +110,13 @@ impl Tab {
                 });
             });
         ui.add_space(8.0);
-        if again || ui.input_mut(|input| input.consume_key(Modifiers::COMMAND, Key::Z)) {
+        // Ctrl+Z in a field undoes what is typed there; and the history's
+        // steps are undone by the keys of the page.
+        let disk = !matches!(undo.what, Undone::Step(_));
+        let keys = disk
+            && automation::typing_in(ui.ctx()).is_none()
+            && ui.input_mut(|input| input.consume_key(Modifiers::COMMAND, Key::Z));
+        if again || keys {
             self.undo_delete();
         }
     }
@@ -162,7 +169,8 @@ impl Tab {
                     })
                     .collect(),
             ),
-            _ => Undone::Rules(self.editor.draft.clone()),
+            // The deletion is the history's next step.
+            _ => Undone::Step(self.editor.history.len() + 1),
         };
         self.editor.undo = Some(Undo {
             title,

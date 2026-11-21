@@ -433,3 +433,39 @@ fn what_is_said_out_of_sight_of_the_game_is_shown_over_the_corner() {
     harness.run_steps(2);
     assert!(harness.query_by_label("Said in the editor.").is_none());
 }
+
+/// A window left alone draws nothing: no view asks for frames while
+/// nothing changes, but for what is due (here, the keep-alive, in a
+/// minute). Waited first for what settles a moment after a change.
+#[test]
+fn an_idle_window_draws_nothing() {
+    type Setup = fn(&mut Harness<'_, App>);
+    let views: [(&str, Setup); 3] = [
+        ("game", |_| {}),
+        ("editor", |harness| {
+            let app = harness.state_mut().tab_mut();
+            (app.rules.triggers).push(trigger("x", |rule| rule.folder = "F".into()));
+            app.open_automation(0);
+        }),
+        ("incoming data", |harness| {
+            harness.state_mut().tab_mut().set_view(2)
+        }),
+    ];
+    for (name, setup) in views {
+        let mut harness = connected_demo_window();
+        setup(&mut harness);
+        harness.run_steps(10);
+        std::thread::sleep(std::time::Duration::from_millis(300));
+        harness.run_steps(3);
+        let wait = (harness
+            .output()
+            .viewport_output
+            .get(&egui::ViewportId::ROOT))
+        .map(|viewport| viewport.repaint_delay)
+        .unwrap_or_default();
+        assert!(
+            wait.as_secs() >= 30,
+            "the {name} asks for a frame in {wait:?}"
+        );
+    }
+}

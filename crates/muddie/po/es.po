@@ -1944,3 +1944,33 @@ msgstr "Copiar toda la salida"
 msgid "Output copied."
 msgstr "Salida copiada."
 
+msgid "Nothing to redo."
+msgstr "No hay nada que rehacer."
+
+msgid "Nothing to undo."
+msgstr "No hay nada que deshacer."
+
+#, python-brace-format
+msgid "Undone: {0}."
+msgstr "Deshecho: {0}."
+
+#, python-brace-format
+msgid "Redone: {0}."
+msgstr "Rehecho: {0}."
+
+msgid "Undone."
+msgstr "Deshecho."
+
+msgid "Redone."
+msgstr "Rehecho."
+
+
+msgid "Collapse or expand a folder"
+msgstr "Contraer o expandir una carpeta"
+
+msgid "Ctrl+Y  Ctrl+Shift+Z"
+msgstr "Ctrl+Y  Ctrl+Mayús+Z"
+
+msgid "Redo"
+msgstr "Rehacer"
+

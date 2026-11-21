@@ -116,13 +116,15 @@ impl Tab {
         if self.editor.section == DATA {
             return self.data_list(ui);
         }
-        self.list_toolbar(ui);
-        ui.add_space(4.0);
-        let rows = self.automation_rows();
         let kind = section_kind(self.editor.section);
+        // Found once a frame, for the toolbar and the tree: a folder made or
+        // folded from the toolbar is shown the frame after.
         let folders = kind
             .map(|kind| self.section_folders(kind))
             .unwrap_or_default();
+        self.list_toolbar(ui, &folders);
+        ui.add_space(4.0);
+        let rows = self.automation_rows();
         let items = self.tree_items(&rows, &folders, kind);
         self.editor.visible = items.iter().map(|item| item.spot.clone()).collect();
         // A folder chosen that is no longer shown (deleted, or narrowed
@@ -383,8 +385,7 @@ impl Tab {
     /// The button that closes every folder while one is open, and else
     /// opens them all, as in a file tree; with none, it is not there. What
     /// was done is said, as the button's name changes under the keyboard.
-    fn fold_all_button(&mut self, ui: &mut egui::Ui, kind: Kind) {
-        let folders = self.section_folders(kind);
+    fn fold_all_button(&mut self, ui: &mut egui::Ui, kind: Kind, folders: &[String]) {
         if folders.is_empty() {
             return;
         }
@@ -399,9 +400,7 @@ impl Tab {
         }
         self.editor.folded.retain(|(of, _)| *of != kind);
         if any_open {
-            self.editor
-                .folded
-                .extend(folders.into_iter().map(|path| (kind, path)));
+            (self.editor.folded).extend(folders.iter().map(|path| (kind, path.clone())));
             // What was chosen inside a folder now closed gives way to the
             // folder it is in, at the top, so that what is chosen is seen.
             if let Some(spot) = self.current_spot() {
@@ -556,7 +555,7 @@ impl Tab {
 
     /// The button that adds one, which for scripts offers to start from an
     /// example, the one that makes a folder, and the field to search.
-    fn list_toolbar(&mut self, ui: &mut egui::Ui) {
+    fn list_toolbar(&mut self, ui: &mut egui::Ui, folders: &[String]) {
         ui.horizontal(|ui| {
             let add = widgets::primary_button(ui, "+");
             ui.ctx()
@@ -573,7 +572,7 @@ impl Tab {
                     let folder = self.chosen_folder();
                     self.new_folder(kind, &folder);
                 }
-                self.fold_all_button(ui, kind);
+                self.fold_all_button(ui, kind, folders);
             }
             widgets::text_box(ui, &mut self.editor.filter, tr("Search"));
         });

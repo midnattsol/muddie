@@ -12,6 +12,11 @@ impl Tab {
         acts.extend(self.session_acts());
         acts.extend(self.panel_acts());
         acts.extend(self.channel_acts());
+        // In the editor, what is changed in it is undone and redone.
+        if self.editor.open {
+            acts.push(item(tr("Undo"), tr("Editor"), Act::Undo(false)));
+            acts.push(item(tr("Redo"), tr("Editor"), Act::Undo(true)));
+        }
         let settings = tr("Settings");
         acts.extend(crate::app::Section::ALL.map(|section| {
             item(
@@ -188,6 +193,7 @@ impl Tab {
                     }
                 }
             },
+            Act::Undo(again) => self.undo_step(again),
             Act::CopyOutput => {
                 ctx.copy_text(self.output.all_text());
                 self.note(tr("Output copied."));
@@ -245,15 +251,12 @@ fn places() -> Vec<Item> {
         item(tr("Editor"), go, Act::View(1)),
         item(tr("Incoming data"), go, Act::View(2)),
     ];
-    let sections = [
-        (tr("Triggers"), automation::TRIGGERS),
-        (tr("Aliases"), automation::ALIASES),
-        (tr("Macros"), automation::MACROS),
-        (tr("Timers"), automation::TIMERS),
-        (tr("Gauges"), automation::GAUGES),
-        (tr("Variables"), automation::VARIABLES),
-        (tr("Scripts"), automation::SCRIPTS),
-    ];
-    acts.extend(sections.map(|(name, section)| item(name, tr("Editor"), Act::Section(section))));
+    acts.extend((automation::TRIGGERS..=automation::SCRIPTS).map(|section| {
+        item(
+            automation::section_name(section),
+            tr("Editor"),
+            Act::Section(section),
+        )
+    }));
     acts
 }

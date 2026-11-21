@@ -43,6 +43,7 @@ impl Tab {
         // in, and several chosen; only then the editor. Whether a field was
         // being typed in is as it was before this frame: Escape has already
         // taken it from the field.
+        self.history_keys(ui);
         let leaving = !self.editor.recording_key
             && !self.editor.was_typing
             && self.editor.marked.len() < 2
@@ -99,6 +100,39 @@ impl Tab {
         let focused = ui.memory(|memory| memory.focused());
         self.editor.was_typing = focused.is_some() && focused != widgets::escaped_editor(ui.ctx());
         self.rules_autosave(ctx, !leaving);
+    }
+
+    /// Ctrl+Z undoes the last change to the rules, and Ctrl+Shift+Z or
+    /// Ctrl+Y redoes it: in a field of a rule too, where the typing is a
+    /// step. Where what is typed is not a rule (a script, a variable),
+    /// the field's own Ctrl+Z undoes it; and a script or a variable deleted
+    /// is had back from its bar. The keyboard stays in the list if it was.
+    fn history_keys(&mut self, ui: &mut egui::Ui) {
+        let section = self.editor.section;
+        let field = automation::typing_in(ui.ctx()).is_some();
+        let rules = matches!(section, TRIGGERS | ALIASES | MACROS | TIMERS | GAUGES);
+        let disk_bar = (self.editor.undo.as_ref())
+            .is_some_and(|undo| !matches!(undo.what, super::undo::Undone::Step(_)));
+        if self.editor.recording_key || (field && !rules) {
+            return;
+        }
+        let (again, back) = ui.input_mut(|input| {
+            let again = input.consume_key(Modifiers::COMMAND | Modifiers::SHIFT, Key::Z)
+                || input.consume_key(Modifiers::COMMAND, Key::Y);
+            let back = !disk_bar && input.consume_key(Modifiers::COMMAND, Key::Z);
+            (again, back)
+        });
+        if !again && !back {
+            return;
+        }
+        let focused = ui.memory(|memory| memory.focused());
+        let in_list = (self.current_spot())
+            .is_some_and(|spot| focused == Some(list::item_id(section, &spot)));
+        self.undo_step(again);
+        if in_list && let Some(spot) = self.current_spot() {
+            let id = list::item_id(self.editor.section, &spot);
+            ui.memory_mut(|memory| memory.request_focus(id));
+        }
     }
 
     /// Where the sections, the list, the handle between it and the details,

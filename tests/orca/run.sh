@@ -212,6 +212,10 @@ expect "the button for every folder says what it does" "Expand all folders butto
 remember
 keys Return
 expect "opening every folder is said" "All folders expanded."
+# Ctrl+Z undoes the last change, the folder's name, and says what.
+remember
+keys ctrl+z
+expect "undoing is said, with what was undone" "Undone: New folder."
 keys ctrl+e
 sleep 1
 

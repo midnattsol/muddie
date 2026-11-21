@@ -49,6 +49,8 @@ pub enum Act {
     /// Copies all the output, for those who do not choose it with the
     /// pointer.
     CopyOutput,
+    /// Undoes the editor's last change, or redoes it.
+    Undo(bool),
     /// Starts or stops writing the session to a file.
     Log,
     /// Switches the voice on or off.

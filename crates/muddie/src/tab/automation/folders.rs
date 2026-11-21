@@ -306,7 +306,7 @@ impl Tab {
                     .collect();
                 undo::Undone::ScriptFolder(path.to_owned(), held)
             }
-            _ => undo::Undone::Rules(self.editor.draft.clone()),
+            _ => undo::Undone::Step(self.editor.history.len() + 1),
         };
         let before = (self.editor.visible.iter())
             .position(|spot| *spot == Spot::Folder(path.to_owned()))

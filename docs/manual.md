@@ -224,8 +224,14 @@ keyboard (Tab stops on it once, at the one chosen) or nothing has:
 **↑** and **↓** go to the line above or below, folders included, **Home**
 and **End** to the first and the last, **←** closes a folder or goes to the
 folder around, **→** opens a folder or goes into it, **Enter** opens or
-closes it, **F2** renames what is chosen, **Del** deletes it, a folder too,
-and **Ctrl+Z** has it back. Escape leaves a field being typed in
+closes it, **F2** renames what is chosen, and **Del** deletes it, a folder
+too.
+
+Every change to the rules can be undone with **Ctrl+Z** and redone with
+**Ctrl+Y** or **Ctrl+Shift+Z**, in a field too, where what is typed without
+stopping is one step; what is undone is chosen and said. A script or a
+variable deleted is had back from the bar that says it was deleted. The
+palette has **Undo** and **Redo** while the editor is open. Escape leaves a field being typed in
 before it leaves the editor. Several things are chosen as in a file manager: **Ctrl+click** adds one or
 takes it away, **Shift+click** chooses all from the one chosen before,
 **Ctrl+A** all that is shown, **Shift+↑** and **Shift+↓** one more, and

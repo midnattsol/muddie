@@ -46,6 +46,7 @@ impl App {
                         tr("Editor"),
                         &[
                             ("↑  ↓", tr("Select the previous or next item")),
+                            ("←  →", tr("Collapse or expand a folder")),
                             (
                                 tr("Ctrl+click  Shift+click"),
                                 tr("Select several items or a range"),
@@ -55,6 +56,7 @@ impl App {
                             ("F2", tr("Rename")),
                             (tr("Del"), tr("Delete")),
                             ("Ctrl+Z", tr("Undo")),
+                            (tr("Ctrl+Y  Ctrl+Shift+Z"), tr("Redo")),
                         ],
                     ),
                     (

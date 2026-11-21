@@ -7,6 +7,7 @@ mod aliases;
 mod detail;
 mod folders;
 mod gauges;
+mod history;
 mod list;
 mod macros;
 mod page;
@@ -29,7 +30,7 @@ use crate::rules::{fill, tag_key};
 use crate::theme::Weight;
 use crate::widgets;
 use detail::*;
-use page::section_name;
+pub(super) use page::section_name;
 use scripts::EXAMPLES;
 use tags::*;
 use values::*;
@@ -58,12 +59,19 @@ pub(super) fn section_kind(section: usize) -> Option<Kind> {
     }
 }
 
+/// The field of text being typed in, if one has the keyboard.
+pub(super) fn typing_in(ctx: &egui::Context) -> Option<egui::Id> {
+    let focused = ctx.memory(|memory| memory.focused())?;
+    egui::TextEdit::load_state(ctx, focused).map(|_| focused)
+}
+
 impl Tab {
     /// Opens the automation window on one of its sections.
     pub fn open_automation(&mut self, section: usize) {
         if !self.editor.open {
             self.editor.draft = self.rules.clone();
             self.editor.seen = self.rules.clone();
+            self.editor.history.clear();
         }
         self.editor.section = section;
         self.editor.folder = None;
@@ -89,7 +97,8 @@ impl Tab {
     /// at once when what they are made in closes.
     pub(super) fn rules_autosave(&mut self, ctx: &egui::Context, open: bool) {
         if self.editor.draft != self.editor.seen {
-            self.editor.seen = self.editor.draft.clone();
+            let before = std::mem::replace(&mut self.editor.seen, self.editor.draft.clone());
+            self.record_step(before, typing_in(ctx));
             self.editor.settle.changed();
         }
         // The script being edited is saved the same way.
@@ -214,6 +223,8 @@ pub(super) struct Editor {
     /// How tall the editors of commands and of scripts were made, and
     /// whether the one of the rule shown is open over the window.
     pub(super) code: widgets::CodeSizes,
+    /// The steps to undo and to redo.
+    pub(super) history: history::History,
 }
 
 impl Default for Editor {
@@ -265,6 +276,7 @@ impl Default for Editor {
             panes: Settings::default().automation_panes,
             detail_height: 600.0,
             code: widgets::CodeSizes::default(),
+            history: history::History::default(),
         }
     }
 }
