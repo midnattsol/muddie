@@ -1,0 +1,5 @@
+# The Rust every build uses, here and on GitHub alike: its lints change
+# with each version, so a newer one is taken on purpose, with a commit.
+[toolchain]
+channel = "1.100"
+components = ["clippy", "rustfmt"]
