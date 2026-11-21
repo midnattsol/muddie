@@ -205,7 +205,10 @@ is made, and named again from its menu (a right click), with a double click
 or with **F2**. A click on a folder chooses it, and its details show what it
 holds, its switch, and buttons to add a rule or a folder in it, to rename it
 and to delete it; a click on its arrow opens or closes it. The button beside the
-folder button closes every folder, or opens them all when all are closed.
+folder button closes every folder, or opens them all when all are closed. Folders are closed at first,
+but for those the one chosen is in; those opened stay open, for each
+profile, from one session to the next, and a search or a tag shows all it
+finds in them.
 Drag a rule onto a folder to put it there, or between two rules to put it in
 their place; a folder is dragged into another the same way, or onto the top
 or bottom edge of one to go beside it. While what is dragged is in a folder,

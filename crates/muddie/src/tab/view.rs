@@ -139,6 +139,23 @@ impl Tab {
         self.editor.code.heights = settings.code_heights;
     }
 
+    /// The folders open in the editor, and the profile they are kept for;
+    /// None until they are those of this session's profile, which
+    /// `share_open_folders` makes them.
+    pub fn open_folders(&self) -> Option<(String, &[(crate::rules::Kind, String)])> {
+        let key = self.profile.clone().unwrap_or_default();
+        (self.editor.opened_for.as_ref() == Some(&key)).then_some((key, &self.editor.opened[..]))
+    }
+
+    /// Opens the folders the settings keep open for this session's profile,
+    /// and those of what is chosen.
+    pub fn share_open_folders(&mut self, settings: &Settings) {
+        let key = self.profile.clone().unwrap_or_default();
+        self.editor.opened = settings.open_folders.get(&key).cloned().unwrap_or_default();
+        self.editor.opened_for = Some(key);
+        self.reveal_chosen();
+    }
+
     /// How the connection is doing: a colour for it, and the words.
     /// What speaks now in this session, by its name.
     pub fn speech_through(&self) -> Option<String> {

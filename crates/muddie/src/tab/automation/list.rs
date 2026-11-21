@@ -265,7 +265,7 @@ impl Tab {
                     continue;
                 }
                 let folder_on = on && self.editor.draft.folder_on(kind, path);
-                let open = !self.editor.folded.contains(&(kind, path.clone())) || self.narrowed();
+                let open = self.folder_open(kind, path);
                 items.push(TreeItem {
                     spot: Spot::Folder(path.clone()),
                     depth,
@@ -398,8 +398,7 @@ impl Tab {
         if folders.is_empty() {
             return;
         }
-        let any_open =
-            (folders.iter()).any(|path| !self.editor.folded.contains(&(kind, path.clone())));
+        let any_open = (folders.iter()).any(|path| self.folder_open(kind, path));
         let (icon, label) = match any_open {
             true => (widgets::Icon::CollapseAll, tr("Collapse all folders")),
             false => (widgets::Icon::ExpandAll, tr("Expand all folders")),
@@ -407,9 +406,10 @@ impl Tab {
         if !widgets::icon_button(ui, icon, label, false).clicked() {
             return;
         }
-        self.editor.folded.retain(|(of, _)| *of != kind);
-        if any_open {
-            (self.editor.folded).extend(folders.iter().map(|path| (kind, path.clone())));
+        self.editor.opened.retain(|(of, _)| *of != kind);
+        if !any_open {
+            (self.editor.opened).extend(folders.iter().map(|path| (kind, path.clone())));
+        } else {
             // What was chosen inside a folder now closed gives way to the
             // folder it is in, at the top, so that what is chosen is seen.
             if let Some(spot) = self.current_spot() {
@@ -440,9 +440,44 @@ impl Tab {
     /// from its description.
     pub(in crate::tab) fn fold(&mut self, kind: Kind, path: &str, open: bool) {
         let key = (kind, path.to_owned());
-        self.editor.folded.retain(|folded| *folded != key);
-        if open {
-            self.editor.folded.push(key);
+        self.editor.opened.retain(|known| *known != key);
+        if !open {
+            self.editor.opened.push(key);
+        }
+    }
+
+    /// Whether a folder is open: as it was left, or because what is shown
+    /// is narrowed by a search or a tag, which shows all it finds.
+    pub(in crate::tab) fn folder_open(&self, kind: Kind, path: &str) -> bool {
+        self.narrowed()
+            || (self.editor.opened.iter()).any(|(of, known)| *of == kind && known == path)
+    }
+
+    /// Opens a folder and those it is in.
+    pub(in crate::tab) fn open_to(&mut self, kind: Kind, path: &str) {
+        for place in muddie_script::places_up(path).filter(|place| !place.is_empty()) {
+            if !self.folder_open(kind, place) {
+                self.editor.opened.push((kind, place.to_owned()));
+            }
+        }
+    }
+
+    /// Opens the folders the one chosen in the section is in, for it to be
+    /// seen where it is: the others stay as they were.
+    pub(in crate::tab) fn reveal_chosen(&mut self) {
+        let Some(kind) = section_kind(self.editor.section) else {
+            return;
+        };
+        let folder = match self.current_spot() {
+            Some(Spot::Row(index)) => self
+                .automation_rows()
+                .get(index)
+                .map(|row| row.folder.clone()),
+            Some(Spot::Folder(path)) => Some(parent_of(&path).to_owned()),
+            None => None,
+        };
+        if let Some(folder) = folder.filter(|folder| !folder.is_empty()) {
+            self.open_to(kind, &folder);
         }
     }
 

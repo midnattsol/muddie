@@ -250,6 +250,7 @@ impl Tab {
                 self.flush_script();
                 self.editor.section = section;
                 self.editor.folder = None;
+                self.reveal_chosen();
                 self.editor.marked.clear();
                 self.editor.sample.clear();
                 self.editor.recording_key = false;

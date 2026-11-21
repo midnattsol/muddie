@@ -122,6 +122,9 @@ pub struct Settings {
     /// How tall the editors of commands and of scripts were made, in
     /// points; 0 fits them to what they hold.
     pub code_heights: [f32; 2],
+    /// The editor's folders left open, for each profile by its name (none
+    /// for a session with no profile): the others are closed.
+    pub open_folders: std::collections::BTreeMap<String, Vec<(crate::rules::Kind, String)>>,
 }
 
 impl Default for Settings {
@@ -151,6 +154,7 @@ impl Default for Settings {
             keep_command: false,
             automation_panes: [190.0, 320.0],
             code_heights: [0.0; 2],
+            open_folders: Default::default(),
         }
     }
 }

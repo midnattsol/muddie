@@ -75,6 +75,7 @@ impl Tab {
         }
         self.editor.section = section;
         self.editor.folder = None;
+        self.reveal_chosen();
         // Opened with the keyboard, the keyboard goes to the section.
         self.editor.focus_section |= !self.editor.open;
         self.editor.open = true;
@@ -219,9 +220,13 @@ pub(super) struct Editor {
     pub(super) variable_number: f64,
     pub(super) variable_flag: bool,
     pub(super) variable_items: Vec<(String, String)>,
-    /// The tag the editor's lists are narrowed to, and the folders folded.
+    /// The tag the editor's lists are narrowed to.
     pub(super) tag_filter: Option<String>,
-    pub(super) folded: Vec<(Kind, String)>,
+    /// The folders open: the others are closed, as they are at first, so
+    /// that the lists are short to go through. Kept for each profile, as
+    /// `opened_for` says, in the settings.
+    pub(super) opened: Vec<(Kind, String)>,
+    pub(super) opened_for: Option<String>,
     /// The widths of the automation view's first two panes, and how tall
     /// its details are.
     pub(super) panes: [f32; 2],
@@ -280,7 +285,8 @@ impl Default for Editor {
             variable_flag: false,
             variable_items: Vec::new(),
             tag_filter: None,
-            folded: Vec::new(),
+            opened: Vec::new(),
+            opened_for: None,
             panes: Settings::default().automation_panes,
             detail_height: 600.0,
             code: widgets::CodeSizes::default(),

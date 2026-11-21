@@ -203,7 +203,7 @@ fn alt_m_says_where_you_are_and_how_far_a_walk_has_left() {
     let app = harness.state_mut().tab_mut();
     app.voice.said.clear();
     let lines = app.lines();
-    harness.key_press_modifiers(egui::Modifiers::ALT, Key::M);
+    harness.key_press_modifiers(crate::shortcuts::WITH_KEY, Key::M);
     harness.run_steps(2);
     let said = harness.state().tab().voice.said.clone();
     assert_eq!(said, ["Plaza Mayor (#2) in ciudad. Exits: e, n, s, w."]);
@@ -212,7 +212,7 @@ fn alt_m_says_where_you_are_and_how_far_a_walk_has_left() {
     let app = harness.state_mut().tab_mut();
     app.voice.said.clear();
     app.walk_to(1);
-    harness.key_press_modifiers(egui::Modifiers::ALT, Key::M);
+    harness.key_press_modifiers(crate::shortcuts::WITH_KEY, Key::M);
     harness.run_steps(2);
     let said = harness.state().tab().voice.said.clone();
     assert!(

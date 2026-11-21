@@ -801,7 +801,7 @@ fn a_folder_is_chosen_by_a_click_and_shows_its_details() {
     harness.get_by_label("2 items");
     harness.get_by_label("Add here");
     // It is still open: a click on its name does not close it.
-    assert!(harness.state().tab().editor.folded.is_empty());
+    assert!(harness.state().tab().folder_open(Kind::Alias, "Travel"));
     // Its arrow closes it.
     let arrow = folder.rect().left_center() + egui::vec2(12.0, 0.0);
     harness.hover_at(arrow);
@@ -814,7 +814,7 @@ fn a_folder_is_chosen_by_a_click_and_shows_its_details() {
         });
     }
     harness.run_steps(3);
-    assert_eq!(harness.state().tab().editor.folded.len(), 1);
+    assert!(!harness.state().tab().folder_open(Kind::Alias, "Travel"));
 }
 
 /// The list is one stop of Tab, as a tree is: the arrows go through its
@@ -856,7 +856,7 @@ fn the_keys_go_through_folders_as_through_a_tree() {
     // Left closes it; Down then skips what is in it.
     harness.key_press(Key::ArrowLeft);
     harness.run_steps(2);
-    assert_eq!(harness.state().tab().editor.folded.len(), 1);
+    assert!(!harness.state().tab().folder_open(Kind::Alias, "Travel"));
     harness.key_press(Key::ArrowDown);
     harness.run_steps(2);
     assert!(on(&harness, "Gamma"));
@@ -864,7 +864,7 @@ fn the_keys_go_through_folders_as_through_a_tree() {
     harness.key_press(Key::ArrowUp);
     harness.key_press(Key::ArrowRight);
     harness.run_steps(2);
-    assert!(harness.state().tab().editor.folded.is_empty());
+    assert!(harness.state().tab().folder_open(Kind::Alias, "Travel"));
     harness.key_press(Key::ArrowRight);
     harness.run_steps(2);
     assert!(on(&harness, "Alpha"));
@@ -977,7 +977,7 @@ fn one_button_collapses_and_expands_all_folders() {
     harness.get_by_label("Collapse all folders").click();
     harness.run_steps(3);
     let app = harness.state().tab();
-    assert_eq!(app.editor.folded.len(), 1);
+    assert!(!app.folder_open(Kind::Alias, "Travel"));
     assert_eq!(app.editor.folder.as_deref(), Some("Travel"));
     assert_eq!(
         app.voice.said.last().map(String::as_str),
@@ -990,7 +990,7 @@ fn one_button_collapses_and_expands_all_folders() {
     harness.get_by_label("Expand all folders").click();
     harness.run_steps(3);
     let app = harness.state().tab();
-    assert!(app.editor.folded.is_empty());
+    assert!(app.folder_open(Kind::Alias, "Travel"));
     assert_eq!(
         app.voice.said.last().map(String::as_str),
         Some("All folders expanded.")
@@ -1280,7 +1280,7 @@ fn a_closed_folder_opens_under_what_is_dragged_and_escape_gives_up() {
     std::thread::sleep(std::time::Duration::from_millis(800));
     pointer(&mut harness, chat, None);
     assert!(
-        harness.state().tab().editor.folded.is_empty(),
+        harness.state().tab().folder_open(Kind::Alias, "Chat"),
         "the folder opened"
     );
     harness.key_press(Key::Escape);
@@ -1409,4 +1409,43 @@ fn a_rule_moved_by_the_keys_says_where_it_is() {
         app.voice.said.last().map(String::as_str),
         Some("Moved up, 1 of 2.")
     );
+}
+
+/// Folders are closed at first, but those the one chosen is in, for it to
+/// be seen; those opened are kept open, in the settings, for the profile.
+#[test]
+fn folders_are_closed_at_first_but_where_the_one_chosen_is() {
+    let mut harness = window(None);
+    harness.set_size(egui::vec2(1400.0, 900.0));
+    let app = harness.state_mut().tab_mut();
+    for (name, folder) in [("Alpha", "Travel/Roads"), ("Beta", "Chat"), ("Gamma", "")] {
+        app.rules.aliases.push(alias(&name.to_lowercase(), |rule| {
+            rule.name = name.into();
+            rule.folder = folder.into();
+        }));
+    }
+    app.editor.selected[automation::ALIASES] = 0;
+    app.open_automation(automation::ALIASES);
+    harness.run_steps(3);
+    let tab = harness.state().tab();
+    assert!(tab.folder_open(Kind::Alias, "Travel") && tab.folder_open(Kind::Alias, "Travel/Roads"));
+    assert!(
+        !tab.folder_open(Kind::Alias, "Chat"),
+        "a folder is closed at first"
+    );
+    assert!(harness.query_by_label("Beta").is_none());
+    // Opened, it is kept open for the profile, here none.
+    harness
+        .state_mut()
+        .tab_mut()
+        .fold(Kind::Alias, "Chat", false);
+    harness.run_steps(3);
+    let kept = harness
+        .state()
+        .settings()
+        .open_folders
+        .get("")
+        .cloned()
+        .unwrap_or_default();
+    assert!(kept.contains(&(Kind::Alias, "Chat".to_owned())), "{kept:?}");
 }

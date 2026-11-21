@@ -140,6 +140,11 @@ impl App {
     }
 
     #[cfg(test)]
+    pub fn settings(&self) -> &Settings {
+        &self.settings
+    }
+
+    #[cfg(test)]
     pub fn tab_mut(&mut self) -> &mut Tab {
         &mut self.tabs[self.active]
     }
@@ -347,6 +352,25 @@ impl App {
             for tab in &mut self.tabs {
                 tab.share_layout(&self.settings);
             }
+        }
+        // The folders open, kept for the profile: those of a session whose
+        // profile changed are its new profile's.
+        let tab = &mut self.tabs[self.active];
+        match tab.open_folders() {
+            None => tab.share_open_folders(&self.settings),
+            Some((key, open))
+                if self.settings.open_folders.get(&key).map(Vec::as_slice) != Some(open) =>
+            {
+                let open = open.to_vec();
+                self.settings.open_folders.insert(key.clone(), open);
+                self.settings_unsaved = true;
+                for tab in &mut self.tabs {
+                    if tab.open_folders().is_some_and(|(of, _)| of == key) {
+                        tab.share_open_folders(&self.settings);
+                    }
+                }
+            }
+            Some(_) => {}
         }
         self.save_settings();
     }

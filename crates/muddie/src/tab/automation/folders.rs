@@ -100,10 +100,8 @@ impl Tab {
         } else {
             self.editor.draft.set_folder_on(kind, &path, true);
         }
-        let inside = |folded: &(Kind, String)| {
-            folded.0 == kind && (path == folded.1 || path.starts_with(&format!("{}/", folded.1)))
-        };
-        self.editor.folded.retain(|folded| !inside(folded));
+        // It and those it is in are open, for it to be seen and named.
+        self.open_to(kind, &path);
         self.editor.renaming = Some(Renaming {
             path,
             typed: name,
@@ -219,8 +217,8 @@ impl Tab {
             Some(rest) if rest.starts_with('/') => *path = format!("{to}{rest}"),
             _ => {}
         };
-        for (folded_kind, path) in &mut self.editor.folded {
-            if *folded_kind == kind {
+        for (open_kind, path) in &mut self.editor.opened {
+            if *open_kind == kind {
                 follow(path);
             }
         }
@@ -548,7 +546,7 @@ impl Tab {
             _ if top.is_some_and(|top| top.contains(pointer)) => Some(Landing::Into(String::new())),
             Some((Spot::Folder(path), rect)) if kind.is_some() => {
                 let kind = kind.unwrap_or(Kind::Trigger);
-                let open = !self.editor.folded.contains(&(kind, path.clone()));
+                let open = self.folder_open(kind, path);
                 let depth = path.matches('/').count();
                 let band = rect.height() / 4.0;
                 if pointer.y < rect.top() + band {
@@ -693,5 +691,8 @@ impl Tab {
             }
             (Dragged::Folder(_), None) => {}
         }
+        // What was moved is seen where it went, in a folder that was
+        // closed too.
+        self.reveal_chosen();
     }
 }
