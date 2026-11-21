@@ -134,6 +134,8 @@
 //! - `map.room(id)`: a room as such a table, the current one if `id` is
 //!   omitted; `nil` if unknown.
 //! - `map.find(text)`: the rooms whose name contains `text`.
+//! - `map.named(name)`: the numbers of the rooms called just `name`, as
+//!   the MUD names them (see `map.names`).
 //! - `map.path(to, from)`: the directions to walk, from the current room
 //!   if `from` is omitted; `nil` if there is no known route.
 //! - `map.walk(to)`: walk there. `map.stop()`: the server said a move

@@ -69,6 +69,7 @@ impl Map {
         }
         self.current = Some(id);
         self.candidates.clear();
+        self.keep_whereabouts();
         true
     }
 
@@ -134,20 +135,41 @@ impl Map {
             }
             None => Vec::new(),
         };
+        // The rooms up to two moves from where the player was that are as
+        // the server shows: where a map that is wrong in a place, or a move
+        // it did not follow, most likely left the player.
+        let around = || {
+            let mut near: Vec<RoomId> = Vec::new();
+            let mut seen: HashSet<RoomId> = before.iter().copied().collect();
+            let mut ring = before.clone();
+            for _ in 0..2 {
+                let next: Vec<RoomId> = (ring.iter())
+                    .filter_map(|id| self.rooms.get(id))
+                    .flat_map(|room| room.exits.values().map(|exit| exit.to))
+                    .filter(|id| seen.insert(*id))
+                    .collect();
+                near.extend(next.iter().copied().filter(|id| like(*id)));
+                if !near.is_empty() {
+                    break;
+                }
+                ring = next;
+            }
+            near
+        };
         let mut found = if !moved.is_empty() {
             moved
         } else if key.is_none() && exits.is_none() {
             return self.whereabouts();
+        } else if seen.came.is_some() {
+            // A move the server says was made, which the map's exits do not
+            // lead to such a room by: one around.
+            around()
         } else {
-            // Still there, as after looking or a move that did not happen;
-            // else a room next to it.
+            // No move, or only one sent, which may not have been made:
+            // still there, as after looking; else one around.
             let staying: Vec<RoomId> = before.iter().copied().filter(|id| like(*id)).collect();
             if staying.is_empty() {
-                let next = (before.iter())
-                    .filter_map(|id| self.rooms.get(id))
-                    .flat_map(|room| room.exits.values().map(|exit| exit.to))
-                    .filter(|id| like(*id));
-                next.collect()
+                around()
             } else {
                 staying
             }
@@ -173,9 +195,9 @@ impl Map {
         self.settle(found)
     }
 
-    /// Keeps the room the player is in with the map, to start from there
-    /// when it is opened again: the next room the server shows tells
-    /// whether they are still there.
+    /// Keeps the room the player is in with the map, as it changes, to
+    /// start from there when it is opened again, however it was closed:
+    /// the next room the server shows tells whether they are still there.
     pub(crate) fn keep_whereabouts(&mut self) {
         let Some(id) = self.current else {
             return;
@@ -214,6 +236,7 @@ impl Map {
             1 => self.current = found.pop(),
             _ => self.candidates = found,
         }
+        self.keep_whereabouts();
         self.whereabouts()
     }
 

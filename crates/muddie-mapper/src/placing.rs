@@ -18,6 +18,7 @@ impl Map {
         let saved = self.upsert(info, came_from);
         self.current = Some(id);
         self.candidates.clear();
+        self.keep_whereabouts();
         let joined = if free_layout {
             self.join_islands(came_from, id)
         } else {

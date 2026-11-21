@@ -277,6 +277,12 @@ fn install_finding(lua: &Lua, map: &Rc<RefCell<Map>>, api: &Table) -> mlua::Resu
         })?,
     )?;
 
+    let world = Rc::clone(map);
+    api.set(
+        "named",
+        lua.create_function(move |_, name: String| Ok(world.borrow().called(&name)))?,
+    )?;
+
     api.set(
         "id",
         lua.create_function(|_, text: String| Ok(room_id(&text)))?,

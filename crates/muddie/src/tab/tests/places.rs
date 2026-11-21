@@ -95,6 +95,14 @@ fn reinos_de_leyenda_is_followed_by_the_rooms_it_shows_and_walked_in_its_words()
         package: package.into(),
         data: data.into(),
     };
+    // A step as Reinos takes one: the room in its text, then the move.
+    let step = |title: &str, way: &str| {
+        let line = panels::styled_lines(title).remove(0);
+        events.send(Event::Line(line)).unwrap();
+        events
+            .send(gmcp("Room.Movimiento", &format!("{way:?}")))
+            .unwrap();
+    };
     // Three dunes, one written with its exits: the map is unsure.
     events.send(gmcp("Room.Actual", r#""Dunas""#)).unwrap();
     settle(&mut harness);
@@ -107,10 +115,7 @@ fn reinos_de_leyenda_is_followed_by_the_rooms_it_shows_and_walked_in_its_words()
     );
     // East, to a dune with a door west and an exit east: of the two
     // east of a dune, the middle one.
-    events.send(gmcp("Room.Movimiento", r#""este""#)).unwrap();
-    events
-        .send(gmcp("Room.Actual", r#""Dunas [|o|, e]""#))
-        .unwrap();
+    step("Dunas [|o|,e]", "este");
     settle(&mut harness);
     let app = harness.state_mut().tab_mut();
     assert_eq!(app.map.borrow().current().unwrap().id, 2);
@@ -119,10 +124,7 @@ fn reinos_de_leyenda_is_followed_by_the_rooms_it_shows_and_walked_in_its_words()
             .iter()
             .any(|said| said.contains("knows where you are again: Dunas"))
     );
-    events.send(gmcp("Room.Movimiento", r#""este""#)).unwrap();
-    events
-        .send(gmcp("Room.Actual", r#""Dunas [o, n]""#))
-        .unwrap();
+    step("Dunas [o,n]", "este");
     settle(&mut harness);
     let app = harness.state_mut().tab_mut();
     assert_eq!(app.map.borrow().current().unwrap().id, 3);
@@ -132,8 +134,7 @@ fn reinos_de_leyenda_is_followed_by_the_rooms_it_shows_and_walked_in_its_words()
         ["Going to Pozo: 1 move. Escape stops it."]
     );
     assert_eq!(sent_lines(&mut sent), ["norte"]);
-    events.send(gmcp("Room.Movimiento", r#""norte""#)).unwrap();
-    events.send(gmcp("Room.Actual", r#""Pozo [s]""#)).unwrap();
+    step("Pozo [s]", "norte");
     settle(&mut harness);
     let app = harness.state_mut().tab_mut();
     assert!(app.walk.is_none());
@@ -245,8 +246,12 @@ fn the_plugin_takes_the_servers_map_at_once_and_it_is_said_aside() {
     );
 }
 
+/// As a session with Reinos de Leyenda showed: with lag, steps come in
+/// bursts, each the room written and then the move, and none is lost; a
+/// map gone astray is put right by the room written; and looking, which
+/// writes the room with no move, puts it right too.
 #[test]
-fn reinos_is_followed_whichever_comes_first_or_by_the_move_sent() {
+fn reinos_is_followed_through_lag_and_put_right_by_the_room_written() {
     let mut harness = window(None);
     let app = harness.state_mut().tab_mut();
     let (events, _sent) = fake_connection(app);
@@ -255,25 +260,52 @@ fn reinos_is_followed_whichever_comes_first_or_by_the_move_sent() {
         "reinos",
         include_str!("../../../plugins/reinos-de-leyenda.luau"),
     );
-    assert!(app.map.borrow_mut().set_current(1));
-    let gmcp = |package: &str, data: &str| Event::Gmcp {
-        package: package.into(),
-        data: data.into(),
+    let here = |harness: &Harness<'_, App>| {
+        harness
+            .state()
+            .tab()
+            .map
+            .borrow()
+            .current()
+            .map(|room| room.id)
     };
-    // The room before the move: one step all the same.
-    events
-        .send(gmcp("Room.Actual", r#""Dunas [o, e]""#))
-        .unwrap();
-    events.send(gmcp("Room.Movimiento", r#""este""#)).unwrap();
-    settle(&mut harness);
-    assert_eq!(harness.state().tab().map.borrow().current().unwrap().id, 2);
-    // No word of the move: the one sent, by a key bound or typed, is it.
-    harness.state_mut().tab_mut().send("e".into());
-    events
-        .send(gmcp("Room.Actual", r#""Dunas [o, n]""#))
-        .unwrap();
-    settle(&mut harness);
-    assert_eq!(harness.state().tab().map.borrow().current().unwrap().id, 3);
+    let line = |text: &str| Event::Line(panels::styled_lines(text).remove(0));
+    let moved = |way: &str| Event::Gmcp {
+        package: "Room.Movimiento".into(),
+        data: format!("{way:?}"),
+    };
+    // Two steps in one burst: both are taken.
+    assert!(harness.state().tab().map.borrow_mut().set_current(1));
+    for event in [
+        line("Dunas [o,e]"),
+        moved("este"),
+        // After the prompt, which ends in no new line.
+        line("] Dunas [o,n]"),
+        moved("este"),
+    ] {
+        events.send(event).unwrap();
+    }
+    harness.run_steps(2);
+    assert_eq!(here(&harness), Some(3));
+    // Astray, three rooms off: the room written puts it right.
+    assert!(harness.state().tab().map.borrow_mut().set_current(1));
+    events.send(line("Pozo [s]")).unwrap();
+    events.send(moved("norte")).unwrap();
+    harness.run_steps(2);
+    assert_eq!(here(&harness), Some(4));
+    // Looking: the room written, and no move after it.
+    assert!(harness.state().tab().map.borrow_mut().set_current(2));
+    events.send(line("Dunas [o,n]")).unwrap();
+    harness.run_steps(1);
+    std::thread::sleep(Duration::from_millis(300));
+    harness.run_steps(2);
+    assert_eq!(here(&harness), Some(3));
+    // A line that ends in brackets but is no room is left alone.
+    events.send(line("[Chat] Ana: hola [jaja]")).unwrap();
+    harness.run_steps(1);
+    std::thread::sleep(Duration::from_millis(300));
+    harness.run_steps(2);
+    assert_eq!(here(&harness), Some(3));
 }
 
 /// As Reinos de Leyenda does, in a record of a session: the room shown once,

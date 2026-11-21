@@ -242,8 +242,8 @@ impl Map {
         use_them(index)
     }
 
-    /// The rooms called `name`, in order of number.
-    pub(crate) fn called(&self, name: &str) -> Vec<RoomId> {
+    /// The rooms called `name`, as the MUD names them, in order of number.
+    pub fn called(&self, name: &str) -> Vec<RoomId> {
         let key = self.name_key(name);
         let mut ids = (self.with_names(|names| names.get(&key).cloned())).unwrap_or_default();
         ids.sort_unstable();

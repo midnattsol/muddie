@@ -183,6 +183,7 @@ server identifies the room with.
 | `map.clear()` | Forgets every room. |
 | `map.room(id)` | A room as a table, the current one if `id` is omitted. Also has `weight`, `avoid` and `colour` (`"#rrggbb"`, or `nil`). |
 | `map.find(text)` | Rooms whose name contains `text`. |
+| `map.named(name)` | The numbers of the rooms called just `name`, as the MUD names them. |
 | `map.path(to, from)` | The commands to walk, or `nil`. |
 | `map.walk(to)` | Walks there, one confirmed step at a time. `map.stop()` stops, as when the server says a move failed. |
 | `map.arrive{name, exits, came}` | For servers that do not say which room it is: the player is in a room of this name and exits, reached by the exit `came`. Returns the room's number, or `nil` while unsure. |

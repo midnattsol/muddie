@@ -6,7 +6,8 @@
 --
 --   on logging in    Char.Status, Char.Status.Estados.set, Char.Ficha,
 --                    Char.Stats, Comm.Canales, Room.Actual once
---   on each step     Room.Movimiento "este", or Room.MovimientoErroneo
+--   on each step     the room in its text as "Name [exits]", then
+--                    Room.Movimiento "este"; or Room.MovimientoErroneo
 --                    "sudeste" for a move that could not be made
 --   as it happens    Char.Status (what changed only), Char.Status.Estados
 --                    .add and .remove, Comm.MensajeCanal, and
@@ -191,71 +192,92 @@ map.directions({
     out = { "fuera", "fu" },
 })
 
--- The MUD shows the room only on logging in, as "Name [exits]", and after
--- that only the move of each step. The map places the player by the room,
--- then follows the moves along its exits; the two of one step are taken
--- together, whichever comes first.
-local seen = {}
-local due = false
+-- Following the player. The MUD tells three things, each used for what it
+-- is good for:
+--   Room.Movimiento "este"   that a move was made, and by which exit: what
+--                            moves the player on the map, each one as it
+--                            comes, in order, whatever the lag;
+--   "Name [exits]"           the room, as the game writes it in its text
+--                            just before that move, and again on looking:
+--                            what checks the map is right, and puts it
+--                            right if it is not;
+--   Room.Actual              the room, once, on logging in.
+-- The room written is taken with the move that follows it; one written
+-- with no move after it, as on looking, is taken by itself a moment later.
 
-local function settle()
-    due = false
-    local step = seen
-    seen = {}
-    -- A move by an exit the map does not have: it is said, and the map
-    -- stays where it was, which may no longer be where the player is.
+local shown = nil
+
+local function exits_of(list)
+    local exits = {}
+    -- Doors are marked on their exits with | and -.
+    for exit in (list:gsub("[|%-]", "")):gmatch("[^%[%],%s]+") do
+        table.insert(exits, exit)
+    end
+    return exits
+end
+
+local function step(seen)
+    -- A move by an exit the map does not have, with no room written to
+    -- check it by: it is said, and the map stays where it was.
     local here = map.room()
-    if step.came and not step.name and here and not map.exit(here.id, step.came) then
-        notify(`El mapa no tiene la salida {step.came} desde {here.name}: no te ha seguido.`)
+    if seen.came and not seen.name and here and not map.exit(here.id, seen.came) then
+        notify(`El mapa no tiene la salida {seen.came} desde {here.name}: no te ha seguido.`)
     end
-    local now = map.arrive(step)
+    local now = map.arrive(seen)
     -- Shown when Muddie is started with --debug.
-    log(`Reinos: name={step.name} exits={table.concat(step.exits or {}, ",")} came={step.came} -> {now}`)
+    log(`Reinos: name={seen.name} exits={table.concat(seen.exits or {}, ",")} came={seen.came} -> {now}`)
 end
 
-local function soon()
-    if not due then
-        due = true
-        after(0.05, settle)
+-- The room as the game writes it: only a name the map has a room of, so
+-- that no other line that ends in brackets is taken for one. The prompt
+-- ends in no new line, so with lag the room comes after it on its line,
+-- as "] Anduar: Arco Este [s,e,n,o]": what is before the name is let go.
+trigger([[^(.*?) \[([A-Za-z|,\-]+)\]\s*$]], function(m)
+    local name = m[1]
+    while #map.named(name) == 0 do
+        name = name:match("^.-[%]>]%s+(.+)$")
+        if not name then
+            return
+        end
     end
-end
+    local this = { name = name, exits = exits_of(m[2]) }
+    shown = this
+    after(0.2, function()
+        if shown == this then
+            shown = nil
+            step(this)
+        end
+    end)
+end, { name = "Reinos de Leyenda/Sala escrita" })
 
 on_gmcp("Room.Movimiento", function(way)
     heard = true
+    local seen = shown or {}
+    shown = nil
     seen.came = text_of(way)
-    soon()
+    step(seen)
 end)
 
 -- A move that could not be made: it did not happen, and a walk stops.
 on_gmcp("Room.MovimientoErroneo", function()
-    seen.came = nil
+    shown = nil
     map.stop()
 end)
 
-on_gmcp("Room.Actual", function(shown)
+on_gmcp("Room.Actual", function(room)
     heard = true
-    shown = text_of(shown)
-    if not shown then
+    room = text_of(room)
+    if not room then
         return
     end
-    local name, list = shown:match("^(.-)%s*(%b[])%s*$")
-    if name then
-        local exits = {}
-        -- Doors are marked on their exits with | and -.
-        for exit in (list:gsub("[|%-]", "")):gmatch("[^%[%],%s]+") do
-            table.insert(exits, exit)
-        end
-        seen.name, seen.exits = name, exits
-    else
-        seen.name = shown
-    end
-    soon()
+    local name, list = room:match("^(.-)%s*(%b[])%s*$")
+    step({ name = name or room, exits = list and exits_of(list) })
 end)
 
 -- Long enough to have logged in; once per connection.
 on_event("connect", function()
     heard = false
-    seen = {}
+    shown = nil
     status = {}
     map.import(MAP)
     after(90, function()

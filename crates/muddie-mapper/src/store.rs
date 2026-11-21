@@ -46,19 +46,18 @@ const SCHEMA: &str = "
     );
 ";
 
-const UPGRADE_ROOMS_FROM_1: &str = "
-    ALTER TABLE rooms ADD COLUMN weight INTEGER NOT NULL DEFAULT 1;
-    ALTER TABLE rooms ADD COLUMN avoid INTEGER NOT NULL DEFAULT 0;
-";
-
-const UPGRADE_EXITS_FROM_2: &str = "
-    ALTER TABLE exits ADD COLUMN cost INTEGER NOT NULL DEFAULT 0;
-    ALTER TABLE exits ADD COLUMN locked INTEGER NOT NULL DEFAULT 0;
-    ALTER TABLE exits ADD COLUMN command TEXT;
-    ALTER TABLE exits ADD COLUMN custom INTEGER NOT NULL DEFAULT 0;
-";
-
-const UPGRADE_ROOMS_FROM_4: &str = "ALTER TABLE rooms ADD COLUMN colour INTEGER;";
+/// The columns added since the first format, each with how it is made: a
+/// map of an older format is given those it lacks, whatever its version
+/// says.
+const ADDED: [(&str, &str, &str); 7] = [
+    ("rooms", "weight", "INTEGER NOT NULL DEFAULT 1"),
+    ("rooms", "avoid", "INTEGER NOT NULL DEFAULT 0"),
+    ("exits", "cost", "INTEGER NOT NULL DEFAULT 0"),
+    ("exits", "locked", "INTEGER NOT NULL DEFAULT 0"),
+    ("exits", "command", "TEXT"),
+    ("exits", "custom", "INTEGER NOT NULL DEFAULT 0"),
+    ("rooms", "colour", "INTEGER"),
+];
 
 pub struct Store {
     connection: Connection,
@@ -89,14 +88,21 @@ impl Store {
         connection.pragma_update(None, "journal_mode", "WAL")?;
         connection.pragma_update(None, "synchronous", "NORMAL")?;
         connection.execute_batch(SCHEMA)?;
-        if version == 1 {
-            connection.execute_batch(UPGRADE_ROOMS_FROM_1)?;
-        }
-        if version == 1 || version == 2 {
-            connection.execute_batch(UPGRADE_EXITS_FROM_2)?;
-        }
-        if (1..=4).contains(&version) {
-            connection.execute_batch(UPGRADE_ROOMS_FROM_4)?;
+        if version < VERSION {
+            for (table, column, made) in ADDED {
+                let has: bool = connection.query_row(
+                    &format!(
+                        "SELECT count(*) > 0 FROM pragma_table_info('{table}') WHERE name = ?1"
+                    ),
+                    [column],
+                    |row| row.get(0),
+                )?;
+                if !has {
+                    connection.execute_batch(&format!(
+                        "ALTER TABLE {table} ADD COLUMN {column} {made};"
+                    ))?;
+                }
+            }
         }
         connection.pragma_update(None, "user_version", VERSION)?;
 
@@ -323,6 +329,15 @@ mod tests {
         drop(store);
         let (store, Stored { rooms, .. }) = Store::open(&path).unwrap();
         assert_eq!((rooms[0].weight, rooms[0].avoid), (5, true));
+        assert_eq!(rooms[0].colour, Some([200, 16, 0]));
+        // Said to be older than it is, with a column it is said to lack: it
+        // opens, and keeps what it has.
+        store
+            .connection
+            .pragma_update(None, "user_version", 4)
+            .unwrap();
+        drop(store);
+        let (store, Stored { rooms, .. }) = Store::open(&path).unwrap();
         assert_eq!(rooms[0].colour, Some([200, 16, 0]));
 
         store
