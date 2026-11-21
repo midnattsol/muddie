@@ -9,6 +9,7 @@ use muddie_core::ansi::Assembler;
 use muddie_script::GaugeLook;
 use serde_json::Value;
 
+use crate::i18n::trf;
 use crate::theme;
 
 /// Value and maximum field names of the vitals most MUDs report in
@@ -37,6 +38,40 @@ struct Gauge {
     value: f64,
     max: f64,
     look: GaugeLook,
+    /// The lowest of its warnings it is under, as a percentage.
+    under: Option<f64>,
+}
+
+impl Gauge {
+    /// The lowest of its warnings it is under, as a percentage: the
+    /// steps where it changes colour, and its low mark.
+    fn under(&self) -> Option<f64> {
+        if self.max <= 0.0 {
+            return None;
+        }
+        let percent = (self.value / self.max).clamp(0.0, 1.0) * 100.0;
+        let marks = self.look.steps.iter().map(|(under, _)| *under);
+        let low = (self.look.low > 0.0).then_some(self.look.low);
+        marks
+            .chain(low)
+            .filter(|under| percent < *under)
+            .min_by(f64::total_cmp)
+    }
+
+    /// What it is, said aloud.
+    fn said(&self) -> String {
+        let value = self.value.to_string();
+        match self.look.kind.as_str() {
+            "light" if self.value != 0.0 => trf("{0} on", &[&self.name]),
+            "light" => trf("{0} off", &[&self.name]),
+            "text" => format!("{} {}", self.name, self.look.text),
+            "number" if self.max <= 0.0 => format!("{} {value}", self.name),
+            _ => trf(
+                "{0} {1} of {2}",
+                &[&self.name, &value, &self.max.to_string()],
+            ),
+        }
+    }
 }
 
 /// Named bars such as health and mana, in the order they were first set.
@@ -44,34 +79,59 @@ struct Gauge {
 pub struct Gauges(Vec<Gauge>);
 
 impl Gauges {
-    /// Sets the named gauge to `(value, max)`, or removes it.
-    pub fn set(&mut self, name: &str, level: Option<(f64, f64)>) {
-        self.set_with(name, level, None);
+    /// Sets the named gauge to `(value, max)`, or removes it. Returns what
+    /// to say when it falls under one of its warnings, as when it turns
+    /// to a warning colour: what is seen at a glance is heard.
+    pub fn set(&mut self, name: &str, level: Option<(f64, f64)>) -> Option<String> {
+        self.set_with(name, level, None)
     }
 
     /// The same, also saying how the gauge is drawn. With no look given a
     /// gauge keeps the one it has.
-    pub fn set_with(&mut self, name: &str, level: Option<(f64, f64)>, look: Option<GaugeLook>) {
+    pub fn set_with(
+        &mut self,
+        name: &str,
+        level: Option<(f64, f64)>,
+        look: Option<GaugeLook>,
+    ) -> Option<String> {
         let index = self.0.iter().position(|gauge| gauge.name == name);
-        match (index, level) {
+        let index = match (index, level) {
             (Some(index), Some((value, max))) => {
                 let gauge = &mut self.0[index];
                 (gauge.value, gauge.max) = (value, max);
                 if let Some(look) = look {
                     gauge.look = look;
                 }
+                index
             }
-            (None, Some((value, max))) => self.0.push(Gauge {
-                name: name.to_owned(),
-                value,
-                max,
-                look: look.unwrap_or_default(),
-            }),
+            (None, Some((value, max))) => {
+                let mut gauge = Gauge {
+                    name: name.to_owned(),
+                    value,
+                    max,
+                    look: look.unwrap_or_default(),
+                    under: None,
+                };
+                // As it starts is not news.
+                gauge.under = gauge.under();
+                self.0.push(gauge);
+                return None;
+            }
             (Some(index), None) => {
                 self.0.remove(index);
+                return None;
             }
-            (None, None) => {}
-        }
+            (None, None) => return None,
+        };
+        let gauge = &mut self.0[index];
+        let (before, now) = (gauge.under, gauge.under());
+        gauge.under = now;
+        let lower = match (before, now) {
+            (_, None) => false,
+            (None, Some(_)) => true,
+            (Some(before), Some(now)) => now < before,
+        };
+        lower.then(|| gauge.said())
     }
 
     pub fn clear(&mut self) {
@@ -90,15 +150,7 @@ impl Gauges {
     /// All gauges as a sentence for speech, e.g. "HP 80 of 100, MP 5 of
     /// 50", each said as what it is.
     pub fn summary(&self) -> String {
-        let parts: Vec<String> = (self.0.iter())
-            .map(|gauge| match gauge.look.kind.as_str() {
-                "light" if gauge.value != 0.0 => format!("{} on", gauge.name),
-                "light" => format!("{} off", gauge.name),
-                "text" => format!("{} {}", gauge.name, gauge.look.text),
-                "number" if gauge.max <= 0.0 => format!("{} {}", gauge.name, gauge.value),
-                _ => format!("{} {} of {}", gauge.name, gauge.value, gauge.max),
-            })
-            .collect();
+        let parts: Vec<String> = self.0.iter().map(Gauge::said).collect();
         parts.join(", ")
     }
 
@@ -508,6 +560,25 @@ mod tests {
         );
         assert_eq!(vitals.update("ROOM", r#"{"VNUM":"7"}"#), None);
         assert_eq!(vitals.update("MANA", r#""lots""#), None);
+    }
+
+    #[test]
+    fn a_gauge_is_said_when_it_falls_under_a_warning_and_not_when_it_rises() {
+        let mut gauges = Gauges::default();
+        let look = GaugeLook {
+            steps: vec![(60.0, "yellow".into()), (30.0, "red".into())],
+            ..GaugeLook::default()
+        };
+        let mut set =
+            |value: f64| gauges.set_with("Health", Some((value, 100.0)), Some(look.clone()));
+        // As it starts is not news; above every warning, nothing either.
+        assert_eq!(set(50.0), None);
+        assert_eq!(set(80.0), None);
+        assert_eq!(set(55.0).as_deref(), Some("Health 55 of 100"));
+        assert_eq!(set(50.0), None);
+        assert_eq!(set(25.0).as_deref(), Some("Health 25 of 100"));
+        assert_eq!(set(45.0), None);
+        assert_eq!(set(20.0).as_deref(), Some("Health 20 of 100"));
     }
 
     #[test]

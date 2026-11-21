@@ -177,7 +177,7 @@ impl Tab {
         let is = |name: &str| package.eq_ignore_ascii_case(name);
         if common && is("Char.Vitals") {
             for (name, value, max) in panels::vitals(data) {
-                self.gauges.set(name, Some((value, max)));
+                self.set_gauge(name, Some((value, max)), None);
             }
         } else if let Some(message) = crate::media::parse(package, data) {
             self.media(message);
@@ -194,11 +194,23 @@ impl Tab {
         self.run_actions();
     }
 
+    /// Sets a gauge, and says it when it falls under one of its warnings.
+    pub(super) fn set_gauge(
+        &mut self,
+        name: &str,
+        level: Option<(f64, f64)>,
+        look: Option<muddie_script::GaugeLook>,
+    ) {
+        if let Some(warning) = self.gauges.set_with(name, level, look) {
+            self.voice.say_now(&warning);
+        }
+    }
+
     /// An MSDP variable, made something of as GMCP's are.
     fn on_msdp(&mut self, variable: &str, data: &str, recording: bool) {
         let common = self.conventions();
         if common && let Some((name, value, max)) = self.msdp_vitals.update(variable, data) {
-            self.gauges.set(name, Some((value, max)));
+            self.set_gauge(name, Some((value, max)), None);
         }
         if common && variable == "ROOM" && self.scripts.native_map() {
             self.entered_room(data);

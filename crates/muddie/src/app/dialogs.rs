@@ -28,6 +28,7 @@ impl App {
                             ("Alt+1 … Alt+9", tr("Read the most recent lines")),
                             (tr("Alt+Shift+↑ …"), tr("Same, for the panel of channels")),
                             ("Alt+0", tr("Read the gauges")),
+                            ("Alt+M", tr("Say where you are, by the map")),
                         ],
                     ),
                     (

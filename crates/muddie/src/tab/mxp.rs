@@ -162,8 +162,7 @@ impl Tab {
                 kind: if bar && max > 0.0 { "bar" } else { "number" }.to_owned(),
                 ..muddie_script::GaugeLook::default()
             };
-            self.gauges
-                .set_with(&called, Some((value, max)), Some(look));
+            self.set_gauge(&called, Some((value, max)), Some(look));
         }
     }
 }

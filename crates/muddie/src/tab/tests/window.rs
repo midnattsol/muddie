@@ -195,6 +195,35 @@ fn a_dialog_opened_with_the_keyboard_has_it_and_says_its_name() {
 }
 
 #[test]
+fn alt_m_says_where_you_are_and_how_far_a_walk_has_left() {
+    let mut harness = connected_demo_window();
+    let app = harness.state_mut().tab_mut();
+    app.voice.force_voice();
+    harness.run_steps(2);
+    let app = harness.state_mut().tab_mut();
+    app.voice.said.clear();
+    let lines = app.lines();
+    harness.key_press_modifiers(egui::Modifiers::ALT, Key::M);
+    harness.run_steps(2);
+    let said = harness.state().tab().voice.said.clone();
+    assert_eq!(said, ["Plaza Mayor (#2) in ciudad. Exits: e, n, s, w."]);
+    // Said only: the output is left as it was.
+    assert_eq!(harness.state().tab().lines(), lines);
+    let app = harness.state_mut().tab_mut();
+    app.voice.said.clear();
+    app.walk_to(1);
+    harness.key_press_modifiers(egui::Modifiers::ALT, Key::M);
+    harness.run_steps(2);
+    let said = harness.state().tab().voice.said.clone();
+    assert!(
+        said.last()
+            .unwrap()
+            .ends_with("Walking to Puerta: 1 step left."),
+        "{said:?}"
+    );
+}
+
+#[test]
 fn long_scrollback_is_not_laid_out_all_at_once_when_the_text_changes() {
     let mut harness = window(None);
     let app = harness.state_mut().tab_mut();

@@ -20,6 +20,10 @@ impl Tab {
         if self.editor.open {
             return self.automation_page(ui);
         }
+        // Alt+M says where the player is, by the map.
+        if ui.input_mut(|input| input.consume_key(Modifiers::ALT, Key::M)) {
+            self.say_where_aloud();
+        }
         // Alt+0 reads the gauges aloud.
         if ui.input_mut(|input| input.consume_key(Modifiers::ALT, Key::Num0)) {
             let summary = self.gauges.summary();

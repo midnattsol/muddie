@@ -427,6 +427,10 @@ one being said, for games where what came before is soon old.
 | Alt+1 ... Alt+9 | Reads the most recent lines |
 | Alt+Shift with the same keys | The same for the panel of channels |
 | Alt+0 | Reads the gauges |
+| Alt+M | Says where you are by the map, and how far a walk has left |
+
+A gauge is said as soon as it falls under one of its warnings (a step
+where it changes colour, or its low mark), as it is seen turning colour.
 
 The review keys cut short what is being said, so moving through the lines
 is quick. Sending a command silences what was still queued. For the system's

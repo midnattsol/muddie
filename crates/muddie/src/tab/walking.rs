@@ -111,8 +111,27 @@ impl Tab {
         !rooms.is_empty()
     }
 
-    /// Says where the player is, by the map.
+    /// Says where the player is, by the map, as a line of the client's.
     pub(super) fn say_where(&mut self) {
+        match self.where_now() {
+            Some(place) => self.note(&place),
+            None => self.refuse(tr("The map does not know where you are yet.")),
+        }
+    }
+
+    /// Says where the player is aloud only, at once: for a key pressed
+    /// often, which would fill the output.
+    pub(super) fn say_where_aloud(&mut self) {
+        let place = self.where_now();
+        let text = place
+            .as_deref()
+            .unwrap_or(tr("The map does not know where you are yet."));
+        self.voice.say_now(text);
+    }
+
+    /// Where the player is, by the map: the room, its area and its exits,
+    /// and on the way somewhere, where to and how far.
+    fn where_now(&self) -> Option<String> {
         let place = self.map.borrow().current().map(|room| {
             let exits: Vec<&str> = room.exits.keys().map(String::as_str).collect();
             let fields = [
@@ -126,9 +145,22 @@ impl Tab {
                 &fields.map(String::as_str),
             )
         });
-        match place {
-            Some(place) => self.note(&place),
-            None => self.refuse(tr("The map does not know where you are yet.")),
+        // On the way somewhere, where to and how far.
+        let going = self.walk.as_ref().and_then(|(walk, _)| {
+            let (left, to) = walk.left();
+            let name = self.map.borrow().room(to?)?.name.clone();
+            Some(
+                trn(
+                    "Walking to {1}: {0} step left.",
+                    "Walking to {1}: {0} steps left.",
+                    left as u64,
+                )
+                .replace("{1}", &name),
+            )
+        });
+        match going {
+            Some(going) => place.map(|place| format!("{place} {going}")),
+            None => place,
         }
     }
 

@@ -225,7 +225,7 @@ impl Tab {
                 }
                 Action::Gauge { name, level, look } => {
                     let look = (look != Default::default()).then_some(look);
-                    self.gauges.set_with(&name, level, look);
+                    self.set_gauge(&name, level, look);
                 }
                 Action::Walk(room) => self.walk_to(room),
                 Action::Entered(room) => self.arrived_in(room),

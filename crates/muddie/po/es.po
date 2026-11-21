@@ -1805,3 +1805,24 @@ msgstr "El canal {0} se lee en voz alta."
 #, python-brace-format
 msgid "The {0} channel is kept quiet."
 msgstr "El canal {0} queda callado."
+
+msgid "Walking to {1}: {0} step left."
+msgid_plural "Walking to {1}: {0} steps left."
+msgstr[0] "Caminando hacia {1}: queda {0} paso."
+msgstr[1] "Caminando hacia {1}: quedan {0} pasos."
+
+msgid "Say where you are, by the map"
+msgstr "Decir dónde estás, según el mapa"
+
+
+#, python-brace-format
+msgid "{0} on"
+msgstr "{0} encendida"
+
+#, python-brace-format
+msgid "{0} off"
+msgstr "{0} apagada"
+
+#, python-brace-format
+msgid "{0} {1} of {2}"
+msgstr "{0} {1} de {2}"

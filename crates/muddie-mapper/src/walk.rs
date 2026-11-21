@@ -42,6 +42,11 @@ impl Walk {
         }
     }
 
+    /// How many moves are left, and the room they end in.
+    pub fn left(&self) -> (usize, Option<RoomId>) {
+        (self.steps.len(), self.steps.back().map(|step| step.to))
+    }
+
     /// The server reported the player in `room`; what to do next.
     pub fn entered(&mut self, room: RoomId) -> Progress {
         match self.steps.front() {
@@ -74,6 +79,7 @@ mod tests {
     fn walks_step_by_step_to_the_end() {
         let mut walk = Walk::new(1, route(&[("n", 2), ("e", 3)]));
         assert_eq!(walk.start(), Progress::Go("n".into()));
+        assert_eq!(walk.left(), (2, Some(3)));
         assert_eq!(walk.entered(1), Progress::Waiting);
         assert_eq!(walk.entered(2), Progress::Go("e".into()));
         assert_eq!(walk.entered(2), Progress::Waiting);
