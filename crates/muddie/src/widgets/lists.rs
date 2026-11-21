@@ -61,6 +61,12 @@ pub fn list_row(ui: &mut Ui, selected: bool, title: &str, detail: &str, active: 
     row.show(ui)
 }
 
+/// How tall a row of a list is, with no detail and with one.
+pub const ROW_SHORT: f32 = 34.0;
+pub const ROW_TALL: f32 = 48.0;
+/// How tall a folder's line is.
+pub const FOLDER_ROW: f32 = 32.0;
+
 /// How far in each level of folders is.
 pub const INDENT: f32 = 18.0;
 
@@ -274,7 +280,8 @@ pub fn folder_row(
     count: usize,
 ) -> Response {
     let theme = theme::current();
-    let (rect, response) = ui.allocate_exact_size(vec2(ui.available_width(), 32.0), Sense::click());
+    let (rect, response) =
+        ui.allocate_exact_size(vec2(ui.available_width(), FOLDER_ROW), Sense::click());
     // Open or closed, not ticked; how many it holds, and whether it is
     // off, as it is seen.
     response.widget_info(|| WidgetInfo::labeled(Role::TreeItem, ui.is_enabled(), name));

@@ -178,7 +178,12 @@ impl Tab {
                 }
                 let folder_on = self.editor.draft.folder_on(kind, path);
                 let open = !self.editor.folded.contains(&(kind, path.clone())) || self.narrowed();
-                let rect = self.folder_line(ui, kind, path, depth, (open, on && folder_on), count);
+                let renaming =
+                    (self.editor.renaming.as_ref()).is_some_and(|named| named.path == *path);
+                let rect = match out_of_sight(ui, widgets::FOLDER_ROW).filter(|_| !renaming) {
+                    Some(rect) => rect,
+                    None => self.folder_line(ui, kind, path, depth, (open, on && folder_on), count),
+                };
                 spots.push((Spot::Folder(path.clone()), rect));
                 if open {
                     self.branch(ui, tree, path, on && folder_on, spots);
@@ -187,8 +192,22 @@ impl Tab {
         }
         for (index, row) in tree.rows.iter().enumerate() {
             if row.folder == folder && self.wanted(row) {
-                let tags_on = row.tags.iter().all(|tag| self.editor.draft.tag_on(tag));
-                let rect = self.list_line(ui, row, index, depth, on && row.on && tags_on);
+                // Out of sight, only its room is taken: what is drawn is
+                // what can be seen, and the one chosen, which keeps the
+                // keyboard.
+                let tall = match row.detail.is_empty() && row.parts.is_empty() {
+                    true => widgets::ROW_SHORT,
+                    false => widgets::ROW_TALL,
+                };
+                let chosen = self.editor.selected[self.editor.section] == index;
+                let hidden = out_of_sight(ui, tall).filter(|_| !chosen);
+                let rect = match hidden {
+                    Some(rect) => rect,
+                    None => {
+                        let tags_on = row.tags.iter().all(|tag| self.editor.draft.tag_on(tag));
+                        self.list_line(ui, row, index, depth, on && row.on && tags_on)
+                    }
+                };
                 spots.push((Spot::Row(index), rect));
             }
         }
@@ -474,6 +493,17 @@ impl Tab {
         });
         pressed
     }
+}
+
+/// If a line `tall` high, where it would go next, is out of sight of the
+/// list, takes its room and returns where it is; else leaves it to be
+/// drawn.
+fn out_of_sight(ui: &mut egui::Ui, tall: f32) -> Option<egui::Rect> {
+    let at = egui::Rect::from_min_size(ui.cursor().min, egui::vec2(ui.available_width(), tall));
+    if ui.clip_rect().expand(tall).intersects(at) {
+        return None;
+    }
+    Some(ui.allocate_space(at.size()).1)
 }
 
 /// A part of what a rule does as it is shown: its picture, and its words.
