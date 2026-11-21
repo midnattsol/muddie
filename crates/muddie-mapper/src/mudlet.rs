@@ -8,9 +8,9 @@ use crate::{Colour, Exit, Pos, Room, RoomId, STANDARD_COLOURS};
 use std::collections::{BTreeMap, HashMap};
 
 /// Which reader of Mudlet's maps this is: raise it when the reader reads
-/// more of Mudlet's maps, so that maps read before are taken again. The
-/// first read no colours.
-pub const MUDLET_READER: u32 = 2;
+/// more of Mudlet's maps, so that maps read before are taken again. A map
+/// with none noted is taken again too.
+pub const MUDLET_READER: u32 = 1;
 
 /// The versions of Mudlet's format read here. 19 and later begin with the
 /// font of the map's symbols, in Qt's own format for fonts.

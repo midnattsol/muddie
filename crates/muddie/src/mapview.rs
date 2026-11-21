@@ -140,7 +140,7 @@ impl MapView {
 
     /// Shows one level of one area: the player's, unless the user chose
     /// another with the controls on top, with the rest of `walk`, if one
-    /// is under way. Clicking a room asks to walk there, right-clicking
+    /// is under way. Double-clicking a room asks to walk there, right-clicking
     /// opens its menu, dragging pans, the scroll wheel zooms, and
     /// Shift+drag moves a room to another cell.
     pub fn show(&mut self, ui: &mut Ui, map: &Map, walk: Option<&Walk>) -> Option<MapAction> {
@@ -237,7 +237,8 @@ impl MapView {
         if let Some(asked) = self.room_menu(&response, map, &area) {
             chosen = Some(asked);
         }
-        if chosen.is_none() && response.clicked() {
+        // Twice, so that a click to look is not a walk.
+        if chosen.is_none() && response.double_clicked() {
             chosen = pointed.map(|room| MapAction::Walk(room.id));
         }
         room_tip(response, pointed);

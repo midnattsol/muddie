@@ -1596,8 +1596,8 @@ msgstr "Muestra los complementos instalados"
 msgid "Lists these commands"
 msgstr "Muestra estos comandos"
 
-msgid "Click a room to walk there, right-click for more, Shift+drag to move it."
-msgstr "Haz clic en una sala para ir hasta ella, clic derecho para ver más opciones y Mayús+arrastrar para moverla."
+msgid "Double-click a room to walk there, right-click for more, Shift+drag to move it."
+msgstr "Haz doble clic en una sala para ir hasta ella, clic derecho para ver más opciones y Mayús+arrastrar para moverla."
 
 msgid "Colour when on"
 msgstr "Color al estar encendida"

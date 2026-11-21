@@ -499,7 +499,7 @@ names rooms instead, as the one of Reinos de Leyenda does: there the region
 is what a name begins with, as Anduar in "Anduar: Plaza Mayor".
 | Action | What it does |
 |---|---|
-| Click a room | Walks there, one step at a time, waiting for each to succeed |
+| Double-click a room | Walks there, one step at a time, waiting for each to succeed |
 | Right-click a room | Walk here, avoid in routes, tidy the area |
 | Drag | Moves the view; the wheel zooms |
 | Shift+drag a room | Moves it to another cell |

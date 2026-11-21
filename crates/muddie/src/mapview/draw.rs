@@ -333,8 +333,9 @@ pub(super) fn draw_names(painter: &Painter, visible: &[&Room], grid: &Grid, colo
 pub(super) fn room_tip(response: Response, pointed: Option<&Room>) {
     let Some(room) = pointed else {
         if response.hovered() && !response.dragged() {
-            let hint =
-                tr("Click a room to walk there, right-click for more, Shift+drag to move it.");
+            let hint = tr(
+                "Double-click a room to walk there, right-click for more, Shift+drag to move it.",
+            );
             response.on_hover_text_at_pointer(hint);
         }
         return;
