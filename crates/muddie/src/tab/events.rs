@@ -31,6 +31,7 @@ impl Tab {
     /// Does what one thing that arrived asks for. With `recording`, what
     /// the MUD sends besides text is kept to be looked at.
     fn handle_event(&mut self, event: Event, recording: bool) {
+        self.record(&event);
         match event {
             Event::Connected => self.on_connected(),
             Event::Line(line) | Event::Prompt(line) => self.on_line(line, recording),
@@ -60,6 +61,8 @@ impl Tab {
                 }
             }
             Event::Mxp(asked) => self.mxp(asked, recording),
+            // Recorded above, and nothing more.
+            Event::Wire { .. } => {}
             Event::Protocol { name, on } => {
                 match self.protocols.iter_mut().find(|(known, _)| *known == name) {
                     Some(known) => known.1 = on,
@@ -67,6 +70,56 @@ impl Tab {
                 }
             }
             Event::Disconnected(error) => self.on_disconnected(error),
+        }
+    }
+
+    /// Puts what arrived in the record of the run, if there is one.
+    fn record(&self, event: &Event) {
+        use crate::capture::{debug, level, protocol};
+        if level().is_none() {
+            return;
+        }
+        let session = self.title();
+        match event {
+            Event::Gmcp { package, data } => protocol(
+                &session,
+                "GMCP",
+                true,
+                format!("{package} {data}").trim_end(),
+            ),
+            Event::Msdp { variable, data } => {
+                protocol(&session, "MSDP", true, &format!("{variable} {data}"))
+            }
+            Event::Mssp(status) => {
+                let status: Vec<String> = status
+                    .iter()
+                    .map(|(name, value)| format!("{name}={value}"))
+                    .collect();
+                protocol(&session, "MSSP", true, &status.join(" "))
+            }
+            Event::Other {
+                protocol: name,
+                data,
+                ..
+            } => protocol(&session, name, true, data),
+            Event::Wire {
+                outgoing,
+                protocol: name,
+                text,
+            } => protocol(&session, name, !outgoing, text),
+            Event::Protocol { name, on } => protocol(
+                &session,
+                "TELNET",
+                true,
+                &format!("{name} {}", if *on { "in use" } else { "not in use" }),
+            ),
+            Event::Line(line) | Event::Prompt(line) => debug(&session, "TEXT", &line.text()),
+            Event::Sent(text) => debug(&session, "SENT", text),
+            Event::Connected => debug(&session, "CONNECTED", &self.host),
+            Event::Disconnected(error) => {
+                debug(&session, "DISCONNECTED", error.as_deref().unwrap_or(""))
+            }
+            _ => {}
         }
     }
 

@@ -372,3 +372,36 @@ fn sending_closes_the_partial_and_echoes_unless_hidden() {
     pipeline.send_line("secret", &mut out, &mut events);
     assert_eq!(events, []);
 }
+
+#[test]
+fn while_tracing_what_goes_over_telnet_either_way_is_told() {
+    let mut pipeline = Pipeline::new(Config::default());
+    let told = |pipeline: &mut Pipeline| {
+        let mut events = Vec::new();
+        pipeline.take_told(&mut events);
+        events
+    };
+    // Not traced: nothing is told.
+    receive(&mut pipeline, &[IAC, WILL, opt::GMCP]);
+    assert!(told(&mut pipeline).is_empty());
+    pipeline.set_trace(true);
+    let wire = |outgoing: bool, protocol: &str, text: &str| Event::Wire {
+        outgoing,
+        protocol: protocol.to_owned(),
+        text: text.to_owned(),
+    };
+    // The server offers an option: what it offered and what was answered.
+    receive(&mut pipeline, &[IAC, WILL, opt::MSDP]);
+    let said = told(&mut pipeline);
+    assert_eq!(said[0], wire(false, "TELNET", "WILL MSDP"));
+    assert!(said.contains(&wire(true, "TELNET", "DO MSDP")), "{said:?}");
+    // What is sent by GMCP, and a line typed, which is not told here.
+    let mut out = Vec::new();
+    pipeline.send_gmcp("Core.Hello", r#"{"client": "muddie"}"#, &mut out);
+    let mut events = Vec::new();
+    pipeline.send_line("look", &mut out, &mut events);
+    assert_eq!(
+        told(&mut pipeline),
+        [wire(true, "GMCP", r#"Core.Hello {"client": "muddie"}"#)]
+    );
+}

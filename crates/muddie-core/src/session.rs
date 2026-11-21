@@ -56,7 +56,8 @@ pub enum Command {
     /// Send a telnet no-operation, so an idle connection is not dropped.
     KeepAlive,
     /// Tell, or stop telling, what arrives of the protocols that are
-    /// otherwise only passed over, for the debugging view.
+    /// otherwise only passed over, and what goes over telnet either way,
+    /// for the debugging view and the capture of the protocols.
     Trace(bool),
     Disconnect,
 }
@@ -200,6 +201,7 @@ async fn drive(
                 }
             },
         }
+        pipeline.take_told(&mut batch);
         for event in batch.drain(..) {
             if events.send(event).is_err() {
                 return Ok(());

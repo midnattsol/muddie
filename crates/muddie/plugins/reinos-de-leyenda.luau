@@ -78,7 +78,9 @@ local function settle()
     due = false
     local step = seen
     seen = {}
-    map.arrive(step)
+    local here = map.arrive(step)
+    -- For the record of a run started with --debug.
+    log(`Reinos: name={step.name} exits={table.concat(step.exits or {}, ",")} came={step.came} -> {here}`)
 end
 
 local function soon()

@@ -58,6 +58,26 @@ impl Tab {
         }
     }
 
+    /// Puts where the map has the player in the record of the run.
+    pub(super) fn record_whereabouts(&self) {
+        if crate::capture::level() != Some(crate::capture::Level::Debug) {
+            return;
+        }
+        let map = self.map.borrow();
+        let said = match map.whereabouts() {
+            muddie_mapper::Located::Here(id) => {
+                let name = map.room(id).map_or("", |room| room.name.as_str());
+                format!("here #{id} {name}")
+            }
+            muddie_mapper::Located::Unsure(rooms) => {
+                let first: Vec<String> = rooms.iter().take(10).map(|id| format!("#{id}")).collect();
+                format!("unsure among {}: {}", rooms.len(), first.join(" "))
+            }
+            muddie_mapper::Located::Nowhere => "nowhere".to_owned(),
+        };
+        crate::capture::debug(&self.title(), "MAP", &said);
+    }
+
     /// Why the map cannot say where the player is, and what to do.
     pub(super) fn unknown_whereabouts(&self) -> String {
         crate::mapview::unknown_whereabouts(&self.map.borrow())

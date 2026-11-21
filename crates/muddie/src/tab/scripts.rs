@@ -228,8 +228,14 @@ impl Tab {
                     self.set_gauge(&name, level, look);
                 }
                 Action::Walk(room) => self.walk_to(room),
-                Action::Entered(room) => self.arrived_in(room),
-                Action::LostTrack => self.lost_track(),
+                Action::Entered(room) => {
+                    self.record_whereabouts();
+                    self.arrived_in(room)
+                }
+                Action::LostTrack => {
+                    self.record_whereabouts();
+                    self.lost_track()
+                }
                 Action::StopWalk => {
                     self.map.borrow_mut().moves_failed();
                     if self.walk.take().is_some() {
@@ -278,7 +284,9 @@ impl Tab {
                     }
                 }
                 Action::StopSounds => self.sound.stop_all(),
+                Action::Log(text) => crate::capture::debug(&self.title(), "LOG", &text),
                 Action::Error(message) => {
+                    crate::capture::debug(&self.title(), "SCRIPT", &message);
                     self.script_errors.push(message.clone());
                     let message = trf("Script error: {0}", &[&message]);
                     message.lines().for_each(|line| self.refuse(line));

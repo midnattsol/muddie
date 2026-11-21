@@ -349,6 +349,15 @@ impl Tab {
         }
         app.load_layout();
         app.settings_changed(settings);
+        if let Some(path) = crate::capture::path() {
+            app.toast(
+                &trf(
+                    "This run is recorded in {0}",
+                    &[&path.display().to_string()],
+                ),
+                false,
+            );
+        }
         app
     }
 

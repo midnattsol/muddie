@@ -30,6 +30,7 @@ impl Tab {
     /// Says something about work done aside, over the corner of the
     /// window: neither among the lines of the game nor in the command line.
     pub(super) fn toast(&mut self, text: &str, problem: bool) {
+        crate::capture::debug(&self.title(), "NOTE", text);
         self.keep_notice(text, problem, true);
         self.voice.say(text);
     }
@@ -37,6 +38,7 @@ impl Tab {
     /// Shows and speaks a message, kept as one of something that could not
     /// be done if it is a `problem`.
     pub(super) fn say(&mut self, text: &str, problem: bool) {
+        crate::capture::debug(&self.title(), "NOTE", text);
         let problem = problem || (self.palette.answering && self.palette.answer_failed);
         self.remember_notice(text, problem);
         // What a command typed with `/` says is its answer, shown at the

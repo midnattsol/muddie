@@ -50,6 +50,14 @@ pub enum Event {
     },
     /// An MXP tag asked something of the client besides showing text.
     Mxp(crate::ansi::Mxp),
+    /// What went over telnet besides text, told while tracing: options
+    /// offered and answered either way, and what the client sent with
+    /// them (GMCP, MSDP and the rest), by the protocol it went by.
+    Wire {
+        outgoing: bool,
+        protocol: String,
+        text: String,
+    },
     /// The server offered a protocol, or withdrew it; `on` says whether
     /// it is now in use.
     Protocol {
@@ -66,6 +74,8 @@ const INFLATE_BUFFER: usize = 16 * 1024;
 pub struct Pipeline {
     /// Whether what is otherwise made nothing of is told, for debugging.
     trace: bool,
+    /// What went over telnet while tracing, to be told with the rest.
+    told: Vec<Event>,
     /// Whether the server has been asked for all the MSDP variables it
     /// said it can report.
     msdp_asked: bool,
@@ -91,6 +101,7 @@ impl Pipeline {
     pub fn new(config: Config) -> Self {
         Self {
             trace: false,
+            told: Vec::new(),
             msdp_asked: false,
             parser: Parser::new(),
             decoder: Decoder::for_label(&config.encoding).unwrap_or_default(),
@@ -142,6 +153,9 @@ impl Pipeline {
     /// Compresses what was appended to `out` from `start` on, if outgoing
     /// compression is on. Everything the client sends goes through here.
     fn finish_outgoing(&mut self, out: &mut Vec<u8>, start: usize) {
+        if self.trace {
+            self.told.extend(wire(&out[start..], true));
+        }
         // Compression turned on while this buffer was being filled only
         // covers what came after the message that announced it.
         let from = self.deflate_from.take().unwrap_or(start);
@@ -314,6 +328,9 @@ impl Pipeline {
                 data: String::from_utf8_lossy(payload).into_owned(),
             });
         }
+        if self.trace && matches!(telnet_event, telnet::Event::Negotiate(..)) {
+            self.told.extend(wire_event(telnet_event.clone(), false));
+        }
         let signal = self.negotiator.handle(&telnet_event, reply);
         if let telnet::Event::Negotiate(_, option) = telnet_event {
             events.push(Event::Protocol {
@@ -395,6 +412,12 @@ impl Pipeline {
 
     /// Starts or stops telling what arrives of the protocols this client
     /// only passes over: it costs nothing while nobody is looking.
+    /// Moves what went over telnet since last asked, while tracing, to
+    /// `events`.
+    pub fn take_told(&mut self, events: &mut Vec<Event>) {
+        events.append(&mut self.told);
+    }
+
     pub fn set_trace(&mut self, trace: bool) {
         self.trace = trace;
         self.assembler.keep_tags(trace);
@@ -447,3 +470,39 @@ impl Pipeline {
 
 #[cfg(test)]
 mod tests;
+
+/// What `bytes` the client wrote carry besides text, as it is told.
+fn wire(bytes: &[u8], outgoing: bool) -> Vec<Event> {
+    let mut parsed = Vec::new();
+    telnet::Parser::new().feed(bytes, &mut parsed);
+    (parsed.into_iter())
+        .filter_map(|event| wire_event(event, outgoing))
+        .collect()
+}
+
+/// One thing of telnet as it is told: an option offered or answered, or
+/// what was sent with one, in the words of its protocol.
+fn wire_event(event: telnet::Event, outgoing: bool) -> Option<Event> {
+    let (protocol, text) = match event {
+        telnet::Event::Negotiate(verb, option) => {
+            let verb = format!("{verb:?}").to_uppercase();
+            ("TELNET".to_owned(), format!("{verb} {}", opt::name(option)))
+        }
+        telnet::Event::Subneg(option, payload) => {
+            let text = match option {
+                opt::MSDP => (msdp::parse(&payload).into_iter())
+                    .map(|(variable, data)| format!("{variable} {data}"))
+                    .collect::<Vec<_>>()
+                    .join("; "),
+                _ => String::from_utf8_lossy(&payload).into_owned(),
+            };
+            (opt::name(option), text)
+        }
+        telnet::Event::Data(_) | telnet::Event::Command(_) => return None,
+    };
+    Some(Event::Wire {
+        outgoing,
+        protocol,
+        text,
+    })
+}

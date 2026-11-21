@@ -5,6 +5,7 @@ mod app;
 mod autosave;
 mod brand;
 mod bundled;
+mod capture;
 mod complete;
 mod history;
 mod i18n;
@@ -40,7 +41,13 @@ use crate::tab::Startup;
 
 const USAGE: &str =
     "usage: muddie [--speech] [--script FILE]... [--profile NAME | HOST PORT [--tls] [--insecure]]
-       muddie --version";
+              [--capture-protocols | --debug]
+       muddie --version
+
+  --capture-protocols  records everything that goes over the protocols (GMCP, MSDP,
+                       telnet...) to a file, each line under its protocol's name
+  --debug              records that, and the game's text, what is sent, what the
+                       client says, the scripts' errors and logs, and the map";
 
 fn parse_args(args: &[String]) -> Result<Startup, String> {
     let mut startup = Startup {
@@ -85,6 +92,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("muddie {}", env!("CARGO_PKG_VERSION"));
         println!("speech: {}", muddie_speech::built_in().join(", "));
         return Ok(());
+    }
+    // Recording, if asked: said where, before anything happens.
+    let level = match (
+        args.iter().any(|arg| arg == "--debug"),
+        args.iter().any(|arg| arg == "--capture-protocols"),
+    ) {
+        (true, _) => Some(capture::Level::Debug),
+        (false, true) => Some(capture::Level::Protocols),
+        (false, false) => None,
+    };
+    let args: Vec<String> = (args.into_iter())
+        .filter(|arg| arg != "--debug" && arg != "--capture-protocols")
+        .collect();
+    if let Some(level) = level {
+        match capture::start(level) {
+            Ok(path) => eprintln!("muddie: recording to {}", path.display()),
+            Err(error) => eprintln!("muddie: cannot record: {error}"),
+        }
     }
     let startup = match parse_args(&args) {
         Ok(startup) => startup,
