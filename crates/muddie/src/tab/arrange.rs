@@ -269,6 +269,16 @@ impl Tab {
             ..widgets::ListRow::default()
         };
         let line = row.show(ui);
+        // Its side, which its caption shows, said with it: the arrows go
+        // from one side's panels to the next without the caption.
+        let side = side_name(panel.side);
+        (ui.ctx()).accesskit_node_builder(line.id, |node| {
+            let said = match node.description() {
+                Some(about) if !about.is_empty() => format!("{about}, {side}"),
+                _ => side.to_owned(),
+            };
+            node.set_description(said);
+        });
         widgets::hold_arrows(ui, &line);
         // Gone to by the keys, it is brought into sight.
         if chosen && std::mem::take(&mut self.arrange.reveal) {
@@ -438,6 +448,8 @@ impl Tab {
             .collect();
         let place = beside.iter().position(|other| other.id == id).unwrap_or(0);
         let (mut name, mut visible, mut side) = (panel.name.clone(), panel.visible, panel.side);
+        let was_away = self.layout.hidden.contains(&panel.side);
+        let mut away = was_away;
         let mut size = panel.size;
         let mut sharing = (beside.iter())
             .find(|other| other.id != id && panel.stack != 0 && other.stack == panel.stack)
@@ -454,6 +466,14 @@ impl Tab {
                 widgets::row_field(ui, &mut name, tr("Name"), 220.0)
             });
             widgets::switch_setting(ui, &mut visible, tr("Shown"), None);
+            widgets::switch_setting(
+                ui,
+                &mut away,
+                tr("Its side put away"),
+                Some(tr(
+                    "The whole side is kept as a thin strip, to bring back as it was.",
+                )),
+            );
             let sides: Vec<(Side, String)> = SIDES
                 .iter()
                 .map(|side| (*side, side_name(*side).to_owned()))
@@ -547,6 +567,9 @@ impl Tab {
             panel.visible = visible;
             panel.channels = channels;
         }
+        if away != was_away {
+            self.toggle_side(panel.side);
+        }
         if size != panel.size {
             let size = size.round();
             (self.layout.panels.iter_mut())
@@ -575,6 +598,8 @@ impl Tab {
             self.remove_panel(index);
             self.voice
                 .say_now(&trf("{0} removed.", &[&panel.shown_name()]));
+            // What had the keyboard is gone: it goes back to the list.
+            self.arrange.focus = true;
         }
     }
 
@@ -623,9 +648,8 @@ impl Tab {
             panel.stack = 0;
             panel.weight = 1.0;
             (panel.side, panel.size) = match panel.kind {
-                PanelKind::Map => (map_side, 330.0),
-                PanelKind::Text => (Side::Right, 330.0),
-                PanelKind::Gauges => (Side::Bottom, 96.0),
+                PanelKind::Map => (map_side, layout::BESIDE),
+                kind => kind.home(),
             };
         }
         let rank = |panel: &PanelSpec| match panel.kind {

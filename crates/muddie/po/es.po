@@ -2273,3 +2273,9 @@ msgstr "Dibujo de los paneles de la ventana"
 
 msgid "Arrange the panels…"
 msgstr "Organizar los paneles…"
+
+msgid "Its side put away"
+msgstr "Su lado recogido"
+
+msgid "The whole side is kept as a thin strip, to bring back as it was."
+msgstr "Todo el lado queda como una tira fina, para sacarlo tal como estaba."

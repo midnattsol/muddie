@@ -32,6 +32,22 @@ pub enum Kind {
     Gauges,
 }
 
+/// How wide the panels beside the output are made, and how tall those
+/// above and below it; the gauges, a row of them.
+pub(super) const BESIDE: f32 = 330.0;
+pub(super) const ACROSS: f32 = 120.0;
+pub(super) const GAUGES_HEIGHT: f32 = 96.0;
+
+impl Kind {
+    /// Where a panel of this kind goes when it is made, and its size there.
+    pub(super) fn home(self) -> (Side, f32) {
+        match self {
+            Self::Text | Self::Map => (Side::Right, BESIDE),
+            Self::Gauges => (Side::Bottom, GAUGES_HEIGHT),
+        }
+    }
+}
+
 /// The side of the output a panel is on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -168,8 +184,15 @@ impl Default for Layout {
             columns_full: false,
             hidden: Vec::new(),
             panels: vec![
-                panel(1, "Map", Kind::Map, Side::Right, 330.0, false),
-                panel(2, "Gauges", Kind::Gauges, Side::Bottom, 96.0, false),
+                panel(1, "Map", Kind::Map, Side::Right, BESIDE, false),
+                panel(
+                    2,
+                    "Gauges",
+                    Kind::Gauges,
+                    Side::Bottom,
+                    GAUGES_HEIGHT,
+                    false,
+                ),
             ],
         }
     }

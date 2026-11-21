@@ -67,11 +67,12 @@ impl Tab {
                 .find(|name| !taken(name))
                 .unwrap_or_default()
         };
-        let (name, side, size) = match kind {
-            Kind::Text => (free("Panel", false), Side::Right, 280.0),
-            Kind::Map => ("Map".to_owned(), Side::Right, 330.0),
-            Kind::Gauges => (free("Gauges", true), Side::Bottom, 96.0),
+        let name = match kind {
+            Kind::Text => free("Panel", false),
+            Kind::Map => "Map".to_owned(),
+            Kind::Gauges => free("Gauges", true),
         };
+        let (side, size) = kind.home();
         self.layout.panels.push(PanelSpec {
             id,
             name,
@@ -104,17 +105,7 @@ impl Tab {
                     self.layout.reveal(side);
                 }
             }
-            None if shown => {
-                let id = self.layout.next_id();
-                self.layout.panels.push(PanelSpec {
-                    id,
-                    name: "Map".to_owned(),
-                    kind: Kind::Map,
-                    size: 330.0,
-                    ..PanelSpec::default()
-                });
-                self.layout.reveal(PanelSpec::default().side);
-            }
+            None if shown => self.add_panel(Kind::Map),
             None => {}
         }
     }

@@ -558,6 +558,17 @@ fn panels_are_laid_out_with_the_keyboard() {
     harness.run_steps(1);
     harness.state_mut().tab_mut().open_arrange(None);
     harness.run_steps(2);
+    // Each says the side it is on, which the arrows go past.
+    let map = harness.get_by_role_and_label(egui::accesskit::Role::ListItem, "Map");
+    assert_eq!(
+        map.accesskit_node().description().as_deref(),
+        Some("At the right")
+    );
+    let minimap = harness.get_by_role_and_label(egui::accesskit::Role::ListItem, "Minimapa");
+    assert_eq!(
+        minimap.accesskit_node().description().as_deref(),
+        Some("Text, At the right")
+    );
     let focused = || harness.state().tab().arrange.chosen;
     let map = focused();
     harness.key_press(Key::ArrowDown);

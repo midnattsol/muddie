@@ -154,7 +154,7 @@ impl Tab {
             .map_or(Side::Right, |map| map.side);
         let size = (self.layout.panels.iter())
             .find(|panel| panel.side == side)
-            .map_or(330.0, |panel| panel.size);
+            .map_or(BESIDE, |panel| panel.size);
         self.layout.panels.push(PanelSpec {
             id,
             name: name.to_owned(),

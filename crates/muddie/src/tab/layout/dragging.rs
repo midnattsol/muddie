@@ -146,8 +146,8 @@ impl Tab {
         moved.size = match there {
             Some(panel) => panel.size,
             None if moved.side.is_beside() == side.is_beside() => moved.size,
-            None if side.is_beside() => 300.0,
-            None => 120.0,
+            None if side.is_beside() => BESIDE,
+            None => ACROSS,
         };
         moved.side = side;
         self.layout.reveal(side);
