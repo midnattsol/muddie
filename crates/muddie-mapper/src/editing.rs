@@ -4,6 +4,18 @@
 use super::*;
 
 impl Map {
+    /// Takes `rooms` in place of every room there is, all at once and kept
+    /// in one go: a map brought from elsewhere, with the room the player
+    /// was in, if it is among them.
+    pub fn replace_all(&mut self, rooms: Vec<Room>, current: Option<RoomId>) -> Result<(), Error> {
+        self.clear()?;
+        let ids: Vec<RoomId> = rooms.iter().map(|room| room.id).collect();
+        self.rooms = rooms.into_iter().map(|room| (room.id, room)).collect();
+        self.current = current.filter(|id| self.rooms.contains_key(id));
+        self.keep(ids);
+        self.flush()
+    }
+
     /// Moves a room on the map grid. Returns false if there is no such room.
     pub fn move_room(&mut self, id: RoomId, pos: Pos) -> Result<bool, Error> {
         self.edit_room(id, |room| room.pos = pos)

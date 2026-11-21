@@ -7,6 +7,7 @@ use std::path::Path;
 
 mod editing;
 mod info;
+mod mudlet;
 mod placing;
 mod relayout;
 mod routes;
@@ -16,6 +17,7 @@ mod tests;
 mod walk;
 
 pub use info::RoomInfo;
+pub use mudlet::{MudletMap, read_mudlet_map};
 pub use rusqlite::Error;
 pub use walk::{Progress, Walk};
 
