@@ -31,7 +31,7 @@ pub use rows::{clock, links, server_job};
 const TAIL_LINES: usize = 5;
 
 /// How many rows a step of the mouse wheel moves the scrollback.
-const WHEEL_ROWS: f32 = 3.0;
+const WHEEL_ROWS: f32 = 5.0;
 
 /// What clicking a link of the server's asks for.
 #[derive(Debug, Clone, PartialEq)]

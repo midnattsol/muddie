@@ -53,6 +53,7 @@ impl App {
                             ),
                             ("Ctrl+A", tr("Select all visible items")),
                             ("Alt+↑  Alt+↓", tr("Move up or down")),
+                            ("Alt+←", tr("Move out of its folder")),
                             ("F2", tr("Rename")),
                             (tr("Del"), tr("Delete")),
                             ("Ctrl+Z", tr("Undo")),

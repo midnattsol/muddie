@@ -1096,3 +1096,187 @@ fn a_deletions_bar_goes_once_something_else_changes() {
     harness.run_steps(2);
     assert!(harness.query_by_label("Undo").is_none());
 }
+
+/// Moves the pointer, pressing or letting go of its button if asked.
+fn pointer(harness: &mut Harness<'_, App>, at: egui::Pos2, pressed: Option<bool>) {
+    harness.event(egui::Event::PointerMoved(at));
+    if let Some(pressed) = pressed {
+        harness.event(egui::Event::PointerButton {
+            pos: at,
+            button: egui::PointerButton::Primary,
+            pressed,
+            modifiers: Modifiers::NONE,
+        });
+    }
+    harness.run_steps(2);
+}
+
+/// Drags from one place to another, and lets go there.
+fn drag(harness: &mut Harness<'_, App>, from: egui::Pos2, to: egui::Pos2) {
+    pointer(harness, from, Some(true));
+    pointer(harness, from + egui::vec2(0.0, 12.0), None);
+    pointer(harness, to, None);
+    pointer(harness, to, Some(false));
+}
+
+/// Aliases in a folder in a folder, and a folder beside it.
+fn nested_folders<'a>() -> Harness<'a, App> {
+    let mut harness = window(None);
+    harness.set_size(egui::vec2(1400.0, 900.0));
+    let app = harness.state_mut().tab_mut();
+    for (name, folder) in [
+        ("Alpha", "Travel/Roads"),
+        ("Beta", "Travel"),
+        ("Gamma", "Chat"),
+    ] {
+        app.rules.aliases.push(alias(&name.to_lowercase(), |rule| {
+            rule.name = name.into();
+            rule.folder = folder.into();
+        }));
+    }
+    app.open_automation(automation::ALIASES);
+    harness.run_steps(3);
+    harness
+}
+
+fn line_of(harness: &Harness<'_, App>, name: &str) -> egui::Rect {
+    harness
+        .get_by_role_and_label(egui::accesskit::Role::TreeItem, name)
+        .rect()
+}
+
+/// A folder in a folder is dragged out of every folder onto the strip
+/// that is shown for it over the list; let go out of the list, or onto
+/// itself, nothing moves.
+#[test]
+fn a_nested_folder_is_dragged_to_the_top_level() {
+    let mut harness = nested_folders();
+    let folders = |harness: &Harness<'_, App>| harness.state().tab().section_folders(Kind::Alias);
+    let roads = line_of(&harness, "Roads").center();
+    // Let go over the details: nowhere, nothing moves.
+    drag(&mut harness, roads, egui::pos2(1000.0, 400.0));
+    assert!(folders(&harness).contains(&"Travel/Roads".to_owned()));
+    // Onto itself: nothing either.
+    drag(&mut harness, roads, roads + egui::vec2(4.0, 2.0));
+    assert!(folders(&harness).contains(&"Travel/Roads".to_owned()));
+    // Held, the strip to the top level is shown; let go on it, it is out.
+    pointer(&mut harness, roads, Some(true));
+    pointer(&mut harness, roads + egui::vec2(0.0, 12.0), None);
+    // Over the toolbar, where the search is.
+    let strip = harness.get_by_label("Search").rect().center();
+    pointer(&mut harness, strip, None);
+    pointer(&mut harness, strip, Some(false));
+    assert!(
+        folders(&harness).contains(&"Roads".to_owned()),
+        "{:?}",
+        folders(&harness)
+    );
+    let app = harness.state().tab();
+    assert_eq!(app.editor.draft.aliases[0].folder, "Roads");
+    assert_eq!(app.editor.folder.as_deref(), Some("Roads"));
+}
+
+/// Let go on the top edge of a folder, a folder goes before it, at its
+/// level; and onto its middle, into it.
+#[test]
+fn a_folder_dragged_to_a_folders_edge_goes_beside_it() {
+    let mut harness = nested_folders();
+    let folders = |harness: &Harness<'_, App>| harness.state().tab().section_folders(Kind::Alias);
+    let roads = line_of(&harness, "Roads").center();
+    let chat = line_of(&harness, "Chat");
+    drag(
+        &mut harness,
+        roads,
+        chat.center_top() + egui::vec2(0.0, 2.0),
+    );
+    assert_eq!(folders(&harness), ["Roads", "Chat", "Travel"]);
+    let roads = line_of(&harness, "Roads").center();
+    let travel = line_of(&harness, "Travel").center();
+    drag(&mut harness, roads, travel);
+    let now = folders(&harness);
+    assert!(
+        now.contains(&"Travel/Roads".to_owned()) && !now.contains(&"Roads".to_owned()),
+        "{now:?}"
+    );
+}
+
+/// By the keys, a folder goes up and down among those beside it, and out
+/// of the folder it is in, which is said; and from its menu, into another.
+#[test]
+fn folders_are_moved_by_the_keys() {
+    let mut harness = nested_folders();
+    let folders = |harness: &Harness<'_, App>| harness.state().tab().section_folders(Kind::Alias);
+    let app = harness.state_mut().tab_mut();
+    app.voice.force_voice();
+    app.choose_folder("Travel/Roads");
+    harness.run_steps(2);
+    harness
+        .get_by_role_and_label(egui::accesskit::Role::TreeItem, "Roads")
+        .focus();
+    harness.run_steps(2);
+    harness.key_press_modifiers(Modifiers::ALT, Key::ArrowLeft);
+    harness.run_steps(2);
+    assert!(folders(&harness).contains(&"Roads".to_owned()));
+    let app = harness.state().tab();
+    assert_eq!(
+        app.voice.said.last().map(String::as_str),
+        Some("Moved to the top level.")
+    );
+    let roads = harness.get_by_role_and_label(egui::accesskit::Role::TreeItem, "Roads");
+    assert!(
+        roads.accesskit_node().is_focused(),
+        "the keyboard stays on it"
+    );
+    // Up, among those at the top level.
+    let before = folders(&harness);
+    harness.key_press_modifiers(Modifiers::ALT, Key::ArrowUp);
+    harness.run_steps(2);
+    let after = folders(&harness);
+    let place = |list: &[String]| list.iter().position(|folder| folder == "Roads");
+    assert_eq!(
+        place(&after),
+        place(&before).map(|at| at - 1),
+        "{before:?} {after:?}"
+    );
+    // From its menu, into Chat.
+    harness
+        .get_by_role_and_label(egui::accesskit::Role::TreeItem, "Roads")
+        .click_secondary();
+    harness.run_steps(2);
+    harness
+        .get_by_role_and_label(egui::accesskit::Role::MenuItem, "Chat")
+        .click();
+    harness.run_steps(2);
+    assert!(folders(&harness).contains(&"Chat/Roads".to_owned()));
+    let app = harness.state().tab();
+    assert_eq!(
+        app.voice.said.last().map(String::as_str),
+        Some("Moved into Chat.")
+    );
+}
+
+/// Held over a closed folder for a moment, what is dragged opens it; and
+/// Escape gives the drag up, nothing moved.
+#[test]
+fn a_closed_folder_opens_under_what_is_dragged_and_escape_gives_up() {
+    let mut harness = nested_folders();
+    let app = harness.state_mut().tab_mut();
+    app.fold(Kind::Alias, "Chat", true);
+    harness.run_steps(2);
+    let travel = line_of(&harness, "Travel").center();
+    let chat = line_of(&harness, "Chat").center();
+    pointer(&mut harness, travel, Some(true));
+    pointer(&mut harness, travel + egui::vec2(0.0, 12.0), None);
+    pointer(&mut harness, chat, None);
+    std::thread::sleep(std::time::Duration::from_millis(800));
+    pointer(&mut harness, chat, None);
+    assert!(
+        harness.state().tab().editor.folded.is_empty(),
+        "the folder opened"
+    );
+    harness.key_press(Key::Escape);
+    harness.run_steps(2);
+    pointer(&mut harness, chat, Some(false));
+    let folders = harness.state().tab().section_folders(Kind::Alias);
+    assert!(folders.contains(&"Travel".to_owned()), "{folders:?}");
+}

@@ -122,9 +122,13 @@ impl Tab {
         let folders = kind
             .map(|kind| self.section_folders(kind))
             .unwrap_or_default();
+        let toolbar = ui.cursor().top();
         self.list_toolbar(ui, &folders);
+        let toolbar =
+            egui::Rect::from_x_y_ranges(ui.max_rect().x_range(), toolbar..=ui.cursor().top());
         ui.add_space(4.0);
         let rows = self.automation_rows();
+        let top = self.top_level_strip(ui, &rows, toolbar);
         let items = self.tree_items(&rows, &folders, kind);
         self.editor.visible = items.iter().map(|item| item.spot.clone()).collect();
         // A folder chosen that is no longer shown (deleted, or narrowed
@@ -135,7 +139,7 @@ impl Tab {
         {
             self.editor.folder = None;
         }
-        self.moved_by_keys(ui, &rows);
+        self.moved_by_keys(ui, &rows, &folders);
         self.choosing_keys(ui, &items);
         egui::ScrollArea::vertical()
             .auto_shrink(false)
@@ -197,7 +201,7 @@ impl Tab {
                 // What is under the last row takes a drop at the top level.
                 let rest = ui.available_rect_before_wrap();
                 ui.allocate_rect(rest, egui::Sense::hover());
-                self.drag_in_list(ui, &spots, &rows);
+                self.drag_in_list(ui, &spots, &rows, top);
             });
     }
 
@@ -457,6 +461,78 @@ impl Tab {
         }
     }
 
+    /// While what is dragged is in a folder, a strip to let it go on, to
+    /// take it out of every folder: over the toolbar, of no use while
+    /// dragging, so that nothing in the list moves from under the pointer.
+    /// Returns where it is.
+    fn top_level_strip(
+        &self,
+        ui: &egui::Ui,
+        rows: &[Row],
+        toolbar: egui::Rect,
+    ) -> Option<egui::Rect> {
+        let nested = match &self.editor.dragged {
+            Some(Dragged::Folder(path)) => !parent_of(path).is_empty(),
+            Some(Dragged::Row(index)) => rows.get(*index).is_some_and(|row| !row.folder.is_empty()),
+            None => false,
+        };
+        if !nested {
+            return None;
+        }
+        let theme = theme::current();
+        let rect = toolbar;
+        let over = (ui.ctx().pointer_latest_pos()).is_some_and(|at| rect.contains(at));
+        let fill = match over {
+            true => theme::mix(theme.field, theme.accent, 0.18),
+            false => theme.field,
+        };
+        let edge = if over { theme.accent } else { theme.border };
+        let round = egui::CornerRadius::same(8);
+        ui.painter().rect_filled(rect, round, fill);
+        let stroke = egui::Stroke::new(1.0, edge);
+        ui.painter()
+            .rect_stroke(rect, round, stroke, egui::StrokeKind::Inside);
+        ui.painter().text(
+            rect.center(),
+            egui::Align2::CENTER_CENTER,
+            tr("Move to the top level"),
+            theme::font(Weight::Medium, 12.5),
+            theme.text_dim,
+        );
+        Some(rect)
+    }
+
+    /// The folders a folder can be moved into: none of its own, nor
+    /// itself.
+    pub(in crate::tab) fn folders_for(&self, kind: Kind, path: &str) -> Vec<String> {
+        (self.section_folders(kind).into_iter())
+            .filter(|folder| Self::folder_fits(path, folder))
+            .collect()
+    }
+
+    /// Moves a folder into another, or out of every one, from its menu or
+    /// its details, and says where; the keyboard is put on it.
+    pub(in crate::tab) fn folder_moved_to(
+        &mut self,
+        ui: &egui::Ui,
+        kind: Kind,
+        path: &str,
+        parent: &str,
+    ) {
+        if parent_of(path) == parent {
+            return;
+        }
+        if let Some(now) = self.put_folder(kind, path, parent, None) {
+            self.choose_folder(&now);
+            self.editor.reveal = true;
+            if widgets::keyboard_in_use(ui.ctx()) {
+                let id = item_id(self.editor.section, &Spot::Folder(now));
+                ui.memory_mut(|memory| memory.request_focus(id));
+            }
+            self.say_moved(parent);
+        }
+    }
+
     /// What can be done with a folder, from its menu.
     fn folder_menu(&mut self, ui: &mut egui::Ui, kind: Kind, path: &str) {
         widgets::menu_width(ui);
@@ -467,6 +543,25 @@ impl Tab {
         if widgets::menu_item(ui, tr("New folder inside"), "").clicked() {
             self.new_folder(kind, path);
             ui.close();
+        }
+        widgets::menu_separator(ui);
+        widgets::menu_heading(ui, tr("Move to folder"));
+        let here = parent_of(path).to_owned();
+        let places = std::iter::once(String::new()).chain(self.folders_for(kind, path));
+        for place in places.filter(|place| *place != here) {
+            let depth = place.matches('/').count();
+            let label = match place.as_str() {
+                "" => tr("None").to_owned(),
+                place => format!(
+                    "{}{}",
+                    "    ".repeat(depth),
+                    place.rsplit('/').next().unwrap_or(place)
+                ),
+            };
+            if widgets::menu_item(ui, &label, "").clicked() {
+                self.folder_moved_to(ui, kind, path, &place);
+                ui.close();
+            }
         }
         widgets::menu_separator(ui);
         if widgets::menu_item(ui, tr("Delete folder"), tr("Del")).clicked() {
@@ -524,23 +619,44 @@ impl Tab {
         line.rect
     }
 
-    /// Alt and an arrow move the one chosen up or down among those in its
-    /// folder, for those who do not drag.
-    fn moved_by_keys(&mut self, ui: &mut egui::Ui, rows: &[Row]) {
+    /// Alt and an arrow move the one chosen, for those who do not drag:
+    /// up or down among those in its folder, a folder among the folders
+    /// beside it; and Alt+Left out of the folder it is in, a level up,
+    /// which is said.
+    fn moved_by_keys(&mut self, ui: &mut egui::Ui, rows: &[Row], folders: &[String]) {
         let section = self.editor.section;
-        if !matches!(section, TRIGGERS | ALIASES | MACROS | TIMERS | GAUGES) || self.narrowed() {
+        if self.narrowed() {
             return;
         }
-        let (up, down) = ui.input_mut(|input| {
+        let (up, down, out) = ui.input_mut(|input| {
             (
                 input.consume_key(Modifiers::ALT, Key::ArrowUp),
                 input.consume_key(Modifiers::ALT, Key::ArrowDown),
+                input.consume_key(Modifiers::ALT, Key::ArrowLeft),
             )
         });
+        if !(up || down || out) {
+            return;
+        }
+        let kind = section_kind(section);
+        if let (Some(path), Some(kind)) = (self.editor.folder.clone(), kind) {
+            return self.folder_moved_by_keys(ui, kind, &path, folders, (up, down, out));
+        }
         let from = self.editor.selected[section];
         let Some(chosen) = rows.get(from) else {
             return;
         };
+        if out {
+            if kind.is_some() && !chosen.folder.is_empty() {
+                let to = parent_of(&chosen.folder).to_owned();
+                self.file_chosen(&to);
+                self.say_moved(&to);
+            }
+            return;
+        }
+        if !matches!(section, TRIGGERS | ALIASES | MACROS | TIMERS | GAUGES) {
+            return;
+        }
         let alike: Vec<usize> = (0..rows.len())
             .filter(|&index| rows[index].folder == chosen.folder)
             .collect();
@@ -551,6 +667,53 @@ impl Tab {
             _ => return,
         };
         self.move_rows(&[from], to);
+    }
+
+    /// A folder moved by the keys: up or down among the folders beside it,
+    /// or out of the one it is in, put after it. The keyboard stays on it.
+    fn folder_moved_by_keys(
+        &mut self,
+        ui: &mut egui::Ui,
+        kind: Kind,
+        path: &str,
+        folders: &[String],
+        (up, down, out): (bool, bool, bool),
+    ) {
+        let parent = parent_of(path).to_owned();
+        let moved = if out {
+            if parent.is_empty() {
+                return;
+            }
+            self.put_folder(kind, path, parent_of(&parent), Some((&parent, true)))
+        } else {
+            let beside: Vec<&String> = (folders.iter())
+                .filter(|folder| parent_of(folder) == parent)
+                .collect();
+            let Some(at) = beside.iter().position(|folder| *folder == path) else {
+                return;
+            };
+            let (next, after) = match (up, down) {
+                (true, _) if at > 0 => (beside[at - 1].clone(), false),
+                (_, true) if at + 1 < beside.len() => (beside[at + 1].clone(), true),
+                _ => return,
+            };
+            self.put_folder(kind, path, &parent, Some((&next, after)))
+        };
+        let Some(now) = moved else {
+            return;
+        };
+        let section = self.editor.section;
+        let had_keys = ui.memory(|memory| memory.focused())
+            == Some(item_id(section, &Spot::Folder(path.to_owned())));
+        self.choose_folder(&now);
+        self.editor.reveal = true;
+        if had_keys {
+            let id = item_id(section, &Spot::Folder(now.clone()));
+            ui.memory_mut(|memory| memory.request_focus(id));
+        }
+        if out {
+            self.say_moved(parent_of(&now));
+        }
     }
 
     /// The button that adds one, which for scripts offers to start from an

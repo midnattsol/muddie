@@ -332,6 +332,36 @@ fn shows_editor() {
     app.editor.folder = Some("Combat".into());
     rules.run_steps(3);
     save(&mut rules, "folder");
+    // A rule in a folder being dragged, held over another folder's top
+    // edge: the strip to the top level over the toolbar, the line where it
+    // would go, and what it would do by the pointer.
+    rules.state_mut().tab_mut().editor.folder = None;
+    rules.run_steps(2);
+    let from = rules.get_by_label("Fight back").rect().center();
+    let social = rules.get_by_role_and_label(egui::accesskit::Role::TreeItem, "Social").rect();
+    let over = social.center() + egui::vec2(40.0, 0.0);
+    for (at, pressed) in [(from, Some(true)), (from + egui::vec2(0.0, 12.0), None), (over, None)] {
+        rules.event(egui::Event::PointerMoved(at));
+        if let Some(pressed) = pressed {
+            rules.event(egui::Event::PointerButton {
+                pos: at,
+                button: egui::PointerButton::Primary,
+                pressed,
+                modifiers: egui::Modifiers::NONE,
+            });
+        }
+        rules.run_steps(2);
+    }
+    save(&mut rules, "dragging");
+    // Given up, nothing moved.
+    rules.key_press(egui::Key::Escape);
+    rules.event(egui::Event::PointerButton {
+        pos: over,
+        button: egui::PointerButton::Primary,
+        pressed: false,
+        modifiers: egui::Modifiers::NONE,
+    });
+    rules.run_steps(2);
     let app = rules.state_mut().tab_mut();
     app.editor.folder = None;
     // A new alias in a tall window: its editor takes the room under it,

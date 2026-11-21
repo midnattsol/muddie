@@ -1900,10 +1900,6 @@ msgid_plural "{0} folders"
 msgstr[0] "{0} carpeta"
 msgstr[1] "{0} carpetas"
 
-#, python-brace-format
-msgid "In {0}"
-msgstr "En {0}"
-
 msgid "Switched off, nothing in it runs. Deleted, what it holds moves to the folder above."
 msgstr "Si se desactiva, no se ejecuta nada de su contenido. Si se elimina, su contenido pasa a la carpeta superior."
 
@@ -1974,3 +1970,19 @@ msgstr "Ctrl+Y  Ctrl+Mayús+Z"
 msgid "Redo"
 msgstr "Rehacer"
 
+msgid "Moved to the top level."
+msgstr "Movido al nivel superior."
+
+#, python-brace-format
+msgid "Moved into {0}."
+msgstr "Movido a {0}."
+
+msgid "Move to the top level"
+msgstr "Mover al nivel superior"
+
+#, python-brace-format
+msgid "Move into {0}"
+msgstr "Mover a {0}"
+
+msgid "Move out of its folder"
+msgstr "Sacar de su carpeta"

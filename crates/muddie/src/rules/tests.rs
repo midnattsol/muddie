@@ -372,6 +372,34 @@ fn folders_move_and_go_with_what_they_hold() {
 }
 
 #[test]
+fn a_folder_is_put_before_or_after_another() {
+    let mut rules = Rules {
+        triggers: vec![
+            trigger("a", |rule| rule.folder = "Combat".into()),
+            trigger("b", |rule| rule.folder = "Travel".into()),
+            trigger("c", |rule| rule.folder = "Chat".into()),
+        ],
+        ..Rules::default()
+    };
+    // Implied by what they hold, in the order of their names, they are
+    // kept to have their places.
+    assert_eq!(
+        rules.folder_paths(Kind::Trigger),
+        ["Chat", "Combat", "Travel"]
+    );
+    rules.place_folder(Kind::Trigger, "Travel", "Combat", false);
+    assert_eq!(
+        rules.folder_paths(Kind::Trigger),
+        ["Chat", "Travel", "Combat"]
+    );
+    rules.place_folder(Kind::Trigger, "Chat", "Combat", true);
+    assert_eq!(
+        rules.folder_paths(Kind::Trigger),
+        ["Travel", "Combat", "Chat"]
+    );
+}
+
+#[test]
 fn rules_alike_in_one_folder_have_places_of_their_own() {
     let rules = vec![
         trigger("spam", |_| {}),

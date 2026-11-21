@@ -206,10 +206,15 @@ or with **F2**. A click on a folder chooses it, and its details show what it
 holds, its switch, and buttons to add a rule or a folder in it, to rename it
 and to delete it; a click on its arrow opens or closes it. The button beside the
 folder button closes every folder, or opens them all when all are closed.
-Drag a rule onto a folder to put it there, between two rules to put it in
-their place, or below the list to take it out of every folder; folders are
-dragged into one another the same way, and **Alt+↑** and **Alt+↓** move the
-one chosen among those beside it. Its details have the folder too, to
+Drag a rule onto a folder to put it there, or between two rules to put it in
+their place; a folder is dragged into another the same way, or onto the top
+or bottom edge of one to go beside it. While what is dragged is in a folder,
+the toolbar becomes a strip to let it go on, to take it out of every folder.
+What it would do is written by the pointer; the list scrolls at its edges, a
+closed folder held over opens, and letting go out of the list, or Escape,
+gives the drag up. **Alt+↑** and **Alt+↓** move the one chosen, a rule or a
+folder, among those beside it, and **Alt+←** out of the folder it is in; a
+folder's menu and its details move it into another. Its details have the folder too, to
 choose. Deleting a folder leaves what it held in the folder it was in. A
 folder of scripts is a folder on the disk, in the profile's `scripts`. Each
 folder has a switch: switched off, nothing in it runs, however deep.

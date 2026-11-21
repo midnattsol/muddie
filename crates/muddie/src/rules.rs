@@ -228,6 +228,29 @@ impl Rules {
         }
     }
 
+    /// Puts a folder before or `after` another, among those in the same
+    /// folder: the folders are shown in the order they are kept.
+    pub fn place_folder(&mut self, kind: Kind, path: &str, beside: &str, after: bool) {
+        // Every folder kept, those only implied by what is in them too, so
+        // that each has a place in the order.
+        for known in self.folder_paths(kind) {
+            if !(self.folders.iter()).any(|folder| folder.kind == kind && folder.path == known) {
+                self.set_folder_on(kind, &known, true);
+            }
+        }
+        let at = |folders: &[Folder], path: &str| {
+            (folders.iter()).position(|folder| folder.kind == kind && folder.path == path)
+        };
+        let Some(from) = at(&self.folders, path) else {
+            return;
+        };
+        let folder = self.folders.remove(from);
+        match at(&self.folders, beside) {
+            Some(to) => self.folders.insert(to + usize::from(after), folder),
+            None => self.folders.push(folder),
+        }
+    }
+
     /// Takes a folder away, leaving what it held in the folder it was in.
     pub fn remove_folder(&mut self, kind: Kind, path: &str) {
         let parent = path

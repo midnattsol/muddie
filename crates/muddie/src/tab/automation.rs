@@ -151,6 +151,9 @@ pub(super) struct Editor {
     /// What is chosen was gone to by the keys, and is to be brought into
     /// sight.
     pub(super) reveal: bool,
+    /// The closed folder what is dragged is held over, and since when: it
+    /// opens after a moment.
+    pub(super) drag_hover: Option<(String, Instant)>,
     /// The folders among the profile's scripts, as they were last looked
     /// for on the disk.
     pub(super) script_folders: Vec<String>,
@@ -238,6 +241,7 @@ impl Default for Editor {
             visible: Vec::new(),
             folder: None,
             reveal: false,
+            drag_hover: None,
             script_folders: Vec::new(),
             filter: String::new(),
             settle: Default::default(),
