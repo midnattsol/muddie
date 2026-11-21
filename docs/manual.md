@@ -464,6 +464,12 @@ one being said, for games where what came before is soon old.
 | Alt+0 | Reads the gauges |
 | Alt+M | Says where you are by the map, and how far a walk has left |
 
+On a Mac, Option types characters (@ on a Spanish keyboard is Option+2),
+so the shortcuts held with Alt and a letter or a figure are held with Ctrl
+there (Ctrl+1 … Ctrl+9, Ctrl+0, Ctrl+M), those held with Alt and an arrow
+with Option, Reconnect is Cmd+R, and those written here with Ctrl, Cmd. The
+window of keyboard shortcuts shows them as they are on each system.
+
 Everything can be done from the keyboard. Tab goes through the window as
 it is read, top to bottom; Shift+F10 or the menu key opens what a right
 click opens; the arrows move an edge between panels once Tab is on it, and

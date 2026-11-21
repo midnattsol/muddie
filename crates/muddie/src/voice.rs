@@ -232,8 +232,8 @@ impl Voice {
         }
         self.ctrl_was_down = ctrl_down;
 
-        self.review_keys(ui, output, 0, Modifiers::ALT);
-        self.review_keys(ui, chat, 1, Modifiers::ALT | Modifiers::SHIFT);
+        self.review_keys(ui, output, 0, Modifiers::NONE);
+        self.review_keys(ui, chat, 1, Modifiers::SHIFT);
     }
 
     /// With `modifiers` held, Up/Down/Home/End move through `output`
@@ -245,7 +245,11 @@ impl Voice {
         };
         let current = self.review[which].map(|row| row.min(last));
         let (moved, recent) = ui.input_mut(|input| {
-            let mut pressed = |key| input.consume_key(modifiers, key);
+            // The arrows with Alt (Option on a Mac), the figures with
+            // Alt (Ctrl on a Mac), and Shift for the panel of channels.
+            let arrows = crate::shortcuts::WITH_ARROWS | modifiers;
+            let figures = crate::shortcuts::WITH_KEY | modifiers;
+            let mut pressed = |key| input.consume_key(arrows, key);
             let moved = if pressed(Key::ArrowUp) {
                 Some(current.map_or(last, |row| row.saturating_sub(1)))
             } else if pressed(Key::ArrowDown) {
@@ -257,7 +261,7 @@ impl Voice {
             } else {
                 None
             };
-            let recent = RECENT_KEYS.iter().position(|&key| pressed(key));
+            let recent = (RECENT_KEYS.iter()).position(|&key| input.consume_key(figures, key));
             (moved, recent)
         });
         if moved.is_some() {

@@ -17,29 +17,44 @@ impl App {
                             ("↑  ↓", tr("Earlier and later commands")),
                             ("Ctrl+R", tr("Search the commands typed before")),
                             ("Tab", tr("Complete the word being typed")),
-                            ("Ctrl+F", tr("Search the output")),
+                            (crate::shortcuts::command!("F"), tr("Search the output")),
                         ],
                     ),
                     (
                         tr("Speech"),
                         &[
                             ("Ctrl", tr("Silence speech")),
-                            ("Alt+↑  Alt+↓", tr("Read the previous and next line")),
-                            ("Alt+1 … Alt+9", tr("Read the most recent lines")),
-                            (tr("Alt+Shift+↑ …"), tr("Same, for the panel of channels")),
-                            ("Alt+0", tr("Read the gauges")),
-                            ("Alt+M", tr("Say where you are, by the map")),
+                            (
+                                crate::shortcuts::with_arrows!("↑  ↓"),
+                                tr("Read the previous and next line"),
+                            ),
+                            (
+                                crate::shortcuts::with_key!("1 … 9"),
+                                tr("Read the most recent lines"),
+                            ),
+                            (
+                                crate::shortcuts::with_arrows!("Shift+↑ …"),
+                                tr("Same, for the panel of channels"),
+                            ),
+                            (crate::shortcuts::with_key!("0"), tr("Read the gauges")),
+                            (
+                                crate::shortcuts::with_key!("M"),
+                                tr("Say where you are, by the map"),
+                            ),
                         ],
                     ),
                     (
                         tr("Sessions"),
                         &[
-                            ("Ctrl+T", tr("New session")),
-                            ("Ctrl+W", tr("Close session")),
-                            ("Alt+R", tr("Reconnect")),
-                            ("Ctrl+K", tr("Commands")),
-                            ("Ctrl+E", tr("Switch between the game and the editor")),
-                            ("Ctrl+D", tr("Show incoming data")),
+                            (crate::shortcuts::command!("T"), tr("New session")),
+                            (crate::shortcuts::command!("W"), tr("Close session")),
+                            (crate::shortcuts::RECONNECT_KEYS, tr("Reconnect")),
+                            (crate::shortcuts::command!("K"), tr("Commands")),
+                            (
+                                crate::shortcuts::command!("E"),
+                                tr("Switch between the game and the editor"),
+                            ),
+                            (crate::shortcuts::command!("D"), tr("Show incoming data")),
                         ],
                     ),
                     (
@@ -48,22 +63,35 @@ impl App {
                             ("↑  ↓", tr("Select the previous or next item")),
                             ("←  →", tr("Collapse or expand a folder")),
                             (
-                                tr("Ctrl+click  Shift+click"),
+                                if cfg!(target_os = "macos") {
+                                    tr("Cmd+click  Shift+click")
+                                } else {
+                                    tr("Ctrl+click  Shift+click")
+                                },
                                 tr("Select several items or a range"),
                             ),
-                            ("Ctrl+A", tr("Select all visible items")),
-                            ("Alt+↑  Alt+↓", tr("Move up or down")),
-                            ("Alt+←", tr("Move out of its folder")),
+                            (
+                                crate::shortcuts::command!("A"),
+                                tr("Select all visible items"),
+                            ),
+                            (
+                                crate::shortcuts::with_arrows!("↑  ↓"),
+                                tr("Move up or down"),
+                            ),
+                            (
+                                crate::shortcuts::with_arrows!("←"),
+                                tr("Move out of its folder"),
+                            ),
                             ("F2", tr("Rename")),
                             (tr("Del"), tr("Delete")),
-                            ("Ctrl+Z", tr("Undo")),
-                            (tr("Ctrl+Y  Ctrl+Shift+Z"), tr("Redo")),
+                            (crate::shortcuts::command!("Z"), tr("Undo")),
+                            (crate::shortcuts::command!("Y"), tr("Redo")),
                         ],
                     ),
                     (
                         tr("Panels"),
                         &[
-                            ("Ctrl+M", tr("Show or hide the map")),
+                            (crate::shortcuts::command!("M"), tr("Show or hide the map")),
                             (
                                 tr("← →  ↑ ↓ on an edge"),
                                 tr("Make the panels larger or smaller"),

@@ -213,7 +213,12 @@ fn session_menu(ui: &mut Ui, connected: bool, profile: Option<&str>) -> Option<S
     } else {
         tr("Connect")
     };
-    item(ui, connect, "Alt+R", SessionAction::Reconnect);
+    item(
+        ui,
+        connect,
+        crate::shortcuts::RECONNECT_KEYS,
+        SessionAction::Reconnect,
+    );
     if connected {
         item(ui, tr("Disconnect"), "", SessionAction::Disconnect);
     }
@@ -228,7 +233,12 @@ fn session_menu(ui: &mut Ui, connected: bool, profile: Option<&str>) -> Option<S
         None => item(ui, tr("Save as profile"), "", SessionAction::SaveAsProfile),
     }
     widgets::menu_separator(ui);
-    item(ui, tr("Close session"), "Ctrl+W", SessionAction::Close);
+    item(
+        ui,
+        tr("Close session"),
+        crate::shortcuts::command!("W"),
+        SessionAction::Close,
+    );
     asked
 }
 

@@ -1643,9 +1643,6 @@ msgstr "Supr"
 msgid "Ctrl+click  Shift+click"
 msgstr "Ctrl+clic  Mayús+clic"
 
-msgid "Alt+Shift+↑ …"
-msgstr "Alt+Mayús+↑ …"
-
 msgid "Select the previous or next item"
 msgstr "Seleccionar el elemento anterior o el siguiente"
 
@@ -1964,9 +1961,6 @@ msgstr "Rehecho."
 msgid "Collapse or expand a folder"
 msgstr "Contraer o expandir una carpeta"
 
-msgid "Ctrl+Y  Ctrl+Shift+Z"
-msgstr "Ctrl+Y  Ctrl+Mayús+Z"
-
 msgid "Redo"
 msgstr "Rehacer"
 
@@ -1995,3 +1989,8 @@ msgstr "Movido arriba, {0} de {1}."
 #, python-brace-format
 msgid "Moved down, {0} of {1}."
 msgstr "Movido abajo, {0} de {1}."
+
+
+msgid "Cmd+click  Shift+click"
+msgstr "Cmd+clic  Mayús+clic"
+

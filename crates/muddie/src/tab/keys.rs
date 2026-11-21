@@ -6,7 +6,7 @@ impl Tab {
     /// Runs the binding of any key pressed with Ctrl or Alt, or of a
     /// function key, before anything else gets to use the key.
     pub(super) fn bound_keys(&mut self, ui: &mut egui::Ui) {
-        if ui.input_mut(|input| input.consume_key(Modifiers::ALT, Key::R)) {
+        if ui.input_mut(|input| input.consume_key(crate::shortcuts::RECONNECT, Key::R)) {
             self.reconnect(&ui.ctx().clone());
         }
         if ui.input_mut(|input| input.consume_key(Modifiers::COMMAND, Key::M)) {

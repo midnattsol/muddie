@@ -20,12 +20,12 @@ impl Tab {
         if self.editor.open {
             return self.automation_page(ui);
         }
-        // Alt+M says where the player is, by the map.
-        if ui.input_mut(|input| input.consume_key(Modifiers::ALT, Key::M)) {
+        // Alt+M (Ctrl+M on a Mac) says where the player is, by the map.
+        if ui.input_mut(|input| input.consume_key(crate::shortcuts::WITH_KEY, Key::M)) {
             self.say_where_aloud();
         }
-        // Alt+0 reads the gauges aloud.
-        if ui.input_mut(|input| input.consume_key(Modifiers::ALT, Key::Num0)) {
+        // Alt+0 (Ctrl+0 on a Mac) reads the gauges aloud.
+        if ui.input_mut(|input| input.consume_key(crate::shortcuts::WITH_KEY, Key::Num0)) {
             let summary = self.gauges.summary();
             self.voice.say_now(if summary.is_empty() {
                 tr("No gauges.")

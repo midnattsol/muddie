@@ -377,12 +377,12 @@ fn look_of(item: &Item) -> (widgets::Glyph, &'static str) {
     };
     match act {
         Act::View(0) => (Glyph::Send, ""),
-        Act::View(1) => (Glyph::Code, "Ctrl+E"),
-        Act::View(_) => (Glyph::Data, "Ctrl+D"),
+        Act::View(1) => (Glyph::Code, crate::shortcuts::command!("E")),
+        Act::View(_) => (Glyph::Data, crate::shortcuts::command!("D")),
         Act::Section(_) => (Glyph::Code, ""),
         Act::App(request) => match request {
-            AppRequest::NewSession => (Glyph::Plus, "Ctrl+T"),
-            AppRequest::CloseSession => (Glyph::Close, "Ctrl+W"),
+            AppRequest::NewSession => (Glyph::Plus, crate::shortcuts::command!("T")),
+            AppRequest::CloseSession => (Glyph::Close, crate::shortcuts::command!("W")),
             AppRequest::Settings(_) => (Glyph::Settings, ""),
             AppRequest::Shortcuts => (Glyph::Key, ""),
             AppRequest::Profiles | AppRequest::Profile(..) | AppRequest::SaveAsProfile => {
@@ -390,12 +390,12 @@ fn look_of(item: &Item) -> (widgets::Glyph, &'static str) {
             }
             _ => (Glyph::Check, ""),
         },
-        Act::Reconnect => (Glyph::Restart, "Alt+R"),
+        Act::Reconnect => (Glyph::Restart, crate::shortcuts::RECONNECT_KEYS),
         Act::Disconnect => (Glyph::Close, ""),
-        Act::Find => (Glyph::Search, "Ctrl+F"),
+        Act::Find => (Glyph::Search, crate::shortcuts::command!("F")),
         Act::CopyOutput => (Glyph::Copy, ""),
-        Act::Undo(false) => (Glyph::Restart, "Ctrl+Z"),
-        Act::Undo(true) => (Glyph::Restart, "Ctrl+Y"),
+        Act::Undo(false) => (Glyph::Restart, crate::shortcuts::command!("Z")),
+        Act::Undo(true) => (Glyph::Restart, crate::shortcuts::command!("Y")),
         Act::Log => (Glyph::Text, ""),
         Act::Speech | Act::ReadChannel(..) => (Glyph::Say, ""),
         Act::AddPanel(_) | Act::Panel(_) | Act::FullHeight | Act::Side(_) => (Glyph::Panel, ""),
