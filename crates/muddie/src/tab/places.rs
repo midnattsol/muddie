@@ -287,10 +287,13 @@ impl Tab {
             self.map_source.waiting = Some(address);
             return;
         }
+        // A map read by an older reader is taken whole again, for what
+        // the reader reads now that it did not.
         let known = {
             let map = self.map.borrow();
+            let read_now = map.source_reader() >= Some(muddie_mapper::MUDLET_READER);
             (map.source())
-                .filter(|(from, _)| *from == address)
+                .filter(|(from, _)| *from == address && read_now)
                 .map(|(_, version)| version.map(str::to_owned))
         };
         match known {
@@ -353,9 +356,12 @@ impl Tab {
                     // Where the player is stays, if the room is still there.
                     let here = map.current().map(|room| room.id);
                     let from_web = mapfetch::on_the_web(&source).then_some(source.as_str());
-                    (map.replace_all(taken.rooms, here)).and_then(|()| {
-                        map.set_source(from_web.map(|from| (from, version.as_deref())))
-                    })
+                    let reader = from_web.map(|_| muddie_mapper::MUDLET_READER);
+                    (map.replace_all(taken.rooms, here))
+                        .and_then(|()| {
+                            map.set_source(from_web.map(|from| (from, version.as_deref())))
+                        })
+                        .and_then(|()| map.set_source_reader(reader))
                 };
                 let rooms = trn("{0} room", "{0} rooms", rooms as u64);
                 match saved {

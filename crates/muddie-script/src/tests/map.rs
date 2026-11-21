@@ -222,3 +222,38 @@ fn script_can_follow_a_server_that_shows_rooms_by_name_only() {
         ]
     );
 }
+
+#[test]
+fn script_can_colour_rooms() {
+    let mut engine = engine(
+        r##"map.set_room({id = 1, name = "Gate", colour = "#a0c020"})
+        map.set_room({id = 2, name = "Square"})"##,
+    );
+    engine.exec(
+        "test",
+        r##"echo(`{map.room(1).colour} {map.room(2).colour}`)
+        map.set_room({id = 1, name = "Gate", exits = {n = 2}})
+        echo(`{map.room(1).colour} {map.set_colour(2, "bright red")} {map.room(2).colour}`)
+        echo(`{map.set_colour(2, 196)} {map.room(2).colour} {map.set_colour(9, 1)}`)
+        echo(`{map.set_colour(2, nil)} {map.room(2).colour} {pcall(map.set_colour, 1, "mauve")}`)"##,
+    );
+    let echoes: Vec<String> = (engine.take_actions().into_iter())
+        .filter_map(|action| match action {
+            Action::Echo(text) => Some(text),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        echoes,
+        [
+            "#a0c020 nil",
+            "#a0c020 true #ff0000",
+            "true #ff0000 false",
+            "true nil false",
+        ]
+    );
+    assert_eq!(
+        engine.map.borrow().room(1).unwrap().colour,
+        Some([160, 192, 32])
+    );
+}

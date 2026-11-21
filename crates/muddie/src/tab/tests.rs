@@ -160,6 +160,7 @@ fn demo<'a>(builder: egui_kittest::HarnessBuilder<App>) -> Harness<'a, App> {
                 .map(|(direction, to)| ((*direction).to_owned(), *to))
                 .collect(),
             pos: None,
+            colour: None,
         };
         for info in [
             room(1, "Puerta", "ciudad", &[("n", 2)]),
@@ -185,6 +186,16 @@ fn demo<'a>(builder: egui_kittest::HarnessBuilder<App>) -> Harness<'a, App> {
             map.visit(info).unwrap();
         }
         map.set_avoid(6, true).unwrap();
+        // Coloured as a map taken from Mudlet would be: stone in town,
+        // grass outside.
+        for (id, colour) in [
+            (1, [150, 140, 125]),
+            (2, [196, 170, 120]),
+            (7, [96, 150, 80]),
+            (8, [70, 140, 60]),
+        ] {
+            map.set_colour(id, Some(colour)).unwrap();
+        }
         map.edit_exit(4, "ne", |exit| exit.locked = true).unwrap();
     }
     harness.run_steps(3);

@@ -11,6 +11,7 @@ pub(crate) fn info(id: RoomId, name: &str, exits: &[(&str, RoomId)]) -> RoomInfo
             .map(|(direction, to)| ((*direction).to_owned(), *to))
             .collect(),
         pos: None,
+        colour: None,
     }
 }
 
@@ -437,6 +438,7 @@ fn desert() -> Map {
             .collect(),
         weight: 1,
         avoid: false,
+        colour: None,
     };
     let rooms = vec![
         room(10, "Dune", &[("e", 11)]),
@@ -572,15 +574,29 @@ fn a_map_taken_again_keeps_what_the_user_set_and_where_it_came_from() {
         map.mark("water", 13).unwrap();
         map.set_source(Some(("https://example.org/map.zip", Some("v1"))))
             .unwrap();
-        // The newer map has the same rooms, and no exit of the user's.
-        map.replace_all(desert().rooms().cloned().collect(), Some(12))
-            .unwrap();
+        assert_eq!(map.source_reader(), None);
+        map.set_source_reader(Some(MUDLET_READER)).unwrap();
+        map.set_colour(10, Some([7, 7, 7])).unwrap();
+        map.set_colour(12, Some([5, 5, 5])).unwrap();
+        // The newer map has the same rooms, and no exit of the user's; it
+        // colours one room, where the colour set before gives way.
+        let mut newer: Vec<Room> = desert().rooms().cloned().collect();
+        for room in newer.iter_mut().filter(|room| room.id == 10) {
+            room.colour = Some([1, 1, 1]);
+        }
+        map.replace_all(newer, Some(12)).unwrap();
         assert_eq!(map.current().unwrap().id, 12);
     }
     let map = Map::open(&path).unwrap();
     assert!(map.room(11).unwrap().avoid);
     assert_eq!(map.room(13).unwrap().exits["climb"].to, 10);
+    let colour = |id| map.room(id).unwrap().colour;
+    assert_eq!(
+        (colour(10), colour(11), colour(12)),
+        (Some([1, 1, 1]), None, Some([5, 5, 5]))
+    );
     assert_eq!(map.marked("water"), Some(13));
+    assert_eq!(map.source_reader(), Some(MUDLET_READER));
     assert_eq!(
         map.source(),
         Some(("https://example.org/map.zip", Some("v1")))
@@ -655,4 +671,30 @@ fn a_name_not_on_the_map_finds_the_rooms_most_like_it_the_nearest_first() {
         ..Sighting::default()
     };
     assert_eq!(map.arrive(seen), Located::Nowhere);
+}
+
+#[test]
+fn a_rooms_colour_stays_when_the_server_says_none_and_is_kept() {
+    let path = std::env::temp_dir().join(format!("muddie-colour-{}.sqlite", std::process::id()));
+    let _ = std::fs::remove_file(&path);
+    {
+        let mut map = Map::open(&path).unwrap();
+        let coloured = RoomInfo {
+            colour: Some([1, 2, 3]),
+            ..info(1, "Gate", &[("n", 2)])
+        };
+        map.visit(coloured).unwrap();
+        map.visit(info(2, "Square", &[("s", 1)])).unwrap();
+        map.visit(info(1, "Gate", &[("n", 2)])).unwrap();
+        assert_eq!(map.room(1).unwrap().colour, Some([1, 2, 3]));
+        assert!(map.set_colour(2, Some([200, 100, 0])).unwrap());
+        assert!(!map.set_colour(9, None).unwrap());
+    }
+    let mut map = Map::open(&path).unwrap();
+    assert_eq!(map.room(1).unwrap().colour, Some([1, 2, 3]));
+    assert_eq!(map.room(2).unwrap().colour, Some([200, 100, 0]));
+    map.set_colour(1, None).unwrap();
+    drop(map);
+    assert_eq!(Map::open(&path).unwrap().room(1).unwrap().colour, None);
+    std::fs::remove_file(&path).unwrap();
 }

@@ -15,6 +15,9 @@ pub struct RoomInfo {
     pub exits: BTreeMap<String, RoomId>,
     /// Map coordinates, for servers that provide them.
     pub pos: Option<Pos>,
+    /// The colour to draw the room in, if one is given; without one, the
+    /// room keeps the colour it had.
+    pub colour: Option<crate::Colour>,
 }
 
 impl RoomInfo {
@@ -49,6 +52,7 @@ impl RoomInfo {
             // Not Aardwolf's `coord`: that locates the whole area on a
             // continent, so every room in it would land on the same spot.
             pos: first(&["coords"]).and_then(position),
+            colour: None,
         })
     }
 }

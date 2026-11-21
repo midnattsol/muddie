@@ -47,6 +47,12 @@ impl Walk {
         (self.steps.len(), self.steps.back().map(|step| step.to))
     }
 
+    /// The rooms the walk is yet to go through, in order, the last being
+    /// where it ends.
+    pub fn rooms_left(&self) -> impl Iterator<Item = RoomId> + '_ {
+        self.steps.iter().map(|step| step.to)
+    }
+
     /// The server reported the player in `room`; what to do next.
     pub fn entered(&mut self, room: RoomId) -> Progress {
         match self.steps.front() {
@@ -82,6 +88,7 @@ mod tests {
         assert_eq!(walk.left(), (2, Some(3)));
         assert_eq!(walk.entered(1), Progress::Waiting);
         assert_eq!(walk.entered(2), Progress::Go("e".into()));
+        assert_eq!(walk.rooms_left().collect::<Vec<_>>(), [3]);
         assert_eq!(walk.entered(2), Progress::Waiting);
         assert_eq!(walk.entered(3), Progress::Arrived);
         assert_eq!(walk.entered(3), Progress::Lost);

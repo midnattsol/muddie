@@ -169,7 +169,9 @@ end)
 ```
 
 A room is a table with `id` and, optionally, `name`, `area`, `exits`
-(direction to room id) and `x`, `y`, `z`. An id is a number, or the text the
+(direction to room id), `x`, `y`, `z` and `colour` (a name, `"#rrggbb"` or a
+palette number, as for `highlight`; a room given without one keeps the
+colour it had). An id is a number, or the text the
 server identifies the room with.
 
 | Function | What it does |
@@ -179,19 +181,20 @@ server identifies the room with.
 | `map.native(false)` | Turns the built-in loader off. |
 | `map.persist(false)` | Keeps the map in memory only, for servers that send it themselves. |
 | `map.clear()` | Forgets every room. |
-| `map.room(id)` | A room as a table, the current one if `id` is omitted. Also has `weight` and `avoid`. |
+| `map.room(id)` | A room as a table, the current one if `id` is omitted. Also has `weight`, `avoid` and `colour` (`"#rrggbb"`, or `nil`). |
 | `map.find(text)` | Rooms whose name contains `text`. |
 | `map.path(to, from)` | The commands to walk, or `nil`. |
 | `map.walk(to)` | Walks there, one confirmed step at a time. `map.stop()` stops, as when the server says a move failed. |
 | `map.arrive{name, exits, came}` | For servers that do not say which room it is: the player is in a room of this name and exits, reached by the exit `came`. Returns the room's number, or `nil` while unsure. |
 | `map.here(id)` | The player is in that room. |
 | `map.directions{n = {"norte", "n"}, ...}` | The server's words for each direction; the first is what walks send. |
-| `map.import(address)` | Takes the map made with Mudlet at `address` (a `.dat`, or a zip with one; web or disk) in place of this one; one taken from there before, only if it changed. |
+| `map.import(address)` | Takes the map made with Mudlet at `address` (a `.dat`, or a zip with one; web or disk) in place of this one; one taken from there before, only if it changed, or if this version of Muddie reads more of Mudlet's maps than the one that took it. |
 | `map.set_exit(from, direction, to, options)` | Adds an exit of your own or changes where one leads. |
 | `map.edit_exit(from, direction, options)` | Changes an exit's `cost`, `locked` or `command` (`"open door;n"`). |
 | `map.exit(from, direction)` | An exit as a table. |
 | `map.remove_exit(from, direction)`, `map.remove_room(id)` | Remove. |
 | `map.move(id, x, y, z)` | Moves a room on the grid. |
 | `map.set_weight(id, weight)`, `map.avoid(id, true)` | How routes treat a room. |
+| `map.set_colour(id, colour)` | The colour a room is drawn in; `nil` gives it back the map's own. Maps taken from Mudlet bring theirs. |
 | `map.relayout(area)` | Draws an area again from scratch. |
 | `map.areas()`, `map.id(text)` | Area names; the number used for a text id. |

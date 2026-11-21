@@ -20,7 +20,7 @@ mod walk;
 
 pub use info::RoomInfo;
 pub use locating::{Located, Sighting};
-pub use mudlet::{MudletMap, read_mudlet_map};
+pub use mudlet::{MUDLET_READER, MudletMap, read_mudlet_map};
 pub use rusqlite::Error;
 pub use walk::{Progress, Walk};
 
@@ -95,7 +95,34 @@ pub struct Room {
     /// Routes never pass through the room, though they may end in it.
     /// Also set by the user.
     pub avoid: bool,
+    /// The colour the room is drawn in, as red, green and blue; `None` for
+    /// the map's own. Kept when the server reports the room without one.
+    pub colour: Option<Colour>,
 }
+
+/// A colour: red, green and blue.
+pub type Colour = [u8; 3];
+
+/// The sixteen standard colours, in the order of ANSI's palette, as Mudlet
+/// draws rooms in them unless told otherwise.
+pub const STANDARD_COLOURS: [Colour; 16] = [
+    [0, 0, 0],
+    [128, 0, 0],
+    [0, 179, 0],
+    [128, 128, 0],
+    [0, 0, 128],
+    [128, 0, 128],
+    [0, 128, 128],
+    [192, 192, 192],
+    [128, 128, 128],
+    [255, 0, 0],
+    [0, 255, 0],
+    [255, 255, 0],
+    [0, 0, 255],
+    [255, 0, 255],
+    [0, 255, 255],
+    [255, 255, 255],
+];
 
 /// A way out of a room. Everything but `to` is set by the user, and kept
 /// when the server reports the room again.

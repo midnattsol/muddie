@@ -1,11 +1,16 @@
 //! Maps made with Mudlet, read from its binary `.dat` files: their rooms,
-//! where they are, their exits and what they cost, made rooms of this map.
-//! The file is what Qt's `QDataStream` writes (big-endian, at Qt 5.12, reals
-//! as doubles), in Mudlet's format versions 14 to 18. Pictures on labels
-//! and colours are read past, as nothing here shows them.
+//! where they are, their exits, what they cost and their colours, made
+//! rooms of this map. The file is what Qt's `QDataStream` writes
+//! (big-endian, at Qt 5.12, reals as doubles), in Mudlet's format versions
+//! 14 to 18. Labels are read past, as nothing here shows them.
 
-use crate::{Exit, Pos, Room, RoomId};
+use crate::{Colour, Exit, Pos, Room, RoomId, STANDARD_COLOURS};
 use std::collections::{BTreeMap, HashMap};
+
+/// Which reader of Mudlet's maps this is: raise it when the reader reads
+/// more of Mudlet's maps, so that maps read before are taken again. The
+/// first read no colours.
+pub const MUDLET_READER: u32 = 2;
 
 /// The versions of Mudlet's format read here. 19 and later begin with the
 /// font of the map's symbols, in Qt's own format for fonts.
@@ -46,11 +51,15 @@ pub fn read_mudlet_map(bytes: &[u8]) -> Result<MudletMap, String> {
             VERSIONS.end()
         ));
     }
-    stream.map(Stream::i32, Stream::i32)?;
+    let standard: HashMap<i32, i32> = stream.map(Stream::i32, Stream::i32)?.into_iter().collect();
     let areas: HashMap<i32, String> = (stream.map(Stream::i32, Stream::string)?.into_iter())
         .map(|(id, name)| (id, name.unwrap_or_default()))
         .collect();
-    stream.map(Stream::i32, Stream::color)?;
+    let custom: HashMap<i32, Option<Colour>> = stream
+        .map(Stream::i32, Stream::color)?
+        .into_iter()
+        .collect();
+    let colours = Environments { standard, custom };
     stream.map(Stream::string, Stream::i32)?;
     if version >= 17 {
         stream.map(Stream::string, Stream::string)?;
@@ -67,7 +76,7 @@ pub fn read_mudlet_map(bytes: &[u8]) -> Result<MudletMap, String> {
     skip_labels(&mut stream, version)?;
     let mut rooms = Vec::new();
     while !stream.at_end() {
-        rooms.push(read_room(&mut stream, version, &areas)?);
+        rooms.push(read_room(&mut stream, version, &areas, &colours)?);
     }
     let current = current.filter(|id| rooms.iter().any(|room| room.id == *id));
     Ok(MudletMap {
@@ -125,12 +134,39 @@ fn skip_labels(stream: &mut Stream<'_>, version: i32) -> Result<(), String> {
     Ok(())
 }
 
-/// One room, made a room of this map: its place, its exits, the special
-/// ones by their command, which are locked and what they cost.
+/// The colours of a map's environments, the kinds of place a room may be:
+/// one of the standard colours by its number, or one of the map's own.
+struct Environments {
+    standard: HashMap<i32, i32>,
+    custom: HashMap<i32, Option<Colour>>,
+}
+
+impl Environments {
+    /// The colour of rooms of an environment: the map's own for it if it
+    /// has one, else the standard colour it is given, else none.
+    fn colour(&self, environment: i32) -> Option<Colour> {
+        if let Some(colour) = self.custom.get(&environment) {
+            return *colour;
+        }
+        // Mudlet numbers the standard colours from 1: red to white, then
+        // black, then the light ones, and light black last.
+        let ansi = match *self.standard.get(&environment)? {
+            8 => 0,
+            16 => 8,
+            number @ 1..=15 => number,
+            _ => return None,
+        };
+        Some(STANDARD_COLOURS[ansi as usize])
+    }
+}
+
+/// One room, made a room of this map: its place, its colour, its exits,
+/// the special ones by their command, which are locked and what they cost.
 fn read_room(
     stream: &mut Stream<'_>,
     version: i32,
     areas: &HashMap<i32, String>,
+    colours: &Environments,
 ) -> Result<Room, String> {
     let id = RoomId::from(stream.i32()?);
     let area = stream.i32()?;
@@ -143,7 +179,7 @@ fn read_room(
     for to in &mut leading {
         *to = stream.i32()?;
     }
-    stream.i32()?;
+    let environment = stream.i32()?;
     let weight = stream.i32()?.max(1);
     let name = stream.string()?.unwrap_or_default();
     let avoid = stream.bool()?;
@@ -223,6 +259,7 @@ fn read_room(
         exits,
         weight: weight as u32,
         avoid,
+        colour: colours.colour(environment),
     })
 }
 
@@ -284,9 +321,8 @@ impl Stream<'_> {
             return Ok(None);
         }
         let bytes = self.take(length as usize)?;
-        let units: Vec<u16> = (bytes.chunks_exact(2))
-            .map(|pair| u16::from_be_bytes([pair[0], pair[1]]))
-            .collect();
+        let (pairs, _) = bytes.as_chunks::<2>();
+        let units: Vec<u16> = pairs.iter().map(|pair| u16::from_be_bytes(*pair)).collect();
         Ok(Some(String::from_utf16_lossy(&units)))
     }
 
@@ -304,9 +340,13 @@ impl Stream<'_> {
             .collect()
     }
 
-    /// A colour: its kind, and five numbers.
-    fn color(&mut self) -> Result<(), String> {
-        self.take(11).map(drop)
+    /// A colour: its kind, then alpha, red, green and blue, each in 16
+    /// bits, and 16 more unused. `None` for an invalid colour or one that
+    /// is not kept as red, green and blue, which Mudlet does not write.
+    fn color(&mut self) -> Result<Option<Colour>, String> {
+        let bytes = self.array::<11>()?;
+        const RGB: u8 = 1;
+        Ok((bytes[0] == RGB).then(|| [bytes[3], bytes[5], bytes[7]]))
     }
 
     fn point(&mut self) -> Result<(f64, f64), String> {
@@ -383,8 +423,9 @@ mod tests {
             }
             self
         }
-        fn color(&mut self) -> &mut Self {
-            self.0.extend([1, 255, 255, 1, 1, 2, 2, 3, 3, 0, 0]);
+        fn color(&mut self, [red, green, blue]: Colour) -> &mut Self {
+            let kind = 1;
+            (self.0).extend([kind, 255, 255, red, red, green, green, blue, blue, 0, 0]);
             self
         }
         fn vector(&mut self) -> &mut Self {
@@ -392,14 +433,16 @@ mod tests {
         }
     }
 
-    /// A map of version 16: an area, a label with a picture, and two rooms,
-    /// the first with a locked exit north, a costly one east and a special
-    /// exit, locked, into the second.
+    /// A map of version 16: an area, a label with a picture, and three
+    /// rooms, the first with a locked exit north, a costly one east and a
+    /// special exit, locked, into the second. The first is of an
+    /// environment with a colour of its own, the second of one with a
+    /// standard colour, light red, and the third of one with none.
     fn little_map() -> Vec<u8> {
         let mut map = Writer::default();
-        map.i32(16).count(0);
+        map.i32(16).count(1).i32(7).i32(9);
         map.count(1).i32(5).string("Ciudad");
-        map.count(1).i32(1).color();
+        map.count(1).i32(1).color([10, 120, 30]);
         map.count(0);
         // The area: its rooms, levels, exits, bounds, and where it is.
         map.count(1)
@@ -431,20 +474,22 @@ mod tests {
             .f64(0.0)
             .f64(4.0)
             .f64(1.0);
-        map.string("Plaza").color().color().i32(1);
+        map.string("Plaza").color([0, 0, 0]).color([9, 9, 9]).i32(1);
         map.0.extend(b"\x89PNG\r\n\x1a\n");
         map.i32(2).0.extend(b"IHDRab");
         map.i32(0).i32(0).0.extend(b"IEND");
         map.i32(0);
         map.bool(false).bool(true);
         // The rooms.
-        for (id, x, north, east) in [(1, 0, 2, 2), (2, 2, -1, -1)] {
+        for (id, x, north, east, environment) in
+            [(1, 0, 2, 2, 1), (2, 2, -1, -1, 7), (3, 4, -1, -1, 99)]
+        {
             map.i32(id).i32(5).i32(x).i32(0).i32(0);
             map.i32(north).i32(-1).i32(east);
             for _ in 3..12 {
                 map.i32(-1);
             }
-            map.i32(0).i32(if id == 1 { 3 } else { 0 });
+            map.i32(environment).i32(if id == 1 { 3 } else { 0 });
             map.string(&format!("Sala {id}")).bool(id == 2);
             if id == 1 {
                 map.count(1).i32(2).string("1entrar portal");
@@ -488,6 +533,8 @@ mod tests {
         assert!(portal.locked && portal.to == 2);
         assert!(read.rooms[1].avoid);
         assert_eq!(read.rooms[1].pos, Pos { x: 2, y: 0, z: 0 });
+        let colours: Vec<Option<Colour>> = read.rooms.iter().map(|room| room.colour).collect();
+        assert_eq!(colours, [Some([10, 120, 30]), Some([255, 0, 0]), None]);
     }
 
     #[test]

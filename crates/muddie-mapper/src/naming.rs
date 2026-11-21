@@ -6,6 +6,8 @@ use super::*;
 /// What the map keeps of where it was taken from, and of which version.
 const SOURCE: &str = "source";
 const SOURCE_VERSION: &str = "source version";
+/// Which reader read the map from there (see [`crate::MUDLET_READER`]).
+const SOURCE_READER: &str = "source reader";
 
 /// A room's name as compared: without case, the spaces around it, or the
 /// exits some maps write after it in brackets (`Plaza [n,s]`).
@@ -111,17 +113,34 @@ impl Map {
     /// it was not taken from anywhere.
     pub fn set_source(&mut self, source: Option<(&str, Option<&str>)>) -> Result<(), Error> {
         let (from, version) = source.unzip();
-        let version = version.flatten();
-        for (key, value) in [(SOURCE, from), (SOURCE_VERSION, version)] {
-            match value {
-                Some(value) => self.about.insert(key.to_owned(), value.to_owned()),
-                None => self.about.remove(key),
-            };
-            if let Some(store) = &mut self.store {
-                store.set_about(key, value)?;
-            }
+        self.set_about(SOURCE, from)?;
+        self.set_about(SOURCE_VERSION, version.flatten())
+    }
+
+    /// Which reader read the map taken from its source, if that was noted:
+    /// maps taken before it was are not.
+    pub fn source_reader(&self) -> Option<u32> {
+        self.about.get(SOURCE_READER)?.parse().ok()
+    }
+
+    /// Notes which reader read the map taken from its source, or forgets it.
+    pub fn set_source_reader(&mut self, reader: Option<u32>) -> Result<(), Error> {
+        self.set_about(
+            SOURCE_READER,
+            reader.map(|reader| reader.to_string()).as_deref(),
+        )
+    }
+
+    /// Keeps something known about the map under `key`, or forgets it.
+    fn set_about(&mut self, key: &str, value: Option<&str>) -> Result<(), Error> {
+        match value {
+            Some(value) => self.about.insert(key.to_owned(), value.to_owned()),
+            None => self.about.remove(key),
+        };
+        match &mut self.store {
+            Some(store) => store.set_about(key, value),
+            None => Ok(()),
         }
-        Ok(())
     }
 
     /// Calls `use_them` with the rooms by name as compared, made again

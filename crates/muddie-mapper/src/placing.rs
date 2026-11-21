@@ -163,6 +163,7 @@ impl Map {
             exits,
             weight: existing.map_or(1, |room| room.weight),
             avoid: existing.is_some_and(|room| room.avoid),
+            colour: info.colour.or(existing.and_then(|room| room.colour)),
         };
         if self.rooms.get(&room.id) == Some(&room) {
             return Ok(());

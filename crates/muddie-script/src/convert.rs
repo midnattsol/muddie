@@ -96,6 +96,15 @@ pub(super) fn color_from(value: &Value) -> mlua::Result<Option<Color>> {
     }
 }
 
+/// The red, green and blue of a number of the 256-colour palette, the
+/// first sixteen in their standard colours.
+pub(super) fn indexed_rgb(index: u8) -> muddie_mapper::Colour {
+    match Color::xterm_rgb(index) {
+        Some((red, green, blue)) => [red, green, blue],
+        None => muddie_mapper::STANDARD_COLOURS[usize::from(index)],
+    }
+}
+
 /// A colour as scripts see it: a palette number, `"#rrggbb"`, or nil.
 pub(super) fn color_value(lua: &Lua, color: Color) -> mlua::Result<Value> {
     match color {

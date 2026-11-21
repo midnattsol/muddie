@@ -29,6 +29,7 @@ fn desert(app: &mut Tab) {
             .collect(),
         weight: 1,
         avoid: false,
+        colour: None,
     };
     let rooms = vec![
         room(1, "Dunas [e]", &[("e", 2)]),
@@ -403,4 +404,29 @@ fn a_move_by_an_exit_the_map_does_not_have_is_said() {
         (said.iter()).any(|said| said.starts_with("El mapa no tiene la salida norte desde Pozo")),
         "{said:?}"
     );
+}
+
+#[test]
+fn a_map_read_by_an_older_reader_is_taken_whole_again() {
+    let address = "http://127.0.0.1:9/map.dat";
+    let why_taken = |reader: Option<u32>| {
+        let mut harness = window(None);
+        let app = harness.state_mut().tab_mut();
+        let (_events, _sent) = fake_connection(app);
+        {
+            let mut map = app.map.borrow_mut();
+            map.set_source(Some((address, Some("v1")))).unwrap();
+            map.set_source_reader(reader).unwrap();
+        }
+        app.import_for_script(address.to_owned());
+        let taking = app.map_source.taking.as_ref();
+        taking.map(|(_, _, why)| *why)
+    };
+    // Taken before readers were noted, or by an older one: whole.
+    assert!(why_taken(None) == Some(crate::tab::places::Taking::Script));
+    let older = muddie_mapper::MUDLET_READER - 1;
+    assert!(why_taken(Some(older)) == Some(crate::tab::places::Taking::Script));
+    // By this one: only if newer than the version it has.
+    let current = Some(muddie_mapper::MUDLET_READER);
+    assert!(why_taken(current) == Some(crate::tab::places::Taking::Update));
 }

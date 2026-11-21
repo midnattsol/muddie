@@ -96,8 +96,9 @@
 //! by its number, or by the text the server identifies it with.
 //!
 //! - `map.visit(room)`: the player is now in `room`, a table with `id` and
-//!   optionally `name`, `area`, `exits` (direction to room id) and `x`,
-//!   `y`, `z`. This is how a script maps a MUD the built-in loader does not
+//!   optionally `name`, `area`, `exits` (direction to room id), `x`,
+//!   `y`, `z` and `colour` (as for `highlight`; without one, the room keeps
+//!   the colour it had). This is how a script maps a MUD the built-in loader does not
 //!   understand, from whatever the server sends.
 //! - `map.arrive{name = ..., exits = {...}, came = "n"}`: the player is
 //!   now in a room the server showed by its name and exits, having taken
@@ -114,7 +115,8 @@
 //! - `map.import(address)`: take the map made with Mudlet at `address`, a
 //!   `.dat` file or a zip holding one, on the web or on disk, in place of
 //!   the map there is. A map taken from there already is taken again only
-//!   if the file has changed, so a plugin may call it on every connection
+//!   if the file has changed, or if Muddie now reads more of Mudlet's maps
+//!   than when it was taken, so a plugin may call it on every connection
 //!   to keep it up to date. The user is told how it goes.
 //! - `map.native(false)`: turn the built-in loader (GMCP `Room.Info`, MSDP
 //!   `ROOM`) off, leaving the map to the script.
@@ -144,6 +146,10 @@
 //! - `map.set_weight(id, weight)`: how costly routes consider entering the
 //!   room (1 is normal), and `map.avoid(id, true)`: keep routes out of it.
 //!   A room table reports them as `weight` and `avoid`.
+//! - `map.set_colour(id, colour)`: the colour the room is drawn in, as for
+//!   `highlight`; `nil` gives it back the map's own. A room table reports
+//!   it as `colour`, `"#rrggbb"` or nil; maps taken from Mudlet bring
+//!   theirs.
 //! - `map.areas()`: the names of all areas.
 //! - `map.id(text)`: the room number used for a text identifier.
 //!
@@ -159,7 +165,7 @@ use std::time::{Duration, Instant};
 use mlua::serde::SerializeOptions;
 use mlua::{Function, Lua, LuaOptions, LuaSerdeExt, StdLib, Table, Value, Variadic, VmState};
 use muddie_core::{Color, Line};
-use muddie_mapper::{Exit, Located, Map, Pos, Room, RoomId, RoomInfo, Sighting, room_id};
+use muddie_mapper::{Colour, Exit, Located, Map, Pos, Room, RoomId, RoomInfo, Sighting, room_id};
 use regex::Regex;
 
 mod action;

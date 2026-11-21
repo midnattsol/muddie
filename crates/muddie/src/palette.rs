@@ -12,14 +12,9 @@ pub fn font() -> FontId {
 
 /// Resolves an xterm 256-colour palette index.
 fn indexed(index: u8) -> Color32 {
-    match index {
-        0..16 => theme::mud_colours()[index as usize],
-        16..232 => {
-            let level = |n: u8| if n == 0 { 0 } else { 55 + 40 * n };
-            let i = index - 16;
-            Color32::from_rgb(level(i / 36), level(i / 6 % 6), level(i % 6))
-        }
-        232.. => Color32::from_gray(8 + 10 * (index - 232)),
+    match Color::xterm_rgb(index) {
+        Some((r, g, b)) => Color32::from_rgb(r, g, b),
+        None => theme::mud_colours()[usize::from(index)],
     }
 }
 

@@ -5,13 +5,14 @@ use std::path::Path;
 
 use rusqlite::{Connection, Result, Transaction, params};
 
-use crate::{Exit, Pos, Room};
+use crate::{Colour, Exit, Pos, Room};
 
 /// Version of the schema below, kept in the database's `user_version`.
 /// Version 1 lacked the rooms' `weight` and `avoid` columns, versions 1
 /// and 2 the exits' `cost`, `locked`, `command` and `custom`, and versions
-/// up to 3 the marks and what is known about the map.
-const VERSION: i64 = 4;
+/// up to 3 the marks and what is known about the map, and versions up to 4
+/// the rooms' `colour`.
+const VERSION: i64 = 5;
 
 const SCHEMA: &str = "
     CREATE TABLE IF NOT EXISTS rooms (
@@ -22,7 +23,8 @@ const SCHEMA: &str = "
         y INTEGER NOT NULL,
         z INTEGER NOT NULL,
         weight INTEGER NOT NULL DEFAULT 1,
-        avoid INTEGER NOT NULL DEFAULT 0
+        avoid INTEGER NOT NULL DEFAULT 0,
+        colour INTEGER
     );
     CREATE TABLE IF NOT EXISTS exits (
         room_id INTEGER NOT NULL,
@@ -55,6 +57,8 @@ const UPGRADE_EXITS_FROM_2: &str = "
     ALTER TABLE exits ADD COLUMN command TEXT;
     ALTER TABLE exits ADD COLUMN custom INTEGER NOT NULL DEFAULT 0;
 ";
+
+const UPGRADE_ROOMS_FROM_4: &str = "ALTER TABLE rooms ADD COLUMN colour INTEGER;";
 
 pub struct Store {
     connection: Connection,
@@ -91,6 +95,9 @@ impl Store {
         if version == 1 || version == 2 {
             connection.execute_batch(UPGRADE_EXITS_FROM_2)?;
         }
+        if (1..=4).contains(&version) {
+            connection.execute_batch(UPGRADE_ROOMS_FROM_4)?;
+        }
         connection.pragma_update(None, "user_version", VERSION)?;
 
         let mut exits: BTreeMap<i64, BTreeMap<String, Exit>> = BTreeMap::new();
@@ -113,8 +120,8 @@ impl Store {
         }
         drop(statement);
 
-        let mut statement =
-            connection.prepare("SELECT id, name, area, x, y, z, weight, avoid FROM rooms")?;
+        let mut statement = connection
+            .prepare("SELECT id, name, area, x, y, z, weight, avoid, colour FROM rooms")?;
         let rooms = statement
             .query_map([], |row| {
                 let id = row.get(0)?;
@@ -130,6 +137,7 @@ impl Store {
                     exits: exits.remove(&id).unwrap_or_default(),
                     weight: row.get(6)?,
                     avoid: row.get(7)?,
+                    colour: row.get::<_, Option<u32>>(8)?.map(unpacked),
                 })
             })?
             .collect::<Result<Vec<Room>>>()?;
@@ -225,12 +233,13 @@ impl Store {
 fn save_room(transaction: &Transaction, room: &Room, known: bool) -> Result<()> {
     transaction
         .prepare_cached(
-            "INSERT INTO rooms (id, name, area, x, y, z, weight, avoid)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+            "INSERT INTO rooms (id, name, area, x, y, z, weight, avoid, colour)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
          ON CONFLICT(id) DO UPDATE SET
              name = excluded.name, area = excluded.area,
              x = excluded.x, y = excluded.y, z = excluded.z,
-             weight = excluded.weight, avoid = excluded.avoid",
+             weight = excluded.weight, avoid = excluded.avoid,
+             colour = excluded.colour",
         )?
         .execute(params![
             room.id,
@@ -240,7 +249,8 @@ fn save_room(transaction: &Transaction, room: &Room, known: bool) -> Result<()> 
             room.pos.y,
             room.pos.z,
             room.weight,
-            room.avoid
+            room.avoid,
+            room.colour.map(packed)
         ])?;
     if known {
         (transaction.prepare_cached("DELETE FROM exits WHERE room_id = ?1")?).execute([room.id])?;
@@ -261,6 +271,16 @@ fn save_room(transaction: &Transaction, room: &Room, known: bool) -> Result<()> 
         ])?;
     }
     Ok(())
+}
+
+/// A colour as the file keeps it: one number, `0xRRGGBB`.
+fn packed([red, green, blue]: Colour) -> u32 {
+    u32::from_be_bytes([0, red, green, blue])
+}
+
+fn unpacked(number: u32) -> Colour {
+    let [_, red, green, blue] = number.to_be_bytes();
+    [red, green, blue]
 }
 
 #[cfg(test)]
@@ -288,6 +308,7 @@ mod tests {
         let (mut store, Stored { mut rooms, .. }) = Store::open(&path).unwrap();
         assert_eq!(rooms.len(), 1);
         assert_eq!((rooms[0].weight, rooms[0].avoid), (1, false));
+        assert_eq!(rooms[0].colour, None);
         assert_eq!(
             rooms[0].exits["n"],
             Exit {
@@ -297,10 +318,12 @@ mod tests {
         );
         rooms[0].weight = 5;
         rooms[0].avoid = true;
+        rooms[0].colour = Some([200, 16, 0]);
         store.save(&rooms).unwrap();
         drop(store);
         let (store, Stored { rooms, .. }) = Store::open(&path).unwrap();
         assert_eq!((rooms[0].weight, rooms[0].avoid), (5, true));
+        assert_eq!(rooms[0].colour, Some([200, 16, 0]));
 
         store
             .connection

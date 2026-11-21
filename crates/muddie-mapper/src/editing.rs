@@ -8,9 +8,10 @@ impl Map {
     /// in one go: a map brought from elsewhere, with the room the player
     /// was in, if it is among them.
     ///
-    /// What the user set on rooms that are in both, the rooms to avoid and
-    /// the exits of their own, carries over, and so do the marks: the same
-    /// map brought again, newer, keeps them.
+    /// What the user set on rooms that are in both, the rooms to avoid,
+    /// the exits of their own and a colour where the new rooms have none,
+    /// carries over, and so do the marks: the same map brought again,
+    /// newer, keeps them.
     pub fn replace_all(&mut self, rooms: Vec<Room>, current: Option<RoomId>) -> Result<(), Error> {
         let mut rooms: HashMap<RoomId, Room> =
             rooms.into_iter().map(|room| (room.id, room)).collect();
@@ -19,6 +20,7 @@ impl Map {
                 continue;
             };
             room.avoid |= old.avoid;
+            room.colour = room.colour.or(old.colour);
             for (direction, exit) in old.exits.iter().filter(|(_, exit)| exit.custom) {
                 room.exits
                     .entry(direction.clone())
@@ -47,6 +49,11 @@ impl Map {
     /// Sets the cost of entering a room when finding routes (at least 1).
     pub fn set_weight(&mut self, id: RoomId, weight: u32) -> Result<bool, Error> {
         self.edit_room(id, |room| room.weight = weight.max(1))
+    }
+
+    /// Sets the colour a room is drawn in, or gives it back the map's own.
+    pub fn set_colour(&mut self, id: RoomId, colour: Option<Colour>) -> Result<bool, Error> {
+        self.edit_room(id, |room| room.colour = colour)
     }
 
     /// Sets whether routes must keep out of a room.

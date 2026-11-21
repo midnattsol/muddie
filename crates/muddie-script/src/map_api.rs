@@ -38,7 +38,23 @@ pub(super) fn room_info(room: &Table) -> mlua::Result<RoomInfo> {
         area: room.get::<Option<String>>("area")?.unwrap_or_default(),
         exits,
         pos,
+        colour: room_colour(&room.get::<Value>("colour")?)?,
     })
+}
+
+/// Reads a room's colour given by a script, as [`color_from`] does; a
+/// number of the palette is taken in its standard colour.
+pub(super) fn room_colour(value: &Value) -> mlua::Result<Option<Colour>> {
+    Ok(color_from(value)?.and_then(|colour| match colour {
+        Color::Rgb(red, green, blue) => Some([red, green, blue]),
+        Color::Indexed(index) => Some(indexed_rgb(index)),
+        Color::Default => None,
+    }))
+}
+
+/// A room's colour as scripts see it: `"#rrggbb"`, or nil for none.
+fn colour_text([red, green, blue]: Colour) -> String {
+    format!("#{red:02x}{green:02x}{blue:02x}")
 }
 
 /// Applies the `cost`, `locked` and `command` a script gave to an exit.
@@ -73,6 +89,7 @@ pub(super) fn room_table(lua: &Lua, room: &Room) -> mlua::Result<Table> {
     table.set("z", room.pos.z)?;
     table.set("weight", room.weight)?;
     table.set("avoid", room.avoid)?;
+    table.set("colour", room.colour.map(colour_text))?;
     let exits = lua.create_table()?;
     for (direction, exit) in &room.exits {
         exits.set(direction.as_str(), exit.to)?;
@@ -239,7 +256,7 @@ fn install_finding(lua: &Lua, map: &Rc<RefCell<Map>>, api: &Table) -> mlua::Resu
     Ok(())
 }
 
-/// Removing, moving, weighing and avoiding rooms.
+/// Removing, moving, weighing, colouring and avoiding rooms.
 fn install_changing(lua: &Lua, map: &Rc<RefCell<Map>>, api: &Table) -> mlua::Result<()> {
     let world = Rc::clone(map);
     api.set(
@@ -273,6 +290,18 @@ fn install_changing(lua: &Lua, map: &Rc<RefCell<Map>>, api: &Table) -> mlua::Res
         "set_weight",
         lua.create_function(move |_, (id, weight): (Value, u32)| {
             let result = world.borrow_mut().set_weight(id_of(&id)?, weight);
+            let found = *result.as_ref().unwrap_or(&true);
+            saved(result.map(drop))?;
+            Ok(found)
+        })?,
+    )?;
+
+    let world = Rc::clone(map);
+    api.set(
+        "set_colour",
+        lua.create_function(move |_, (id, colour): (Value, Value)| {
+            let colour = room_colour(&colour)?;
+            let result = world.borrow_mut().set_colour(id_of(&id)?, colour);
             let found = *result.as_ref().unwrap_or(&true);
             saved(result.map(drop))?;
             Ok(found)

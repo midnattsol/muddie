@@ -10,6 +10,26 @@ pub enum Color {
     Rgb(u8, u8, u8),
 }
 
+impl Color {
+    /// The red, green and blue of an index of the 256-colour palette past
+    /// the sixteen classic ones, which each frontend gives its own: a cube
+    /// of six levels each, then 24 greys.
+    pub fn xterm_rgb(index: u8) -> Option<(u8, u8, u8)> {
+        let level = |step: u8| if step == 0 { 0 } else { 55 + 40 * step };
+        match index {
+            0..16 => None,
+            16..232 => {
+                let cube = index - 16;
+                Some((level(cube / 36), level(cube / 6 % 6), level(cube % 6)))
+            }
+            232.. => {
+                let grey = 8 + 10 * (index - 232);
+                Some((grey, grey, grey))
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub struct Style {
     pub fg: Color,
