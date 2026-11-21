@@ -469,6 +469,21 @@ the map works it out from those and the exit you took. Where several rooms
 are alike, as in a desert, it says it is not sure and follows each it could
 be until a move tells them apart; `/map here` lists them, to say which.
 
+Each room is drawn in its colour: a map taken from Mudlet keeps the colours
+of its rooms, which in most MUDs follow the land (sand, forest, rock), and
+scripts can colour rooms too. The room you are in glows and is ringed; while
+the map is unsure, each room you may be in is ringed. During a walk, the way
+still to go is drawn over the map, and the room it ends in is ringed. A line
+joins rooms that lead to each other; one with an arrow at its end goes one
+way only, a dashed one is an exit off the compass (`enter portal`), and a
+short stub leads to a room not drawn. Inside a room, a triangle up or down
+marks a way up or down, and a dot an exit off the compass. A room to avoid
+is struck through in red, and a locked exit is red. Zoomed in far enough,
+each room's name is written under it. When you move, the view glides to
+the new room. The list of areas only shows when the map has more than one.
+A map taken from Mudlet before this version of Muddie read its colours is
+taken again the next time the plugin asks for it.
+
 Everything the map shows can be said: the `/map` commands above tell where
 you are, what is around, where each exit leads and the way to anywhere, and
 `/map travel` goes there.

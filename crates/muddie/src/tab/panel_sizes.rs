@@ -164,7 +164,8 @@ impl Tab {
         self.panel_measured(id, cells, true);
         if self.map.borrow().current().is_some() {
             let map = self.map.borrow();
-            return self.map_view.show(ui, &map);
+            let walk = self.walk.as_ref().map(|(walk, _)| walk);
+            return self.map_view.show(ui, &map, walk);
         }
         let drawn = !self.text_of(id).fixed.is_empty() || self.text_of(id).log.len() > 0;
         if drawn {

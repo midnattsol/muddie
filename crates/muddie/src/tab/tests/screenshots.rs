@@ -670,6 +670,19 @@ fn shows_map() {
     harness.get_by_label("Avoid in routes").click();
     harness.run_steps(3);
     assert!(harness.state().tab().map.borrow().room(2).unwrap().avoid);
+    // Close up, with the rooms' names, while a walk is under way, the
+    // map alone at its side.
+    let app = harness.state_mut().tab_mut();
+    app.layout.panels.retain(|panel| panel.name != "Minimapa");
+    let route = app.map.borrow().route(2, 6).unwrap();
+    app.walk = Some((
+        muddie_mapper::Walk::new(2, route),
+        std::time::Instant::now(),
+    ));
+    app.map_view.zoom_to(80.0);
+    harness.run_steps(3);
+    save(&mut harness, "map-walk");
+    harness.state_mut().tab_mut().walk = None;
     // The map placed the rooms as walked: the patio is north-east of
     // the alley, one cell east of the square.
     let map = harness.state().tab().map.borrow();

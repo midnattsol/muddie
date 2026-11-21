@@ -2,10 +2,10 @@
 //! mark or move rooms.
 
 use eframe::egui::{
-    Align2, Color32, FontId, Painter, Pos2, Rect, Response, RichText, Sense, Stroke, StrokeKind,
-    Ui, Vec2, vec2,
+    Color32, FontId, Painter, Pos2, Rect, Response, RichText, Sense, Stroke, StrokeKind, Ui, Vec2,
+    vec2,
 };
-use muddie_mapper::{Map, Pos, Room, RoomId, direction_offset};
+use muddie_mapper::{Map, Pos, Room, RoomId, Walk, direction_offset};
 
 use crate::i18n::tr;
 use crate::theme::{self, Theme, Weight};
@@ -17,7 +17,12 @@ use draw::*;
 
 /// Distance between neighbouring rooms, in points, at the default zoom.
 const DEFAULT_CELL: f32 = 36.0;
-const CELL_RANGE: std::ops::RangeInclusive<f32> = 10.0..=72.0;
+const CELL_RANGE: std::ops::RangeInclusive<f32> = 10.0..=96.0;
+/// How long, in seconds, the view takes to glide to the room the player
+/// moved to.
+const GLIDE: f64 = 0.3;
+/// The farthest move, in cells, the view glides over; past it, it jumps.
+const GLIDE_REACH: i32 = 12;
 
 /// Something the user did on the map that the caller must carry out.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -52,6 +57,9 @@ pub struct MapView {
     pan: Vec2,
     /// Room the view was last centred on; a move re-centres it.
     centred_on: Option<RoomId>,
+    /// While the view glides to the room the player moved to: how far
+    /// from it the view set out, in cells, and when.
+    glide: Option<(Vec2, f64)>,
     /// Area and level on show while the user looks away from where the
     /// player is; `None` follows the player.
     browsing: Option<(String, i32)>,
@@ -67,6 +75,8 @@ pub struct MapView {
     /// The rooms on the level shown, worked out again only when the map,
     /// the area, the level or whether every area is shown changes.
     on_level: Option<(Shown, Vec<(Pos, RoomId)>)>,
+    /// How many areas the map has, at a revision of it.
+    areas: Option<(u64, usize)>,
 }
 
 /// What the rooms on show depend on: the map's revision, the area, the
@@ -79,12 +89,14 @@ impl Default for MapView {
             cell: DEFAULT_CELL,
             pan: Vec2::ZERO,
             centred_on: None,
+            glide: None,
             browsing: None,
             all_areas: false,
             moving: None,
             menu_room: None,
             asked: Tools::default(),
             on_level: None,
+            areas: None,
         }
     }
 }
@@ -127,10 +139,11 @@ impl MapView {
     }
 
     /// Shows one level of one area: the player's, unless the user chose
-    /// another with the controls on top. Clicking a room asks to walk there,
-    /// right-clicking opens its menu, dragging pans, the scroll wheel zooms,
-    /// and Shift+drag moves a room to another cell.
-    pub fn show(&mut self, ui: &mut Ui, map: &Map) -> Option<MapAction> {
+    /// another with the controls on top, with the rest of `walk`, if one
+    /// is under way. Clicking a room asks to walk there, right-clicking
+    /// opens its menu, dragging pans, the scroll wheel zooms, and
+    /// Shift+drag moves a room to another cell.
+    pub fn show(&mut self, ui: &mut Ui, map: &Map, walk: Option<&Walk>) -> Option<MapAction> {
         // Where the player is, or, while the map is unsure, the first of
         // the rooms they may be in: the map is drawn there all the same.
         let unsure = map.current().is_none();
@@ -152,12 +165,13 @@ impl MapView {
         } else {
             heading(ui, map, current);
         }
-        let (area, level, home) = self.place(current, tools.locate);
+        let (area, level, home) = self.place(ui, map, current, tools.locate);
         let (area, level) = self.place_controls(ui, map, (area, level), home);
         let (response, painter) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
         ui.ctx()
             .accesskit_node_builder(response.id, |node| node.set_label(tr("Map view")));
         self.zoom_and_pan(ui, &response);
+        let gliding = self.glide_offset(ui);
         let all_areas = self.all_areas;
         let on_level = |room: &Room| (all_areas || room.area == area) && room.pos.z == level;
         let shown: Shown = (map.revision(), area.clone(), level, all_areas);
@@ -184,7 +198,7 @@ impl MapView {
             middle_of(places.iter().map(|(pos, _)| *pos))
         };
         let grid = Grid {
-            centre: response.rect.center() + self.pan,
+            centre: response.rect.center() + self.pan + gliding,
             origin,
             cell: self.cell,
             level,
@@ -195,9 +209,18 @@ impl MapView {
             .filter_map(|(_, id)| map.room(*id))
             .collect();
         let colours = Colours::of(theme::current());
-        draw_grid(&painter, response.rect, &grid, theme::current().border);
         draw_exits(&painter, map, &visible, &grid, &colours, &on_level);
-        draw_rooms(&painter, &visible, &grid, &here, &area, &colours);
+        if let Some(walk) = walk {
+            let rooms = std::iter::once(current.id).chain(walk.rooms_left());
+            draw_route(&painter, map, rooms, &grid, &colours, &on_level);
+        }
+        let marks = Marks {
+            here: &here,
+            destination: walk.and_then(|walk| walk.left().1),
+            area: &area,
+        };
+        draw_rooms(&painter, &visible, &grid, &colours, &marks);
+        draw_names(&painter, &visible, &grid, &colours);
         let room_at = |point: Pos2| {
             (visible.iter())
                 .find(|room| grid.on_screen(room.pos).distance(point) <= grid.half() * 1.5)
@@ -223,10 +246,29 @@ impl MapView {
 
     /// Which area and level to show: the player's, unless the view was
     /// taken to another; and the player's.
-    fn place(&mut self, current: &Room, locate: bool) -> (String, i32, (String, i32)) {
+    fn place(
+        &mut self,
+        ui: &Ui,
+        map: &Map,
+        current: &Room,
+        locate: bool,
+    ) -> (String, i32, (String, i32)) {
         let home = (current.area.clone(), current.pos.z);
         if self.centred_on != Some(current.id) {
-            // The player moved: go back to following them.
+            // The player moved: go back to following them, gliding there
+            // from where the view was if that was near.
+            let before = self.centred_on.and_then(|id| map.room(id));
+            let following = self.browsing.is_none();
+            let set_out = self.pan + self.glide_offset(ui);
+            self.glide = before
+                .filter(|before| following && before.area == current.area)
+                .map(|before| (before.pos.x - current.pos.x, before.pos.y - current.pos.y))
+                .filter(|(dx, dy)| dx.abs().max(dy.abs()) <= GLIDE_REACH)
+                .filter(|_| ui.style().animation_time > 0.0)
+                .map(|(dx, dy)| {
+                    let from = set_out / self.cell - vec2(dx as f32, -dy as f32);
+                    (from, ui.input(|input| input.time))
+                });
             self.centred_on = Some(current.id);
             self.pan = Vec2::ZERO;
             self.browsing = None;
@@ -235,14 +277,50 @@ impl MapView {
             // Back to the player, wherever the view had wandered.
             self.browsing = None;
             self.pan = Vec2::ZERO;
+            self.glide = None;
         }
         let (area, level) = self.browsing.clone().unwrap_or_else(|| home.clone());
         (area, level, home)
     }
 
-    /// The controls over the map, in one compact bar: which area, which
-    /// level, and the way back to where the player is. Returns the area
-    /// and level to show.
+    /// How far the view still is from where it glides to, on screen; it
+    /// is drawn again until it gets there.
+    fn glide_offset(&mut self, ui: &Ui) -> Vec2 {
+        let Some((from, start)) = self.glide else {
+            return Vec2::ZERO;
+        };
+        let done = ((ui.input(|input| input.time) - start) / GLIDE) as f32;
+        if done >= 1.0 {
+            self.glide = None;
+            return Vec2::ZERO;
+        }
+        ui.ctx().request_repaint();
+        // Fast at first, slowing down as it arrives.
+        let left = (1.0 - done.max(0.0)).powi(3);
+        from * left * self.cell
+    }
+
+    /// Zooms to cells of this size, as the scroll wheel does.
+    #[cfg(test)]
+    pub fn zoom_to(&mut self, cell: f32) {
+        self.cell = cell.clamp(*CELL_RANGE.start(), *CELL_RANGE.end());
+    }
+
+    /// How many areas the map has, counted again only when it changes.
+    fn area_count(&mut self, map: &Map) -> usize {
+        match self.areas {
+            Some((revision, count)) if revision == map.revision() => count,
+            _ => {
+                let count = map.areas().len();
+                self.areas = Some((map.revision(), count));
+                count
+            }
+        }
+    }
+
+    /// The controls over the map, in one compact bar: which area, if the
+    /// map has several, which level, and the way back to where the player
+    /// is. Returns the area and level to show.
     fn place_controls(
         &mut self,
         ui: &mut Ui,
@@ -252,6 +330,7 @@ impl MapView {
     ) -> (String, i32) {
         let theme = theme::current();
         let browsing = self.browsing.is_some();
+        let several_areas = self.area_count(map) > 1;
         ui.horizontal(|ui| {
             eframe::egui::Frame::new()
                 .fill(theme.raised)
@@ -260,7 +339,9 @@ impl MapView {
                 .show(ui, |ui| {
                     ui.horizontal(|ui| {
                         ui.spacing_mut().item_spacing.x = 4.0;
-                        area_choice(ui, map, &mut area);
+                        if several_areas {
+                            area_choice(ui, map, &mut area);
+                        }
                         level_steps(ui, &mut level);
                     });
                 });
@@ -311,12 +392,8 @@ impl MapView {
                 grid.on_screen(grid.cell_under(point)),
                 Vec2::splat(grid.half() * 2.0),
             );
-            painter.rect_stroke(
-                ghost,
-                3.0,
-                Stroke::new(1.5, colours.mark),
-                StrokeKind::Outside,
-            );
+            let stroke = Stroke::new(1.5, colours.mark);
+            painter.rect_stroke(ghost, grid.corner(), stroke, StrokeKind::Outside);
         }
         if response.drag_stopped()
             && let Some(room) = self.moving.take()
