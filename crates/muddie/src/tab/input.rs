@@ -74,6 +74,12 @@ impl Tab {
             && !dialog
             && (submitted || ui.memory(|memory| memory.focused().is_none()))
         {
+            // A command kept and not touched is chosen whole again: a click
+            // elsewhere, to read or copy, took the choice away with the
+            // keyboard. A click in the line puts the cursor there instead.
+            if !submitted && self.kept_input.as_ref() == Some(&self.input) {
+                self.select_input = true;
+            }
             response.request_focus();
         }
     }

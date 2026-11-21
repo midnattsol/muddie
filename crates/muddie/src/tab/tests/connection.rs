@@ -178,10 +178,29 @@ fn sent_command_stays_selected_to_repeat_or_type_over() {
     harness.key_press(Key::Enter);
     harness.run_steps(3);
     assert_eq!(sent.try_recv().unwrap(), send("look"));
+    // Gone to read the output and back, it is still all chosen: what is
+    // typed takes its place.
+    harness.ctx.memory_mut(|memory| {
+        if let Some(focused) = memory.focused() {
+            memory.surrender_focus(focused);
+        }
+    });
+    harness.run_steps(3);
+    harness.get_by_label("Command").type_text("west");
+    harness.run_steps(3);
+    assert_eq!(harness.state().tab().input, "west");
+    harness.key_press(Key::Enter);
+    harness.run_steps(3);
+    assert_eq!(sent.try_recv().unwrap(), send("west"));
+    harness.state_mut().tab_mut().input = "look".into();
+    harness.run_steps(2);
+    harness.key_press(Key::Enter);
+    harness.run_steps(3);
+    assert_eq!(sent.try_recv().unwrap(), send("look"));
     // The arrows browse from it as the newest command, not as a search.
     harness.key_press(Key::ArrowUp);
     harness.run_steps(3);
-    assert_eq!(harness.state().tab().input, "north");
+    assert_eq!(harness.state().tab().input, "west");
     // With the setting off, the line empties as it used to.
     let app = harness.state_mut().tab_mut();
     app.settings.keep_command = false;
