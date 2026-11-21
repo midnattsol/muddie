@@ -165,7 +165,7 @@ msgid "Port"
 msgstr "Puerto"
 
 msgid "Blank."
-msgstr "En blanco."
+msgstr "Línea vacía."
 
 msgid "No gauges."
 msgstr "No hay indicadores."
@@ -182,8 +182,8 @@ msgstr "Bajar"
 msgid "Up"
 msgstr "Subir"
 
-msgid "Back to me"
-msgstr "Volver a mí"
+msgid "Back to my position"
+msgstr "Volver a mi posición"
 
 msgid "Map view"
 msgstr "Vista del mapa"
@@ -229,19 +229,19 @@ msgid "Could not save the map: {0}"
 msgstr "No se pudo guardar el mapa: {0}"
 
 msgid "The map does not know where you are yet."
-msgstr "El mapa aún no sabe dónde estás."
+msgstr "El mapa aún no conoce tu ubicación."
 
 msgid "No known route to that room."
 msgstr "No hay ruta conocida hasta esa sala."
 
 msgid "Arrived."
-msgstr "Has llegado."
+msgstr "Has llegado a tu destino."
 
 msgid "Walk stopped: this is not the room the route expected."
-msgstr "Recorrido detenido: esta no es la sala que esperaba la ruta."
+msgstr "Recorrido detenido: la sala actual no coincide con la ruta."
 
 msgid "Walk stopped: the last move had no effect."
-msgstr "Recorrido detenido: el último paso no tuvo efecto."
+msgstr "Recorrido detenido: el último movimiento no tuvo efecto."
 
 msgid "No room matches."
 msgstr "Ninguna sala coincide."
@@ -306,13 +306,13 @@ msgid "Keyboard shortcuts"
 msgstr "Atajos de teclado"
 
 msgid "Earlier and later commands"
-msgstr "Comandos anteriores y posteriores"
+msgstr "Navegar por el historial de comandos"
 
 msgid "Search the commands typed before"
-msgstr "Buscar en los comandos escritos"
+msgstr "Buscar en el historial de comandos"
 
 msgid "Complete the word being typed"
-msgstr "Completar la palabra que escribes"
+msgstr "Autocompletar la palabra"
 
 msgid "Search the output"
 msgstr "Buscar en la salida"
@@ -365,8 +365,8 @@ msgstr "Caminando"
 msgid "Log this session"
 msgstr "Registrar esta sesión"
 
-msgid "Where am I?"
-msgstr "¿Dónde estoy?"
+msgid "Show my position"
+msgstr "Mostrar mi ubicación"
 
 msgid "Avoid this room in routes"
 msgstr "Evitar esta sala en las rutas"
@@ -415,7 +415,7 @@ msgid "Colour the match"
 msgstr "Colorear la coincidencia"
 
 msgid "Try it"
-msgstr "Pruébalo"
+msgstr "Probar"
 
 msgid "sends"
 msgstr "envía"
@@ -423,20 +423,20 @@ msgstr "envía"
 msgid "says"
 msgstr "dice"
 
-msgid "Name this alias"
-msgstr "Ponle nombre a este alias"
+msgid "Alias name"
+msgstr "Nombre del alias"
 
 msgid "What you type matches this regular expression"
-msgstr "Lo que escribes cumple esta expresión regular"
+msgstr "El comando cumple esta expresión regular"
 
 msgid "You type this word, alone or followed by more"
-msgstr "Escribes esta palabra, sola o seguida de más"
+msgstr "El comando empieza por esta palabra"
 
-msgid "Name this macro"
-msgstr "Ponle nombre a esta macro"
+msgid "Macro name"
+msgstr "Nombre de la macro"
 
 msgid "Press the key…"
-msgstr "Pulsa la tecla…"
+msgstr "Pulsa una tecla…"
 
 msgid "None"
 msgstr "Ninguna"
@@ -448,7 +448,7 @@ msgid "Record a key"
 msgstr "Grabar una tecla"
 
 msgid "Function keys, keys with Ctrl or Alt, and the numeric keypad can be used."
-msgstr "Sirven las teclas de función, las combinaciones con Ctrl o Alt y el teclado numérico."
+msgstr "Admite teclas de función, combinaciones con Ctrl o Alt y el teclado numérico."
 
 msgid "Name"
 msgstr "Nombre"
@@ -500,10 +500,10 @@ msgid "Could not save the script: {0}"
 msgstr "No se pudo guardar el script: {0}"
 
 msgid "Scripts of your own are kept per profile: save or choose a profile first."
-msgstr "Tus scripts se guardan por perfil: guarda o elige un perfil primero."
+msgstr "Los scripts se guardan por perfil. Guarda o selecciona un perfil para continuar."
 
-msgid "Name this gauge"
-msgstr "Ponle nombre a este indicador"
+msgid "Gauge name"
+msgstr "Nombre del indicador"
 
 msgid "Follows"
 msgstr "Sigue"
@@ -551,7 +551,7 @@ msgid "No map yet"
 msgstr "Aún no hay mapa"
 
 msgid "It is drawn as you walk, if the MUD says which room you are in. If yours tells it another way, or draws the map itself, a script can take it from there."
-msgstr "Se dibuja al caminar, si el MUD dice en qué sala estás. Si el tuyo lo cuenta de otra forma, o dibuja él mismo el mapa, un script puede encargarse."
+msgstr "El mapa se genera automáticamente si el MUD indica la sala actual. Si la indica de otro modo, o el MUD dibuja su propio mapa, puede configurarse mediante un script."
 
 msgid "Line"
 msgstr "Línea"
@@ -560,7 +560,7 @@ msgid "One command per line. %1, %2… are the groups of the pattern."
 msgstr "Un comando por línea. %1, %2… son los grupos del patrón."
 
 msgid "m holds the match, line the whole line."
-msgstr "m es la coincidencia, line la línea entera."
+msgstr "m contiene la coincidencia y line, la línea completa."
 
 msgid "Also"
 msgstr "Además"
@@ -572,10 +572,10 @@ msgid "One command per line. %1 stands for what follows the word."
 msgstr "Un comando por línea. %1 es lo que sigue a la palabra."
 
 msgid "m holds the match, input what was typed."
-msgstr "m es la coincidencia, input lo que escribiste."
+msgstr "m contiene la coincidencia e input, el comando escrito."
 
 msgid "One command per line, sent as if you had typed them."
-msgstr "Un comando por línea, enviados como si los hubieras escrito."
+msgstr "Un comando por línea, enviados como si los escribieras."
 
 msgid "Run when the key is pressed."
 msgstr "Se ejecuta al pulsar la tecla."
@@ -593,8 +593,8 @@ msgstr ""
 "Un temporizador hace algo pasado un tiempo,\n"
 "una vez o una y otra vez."
 
-msgid "Name this timer"
-msgstr "Ponle nombre a este temporizador"
+msgid "Timer name"
+msgstr "Nombre del temporizador"
 
 msgid "Every"
 msgstr "Cada"
@@ -606,16 +606,16 @@ msgid "seconds"
 msgstr "segundos"
 
 msgid "Counted from when the session starts or the rules are run again."
-msgstr "Se cuenta desde que empieza la sesión o se vuelven a ejecutar las reglas."
+msgstr "Se cuenta desde el inicio de la sesión o el último reinicio de las reglas."
 
 msgid "Goes off once, that long after the session starts or the rules are run again."
-msgstr "Salta una vez, ese tiempo después de empezar la sesión o de volver a ejecutar las reglas."
+msgstr "Se ejecuta una sola vez, transcurrido ese tiempo desde el inicio de la sesión o el último reinicio de las reglas."
 
 msgid "One command per line."
 msgstr "Un comando por línea."
 
 msgid "Run each time the timer goes off."
-msgstr "Se ejecuta cada vez que salta el temporizador."
+msgstr "Se ejecuta cada vez que vence el temporizador."
 
 #, python-brace-format
 msgid "Reconnecting in {0} second."
@@ -627,7 +627,7 @@ msgid "Hide the map"
 msgstr "Ocultar el mapa"
 
 msgid "Plugins are enabled per profile: save or choose a profile first."
-msgstr "Los complementos se activan por perfil: guarda o elige un perfil primero."
+msgstr "Los complementos se activan por perfil. Guarda o selecciona un perfil para continuar."
 
 #, python-brace-format
 msgid "Plugin {0} enabled."
@@ -673,25 +673,25 @@ msgid "Plugins need a configuration folder, and none was found."
 msgstr "Los complementos necesitan una carpeta de configuración, y no se encontró ninguna."
 
 msgid "Give the plugin a name after the address: letters, digits, - and _."
-msgstr "Dale un nombre al complemento tras la dirección: letras, cifras, - y _."
+msgstr "Indica un nombre para el complemento después de la dirección (letras, cifras, - y _)."
 
 msgid "Says where you are"
-msgstr "Dice dónde estás"
+msgstr "Indica tu ubicación actual"
 
 msgid "Walks to a room, by name or number"
 msgstr "Camina hasta una sala, por nombre o número"
 
 msgid "Stops walking"
-msgstr "Deja de caminar"
+msgstr "Detiene el recorrido"
 
 msgid "Keeps routes out of a room, or lets them in again"
-msgstr "Aparta las rutas de una sala, o las vuelve a permitir"
+msgstr "Excluye una sala de las rutas o la vuelve a incluir"
 
 msgid "Keeps routes from an exit of this room, or lets them use it again"
-msgstr "Impide que las rutas usen una salida de esta sala, o lo vuelve a permitir"
+msgstr "Excluye una salida de esta sala de las rutas o la vuelve a incluir"
 
 msgid "Draws this area again from scratch"
-msgstr "Vuelve a dibujar esta zona desde cero"
+msgstr "Recalcula la disposición de esta zona"
 
 msgid "Shows the map panel"
 msgstr "Muestra el panel del mapa"
@@ -715,7 +715,7 @@ msgid "Deletes a plugin"
 msgstr "Elimina un complemento"
 
 msgid "Starts or stops logging the session"
-msgstr "Empieza o deja de registrar la sesión"
+msgstr "Inicia o detiene el registro de la sesión"
 
 msgid ""
 "Scripts are Luau code that is always loaded: what no rule can do,\n"
@@ -772,7 +772,7 @@ msgid "Install"
 msgstr "Instalar"
 
 msgid "Working…"
-msgstr "Trabajando…"
+msgstr "Procesando…"
 
 msgid "Editor"
 msgstr "Editor"
@@ -815,7 +815,7 @@ msgid "Remove {0}"
 msgstr "Quitar {0}"
 
 msgid "Nothing here yet. A trigger can show lines in this panel, and so can a script."
-msgstr "Aún no hay nada. Un disparador puede mostrar líneas en este panel, y también un script."
+msgstr "Todavía no hay contenido. Los disparadores y los scripts pueden enviar líneas a este panel."
 
 msgid "Text"
 msgstr "Texto"
@@ -834,7 +834,7 @@ msgstr ""
 "a quién persigues, qué llevas, cuántos has matado."
 
 msgid "A name is made of letters, digits and _, and does not start with a digit."
-msgstr "Un nombre se compone de letras, cifras y _, y no empieza por una cifra."
+msgstr "Un nombre solo puede contener letras, cifras y _, y no puede empezar por una cifra."
 
 msgid "There is already a variable of that name."
 msgstr "Ya hay una variable con ese nombre."
@@ -847,7 +847,7 @@ msgstr "Acerca de Muddie"
 
 
 msgid "No gauges here yet."
-msgstr "Aún no hay indicadores aquí."
+msgstr "Este panel no tiene indicadores."
 
 #, python-brace-format
 msgid "received {0} time"
@@ -865,7 +865,7 @@ msgid "Copy the path"
 msgstr "Copiar la ruta"
 
 msgid "A path is what a gauge follows, and what a script reads after gmcp(\"…\")."
-msgstr "Una ruta es lo que sigue un indicador, y lo que un script lee tras gmcp(\"…\")."
+msgstr "La ruta identifica el valor que sigue un indicador y el que lee un script con gmcp(\"…\")."
 
 msgid ""
 "What the MUD sends besides text, with GMCP or MSDP, appears here as it comes:\n"
@@ -875,7 +875,7 @@ msgstr ""
 "míralo para saber qué puede seguir un indicador o usar un script."
 
 msgid "Drag it, or click it to type."
-msgstr "Arrástralo, o haz clic para escribir."
+msgstr "Arrastra para ajustarlo o haz clic para escribirlo."
 
 msgid "No fields yet."
 msgstr "Aún no hay campos."
@@ -890,7 +890,7 @@ msgid "Add an item"
 msgstr "Añadir un elemento"
 
 msgid "What reads as a number, true or false is kept as that; the rest as a string. A table inside is written as JSON."
-msgstr "Lo que se lee como number, true o false se guarda como tal; lo demás, como string. Una tabla dentro se escribe en JSON."
+msgstr "Los números, true y false se guardan con su tipo; el resto, como texto. Las tablas anidadas se escriben en JSON."
 
 msgid "In the commands of a rule"
 msgstr "En los comandos de una regla"
@@ -914,31 +914,31 @@ msgid "Light"
 msgstr "Luz"
 
 msgid "How full something is, of its maximum."
-msgstr "Cuánto queda de algo, respecto a su máximo."
+msgstr "Muestra un valor respecto a su máximo."
 
 msgid "A number as it is: gold, level, experience."
-msgstr "Un número tal cual: oro, nivel, experiencia."
+msgstr "Muestra un número: oro, nivel, experiencia."
 
 msgid "On or off, for what is so or is not: hidden, poisoned, in combat."
-msgstr "Encendida o apagada, para lo que es o no es: oculto, envenenado, en combate."
+msgstr "Muestra un estado activo o inactivo: oculto, envenenado, en combate."
 
 msgid "What the MUD says, as words: a stance, a target, a place."
-msgstr "Lo que dice el MUD, en palabras: una postura, un objetivo, un lugar."
+msgstr "Muestra un texto del MUD: una postura, un objetivo, un lugar."
 
 msgid "none"
 msgstr "ninguno"
 
 msgid "It is on when the value is true, a number other than 0, or words other than no, false or off."
-msgstr "Se enciende cuando el valor es true, un número distinto de 0, o palabras distintas de no, false u off."
+msgstr "Se enciende si el valor es true, un número distinto de 0 o un texto distinto de no, false u off."
 
 msgid "Where the MUD reports it: a GMCP package and the fields inside it, such as Char.Vitals.health.current, or the name of a MSDP variable. The maximum can also be a number. Incoming data, in the editor, shows what there is."
-msgstr "Dónde lo da el MUD: un paquete GMCP y los campos que lleva dentro, como Char.Vitals.health.current, o el nombre de una variable MSDP. El máximo también puede ser un número. Datos recibidos, en el editor, muestra lo que hay."
+msgstr "Ubicación del valor: un paquete GMCP y sus campos, como Char.Vitals.health.current, o el nombre de una variable MSDP. El máximo también puede ser un número fijo. Consulta Datos recibidos para ver los valores disponibles."
 
 msgid "Colour by level"
 msgstr "Color según el nivel"
 
 msgid "It can turn another colour as it gets low: yellow under 60 %, red under 30 %."
-msgstr "Puede cambiar de color al bajar: amarillo por debajo del 60 %, rojo por debajo del 30 %."
+msgstr "Puede cambiar de color al bajar de un umbral: por ejemplo, amarillo por debajo del 60 % y rojo por debajo del 30 %."
 
 msgid "Under"
 msgstr "Por debajo de"
@@ -966,7 +966,7 @@ msgid "Unlit"
 msgstr "Sin luz"
 
 msgid "With a colour for each, it says which of the two it is: red for poisoned, green for not."
-msgstr "Con un color para cada estado, dice cuál de los dos es: rojo si estás envenenado, verde si no."
+msgstr "Con un color para cada estado, se distingue de un vistazo: por ejemplo, rojo si estás envenenado y verde si no."
 
 msgid "There is no panel of gauges to show it in."
 msgstr "No hay ningún panel de indicadores donde mostrarlo."
@@ -979,11 +979,11 @@ msgstr "Se muestra en"
 
 
 msgid "In the order of the list: drag a gauge there, or press Alt+Up or Alt+Down, to move it."
-msgstr "En el orden de la lista: arrastra allí un indicador, o pulsa Alt+Arriba o Alt+Abajo, para moverlo."
+msgstr "Se muestra en el orden de la lista. Para cambiarlo, arrastra el indicador o usa Alt+Arriba y Alt+Abajo."
 
 
 msgid "Choose one, or type a command"
-msgstr "Elige uno, o escribe un comando"
+msgstr "Selecciona una opción o escribe un comando"
 
 msgid "Commands"
 msgstr "Comandos"
@@ -998,7 +998,7 @@ msgid "Not offered by this MUD"
 msgstr "Este MUD no lo ofrece"
 
 msgid "This MUD offers neither GMCP nor MSDP: all it sends is text, and what it says on its channels comes as lines of the game."
-msgstr "Este MUD no ofrece GMCP ni MSDP: solo manda texto, y lo que se dice en sus canales llega como líneas del juego."
+msgstr "Este MUD no ofrece GMCP ni MSDP: solo envía texto, y sus canales llegan como líneas del juego."
 
 msgid "Clear"
 msgstr "Vaciar"
@@ -1010,7 +1010,7 @@ msgid "History"
 msgstr "Historial"
 
 msgid "Filled: in use. Outlined: offered by the MUD, not used by Muddie. Faint: not offered."
-msgstr "Relleno: en uso. Con borde: lo ofrece el MUD y Muddie no lo usa. Tenue: no ofrecido."
+msgstr "Relleno: en uso. Con borde: ofrecido por el MUD, pero sin usar. Atenuado: no ofrecido."
 
 
 #, python-brace-format
@@ -1091,7 +1091,7 @@ msgid "No data received since this view was opened."
 msgstr "No se han recibido datos desde que se abrió esta vista."
 
 msgid "Runs when saved, shortly after you stop typing."
-msgstr "Se ejecuta al guardarse, poco después de dejar de escribir."
+msgstr "Se ejecuta al guardarse, automáticamente al dejar de escribir."
 
 msgid "Offered by the MUD, not used by Muddie"
 msgstr "Ofrecido por el MUD, no usado por Muddie"
@@ -1131,8 +1131,8 @@ msgstr "Mostrar {0}"
 msgid "Connect to profile"
 msgstr "Conectar al perfil"
 
-msgid "Go to, open or run anything"
-msgstr "Ir a, abrir o ejecutar lo que sea"
+msgid "Search for a section, an action or a command"
+msgstr "Busca una sección, una acción o un comando"
 
 msgid "Messages"
 msgstr "Mensajes"
@@ -1141,8 +1141,8 @@ msgstr "Mensajes"
 msgid "Messages, {0} new"
 msgstr "Mensajes, {0} nuevos"
 
-msgid "Nothing yet."
-msgstr "Nada todavía."
+msgid "No messages."
+msgstr "No hay mensajes."
 
 msgid "Undo"
 msgstr "Deshacer"
@@ -1159,7 +1159,7 @@ msgid "Remove “{0}”"
 msgstr "Quitar «{0}»"
 
 msgid "With the line hidden, it is only in the panel."
-msgstr "Con la línea oculta, solo está en el panel."
+msgstr "Con la línea oculta, solo aparece en el panel."
 
 #, python-brace-format
 msgid "{0} options"
@@ -1209,7 +1209,7 @@ msgid "Automatic"
 msgstr "Automática"
 
 msgid "Same, for the panel of channels"
-msgstr "Lo mismo, para el panel de canales"
+msgstr "Igual, en el panel de canales"
 
 msgid "Stop logging this session"
 msgstr "Dejar de registrar esta sesión"
@@ -1253,20 +1253,20 @@ msgstr "El nombre de un perfil solo puede tener letras, números, espacios, - y 
 
 #, python-brace-format
 msgid "{0} is in use by an open session: close it first."
-msgstr "{0} lo usa una sesión abierta: ciérrala antes."
+msgstr "{0} está en uso en una sesión abierta. Ciérrala para continuar."
 
 msgid "Profiles need a configuration folder, and none was found."
 msgstr "Los perfiles necesitan una carpeta de configuración, y no se ha encontrado ninguna."
 
 msgid "No profiles yet. A profile keeps a MUD's connection, scripts, map and layout."
-msgstr "Aún no hay perfiles. Un perfil guarda la conexión, los scripts, el mapa y la disposición de un MUD."
+msgstr "Todavía no hay perfiles. Un perfil guarda la conexión, los scripts, el mapa y la disposición de cada MUD."
 
 #, python-brace-format
 msgid "{0} is now a script of profile {1}."
 msgstr "{0} es ahora un script del perfil {1}."
 
 msgid "This session has no profile, so its variables last until it is closed. Save it as a profile, from its tab's menu, to keep them."
-msgstr "Esta sesión no tiene perfil, así que sus variables duran hasta que se cierre. Guárdala como perfil, desde el menú de su pestaña, para conservarlas."
+msgstr "Esta sesión no tiene perfil: sus variables se pierden al cerrarla. Para conservarlas, guárdala como perfil desde el menú de su pestaña."
 
 msgid "Interface"
 msgstr "Interfaz"
@@ -1278,7 +1278,7 @@ msgid "Address of its git repository"
 msgstr "Dirección de su repositorio git"
 
 msgid "Only install what you trust: a plugin can send commands as you."
-msgstr "Instala solo lo que sea de confianza: un complemento puede enviar comandos en tu nombre."
+msgstr "Instala solo complementos de confianza: pueden enviar comandos en tu nombre."
 
 msgid "Side panels between the top and bottom ones"
 msgstr "Paneles laterales entre los de arriba y abajo"
@@ -1317,7 +1317,7 @@ msgid "Keep the sent command"
 msgstr "Conservar el comando enviado"
 
 msgid "Enter sends it again; typing replaces it."
-msgstr "Enter lo repite; al escribir se sustituye."
+msgstr "Intro lo vuelve a enviar; al escribir, se reemplaza."
 
 msgid "Voice language"
 msgstr "Idioma de la voz"
@@ -1329,7 +1329,7 @@ msgid "Encoding"
 msgstr "Codificación"
 
 msgid "Automatic works with nearly every MUD."
-msgstr "Automática funciona con casi todos los MUD."
+msgstr "La opción automática es compatible con la mayoría de los MUD."
 
 msgid "TLS without verifying the certificate"
 msgstr "TLS sin verificar el certificado"
@@ -1350,7 +1350,7 @@ msgid "Auto-reconnect"
 msgstr "Reconectar automáticamente"
 
 msgid "Stops the server or a router from closing an idle connection."
-msgstr "Evita que el servidor o el router corten una conexión inactiva."
+msgstr "Evita que el servidor o el router cierren una conexión inactiva."
 
 msgid "Keep-alive"
 msgstr "Keep-alive"
@@ -1362,13 +1362,13 @@ msgid "Logging and sound"
 msgstr "Registro y sonido"
 
 msgid "Saves everything shown to a file."
-msgstr "Guarda en un archivo todo lo que se muestra."
+msgstr "Guarda en un archivo todo lo que se muestra en la sesión."
 
 msgid "Session log"
 msgstr "Registro de sesión"
 
 msgid "Those the MUD asks for that you do not have."
-msgstr "Los que pida el MUD y no tengas."
+msgstr "Descarga los sonidos que solicite el MUD y no estén disponibles."
 
 msgid "Download sounds"
 msgstr "Descargar sonidos"
@@ -1392,7 +1392,7 @@ msgid "Gauges from Char.Vitals, the map from Room.Info, channels from Comm.Chann
 msgstr "Indicadores desde Char.Vitals, el mapa desde Room.Info y los canales desde Comm.Channel.Text."
 
 msgid "Its channels, each in a tab. Needs consentir gmcp on, typed in the game."
-msgstr "Sus canales, cada uno en una pestaña. Necesita escribir en el juego: consentir gmcp on."
+msgstr "Muestra cada canal en su propia pestaña. Requiere activar el GMCP en el juego con «consentir gmcp on»."
 
 msgid "Leave empty to keep it"
 msgstr "Déjala vacía para conservarla"
@@ -1444,10 +1444,10 @@ msgstr "Quitar la etiqueta {0}"
 
 #, python-brace-format
 msgid "There is no tag called {0}; /tag lists them."
-msgstr "No hay ninguna etiqueta llamada {0}; /tag las muestra."
+msgstr "No existe la etiqueta {0}. Usa /tag para ver las disponibles."
 
 msgid "There are no tags. Give a rule a tag in the editor."
-msgstr "No hay etiquetas. Ponle una a una regla en el editor."
+msgstr "No hay etiquetas. Puedes asignarlas a las reglas desde el editor."
 
 msgid "New folder"
 msgstr "Carpeta nueva"
@@ -1469,7 +1469,7 @@ msgstr "No se pudo eliminar la carpeta: {0}"
 
 #, python-brace-format
 msgid "There is one called {0} already."
-msgstr "Ya hay uno llamado {0}."
+msgstr "Ya existe un elemento llamado {0}."
 
 #, python-brace-format
 msgid "Could not move it: {0}"
@@ -1534,11 +1534,11 @@ msgstr "Mover a la carpeta"
 #, python-brace-format
 msgid "{0} chosen"
 msgid_plural "{0} chosen"
-msgstr[0] "{0} elegido"
-msgstr[1] "{0} elegidos"
+msgstr[0] "{0} seleccionado"
+msgstr[1] "{0} seleccionados"
 
-msgid "What is changed here is changed in all of them."
-msgstr "Lo que cambies aquí cambia en todos ellos."
+msgid "Changes apply to every selected item."
+msgstr "Los cambios se aplican a todos los elementos seleccionados."
 
 #, python-brace-format
 msgid "{0} item"
@@ -1553,7 +1553,7 @@ msgstr "Varias carpetas"
 
 #, python-brace-format
 msgid "There is a plugin for {0}: {1} It can be enabled from the notice at the bottom right."
-msgstr "Hay un complemento para {0}: {1} Se puede activar desde el aviso de abajo a la derecha."
+msgstr "Hay un complemento disponible para {0}: {1} Puedes activarlo desde el aviso de la esquina inferior derecha."
 
 msgid "Changes pending"
 msgstr "Cambios pendientes"
@@ -1597,8 +1597,8 @@ msgstr "Perfil nuevo"
 msgid "Enabled"
 msgstr "Activado"
 
-msgid "Name this trigger"
-msgstr "Ponle nombre a este disparador"
+msgid "Trigger name"
+msgstr "Nombre del disparador"
 
 msgid "Lists the rooms whose name contains the text"
 msgstr "Muestra las salas cuyo nombre contiene el texto"
@@ -1610,7 +1610,7 @@ msgid "Lists these commands"
 msgstr "Muestra estos comandos"
 
 msgid "Click a room to walk there, right-click for more, Shift+drag to move it."
-msgstr "Haz clic en una sala para ir hasta ella, clic derecho para más opciones, y Mayús+arrastrar para moverla."
+msgstr "Haz clic en una sala para ir hasta ella, clic derecho para ver más opciones y Mayús+arrastrar para moverla."
 
 msgid "Colour when on"
 msgstr "Color al estar encendida"
@@ -1646,24 +1646,24 @@ msgstr "Ctrl+clic  Mayús+clic"
 msgid "Alt+Shift+↑ …"
 msgstr "Alt+Mayús+↑ …"
 
-msgid "Choose the one above or below"
-msgstr "Elegir el de arriba o el de abajo"
+msgid "Select the previous or next item"
+msgstr "Seleccionar el elemento anterior o el siguiente"
 
-msgid "Choose several, or a range"
-msgstr "Elegir varios, o un rango"
+msgid "Select several items or a range"
+msgstr "Seleccionar varios elementos o un rango"
 
-msgid "Choose all that is shown"
-msgstr "Elegir todo lo que se ve"
+msgid "Select all visible items"
+msgstr "Seleccionar todos los elementos visibles"
 
-msgid "Move it up or down"
-msgstr "Moverlo arriba o abajo"
+msgid "Move up or down"
+msgstr "Mover arriba o abajo"
 
 
 msgid "Restart scripts"
 msgstr "Reiniciar scripts"
 
 msgid "Runs every script and rule again, as when a session starts. The variables are kept."
-msgstr "Vuelve a ejecutar todos los scripts y reglas, como al empezar la sesión. Las variables se conservan."
+msgstr "Vuelve a ejecutar todos los scripts y reglas, como al iniciar la sesión. Las variables se conservan."
 
 msgid "Scripts restarted."
 msgstr "Scripts reiniciados."
@@ -1699,11 +1699,11 @@ msgid "Read aloud"
 msgstr "Leer en voz alta"
 
 #, python-brace-format
-msgid "Speaking through {0}."
-msgstr "Ahora habla {0}."
+msgid "Active voice: {0}."
+msgstr "Voz activa: {0}."
 
-msgid "Nothing is speaking now."
-msgstr "Ahora no habla nada."
+msgid "No voice is active."
+msgstr "No hay ninguna voz activa."
 
 msgid "Speaking"
 msgstr "Lectura en voz alta"
@@ -1720,17 +1720,17 @@ msgstr "La voz del sistema"
 msgid "Nothing"
 msgstr "Nada"
 
-msgid "Interrupt with what is new"
-msgstr "Interrumpir con lo nuevo"
+msgid "Interrupt with new lines"
+msgstr "Interrumpir con las líneas nuevas"
 
-msgid "A new line cuts short what is being said: for fast games."
-msgstr "Una línea nueva corta lo que se está diciendo: para juegos rápidos."
+msgid "Each new line interrupts what is being read. Useful in fast games."
+msgstr "Cada línea nueva interrumpe la lectura en curso. Útil en juegos con mucho texto."
 
 msgid "Read the channels"
 msgstr "Leer los canales"
 
 msgid "What is said on the MUD's channels, with the channel's name."
-msgstr "Lo que se dice en los canales del MUD, con el nombre del canal."
+msgstr "Lee lo que se dice en los canales del MUD, precedido del nombre del canal."
 
 
 msgid "Map"
@@ -1757,8 +1757,8 @@ msgid "Command palette"
 msgstr "Paleta de comandos"
 
 #, python-brace-format
-msgid "Speaking through {0}, at its own speed and with its own voice."
-msgstr "Ahora habla {0}, a su propia velocidad y con su propia voz."
+msgid "Active voice: {0}, with its own speed and voice."
+msgstr "Voz activa: {0}, con su propia velocidad y voz."
 
 #, python-brace-format
 msgid "{0} % of the window"
@@ -1770,16 +1770,16 @@ msgid "Read the {0} channel aloud"
 msgstr "Leer en voz alta el canal {0}"
 
 #, python-brace-format
-msgid "Keep the {0} channel quiet"
-msgstr "Callar el canal {0}"
+msgid "Mute the {0} channel"
+msgstr "Silenciar el canal {0}"
 
 #, python-brace-format
 msgid "The {0} channel is read aloud."
-msgstr "El canal {0} se lee en voz alta."
+msgstr "El canal {0} se leerá en voz alta."
 
 #, python-brace-format
-msgid "The {0} channel is kept quiet."
-msgstr "El canal {0} queda callado."
+msgid "Channel {0} muted."
+msgstr "Canal {0} silenciado."
 
 msgid "Walking to {1}: {0} step left."
 msgid_plural "Walking to {1}: {0} steps left."
@@ -1824,8 +1824,8 @@ msgstr "← →  ↑ ↓ en un borde"
 msgid "Make the panels larger or smaller"
 msgstr "Agrandar o encoger los paneles"
 
-msgid "Anywhere"
-msgstr "En cualquier sitio"
+msgid "Everywhere"
+msgstr "En toda la aplicación"
 
 msgid "Go to the next or previous control"
 msgstr "Ir al control siguiente o al anterior"
@@ -1833,8 +1833,8 @@ msgstr "Ir al control siguiente o al anterior"
 msgid "Shift+F10  Menu key"
 msgstr "Mayús+F10  Tecla de menú"
 
-msgid "Open the menu of what has the keyboard"
-msgstr "Abrir el menú de lo que tiene el teclado"
+msgid "Open the context menu of the focused item"
+msgstr "Abrir el menú contextual del elemento enfocado"
 
 
 msgid "Open the folder"
@@ -1844,8 +1844,8 @@ msgstr "Abrir la carpeta"
 msgid "Word"
 msgstr "Palabra"
 
-msgid "Paste a line from the MUD"
-msgstr "Pega una línea del MUD"
+msgid "Paste a line from the MUD to try it"
+msgstr "Pega una línea del MUD para probarla"
 
 msgid "Add an action"
 msgstr "Añadir una acción"
@@ -1875,4 +1875,3 @@ msgstr "oculta la línea"
 
 msgid "Find in the output"
 msgstr "Buscar en la salida"
-

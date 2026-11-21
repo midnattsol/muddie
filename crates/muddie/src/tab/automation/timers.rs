@@ -5,7 +5,7 @@ use super::*;
 impl Tab {
     pub(in crate::tab) fn timer_detail(&mut self, ui: &mut egui::Ui, index: usize) -> bool {
         let theme = theme::current();
-        let delete = self.rule_head(ui, Kind::Timer, index, tr("Name this timer"));
+        let delete = self.rule_head(ui, Kind::Timer, index, tr("Timer name"));
         let rule = &mut self.editor.draft.timers[index];
         widgets::card(
             ui,

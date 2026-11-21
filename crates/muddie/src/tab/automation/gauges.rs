@@ -10,7 +10,7 @@ impl Tab {
             .map(|panel| (panel.id, panel.name.clone()))
             .collect();
         let rule = &mut self.editor.draft.gauges[index];
-        let hint = tr("Name this gauge");
+        let hint = tr("Gauge name");
         let delete = rule_header(
             ui,
             &mut rule.name,

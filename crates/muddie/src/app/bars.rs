@@ -274,7 +274,7 @@ fn notices_list(ui: &mut Ui, said: &[crate::tab::Notice]) -> bool {
         });
     });
     if said.is_empty() {
-        widgets::menu_heading(ui, tr("Nothing yet."));
+        widgets::menu_heading(ui, tr("No messages."));
         return false;
     }
     egui::ScrollArea::vertical()

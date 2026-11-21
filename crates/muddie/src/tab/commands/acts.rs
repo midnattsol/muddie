@@ -94,7 +94,7 @@ impl Tab {
                         Act::ReadChannel(name.clone(), true),
                     ),
                     false => item(
-                        &trf("Keep the {0} channel quiet", &[name]),
+                        &trf("Mute the {0} channel", &[name]),
                         speech,
                         Act::ReadChannel(name.clone(), false),
                     ),
@@ -173,7 +173,7 @@ impl Tab {
                 self.set_channel_quiet(&name, !read);
                 self.note(&match read {
                     true => trf("The {0} channel is read aloud.", &[&name]),
-                    false => trf("The {0} channel is kept quiet.", &[&name]),
+                    false => trf("Channel {0} muted.", &[&name]),
                 });
             }
             Act::Speech => match self.voice.enabled() {

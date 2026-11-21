@@ -234,7 +234,7 @@ impl Tab {
         let hint = if listed {
             tr("Choose one, or type a command")
         } else {
-            tr("Go to, open or run anything")
+            tr("Search for a section, an action or a command")
         };
         let hint = RichText::new(hint)
             .font(theme::font(Weight::Regular, 14.5))

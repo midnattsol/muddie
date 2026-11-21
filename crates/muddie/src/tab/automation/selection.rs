@@ -348,7 +348,7 @@ impl Tab {
         if let Some(kind) = section_kind(section) {
             self.bulk_filing(ui, kind, &chosen);
         }
-        note(ui, tr("What is changed here is changed in all of them."));
+        note(ui, tr("Changes apply to every selected item."));
         if delete {
             self.delete_chosen();
             self.list_scripts();

@@ -45,13 +45,13 @@ impl App {
                     (
                         tr("Editor"),
                         &[
-                            ("↑  ↓", tr("Choose the one above or below")),
+                            ("↑  ↓", tr("Select the previous or next item")),
                             (
                                 tr("Ctrl+click  Shift+click"),
-                                tr("Choose several, or a range"),
+                                tr("Select several items or a range"),
                             ),
-                            ("Ctrl+A", tr("Choose all that is shown")),
-                            ("Alt+↑  Alt+↓", tr("Move it up or down")),
+                            ("Ctrl+A", tr("Select all visible items")),
+                            ("Alt+↑  Alt+↓", tr("Move up or down")),
                             ("F2", tr("Rename")),
                             (tr("Del"), tr("Delete")),
                             ("Ctrl+Z", tr("Undo")),
@@ -68,12 +68,12 @@ impl App {
                         ],
                     ),
                     (
-                        tr("Anywhere"),
+                        tr("Everywhere"),
                         &[
                             ("Tab  Shift+Tab", tr("Go to the next or previous control")),
                             (
                                 tr("Shift+F10  Menu key"),
-                                tr("Open the menu of what has the keyboard"),
+                                tr("Open the context menu of the focused item"),
                             ),
                         ],
                     ),

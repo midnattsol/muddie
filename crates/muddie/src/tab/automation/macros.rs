@@ -7,7 +7,7 @@ impl Tab {
         let theme = theme::current();
         let recording = self.editor.recording_key;
         let mut toggle = false;
-        let delete = self.rule_head(ui, Kind::Macro, index, tr("Name this macro"));
+        let delete = self.rule_head(ui, Kind::Macro, index, tr("Macro name"));
         let rule = &mut self.editor.draft.macros[index];
         widgets::card(
             ui,

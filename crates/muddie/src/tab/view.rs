@@ -190,7 +190,7 @@ impl Tab {
         // What reads aloud, by its name: the screen reader or the voice.
         if let Some(name) = self.voice.through().filter(|_| self.voice.enabled()) {
             ui.label(small(&name, theme.text_faint))
-                .on_hover_text(trf("Speaking through {0}.", &[&name]));
+                .on_hover_text(trf("Active voice: {0}.", &[&name]));
         }
         if self.log.is_some() {
             ui.label(small(tr("Logging"), theme.text_faint));

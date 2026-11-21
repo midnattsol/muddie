@@ -4,7 +4,7 @@ use super::*;
 
 impl Tab {
     pub(in crate::tab) fn alias_detail(&mut self, ui: &mut egui::Ui, index: usize) -> bool {
-        let delete = self.rule_head(ui, Kind::Alias, index, tr("Name this alias"));
+        let delete = self.rule_head(ui, Kind::Alias, index, tr("Alias name"));
         let rule = &mut self.editor.draft.aliases[index];
         let (sample, patterns) = (&mut self.editor.sample, &mut self.editor.patterns);
         widgets::card(

@@ -95,7 +95,8 @@ impl MapView {
     pub fn tools(&mut self, ui: &mut Ui, walking: bool) {
         ui.spacing_mut().item_spacing.x = 2.0;
         self.asked.locate |=
-            widgets::icon_button(ui, widgets::Icon::Locate, tr("Where am I?"), false).clicked();
+            widgets::icon_button(ui, widgets::Icon::Locate, tr("Show my position"), false)
+                .clicked();
         self.asked.tidy |=
             widgets::icon_button(ui, widgets::Icon::Tidy, tr("Tidy this area"), false).clicked();
         if walking {
@@ -235,7 +236,7 @@ impl MapView {
                         level_steps(ui, &mut level);
                     });
                 });
-            if browsing && crate::widgets::button(ui, tr("Back to me")).clicked() {
+            if browsing && crate::widgets::button(ui, tr("Back to my position")).clicked() {
                 (area, level) = home.clone();
             }
         });

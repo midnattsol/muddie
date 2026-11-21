@@ -22,7 +22,7 @@ impl Tab {
         if self.editor.extras_added.0 != index {
             self.editor.extras_added = (index, Vec::new());
         }
-        let delete = self.rule_head(ui, Kind::Trigger, index, tr("Name this trigger"));
+        let delete = self.rule_head(ui, Kind::Trigger, index, tr("Trigger name"));
         let rule = &mut self.editor.draft.triggers[index];
         when(ui, rule, &mut self.editor.sample, &mut self.editor.patterns);
         self.trigger_does(ui, index);
@@ -90,11 +90,16 @@ fn when(
                 invalid.as_deref(),
             );
             let source = rule.when.regex_source();
-            try_block(ui, sample, tr("Paste a line from the MUD"), |sample| {
-                try_pattern(patterns, &source, sample, |captures| {
-                    effects(rule, captures)
-                })
-            });
+            try_block(
+                ui,
+                sample,
+                tr("Paste a line from the MUD to try it"),
+                |sample| {
+                    try_pattern(patterns, &source, sample, |captures| {
+                        effects(rule, captures)
+                    })
+                },
+            );
         },
     );
 }

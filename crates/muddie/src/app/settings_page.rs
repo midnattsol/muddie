@@ -413,12 +413,11 @@ fn speech_settings(ui: &mut Ui, settings: &mut Settings, through: Option<&str>) 
         // What speaks now; a screen reader speaks as it is set up to,
         // which is said here, where the keyboard reaches it.
         let now = match (through, settings.speech) {
-            (Some(name), SpeechOutput::Reader) => trf(
-                "Speaking through {0}, at its own speed and with its own voice.",
-                &[name],
-            ),
-            (Some(name), _) => trf("Speaking through {0}.", &[name]),
-            (None, _) => tr("Nothing is speaking now.").to_owned(),
+            (Some(name), SpeechOutput::Reader) => {
+                trf("Active voice: {0}, with its own speed and voice.", &[name])
+            }
+            (Some(name), _) => trf("Active voice: {0}.", &[name]),
+            (None, _) => tr("No voice is active.").to_owned(),
         };
         widgets::setting_row(ui, tr("Speak with"), Some(&now), &mut |ui| {
             let choices = [
@@ -433,9 +432,9 @@ fn speech_settings(ui: &mut Ui, settings: &mut Settings, through: Option<&str>) 
         widgets::switch_setting(
             ui,
             &mut settings.speech_interrupts,
-            tr("Interrupt with what is new"),
+            tr("Interrupt with new lines"),
             Some(tr(
-                "A new line cuts short what is being said: for fast games.",
+                "Each new line interrupts what is being read. Useful in fast games.",
             )),
         );
         widgets::switch_setting(
