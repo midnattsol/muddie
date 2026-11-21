@@ -211,7 +211,12 @@ fn a_channel_goes_to_the_panel_a_script_names() {
     let app = harness.state_mut().tab_mut();
     assert_eq!(app.layout.panels.len(), panels + 1);
     let kept = app.layout.panel(id).cloned().unwrap();
-    assert!(kept.side == layout::Side::Left && kept.size == 300.0);
+    assert!(
+        kept.side == layout::Side::Left && kept.size == 300.0,
+        "{:?} {}",
+        kept.side,
+        kept.size
+    );
     let private = (app.layout.panels.iter())
         .find(|panel| panel.name == "Privado")
         .cloned()

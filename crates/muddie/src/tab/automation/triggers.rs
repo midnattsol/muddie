@@ -200,7 +200,8 @@ fn extra_row(
     widgets::right_last(
         ui,
         id,
-        |ui| {
+        &mut (),
+        |_, ui| {
             widgets::glyph(ui, extra.glyph(), 12.0, theme.text_dim);
             // The names as wide as each other, so that what they take
             // lines up.
@@ -230,7 +231,7 @@ fn extra_row(
                 }
             });
         },
-        |ui| {
+        |_, ui| {
             let what = trf("Remove “{0}”", &[extra.label()]);
             removed = widgets::close_button(ui, &what, 20.0).clicked();
         },

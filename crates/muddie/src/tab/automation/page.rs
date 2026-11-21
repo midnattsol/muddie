@@ -244,7 +244,8 @@ impl Tab {
                 widgets::right_last(
                     ui,
                     id,
-                    |ui| {
+        &mut (),
+                    |_, ui| {
                         ui.vertical(|ui| {
                             ui.spacing_mut().item_spacing.y = 1.0;
                             ui.horizontal(|ui| {
@@ -264,7 +265,7 @@ impl Tab {
                             }
                         });
                     },
-                    |ui| {
+                    |_, ui| {
                         restart = widgets::glyph_button(ui, widgets::Glyph::Restart, tr("Restart scripts"))
                             .on_hover_text(tr(
                                 "Runs every script and rule again, as when a session starts. The variables are kept.",

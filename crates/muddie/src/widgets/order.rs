@@ -69,15 +69,15 @@ fn keyboard_id() -> egui::Id {
 /// is read. The room, and the
 /// height of the row, are what the two took the time before; when that
 /// changes, the pass is drawn again.
-pub fn right_last(
+pub fn right_last<S>(
     ui: &mut Ui,
     id: egui::Id,
-    left: impl FnOnce(&mut Ui),
-    right: impl FnOnce(&mut Ui),
+    state: &mut S,
+    left: impl FnOnce(&mut S, &mut Ui),
+    right: impl FnOnce(&mut S, &mut Ui),
 ) {
-    let (room, height) = ui
-        .data(|data| data.get_temp::<(f32, f32)>(id))
-        .unwrap_or((0.0, 0.0));
+    let known = ui.data(|data| data.get_temp::<(f32, f32)>(id));
+    let (room, height) = known.unwrap_or((0.0, 0.0));
     let row = egui::Rect::from_min_size(
         ui.available_rect_before_wrap().min,
         egui::vec2(ui.available_width(), height),
@@ -86,21 +86,35 @@ pub fn right_last(
     let gap = ui.spacing().item_spacing.x;
     let start = egui::Rect::from_min_max(row.min, egui::pos2(row.max.x - room - gap, row.max.y));
     let layout = egui::Layout::left_to_right(egui::Align::Center);
+    // What is at the left goes on to another line rather than widen the row.
+    let wrapping = layout.with_main_wrap(true);
     let tall = ui
         .scope_builder(
-            egui::UiBuilder::new().max_rect(start).layout(layout),
+            egui::UiBuilder::new().max_rect(start).layout(wrapping),
             |ui| {
-                left(ui);
+                left(state, ui);
                 ui.min_rect().height()
             },
         )
         .inner;
-    let end = egui::Rect::from_min_max(egui::pos2(row.max.x - room, row.min.y), row.max);
+    // Until how wide it is is known, it is laid out from the right edge, so
+    // that it cannot stick out of the row, and widen what holds it, while
+    // it is measured.
+    let (end, end_layout) = match known {
+        Some(_) => (
+            egui::Rect::from_min_max(egui::pos2(row.max.x - room, row.min.y), row.max),
+            layout,
+        ),
+        None => (row, egui::Layout::right_to_left(egui::Align::Center)),
+    };
     let (wide, tall_right) = ui
-        .scope_builder(egui::UiBuilder::new().max_rect(end).layout(layout), |ui| {
-            right(ui);
-            (ui.min_rect().width(), ui.min_rect().height())
-        })
+        .scope_builder(
+            egui::UiBuilder::new().max_rect(end).layout(end_layout),
+            |ui| {
+                right(state, ui);
+                (ui.min_rect().width(), ui.min_rect().height())
+            },
+        )
         .inner;
     let now = (wide, tall.max(tall_right));
     if (now.0 - room).abs() > 0.5 || (now.1 - height).abs() > 0.5 {

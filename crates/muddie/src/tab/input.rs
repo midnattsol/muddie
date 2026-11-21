@@ -236,38 +236,79 @@ impl Tab {
 
     /// The bar for searching the scrollback, shown above the input line.
     pub(super) fn find_bar(&mut self, ui: &mut egui::Ui) {
+        let theme = crate::theme::current();
+        let mut asked = None;
+        let mut close = false;
         ui.horizontal(|ui| {
-            let label = ui.label(tr("Find"));
-            let field = ui
-                .add(TextEdit::singleline(&mut self.find.query).desired_width(260.0))
-                .labelled_by(label.id);
-            if std::mem::take(&mut self.find.wants_focus) {
-                field.request_focus();
-            }
-            let enter = field.lost_focus() && ui.input(|input| input.key_pressed(Key::Enter));
-            let forward = enter && ui.input(|input| input.modifiers.shift);
-            let previous =
-                crate::widgets::button(ui, tr("Previous")).clicked() || (enter && !forward);
-            let next = crate::widgets::button(ui, tr("Next")).clicked() || forward;
-            if previous || next {
-                let found = self.output.find(&self.find.query, next);
-                match found {
-                    Some(row) => {
-                        let text = self.output.text(row).trim().to_owned();
-                        self.voice.say_now(&text);
+            egui::Frame::new()
+                .fill(theme.field)
+                .stroke(egui::Stroke::new(1.0, theme.border))
+                .corner_radius(egui::CornerRadius::same(10))
+                .inner_margin(egui::Margin::symmetric(10, 2))
+                .show(ui, |ui| {
+                    ui.spacing_mut().item_spacing.x = 4.0;
+                    crate::widgets::glyph(
+                        ui,
+                        crate::widgets::Glyph::Search,
+                        12.0,
+                        theme.text_faint,
+                    );
+                    let field = ui.add(
+                        TextEdit::singleline(&mut self.find.query)
+                            .frame(egui::Frame::NONE)
+                            .hint_text(tr("Find in the output"))
+                            .desired_width(240.0),
+                    );
+                    (ui.ctx()).accesskit_node_builder(field.id, |node| node.set_label(tr("Find")));
+                    if field.changed() {
+                        self.find.place = None;
                     }
-                    None => self.voice.say_now(tr("Not found.")),
-                }
-                if enter {
-                    field.request_focus();
-                }
-            }
-            let escape = ui.input_mut(|input| input.consume_key(Modifiers::NONE, Key::Escape));
-            if crate::widgets::button(ui, tr("Close")).clicked() || escape {
-                self.find.open = false;
-                self.output.end_find();
-            }
+                    if std::mem::take(&mut self.find.wants_focus) {
+                        field.request_focus();
+                    }
+                    let enter =
+                        field.lost_focus() && ui.input(|input| input.key_pressed(Key::Enter));
+                    let shift = ui.input(|input| input.modifiers.shift);
+                    // How many there are, once something was found.
+                    let count = match self.find.place {
+                        Some((at, of)) => trf("{0} of {1}", &[&at.to_string(), &of.to_string()]),
+                        None => String::new(),
+                    };
+                    let counted = RichText::new(count)
+                        .font(crate::theme::font(crate::theme::Weight::Regular, 12.0))
+                        .color(theme.text_faint);
+                    ui.add(Label::new(counted).selectable(false));
+                    use crate::widgets::{Glyph, glyph_button};
+                    let previous = glyph_button(ui, Glyph::Up, tr("Previous")).clicked();
+                    let next = glyph_button(ui, Glyph::Down, tr("Next")).clicked();
+                    close = glyph_button(ui, Glyph::Close, tr("Close")).clicked();
+                    if previous || (enter && !shift) {
+                        asked = Some((false, enter));
+                    } else if next || (enter && shift) {
+                        asked = Some((true, enter));
+                    }
+                    if enter {
+                        field.request_focus();
+                    }
+                });
         });
+        if let Some((forward, _)) = asked {
+            let found = self.output.find(&self.find.query, forward);
+            self.find.place = self.output.found_place(&self.find.query);
+            match found {
+                Some(row) => {
+                    let text = self.output.text(row).trim().to_owned();
+                    self.voice.say_now(&text);
+                }
+                None => self.voice.say_now(tr("Not found.")),
+            }
+        }
+        let escape = ui.input_mut(|input| input.consume_key(Modifiers::NONE, Key::Escape));
+        if close || escape {
+            self.find.open = false;
+            self.find.place = None;
+            self.output.end_find();
+        }
     }
 
     /// Runs the triggers on unterminated text that has stopped changing,
@@ -339,4 +380,6 @@ pub(super) struct Find {
     pub(super) query: String,
     /// Give the find bar the keyboard on the next frame.
     pub(super) wants_focus: bool,
+    /// Where the line found is among those found, and how many there are.
+    pub(super) place: Option<(usize, usize)>,
 }

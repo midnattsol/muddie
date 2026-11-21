@@ -369,10 +369,11 @@ pub(in crate::tab) fn rule_header(
     widgets::right_last(
         ui,
         id,
-        |ui| {
+        &mut (),
+        |_, ui| {
             name_field(ui, name, font.clone(), hint, rename, true);
         },
-        |ui| {
+        |_, ui| {
             off_badge(ui, state);
             widgets::switch(ui, enabled, tr("Enabled")).on_hover_text(tr("Enabled"));
             delete = widgets::icon_button(ui, widgets::Icon::Trash, tr("Delete"), false).clicked();

@@ -1873,3 +1873,6 @@ msgstr "Todavía no hay nada."
 msgid "hides the line"
 msgstr "oculta la línea"
 
+msgid "Find in the output"
+msgstr "Buscar en la salida"
+

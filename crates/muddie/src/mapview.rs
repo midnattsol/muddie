@@ -94,14 +94,14 @@ impl MapView {
     /// while walking. What they ask for is done when the map is drawn.
     pub fn tools(&mut self, ui: &mut Ui, walking: bool) {
         ui.spacing_mut().item_spacing.x = 2.0;
+        self.asked.locate |=
+            widgets::icon_button(ui, widgets::Icon::Locate, tr("Where am I?"), false).clicked();
+        self.asked.tidy |=
+            widgets::icon_button(ui, widgets::Icon::Tidy, tr("Tidy this area"), false).clicked();
         if walking {
             self.asked.stop |=
                 widgets::icon_button(ui, widgets::Icon::Stop, tr("Stop walking"), true).clicked();
         }
-        self.asked.tidy |=
-            widgets::icon_button(ui, widgets::Icon::Tidy, tr("Tidy this area"), false).clicked();
-        self.asked.locate |=
-            widgets::icon_button(ui, widgets::Icon::Locate, tr("Where am I?"), false).clicked();
     }
 
     /// What the map adds to its panel's menu.
@@ -124,7 +124,8 @@ impl MapView {
         };
         let tools = std::mem::take(&mut self.asked);
         heading(ui, current);
-        let (area, level) = self.place_row(ui, map, current, tools.locate);
+        let (area, level, home) = self.place(current, tools.locate);
+        let (area, level) = self.place_controls(ui, map, (area, level), home);
         let (response, painter) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
         ui.ctx()
             .accesskit_node_builder(response.id, |node| node.set_label(tr("Map view")));
@@ -165,6 +166,7 @@ impl MapView {
             .filter(|room| around.contains(grid.on_screen(room.pos)))
             .collect();
         let colours = Colours::of(theme::current());
+        draw_grid(&painter, response.rect, &grid, theme::current().border);
         draw_exits(&painter, map, &visible, &grid, &colours, &on_level);
         draw_rooms(&painter, &visible, &grid, current, &area, &colours);
         let room_at = |point: Pos2| {
@@ -190,9 +192,9 @@ impl MapView {
         chosen
     }
 
-    /// One compact row: which area, which level, and the way back to where
-    /// the player is. Returns the area and level to show.
-    fn place_row(&mut self, ui: &mut Ui, map: &Map, current: &Room, locate: bool) -> (String, i32) {
+    /// Which area and level to show: the player's, unless the view was
+    /// taken to another; and the player's.
+    fn place(&mut self, current: &Room, locate: bool) -> (String, i32, (String, i32)) {
         let home = (current.area.clone(), current.pos.z);
         if self.centred_on != Some(current.id) {
             // The player moved: go back to following them.
@@ -200,21 +202,44 @@ impl MapView {
             self.pan = Vec2::ZERO;
             self.browsing = None;
         }
-        let (mut area, mut level) = self.browsing.clone().unwrap_or_else(|| home.clone());
         if locate {
             // Back to the player, wherever the view had wandered.
-            (area, level) = home.clone();
+            self.browsing = None;
             self.pan = Vec2::ZERO;
         }
+        let (area, level) = self.browsing.clone().unwrap_or_else(|| home.clone());
+        (area, level, home)
+    }
+
+    /// The controls over the map, in one compact bar: which area, which
+    /// level, and the way back to where the player is. Returns the area
+    /// and level to show.
+    fn place_controls(
+        &mut self,
+        ui: &mut Ui,
+        map: &Map,
+        (mut area, mut level): (String, i32),
+        home: (String, i32),
+    ) -> (String, i32) {
+        let theme = theme::current();
         let browsing = self.browsing.is_some();
         ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing.x = 6.0;
-            area_choice(ui, map, &mut area);
-            level_steps(ui, &mut level);
+            eframe::egui::Frame::new()
+                .fill(theme.raised)
+                .corner_radius(eframe::egui::CornerRadius::same(8))
+                .inner_margin(eframe::egui::Margin::symmetric(4, 2))
+                .show(ui, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.spacing_mut().item_spacing.x = 4.0;
+                        area_choice(ui, map, &mut area);
+                        level_steps(ui, &mut level);
+                    });
+                });
             if browsing && crate::widgets::button(ui, tr("Back to me")).clicked() {
                 (area, level) = home.clone();
             }
         });
+        ui.add_space(2.0);
         let shown = (area, level);
         if self.browsing.as_ref().unwrap_or(&home) != &shown {
             self.pan = Vec2::ZERO;

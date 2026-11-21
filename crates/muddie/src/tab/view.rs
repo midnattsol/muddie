@@ -169,7 +169,24 @@ impl Tab {
         };
         ui.spacing_mut().item_spacing.x = 14.0;
         ui.add_space(4.0);
-        ui.label(small(&self.status().1, theme.text_dim));
+        // How the connection is: a dot of its colour, a lock if it is
+        // encrypted, and where to; the whole sentence for a screen reader.
+        let (colour, said) = self.status();
+        let connected = self.connection.is_some();
+        let shown = match connected {
+            true => format!("{}:{}", self.host.trim(), self.port.trim()),
+            false => said.clone(),
+        };
+        ui.scope(|ui| {
+            ui.spacing_mut().item_spacing.x = 6.0;
+            let place = ui.label(small(&shown, theme.text_dim)).on_hover_text(&said);
+            (ui.ctx()).accesskit_node_builder(place.id, |node| node.set_label(said.clone()));
+            if connected && self.tls {
+                crate::widgets::glyph(ui, crate::widgets::Glyph::Lock, 10.5, theme.text_faint);
+            }
+            let (dot, _) = ui.allocate_exact_size(egui::vec2(8.0, 8.0), egui::Sense::hover());
+            ui.painter().circle_filled(dot.center(), 3.5, colour);
+        });
         // What reads aloud, by its name: the screen reader or the voice.
         if let Some(name) = self.voice.through().filter(|_| self.voice.enabled()) {
             ui.label(small(&name, theme.text_faint))

@@ -356,48 +356,66 @@ impl Tab {
     pub(in crate::tab) fn panel_header(&mut self, ui: &mut egui::Ui, place: &[usize]) -> usize {
         let theme = theme::current();
         let mut shown = place[0];
-        ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing.x = 4.0;
-            ui.set_min_height(24.0);
-            // Six dots: this can be taken and moved.
-            let name = self.layout.panels[shown].shown_name();
-            let (grip, handle) =
-                ui.allocate_exact_size(egui::vec2(12.0, 22.0), egui::Sense::drag());
-            let handle = handle.on_hover_cursor(egui::CursorIcon::Grab);
-            handle.widget_info(|| {
-                egui::WidgetInfo::labeled(egui::Role::Button, true, trf("Move {0}", &[&name]))
-            });
-            let dots = if handle.hovered() || handle.dragged() {
-                theme.text
-            } else {
-                theme.text_faint
-            };
-            for (column, row) in [(0, 0), (1, 0), (0, 1), (1, 1), (0, 2), (1, 2)] {
-                let dot =
-                    grip.center() + egui::vec2(-2.5 + 5.0 * column as f32, -5.0 + 5.0 * row as f32);
-                ui.painter().circle_filled(dot, 1.2, dots);
-            }
-            if place.len() > 1 {
-                shown = self.tab_bar(ui, place);
-            } else {
-                let caption = RichText::new(name.to_uppercase())
-                    .font(theme::font(Weight::Medium, 10.5))
-                    .color(theme.text_dim);
-                ui.add(Label::new(caption).selectable(false));
-            }
-            if handle.drag_started() {
-                self.panels.dragged = Some(self.layout.panels[place[0]].id);
-            }
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                self.fold_button(ui, place);
-                self.panel_menu(ui, shown);
-                let kind = self.layout.panels[shown].kind;
-                if kind == Kind::Map && self.map.borrow().current().is_some() {
-                    let walking = self.walk.is_some();
-                    self.map_view.tools(ui, walking);
+        let id = ui.make_persistent_id(("panel header", self.layout.panels[place[0]].id));
+        let mut dragged = false;
+        ui.spacing_mut().item_spacing.x = 4.0;
+        let mut state = (&mut *self, &mut shown, &mut dragged);
+        widgets::right_last(
+            ui,
+            id,
+            &mut state,
+            |(this, shown, dragged), ui| {
+                ui.set_min_height(24.0);
+                // Six dots: this can be taken and moved.
+                let name = this.layout.panels[**shown].shown_name();
+                let (grip, handle) =
+                    ui.allocate_exact_size(egui::vec2(12.0, 22.0), egui::Sense::drag());
+                let handle = handle.on_hover_cursor(egui::CursorIcon::Grab);
+                handle.widget_info(|| {
+                    egui::WidgetInfo::labeled(egui::Role::Button, true, trf("Move {0}", &[&name]))
+                });
+                let dots = if handle.hovered() || handle.dragged() {
+                    theme.text
+                } else {
+                    theme.text_faint
+                };
+                for (column, row) in [(0, 0), (1, 0), (0, 1), (1, 1), (0, 2), (1, 2)] {
+                    let dot = grip.center()
+                        + egui::vec2(-2.5 + 5.0 * column as f32, -5.0 + 5.0 * row as f32);
+                    ui.painter().circle_filled(dot, 1.2, dots);
                 }
-            });
-        });
+                **dragged = handle.drag_started();
+                if place.len() > 1 {
+                    **shown = this.tab_bar(ui, place);
+                } else {
+                    let spec = &this.layout.panels[**shown];
+                    let glyph = match spec.kind {
+                        Kind::Map => widgets::Glyph::Map,
+                        Kind::Gauges => widgets::Glyph::Gauge,
+                        Kind::Text if spec.channels => widgets::Glyph::Channels,
+                        Kind::Text => widgets::Glyph::Text,
+                    };
+                    ui.add_space(2.0);
+                    widgets::glyph(ui, glyph, 11.5, theme.text_faint);
+                    let caption = RichText::new(name)
+                        .font(theme::font(Weight::Semibold, 12.5))
+                        .color(theme.text_dim);
+                    ui.add(Label::new(caption).selectable(false));
+                }
+            },
+            |(this, shown, _), ui| {
+                let kind = this.layout.panels[**shown].kind;
+                if kind == Kind::Map && this.map.borrow().current().is_some() {
+                    let walking = this.walk.is_some();
+                    this.map_view.tools(ui, walking);
+                }
+                this.panel_menu(ui, **shown);
+                this.fold_button(ui, place);
+            },
+        );
+        if dragged {
+            self.panels.dragged = Some(self.layout.panels[place[0]].id);
+        }
         ui.add_space(2.0);
         shown
     }

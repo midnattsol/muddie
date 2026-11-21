@@ -94,7 +94,8 @@ pub fn card<R>(
                 right_last(
                     ui,
                     id,
-                    |ui| {
+                    &mut (),
+                    |_, ui| {
                         if let Some(glyph) = glyph {
                             super::glyph(ui, glyph, 13.0, theme.accent);
                         }
@@ -103,7 +104,7 @@ pub fn card<R>(
                             .color(theme.text);
                         ui.add(egui::Label::new(heading).selectable(false));
                     },
-                    right,
+                    |_, ui| right(ui),
                 );
                 ui.add_space(8.0);
                 body(ui)

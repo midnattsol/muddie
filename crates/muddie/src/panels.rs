@@ -359,7 +359,7 @@ fn draw_bar(ui: &mut Ui, name: &str, value: f64, max: f64, shade: &Shade, cells:
     let theme = theme::current();
     let small = theme::font(theme::Weight::Medium, 11.5);
     let numbers = format!("{} / {}", plain(value), plain(max));
-    let (rect, response) = ui.allocate_exact_size(vec2(158.0, 28.0), Sense::hover());
+    let (rect, response) = ui.allocate_exact_size(vec2(158.0, 31.0), Sense::hover());
     let described = format!("{name} {numbers}");
     response.widget_info(|| WidgetInfo::labeled(Role::ProgressIndicator, true, described.as_str()));
     let painter = ui.painter();
@@ -377,16 +377,20 @@ fn draw_bar(ui: &mut Ui, name: &str, value: f64, max: f64, shade: &Shade, cells:
     };
     painter.text(rect.right_top(), Align2::RIGHT_TOP, numbers, small, figures);
     let empty = theme::mix(theme.surface, theme.text, 0.1);
+    let track = Rect::from_min_max(rect.left_bottom() - vec2(0.0, 9.0), rect.right_bottom());
+    // Under a warning it glows faintly in its colour, as it is heard.
+    if shade.warned {
+        painter.rect_filled(track.expand(3.0), 7.0, shade.colour.gamma_multiply(0.16));
+    }
     if cells {
         draw_cells(painter, rect, shade, empty);
     } else {
-        let track = Rect::from_min_max(rect.left_bottom() - vec2(0.0, 6.0), rect.right_bottom());
-        painter.rect_filled(track, 3.0, empty);
+        painter.rect_filled(track, 4.5, empty);
         let filled = Rect::from_min_size(
             track.min,
             vec2(track.width() * shade.fraction, track.height()),
         );
-        painter.rect_filled(filled, 3.0, shade.colour);
+        painter.rect_filled(filled, 4.5, shade.colour);
     }
 }
 
@@ -406,7 +410,7 @@ fn draw_cells(
         CELLS if shade.fraction < 1.0 => CELLS - 1,
         filled => filled,
     };
-    let (top, bottom, lean) = (rect.bottom() - 8.0, rect.bottom(), 2.5);
+    let (top, bottom, lean) = (rect.bottom() - 9.0, rect.bottom(), 2.5);
     for cell in 0..CELLS {
         let left = rect.left() + cell as f32 * (width + gap);
         let points = vec![

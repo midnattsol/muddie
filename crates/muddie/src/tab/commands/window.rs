@@ -1,6 +1,7 @@
 //! The palette over the window: its field, its list, and its keys.
 
 use super::*;
+use crate::widgets;
 
 impl Tab {
     /// The palette over the window while it is open: the keys first, then
@@ -186,7 +187,7 @@ impl Tab {
                             ui.add_space(4.0);
                             ui.horizontal(|ui| {
                                 ui.add_space(12.0);
-                                crate::widgets::page_note(ui, tr("No matches."));
+                                widgets::page_note(ui, tr("No matches."));
                             });
                             ui.add_space(8.0);
                         }
@@ -315,22 +316,87 @@ fn palette_row(ui: &mut egui::Ui, item: &Item, chosen: bool) -> egui::Response {
             .rect_filled(rect, egui::CornerRadius::same(8), fill);
     }
     let inside = rect.shrink2(egui::vec2(10.0, 0.0));
-    let about = ui.painter().with_clip_rect(inside).text(
+    let (glyph, keys) = look_of(item);
+    let painter = ui.painter().with_clip_rect(inside);
+    let about = painter.text(
         inside.right_center(),
         egui::Align2::RIGHT_CENTER,
         &item.about,
         theme::font(Weight::Regular, 12.5),
         theme.text_faint,
     );
-    let room = egui::Rect::from_min_max(inside.min, egui::pos2(about.left() - 14.0, inside.max.y));
+    // Its keys, if it has some, before what it is.
+    let mut end = about.left() - 14.0;
+    if !keys.is_empty() {
+        let shown = painter.text(
+            egui::pos2(end, inside.center().y),
+            egui::Align2::RIGHT_CENTER,
+            keys,
+            theme::font(Weight::Medium, 11.5),
+            theme.text_dim,
+        );
+        let chip = shown.expand2(egui::vec2(5.0, 2.0));
+        painter.rect_stroke(
+            chip,
+            4.0,
+            egui::Stroke::new(1.0, theme.border),
+            egui::StrokeKind::Inside,
+        );
+        end = chip.left() - 12.0;
+    }
+    widgets::paint_glyph(
+        &painter,
+        inside.left_center() + egui::vec2(8.0, 0.0),
+        egui::Align2::CENTER_CENTER,
+        glyph,
+        12.0,
+        if chosen {
+            theme.accent
+        } else {
+            theme.text_faint
+        },
+    );
+    let room = egui::Rect::from_min_max(inside.min, egui::pos2(end, inside.max.y));
     ui.painter().with_clip_rect(room).text(
-        inside.left_center(),
+        inside.left_center() + egui::vec2(24.0, 0.0),
         egui::Align2::LEFT_CENTER,
         usage,
         theme::font(Weight::Regular, 13.5),
         theme.text,
     );
     row
+}
+
+/// The picture of something the palette lists, by what it does, and the
+/// keys that do the same, if there are some.
+fn look_of(item: &Item) -> (widgets::Glyph, &'static str) {
+    use widgets::Glyph;
+    let Some(act) = &item.act else {
+        return (Glyph::Script, "");
+    };
+    match act {
+        Act::View(0) => (Glyph::Send, ""),
+        Act::View(1) => (Glyph::Code, "Ctrl+E"),
+        Act::View(_) => (Glyph::Data, "Ctrl+D"),
+        Act::Section(_) => (Glyph::Code, ""),
+        Act::App(request) => match request {
+            AppRequest::NewSession => (Glyph::Plus, "Ctrl+T"),
+            AppRequest::CloseSession => (Glyph::Close, "Ctrl+W"),
+            AppRequest::Settings(_) => (Glyph::Settings, ""),
+            AppRequest::Shortcuts => (Glyph::Key, ""),
+            AppRequest::Profiles | AppRequest::Profile(..) | AppRequest::SaveAsProfile => {
+                (Glyph::Profile, "")
+            }
+            _ => (Glyph::Check, ""),
+        },
+        Act::Reconnect => (Glyph::Restart, "Alt+R"),
+        Act::Disconnect => (Glyph::Close, ""),
+        Act::Find => (Glyph::Search, "Ctrl+F"),
+        Act::Log => (Glyph::Text, ""),
+        Act::Speech | Act::ReadChannel(..) => (Glyph::Say, ""),
+        Act::AddPanel(_) | Act::Panel(_) | Act::FullHeight | Act::Side(_) => (Glyph::Panel, ""),
+        Act::Connect(_) => (Glyph::Profile, ""),
+    }
 }
 
 /// How tall a row of the list is, and how many make a page of it.

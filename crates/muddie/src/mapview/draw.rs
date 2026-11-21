@@ -30,13 +30,26 @@ pub(super) fn heading(ui: &mut Ui, current: &Room) {
             .font(theme::font(Weight::Medium, 14.0))
             .color(palette.text),
     );
-    let exits: Vec<&str> = current.exits.keys().map(String::as_str).collect();
-    let leading = format!("{}: {}", tr("exits"), exits.join(", "));
-    ui.label(
-        RichText::new(leading)
+    // The exits, each a chip: read as the word and the exits after it.
+    ui.horizontal_wrapped(|ui| {
+        ui.spacing_mut().item_spacing = vec2(4.0, 4.0);
+        let word = RichText::new(tr("exits"))
             .font(theme::font(Weight::Regular, 12.0))
-            .color(palette.text_dim),
-    );
+            .color(palette.text_faint);
+        ui.add(eframe::egui::Label::new(word).selectable(false));
+        for exit in current.exits.keys() {
+            eframe::egui::Frame::new()
+                .fill(palette.raised)
+                .corner_radius(eframe::egui::CornerRadius::same(5))
+                .inner_margin(eframe::egui::Margin::symmetric(6, 1))
+                .show(ui, |ui| {
+                    let text = RichText::new(exit)
+                        .font(FontId::monospace(11.5))
+                        .color(palette.text_dim);
+                    ui.add(eframe::egui::Label::new(text).selectable(false));
+                });
+        }
+    });
     ui.add_space(4.0);
 }
 
@@ -44,7 +57,7 @@ pub(super) fn heading(ui: &mut Ui, current: &Room) {
 pub(super) fn area_choice(ui: &mut Ui, map: &Map, area: &mut String) {
     let chooser = crate::widgets::dropdown("map area")
         .selected_text(area.as_str())
-        .width(130.0)
+        .width(120.0)
         .show_ui(ui, |ui| {
             for name in map.areas() {
                 crate::widgets::choice_value(ui, area, name.to_owned(), name);
@@ -57,7 +70,7 @@ pub(super) fn area_choice(ui: &mut Ui, map: &Map, area: &mut String) {
 
 /// The level to show, a step down or up.
 pub(super) fn level_steps(ui: &mut Ui, level: &mut i32) {
-    if crate::widgets::sign_button(ui, "−", tr("Down"), true).clicked() {
+    if crate::widgets::sign_button(ui, "−", tr("Down"), false).clicked() {
         *level -= 1;
     }
     let shown = format!("{} {level}", tr("level"));
@@ -66,7 +79,7 @@ pub(super) fn level_steps(ui: &mut Ui, level: &mut i32) {
             .font(theme::font(Weight::Regular, 12.5))
             .color(theme::current().text_dim),
     );
-    if crate::widgets::sign_button(ui, "+", tr("Up"), true).clicked() {
+    if crate::widgets::sign_button(ui, "+", tr("Up"), false).clicked() {
         *level += 1;
     }
 }
@@ -138,6 +151,28 @@ pub(super) fn draw_exits(
         if other_exits {
             painter.circle_filled(from + vec2(-half, -half) * 1.5, cell * 0.07, colours.mark);
         }
+    }
+}
+
+/// A faint dot where the cells of the grid meet, for a sense of where the
+/// rooms stand; too small a grid has none.
+pub(super) fn draw_grid(painter: &Painter, rect: Rect, grid: &Grid, colour: Color32) {
+    if grid.cell < 14.0 {
+        return;
+    }
+    let first = grid.centre
+        - vec2(
+            ((grid.centre.x - rect.left()) / grid.cell).ceil() * grid.cell,
+            ((grid.centre.y - rect.top()) / grid.cell).ceil() * grid.cell,
+        );
+    let mut y = first.y;
+    while y <= rect.bottom() {
+        let mut x = first.x;
+        while x <= rect.right() {
+            painter.circle_filled(eframe::egui::pos2(x, y), 0.9, colour);
+            x += grid.cell;
+        }
+        y += grid.cell;
     }
 }
 

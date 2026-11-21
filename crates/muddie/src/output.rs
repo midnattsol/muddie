@@ -236,6 +236,17 @@ impl Output {
         row
     }
 
+    /// Where the line found is among those that have `query`, counted
+    /// from the first, and how many there are.
+    pub fn found_place(&self, query: &str) -> Option<(usize, usize)> {
+        let found = self.found?;
+        let query = query.to_lowercase();
+        let matching = |row: &usize| self.rows[*row].text.to_lowercase().contains(&query);
+        let before = (0..found).filter(matching).count();
+        let after = (found..self.rows.len()).filter(matching).count();
+        Some((before + 1, before + after))
+    }
+
     /// Forgets the search result and goes back to the end.
     pub fn end_find(&mut self) {
         self.found = None;
