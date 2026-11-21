@@ -45,9 +45,11 @@ pub fn dialog<R>(
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                     let close = close_button(ui, crate::i18n::tr("Close"), 24.0);
                     closed = close.clicked();
-                    // The keyboard is in it: on its first control when it
-                    // opens, or whenever nothing has it.
-                    if ui.memory(|memory| memory.focused().is_none()) {
+                    // Opened with the keyboard, the keyboard is in it, on
+                    // its first control: whoever uses a screen reader
+                    // hears where they are. With the pointer, nothing is
+                    // marked; Tab goes into it all the same.
+                    if keyboard_in_use(ui.ctx()) && ui.memory(|memory| memory.focused().is_none()) {
                         close.request_focus();
                     }
                 });

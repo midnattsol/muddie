@@ -25,9 +25,13 @@ impl Tab {
     /// The strip a side put away leaves at the edge of the window: the
     /// names of its panels, any of which brings it back with that one on
     /// show. Nothing for a side with no panels.
-    pub(in crate::tab) fn side_strip(&mut self, ui: &mut egui::Ui, side: Side) {
+    pub(in crate::tab) fn side_strip(
+        &mut self,
+        ui: &mut egui::Ui,
+        side: Side,
+    ) -> Option<egui::Rect> {
         if !self.layout.sides().contains(&(side, false)) {
-            return;
+            return None;
         }
         let panels: Vec<(u32, u32, String)> = (self.layout.panels.iter())
             .filter(|panel| panel.visible && panel.side == side)
@@ -56,20 +60,20 @@ impl Tab {
                 true => f32::from(left + right),
                 false => 8.0,
             };
-        let chosen = strip
+        let shown = strip
             .frame(egui::Frame::new().inner_margin(margin))
             .show_separator_line(false)
             .resizable(false)
             .exact_size(thickness)
-            .show(ui, |ui| strip_names(ui, side, &panels))
-            .inner;
-        if let Some((id, stack)) = chosen {
+            .show(ui, |ui| strip_names(ui, side, &panels));
+        if let Some((id, stack)) = shown.inner {
             self.layout.reveal(side);
             if stack != 0 {
                 self.panels.shown_tabs.retain(|(known, _)| *known != stack);
                 self.panels.shown_tabs.push((stack, id));
             }
         }
+        Some(shown.response.rect)
     }
 }
 

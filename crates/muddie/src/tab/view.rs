@@ -44,20 +44,37 @@ impl Tab {
             top: 4,
             bottom: 8,
         });
-        // The command line is always at the bottom, under any panel.
-        Panel::bottom("input")
-            .frame(plain)
-            .show_separator_line(false)
-            .show(ui, |ui| {
-                if self.find.open {
-                    self.find_bar(ui);
-                }
-                self.input_line(ui);
-            });
-        let asked = self.show_panels(ui);
-        self.map_asked(asked);
-        self.report_panel(ui.ctx());
-        // The output takes what the panels leave.
+        // The command line is at the bottom, under any panel, and is
+        // reached last with the keyboard, as it is read.
+        let id = ui.make_persistent_id("command line");
+        crate::widgets::below_last(
+            ui,
+            id,
+            self,
+            |this, ui| {
+                let asked = this.show_panels(ui, Self::show_output);
+                this.map_asked(asked);
+                this.report_panel(ui.ctx());
+            },
+            |this, ui| {
+                Panel::bottom("input")
+                    .frame(plain)
+                    .show_separator_line(false)
+                    .show(ui, |ui| {
+                        if this.find.open {
+                            this.find_bar(ui);
+                        }
+                        this.input_line(ui);
+                    })
+                    .response
+                    .rect
+                    .height()
+            },
+        );
+    }
+
+    /// The output, which takes what the panels leave.
+    fn show_output(&mut self, ui: &mut egui::Ui) {
         let sides = |side| {
             (self.layout.panels.iter())
                 .any(|panel| self.layout.on_screen(panel) && panel.side == side)

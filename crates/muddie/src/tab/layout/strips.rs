@@ -52,82 +52,48 @@ impl Tab {
     /// Each side is one strip that the panels on it share: those beside
     /// the output are stacked, those above or below it stand in a row.
     /// Returns what was asked of the map, if anything.
-    pub(in crate::tab) fn show_panels(&mut self, ui: &mut egui::Ui) -> Option<MapAction> {
+    pub(in crate::tab) fn show_panels(
+        &mut self,
+        ui: &mut egui::Ui,
+        central: impl FnOnce(&mut Self, &mut egui::Ui),
+    ) -> Option<MapAction> {
         let mut asked = None;
         self.panels.rects.clear();
-        // Those above and below first, so that they span the window.
-        // Whichever goes first spans the window; the others fit between.
-        let order = if self.layout.columns_full {
-            [Side::Left, Side::Right, Side::Top, Side::Bottom]
+        // Whichever goes first spans the window; the others fit between:
+        // those above and below, or those at the sides. Those below are
+        // drawn last, in the room they had, so that the keyboard reaches
+        // them after those above and beside them, and the output.
+        let (before, after): (&[Side], &[Side]) = if self.layout.columns_full {
+            (&[Side::Left, Side::Right, Side::Top], &[])
         } else {
-            [Side::Top, Side::Bottom, Side::Left, Side::Right]
+            (&[Side::Top], &[Side::Left, Side::Right])
         };
-        for side in order {
-            let members: Vec<usize> = (0..self.layout.panels.len())
-                .filter(|&index| {
-                    let panel = &self.layout.panels[index];
-                    self.layout.on_screen(panel) && panel.side == side
-                })
-                .collect();
-            let Some(&first) = members.first() else {
-                self.side_strip(ui, side);
-                continue;
-            };
-            let id = ui.make_persistent_id(("dock", side as u8));
-            let (left, right, least) = match side {
-                Side::Left => (8, 4, 160.0),
-                Side::Right => (4, 8, 160.0),
-                // Room for the header and a row of gauges under it.
-                Side::Top | Side::Bottom => (8, 8, 92.0),
-            };
-            let around = egui::Frame::new().inner_margin(egui::Margin {
-                left,
-                right,
-                top: 4,
-                bottom: 4,
-            });
-            let strip = match side {
-                Side::Left => Panel::left(id),
-                Side::Right => Panel::right(id),
-                Side::Top => Panel::top(id),
-                Side::Bottom => Panel::bottom(id),
-            };
-            let shown = strip
-                .frame(around)
-                .show_separator_line(false)
-                .resizable(true)
-                .default_size(self.layout.panels[first].size)
-                .min_size(least)
-                .show(ui, |ui| self.strip(ui, side, &members));
-            asked = asked.or(shown.inner);
-            // The edge to drag is named for what it sizes, in the
-            // language of the interface.
-            let handle = ui.scope_id().with(id).with("__resize");
-            ui.ctx().accesskit_node_builder(handle, |node| {
-                node.set_label(side.size_label());
-                // Its share of the window, read without a string of digits.
-                let round = |value: f64| (value * 100.0).round() / 100.0;
-                if let Some(value) = node.numeric_value() {
-                    node.set_numeric_value(round(value));
-                }
-                if let Some(value) = node.min_numeric_value() {
-                    node.set_min_numeric_value(round(value));
-                }
-                if let Some(value) = node.max_numeric_value() {
-                    node.set_max_numeric_value(round(value));
-                }
-            });
-            // As it was left, to be the same the next time.
-            let rect = shown.response.rect;
-            let size = if side.is_beside() {
-                rect.width()
-            } else {
-                rect.height()
-            };
-            for index in members {
-                self.layout.panels[index].size = size.round();
-            }
+        for &side in before {
+            asked = asked.or(self.show_side(ui, side).0);
         }
+        let id = ui.make_persistent_id("panels below");
+        let mut state = (&mut *self, &mut asked);
+        widgets::below_last(
+            ui,
+            id,
+            &mut state,
+            |(this, asked), ui| {
+                for &side in after {
+                    let said = this.show_side(ui, side).0;
+                    if asked.is_none() {
+                        **asked = said;
+                    }
+                }
+                central(this, ui);
+            },
+            |(this, asked), ui| {
+                let (said, rect) = this.show_side(ui, Side::Bottom);
+                if asked.is_none() {
+                    **asked = said;
+                }
+                rect.map_or(0.0, |rect| rect.height())
+            },
+        );
         self.finish_drag(ui);
         if let Some(index) = self.panels.removed.take() {
             let gone = self.layout.panels.remove(index);
@@ -135,6 +101,81 @@ impl Tab {
         }
         self.keep_layout(ui);
         asked
+    }
+
+    /// Draws one side: its panels in one strip, or the strip of their names
+    /// while it is put away. Returns what was asked of the map, and where
+    /// it was drawn, if it was.
+    fn show_side(
+        &mut self,
+        ui: &mut egui::Ui,
+        side: Side,
+    ) -> (Option<MapAction>, Option<egui::Rect>) {
+        let members: Vec<usize> = (0..self.layout.panels.len())
+            .filter(|&index| {
+                let panel = &self.layout.panels[index];
+                self.layout.on_screen(panel) && panel.side == side
+            })
+            .collect();
+        let Some(&first) = members.first() else {
+            let strip = self.side_strip(ui, side);
+            return (None, strip);
+        };
+        let id = ui.make_persistent_id(("dock", side as u8));
+        let (left, right, least) = match side {
+            Side::Left => (8, 4, 160.0),
+            Side::Right => (4, 8, 160.0),
+            // Room for the header and a row of gauges under it.
+            Side::Top | Side::Bottom => (8, 8, 92.0),
+        };
+        let around = egui::Frame::new().inner_margin(egui::Margin {
+            left,
+            right,
+            top: 4,
+            bottom: 4,
+        });
+        let strip = match side {
+            Side::Left => Panel::left(id),
+            Side::Right => Panel::right(id),
+            Side::Top => Panel::top(id),
+            Side::Bottom => Panel::bottom(id),
+        };
+        let shown = strip
+            .frame(around)
+            .show_separator_line(false)
+            .resizable(true)
+            .default_size(self.layout.panels[first].size)
+            .min_size(least)
+            .show(ui, |ui| self.strip(ui, side, &members));
+        let asked = shown.inner;
+        // The edge to drag is named for what it sizes, in the
+        // language of the interface.
+        let handle = ui.scope_id().with(id).with("__resize");
+        ui.ctx().accesskit_node_builder(handle, |node| {
+            node.set_label(side.size_label());
+            // Its share of the window, read without a string of digits.
+            let round = |value: f64| (value * 100.0).round() / 100.0;
+            if let Some(value) = node.numeric_value() {
+                node.set_numeric_value(round(value));
+            }
+            if let Some(value) = node.min_numeric_value() {
+                node.set_min_numeric_value(round(value));
+            }
+            if let Some(value) = node.max_numeric_value() {
+                node.set_max_numeric_value(round(value));
+            }
+        });
+        // As it was left, to be the same the next time.
+        let rect = shown.response.rect;
+        let size = if side.is_beside() {
+            rect.width()
+        } else {
+            rect.height()
+        };
+        for index in members {
+            self.layout.panels[index].size = size.round();
+        }
+        (asked, Some(rect))
     }
 
     /// The panels of one side, sharing its length by their weights, with

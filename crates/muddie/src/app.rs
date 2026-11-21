@@ -283,8 +283,10 @@ impl App {
         }
     }
 
-    /// The bars at the top and the bottom.
-    fn bars(&mut self, ui: &mut Ui) {
+    /// The bar at the top, then the session, then the bar at the bottom,
+    /// in the room it had: the keyboard goes through them as they are
+    /// read, top to bottom.
+    fn bars_and_session(&mut self, ui: &mut Ui) {
         let theme = theme::current();
         ui.painter().rect_filled(ui.max_rect(), 0.0, theme.surface);
         let chrome = |vertical: i8| {
@@ -296,10 +298,16 @@ impl App {
             .frame(chrome(5))
             .show_separator_line(false)
             .show(ui, |ui| self.top_bar(ui));
-        Panel::bottom("status bar")
-            .frame(chrome(4))
-            .show_separator_line(false)
-            .show(ui, |ui| self.bottom_bar(ui));
+        let id = ui.make_persistent_id("status bar");
+        crate::widgets::below_last(ui, id, self, Self::session, |this, ui| {
+            Panel::bottom("status bar")
+                .frame(chrome(4))
+                .show_separator_line(false)
+                .show(ui, |ui| this.bottom_bar(ui))
+                .response
+                .rect
+                .height()
+        });
     }
 
     /// The windows over the rest: the settings, what they ask, the keys
@@ -345,14 +353,14 @@ impl eframe::App for App {
         let last = &mut self.alt_typing;
         ui.input_mut(|input| drop_alt_typing(&mut input.events, input.modifiers, last));
         self.trace_frames(ui);
+        crate::widgets::note_input(ui.ctx());
         // Every session keeps running; only the one on screen is drawn.
         for (index, tab) in self.tabs.iter_mut().enumerate() {
             tab.poll(ui.ctx(), &self.settings, index == self.active);
         }
         self.window_keys(ui);
-        self.bars(ui);
         self.windows(ui.ctx());
-        self.session(ui);
+        self.bars_and_session(ui);
         self.toasts(ui.ctx());
         self.keep_settings(ui);
     }

@@ -162,17 +162,30 @@ fn what_the_palette_finds_is_said_once_typing_pauses() {
 }
 
 #[test]
-fn a_dialog_has_the_keyboard_and_its_name() {
+fn a_dialog_opened_with_the_keyboard_has_it_and_says_its_name() {
     let mut harness = window(None);
     harness.run_steps(3);
+    // Opened after a click, nothing in it is marked.
+    harness.get_by_label("Menu").click();
+    harness.run_steps(2);
+    harness.key_press(egui::Key::Escape);
+    harness.run_steps(2);
+    harness.get_by_label("Menu").click();
+    harness.run_steps(2);
+    harness.get_by_label("Settings").click();
+    harness.run_steps(4);
+    assert!(!harness.get_by_label("Close").accesskit_node().is_focused());
+    harness.get_by_role_and_label(egui::accesskit::Role::Dialog, "Settings");
+    harness.key_press(egui::Key::Escape);
+    harness.run_steps(3);
+    // Opened with the keyboard, the keyboard is in it, not in the command
+    // line behind it.
+    harness.key_press(egui::Key::K);
     harness
         .state_mut()
         .open_settings(crate::app::Section::General);
     harness.run_steps(4);
-    // The keyboard is in it, not in the command line behind it.
-    let close = harness.get_by_label("Close");
-    assert!(close.accesskit_node().is_focused());
-    harness.get_by_role_and_label(egui::accesskit::Role::Dialog, "Settings");
+    assert!(harness.get_by_label("Close").accesskit_node().is_focused());
 }
 
 #[test]

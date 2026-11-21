@@ -25,11 +25,12 @@ impl App {
             if let Some(view) = widgets::segmented(ui, &views, tab.view().min(1)) {
                 tab.set_view(view);
             }
+            // Left to right, as the keyboard goes through them.
+            self.palette_field(ui, full);
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 self.main_menu(ui)
             });
         });
-        self.palette_field(ui, full);
     }
 
     /// The field that opens the palette, in the middle of the bar, as
@@ -38,10 +39,9 @@ impl App {
         let width = (bar.width() - 2.0 * 260.0).clamp(180.0, 380.0);
         let place = egui::Rect::from_center_size(bar.center(), egui::vec2(width, 26.0));
         let keys = ui.ctx().format_shortcut(&COMMANDS);
-        let field = ui.scope_builder(egui::UiBuilder::new().max_rect(place), |ui| {
-            widgets::palette_button(ui, width, &keys)
-        });
-        if field.inner.clicked() {
+        // Where it is, without taking room from the rest of the bar.
+        let mut room = ui.new_child(egui::UiBuilder::new().max_rect(place));
+        if widgets::palette_button(&mut room, width, &keys).clicked() {
             self.tabs[self.active].toggle_palette();
         }
     }

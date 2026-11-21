@@ -15,6 +15,7 @@ mod fields;
 mod icons;
 mod lists;
 mod menus;
+mod order;
 mod rows;
 mod toggles;
 
@@ -25,6 +26,7 @@ pub use fields::*;
 pub use icons::*;
 pub use lists::*;
 pub use menus::*;
+pub use order::*;
 pub use rows::*;
 pub use toggles::*;
 
