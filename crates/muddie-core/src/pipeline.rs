@@ -443,7 +443,15 @@ impl Pipeline {
     /// Sends a line of user input: its wire bytes are appended to `out`.
     /// Whatever the server left unterminated is what the user is answering,
     /// so it is closed as a prompt first and the echo follows it in order.
-    pub fn send_line(&mut self, line: &str, out: &mut Vec<u8>, events: &mut Vec<Event>) {
+    /// Sends a line of input. One that is `secret`, as one the server
+    /// hides while it is typed, is never told as sent.
+    pub fn send_line(
+        &mut self,
+        line: &str,
+        secret: bool,
+        out: &mut Vec<u8>,
+        events: &mut Vec<Event>,
+    ) {
         self.decoder.flush(&mut self.text);
         self.assembler.feed(&self.text, &mut self.lines);
         self.text.clear();
@@ -451,7 +459,7 @@ impl Pipeline {
         if let Some(prompt) = self.assembler.take_partial() {
             events.push(Event::Prompt(prompt));
         }
-        if !self.input_hidden {
+        if !self.input_hidden && !secret {
             events.push(Event::Sent(line.to_owned()));
         }
         let start = out.len();

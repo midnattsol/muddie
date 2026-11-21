@@ -32,6 +32,9 @@ impl Tab {
     /// the MUD sends besides text is kept to be looked at.
     fn handle_event(&mut self, event: Event, recording: bool) {
         self.record(&event);
+        if let Event::Line(line) | Event::Prompt(line) | Event::Partial(line) = &event {
+            self.asks_password = asks_for_password(&line.text());
+        }
         match event {
             Event::Connected => self.on_connected(),
             Event::Line(line) | Event::Prompt(line) => self.on_line(line, recording),
@@ -73,10 +76,10 @@ impl Tab {
         }
     }
 
-    /// Puts what arrived in the record of the run, if there is one.
+    /// Shows what arrived, with `--debug`.
     fn record(&self, event: &Event) {
-        use crate::capture::{debug, level, protocol};
-        if level().is_none() {
+        use crate::debug::{on, protocol, show as debug};
+        if !on() {
             return;
         }
         let session = self.title();
@@ -396,4 +399,20 @@ impl Tab {
             Err(error) => self.note(&trf("Cannot log: {0}", &[&error.to_string()])),
         }
     }
+}
+
+/// Whether something the server said asks for a password: it ends in a
+/// colon, with the word for one in it.
+pub(super) fn asks_for_password(text: &str) -> bool {
+    let text = text.trim().to_lowercase();
+    let words = [
+        "password",
+        "passwd",
+        "contraseña",
+        "clave",
+        "senha",
+        "mot de passe",
+        "passwort",
+    ];
+    text.ends_with(':') && words.iter().any(|word| text.contains(word))
 }

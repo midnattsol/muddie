@@ -284,9 +284,9 @@ impl Tab {
                     }
                 }
                 Action::StopSounds => self.sound.stop_all(),
-                Action::Log(text) => crate::capture::debug(&self.title(), "LOG", &text),
+                Action::Log(text) => crate::debug::show(&self.title(), "LOG", &text),
                 Action::Error(message) => {
-                    crate::capture::debug(&self.title(), "SCRIPT", &message);
+                    crate::debug::show(&self.title(), "SCRIPT", &message);
                     self.script_errors.push(message.clone());
                     let message = trf("Script error: {0}", &[&message]);
                     message.lines().for_each(|line| self.refuse(line));

@@ -13,8 +13,10 @@ impl Tab {
         // Never a password.
         // Never a password, and not a command of the client: that is not
         // something to send again and again.
+        let secret = self.typing_secret();
+        self.asks_password = false;
         let keep = self.settings.keep_command
-            && !self.input_hidden
+            && !secret
             && !line.is_empty()
             && client_command(&line).is_none();
         self.kept_input = keep.then(|| line.clone());
@@ -24,9 +26,10 @@ impl Tab {
         }
         // What follows answers this command, so drop what was still queued.
         self.voice.stop();
-        if self.input_hidden {
-            // A password: scripts and the history never see it.
-            self.send(line);
+        if secret {
+            // A password: scripts and the history never see it, nor is it
+            // told as sent.
+            self.send_secret(line);
         } else {
             self.history.add(&line);
             // A command of the client answers at the command line.
@@ -35,6 +38,12 @@ impl Tab {
                 self.run_actions();
             }
         }
+    }
+
+    /// Whether what is typed now is a password: the server hides it, or
+    /// it has just asked for one.
+    pub(super) fn typing_secret(&self) -> bool {
+        self.input_hidden || self.asks_password
     }
 
     /// The command line: a field with the prompt mark before it, Tab to
@@ -103,7 +112,7 @@ impl Tab {
     fn complete_word(&mut self, ui: &mut egui::Ui, focused: bool) -> bool {
         let completing = focused
             && !self.input.is_empty()
-            && !self.input_hidden
+            && !self.typing_secret()
             && ui.input_mut(|input| input.consume_key(Modifiers::NONE, Key::Tab));
         if !completing {
             return false;
@@ -160,11 +169,12 @@ impl Tab {
                 ui.spacing_mut().item_spacing.x = 10.0;
                 let (mark, _) =
                     ui.allocate_exact_size(egui::vec2(8.0, height), egui::Sense::hover());
+                let secret = self.typing_secret();
                 let edit = TextEdit::singleline(&mut self.input)
                     .id(id)
                     .frame(egui::Frame::NONE)
                     .font(palette::font())
-                    .password(self.input_hidden)
+                    .password(secret)
                     // Keeps Tab from moving to the next control while there
                     // is a word to complete.
                     .lock_focus(has_text)

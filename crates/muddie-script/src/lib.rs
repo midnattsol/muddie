@@ -7,8 +7,8 @@
 //!
 //! - `send(text)`: send a command to the MUD (aliases are not applied).
 //! - `echo(text)`: show a line in the output.
-//! - `log(text)`: note something in the record of a run started with
-//!   `--debug`, to see later what a script made of what it was given;
+//! - `log(text)`: show something on the standard output of a run started
+//!   with `--debug`, to see what a script made of what it was given;
 //!   nothing otherwise.
 //! - `speak(text, {interrupt = true})`: say something through speech.
 //! - `trigger(pattern, fn, options)`: call `fn(m, line)` for each output

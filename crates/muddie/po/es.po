@@ -2285,7 +2285,3 @@ msgstr "Copiado"
 
 msgid "Copied."
 msgstr "Copiado."
-
-#, python-brace-format
-msgid "This run is recorded in {0}"
-msgstr "Esta sesión se está grabando en {0}"

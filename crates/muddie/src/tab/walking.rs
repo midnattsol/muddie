@@ -58,9 +58,9 @@ impl Tab {
         }
     }
 
-    /// Puts where the map has the player in the record of the run.
+    /// Shows where the map has the player, with `--debug`.
     pub(super) fn record_whereabouts(&self) {
-        if crate::capture::level() != Some(crate::capture::Level::Debug) {
+        if !crate::debug::on() {
             return;
         }
         let map = self.map.borrow();
@@ -75,7 +75,7 @@ impl Tab {
             }
             muddie_mapper::Located::Nowhere => "nowhere".to_owned(),
         };
-        crate::capture::debug(&self.title(), "MAP", &said);
+        crate::debug::show(&self.title(), "MAP", &said);
     }
 
     /// Why the map cannot say where the player is, and what to do.

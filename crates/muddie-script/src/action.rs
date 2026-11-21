@@ -98,7 +98,7 @@ pub enum Action {
     StopSounds,
     /// A script failed; the message is for the user.
     Error(String),
-    /// Something a script notes for the record of a run started with
-    /// `--debug`; nothing otherwise.
+    /// Something a script shows on the standard output of a run started
+    /// with `--debug`; nothing otherwise.
     Log(String),
 }

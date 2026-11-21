@@ -343,3 +343,37 @@ fn text_chosen_in_the_output_is_copied_from_its_menu() {
         });
     assert_eq!(copied.as_deref(), Some("An orc arrives."));
 }
+
+#[test]
+fn what_is_typed_when_a_password_is_asked_for_is_kept_secret() {
+    use super::super::events::asks_for_password;
+    assert!(asks_for_password("Introduce tu contraseña: "));
+    assert!(asks_for_password("Password:"));
+    assert!(!asks_for_password("Tu contraseña ha sido cambiada."));
+    assert!(!asks_for_password("Nombre:"));
+    let mut harness = window(None);
+    let app = harness.state_mut().tab_mut();
+    let (events, mut sent) = fake_connection(app);
+    // The MUD asks without hiding what is typed: it is sent as a secret,
+    // shown as dots, and kept out of the history and the scripts.
+    events
+        .send(Event::Partial(
+            panels::styled_lines("Contraseña: ").remove(0),
+        ))
+        .unwrap();
+    harness.run_steps(2);
+    assert!(harness.state().tab().typing_secret());
+    let app = harness.state_mut().tab_mut();
+    app.input = "hunter2".into();
+    app.submit();
+    assert_eq!(
+        sent.try_recv().unwrap(),
+        Command::SendSecret("hunter2".into())
+    );
+    assert!(!app.typing_secret());
+    assert!(app.history.entries().iter().all(|entry| entry != "hunter2"));
+    // What is typed after is as ever.
+    app.input = "look".into();
+    app.submit();
+    assert_eq!(sent.try_recv().unwrap(), Command::Send("look".into()));
+}

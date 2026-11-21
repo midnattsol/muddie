@@ -90,6 +90,9 @@ pub struct Tab {
     output: Output,
     input: String,
     input_hidden: bool,
+    /// The last the server said asks for a password, though it does not
+    /// hide what is typed: what is typed next is kept as secret.
+    asks_password: bool,
     history: History,
     voice: Voice,
     scripts: Engine,
@@ -264,6 +267,7 @@ impl Tab {
             output: Output::default(),
             input: String::new(),
             input_hidden: false,
+            asks_password: false,
             history: History::default(),
             voice: Voice::default(),
             scripts: Engine::new(Rc::clone(&map)).expect("failed to start the script runtime"),
@@ -349,15 +353,6 @@ impl Tab {
         }
         app.load_layout();
         app.settings_changed(settings);
-        if let Some(path) = crate::capture::path() {
-            app.toast(
-                &trf(
-                    "This run is recorded in {0}",
-                    &[&path.display().to_string()],
-                ),
-                false,
-            );
-        }
         app
     }
 

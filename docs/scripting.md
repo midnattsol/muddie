@@ -43,7 +43,7 @@ it had sent. What must outlast all of this is kept with `remember`.
 |---|---|
 | `send(text)` | Sends a command to the MUD. Aliases are not applied. |
 | `echo(text)` | Shows a line in the output, and speaks it if speech is on. |
-| `log(text)` | Notes something in the record of a run started with `--debug` (see the manual); nothing otherwise. |
+| `log(text)` | Shows something on the standard output of a run started with `--debug` (see the manual); nothing otherwise. |
 | `speak(text, {interrupt = true})` | Says something through speech. |
 | `chat(text)` | Adds a line to the chat panel. Colour codes are allowed. |
 | `panel(name, text)` | Puts `text` in a panel, in place of what it showed; `panel(name)` clears it. For anything the server sends ready to display, such as a map it draws. The panel is made, as one of text, if there is none of that name; `"map"` means the map's panel whatever it is called, and `"chat"` the one of the channels. |

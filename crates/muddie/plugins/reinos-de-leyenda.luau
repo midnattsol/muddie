@@ -79,7 +79,7 @@ local function settle()
     local step = seen
     seen = {}
     local here = map.arrive(step)
-    -- For the record of a run started with --debug.
+    -- Shown when Muddie is started with --debug.
     log(`Reinos: name={step.name} exits={table.concat(step.exits or {}, ",")} came={step.came} -> {here}`)
 end
 

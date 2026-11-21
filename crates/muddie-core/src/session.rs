@@ -35,6 +35,9 @@ pub struct Target {
 pub enum Command {
     /// Send one line of input; the line ending is added here.
     Send(String),
+    /// Send a line that is secret, such as a password: it is never told
+    /// as sent, whether the server hides what is typed or not.
+    SendSecret(String),
     /// The output area changed size, in character cells.
     Resize(u16, u16),
     /// Send a GMCP message; `data` is JSON, or empty for none.
@@ -57,7 +60,7 @@ pub enum Command {
     KeepAlive,
     /// Tell, or stop telling, what arrives of the protocols that are
     /// otherwise only passed over, and what goes over telnet either way,
-    /// for the debugging view and the capture of the protocols.
+    /// for the debugging view and the record of a run.
     Trace(bool),
     Disconnect,
 }
@@ -178,7 +181,10 @@ async fn drive(
             }
             command = commands.recv() => match command {
                 Some(Command::Send(line)) => {
-                    pipeline.send_line(&line, &mut outgoing, &mut batch);
+                    pipeline.send_line(&line, false, &mut outgoing, &mut batch);
+                }
+                Some(Command::SendSecret(line)) => {
+                    pipeline.send_line(&line, true, &mut outgoing, &mut batch);
                 }
                 Some(Command::Resize(w, h)) => pipeline.set_window(w, h, &mut outgoing),
                 Some(Command::Gmcp { package, data }) => {

@@ -161,6 +161,17 @@ impl Tab {
         }
     }
 
+    /// Sends a password: never told as sent, nor taken for a move.
+    pub(super) fn send_secret(&mut self, line: String) {
+        match &self.connection {
+            Some(connection) => {
+                let _ = connection.commands.send(Command::SendSecret(line));
+                self.last_activity = Instant::now();
+            }
+            None => self.note(tr("Not connected.")),
+        }
+    }
+
     /// Answers the first prompt after connecting with the profile's
     /// character name, if it has one.
     pub(super) fn login_name(&mut self) {
@@ -190,7 +201,7 @@ impl Tab {
             return;
         };
         match secrets::password(&profile) {
-            Ok(Some(password)) => self.send(password),
+            Ok(Some(password)) => self.send_secret(password),
             Ok(None) => {}
             Err(error) => self.note(&trf(
                 "The password could not be read from the keyring: {0}",

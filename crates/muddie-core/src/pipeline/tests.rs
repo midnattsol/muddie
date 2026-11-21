@@ -264,7 +264,7 @@ fn mccp3_compresses_everything_after_its_announcement() {
     assert_eq!(reply[..plain.len()], plain);
     let mut compressed = reply[plain.len()..].to_vec();
     let (mut events, mut out) = (Vec::new(), Vec::new());
-    pipeline.send_line("look", &mut out, &mut events);
+    pipeline.send_line("look", false, &mut out, &mut events);
     compressed.extend_from_slice(&out);
     out.clear();
     pipeline.keep_alive(&mut out);
@@ -292,7 +292,7 @@ fn chosen_encoding_is_used_both_ways() {
     let (_, events) = receive(&mut pipeline, b"\xf0\xd2\xc9\xd7\xc5\xd4\r\n");
     assert_eq!(events.iter().map(text).collect::<Vec<_>>(), ["line:Привет"]);
     let (mut events, mut out) = (Vec::new(), Vec::new());
-    pipeline.send_line("да", &mut out, &mut events);
+    pipeline.send_line("да", false, &mut out, &mut events);
     assert_eq!(out, b"\xc4\xc1\r\n");
 }
 
@@ -362,14 +362,20 @@ fn sending_closes_the_partial_and_echoes_unless_hidden() {
     let mut pipeline = Pipeline::new(Config::default());
     receive(&mut pipeline, b"Name: ");
     let (mut out, mut events) = (Vec::new(), Vec::new());
-    pipeline.send_line("say \u{ff}", &mut out, &mut events);
+    pipeline.send_line("say \u{ff}", false, &mut out, &mut events);
     assert_eq!(out, b"say \xc3\xbf\r\n");
     let seen: Vec<String> = events.iter().map(text).collect();
     assert_eq!(seen, ["prompt:Name: ", "Sent(\"say \u{ff}\")"]);
 
+    // A line sent as secret is not told, though the server shows typing.
+    events.clear();
+    pipeline.send_line("hunter2", true, &mut out, &mut events);
+    assert_eq!(events, []);
+    assert!(out.ends_with(b"hunter2\r\n"));
+
     receive(&mut pipeline, &[IAC, WILL, opt::ECHO]);
     events.clear();
-    pipeline.send_line("secret", &mut out, &mut events);
+    pipeline.send_line("secret", false, &mut out, &mut events);
     assert_eq!(events, []);
 }
 
@@ -399,7 +405,7 @@ fn while_tracing_what_goes_over_telnet_either_way_is_told() {
     let mut out = Vec::new();
     pipeline.send_gmcp("Core.Hello", r#"{"client": "muddie"}"#, &mut out);
     let mut events = Vec::new();
-    pipeline.send_line("look", &mut out, &mut events);
+    pipeline.send_line("look", false, &mut out, &mut events);
     assert_eq!(
         told(&mut pipeline),
         [wire(true, "GMCP", r#"Core.Hello {"client": "muddie"}"#)]

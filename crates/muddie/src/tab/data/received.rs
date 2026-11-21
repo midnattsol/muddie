@@ -120,9 +120,8 @@ impl Tab {
     /// Tells the connection whether to say what it otherwise passes over,
     /// when that has changed.
     pub(in crate::tab) fn sync_trace(&mut self) {
-        // While the run is recorded, always: what goes over the protocols
-        // is what is recorded.
-        let wanted = self.recording() || crate::capture::level().is_some();
+        // With --debug, always: what goes over the protocols is shown.
+        let wanted = self.recording() || crate::debug::on();
         if self.data_view.trace_sent != Some(wanted)
             && let Some(connection) = &self.connection
         {

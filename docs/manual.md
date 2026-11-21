@@ -12,21 +12,16 @@ muddie --profile NAME                load a saved profile and connect
 `--script FILE` runs an extra script (it can be
 repeated), and `--insecure` accepts a self-signed TLS certificate.
 
-To see what happens in a run, it can be recorded in a file, which Muddie
-names on starting and over the corner of the window; the files are kept in
-the `captures` folder of Muddie's data (`~/.local/share/muddie` on Linux):
-
-- `--capture-protocols` records everything that goes over the protocols,
-  either way, each line under its protocol: `GMCP<` for what arrived by
-  GMCP, `GMCP>` for what was sent, and so `MSDP`, `MSSP`, `MXP` and `TELNET`
-  for the options offered and answered.
-- `--debug` records that, and the text of the game, what was sent, what the
-  client said, the scripts' errors and what they note with `log()`, and
-  where the map has the player.
-
-Passwords are not recorded: what is typed while the server hides it is
-left out. What is said on the channels is, so mind whom you give a record
-to.
+`--debug` shows on the standard output, as it happens, everything that
+happens in the run, one line each: what goes over the protocols, under its
+name and way (`GMCP<` for what arrived by GMCP, `GMCP>` for what was sent,
+and so `MSDP`, `MSSP`, `MXP` and `TELNET` for the options offered and
+answered), the text of the game, what was sent, what the client said, the
+scripts' errors and what they note with `log()`, and where the map has the
+player. To keep it as well, `muddie --debug | tee muddie.log`. Passwords
+are never shown: neither what is typed while the server hides it or right
+after it asks for one, nor what the profile logs in with, nor a password
+sent by GMCP. What is said on the channels is, so mind whom you give it to.
 
 ## The window
 
