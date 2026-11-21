@@ -7,7 +7,7 @@ mod narrator;
 
 use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender, channel};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use prismer::{Backend, Features, Prism, Registry};
 
@@ -36,6 +36,13 @@ pub struct Status {
 /// one can start at any time, or be too busy to answer when first asked.
 const LOOK_AGAIN: Duration = Duration::from_secs(2);
 
+/// What waited longer than this to be said is not said: the screen reader
+/// was not answering, and what the game said then is old news.
+const STALE: Duration = Duration::from_secs(3);
+
+/// Called when what speech goes through changes: to look at it again.
+pub type Wake = Box<dyn Fn() + Send>;
+
 /// Makes a registry of backends, in the speech thread.
 pub type MakeRegistry = Box<dyn FnOnce() -> Registry + Send>;
 
@@ -43,6 +50,7 @@ enum Request {
     Say {
         text: String,
         interrupt: bool,
+        at: Instant,
     },
     Stop,
     /// Speech rate from -100 to 100; 0 is the voice's default.
@@ -51,8 +59,11 @@ enum Request {
     /// system's default.
     Language(String),
     /// What to say when what speech goes through changes, with `{0}` for
-    /// its name.
-    Announce(String),
+    /// its name; and whether to say it of what it is now, too.
+    Announce {
+        template: String,
+        now: bool,
+    },
     /// A screen reader or a voice came or went: what is spoken through is
     /// chosen again.
     Changed,
@@ -66,20 +77,26 @@ pub struct Speech {
 }
 
 impl Speech {
-    pub fn start(through: Through) -> Self {
-        Self::start_with(through, None)
+    /// Starts speaking through what `through` says; `wake` is called when
+    /// that changes.
+    pub fn start(through: Through, wake: Wake) -> Self {
+        Self::start_with(through, None, wake)
     }
 
     /// Starts it with the backends of the registry `registry` makes besides
     /// prism's own: for tests, which speak to one of their own. It is made
     /// in the thread that uses it, as it cannot be passed to another.
-    pub fn start_with(through: Through, registry: Option<MakeRegistry>) -> Self {
+    pub fn start_with(through: Through, registry: Option<MakeRegistry>, wake: Wake) -> Self {
         let (requests, receiver) = channel();
         let status = Arc::new(Mutex::new(Status::default()));
         let (changed, shared) = (requests.clone(), Arc::clone(&status));
+        let told = Told {
+            status: shared,
+            wake,
+        };
         std::thread::Builder::new()
             .name("speech".into())
-            .spawn(move || worker(through, registry, &receiver, &changed, &shared))
+            .spawn(move || worker(through, registry, &receiver, &changed, &told))
             .expect("failed to start the speech thread");
         Self { requests, status }
     }
@@ -87,8 +104,12 @@ impl Speech {
     /// Says `text`, after anything already being said, or in its place if
     /// `interrupt`.
     pub fn say(&self, text: &str, interrupt: bool) {
-        let text = text.to_owned();
-        let _ = self.requests.send(Request::Say { text, interrupt });
+        let (text, at) = (text.to_owned(), Instant::now());
+        let _ = self.requests.send(Request::Say {
+            text,
+            interrupt,
+            at,
+        });
     }
 
     /// Sets how fast to speak, from -100 (slowest) to 100 (fastest).
@@ -106,9 +127,11 @@ impl Speech {
 
     /// Has what speech goes through said when it changes, as `template`
     /// says with `{0}` for its name: a screen reader started, or a voice
-    /// came. What it is at first is not said.
-    pub fn announce_changes(&self, template: &str) {
-        let _ = self.requests.send(Request::Announce(template.to_owned()));
+    /// came. What it is at first is said too if `now`: when it was chosen
+    /// just then, rather than found at start.
+    pub fn announce_changes(&self, template: &str, now: bool) {
+        let template = template.to_owned();
+        let _ = self.requests.send(Request::Announce { template, now });
     }
 
     /// Silences what is being said and all that is waiting.
@@ -132,7 +155,7 @@ fn worker(
     registry: Option<MakeRegistry>,
     requests: &Receiver<Request>,
     changed: &Sender<Request>,
-    status: &Mutex<Status>,
+    told: &Told,
 ) {
     // What goes wrong in prism is told where Muddie's own troubles are.
     prismer::log::set_handler(|level, source, message| {
@@ -154,7 +177,7 @@ fn worker(
     let (mut rate, mut language, mut announce) = (0, String::new(), String::new());
     let mut backend = choose(&prism, through);
     tune(backend.as_ref(), rate, &language);
-    report(backend.as_ref(), status);
+    report(backend.as_ref(), told);
     loop {
         let request = match backend {
             Some(_) => requests.recv().ok(),
@@ -174,17 +197,21 @@ fn worker(
                     through,
                     &mut backend,
                     (rate, &language, &announce),
-                    status,
+                    told,
                 ),
                 Request::Rate(wanted) => rate = wanted,
                 Request::Language(wanted) => language = wanted,
-                Request::Announce(template) => announce = template,
+                // Said of the first found, when it is found.
+                Request::Announce { template, .. } => announce = template,
                 Request::Say { .. } | Request::Stop => {}
             }
             continue;
         };
         match request {
-            Request::Say { text, interrupt } => {
+            Request::Say { at, .. } if at.elapsed() > STALE => {}
+            Request::Say {
+                text, interrupt, ..
+            } => {
                 let said = match chosen.supports(Features::OUTPUT) {
                     // Spoken, and on the braille display too.
                     true => chosen.output(&text, interrupt),
@@ -204,13 +231,18 @@ fn worker(
                 language = wanted;
                 tune(backend.as_ref(), rate, &language);
             }
-            Request::Announce(template) => announce = template,
+            Request::Announce { template, now } => {
+                if now {
+                    let _ = chosen.speak(&template.replace("{0}", &chosen.name()), false);
+                }
+                announce = template;
+            }
             Request::Changed => switch(
                 &prism,
                 through,
                 &mut backend,
                 (rate, &language, &announce),
-                status,
+                told,
             ),
         }
     }
@@ -223,7 +255,7 @@ fn switch<'a>(
     through: Through,
     backend: &mut Option<Backend<'a>>,
     (rate, language, announce): (i32, &str, &str),
-    status: &Mutex<Status>,
+    told: &Told,
 ) {
     let now = choose(prism, through);
     if now.as_ref().map(Backend::name) == backend.as_ref().map(Backend::name) {
@@ -231,7 +263,7 @@ fn switch<'a>(
     }
     *backend = now;
     tune(backend.as_ref(), rate, language);
-    report(backend.as_ref(), status);
+    report(backend.as_ref(), told);
     if let Some(chosen) = backend.as_ref().filter(|_| !announce.is_empty()) {
         let _ = chosen.speak(&announce.replace("{0}", &chosen.name()), false);
     }
@@ -287,16 +319,24 @@ fn tune(backend: Option<&Backend<'_>>, rate: i32, language: &str) {
     }
 }
 
+/// Where what speech goes through is told: kept to be read, and the window
+/// woken to read it.
+struct Told {
+    status: Arc<Mutex<Status>>,
+    wake: Wake,
+}
+
 /// Says what speech now goes through.
-fn report(backend: Option<&Backend<'_>>, status: &Mutex<Status>) {
+fn report(backend: Option<&Backend<'_>>, told: &Told) {
     let now = Status {
         name: backend.map(Backend::name),
         screen_reader: backend.is_some_and(|backend| backend.supports(Features::IS_SCREEN_READER)),
         known: true,
     };
-    if let Ok(mut status) = status.lock() {
+    if let Ok(mut status) = told.status.lock() {
         *status = now;
     }
+    (told.wake)();
 }
 
 #[cfg(test)]

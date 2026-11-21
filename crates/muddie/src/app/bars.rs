@@ -50,7 +50,7 @@ impl App {
     /// is in the palette too.
     fn main_menu(&mut self, ui: &mut Ui) {
         let button = widgets::icon_button(ui, widgets::Icon::Menu, tr("Menu"), false);
-        egui::Popup::menu(&button).show(|ui| {
+        crate::widgets::menu_of(&button).show(|ui| {
             widgets::menu_width(ui);
             let new_session = ui.ctx().format_shortcut(&NEW_SESSION);
             if widgets::menu_item(ui, tr("New session"), &new_session).clicked() {
@@ -247,7 +247,7 @@ fn notices(ui: &mut Ui, tab: &mut Tab) {
     }
     let said: Vec<_> = said.iter().rev().take(60).cloned().collect();
     let mut clear = false;
-    let shown = egui::Popup::menu(&bell).width(420.0).show(|ui| {
+    let shown = crate::widgets::menu_of(&bell).width(420.0).show(|ui| {
         clear = notices_list(ui, &said);
     });
     if shown.is_some() {

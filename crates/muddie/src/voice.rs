@@ -3,6 +3,7 @@
 //! in use, and so to a braille display too, or through the system's voice,
 //! as the settings say; it is the same on every system.
 
+use std::sync::{Arc, OnceLock};
 use std::time::Instant;
 
 use eframe::egui::{Key, Modifiers, Ui};
@@ -45,6 +46,12 @@ pub struct Voice {
     /// Speech rate from -100 to 100, and the language code to speak in.
     rate: i32,
     language: String,
+    /// The window, to be woken when what speaks changes; known from its
+    /// first frame.
+    window: Arc<OnceLock<eframe::egui::Context>>,
+    /// Speech was opened before: opened again, it says what it speaks
+    /// with, as it was the player who changed it.
+    reopened: bool,
     /// What was said, in tests, which speak to nothing.
     #[cfg(test)]
     pub said: Vec<String>,
@@ -97,15 +104,26 @@ impl Voice {
             return;
         }
         self.opened = wanted;
+        let now = std::mem::replace(&mut self.reopened, true);
         #[cfg(not(test))]
         {
-            self.speech = wanted.map(Speech::start);
+            self.speech = wanted.map(|through| {
+                let window = Arc::clone(&self.window);
+                let wake = Box::new(move || {
+                    if let Some(window) = window.get() {
+                        window.request_repaint();
+                    }
+                });
+                Speech::start(through, wake)
+            });
             if let Some(speech) = &self.speech {
                 speech.set_rate(self.rate);
                 speech.set_language(&self.language);
-                speech.announce_changes(tr("Speech through {0}."));
+                speech.announce_changes(tr("Speech through {0}."), now);
             }
         }
+        #[cfg(test)]
+        let _ = now;
         self.narrator = Narrator::default();
     }
 
@@ -133,11 +151,9 @@ impl Voice {
     /// Silences speech for this session, or lets it speak again.
     pub fn set_muted(&mut self, muted: bool) {
         if muted != self.muted {
+            // Speaking again, it says what it speaks with.
             self.muted = muted;
             self.open();
-            if !muted {
-                self.say(tr("Speech on."));
-            }
         }
     }
 
@@ -194,12 +210,9 @@ impl Voice {
     /// Runs once per frame: speaks settled text and handles the speech
     /// keys.
     pub fn update(&mut self, ui: &mut Ui, output: &Output, chat: &Output) {
-        // A screen reader can start or stop at any time: the window looks
-        // again now and then, so the status bar and the MUD learn of it.
-        if self.speech.is_some() {
-            ui.ctx()
-                .request_repaint_after(std::time::Duration::from_secs(1));
-        }
+        // What speaks can change at any time: the speech thread wakes the
+        // window then, so the status bar and the MUD learn of it.
+        let _ = self.window.set(ui.ctx().clone());
         if !self.enabled() {
             return;
         }

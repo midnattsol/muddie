@@ -17,7 +17,7 @@ impl Tab {
             false,
         );
         let mut asked = None;
-        egui::Popup::menu(&more).show(|ui| {
+        crate::widgets::menu_of(&more).show(|ui| {
             widgets::menu_width(ui);
             let panel = &mut self.layout.panels[index];
             name_field(ui, &mut panel.name);

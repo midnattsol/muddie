@@ -69,13 +69,13 @@ impl Tab {
     }
 
     /// Whether a channel is kept from being read aloud.
-    fn channel_quiet(&self, name: &str) -> bool {
+    pub(in crate::tab) fn channel_quiet(&self, name: &str) -> bool {
         (self.prefs.quiet_channels.iter()).any(|quiet| quiet.eq_ignore_ascii_case(name))
     }
 
     /// Reads a channel aloud, or keeps it quiet, and keeps that with the
     /// profile.
-    fn set_channel_quiet(&mut self, name: &str, quiet: bool) {
+    pub(in crate::tab) fn set_channel_quiet(&mut self, name: &str, quiet: bool) {
         self.prefs
             .quiet_channels
             .retain(|known| !known.eq_ignore_ascii_case(name));

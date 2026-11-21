@@ -134,6 +134,9 @@ impl Tab {
             top: 4,
             bottom: 4,
         });
+        // The arrows move the edge while it has the keyboard.
+        let handle = ui.scope_id().with(id).with("__resize");
+        let resized = size_by_keys(ui, side, handle);
         let strip = match side {
             Side::Left => Panel::left(id),
             Side::Right => Panel::right(id),
@@ -148,23 +151,30 @@ impl Tab {
             .min_size(least)
             .show(ui, |ui| self.strip(ui, side, &members));
         let asked = shown.inner;
-        // The edge to drag is named for what it sizes, in the
-        // language of the interface.
-        let handle = ui.scope_id().with(id).with("__resize");
+        // The edge to drag is named for what it sizes, and described by
+        // its share of the window, in words: as a number a screen reader
+        // reads it as a fraction, and then as a share of how far it can
+        // move, which is two numbers that say little.
+        let mut share = None;
         ui.ctx().accesskit_node_builder(handle, |node| {
             node.set_label(side.size_label());
-            // Its share of the window, read without a string of digits.
-            let round = |value: f64| (value * 100.0).round() / 100.0;
             if let Some(value) = node.numeric_value() {
-                node.set_numeric_value(round(value));
+                let text = trf(
+                    "{0} % of the window",
+                    &[&((value * 100.0).round() as u32).to_string()],
+                );
+                node.set_description(text.clone());
+                share = Some(text);
             }
-            if let Some(value) = node.min_numeric_value() {
-                node.set_min_numeric_value(round(value));
-            }
-            if let Some(value) = node.max_numeric_value() {
-                node.set_max_numeric_value(round(value));
-            }
+            node.clear_numeric_value();
+            node.clear_min_numeric_value();
+            node.clear_max_numeric_value();
+            node.clear_numeric_value_step();
+            node.remove_action(egui::accesskit::Action::SetValue);
         });
+        if let (true, Some(share)) = (resized, share) {
+            self.voice.say_now(&share);
+        }
         // As it was left, to be the same the next time.
         let rect = shown.response.rect;
         let size = if side.is_beside() {
@@ -396,4 +406,38 @@ impl Tab {
         ui.add_space(2.0);
         shown
     }
+}
+
+/// Moves the edge of `side` with the arrows while `handle`, the edge, has
+/// the keyboard: away from the output makes its panels smaller, toward it
+/// larger. Returns whether it was moved.
+fn size_by_keys(ui: &egui::Ui, side: Side, handle: egui::Id) -> bool {
+    if !ui.memory(|memory| memory.has_focus(handle)) {
+        return false;
+    }
+    let (larger, smaller) = match side {
+        Side::Left => (egui::Key::ArrowRight, egui::Key::ArrowLeft),
+        Side::Right => (egui::Key::ArrowLeft, egui::Key::ArrowRight),
+        Side::Top => (egui::Key::ArrowDown, egui::Key::ArrowUp),
+        Side::Bottom => (egui::Key::ArrowUp, egui::Key::ArrowDown),
+    };
+    ui.input_mut(|input| {
+        let action = if input.consume_key(egui::Modifiers::NONE, larger) {
+            egui::accesskit::Action::Increment
+        } else if input.consume_key(egui::Modifiers::NONE, smaller) {
+            egui::accesskit::Action::Decrement
+        } else {
+            return false;
+        };
+        // As a screen reader would ask: the panel does it as it does then.
+        input.events.push(egui::Event::AccessKitActionRequest(
+            egui::accesskit::ActionRequest {
+                action,
+                target_tree: egui::accesskit::TreeId::ROOT,
+                target_node: handle.accesskit_id(),
+                data: None,
+            },
+        ));
+        true
+    })
 }

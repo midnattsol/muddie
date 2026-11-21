@@ -18,11 +18,11 @@ fn main() {
         text => text,
     };
     // The screen reader, or else the voice.
-    let reader = Speech::start(Through::ScreenReader);
+    let reader = Speech::start(Through::ScreenReader, Box::new(|| {}));
     std::thread::sleep(Duration::from_millis(500));
     let speech = match reader.status().name {
         Some(_) => reader,
-        None => Speech::start(Through::Voice),
+        None => Speech::start(Through::Voice, Box::new(|| {})),
     };
     if let Some(language) = language {
         speech.set_language(&language);

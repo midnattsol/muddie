@@ -355,7 +355,7 @@ impl Tab {
                 .accesskit_node_builder(add.id, |node| node.set_label(tr("Add")));
             let add = add.on_hover_text(tr("Add"));
             if self.editor.section == SCRIPTS {
-                egui::Popup::menu(&add).show(|ui| self.new_script_menu(ui));
+                crate::widgets::menu_of(&add).show(|ui| self.new_script_menu(ui));
             } else if add.clicked() {
                 self.add_rule();
             }

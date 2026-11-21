@@ -50,6 +50,8 @@ pub enum Act {
     Log,
     /// Switches the voice on or off.
     Speech,
+    /// Reads the channel of this name aloud, or keeps it quiet.
+    ReadChannel(String, bool),
     /// Adds a panel of this kind.
     AddPanel(super::layout::Kind),
     /// Shows or hides the panel with this number.

@@ -410,9 +410,15 @@ fn speed_control(ui: &mut Ui, rate: &mut i32) -> egui::Response {
 fn speech_settings(ui: &mut Ui, settings: &mut Settings, through: Option<&str>) {
     use crate::settings::SpeechOutput;
     widgets::section(ui, tr("Speaking"), |ui| {
-        let now = match through {
-            Some(name) => trf("Speaking through {0}.", &[name]),
-            None => tr("Nothing is speaking now.").to_owned(),
+        // What speaks now; a screen reader speaks as it is set up to,
+        // which is said here, where the keyboard reaches it.
+        let now = match (through, settings.speech) {
+            (Some(name), SpeechOutput::Reader) => trf(
+                "Speaking through {0}, at its own speed and with its own voice.",
+                &[name],
+            ),
+            (Some(name), _) => trf("Speaking through {0}.", &[name]),
+            (None, _) => tr("Nothing is speaking now.").to_owned(),
         };
         widgets::setting_row(ui, tr("Speak with"), Some(&now), &mut |ui| {
             let choices = [
@@ -441,16 +447,14 @@ fn speech_settings(ui: &mut Ui, settings: &mut Settings, through: Option<&str>) 
             )),
         );
     });
-    // The screen reader speaks as it is set up to: these are for the voice.
+    // These are for the system's voice alone.
     let voice = settings.speech == SpeechOutput::Voice;
-    let reader = settings.speech == SpeechOutput::Reader;
-    let about = reader.then_some(tr("The screen reader uses its own settings."));
     widgets::section(ui, tr("The system's voice"), |ui| {
         ui.add_enabled_ui(voice, |ui| {
-            widgets::setting_row(ui, tr("Speed"), about, &mut |ui| {
+            widgets::setting_row(ui, tr("Speed"), None, &mut |ui| {
                 speed_control(ui, &mut settings.speech_rate)
             });
-            widgets::setting_row(ui, tr("Voice language"), about, &mut |ui| {
+            widgets::setting_row(ui, tr("Voice language"), None, &mut |ui| {
                 language_choice(ui, &mut settings.speech_language)
             });
         });

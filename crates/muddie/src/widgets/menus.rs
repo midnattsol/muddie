@@ -2,6 +2,17 @@
 
 use super::*;
 
+/// The menu that `button` opens. A screen reader is told the button opens
+/// a menu, and whether it is open.
+pub fn menu_of(button: &Response) -> egui::Popup<'_> {
+    let open = egui::Popup::is_id_open(&button.ctx, egui::Popup::default_response_id(button));
+    button.ctx.accesskit_node_builder(button.id, |node| {
+        node.set_has_popup(egui::accesskit::HasPopup::Menu);
+        node.set_expanded(open);
+    });
+    egui::Popup::menu(button)
+}
+
 /// Gives a menu room to breathe; call it first in the menu.
 pub fn menu_width(ui: &mut Ui) {
     ui.set_min_width(232.0);

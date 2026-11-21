@@ -11,6 +11,7 @@ impl Tab {
         let mut acts = places();
         acts.extend(self.session_acts());
         acts.extend(self.panel_acts());
+        acts.extend(self.channel_acts());
         let settings = tr("Settings");
         acts.extend(crate::app::Section::ALL.map(|section| {
             item(
@@ -80,6 +81,28 @@ impl Tab {
         acts
     }
 
+    /// Reading each of the MUD's channels aloud, or keeping it quiet.
+    fn channel_acts(&self) -> Vec<Item> {
+        let speech = tr("Speech");
+        (self.panels.channels.iter())
+            .map(|channel| {
+                let name = &channel.name;
+                match self.channel_quiet(name) {
+                    true => item(
+                        &trf("Read the {0} channel aloud", &[name]),
+                        speech,
+                        Act::ReadChannel(name.clone(), true),
+                    ),
+                    false => item(
+                        &trf("Keep the {0} channel quiet", &[name]),
+                        speech,
+                        Act::ReadChannel(name.clone(), false),
+                    ),
+                }
+            })
+            .collect()
+    }
+
     /// Showing or hiding each panel, and adding one.
     fn panel_acts(&self) -> Vec<Item> {
         use super::layout::Kind;
@@ -145,6 +168,13 @@ impl Tab {
             Act::Disconnect => self.disconnect(),
             Act::Log => {
                 self.do_client_command("/log");
+            }
+            Act::ReadChannel(name, read) => {
+                self.set_channel_quiet(&name, !read);
+                self.note(&match read {
+                    true => trf("The {0} channel is read aloud.", &[&name]),
+                    false => trf("The {0} channel is kept quiet.", &[&name]),
+                });
             }
             Act::Speech => match self.voice.enabled() {
                 true => self.voice.set_muted(true),

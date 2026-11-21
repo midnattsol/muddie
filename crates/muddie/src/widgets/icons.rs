@@ -43,7 +43,8 @@ pub enum Edge {
 pub fn icon_button(ui: &mut Ui, icon: Icon, label: &str, on: bool) -> Response {
     let theme = theme::current();
     let (rect, response) = ui.allocate_exact_size(Vec2::splat(28.0), Sense::click());
-    response.widget_info(|| WidgetInfo::selected(Role::Button, ui.is_enabled(), on, label));
+    // `on` only marks it: a button, not a switch.
+    response.widget_info(|| WidgetInfo::labeled(Role::Button, ui.is_enabled(), label));
     if ui.is_rect_visible(rect) {
         let painter = ui.painter();
         let hovered = response.hovered() || response.has_focus();

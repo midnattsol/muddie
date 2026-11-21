@@ -164,9 +164,6 @@ msgstr "Voz"
 msgid "Port"
 msgstr "Puerto"
 
-msgid "Speech on."
-msgstr "Voz activada."
-
 msgid "Blank."
 msgstr "En blanco."
 
@@ -1760,9 +1757,6 @@ msgstr "Leer los canales"
 msgid "What is said on the MUD's channels, with the channel's name."
 msgstr "Lo que se dice en los canales del MUD, con el nombre del canal."
 
-msgid "The screen reader uses its own settings."
-msgstr "El lector de pantalla usa sus propios ajustes."
-
 
 msgid "Map"
 msgstr "Mapa"
@@ -1786,3 +1780,28 @@ msgstr "Sin resultados."
 
 msgid "Command palette"
 msgstr "Paleta de comandos"
+
+#, python-brace-format
+msgid "Speaking through {0}, at its own speed and with its own voice."
+msgstr "Ahora habla {0}, a su propia velocidad y con su propia voz."
+
+#, python-brace-format
+msgid "{0} % of the window"
+msgstr "{0} % de la ventana"
+
+
+#, python-brace-format
+msgid "Read the {0} channel aloud"
+msgstr "Leer en voz alta el canal {0}"
+
+#, python-brace-format
+msgid "Keep the {0} channel quiet"
+msgstr "Callar el canal {0}"
+
+#, python-brace-format
+msgid "The {0} channel is read aloud."
+msgstr "El canal {0} se lee en voz alta."
+
+#, python-brace-format
+msgid "The {0} channel is kept quiet."
+msgstr "El canal {0} queda callado."

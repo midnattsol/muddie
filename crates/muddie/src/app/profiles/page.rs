@@ -101,7 +101,7 @@ impl App {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 let label = trf("{0} options", &[name]);
                 let more = widgets::icon_button(ui, widgets::Icon::More, &label, false);
-                egui::Popup::menu(&more).show(|ui| asked = profile_menu(ui));
+                crate::widgets::menu_of(&more).show(|ui| asked = profile_menu(ui));
                 ui.add_space(size::GAP_S);
                 self.connect_button(ui, ctx, name);
             });

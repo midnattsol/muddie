@@ -125,9 +125,15 @@ fn what_is_said_aloud_is_the_game_the_channels_and_the_client() {
     harness.run_steps(3);
     let said = |harness: &Harness<'_, App>| harness.state().tab().voice.said.clone();
     assert_eq!(said(&harness), ["An orc arrives.", "ooc: Ana: hola"]);
-    // Kept quiet, a channel is not read; and silenced, nothing is.
+    // Kept quiet from the palette, a channel is not read; and silenced,
+    // nothing is.
+    let ctx = harness.ctx.clone();
     let app = harness.state_mut().tab_mut();
-    app.prefs.quiet_channels.push("OOC".into());
+    let quiet = (app.palette_acts().into_iter())
+        .find(|item| item.usage == "Keep the ooc channel quiet")
+        .expect("the palette keeps a channel quiet");
+    let act = quiet.act.expect("it does something");
+    app.act(act, &ctx);
     app.voice.said.clear();
     events
         .send(Event::Gmcp {

@@ -17,7 +17,7 @@ pub(in crate::app) fn installed_row(
         ui.add_space(size::GAP_S);
         let more =
             widgets::icon_button(ui, widgets::Icon::More, &trf("{0} options", &[name]), false);
-        egui::Popup::menu(&more).show(|ui| {
+        crate::widgets::menu_of(&more).show(|ui| {
             widgets::menu_width(ui);
             if widgets::menu_item(ui, tr("Update"), "").clicked() {
                 asked = Some(format!("/plugin update {name}"));
@@ -52,7 +52,7 @@ fn included_row(ui: &mut Ui, plugin: &crate::bundled::Bundled, draft: &mut Profi
             ui.add_space(size::GAP_S);
             let more =
                 widgets::icon_button(ui, widgets::Icon::More, &trf("{0} options", &[name]), false);
-            egui::Popup::menu(&more).show(|ui| {
+            crate::widgets::menu_of(&more).show(|ui| {
                 widgets::menu_width(ui);
                 if widgets::menu_item(ui, tr("Customize"), "").clicked() {
                     customize = true;

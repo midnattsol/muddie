@@ -25,9 +25,9 @@ impl CustomBackend for Reader {
     }
 }
 
-/// Speech through a reader that is a screen reader, or a voice, above
-/// every other there is.
-fn reader(through: Through, kind: Features) -> (Speech, Heard) {
+/// A registry with a reader that is a screen reader, or a voice, above
+/// every other there is, and what it hears.
+fn registry_of(kind: Features) -> (MakeRegistry, Heard) {
     let heard = Heard::default();
     let noted = Arc::clone(&heard);
     let make: MakeRegistry = Box::new(move || {
@@ -40,7 +40,16 @@ fn reader(through: Through, kind: Features) -> (Speech, Heard) {
             .unwrap();
         registry.freeze().unwrap()
     });
-    (Speech::start_with(through, Some(make)), heard)
+    (make, heard)
+}
+
+/// Speech through that reader.
+fn reader(through: Through, kind: Features) -> (Speech, Heard) {
+    let (make, heard) = registry_of(kind);
+    (
+        Speech::start_with(through, Some(make), Box::new(|| {})),
+        heard,
+    )
 }
 
 /// Waits for what is heard to be `wanted`, however busy the machine.
@@ -96,4 +105,55 @@ fn the_screen_reader_and_the_voice_of_the_system_are_built_in() {
             "{name} was left out of the build: install the development files of dbus-1 and speech-dispatcher"
         );
     }
+}
+
+/// A reader that takes four seconds to answer the first time, as Orca does
+/// when it is stuck.
+struct Stuck(Heard, bool);
+
+impl CustomBackend for Stuck {
+    fn speak(&mut self, text: &str, _interrupt: bool) -> prismer::Result<()> {
+        if !std::mem::replace(&mut self.1, true) {
+            std::thread::sleep(Duration::from_secs(4));
+        }
+        self.0.lock().unwrap().push(text.to_owned());
+        Ok(())
+    }
+}
+
+#[test]
+fn what_waited_while_the_reader_was_stuck_is_not_said() {
+    let heard = Heard::default();
+    let noted = Arc::clone(&heard);
+    let make: MakeRegistry = Box::new(move || {
+        let mut registry = RegistryBuilder::new().unwrap();
+        let features = Features::IS_SCREEN_READER | Features::SPEAK;
+        registry
+            .add_backend("Stuck reader", 10_000, features, move || {
+                Some(Stuck(Arc::clone(&noted), false))
+            })
+            .unwrap();
+        registry.freeze().unwrap()
+    });
+    let speech = Speech::start_with(Through::ScreenReader, Some(make), Box::new(|| {}));
+    speech.say("First.", false);
+    speech.say("Old news.", false);
+    std::thread::sleep(Duration::from_secs(5));
+    speech.say("Now.", false);
+    hears(&heard, &["First.", "Now."]);
+}
+
+#[test]
+fn the_window_is_woken_when_what_speaks_is_known() {
+    let woken = Arc::new(Mutex::new(0));
+    let count = Arc::clone(&woken);
+    let wake: Wake = Box::new(move || *count.lock().unwrap() += 1);
+    let (registry, _heard) = registry_of(Features::IS_SCREEN_READER);
+    let speech = Speech::start_with(Through::ScreenReader, Some(registry), wake);
+    let until = Instant::now() + Duration::from_secs(10);
+    while *woken.lock().unwrap() == 0 && Instant::now() < until {
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    assert!(*woken.lock().unwrap() > 0);
+    assert!(speech.status().known);
 }

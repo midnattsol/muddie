@@ -147,7 +147,7 @@ fn also(
         return;
     }
     let add = widgets::quiet_button(ui, tr("+ Add an action"));
-    egui::Popup::menu(&add).show(|ui| {
+    crate::widgets::menu_of(&add).show(|ui| {
         widgets::menu_width(ui);
         for extra in missing {
             if widgets::menu_item(ui, extra.label(), "").clicked() {
