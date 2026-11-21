@@ -188,10 +188,10 @@ impl Tab {
             let item = &items[at];
             match (&item.spot, kind) {
                 (Spot::Folder(path), Some(kind)) if left && item.open && !self.narrowed() => {
-                    self.fold(ui.ctx(), kind, path, true)
+                    self.fold(kind, path, true)
                 }
                 (Spot::Folder(path), Some(kind)) if right && !item.open => {
-                    self.fold(ui.ctx(), kind, path, false)
+                    self.fold(kind, path, false)
                 }
                 (Spot::Folder(_), _) if right => {
                     if let Some(next) = items.get(at + 1).filter(|next| next.depth > item.depth) {

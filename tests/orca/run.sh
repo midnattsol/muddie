@@ -196,7 +196,14 @@ keys Up
 expect "Up goes back to the folder, and says it is open" "SPEECH OUTPUT: 'expanded, 0 items'"
 remember
 keys Left
-expect "Left closes the folder, and says so" "SPEECH OUTPUT: 'collapsed'"
+expect "Left closes the folder, and it is said with what it holds" "SPEECH OUTPUT: 'collapsed, 0 items'"
+# Once: the client does not say it again over the screen reader.
+if since | grep -aqF "SPEECH OUTPUT: 'collapsed'{"; then
+    echo "FAILED: closing a folder is said twice"
+    failures=$((failures + 1))
+else
+    echo "ok: closing a folder is said once"
+fi
 # Back over the search, the button that opens or closes every folder,
 # named by what it will do, and saying what it did.
 remember

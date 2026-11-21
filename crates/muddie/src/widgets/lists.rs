@@ -120,19 +120,25 @@ fn tree_place(node: &mut egui::accesskit::Node, depth: usize, place: (usize, usi
     node.set_size_of_set(place.1);
 }
 
-/// How deep a line of a tree is, in words, when it is in a folder: what
-/// screen readers on Linux are not told otherwise.
+/// The screen readers of Linux are not told how deep a line of a tree is,
+/// nor whether a folder is open: there, both are in its description. On
+/// Windows and macOS they are told, and say it themselves, in their own
+/// words; said again in ours, it would be heard twice.
+const SAID_IN_WORDS: bool = cfg!(target_os = "linux");
+
+/// How deep a line of a tree is, in words, when it is in a folder, where
+/// the screen reader is not told otherwise.
 fn level_words(depth: usize) -> Option<String> {
-    (depth > 0).then(|| crate::i18n::trf("level {0}", &[&(depth + 1).to_string()]))
+    (SAID_IN_WORDS && depth > 0).then(|| crate::i18n::trf("level {0}", &[&(depth + 1).to_string()]))
 }
 
-/// Whether a folder is open, in words: on Linux, a screen reader is told
-/// so only by these.
-pub fn folded_words(open: bool) -> &'static str {
-    match open {
+/// Whether a folder is open, in words, where the screen reader is not
+/// told otherwise.
+fn folded_words(open: bool) -> Option<&'static str> {
+    SAID_IN_WORDS.then(|| match open {
         true => crate::i18n::tr("expanded"),
         false => crate::i18n::tr("collapsed"),
-    }
+    })
 }
 
 impl ListRow<'_> {
@@ -395,10 +401,11 @@ impl FolderRow<'_> {
             if let Some(place) = self.place {
                 tree_place(node, self.depth, place);
             }
-            let mut about = vec![
-                folded_words(self.open).to_owned(),
-                crate::i18n::trn("{0} item", "{0} items", self.count as u64),
-            ];
+            let mut about: Vec<String> = folded_words(self.open)
+                .map(str::to_owned)
+                .into_iter()
+                .collect();
+            about.push(crate::i18n::trn("{0} item", "{0} items", self.count as u64));
             if !self.active {
                 about.push(crate::i18n::tr("Disabled").to_owned());
             }

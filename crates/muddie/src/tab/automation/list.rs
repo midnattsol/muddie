@@ -363,7 +363,7 @@ impl Tab {
             let on_arrow = (line.interact_pointer_pos())
                 .is_some_and(|at| at.x < widgets::folder_arrow_end(line.rect, item.depth));
             if !by_pointer || on_arrow {
-                self.fold(ui.ctx(), kind, path, item.open);
+                self.fold(kind, path, item.open);
             }
             self.choose_folder(path);
         }
@@ -427,16 +427,14 @@ impl Tab {
         });
     }
 
-    /// Closes a folder that is `open`, or opens it, and says which it now
-    /// is when the keyboard did it: screen readers are not told otherwise.
-    pub(in crate::tab) fn fold(&mut self, ctx: &egui::Context, kind: Kind, path: &str, open: bool) {
+    /// Closes a folder that is `open`, or opens it. Nothing is said: the
+    /// screen reader says it itself, from the folder's state, or on Linux
+    /// from its description.
+    pub(in crate::tab) fn fold(&mut self, kind: Kind, path: &str, open: bool) {
         let key = (kind, path.to_owned());
         self.editor.folded.retain(|folded| *folded != key);
         if open {
             self.editor.folded.push(key);
-        }
-        if widgets::keyboard_in_use(ctx) {
-            self.voice.say_now(widgets::folded_words(!open));
         }
     }
 
