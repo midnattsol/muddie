@@ -1,4 +1,4 @@
-//! Running a command, and what it answers at the command line.
+//! Running a command, and where what it answers is shown.
 
 use super::*;
 
@@ -25,28 +25,21 @@ impl Tab {
         self.say(text, true);
     }
 
-    /// Says something inside the command line, if it is empty to say it
-    /// in, and among the lines of the game if not: for what a command
-    /// answers some time after it was given.
-    pub(in crate::tab) fn bar(&mut self, text: &str, problem: bool) {
-        if self.input.is_empty() {
-            self.remember_notice(text, problem);
-            self.voice.say(text);
-            self.palette.bar_note = Some(BarNote {
-                text: text.to_owned(),
-                problem,
-                since: None,
-            });
-        } else {
-            self.note(text);
-        }
+    /// Carries out a command of the client typed in the command line, and
+    /// shows what it answers. Returns whether it was one.
+    pub(in crate::tab) fn run_command(&mut self, line: &str) -> bool {
+        self.run_command_from(line, false)
     }
 
-    /// Carries out a command of the client and puts what it answers where
-    /// it is shown. Returns whether it was one.
-    pub(in crate::tab) fn run_command(&mut self, line: &str) -> bool {
+    /// Carries out a command of the client and shows what it answers where
+    /// it was asked: a line, in the palette if it was run from there, else
+    /// over the corner as the client says anything; a list, in the
+    /// palette, under the command, to read and to choose from. Returns
+    /// whether it was one.
+    pub(in crate::tab) fn run_command_from(&mut self, line: &str, from_palette: bool) -> bool {
         self.palette.results = None;
-        self.palette.bar_note = None;
+        self.palette.title = None;
+        self.palette.message = None;
         self.palette.cache = None;
         self.palette.chosen = 0;
         self.palette.answer.clear();
@@ -64,19 +57,24 @@ impl Tab {
             ours = true;
         }
         self.palette.answering = false;
-        let mut said = std::mem::take(&mut self.palette.answer);
-        match said.len() {
-            0 => {}
-            // A line of text is said in the command line itself.
-            1 if said[0].run.is_none() => {
-                self.palette.bar_note = Some(BarNote {
-                    text: said.remove(0).text,
-                    problem: self.palette.answer_failed,
-                    since: None,
-                });
+        let said = std::mem::take(&mut self.palette.answer);
+        let failed = self.palette.answer_failed;
+        let list = said.len() > 1 || said.iter().any(|said| said.run.is_some());
+        match (said.first(), list, from_palette) {
+            (None, ..) => {}
+            // A line typed in the command line: over the corner.
+            (Some(_), false, false) => {
+                if let Some(notice) = self.notices.list.last_mut() {
+                    notice.corner = true;
+                }
             }
-            // More than that is a list, to read and to choose from.
-            _ => {
+            // A line asked of the palette: in it.
+            (Some(said), false, true) => {
+                self.palette.message = Some((said.text.clone(), failed));
+                self.palette.open = true;
+            }
+            // A list, to read and to choose from, under what was asked.
+            (Some(_), true, _) => {
                 let items = said.into_iter().map(|said| Item {
                     insert: said.run.unwrap_or_default(),
                     usage: said.text,
@@ -85,43 +83,11 @@ impl Tab {
                     act: None,
                 });
                 self.palette.results = Some(items.collect());
+                self.palette.title = Some(line.trim().to_owned());
                 self.palette.query.clear();
                 self.palette.open = true;
             }
         }
         ours
-    }
-
-    /// What the last command said in a line, while it is to be shown,
-    /// and the colour to show it in: for a moment, fading at the end.
-    pub(in crate::tab) fn bar_said(&mut self, ui: &egui::Ui) -> Option<(String, egui::Color32)> {
-        let theme = theme::current();
-        let now = ui.input(|input| input.time);
-        let note = self.palette.bar_note.as_mut()?;
-        let since = *note.since.get_or_insert(now);
-        // A problem stays to be read; the rest goes by itself, sooner the
-        // less it says.
-        let mut fading = 1.0;
-        if !note.problem {
-            let lasts = (2.0 + 0.05 * note.text.chars().count() as f64).min(7.0);
-            let left = since + lasts - now;
-            if left <= 0.0 {
-                self.palette.bar_note = None;
-                return None;
-            }
-            if left < 0.4 {
-                fading = (left / 0.4) as f32;
-                ui.ctx().request_repaint();
-            } else {
-                ui.ctx()
-                    .request_repaint_after(std::time::Duration::from_secs_f64(left - 0.4));
-            }
-        }
-        let colour = if note.problem {
-            theme.danger
-        } else {
-            theme.text_dim
-        };
-        Some((note.text.clone(), colour.gamma_multiply(fading)))
     }
 }

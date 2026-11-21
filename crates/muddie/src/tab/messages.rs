@@ -1,5 +1,7 @@
-//! What the client says in a session: in the output, kept to be read again,
-//! and handed to the screen reader.
+//! What the client says in a session: over the corner of the window, kept
+//! under the bell to be read again, and handed to the screen reader; never
+//! among the lines of the game, which are the game's. What a command
+//! answers is shown where it was asked for (see `commands::answers`).
 
 use super::*;
 
@@ -13,55 +15,52 @@ pub struct Notice {
     /// How many were said before it in the session, and when it was.
     pub serial: u64,
     pub at: Instant,
-    /// Shown over the corner wherever the user is, rather than among the
-    /// lines of the game: about work done aside, as taking a map.
-    pub aside: bool,
+    /// Shown over the corner of the window: all are but what a command
+    /// run from the palette answers, which the palette shows.
+    pub corner: bool,
 }
 
 /// How many of the client's messages are kept to be read again.
 pub(super) const MOST_NOTICES: usize = 200;
 
 impl Tab {
-    /// Shows and speaks a message from the client itself.
+    /// Tells the user something.
     pub fn note(&mut self, text: &str) {
         self.say(text, false);
     }
 
-    /// Says something about work done aside, over the corner of the
-    /// window: neither among the lines of the game nor in the command line.
-    pub(super) fn toast(&mut self, text: &str, problem: bool) {
-        crate::debug::show(&self.title(), "NOTE", text);
-        self.keep_notice(text, problem, true);
-        self.voice.say(text);
-    }
-
-    /// Shows and speaks a message, kept as one of something that could not
-    /// be done if it is a `problem`.
+    /// Tells the user something, kept as one of something that could not
+    /// be done if it is a `problem`: over the corner and aloud, or, while
+    /// a command is answering, as part of what it answers.
     pub(super) fn say(&mut self, text: &str, problem: bool) {
         crate::debug::show(&self.title(), "NOTE", text);
         let problem = problem || (self.palette.answering && self.palette.answer_failed);
-        self.remember_notice(text, problem);
-        // What a command typed with `/` says is its answer, shown at the
-        // command line; anything else is a line of the client's.
-        if self.palette.answering {
+        let answering = self.palette.answering;
+        self.keep_notice(text, problem, !answering);
+        if answering {
             self.palette.answer.push(commands::Said {
                 text: text.to_owned(),
                 about: String::new(),
                 run: None,
             });
-        } else {
-            self.show_local(text);
         }
         self.voice.say(text);
     }
 
-    /// Keeps something the client said, wherever it was shown, to be read
-    /// again: what was shown for a moment is not lost.
-    pub(super) fn remember_notice(&mut self, text: &str, problem: bool) {
-        self.keep_notice(text, problem, false);
+    /// A line a script shows among the lines of the game, and says: what
+    /// it asks for. Run as a command (`/lua`), it is what the command
+    /// answers.
+    pub(super) fn echo(&mut self, text: &str) {
+        if self.palette.answering {
+            return self.note(text);
+        }
+        self.show_local(text);
+        self.voice.say(text);
     }
 
-    fn keep_notice(&mut self, text: &str, problem: bool, aside: bool) {
+    /// Keeps something the client said, to be read again, and to show over
+    /// the corner if `corner`.
+    pub(super) fn keep_notice(&mut self, text: &str, problem: bool, corner: bool) {
         if text.trim().is_empty() {
             return;
         }
@@ -75,7 +74,7 @@ impl Tab {
             problem,
             serial: self.notices.said,
             at: Instant::now(),
-            aside,
+            corner,
         });
         self.notices.unread += 1;
     }
@@ -84,11 +83,6 @@ impl Tab {
     /// of them have not been looked at.
     pub fn notices(&self) -> (&[Notice], usize) {
         (&self.notices.list, self.notices.unread)
-    }
-
-    /// How many the client has said in the session.
-    pub fn notices_said(&self) -> u64 {
-        self.notices.said
     }
 
     /// They have been looked at.

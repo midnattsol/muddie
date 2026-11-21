@@ -27,7 +27,7 @@ fn lost_connection_is_retried_but_a_closed_one_is_not() {
     let app = harness.state_mut().tab_mut();
     assert!(app.reconnect_at.is_some());
     assert!(
-        output_lines(app)
+        notes(app)
             .iter()
             .any(|line| line.starts_with("Reconnecting in 1 "))
     );

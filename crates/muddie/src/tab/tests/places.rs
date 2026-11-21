@@ -41,9 +41,14 @@ fn desert(app: &mut Tab) {
 
 /// What a command answers: each line, with what it is about if anything.
 fn answer(app: &mut Tab, command: &str) -> Vec<String> {
+    let before = app.notices().0.len();
     app.run_command(command);
-    if let Some(note) = &app.palette.bar_note {
-        return vec![note.text.clone()];
+    // A line, over the corner; a list, in the palette.
+    if app.palette.results.is_none() {
+        return (app.notices().0[before..].iter())
+            .filter(|notice| notice.corner)
+            .map(|notice| notice.text.clone())
+            .collect();
     }
     (app.palette.results.iter().flatten())
         .map(|item| match item.about.as_str() {
@@ -95,10 +100,9 @@ fn reinos_de_leyenda_is_followed_by_the_rooms_it_shows_and_walked_in_its_words()
     let app = harness.state_mut().tab_mut();
     assert_eq!(app.map.borrow().candidates(), [1, 2, 3]);
     assert!(
-        output_lines(app)
-            .last()
-            .unwrap()
-            .contains("in one of 3 rooms alike")
+        notes(app)
+            .iter()
+            .any(|said| said.contains("in one of 3 rooms alike"))
     );
     // East, to a dune with a door west and an exit east: of the two
     // east of a dune, the middle one.
@@ -110,10 +114,9 @@ fn reinos_de_leyenda_is_followed_by_the_rooms_it_shows_and_walked_in_its_words()
     let app = harness.state_mut().tab_mut();
     assert_eq!(app.map.borrow().current().unwrap().id, 2);
     assert!(
-        output_lines(app)
-            .last()
-            .unwrap()
-            .contains("knows where you are again: Dunas")
+        notes(app)
+            .iter()
+            .any(|said| said.contains("knows where you are again: Dunas"))
     );
     events.send(gmcp("Room.Movimiento", r#""este""#)).unwrap();
     events
@@ -217,10 +220,10 @@ fn the_plugin_takes_the_servers_map_at_once_and_it_is_said_aside() {
     let taking = (said.iter())
         .find(|notice| notice.text.starts_with("Taking the map from https://"))
         .unwrap();
-    assert!(taking.aside);
+    assert!(taking.corner);
     // Tests do not reach the web: it failed, and says so aside too.
     let failed = harness.state().tab().notices().0.last().cloned().unwrap();
-    assert!(failed.aside && failed.problem, "{failed:?}");
+    assert!(failed.corner && failed.problem, "{failed:?}");
     assert!(failed.text.starts_with("Could not take the map"));
     // Over the corner, though the game is in sight.
     harness.get_by_label(&failed.text);
@@ -395,9 +398,9 @@ fn a_move_by_an_exit_the_map_does_not_have_is_said() {
     settle(&mut harness);
     let app = harness.state().tab();
     assert_eq!(app.map.borrow().current().unwrap().id, 4);
+    let said = notes(app);
     assert!(
-        last_said(app).starts_with("El mapa no tiene la salida norte desde Pozo"),
-        "{}",
-        last_said(app)
+        (said.iter()).any(|said| said.starts_with("El mapa no tiene la salida norte desde Pozo")),
+        "{said:?}"
     );
 }

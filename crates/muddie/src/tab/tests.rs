@@ -66,6 +66,13 @@ fn window<'a>(profiles: Option<Profiles>) -> Harness<'a, App> {
     harness
 }
 
+/// What the client has said, over the corner and under the bell.
+fn notes(app: &Tab) -> Vec<String> {
+    (app.notices().0.iter())
+        .map(|notice| notice.text.clone())
+        .collect()
+}
+
 fn output_lines(app: &Tab) -> Vec<String> {
     (0..app.output.len())
         .map(|row| app.output.text(row).to_owned())

@@ -320,7 +320,7 @@ impl Tab {
             return;
         }
         if why != Taking::Update {
-            self.toast(&trf("Taking the map from {0}…", &[&source]), false);
+            self.say(&trf("Taking the map from {0}…", &[&source]), false);
         }
         let result = mapfetch::take(source.clone(), known);
         self.map_source.taking = Some((result, source, why));
@@ -359,28 +359,28 @@ impl Tab {
                 };
                 let rooms = trn("{0} room", "{0} rooms", rooms as u64);
                 match saved {
-                    Err(error) => self.toast(
+                    Err(error) => self.say(
                         &trf("Could not save the map: {0}", &[&error.to_string()]),
                         true,
                     ),
-                    Ok(()) if why == Taking::Update => self.toast(
+                    Ok(()) if why == Taking::Update => self.say(
                         &trf("The server's map was brought up to date: {0}.", &[&rooms]),
                         false,
                     ),
                     Ok(()) => {
-                        self.toast(&trf("The map was taken: {0}.", &[&rooms]), false);
+                        self.say(&trf("The map was taken: {0}.", &[&rooms]), false);
                         self.set_map_shown(true);
                     }
                 }
             }
-            Err(error) if why == Taking::Update => self.toast(
+            Err(error) if why == Taking::Update => self.say(
                 &trf(
                     "Could not bring the server's map up to date: {0}",
                     &[&error],
                 ),
                 true,
             ),
-            Err(error) => self.toast(&trf("Could not take the map: {0}", &[&error]), true),
+            Err(error) => self.say(&trf("Could not take the map: {0}", &[&error]), true),
         }
     }
 }

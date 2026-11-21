@@ -147,8 +147,9 @@ impl Tab {
         self.say_chosen(items);
     }
 
-    /// The card at the top of the window: the field, and a window of the
-    /// list around the one chosen. Returns its area's response, and the row
+    /// The card at the top of the window: the field; under it what a
+    /// command answered, or the list, in groups, around the one chosen; and
+    /// the keys at its foot. Returns its area's response, and the row
     /// clicked.
     fn palette_card(
         &mut self,
@@ -158,18 +159,20 @@ impl Tab {
     ) -> (egui::Response, Option<usize>) {
         let theme = theme::current();
         let screen = ctx.content_rect();
-        let width = (screen.width() - 32.0).min(560.0);
-        let place = egui::pos2(screen.center().x, screen.top() + 84.0 - (1.0 - shown) * 8.0);
+        let width = (screen.width() - 48.0).min(WIDTH);
+        let place = egui::pos2(screen.center().x, screen.top() + 64.0 - (1.0 - shown) * 8.0);
+        // As tall as the window leaves it, beneath the bar at the top.
+        let most = (screen.height() - 220.0).clamp(4.0 * ROW, ROWS as f32 * ROW);
         let card = egui::Frame::new()
             .fill(theme.raised)
             .stroke(egui::Stroke::new(1.0, theme.border))
             .corner_radius(egui::CornerRadius::same(14))
             .inner_margin(egui::Margin::same(6))
             .shadow(egui::Shadow {
-                offset: [0, 10],
-                blur: 30,
+                offset: [0, 12],
+                blur: 36,
                 spread: 0,
-                color: egui::Color32::from_black_alpha(if theme.dark { 110 } else { 36 }),
+                color: egui::Color32::from_black_alpha(if theme.dark { 120 } else { 40 }),
             });
         let mut clicked = None;
         let area = egui::Area::new(egui::Id::unique("palette"))
@@ -181,91 +184,119 @@ impl Tab {
                 card.show(ui, |ui| {
                     ui.set_width(width - 12.0);
                     ui.spacing_mut().item_spacing.y = 0.0;
-                    self.palette_field(ui, items.len());
-                    if items.is_empty() {
-                        if !self.palette.query.trim().is_empty() {
-                            ui.add_space(4.0);
-                            ui.horizontal(|ui| {
-                                ui.add_space(12.0);
-                                widgets::page_note(ui, tr("No matches."));
-                            });
-                            ui.add_space(8.0);
-                        }
-                        return;
-                    }
-                    let line = ui.available_rect_before_wrap();
-                    ui.painter().hline(
-                        line.x_range(),
-                        line.top(),
-                        egui::Stroke::new(1.0, theme.border),
-                    );
+                    self.palette_field(ui);
+                    let rule = |ui: &mut egui::Ui| {
+                        let line = ui.available_rect_before_wrap();
+                        let stroke = egui::Stroke::new(1.0, theme.border);
+                        ui.painter().hline(line.x_range(), line.top(), stroke);
+                    };
+                    rule(ui);
                     ui.add_space(6.0);
-                    // A list to scroll, by the wheel or its bar too, as tall
-                    // as a page of it at most: its bar and its faded edges
-                    // say when there is more.
-                    let reveal = std::mem::take(&mut self.palette.reveal);
-                    egui::ScrollArea::vertical()
-                        .id_salt("palette list")
-                        .max_height(ROWS as f32 * ROW)
-                        .auto_shrink([false, true])
-                        .show(ui, |ui| {
-                            crate::widgets::keep_clear_of_bar(ui);
-                            for (index, item) in items.iter().enumerate() {
-                                let chosen = index == self.palette.chosen;
-                                let row = palette_row(ui, item, chosen);
-                                if row.clicked() {
-                                    clicked = Some(index);
-                                }
-                                if chosen && reveal {
-                                    row.scroll_to_me(None);
-                                }
-                            }
+                    if let Some((text, problem)) = self.palette.message.clone() {
+                        answered(ui, &text, problem);
+                    }
+                    if let Some(title) = self.palette.title.clone() {
+                        group_heading(ui, &title, true);
+                    }
+                    if items.is_empty() && self.palette.message.is_none() {
+                        ui.horizontal(|ui| {
+                            ui.add_space(14.0);
+                            widgets::page_note(ui, tr("No matches."));
                         });
+                        ui.add_space(10.0);
+                    }
+                    if !items.is_empty() {
+                        // A list to scroll, by the wheel or its bar too, as
+                        // tall as a page of it at most.
+                        let reveal = std::mem::take(&mut self.palette.reveal);
+                        let grouped = self.palette.title.is_none();
+                        egui::ScrollArea::vertical()
+                            .id_salt("palette list")
+                            .max_height(most)
+                            .auto_shrink([false, true])
+                            .show(ui, |ui| {
+                                crate::widgets::keep_clear_of_bar(ui);
+                                // How long it is, told to a screen reader.
+                                let found = trn("{0} result", "{0} results", items.len() as u64);
+                                let list = egui::UiBuilder::new()
+                                    .accessibility_role(egui::accesskit::Role::List)
+                                    .accessibility_label(found);
+                                ui.scope_builder(list, |ui| {
+                                    ui.spacing_mut().item_spacing.y = 0.0;
+                                    let mut group = None;
+                                    for (index, item) in items.iter().enumerate() {
+                                        let this = super::group_of(item);
+                                        if grouped && group.as_ref() != Some(&this) {
+                                            group_heading(ui, &this, false);
+                                            group = Some(this);
+                                        }
+                                        let chosen = index == self.palette.chosen;
+                                        let row = palette_row(ui, item, chosen);
+                                        if row.clicked() {
+                                            clicked = Some(index);
+                                        }
+                                        if chosen && reveal {
+                                            row.scroll_to_me(None);
+                                        }
+                                    }
+                                });
+                            });
+                    }
+                    ui.add_space(4.0);
+                    rule(ui);
+                    keys_at_the_foot(ui);
                 });
             });
         (area.response, clicked)
     }
 
-    /// What to look for: the field, which keeps the keyboard while the
-    /// palette is open.
-    fn palette_field(&mut self, ui: &mut egui::Ui, count: usize) {
+    /// What to look for: the field, after the picture of looking, which
+    /// keeps the keyboard while the palette is open.
+    fn palette_field(&mut self, ui: &mut egui::Ui) {
         let theme = theme::current();
         let field = egui::Id::unique("palette field");
         let listed = self.palette.results.is_some() && self.palette.query.is_empty();
-        let hint = if listed {
+        let hint = if listed || self.palette.message.is_some() {
             tr("Choose one, or type a command")
         } else {
             tr("Search for a section, an action or a command")
         };
         let hint = RichText::new(hint)
-            .font(theme::font(Weight::Regular, 14.5))
+            .font(theme::font(Weight::Regular, 15.0))
             .color(theme.text_faint);
         let edit = egui::Frame::new()
-            .inner_margin(egui::Margin::symmetric(10, 8))
+            .inner_margin(egui::Margin {
+                left: 12,
+                right: 12,
+                top: 10,
+                bottom: 10,
+            })
             .show(ui, |ui| {
                 ui.horizontal(|ui| {
-                    // How many there are, at the right, while there are some.
-                    let shown = match count {
-                        0 => String::new(),
-                        count => trn("{0} result", "{0} results", count as u64),
-                    };
-                    let counted =
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            ui.label(
-                                RichText::new(shown)
-                                    .font(theme::font(Weight::Regular, 12.0))
-                                    .color(theme.text_faint),
-                            );
-                            TextEdit::singleline(&mut self.palette.query)
-                                .id(field)
-                                .frame(egui::Frame::NONE)
-                                .font(theme::font(Weight::Regular, 14.5))
-                                .hint_text(hint)
-                                .lock_focus(true)
-                                .desired_width(f32::INFINITY)
-                                .show(ui)
-                        });
-                    counted.inner
+                    ui.spacing_mut().item_spacing.x = 10.0;
+                    let (glyph, _) =
+                        ui.allocate_exact_size(egui::vec2(16.0, 20.0), egui::Sense::hover());
+                    let edit = TextEdit::singleline(&mut self.palette.query)
+                        .id(field)
+                        .frame(egui::Frame::NONE)
+                        .font(theme::font(Weight::Regular, 15.0))
+                        .hint_text(hint)
+                        .lock_focus(true)
+                        .desired_width(f32::INFINITY)
+                        .show(ui);
+                    // On the line of what is typed.
+                    widgets::paint_glyph(
+                        ui.painter(),
+                        egui::pos2(
+                            glyph.center().x,
+                            edit.galley_pos.y + edit.galley.size().y / 2.0,
+                        ),
+                        egui::Align2::CENTER_CENTER,
+                        widgets::Glyph::Search,
+                        14.0,
+                        theme.text_faint,
+                    );
+                    edit
                 })
                 .inner
             })
@@ -277,6 +308,8 @@ impl Tab {
         if edit.response.changed() {
             self.palette.chosen = 0;
             self.palette.results = None;
+            self.palette.title = None;
+            self.palette.message = None;
             self.palette.typed_at = Some(Instant::now());
         }
         if std::mem::take(&mut self.palette.cursor_end) {
@@ -293,44 +326,128 @@ impl Tab {
     }
 }
 
-/// A row of the palette's list: the thing itself at the left, what it is
-/// at the right, marked when chosen.
+/// The name of a group of the list, or of what the list answers, over it.
+fn group_heading(ui: &mut egui::Ui, text: &str, command: bool) {
+    let theme = theme::current();
+    ui.add_space(6.0);
+    ui.horizontal(|ui| {
+        ui.add_space(14.0);
+        let font = match command {
+            true => egui::FontId::monospace(12.0),
+            false => theme::font(Weight::Medium, 11.0),
+        };
+        let text = match command {
+            true => text.to_owned(),
+            false => text.to_uppercase(),
+        };
+        ui.add(
+            egui::Label::new(RichText::new(text).font(font).color(theme.text_faint))
+                .selectable(false),
+        );
+    });
+    ui.add_space(4.0);
+}
+
+/// What a command run from the palette answered, in a line of its own,
+/// marked as done or as something that could not be done.
+fn answered(ui: &mut egui::Ui, text: &str, problem: bool) {
+    let theme = theme::current();
+    let (glyph, colour) = match problem {
+        true => (widgets::Glyph::Warning, theme.danger),
+        false => (widgets::Glyph::Check, theme.good),
+    };
+    egui::Frame::new()
+        .inner_margin(egui::Margin::symmetric(14, 8))
+        .show(ui, |ui| {
+            ui.horizontal_top(|ui| {
+                ui.spacing_mut().item_spacing.x = 10.0;
+                let (mark, _) =
+                    ui.allocate_exact_size(egui::vec2(16.0, 18.0), egui::Sense::hover());
+                widgets::paint_glyph(
+                    ui.painter(),
+                    mark.center(),
+                    egui::Align2::CENTER_CENTER,
+                    glyph,
+                    13.0,
+                    colour,
+                );
+                let words = RichText::new(text)
+                    .font(theme::font(Weight::Regular, 14.0))
+                    .color(theme.text);
+                ui.add(egui::Label::new(words).wrap());
+            });
+        });
+}
+
+/// The keys of the palette, at its foot, each with what it does.
+fn keys_at_the_foot(ui: &mut egui::Ui) {
+    let theme = theme::current();
+    ui.add_space(6.0);
+    ui.horizontal(|ui| {
+        ui.add_space(12.0);
+        ui.spacing_mut().item_spacing.x = 6.0;
+        for (keys, does) in [
+            ("↑ ↓", tr("choose")),
+            ("Enter", tr("run")),
+            ("Tab", tr("complete")),
+            ("Esc", tr("close")),
+        ] {
+            let chip = RichText::new(keys)
+                .font(theme::font(Weight::Medium, 11.0))
+                .color(theme.text_dim);
+            egui::Frame::new()
+                .stroke(egui::Stroke::new(1.0, theme.border))
+                .corner_radius(egui::CornerRadius::same(4))
+                .inner_margin(egui::Margin::symmetric(5, 1))
+                .show(ui, |ui| ui.add(egui::Label::new(chip).selectable(false)));
+            let words = RichText::new(does)
+                .font(theme::font(Weight::Regular, 11.5))
+                .color(theme.text_faint);
+            ui.add(egui::Label::new(words).selectable(false));
+            ui.add_space(8.0);
+        }
+    });
+    ui.add_space(6.0);
+}
+
+/// A row of the palette's list: its picture, what it is, whole, and for a
+/// command what it is for after it, cut short if it must be; the keys that
+/// do the same at the right. Marked when chosen.
 fn palette_row(ui: &mut egui::Ui, item: &Item, chosen: bool) -> egui::Response {
     let theme = theme::current();
     let (rect, row) =
         ui.allocate_exact_size(egui::vec2(ui.available_width(), ROW), egui::Sense::click());
-    let usage = shown_usage(&item.usage);
+    let command = item.act.is_none();
+    // What it is for is said with it; for what the palette does, its
+    // group says that already.
+    let about = match command {
+        true => item.about.as_str(),
+        false => "",
+    };
     row.widget_info(|| {
-        let said = match item.about.is_empty() {
+        let usage = shown_usage(&item.usage);
+        let said = match about.is_empty() {
             true => usage.to_owned(),
-            false => format!("{usage}. {}", item.about),
+            false => format!("{usage}. {about}"),
         };
         egui::WidgetInfo::selected(egui::Role::ListItem, true, chosen, said)
     });
     if chosen || row.hovered() {
-        let fill = if chosen {
-            theme.hover
-        } else {
-            theme.hover.gamma_multiply(0.5)
+        let fill = match chosen {
+            true => theme.accent.gamma_multiply(0.18),
+            false => theme.hover.gamma_multiply(0.6),
         };
         ui.painter()
             .rect_filled(rect, egui::CornerRadius::same(8), fill);
     }
-    let inside = rect.shrink2(egui::vec2(10.0, 0.0));
+    let inside = rect.shrink2(egui::vec2(14.0, 0.0));
     let (glyph, keys) = look_of(item);
     let painter = ui.painter().with_clip_rect(inside);
-    let about = painter.text(
-        inside.right_center(),
-        egui::Align2::RIGHT_CENTER,
-        &item.about,
-        theme::font(Weight::Regular, 12.5),
-        theme.text_faint,
-    );
-    // Its keys, if it has some, before what it is.
-    let mut end = about.left() - 14.0;
+    // The keys first, at the right, for the rest to know its room.
+    let mut end = inside.right();
     if !keys.is_empty() {
         let shown = painter.text(
-            egui::pos2(end, inside.center().y),
+            egui::pos2(end - 5.0, inside.center().y),
             egui::Align2::RIGHT_CENTER,
             keys,
             theme::font(Weight::Medium, 11.5),
@@ -350,21 +467,57 @@ fn palette_row(ui: &mut egui::Ui, item: &Item, chosen: bool) -> egui::Response {
         inside.left_center() + egui::vec2(8.0, 0.0),
         egui::Align2::CENTER_CENTER,
         glyph,
-        12.0,
+        13.0,
         if chosen {
             theme.accent
         } else {
             theme.text_faint
         },
     );
-    let room = egui::Rect::from_min_max(inside.min, egui::pos2(end, inside.max.y));
-    ui.painter().with_clip_rect(room).text(
-        inside.left_center() + egui::vec2(24.0, 0.0),
-        egui::Align2::LEFT_CENTER,
-        usage,
-        theme::font(Weight::Regular, 13.5),
-        theme.text,
-    );
+    // What it is, whole: the words of a command typed as they are, and
+    // what it is given dimmer.
+    let start = inside.left() + 28.0;
+    let mut job = egui::text::LayoutJob::default();
+    let typed = theme::font(Weight::Medium, 14.0);
+    for (index, word) in item.usage.split(' ').enumerate() {
+        let given = word.starts_with(['<', '[']);
+        let colour = match given {
+            true => theme.text_faint,
+            false => theme.text,
+        };
+        let space = if index == 0 { "" } else { " " };
+        job.append(
+            &format!("{space}{word}"),
+            0.0,
+            egui::TextFormat::simple(typed.clone(), colour),
+        );
+    }
+    let usage = ui.fonts_mut(|fonts| fonts.layout_job(job));
+    let at = egui::pos2(start, inside.center().y - usage.size().y / 2.0);
+    let width = usage.size().x;
+    ui.painter()
+        .with_clip_rect(inside.with_max_x(end))
+        .galley(at, usage, theme.text);
+    // What it is for, in what room is left, cut short with an ellipsis.
+    let room = end - (start + width + 14.0);
+    if !about.is_empty() && room > 40.0 {
+        let mut job = egui::text::LayoutJob::single_section(
+            about.to_owned(),
+            egui::TextFormat::simple(theme::font(Weight::Regular, 13.0), theme.text_faint),
+        );
+        job.wrap = egui::text::TextWrapping {
+            max_width: room,
+            max_rows: 1,
+            break_anywhere: true,
+            overflow_character: Some('…'),
+        };
+        let about = ui.fonts_mut(|fonts| fonts.layout_job(job));
+        let at = egui::pos2(
+            start + width + 14.0,
+            inside.center().y - about.size().y / 2.0,
+        );
+        ui.painter().galley(at, about, theme.text_faint);
+    }
     row
 }
 
@@ -404,9 +557,11 @@ fn look_of(item: &Item) -> (widgets::Glyph, &'static str) {
     }
 }
 
-/// How tall a row of the list is, and how many make a page of it.
-const ROW: f32 = 32.0;
-const ROWS: usize = 8;
+/// How wide the palette is at most, how tall a row of the list is, and how
+/// many make a page of it.
+const WIDTH: f32 = 720.0;
+const ROW: f32 = 36.0;
+const ROWS: usize = 12;
 
 /// How the keys move the choice in the list.
 #[derive(Debug, Clone, Copy)]

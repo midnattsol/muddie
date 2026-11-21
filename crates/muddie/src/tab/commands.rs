@@ -3,8 +3,8 @@
 //! or a click anywhere else closes it, with the game in view all along.
 //! Typed in the command line after a `/` they are carried out the same.
 //! What a command answers is not put among the lines of the game: a line
-//! of it is said inside the command line for a moment, and a list of
-//! things is shown in the palette, to choose from.
+//! of it is said over the corner, or in the palette if it was run from
+//! there, and a list of things is shown in the palette, to choose from.
 
 use super::*;
 use crate::theme::Weight;
@@ -95,16 +95,6 @@ pub struct Said {
     pub run: Option<String>,
 }
 
-/// A line shown inside the command line for a moment.
-#[derive(Debug, Clone, PartialEq)]
-pub struct BarNote {
-    pub text: String,
-    /// Something could not be done: it stays until something is typed.
-    pub problem: bool,
-    /// When it was first shown, in the time of the window.
-    pub since: Option<f64>,
-}
-
 impl Tab {
     /// Opens the palette of commands, or closes it.
     pub fn toggle_palette(&mut self) {
@@ -112,6 +102,8 @@ impl Tab {
         self.palette.query.clear();
         self.palette.chosen = 0;
         self.palette.results = None;
+        self.palette.title = None;
+        self.palette.message = None;
         self.palette.focus = self.palette.open;
         // The press that opened it is not one elsewhere.
         self.palette.fresh = self.palette.open;
@@ -120,6 +112,8 @@ impl Tab {
     fn close_palette(&mut self) {
         self.palette.open = false;
         self.palette.results = None;
+        self.palette.title = None;
+        self.palette.message = None;
         self.palette.query.clear();
         self.palette.chosen = 0;
     }
@@ -131,6 +125,10 @@ impl Tab {
             && let Some(results) = &self.palette.results
         {
             return results.clone();
+        }
+        // What a command answered is read alone, till something is typed.
+        if self.palette.query.is_empty() && self.palette.message.is_some() {
+            return Vec::new();
         }
         // Worked out when what is typed changes, not every frame.
         if let Some((typed, items)) = &self.palette.cache
@@ -173,6 +171,15 @@ impl Tab {
         } else {
             items.extend(commands);
         }
+        // Each group together, in the order they first come.
+        let mut groups: Vec<String> = Vec::new();
+        for item in &items {
+            let group = group_of(item);
+            if !groups.contains(&group) {
+                groups.push(group);
+            }
+        }
+        items.sort_by_key(|item| groups.iter().position(|group| *group == group_of(item)));
         self.palette.cache = Some((self.palette.query.clone(), items.clone()));
         items
     }
@@ -202,9 +209,23 @@ impl Tab {
         } else {
             item.insert.clone()
         };
-        self.close_palette();
         self.history.add(&line);
-        self.run_command(&line);
+        self.palette.query.clear();
+        self.run_command_from(&line, true);
+        // What it answered stays in sight; a command that answers nothing
+        // is done with.
+        if self.palette.message.is_none() && self.palette.results.is_none() {
+            self.close_palette();
+        }
+    }
+}
+
+/// The group something offered is shown under: what it does, for what
+/// the palette does; the commands, for the commands.
+pub(super) fn group_of(item: &Item) -> String {
+    match item.act {
+        Some(_) => item.about.clone(),
+        None => tr("Commands").to_owned(),
     }
 }
 
@@ -230,10 +251,12 @@ pub(super) struct Palette {
     pub(super) answer: Vec<commands::Said>,
     pub(super) answering: bool,
     pub(super) answer_failed: bool,
-    /// What the last command said in a line, shown in the command line
-    /// for a moment, and what it listed, shown over it to choose from.
-    pub(super) bar_note: Option<commands::BarNote>,
+    /// What the last command listed, to choose from, under the command;
+    /// or the line it answered, when it was run from the palette, and
+    /// whether that line is of something that could not be done.
     pub(super) results: Option<Vec<commands::Item>>,
+    pub(super) title: Option<String>,
+    pub(super) message: Option<(String, bool)>,
     /// When what is typed last changed, until what it finds is said.
     pub(super) typed_at: Option<Instant>,
 }

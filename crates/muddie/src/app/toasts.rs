@@ -1,9 +1,7 @@
 //! Notices over the bottom right corner of the window, which move nothing:
-//! what the client says while the lines of the game are not in sight, what
-//! it says of work done aside wherever the user is, and what waits for an
-//! answer, such as a plugin offered for the MUD. What is
-//! said is kept under the bell too, and the screen reader is told of it as
-//! it is said.
+//! what the client says, wherever the user is, and what waits for an
+//! answer, such as a plugin offered for the MUD. What is said is kept under
+//! the bell too, and the screen reader is told of it as it is said.
 
 use super::*;
 
@@ -19,20 +17,9 @@ impl App {
     /// The notices of the session on screen.
     pub(super) fn toasts(&mut self, ctx: &egui::Context) {
         let tab = &self.tabs[self.active];
-        // In sight, the lines of the game say it: notices are for what is
-        // said while they are not.
-        let covered = tab.view() != 0
-            || self.show_settings
-            || self.show_profiles
-            || self.show_shortcuts
-            || self.show_about
-            || self.asking.is_some();
-        if !covered {
-            self.toasts_after = tab.notices_said();
-        }
         let (said, _) = tab.notices();
         let fresh: Vec<&crate::tab::Notice> = (said.iter())
-            .filter(|notice| notice.aside || notice.serial > self.toasts_after)
+            .filter(|notice| notice.corner)
             .filter(|notice| {
                 let lasts = if notice.problem {
                     PROBLEM_FOR

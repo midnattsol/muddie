@@ -32,7 +32,8 @@ fn what_the_client_says_can_be_read_again() {
     // The bell says how many are new, and opening it shows them.
     harness.get_by_label("Messages, 3 new").click();
     harness.run_steps(3);
-    harness.get_by_label("No room matches.");
+    // Over the corner for a moment, and under the bell.
+    assert!(harness.query_all_by_label("No room matches.").count() >= 2);
     assert_eq!(harness.state().tab().notices().1, 0);
 }
 
@@ -453,6 +454,9 @@ fn an_idle_window_draws_nothing() {
     ];
     for (name, setup) in views {
         let mut harness = connected_demo_window();
+        // What the client said is over the corner until its time is up,
+        // and asks for the frame that takes it away: that is due.
+        harness.state_mut().tab_mut().clear_notices();
         setup(&mut harness);
         harness.run_steps(10);
         // What settles a moment after a change waits for that moment as

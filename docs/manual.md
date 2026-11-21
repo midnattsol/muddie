@@ -30,12 +30,12 @@ At the top, at the left the views of a session, **Game**, **Editor**
 the **menu** (the three lines): a new session, the settings, the profiles,
 the keyboard shortcuts and what Muddie is. At the bottom, the sessions as tabs, what the
 one on screen is doing, and the **bell** of the messages the client has given
-in it, marked while some are new: what was said for a moment, such as the
-answer of a command, can be read there again. What the client says while the
-lines of the game are out of sight, in the editor or with a window open, is
-also shown for a few seconds over the bottom right corner, where it moves
-nothing; so is what waits for an answer, such as a plugin offered for the
-MUD. Nothing the client says pushes the rest aside.
+in it, marked while some are new: all it said can be read there again. What
+the client says (connected, the map taken, a plugin installed...) is shown
+for a few seconds over the bottom right corner, where it moves nothing, and
+read aloud; it is never put among the lines of the game, which are the
+game's. Over the corner too is what waits for an answer, such as a plugin
+offered for the MUD.
 
 A session's tab says its name and, with a dot, how its connection is doing.
 A right click on it opens its menu: connect or reconnect, disconnect, edit
@@ -126,17 +126,20 @@ Lines starting with `/` and one of these words are for Muddie itself;
 anything else is sent to the MUD.
 
 **Ctrl+K** opens them in a palette over the window, with the game in view
-behind it: type to find one, Up and Down choose, which is also read aloud,
-and Enter runs it. One that needs something more, such as the room to walk
-to, is completed instead, to type that after it; Tab completes without
-running. Escape, or a click anywhere else, closes it. Typed in the command
-line after the `/`, a command is carried out the same.
+behind it, together with the places to go, the panels, the settings and
+the rest, in groups under their names. Type to find one; Up and Down
+choose, which is also read aloud with where it is in the list, and Enter
+runs it. One that needs something more, such as the room to walk to, is
+completed instead, to type that after it; Tab completes without running.
+Escape, or a click anywhere else, closes it. Its foot says these keys.
+Typed in the command line after the `/`, a command is carried out the same.
 
-What a command answers is not put among the lines of the game. A line of it
-is said inside the command line for a moment; if something could not be
-done, it stays there until you type. A list, of the rooms found, the tags
-or the plugins, is shown in the palette, to choose from: Enter on a room
-walks to it, and on a tag or a plugin switches it.
+What a command answers is shown where it was asked: run from the palette,
+in the palette, which stays open to read it; typed in the command line,
+over the corner, as the client says anything. A list, of the rooms found,
+the tags or the plugins, is shown in the palette under the command, to
+choose from: Enter on a room walks to it, and on a tag or a plugin switches
+it.
 
 | Command | What it does |
 |---|---|

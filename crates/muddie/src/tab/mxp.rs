@@ -19,7 +19,7 @@ impl Tab {
                 self.find.wants_focus = true;
             }
             // The menu is closed: what it did is said over the corner.
-            crate::output::Clicked::Copied => self.toast(tr("Copied."), false),
+            crate::output::Clicked::Copied => self.say(tr("Copied."), false),
         }
     }
 

@@ -125,7 +125,7 @@ fn client_commands_are_grouped() {
     assert!(app.do_client_command("/tag Combat off") && !tag_on(app));
     assert!(app.do_client_command("/tag combat") && tag_on(app));
     assert!(app.do_client_command("/tag"));
-    assert!(output_lines(app).iter().any(|line| line == "combat: on"));
+    assert!(notes(app).iter().any(|line| line == "combat: on"));
     // An incomplete group opens the palette at what it has, instead
     // of going to the MUD.
     assert!(app.do_client_command("/map dance"));
@@ -146,7 +146,7 @@ fn commands_are_chosen_from_a_palette_and_answer_at_the_line() {
     // what it is.
     harness.state_mut().tab_mut().toggle_palette();
     harness.run_steps(3);
-    harness.get_by_label("Incoming data. Go to");
+    harness.get_by_label("Incoming data");
     harness.state_mut().tab_mut().palette.query = "map".into();
     harness.run_steps(3);
     harness.get_by_label_contains("map where");
@@ -214,29 +214,28 @@ fn commands_are_chosen_from_a_palette_and_answer_at_the_line() {
     harness.run_steps(3);
     let app = harness.state().tab();
     assert!(!app.scripts.switches().tag_on("combat"));
-    let note = app.palette.bar_note.clone().expect("a line of answer");
+    // What it answers is in the palette, which stays open to read it,
+    // and not over the corner nor among the lines of the game.
+    assert!(app.palette.open);
     assert_eq!(
-        (note.text.as_str(), note.problem),
-        ("Tag combat off.", false)
+        app.palette.message.clone(),
+        Some(("Tag combat off.".to_owned(), false))
     );
+    assert!(!app.notices().0.last().unwrap().corner);
     assert_eq!(output_lines(app).len(), before);
-    // Left alone, it goes by itself after a moment.
-    harness.run_steps(40);
-    assert!(harness.state().tab().palette.bar_note.is_none());
     // A line of Lua is run from the palette as from the command line:
     // what it prints is its answer, and so is that it was run, or
     // that it could not be.
     let run = |harness: &mut Harness<'_, App>, code: &str| {
         let app = harness.state_mut().tab_mut();
-        app.toggle_palette();
         app.palette.query = format!("lua {code}");
+        app.palette.open = true;
         harness.run_steps(2);
         harness.key_press(Key::Enter);
         harness.run_steps(3);
         let app = harness.state().tab();
-        assert!(!app.palette.open);
-        let note = app.palette.bar_note.clone().expect("an answer");
-        (note.text, note.problem)
+        assert!(app.palette.open);
+        app.palette.message.clone().expect("an answer")
     };
     assert_eq!(
         run(&mut harness, r#"supports("Comm 1")"#),
@@ -259,31 +258,38 @@ fn commands_are_chosen_from_a_palette_and_answer_at_the_line() {
     // What a command lists stays in the palette, to choose from:
     // Enter on a tag switches it.
     let app = harness.state_mut().tab_mut();
-    app.toggle_palette();
     app.palette.query = "tag".into();
     harness.run_steps(2);
     harness.key_press(Key::Enter);
     harness.run_steps(3);
     let app = harness.state().tab();
     assert!(app.palette.open && app.palette.results.is_some());
+    // Under the command it answers.
+    assert_eq!(app.palette.title.as_deref(), Some("/tag"));
     harness.get_by_label("combat. off");
     harness.key_press(Key::Enter);
     harness.run_steps(3);
     let app = harness.state().tab();
-    assert!(app.scripts.switches().tag_on("combat") && !app.palette.open);
+    assert!(app.scripts.switches().tag_on("combat") && app.palette.open);
+    assert_eq!(
+        app.palette.message.clone(),
+        Some(("Tag combat on.".to_owned(), false))
+    );
+    harness.key_press(Key::Escape);
+    harness.run_steps(2);
     // Typed in the command line after a slash, a command is carried
-    // out the same, and is not kept there to be sent again. What
-    // could not be done stays said, until something is typed.
+    // out the same, and is not kept there to be sent again. What it
+    // answers is said over the corner, as the client says anything.
     harness.state_mut().tab_mut().input = "/map find nowhere".into();
     harness.run_steps(2);
     harness.key_press(Key::Enter);
     harness.run_steps(40);
     let app = harness.state().tab();
     assert!(app.input.is_empty());
-    let note = app.palette.bar_note.clone().expect("a refusal");
+    let note = app.notices().0.last().unwrap();
     assert_eq!(
-        (note.text.as_str(), note.problem),
-        ("No room matches.", true)
+        (note.text.as_str(), note.problem, note.corner),
+        ("No room matches.", true, true)
     );
 }
 
@@ -303,7 +309,7 @@ fn the_palette_opens_from_its_field_and_stays_open() {
             "closed again at frame {frame}"
         );
     }
-    harness.get_by_label("Incoming data. Go to");
+    harness.get_by_label("Incoming data");
     // A press anywhere else does close it.
     harness.get_by_label("Menu").click();
     harness.run_steps(3);
@@ -399,7 +405,7 @@ fn the_palette_is_a_list_to_page_through_that_says_how_long_it_is() {
     // A page down, then to the end, then round to the first.
     harness.key_press(Key::PageDown);
     harness.run_steps(2);
-    assert_eq!(chosen(&harness), 7);
+    assert_eq!(chosen(&harness), 11);
     harness.key_press_modifiers(Modifiers::COMMAND, Key::End);
     harness.run_steps(2);
     assert_eq!(chosen(&harness), count - 1);

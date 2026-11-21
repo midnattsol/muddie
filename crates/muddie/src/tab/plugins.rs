@@ -195,14 +195,14 @@ impl Tab {
         for (outcome, enable) in ended {
             match outcome {
                 Ok(name) if enable => {
-                    self.bar(&trf("Plugin {0} installed.", &[&name]), false);
+                    self.note(&trf("Plugin {0} installed.", &[&name]));
                     self.set_package(&name, true);
                 }
                 Ok(name) => {
-                    self.bar(&trf("Plugin {0} updated.", &[&name]), false);
+                    self.note(&trf("Plugin {0} updated.", &[&name]));
                     self.load_scripts();
                 }
-                Err(error) => self.bar(
+                Err(error) => self.say(
                     &trf(
                         "The plugin could not be installed or updated: {0}",
                         &[&error],

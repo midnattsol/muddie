@@ -47,16 +47,11 @@ impl Tab {
     }
 
     /// The command line: a field with the prompt mark before it, Tab to
-    /// complete, the arrows through the history, and what the last command
-    /// said where its hint would be.
+    /// complete, and the arrows through the history.
     pub(super) fn input_line(&mut self, ui: &mut egui::Ui) {
         let id = ui.make_persistent_id("command input");
         let focused = ui.memory(|memory| memory.has_focus(id));
         let completing = self.complete_word(ui, focused);
-        let has_text = !self.input.is_empty();
-        // What the last command said takes the place of the hint; with
-        // something typed, it is said at the other end of the line.
-        let said = self.bar_said(ui);
         // A click on what takes no keyboard (the output, to choose text in
         // it; a button) leaves the keyboard here: given up and taken back,
         // the line would be drawn a frame without it, and its choice
@@ -68,7 +63,7 @@ impl Tab {
         if focused {
             surrender(ui, egui::SurrenderFocusOn::Never);
         }
-        let (bar, mut output) = self.command_field(ui, id, focused, said.clone());
+        let mut output = self.command_field(ui, id, focused);
         surrender(ui, egui::SurrenderFocusOn::Clicks);
         self.place_cursor(ui, id, &mut output, completing);
         let response = output.response;
@@ -76,13 +71,6 @@ impl Tab {
             .accesskit_node_builder(response.id, |node| node.set_label(tr("Command")));
         if response.has_focus() {
             self.line_keys(ui);
-        }
-        if has_text && let Some((text, colour)) = said {
-            said_at_the_end(ui, bar, text, colour);
-        }
-        // Typing puts away what the last command answered.
-        if response.changed() {
-            self.palette.bar_note = None;
         }
         let submitted = response.lost_focus() && ui.input(|input| input.key_pressed(Key::Enter));
         if submitted {
@@ -141,15 +129,11 @@ impl Tab {
         ui: &mut egui::Ui,
         id: egui::Id,
         focused: bool,
-        said: Option<(String, egui::Color32)>,
-    ) -> (egui::Rect, egui::text_edit::TextEditOutput) {
+    ) -> egui::text_edit::TextEditOutput {
         let theme = theme::current();
-        let hint = match said {
-            Some((text, colour)) => RichText::new(text).font(palette::font()).color(colour),
-            None => RichText::new(tr("Type a command"))
-                .font(palette::font())
-                .color(theme.text_faint),
-        };
+        let hint = RichText::new(tr("Type a command"))
+            .font(palette::font())
+            .color(theme.text_faint);
         let edge = if focused {
             theme.accent.gamma_multiply(0.7)
         } else {
@@ -189,7 +173,7 @@ impl Tab {
             })
             .inner
         });
-        (shown.response.rect, shown.inner)
+        shown.inner
     }
 
     /// Where the cursor goes: over all of a command kept to send again,
@@ -374,22 +358,6 @@ fn prompt_mark(ui: &egui::Ui, mark: egui::Rect, line: f32) {
     ];
     let stroke = egui::Stroke::new(1.6, theme::current().accent);
     ui.painter().add(egui::Shape::line(chevron, stroke));
-}
-
-/// What the last command said, at the far end of the line, over whatever
-/// of the typed text reaches that far.
-fn said_at_the_end(ui: &egui::Ui, bar: egui::Rect, text: String, colour: egui::Color32) {
-    let at = bar.right_center() - egui::vec2(14.0, 0.0);
-    let font = theme::font(crate::theme::Weight::Regular, 13.0);
-    let galley = ui.painter().layout_no_wrap(text, font, colour);
-    let size = galley.size();
-    let place = egui::Rect::from_min_size(egui::pos2(at.x - size.x, at.y - size.y / 2.0), size);
-    ui.painter().rect_filled(
-        place.expand2(egui::vec2(10.0, 2.0)),
-        4.0,
-        theme::current().background,
-    );
-    ui.painter().galley(place.min, galley, colour);
 }
 
 /// Searching the output: whether the bar is open, and what is searched for.

@@ -2285,3 +2285,15 @@ msgstr "Copiado"
 
 msgid "Copied."
 msgstr "Copiado."
+
+msgid "choose"
+msgstr "elegir"
+
+msgid "run"
+msgstr "ejecutar"
+
+msgid "complete"
+msgstr "completar"
+
+msgid "close"
+msgstr "cerrar"

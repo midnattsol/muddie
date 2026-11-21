@@ -199,7 +199,7 @@ fn what_mxp_asks_for_reaches_the_panels_the_gauges_and_the_command_line() {
         .unwrap();
     assert!(!panel.visible && app.text_of(panel.id).log.len() == 0);
     assert!(
-        output_lines(app)
+        notes(app)
             .iter()
             .any(|line| line.contains("mud.example, port 4001"))
     );
