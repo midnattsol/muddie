@@ -469,3 +469,42 @@ fn an_idle_window_draws_nothing() {
         );
     }
 }
+
+/// A long value in what the MUD sends, with the codes of colours a MUD
+/// puts in text, leaves its path the room to be read on one line, and is
+/// shown in its colours, cut short, its words alone told to a screen
+/// reader.
+#[test]
+fn a_long_coloured_value_leaves_its_path_room() {
+    let mut harness = connected_demo_window();
+    harness.set_size(egui::vec2(1300.0, 800.0));
+    let app = harness.state_mut().tab_mut();
+    app.saw_data(
+        "Comm.MensajeCanal",
+        false,
+        r#"{"canal": "chat", "mensaje": "[Chat] Szhysszh | \u001b[1m \u001b[30mGeneral  \u001b[37mde la  \u001b[35mSalsa \u001b[37m|: \u001b[31m pues si lo quieres para autismo y npc, y para lo que haga falta en la partida"}"#,
+    );
+    app.set_view(2);
+    harness.run_steps(3);
+    let words = |name: &str| {
+        harness
+            .get_by_role_and_label(egui::accesskit::Role::Label, name)
+            .rect()
+    };
+    let (path, line) = (
+        words("Comm.MensajeCanal.mensaje"),
+        words("Comm.MensajeCanal.canal"),
+    );
+    assert!(
+        path.height() <= line.height() + 1.0,
+        "the path is cut up: {path:?}"
+    );
+    let value = harness
+        .query_all(egui_kittest::kittest::by())
+        .filter(|node| node.accesskit_node().role() == egui::accesskit::Role::Label)
+        .filter_map(|node| node.accesskit_node().value())
+        .find(|value| value.starts_with("[Chat]"))
+        .expect("the value is there");
+    assert!(!value.contains('\u{1b}'), "{value:?}");
+    assert!(value.ends_with("en la partida"), "told whole: {value:?}");
+}

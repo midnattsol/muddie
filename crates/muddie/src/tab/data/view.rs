@@ -127,10 +127,7 @@ pub(in crate::tab) fn values_group(ui: &mut egui::Ui, seen: &Seen, all: &[Leaf])
                     {
                         gauge = Some(leaf.path.clone());
                     }
-                    let shown = RichText::new(&leaf.shown)
-                        .font(egui::FontId::monospace(13.0))
-                        .color(theme.text);
-                    ui.add(Label::new(shown).truncate());
+                    ui.add(Label::new(value_text(&leaf.shown)).truncate());
                     copy
                 });
             }
@@ -148,6 +145,36 @@ pub(in crate::tab) fn values_group(ui: &mut egui::Ui, seen: &Seen, all: &[Leaf])
         },
     );
     gauge
+}
+
+/// A value as it is shown: in the colours of the game, if it carries the
+/// codes of colours a MUD sends, rather than the codes themselves; a screen
+/// reader is told its words alone. A value of several lines is shown on
+/// one.
+fn value_text(value: &str) -> egui::WidgetText {
+    let font = egui::FontId::monospace(13.0);
+    if !value.contains('\x1b') {
+        let plain = RichText::new(value).font(font).color(theme::current().text);
+        return plain.into();
+    }
+    let mut job = egui::text::LayoutJob::default();
+    for (index, line) in crate::panels::styled_lines(value).iter().enumerate() {
+        if index > 0 {
+            job.append(
+                " ⏎ ",
+                0.0,
+                egui::TextFormat::simple(font.clone(), theme::current().text_faint),
+            );
+        }
+        let coloured = crate::output::server_job(line);
+        for section in &coloured.sections {
+            let mut format = section.format.clone();
+            format.font_id = font.clone();
+            let range = section.byte_range.start.0..section.byte_range.end.0;
+            job.append(&coloured.text[range], 0.0, format);
+        }
+    }
+    job.into()
 }
 
 /// The message as it came, laid out to be read, and copied.

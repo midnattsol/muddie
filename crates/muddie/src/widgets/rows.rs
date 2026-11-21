@@ -176,6 +176,8 @@ const ROW_PADDING: f32 = 12.0;
 const ROW_HEIGHT: f32 = theme::size::ROW + 4.0;
 /// The room between the words of a row and its control.
 const ROW_GAP: f32 = 16.0;
+/// The most of a row its control may take.
+const CONTROL_SHARE: f32 = 0.6;
 
 /// The words and the control of a row, with no hairline above. How tall
 /// the words are is known once they are laid out, so it is kept for the
@@ -195,7 +197,13 @@ pub(super) fn row(
     let size = vec2(ui.available_width(), height);
     ui.allocate_ui_with_layout(size, Layout::right_to_left(Align::Center), |ui| {
         ui.set_min_size(size);
-        let control = control(ui);
+        // The control is laid out first, from the right: it may take at
+        // most this share of the row, so that a long value (cut short, and
+        // whole under the pointer) leaves its words the room to be read.
+        let most = vec2(size.x * CONTROL_SHARE, height);
+        let control = ui
+            .allocate_ui_with_layout(most, Layout::right_to_left(Align::Center), |ui| control(ui))
+            .inner;
         ui.add_space(ROW_GAP);
         let column = vec2(ui.available_width(), height);
         let (shown, measured) = ui
