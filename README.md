@@ -45,6 +45,11 @@ compiler; on Linux also the development files of D-Bus and Speech Dispatcher
 and Ubuntu), without which the program is built mute. Sound uses `pw-play`,
 `paplay`, `ffplay` or `aplay`, whichever is installed.
 
+Besides `cargo test`, `dbus-run-session -- tests/orca/run.sh
+target/release/muddie` checks Muddie with Orca in a desktop of its own that
+nobody sees or hears (it needs Orca, Xvfb and xdotool); the CI runs it every
+night.
+
 ## Installing on Linux from the source
 
 ```

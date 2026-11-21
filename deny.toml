@@ -1,0 +1,40 @@
+# What cargo-deny checks of the dependencies: known vulnerabilities, and
+# licences that allow Muddie to be shared as it is.
+
+[graph]
+all-features = false
+
+[advisories]
+# Unmaintained crates are reported, not refused: there may be no other.
+unmaintained = "workspace"
+
+[licenses]
+# Muddie is MIT or Apache-2.0; prism, built into it, is MPL-2.0, which
+# asks only that its own files stay open.
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "MPL-2.0",
+    "Zlib",
+    "Unicode-3.0",
+    # Fonts, and the list of the authorities TLS certificates are checked
+    # against: data, not code.
+    "OFL-1.1",
+    "Ubuntu-font-1.0",
+    "CDLA-Permissive-2.0",
+    "BSL-1.0",
+    "0BSD",
+]
+confidence-threshold = 0.9
+
+[bans]
+multiple-versions = "allow"
+wildcards = "deny"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"

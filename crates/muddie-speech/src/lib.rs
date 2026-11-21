@@ -319,6 +319,20 @@ fn tune(backend: Option<&Backend<'_>>, rate: i32, language: &str) {
     }
 }
 
+/// The screen readers and voices this build can speak through, by name,
+/// whether or not they are running.
+pub fn built_in() -> Vec<String> {
+    let Ok(prism) = Prism::new() else {
+        return Vec::new();
+    };
+    let mut names: Vec<String> = (prism.backend_ids().into_iter())
+        .filter(|id| prism.backend_priority(*id) > 0)
+        .filter_map(|id| prism.backend_name(id))
+        .collect();
+    names.sort();
+    names
+}
+
 /// Where what speech goes through is told: kept to be read, and the window
 /// woken to read it.
 struct Told {

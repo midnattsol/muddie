@@ -10,8 +10,14 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # Formatting, lints and every test, on each system: what is different
+  # on each (paths, speech, keys) is tried where it runs.
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -20,10 +26,19 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       # Without these the screen reader and the system's voice are left
       # out of the build, and a test says so.
-      - run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev libspeechd-dev pkg-config
-      - run: cargo fmt --all --check
+      - if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev libspeechd-dev pkg-config
+      - if: matrix.os == 'ubuntu-latest'
+        run: cargo fmt --all --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
+
+  # Known vulnerabilities, and licences that let Muddie be shared as it is.
+  dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v2
 
   build:
     strategy:
@@ -40,6 +55,10 @@ jobs:
             name: macos-aarch64
             binary: muddie
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -84,14 +103,81 @@ jobs:
       - name: macOS disk image
         if: matrix.os == 'macos-latest'
         run: packaging/macos/make-dmg.sh "${{ steps.version.outputs.version }}" dist/muddie-${{ matrix.name }}.dmg
+      # For a release, a signed statement that these files were built here,
+      # from this commit: `gh attestation verify FILE -R midnattsol/muddie`.
+      - if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/*
       - uses: actions/upload-artifact@v4
         with:
           name: muddie-${{ matrix.name }}
           path: dist/*
 
+  # Each installer installs, and what it installs starts and has the
+  # screen readers of its system built in.
+  debian-package:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ["debian:13", "ubuntu:24.04"]
+    runs-on: ubuntu-latest
+    container: ${{ matrix.image }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: muddie-linux-x86_64
+      - run: |
+          apt-get update
+          apt-get install -y ./muddie_*.deb
+          muddie --version | tee version.txt
+          grep -q Orca version.txt
+
+  installers:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            artifact: muddie-windows-x86_64
+            speech: NVDA
+          - os: macos-latest
+            artifact: muddie-macos-aarch64
+            speech: VoiceOver
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+      - name: Windows installer
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem muddie-*-setup.exe | Select-Object -First 1
+          Start-Process -Wait -FilePath $setup.FullName -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/CURRENTUSER', '/NORESTART'
+          $exe = Join-Path $env:LOCALAPPDATA 'Programs\Muddie\muddie.exe'
+          if (-not (Test-Path $exe)) { throw "not installed in $exe" }
+          $menu = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs'
+          if (-not (Get-ChildItem $menu -Recurse -Filter 'Muddie.lnk')) { throw 'not in the Start menu' }
+          & $exe --version | Out-File -Encoding utf8 version.txt
+          Get-Content version.txt
+      - name: macOS disk image
+        if: matrix.os == 'macos-latest'
+        run: |
+          hdiutil attach muddie-*.dmg -mountpoint /Volumes/Muddie -nobrowse
+          cp -R /Volumes/Muddie/Muddie.app "$RUNNER_TEMP/"
+          hdiutil detach /Volumes/Muddie
+          codesign --verify --deep "$RUNNER_TEMP/Muddie.app"
+          "$RUNNER_TEMP/Muddie.app/Contents/MacOS/muddie" --version | tee version.txt
+      - name: The screen readers of the system are built in
+        shell: bash
+        run: grep -q "${{ matrix.speech }}" version.txt
+
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [test, build]
+    needs: [test, dependencies, build, debian-package, installers]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -99,6 +185,10 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           merge-multiple: true
+      # What each file should add up to, to check a download against.
+      - run: sha256sum muddie* > SHA256SUMS
       - uses: softprops/action-gh-release@v2
         with:
-          files: muddie*
+          files: |
+            muddie*
+            SHA256SUMS

@@ -1,0 +1,51 @@
+name: Screen reader
+
+# Muddie with Orca, every night and when what speaks changes: what the game
+# and the client say, the keys and the dialogs, as Orca says them and puts
+# them on a braille display. See tests/orca/run.sh.
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "crates/muddie-speech/**"
+      - "crates/muddie/src/voice.rs"
+      - "crates/muddie/src/widgets/**"
+      - "tests/orca/**"
+      - ".github/workflows/screen-reader.yml"
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  orca:
+    runs-on: ubuntu-latest
+    # Debian 13, with an Orca that answers over D-Bus.
+    container: debian:13
+    steps:
+      - name: Orca, a display nobody sees, and what builds Muddie
+        run: |
+          echo "deb http://deb.debian.org/debian trixie-backports main" > /etc/apt/sources.list.d/backports.list
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            ca-certificates curl git build-essential cmake pkg-config \
+            libdbus-1-dev libspeechd-dev libxkbcommon-x11-0 libgl1 libegl1 libgl1-mesa-dri \
+            libx11-6 libxcursor1 libxi6 libxrandr2 \
+            xvfb xdotool at-spi2-core dbus dbus-x11 libglib2.0-bin python3 \
+            speech-dispatcher speech-dispatcher-audio-plugins speech-dispatcher-espeak-ng libao4
+          apt-get install -y -t trixie-backports orca
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release -p muddie
+      - name: With Orca
+        env:
+          ORCA_TEST_LOGS: ${{ github.workspace }}/orca-logs
+        run: dbus-run-session -- tests/orca/run.sh target/release/muddie
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: orca-logs
+          path: orca-logs

@@ -29,7 +29,7 @@ impl SessionLog {
                 }
             })
             .collect();
-        let stamp = chrono::Local::now().format("%Y-%m-%d_%H-%M-%S");
+        let stamp = jiff::ZonedDateTime::now().strftime("%Y-%m-%d_%H-%M-%S");
         let extension = match format {
             LogFormat::Text => "log",
             LogFormat::Html => "html",

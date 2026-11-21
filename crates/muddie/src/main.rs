@@ -36,7 +36,8 @@ use crate::profile::Profiles;
 use crate::tab::Startup;
 
 const USAGE: &str =
-    "usage: muddie [--speech] [--script FILE]... [--profile NAME | HOST PORT [--tls] [--insecure]]";
+    "usage: muddie [--speech] [--script FILE]... [--profile NAME | HOST PORT [--tls] [--insecure]]
+       muddie --version";
 
 fn parse_args(args: &[String]) -> Result<Startup, String> {
     let mut startup = Startup {
@@ -75,6 +76,13 @@ fn parse_args(args: &[String]) -> Result<Startup, String> {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    // What it is, and what it can speak through, without a window: to
+    // check that it was built and installed whole.
+    if args.iter().any(|arg| arg == "--version") {
+        println!("muddie {}", env!("CARGO_PKG_VERSION"));
+        println!("speech: {}", muddie_speech::built_in().join(", "));
+        return Ok(());
+    }
     let startup = match parse_args(&args) {
         Ok(startup) => startup,
         Err(message) => {

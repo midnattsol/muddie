@@ -6,7 +6,6 @@ license.workspace = true
 description = "A modern, accessible MUD client."
 
 [dependencies]
-chrono = { version = "0.4.45", default-features = false, features = ["clock"] }
 # Drawn with OpenGL: the Vulkan path of the default renderer loads every
 # graphics driver the system has, some eighty megabytes of them.
 eframe = { version = "0.37.0", default-features = false, features = [
@@ -21,8 +20,9 @@ eframe = { version = "0.37.0", default-features = false, features = [
     "x11",
 ] }
 fontdb = "0.24.0"
+jiff = "1.0.1"
 keyring = "4.2.0"
-muddie-core = { path = "../muddie-core" }
+muddie-core = { version = "0.1.0", path = "../muddie-core" }
 muddie-mapper = { version = "0.1.0", path = "../muddie-mapper" }
 muddie-script = { version = "0.1.0", path = "../muddie-script" }
 muddie-sound = { version = "0.1.0", path = "../muddie-sound" }

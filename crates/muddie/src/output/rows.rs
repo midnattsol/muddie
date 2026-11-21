@@ -42,11 +42,12 @@ pub fn clock() -> String {
     thread_local! {
         static SHOWN: RefCell<(i64, String)> = const { RefCell::new((i64::MIN, String::new())) };
     }
-    let now = chrono::Local::now();
+    let now = jiff::ZonedDateTime::now();
+    let second = now.timestamp().as_second();
     SHOWN.with(|shown| {
         let mut shown = shown.borrow_mut();
-        if shown.0 != now.timestamp() {
-            *shown = (now.timestamp(), now.format("%H:%M:%S").to_string());
+        if shown.0 != second {
+            *shown = (second, now.strftime("%H:%M:%S").to_string());
         }
         shown.1.clone()
     })

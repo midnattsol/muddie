@@ -44,6 +44,11 @@ Speech Dispatcher (`sudo apt install cmake libdbus-1-dev libspeechd-dev
 pkg-config` en Debian y Ubuntu), sin los que el programa sale mudo. El sonido
 usa `pw-play`, `paplay`, `ffplay` o `aplay`, el que haya instalado.
 
+Además de `cargo test`, `dbus-run-session -- tests/orca/run.sh
+target/release/muddie` prueba Muddie con Orca en un escritorio propio que
+nadie ve ni oye (necesita Orca, Xvfb y xdotool); el CI lo ejecuta cada
+noche.
+
 ## Instalar en Linux desde el código
 
 ```
