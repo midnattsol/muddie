@@ -40,7 +40,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: EmbarkStudios/cargo-deny-action@v2
 
+  # Built and packaged only once the tests and the dependencies pass: what
+  # would be built of code that fails is of no use.
   build:
+    needs: [test, dependencies]
     strategy:
       fail-fast: false
       matrix:
