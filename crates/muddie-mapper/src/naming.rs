@@ -35,6 +35,13 @@ impl Map {
         }
     }
 
+    /// Takes what `other` was taught of the server's words for directions:
+    /// a map opened in place of another, for the session, knows them too.
+    pub fn learn_from(&mut self, other: &Map) {
+        self.words.clone_from(&other.words);
+        self.sent.clone_from(&other.sent);
+    }
+
     /// A direction as the map keeps it, however the server or the user
     /// said it: in the server's words, in English, long or short.
     pub fn direction(&self, word: &str) -> String {

@@ -34,7 +34,11 @@ impl Tab {
         self.connected_with = Some(self.connection_key());
         self.note(&trf("Connecting to {0}:{1}…", &[&host, &port.to_string()]));
         self.walk = None;
-        *self.map.borrow_mut() = self.map_for(&host, port);
+        // The map of where it leads takes the place of the one there was,
+        // knowing what the scripts taught that one.
+        let mut map = self.map_for(&host, port);
+        map.learn_from(&self.map.borrow());
+        *self.map.borrow_mut() = map;
         let target = Target {
             host,
             port,
@@ -47,6 +51,10 @@ impl Tab {
         let Session { commands, events } = connect(target, config);
         let events = forward(events, ctx.clone());
         self.connection = Some(Connection { commands, events });
+        // A map a script asked for before there was a map of the session's.
+        if let Some(address) = self.map_source.waiting.take() {
+            self.import_for_script(address);
+        }
     }
 
     /// The host and port to connect to, or nothing, said why, if they will

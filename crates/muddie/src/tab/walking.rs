@@ -17,6 +17,9 @@ pub(super) struct MapSource {
     pub taking: Option<(crate::mapfetch::Taking, String, super::places::Taking)>,
     /// The user was told the map lost track of where they are.
     pub lost: bool,
+    /// A map a script asked for before the session's map was open, to be
+    /// taken once it is.
+    pub waiting: Option<String>,
 }
 
 impl Tab {

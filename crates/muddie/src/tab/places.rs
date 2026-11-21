@@ -281,6 +281,12 @@ impl Tab {
     /// A script takes the map at `address`: at once, or, if this map came
     /// from there, only if it has changed since.
     pub(super) fn import_for_script(&mut self, address: String) {
+        // Before connecting the session has no map of its own yet: one
+        // only for now, which connecting replaces. It waits till then.
+        if self.connection.is_none() {
+            self.map_source.waiting = Some(address);
+            return;
+        }
         let known = {
             let map = self.map.borrow();
             (map.source())

@@ -206,6 +206,7 @@ fn a_map_of_mudlet_is_imported_from_a_file() {
 fn the_plugin_takes_the_servers_map_at_once_and_it_is_said_aside() {
     let mut harness = window(None);
     let app = harness.state_mut().tab_mut();
+    let (_events, _sent) = fake_connection(app);
     app.set_map_shown(false);
     app.scripts.exec(
         "reinos",
@@ -259,4 +260,42 @@ fn reinos_is_followed_whichever_comes_first_or_by_the_move_sent() {
         .unwrap();
     settle(&mut harness);
     assert_eq!(harness.state().tab().map.borrow().current().unwrap().id, 3);
+}
+
+/// As Reinos de Leyenda does, in a record of a session: the room shown once,
+/// on logging in, and after that the moves alone. The plugin is loaded
+/// before connecting, which opens the session's map in place of the one
+/// there was: what the plugin taught that one goes with it.
+#[test]
+fn reinos_is_followed_by_its_moves_after_connecting_opened_the_map() {
+    let mut harness = window(None);
+    let ctx = harness.ctx.clone();
+    let app = harness.state_mut().tab_mut();
+    app.scripts.exec(
+        "reinos",
+        include_str!("../../../plugins/reinos-de-leyenda.luau"),
+    );
+    app.run_actions();
+    // Connecting opens the map of where it leads; nothing listens there.
+    let runtime = tokio::runtime::Runtime::new().unwrap();
+    let _inside = runtime.enter();
+    app.host = "127.0.0.1".into();
+    app.port = "9".into();
+    app.connect(&ctx);
+    let app = harness.state_mut().tab_mut();
+    let (events, _sent) = fake_connection(app);
+    desert(app);
+    let gmcp = |package: &str, data: &str| Event::Gmcp {
+        package: package.into(),
+        data: data.into(),
+    };
+    events.send(gmcp("Room.Actual", r#""Dunas [e]""#)).unwrap();
+    settle(&mut harness);
+    assert_eq!(harness.state().tab().map.borrow().current().unwrap().id, 1);
+    for to in [2, 3] {
+        harness.state_mut().tab_mut().send("este".into());
+        events.send(gmcp("Room.Movimiento", r#""este""#)).unwrap();
+        settle(&mut harness);
+        assert_eq!(harness.state().tab().map.borrow().current().unwrap().id, to);
+    }
 }
