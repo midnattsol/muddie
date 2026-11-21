@@ -521,6 +521,7 @@ the empty command line stops the walk.
 Where a room is, its region, is its area; a plugin can teach how its MUD
 names rooms instead, as the one of Reinos de Leyenda does: there the region
 is what a name begins with, as Anduar in "Anduar: Plaza Mayor".
+
 | Action | What it does |
 |---|---|
 | Double-click a room | Walks there, one step at a time, waiting for each to succeed |
@@ -532,6 +533,14 @@ is what a name begins with, as Anduar in "Anduar: Plaza Mayor".
 
 A room marked to avoid is never walked through, and a locked exit is never
 used. Both are kept when the server reports the room again.
+
+Maps made by hand gather rooms left over: a copy of a room, in its very
+place and of its name, that no other room leads to, made when a room was
+made again instead of fixed. Muddie keeps them but leaves them aside: they
+are not drawn, nor found, nor taken for where you are. `/map info` with the
+room's number says so, and which room it copies; should a way to one be
+made, it is one of the rest again. Of several rooms drawn in one place, a
+double click walks to one there is a way to.
 
 ## Speech
 

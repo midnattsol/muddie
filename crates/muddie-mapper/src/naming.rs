@@ -222,7 +222,8 @@ impl Map {
     }
 
     /// Calls `use_them` with the rooms by name as compared, made again
-    /// when the rooms have changed since.
+    /// when the rooms have changed since; not those left over, which are
+    /// not found by name.
     pub(crate) fn with_names<T>(&self, use_them: impl FnOnce(&Names) -> T) -> T {
         let mut names = self.names.borrow_mut();
         if names
@@ -230,7 +231,12 @@ impl Map {
             .is_none_or(|(revision, _)| *revision != self.revision)
         {
             let mut index = Names::new();
-            for room in self.rooms.values() {
+            let ghosts = self.with_ghosts(Clone::clone);
+            for room in self
+                .rooms
+                .values()
+                .filter(|room| !ghosts.contains_key(&room.id))
+            {
                 index
                     .entry(self.name_key(&room.name))
                     .or_default()

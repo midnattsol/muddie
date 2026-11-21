@@ -180,9 +180,10 @@ impl MapView {
             .as_ref()
             .is_none_or(|(known, _)| *known != shown)
         {
+            // Rooms left over are not drawn: their place is another's.
             let places = map
                 .rooms()
-                .filter(|room| on_level(room))
+                .filter(|room| on_level(room) && !map.is_ghost(room.id))
                 .map(|room| (room.pos, room.id));
             self.on_level = Some((shown, places.collect()));
         }
@@ -221,11 +222,19 @@ impl MapView {
         };
         draw_rooms(&painter, &visible, &grid, &colours, &marks);
         draw_names(&painter, &visible, &grid, &colours);
-        let room_at = |point: Pos2| {
-            (visible.iter())
-                .find(|room| grid.on_screen(room.pos).distance(point) <= grid.half() * 1.5)
+        // The rooms under the pointer: the nearest, all of them if several
+        // are in one place.
+        let rooms_at = |point: Pos2| -> Vec<&Room> {
+            let distance = |room: &&Room| grid.on_screen(room.pos).distance(point);
+            let near = (visible.iter()).filter(|room| distance(room) <= grid.half() * 1.5);
+            let Some(nearest) = near.clone().map(distance).reduce(f32::min) else {
+                return Vec::new();
+            };
+            near.filter(|room| distance(room) <= nearest + 0.5)
                 .copied()
+                .collect()
         };
+        let room_at = |point: Pos2| rooms_at(point).first().copied();
         if let Some(moved) = self.move_room(ui, &response, &painter, &grid, &room_at, &colours) {
             return Some(moved);
         }
@@ -238,8 +247,13 @@ impl MapView {
             chosen = Some(asked);
         }
         // Twice, so that a click to look is not a walk.
+        // Of several in one place, one there is a way to.
         if chosen.is_none() && response.double_clicked() {
-            chosen = pointed.map(|room| MapAction::Walk(room.id));
+            let there = response.hover_pos().map(rooms_at).unwrap_or_default();
+            let reached =
+                |room: &&&Room| room.id == current.id || map.route(current.id, room.id).is_some();
+            let walked = there.iter().find(reached).or(there.first());
+            chosen = walked.map(|room| MapAction::Walk(room.id));
         }
         room_tip(response, pointed);
         chosen

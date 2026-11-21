@@ -752,3 +752,71 @@ fn a_name_is_compared_whole_unless_the_mud_writes_exits_after_it() {
     assert_eq!(map.locate("Dune", None), [10, 12]);
     assert_eq!(map.locate("dune [e,w]", None), [11]);
 }
+
+/// As Reinos de Leyenda's map has: a street and a square, and on their very
+/// places copies of them, of their names, that only lead to each other and,
+/// one way, to the street's next room. The copies are left over: not found
+/// by name, nor taken for where the player is; the rooms they copy are.
+#[test]
+fn copies_of_rooms_no_room_leads_to_are_left_over() {
+    let mut map = Map::in_memory();
+    let room = |id: RoomId, name: &str, y: i32, exits: &[(&str, RoomId)]| Room {
+        id,
+        name: name.to_owned(),
+        area: "Anduar".to_owned(),
+        pos: pos(0, y, 0),
+        exits: (exits.iter())
+            .map(|(way, to)| {
+                (
+                    (*way).to_owned(),
+                    Exit {
+                        to: *to,
+                        ..Exit::default()
+                    },
+                )
+            })
+            .collect(),
+        weight: 1,
+        avoid: false,
+        colour: None,
+    };
+    map.replace_all(
+        vec![
+            room(1, "Calle", 2, &[("s", 2)]),
+            room(2, "Calle", 0, &[("n", 1), ("s", 3)]),
+            room(3, "Plaza", -2, &[("n", 2)]),
+            room(5, "Calle", 0, &[("n", 1), ("s", 6)]),
+            room(6, "Plaza", -2, &[("n", 5)]),
+            // Two alike in one place that nothing leads to: the one with
+            // more exits stays.
+            room(8, "Torre", 10, &[("e", 1)]),
+            room(9, "Torre", 10, &[("e", 1), ("w", 1)]),
+        ],
+        None,
+    )
+    .unwrap();
+    assert_eq!((map.ghost_of(5), map.ghost_of(6)), (Some(2), Some(3)));
+    assert_eq!(map.ghost_of(8), Some(9));
+    assert!(!map.is_ghost(1) && !map.is_ghost(2) && !map.is_ghost(3) && !map.is_ghost(9));
+    assert_eq!(map.called("Plaza"), [3]);
+    assert_eq!(map.locate("Calle", None), [1, 2]);
+    assert!(map.find("Torre").iter().all(|room| room.id == 9));
+    // Entering the square, the map is sure where.
+    assert!(map.set_current(1));
+    map.sent("s");
+    map.arrive(Sighting {
+        name: Some("Calle"),
+        ..Sighting::default()
+    });
+    assert_eq!(
+        map.arrive(Sighting {
+            name: Some("Plaza"),
+            came: Some("s"),
+            ..Sighting::default()
+        }),
+        Located::Here(3)
+    );
+    // A way made to a copy makes it one of the rest again.
+    map.set_exit(3, "w", 6).unwrap();
+    assert!(!map.is_ghost(6) && !map.is_ghost(5));
+}

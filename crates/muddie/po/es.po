@@ -2347,3 +2347,6 @@ msgstr "Listo para jugar a {0}: su dirección y sus plugins, que instalan lo que
 
 msgid "A template could not be read: {0}"
 msgstr "No se ha podido leer una plantilla: {0}"
+
+msgid "It is left over: a copy of #{0}, in its place, that no other room leads to. It is not drawn, nor found."
+msgstr "Es una sala fantasma: una copia de #{0}, en su mismo sitio, a la que no lleva ninguna otra sala. No se dibuja ni aparece en las búsquedas."

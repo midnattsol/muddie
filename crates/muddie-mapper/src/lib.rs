@@ -6,6 +6,7 @@ use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, VecDequ
 use std::path::Path;
 
 mod editing;
+mod ghosts;
 mod info;
 mod locating;
 mod mudlet;
@@ -219,6 +220,8 @@ pub struct Map {
     naming: Naming,
     /// Whether the rooms are in more than one area, as of a revision.
     several_areas: std::cell::Cell<Option<(u64, bool)>>,
+    /// The rooms left over, as of a revision.
+    ghosts: std::cell::RefCell<Option<(u64, ghosts::Ghosts)>>,
     /// The rooms the player may be in when the map cannot tell which.
     candidates: Vec<RoomId>,
     /// The moves sent that the server has not shown the end of yet, in

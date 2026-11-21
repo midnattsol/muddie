@@ -191,6 +191,13 @@ impl Tab {
                     said.push(' ');
                     said.push_str(&trf("Called {0}.", &[&marks.join(", ")]));
                 }
+                if let Some(copied) = map.ghost_of(room.id) {
+                    said.push(' ');
+                    said.push_str(&trf(
+                        "It is left over: a copy of #{0}, in its place, that no other room leads to. It is not drawn, nor found.",
+                        &[&copied.to_string()],
+                    ));
+                }
                 if room.avoid {
                     said.push(' ');
                     said.push_str(tr("Routes avoid it."));
