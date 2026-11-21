@@ -131,7 +131,7 @@ impl Tab {
 
     /// Puts the panel dropped where it was let go: on the side of the one
     /// it is over, or the side it is nearest to, taking a size that suits.
-    fn drop_panel(&mut self, id: u32, onto: Option<DropTarget>, nearest: Side) {
+    pub(in crate::tab) fn drop_panel(&mut self, id: u32, onto: Option<DropTarget>, nearest: Side) {
         let Some(from) = self.layout.panels.iter().position(|panel| panel.id == id) else {
             return;
         };
@@ -168,7 +168,7 @@ impl Tab {
     /// Puts a panel before, after, or in the place of the one at `place`,
     /// as a tab with it and those it shares its place with. Joined as a
     /// tab, it is shown, so that it is seen to be there.
-    fn drop_beside(&mut self, mut moved: PanelSpec, place: usize, drop: Drop) {
+    pub(in crate::tab) fn drop_beside(&mut self, mut moved: PanelSpec, place: usize, drop: Drop) {
         let (side, stack) = (
             self.layout.panels[place].side,
             self.layout.panels[place].stack,

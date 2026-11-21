@@ -485,14 +485,7 @@ impl Tab {
     /// list's, not for going to what is beside it; and the line is brought
     /// into sight when it was gone to by the keys.
     fn keep_keys(&mut self, ui: &mut egui::Ui, line: &egui::Response) {
-        if line.has_focus() {
-            let filter = egui::EventFilter {
-                horizontal_arrows: true,
-                vertical_arrows: true,
-                ..Default::default()
-            };
-            ui.memory_mut(|memory| memory.set_focus_lock_filter(line.id, filter));
-        }
+        widgets::hold_arrows(ui, line);
         let here = self
             .current_spot()
             .is_some_and(|spot| item_id(self.editor.section, &spot) == line.id);
@@ -719,7 +712,7 @@ impl Tab {
 
     /// Says where something moved up or down by the keys now is among those
     /// beside it, from 1: a screen reader is not told otherwise.
-    fn say_place(&mut self, up: bool, at: usize, of: usize) {
+    pub(in crate::tab) fn say_place(&mut self, up: bool, at: usize, of: usize) {
         let (place, count) = ((at + 1).to_string(), of.to_string());
         let said = match up {
             true => trf("Moved up, {0} of {1}.", &[&place, &count]),

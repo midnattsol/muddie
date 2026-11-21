@@ -2158,3 +2158,118 @@ msgstr "Lista las zonas, para ir a una"
 
 msgid "Takes a map made with Mudlet in place of this one"
 msgstr "Importa un mapa hecho con Mudlet en lugar de este"
+
+# The view of the layout
+
+msgid "Classic"
+msgstr "Clásica"
+
+msgid "Wide screen"
+msgstr "Pantalla ancha"
+
+msgid "The game alone"
+msgstr "Solo el juego"
+
+msgid "The map and the panels of text at the right, the gauges below."
+msgstr "El mapa y los paneles de texto a la derecha, las barras abajo."
+
+msgid "The map at the left, the panels of text at the right, the gauges below."
+msgstr "El mapa a la izquierda, los paneles de texto a la derecha, las barras abajo."
+
+msgid "Every panel hidden; they are kept, to show again."
+msgstr "Todos los paneles ocultos; se conservan para mostrarlos de nuevo."
+
+msgid "At the left"
+msgstr "A la izquierda"
+
+msgid "At the top"
+msgstr "Arriba"
+
+msgid "At the bottom"
+msgstr "Abajo"
+
+msgid "At the right"
+msgstr "A la derecha"
+
+msgid "Layout"
+msgstr "Disposición"
+
+msgid "New panel"
+msgstr "Nuevo panel"
+
+msgid "Panel of text"
+msgstr "Panel de texto"
+
+msgid "There are no panels: + adds one."
+msgstr "No hay paneles: + añade uno."
+
+#, python-brace-format
+msgid "{0}, put away"
+msgstr "{0}, recogido"
+
+msgid "the MUD's channels"
+msgstr "los canales del MUD"
+
+#, python-brace-format
+msgid "a tab with {0}"
+msgstr "en pestaña con {0}"
+
+msgid "hidden"
+msgstr "oculto"
+
+#, python-brace-format
+msgid "Moved: {0}."
+msgstr "Movido: {0}."
+
+msgid "Arrangements"
+msgstr "Disposiciones de partida"
+
+msgid "Use"
+msgstr "Usar"
+
+#, python-brace-format
+msgid "{0}: in place."
+msgstr "{0}: aplicada."
+
+msgid "The panels at the left and right reach the top and bottom of the window."
+msgstr "Los paneles de izquierda y derecha llegan de arriba abajo de la ventana."
+
+msgid "Shown"
+msgstr "Visible"
+
+msgid "Side"
+msgstr "Lado"
+
+msgid "Place on its side"
+msgstr "Posición en su lado"
+
+msgid "Width"
+msgstr "Ancho"
+
+msgid "Height"
+msgstr "Alto"
+
+msgid "The same for every panel of its side."
+msgstr "El mismo para todos los paneles de su lado."
+
+msgid "A tab with"
+msgstr "En pestaña con"
+
+msgid "Panels that share a place show their names as tabs, to choose between them."
+msgstr "Los paneles que comparten sitio muestran sus nombres como pestañas, para elegir entre ellos."
+
+msgid "What it shows is lost with it."
+msgstr "Lo que muestra se pierde con él."
+
+msgid "Remove this panel"
+msgstr "Quitar este panel"
+
+#, python-brace-format
+msgid "{0} removed."
+msgstr "{0} quitado."
+
+msgid "Picture of the window's panels"
+msgstr "Dibujo de los paneles de la ventana"
+
+msgid "Arrange the panels…"
+msgstr "Organizar los paneles…"

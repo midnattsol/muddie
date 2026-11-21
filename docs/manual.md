@@ -14,8 +14,8 @@ repeated), and `--insecure` accepts a self-signed TLS certificate.
 
 ## The window
 
-At the top, at the left the two views of a session, **Game** and **Editor**
-(Ctrl+E); in the middle the field that opens the **palette**; at the right
+At the top, at the left the views of a session, **Game**, **Editor**
+(Ctrl+E) and **Layout**, where the panels are arranged; in the middle the field that opens the **palette**; at the right
 the **menu** (the three lines): a new session, the settings, the profiles,
 the keyboard shortcuts and what Muddie is. At the bottom, the sessions as tabs, what the
 one on screen is doing, and the **bell** of the messages the client has given
@@ -161,7 +161,7 @@ completes them.
 
 ## The editor: triggers, aliases, macros, timers and scripts
 
-**Editor**, at the right of the top bar, takes the place of the game
+**Editor**, at the left of the top bar, takes the place of the game
 while you work on it; **Game**, Escape or Ctrl+E goes back, and the session
 keeps running meanwhile. The sections are on the left, then the list of the
 current one and the selected item's details; drag the gap between those two
@@ -307,7 +307,21 @@ language of the interface: the usual ones are in English.
 
 Every panel has a header: six dots to drag it by, its name (or the names of
 the panels that share its place, as tabs), the tools of its kind, and its
-menu (the three dots). There is no mode to enter to arrange them.
+menu (the three dots). They are arranged on the game by dragging, or in
+**Layout**, beside **Game** and **Editor** in the top bar.
+
+**Layout** lists the panels by the side they are on, with **+** to add one,
+and shows a picture of the window with the one chosen marked; clicking a
+panel in the picture chooses it too. For the one chosen: its name, whether
+it is shown, its side, its place there, the width or height of its side,
+the panel it shares a place with as a tab, what goes with its kind, and
+removing it. **Arrangements** puts every panel at once as **Classic** (the
+map and the panels of text at the right, the gauges below), **Wide screen**
+(the map at the left) or **The game alone** (all hidden, kept to show
+again). With the keyboard, the arrows go through the panels, and Alt with
+Up or Down moves the one chosen on its side, Alt with Left or Right to
+another side, saying where it is now. Escape goes back to the game; a
+panel's menu has **Arrange the panels…** to come here with it chosen.
 
 - **Drag** a panel by its dots to another side of the window, or to another
   panel: on its upper or lower half (left or right, above and below the
@@ -326,9 +340,9 @@ menu (the three dots). There is no mode to enter to arrange them.
 - **Side panels at full height**, in the palette, decides who gets the
   corners: with it, the panels beside the output reach the top and the
   bottom of the window.
-- Panels are **added** from the palette: of text, the map, or gauges. There
-  is one map; of the others, as many as wanted. The palette lists them all
-  too, each to show or hide.
+- Panels are **added** from **Layout** or the palette: of text, the map, or
+  gauges. There is one map; of the others, as many as wanted. The palette
+  lists them all too, each to show or hide.
 - A tab that gets something while another is on show is marked.
 
 The layout is kept with the profile.

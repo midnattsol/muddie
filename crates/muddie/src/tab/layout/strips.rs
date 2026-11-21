@@ -96,8 +96,7 @@ impl Tab {
         );
         self.finish_drag(ui);
         if let Some(index) = self.panels.removed.take() {
-            let gone = self.layout.panels.remove(index);
-            self.panels.text.retain(|(id, _)| *id != gone.id);
+            self.remove_panel(index);
         }
         self.keep_layout(ui);
         asked

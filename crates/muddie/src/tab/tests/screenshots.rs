@@ -19,6 +19,7 @@ fn screenshot() {
     shows_menu();
     shows_unmapped();
     shows_panels();
+    shows_arrange();
     shows_palette();
     shows_empty_line();
     shows_find_and_themes();
@@ -474,6 +475,19 @@ fn shows_unmapped() {
 
 /// The panels with their headers, sharing sides and places, and the
 /// gauges made from them.
+/// The view where the panels are laid out, from the top bar.
+fn shows_arrange() {
+    let mut harness = connected_drawn_demo_window();
+    harness.set_size(egui::vec2(1400.0, 860.0));
+    harness.run_steps(2);
+    harness.get_by_label("Layout").click();
+    harness.run_steps(4);
+    save(&mut harness, "arrange");
+    harness.get_by_label("New panel").click();
+    harness.run_steps(3);
+    save(&mut harness, "arrange-new");
+}
+
 fn shows_panels() {
     let mut layout = connected_drawn_demo_window();
     layout.set_size(egui::vec2(1500.0, 900.0));

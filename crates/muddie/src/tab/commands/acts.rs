@@ -249,6 +249,7 @@ fn places() -> Vec<Item> {
     let mut acts = vec![
         item(tr("Game"), go, Act::View(0)),
         item(tr("Editor"), go, Act::View(1)),
+        item(tr("Layout"), go, Act::View(3)),
         item(tr("Incoming data"), go, Act::View(2)),
     ];
     acts.extend((automation::TRIGGERS..=automation::SCRIPTS).map(|section| {

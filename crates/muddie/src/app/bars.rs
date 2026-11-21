@@ -21,9 +21,15 @@ impl App {
         let active = self.active;
         ui.horizontal(|ui| {
             let tab = &mut self.tabs[active];
-            let views = [tr("Game"), tr("Editor")];
-            if let Some(view) = widgets::segmented(ui, &views, tab.view().min(1)) {
-                tab.set_view(view);
+            // The incoming data is a section of the editor.
+            let views = [tr("Game"), tr("Editor"), tr("Layout")];
+            let shown = match tab.view() {
+                0 => 0,
+                3 => 2,
+                _ => 1,
+            };
+            if let Some(view) = widgets::segmented(ui, &views, shown) {
+                tab.set_view([0, 1, 3][view]);
             }
             // Left to right, as the keyboard goes through them.
             self.palette_field(ui, full);

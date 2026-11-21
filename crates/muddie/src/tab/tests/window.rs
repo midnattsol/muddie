@@ -601,7 +601,8 @@ fn line_costs() {
 
 /// Every control has a name a screen reader says, in every view: the game,
 /// each section of the editor (with folders, rules, scripts and a folder
-/// chosen), what the MUD sends, the palette and each page of the settings.
+/// chosen), what the MUD sends, the layout, the palette and each page of
+/// the settings.
 #[test]
 fn every_control_has_a_name() {
     use egui::accesskit::Role;
@@ -665,6 +666,9 @@ fn every_control_has_a_name() {
     harness.state_mut().tab_mut().choose_folder("Social");
     harness.run_steps(3);
     missing.extend(unnamed(&harness, "a folder"));
+    harness.state_mut().tab_mut().set_view(3);
+    harness.run_steps(3);
+    missing.extend(unnamed(&harness, "layout"));
     harness.state_mut().tab_mut().set_view(0);
     harness.run_steps(2);
     harness.key_press_modifiers(Modifiers::COMMAND, Key::K);

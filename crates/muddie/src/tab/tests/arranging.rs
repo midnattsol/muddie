@@ -490,3 +490,159 @@ fn a_side_is_put_away_with_its_panels_and_brought_back_as_it_was() {
     assert_eq!(layout::Layout::load(&file).unwrap().hidden, [Side::Bottom]);
     std::fs::remove_file(&file).unwrap();
 }
+
+/// The names of the panels by side, as the view of the layout lists them.
+fn by_side(app: &Tab) -> Vec<(layout::Side, String)> {
+    let listed = app.listed_for_tests();
+    (listed.iter())
+        .filter_map(|id| app.layout.panel(*id))
+        .map(|panel| (panel.side, panel.name.clone()))
+        .collect()
+}
+
+#[test]
+fn the_layout_has_a_view_of_its_own_beside_the_game_and_the_editor() {
+    let mut harness = connected_demo_window();
+    harness.set_size(egui::vec2(1400.0, 860.0));
+    harness.run_steps(2);
+    harness.get_by_label("Layout").click();
+    harness.run_steps(3);
+    assert_eq!(harness.state().tab().view(), 3);
+    // The panels by side, the first chosen; a picture of them; the
+    // arrangements.
+    harness.get_by_label("Picture of the window's panels");
+    harness.get_by_role_and_label(egui::accesskit::Role::Button, "Classic");
+    // The editor takes its place, and Escape goes back to the game.
+    harness.state_mut().tab_mut().set_view(1);
+    harness.run_steps(2);
+    assert_eq!(harness.state().tab().view(), 1);
+    harness.state_mut().tab_mut().set_view(3);
+    harness.run_steps(2);
+    harness.key_press(Key::Escape);
+    harness.run_steps(2);
+    assert_eq!(harness.state().tab().view(), 0);
+    // A panel's menu opens it with that panel chosen.
+    let map = harness
+        .state()
+        .tab()
+        .layout
+        .panels
+        .iter()
+        .find(|panel| panel.kind == layout::Kind::Map)
+        .unwrap()
+        .id;
+    harness.state_mut().tab_mut().open_arrange(Some(map));
+    harness.run_steps(2);
+    assert_eq!(harness.state().tab().arrange.chosen, Some(map));
+}
+
+#[test]
+fn panels_are_laid_out_with_the_keyboard() {
+    use layout::Side::{Bottom, Right};
+    let mut harness = connected_demo_window();
+    harness.set_size(egui::vec2(1400.0, 860.0));
+    let app = harness.state_mut().tab_mut();
+    app.voice.force_voice();
+    let before = by_side(app);
+    assert_eq!(
+        before,
+        [
+            (Right, "Map".into()),
+            (Right, "Minimapa".into()),
+            (Bottom, "Gauges".into())
+        ]
+    );
+    // Opened while the keyboard is in use, the keyboard goes to the
+    // panel chosen, the first: the map. Down goes to the next one.
+    harness.key_press(Key::Tab);
+    harness.run_steps(1);
+    harness.state_mut().tab_mut().open_arrange(None);
+    harness.run_steps(2);
+    let focused = || harness.state().tab().arrange.chosen;
+    let map = focused();
+    harness.key_press(Key::ArrowDown);
+    harness.run_steps(2);
+    assert_ne!(harness.state().tab().arrange.chosen, map);
+    // Alt and Up move it above the map, and it is said where it is.
+    harness.key_press_modifiers(crate::shortcuts::WITH_ARROWS, Key::ArrowUp);
+    harness.run_steps(2);
+    let app = harness.state_mut().tab_mut();
+    assert_eq!(by_side(app)[0], (Right, "Minimapa".into()));
+    assert_eq!(
+        app.voice.said.last().map(String::as_str),
+        Some("Moved up, 1 of 2.")
+    );
+    // Alt and Right to the next side: below the game.
+    harness.key_press_modifiers(crate::shortcuts::WITH_ARROWS, Key::ArrowRight);
+    harness.run_steps(2);
+    harness.key_press_modifiers(crate::shortcuts::WITH_ARROWS, Key::ArrowRight);
+    harness.run_steps(2);
+    let app = harness.state_mut().tab_mut();
+    assert!(
+        by_side(app).contains(&(Bottom, "Minimapa".into())),
+        "{:?}",
+        by_side(app)
+    );
+    assert_eq!(
+        app.voice.said.last().map(String::as_str),
+        Some("Moved: At the bottom.")
+    );
+}
+
+#[test]
+fn arrangements_put_the_panels_where_they_say_and_keep_them() {
+    use layout::Side::{Bottom, Left, Right};
+    let mut harness = connected_demo_window();
+    harness.set_size(egui::vec2(1400.0, 1400.0));
+    harness.state_mut().tab_mut().open_arrange(None);
+    harness.run_steps(2);
+    harness
+        .get_by_role_and_label(egui::accesskit::Role::Button, "Wide screen")
+        .click();
+    harness.run_steps(2);
+    let app = harness.state_mut().tab_mut();
+    assert_eq!(
+        by_side(app),
+        [
+            (Left, "Map".into()),
+            (Right, "Minimapa".into()),
+            (Bottom, "Gauges".into())
+        ]
+    );
+    harness
+        .get_by_role_and_label(egui::accesskit::Role::Button, "The game alone")
+        .click();
+    harness.run_steps(2);
+    let app = harness.state_mut().tab_mut();
+    assert!(app.layout.panels.iter().all(|panel| !panel.visible));
+    assert_eq!(app.layout.panels.len(), 3);
+    harness
+        .get_by_role_and_label(egui::accesskit::Role::Button, "Classic")
+        .click();
+    harness.run_steps(2);
+    let app = harness.state_mut().tab_mut();
+    assert_eq!(
+        by_side(app),
+        [
+            (Right, "Map".into()),
+            (Right, "Minimapa".into()),
+            (Bottom, "Gauges".into())
+        ]
+    );
+    assert!(app.layout.panels.iter().all(|panel| panel.visible));
+    // Two panels share a place as tabs, and part again.
+    let ids: Vec<u32> = app.layout.panels.iter().map(|panel| panel.id).collect();
+    app.share_place_for_tests(ids[1], ids[0]);
+    let stacks: Vec<u32> = app.layout.panels.iter().map(|panel| panel.stack).collect();
+    assert!(stacks[0] != 0 && stacks[0] == stacks[1], "{stacks:?}");
+    app.share_place_for_tests(ids[1], 0);
+    assert_eq!(
+        app.layout
+            .panels
+            .iter()
+            .find(|panel| panel.id == ids[1])
+            .unwrap()
+            .stack,
+        0
+    );
+}

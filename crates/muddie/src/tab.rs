@@ -32,6 +32,7 @@ use crate::theme;
 use crate::voice::Voice;
 use muddie_sound::{self as sound, Msp, Player};
 
+mod arrange;
 mod automation;
 mod client_commands;
 mod commands;
@@ -113,6 +114,8 @@ pub struct Tab {
     /// The map: what the server offered of its own this session, the one
     /// being taken, and whether the user was told the map lost track.
     map_source: walking::MapSource,
+    /// The view where the panels are laid out.
+    arrange: arrange::Arrange,
     /// Output arrived while the session was not on screen.
     unread: bool,
     /// The settings in force, as of the last change.
@@ -273,6 +276,7 @@ impl Tab {
             map_view: MapView::default(),
             walk: None,
             map_source: Default::default(),
+            arrange: Default::default(),
             unread: false,
             settings: settings.clone(),
             log: None,

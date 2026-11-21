@@ -16,7 +16,10 @@ impl Tab {
         self.gauge_window(ui.ctx());
         // The palette of commands, over whichever view is shown.
         self.palette(ui.ctx());
-        // The automation view takes the place of the game while open.
+        // The layout and the editor take the place of the game while open.
+        if self.arrange.open {
+            return self.arrange_page(ui);
+        }
         if self.editor.open {
             return self.automation_page(ui);
         }
@@ -230,10 +233,11 @@ impl Tab {
     /// Which of its views the session is on: the game, the editor, or
     /// the editor on what the MUD sends.
     pub fn view(&self) -> usize {
-        match (self.editor.open, self.data_open()) {
-            (_, true) => 2,
-            (true, false) => 1,
-            (false, false) => 0,
+        match (self.arrange.open, self.editor.open, self.data_open()) {
+            (true, ..) => 3,
+            (_, _, true) => 2,
+            (_, true, false) => 1,
+            (false, false, false) => 0,
         }
     }
 
@@ -241,9 +245,15 @@ impl Tab {
     /// was left, or the editor on what the MUD sends.
     pub fn set_view(&mut self, view: usize) {
         match view {
-            0 if self.editor.open => self.close_automation(),
+            0 => {
+                self.arrange.open = false;
+                if self.editor.open {
+                    self.close_automation();
+                }
+            }
             1 => self.reopen_automation(),
             2 => self.open_automation(automation::DATA),
+            3 => self.open_arrange(None),
             _ => {}
         }
     }

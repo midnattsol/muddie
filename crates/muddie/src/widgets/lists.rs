@@ -112,6 +112,19 @@ fn list_line(ui: &mut Ui, height: f32, key: Option<egui::Id>, current: bool) -> 
     ui.interact(rect, key, sense)
 }
 
+/// While the keyboard is on a line of a list, the arrows are the list's,
+/// not for going to what is beside it.
+pub fn hold_arrows(ui: &Ui, line: &Response) {
+    if line.has_focus() {
+        let filter = egui::EventFilter {
+            horizontal_arrows: true,
+            vertical_arrows: true,
+            ..Default::default()
+        };
+        ui.memory_mut(|memory| memory.set_focus_lock_filter(line.id, filter));
+    }
+}
+
 /// The room at the right of what scrolls for the bar it scrolls by, which
 /// is drawn over what is under it.
 const BAR_ROOM: f32 = 14.0;

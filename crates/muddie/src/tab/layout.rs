@@ -1,6 +1,6 @@
 //! The panels around the output: what there are, where each one is and
 //! how big, kept per profile. They are placed and sized on the game itself,
-//! from their headers, not in a form.
+//! from their headers, and in the view of the layout.
 
 use serde::{Deserialize, Serialize};
 
@@ -16,6 +16,7 @@ mod menu;
 mod strips;
 mod text;
 
+pub(super) use dragging::Drop;
 pub(super) use text::well;
 
 /// What a panel shows.
@@ -299,9 +300,15 @@ impl Tab {
         self.panels.saved = self.layout.clone();
     }
 
+    /// Removes a panel, and what it was given to show.
+    pub(super) fn remove_panel(&mut self, index: usize) {
+        let gone = self.layout.panels.remove(index);
+        self.panels.text.retain(|(id, _)| *id != gone.id);
+    }
+
     /// Saves the panels once they have changed and nothing is being
     /// dragged.
-    fn keep_layout(&mut self, ui: &egui::Ui) {
+    pub(super) fn keep_layout(&mut self, ui: &egui::Ui) {
         if self.layout == self.panels.saved || ui.input(|input| input.pointer.any_down()) {
             return;
         }

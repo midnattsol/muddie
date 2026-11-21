@@ -68,6 +68,7 @@ pub(super) fn typing_in(ctx: &egui::Context) -> Option<egui::Id> {
 impl Tab {
     /// Opens the automation window on one of its sections.
     pub fn open_automation(&mut self, section: usize) {
+        self.arrange.open = false;
         if !self.editor.open {
             self.editor.draft = self.rules.clone();
             self.editor.seen = self.rules.clone();

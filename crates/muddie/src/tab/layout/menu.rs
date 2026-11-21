@@ -36,11 +36,16 @@ impl Tab {
                 }
                 Kind::Map => self.map_view.menu_items(ui),
             }
+            if widgets::menu_item(ui, tr("Arrange the panels…"), "").clicked() {
+                asked = Some(PanelAsk::Arrange);
+                ui.close();
+            }
             widgets::menu_separator(ui);
             asked = closing_items(ui, &spec.shown_name()).or(asked.take());
         });
         match asked {
             Some(PanelAsk::Gauges) => self.open_gauges(spec.id),
+            Some(PanelAsk::Arrange) => self.open_arrange(Some(spec.id)),
             Some(PanelAsk::Hide) => self.layout.panels[index].visible = false,
             Some(PanelAsk::Remove) => self.panels.removed = Some(index),
             None => {}
@@ -118,6 +123,7 @@ impl Tab {
 /// What a panel's menu asks to be done once it is closed.
 enum PanelAsk {
     Gauges,
+    Arrange,
     Hide,
     Remove,
 }

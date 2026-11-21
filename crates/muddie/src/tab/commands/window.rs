@@ -378,6 +378,7 @@ fn look_of(item: &Item) -> (widgets::Glyph, &'static str) {
     match act {
         Act::View(0) => (Glyph::Send, ""),
         Act::View(1) => (Glyph::Code, crate::shortcuts::command!("E")),
+        Act::View(3) => (Glyph::Panel, ""),
         Act::View(_) => (Glyph::Data, crate::shortcuts::command!("D")),
         Act::Section(_) => (Glyph::Code, ""),
         Act::App(request) => match request {
