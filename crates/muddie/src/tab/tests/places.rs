@@ -299,3 +299,105 @@ fn reinos_is_followed_by_its_moves_after_connecting_opened_the_map() {
         assert_eq!(harness.state().tab().map.borrow().current().unwrap().id, to);
     }
 }
+
+/// What Reinos de Leyenda sends of the character, as a session shows it:
+/// the gauges, all at first and then what changed; the states; the
+/// channels, opened and closed.
+#[test]
+fn reinos_gives_gauges_states_and_channels_by_themselves() {
+    let mut harness = window(None);
+    let app = harness.state_mut().tab_mut();
+    let (events, _sent) = fake_connection(app);
+    desert(app);
+    app.scripts.exec(
+        "reinos",
+        include_str!("../../../plugins/reinos-de-leyenda.luau"),
+    );
+    let gmcp = |package: &str, data: &str| Event::Gmcp {
+        package: package.into(),
+        data: data.into(),
+    };
+    events.send(gmcp("Char.Status", r#"{"xp_oficio":{"max":70,"min":23},"xp":{"max":5726304,"min":1964952},"pe":{"max":1300,"min":1300},"fe":{"max":220,"min":220},"escudo":{"max":0,"min":0},"pvs":{"max":4141,"min":4141}}"#)).unwrap();
+    events
+        .send(gmcp("Char.Status", r#"{"pvs":{"min":3900}}"#))
+        .unwrap();
+    harness.run_steps(2);
+    let summary = harness.state().tab().gauges.summary();
+    for shown in [
+        "Vida 3900 of 4141",
+        "Energía 1300 of 1300",
+        "Fe 220 of 220",
+        "Experiencia",
+    ] {
+        assert!(summary.contains(shown), "{shown} in {summary}");
+    }
+    // No shield now, and the trade is not shown.
+    assert!(
+        !summary.contains("Escudo") && !summary.contains("70"),
+        "{summary}"
+    );
+    // States come and go, among the gauges.
+    events
+        .send(gmcp(
+            "Char.Status.Estados.add",
+            r#"{"nombre":"Envenenado","corto":"ven","tipo":"veneno","ayuda":"Pierdes vida"}"#,
+        ))
+        .unwrap();
+    harness.run_steps(2);
+    let app = harness.state_mut().tab_mut();
+    assert!(app.gauges.summary().contains("Envenenado"));
+    events
+        .send(gmcp(
+            "Char.Status.Estados.remove",
+            r#"{"nombre":"Envenenado"}"#,
+        ))
+        .unwrap();
+    harness.run_steps(2);
+    assert!(
+        !harness
+            .state()
+            .tab()
+            .gauges
+            .summary()
+            .contains("Envenenado")
+    );
+    // Channels: each in its tab, and gone when left.
+    events
+        .send(gmcp("Comm.Canales", r#"{"chat":"chat","keel":"keel"}"#))
+        .unwrap();
+    events
+        .send(gmcp("Comm.ApagaCanal", r#"{"canal":"keel"}"#))
+        .unwrap();
+    harness.run_steps(2);
+    let channels: Vec<String> = (harness.state().tab().panels.channels.iter())
+        .map(|channel| channel.name.clone())
+        .collect();
+    assert_eq!(channels, ["chat"]);
+}
+
+#[test]
+fn a_move_by_an_exit_the_map_does_not_have_is_said() {
+    let mut harness = window(None);
+    let app = harness.state_mut().tab_mut();
+    let (events, _sent) = fake_connection(app);
+    desert(app);
+    app.scripts.exec(
+        "reinos",
+        include_str!("../../../plugins/reinos-de-leyenda.luau"),
+    );
+    assert!(app.map.borrow_mut().set_current(4));
+    events
+        .send(Event::Gmcp {
+            package: "Room.Movimiento".into(),
+            data: r#""norte""#.into(),
+        })
+        .unwrap();
+    settle(&mut harness);
+    let app = harness.state().tab();
+    assert_eq!(app.map.borrow().current().unwrap().id, 4);
+    assert!(
+        last_said(app).starts_with("El mapa no tiene la salida norte desde Pozo"),
+        "{}",
+        last_said(app)
+    );
+}

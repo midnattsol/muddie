@@ -268,6 +268,8 @@ impl Tab {
                 Action::Channel { name, text, panel } => {
                     self.channel_from_script(&name, text.as_deref(), &panel, &mut said);
                 }
+                Action::ChannelClosed(name) => self.close_channel(&name),
+                Action::Notify(text) => self.note(&text),
                 Action::Chat(text) => {
                     for line in panels::styled_lines(&text) {
                         self.channel_line(&line);

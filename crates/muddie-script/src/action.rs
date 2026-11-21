@@ -44,6 +44,11 @@ pub enum Action {
     },
     /// Add a line to the chat panel.
     Chat(String),
+    /// A channel of the MUD's is no longer heard: its tab goes.
+    ChannelClosed(String),
+    /// Something a script tells the user, as the client tells its own:
+    /// over the corner, aloud, and under the bell.
+    Notify(String),
     /// A line said on a channel of the MUD's, by the channel's name; or
     /// with no text, a channel there is, to have its tab before anyone
     /// speaks on it.

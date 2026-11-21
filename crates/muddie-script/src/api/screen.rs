@@ -153,6 +153,17 @@ fn install_channel(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
 }
 
 fn install_chat(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
+    let shared = Rc::clone(state);
+    lua.globals().set(
+        "channel_close",
+        lua.create_function(move |_, name: String| {
+            shared
+                .borrow_mut()
+                .actions
+                .push(Action::ChannelClosed(name));
+            Ok(())
+        })?,
+    )?;
     let globals = lua.globals();
     let add = |name: &str, function: Function| globals.set(name, function);
     let shared = Rc::clone(state);

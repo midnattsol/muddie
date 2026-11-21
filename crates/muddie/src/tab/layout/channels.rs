@@ -205,6 +205,18 @@ impl Tab {
         })
     }
 
+    /// Takes away a channel's tab, and what was said on it; a panel that
+    /// showed it alone shows them all again.
+    pub(in crate::tab) fn close_channel(&mut self, name: &str) {
+        let name = name.trim();
+        (self.panels.channels).retain(|channel| !channel.name.eq_ignore_ascii_case(name));
+        for (_, shown) in &mut self.panels.channel_shown {
+            if shown.eq_ignore_ascii_case(name) {
+                shown.clear();
+            }
+        }
+    }
+
     /// The tabs of a panel of channels: all, and one for each channel,
     /// marked if something was said on it that has not been looked at.
     /// Returns the channel chosen; none for all.

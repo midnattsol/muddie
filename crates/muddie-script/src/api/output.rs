@@ -40,6 +40,14 @@ fn install_echo(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     )?;
     let shared = Rc::clone(state);
     add(
+        "notify",
+        lua.create_function(move |_, text: String| {
+            shared.borrow_mut().actions.push(Action::Notify(text));
+            Ok(())
+        })?,
+    )?;
+    let shared = Rc::clone(state);
+    add(
         "log",
         lua.create_function(move |_, text: String| {
             shared.borrow_mut().actions.push(Action::Log(text));

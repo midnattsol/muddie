@@ -1,27 +1,138 @@
--- Reinos de Leyenda (rlmud.org): what is said on its channels, which it
--- sends with GMCP in packages of its own, each channel in its tab; and the
--- map, which the MUD publishes made with Mudlet.
+-- Reinos de Leyenda (rlmud.org), as it is played: the character's gauges
+-- and states, what is said on its channels, each in its tab, and the map,
+-- which the MUD publishes made with Mudlet, following the player on it.
+-- All by GMCP, in packages of the MUD's own; this is what it sends, as a
+-- session shows:
+--
+--   on logging in    Char.Status, Char.Status.Estados.set, Char.Ficha,
+--                    Char.Stats, Comm.Canales, Room.Actual once
+--   on each step     Room.Movimiento "este", or Room.MovimientoErroneo
+--                    "sudeste" for a move that could not be made
+--   as it happens    Char.Status (what changed only), Char.Status.Estados
+--                    .add and .remove, Comm.MensajeCanal, and
+--                    Comm.EnciendeCanal and Comm.ApagaCanal
 --
 -- The MUD sends nothing over GMCP until asked from inside the game:
 --     consentir gmcp on
 -- If nothing has come a while after connecting, this says so.
 
+supports("Char 1")
 supports("Comm 1")
--- Where the player is; the plugin of the usual GMCP asks for it too, but
--- this one may be on without it.
 supports("Room 1")
 
 local heard = false
 
-on_gmcp("Comm.MensajeCanal", function(data)
+-- Text, as it comes or inside a table of the MUD's.
+local function text_of(value)
+    if type(value) == "string" then
+        return value
+    end
+    if type(value) == "table" then
+        for _, field in { "nombre", "name", "canal", "salida", "direccion", 1 } do
+            if type(value[field]) == "string" then
+                return value[field]
+            end
+        end
+    end
+    return nil
+end
+
+---------------------------------------------------------------------------
+-- Gauges. Char.Status gives each as {min = now, max = most}, at first all
+-- of them and then only what changed, so what came before is kept. Faith
+-- and the shield are shown only for a character who has them.
+
+local GAUGES = {
+    { key = "pvs", name = "Vida", colour = "#e05a5a", low = 30, always = true },
+    { key = "pe", name = "Energía", colour = "#e0b648", low = 20, always = true },
+    { key = "fe", name = "Fe", colour = "#a990e0" },
+    { key = "escudo", name = "Escudo", colour = "#7fa6c9" },
+    { key = "xp", name = "Experiencia", colour = "#62b862", always = true },
+}
+
+local status = {}
+
+on_gmcp("Char.Status", function(data, package)
+    -- Char.Status.Estados comes here too: that is below.
+    if package ~= "Char.Status" or type(data) ~= "table" then
+        return
+    end
     heard = true
-    if data.canal and data.mensaje then
-        channel(data.canal, data.mensaje)
+    for key, value in pairs(data) do
+        if type(value) == "table" then
+            local known = status[key] or {}
+            for field, number in pairs(value) do
+                known[field] = number
+            end
+            status[key] = known
+        end
+    end
+    for _, shown in GAUGES do
+        local value = status[shown.key]
+        if value and value.max then
+            if shown.always or value.max > 0 then
+                gauge(shown.name, value.min or 0, value.max, { colour = shown.colour, low = shown.low })
+            else
+                gauge(shown.name)
+            end
+        end
     end
 end)
 
--- The channels the character is on: each has its tab before anyone
--- speaks on it.
+---------------------------------------------------------------------------
+-- States: each a light among the gauges, by its name. They are not said
+-- aloud: the game says so itself, in its text. A state is {nombre, corto,
+-- tipo, ayuda}.
+
+local states = {}
+
+local function state_on(state)
+    local name = text_of(state)
+    if not name or states[name] then
+        return
+    end
+    states[name] = true
+    gauge(name, 1, 1, { style = "light", colour = "#e0a040" })
+end
+
+local function state_off(state)
+    local name = text_of(state)
+    if not name or not states[name] then
+        return
+    end
+    states[name] = nil
+    gauge(name)
+end
+
+on_gmcp("Char.Status.Estados.set", function(data)
+    for name in pairs(states) do
+        state_off(name)
+    end
+    if type(data) == "table" then
+        for key, state in pairs(data) do
+            state_on(type(state) == "table" and state or key)
+        end
+    end
+end)
+
+on_gmcp("Char.Status.Estados.add", state_on)
+on_gmcp("Char.Status.Estados.remove", state_off)
+
+---------------------------------------------------------------------------
+-- Channels: each in its tab, made before anyone speaks on it, and taken
+-- away when the character leaves it. What was said before logging in comes
+-- too.
+
+local function said(data)
+    heard = true
+    if type(data) == "table" and data.canal and data.mensaje then
+        channel(data.canal, data.mensaje)
+    end
+end
+
+on_gmcp("Comm.MensajeCanal", said)
+on_gmcp("Comm.MensajeCanalHistorico", said)
+
 on_gmcp("Comm.Canales", function(data)
     heard = true
     for name in pairs(data) do
@@ -29,9 +140,25 @@ on_gmcp("Comm.Canales", function(data)
     end
 end)
 
--- The map. The MUD publishes it for Mudlet: it is taken as soon as the
--- plugin is on, and shown, and on each connection brought up to date if
--- it has changed.
+on_gmcp("Comm.EnciendeCanal", function(data)
+    local name = text_of(data)
+    if name then
+        channel(name)
+    end
+end)
+
+on_gmcp("Comm.ApagaCanal", function(data)
+    local name = text_of(data)
+    if name then
+        channel_close(name)
+    end
+end)
+
+---------------------------------------------------------------------------
+-- The map. The MUD publishes it for Mudlet: it is taken as soon as there is
+-- a session to take it into, and shown, and on each connection brought up
+-- to date if it has changed.
+
 local MAP = "https://mudlet.reinosdeleyenda.es/Mapa_Mudlet.zip"
 map.import(MAP)
 
@@ -52,35 +179,26 @@ map.directions({
     out = { "fuera", "fu" },
 })
 
--- The MUD does not say which room the player is in: it says the move made,
--- and shows the room as "Name [exits]". The two of one step are taken
--- together, whichever comes first; the map works out the room from them,
--- or from the move sent when the MUD does not say it.
+-- The MUD shows the room only on logging in, as "Name [exits]", and after
+-- that only the move of each step. The map places the player by the room,
+-- then follows the moves along its exits; the two of one step are taken
+-- together, whichever comes first.
 local seen = {}
 local due = false
-
--- Text, as it comes or inside a table of the MUD's.
-local function text_of(value)
-    if type(value) == "string" then
-        return value
-    end
-    if type(value) == "table" then
-        for _, field in { "nombre", "name", "short", "salida", "direccion", 1 } do
-            if type(value[field]) == "string" then
-                return value[field]
-            end
-        end
-    end
-    return nil
-end
 
 local function settle()
     due = false
     local step = seen
     seen = {}
-    local here = map.arrive(step)
+    -- A move by an exit the map does not have: it is said, and the map
+    -- stays where it was, which may no longer be where the player is.
+    local here = map.room()
+    if step.came and not step.name and here and not map.exit(here.id, step.came) then
+        notify(`El mapa no tiene la salida {step.came} desde {here.name}: no te ha seguido.`)
+    end
+    local now = map.arrive(step)
     -- Shown when Muddie is started with --debug.
-    log(`Reinos: name={step.name} exits={table.concat(step.exits or {}, ",")} came={step.came} -> {here}`)
+    log(`Reinos: name={step.name} exits={table.concat(step.exits or {}, ",")} came={step.came} -> {now}`)
 end
 
 local function soon()
@@ -96,6 +214,7 @@ on_gmcp("Room.Movimiento", function(way)
     soon()
 end)
 
+-- A move that could not be made: it did not happen, and a walk stops.
 on_gmcp("Room.MovimientoErroneo", function()
     seen.came = nil
     map.stop()
@@ -125,10 +244,11 @@ end)
 on_event("connect", function()
     heard = false
     seen = {}
+    status = {}
     map.import(MAP)
     after(90, function()
         if not heard then
-            echo("Reinos de Leyenda no manda los canales ni dónde estás hasta que escribas en el juego: consentir gmcp on")
+            notify("Reinos de Leyenda no manda la vida, los canales ni dónde estás hasta que escribas en el juego: consentir gmcp on")
         end
     end)
 end)

@@ -7,6 +7,8 @@
 //!
 //! - `send(text)`: send a command to the MUD (aliases are not applied).
 //! - `echo(text)`: show a line in the output.
+//! - `notify(text)`: tell the user something, as the client tells its own:
+//!   over the corner of the window, aloud, and kept under the bell.
 //! - `log(text)`: show something on the standard output of a run started
 //!   with `--debug`, to see what a script made of what it was given;
 //!   nothing otherwise.
@@ -80,7 +82,8 @@
 //! - `channel(name, text, {panel = "..."})`: add a line said on a channel
 //!   of the MUD's, which has a tab of its own in the panel named, made if
 //!   there is none of that name, or in the panel of channels if none is
-//!   named. `channel(name)` makes the tab before anyone speaks.
+//!   named. `channel(name)` makes the tab before anyone speaks, and
+//!   `channel_close(name)` takes it away, with what was said there.
 //! - `panel_add(name, text)`: add `text` at the end of a panel, which keeps
 //!   what it had, as a log does. In a trigger, `to_panel(name)` adds the
 //!   line being looked at, with its colours.
