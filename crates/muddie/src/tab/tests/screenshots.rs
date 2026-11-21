@@ -683,6 +683,17 @@ fn shows_map() {
     harness.run_steps(3);
     save(&mut harness, "map-walk");
     harness.state_mut().tab_mut().walk = None;
+    // A room chosen with the keys, east of the player's, told under it.
+    let view = harness.get_by_label_contains("Map view").rect().center();
+    harness.hover_at(view);
+    harness.run_steps(1);
+    harness.drag_at(view);
+    harness.run_steps(1);
+    harness.drop_at(view);
+    harness.run_steps(2);
+    harness.key_press(egui::Key::ArrowRight);
+    harness.run_steps(3);
+    save(&mut harness, "map-selected");
     // The map placed the rooms as walked: the patio is north-east of
     // the alley, one cell east of the square.
     let map = harness.state().tab().map.borrow();

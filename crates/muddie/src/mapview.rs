@@ -1,6 +1,7 @@
 //! Draws the map and lets the user browse it, pick a room to walk to, and
 //! mark or move rooms.
 
+use eframe::egui;
 use eframe::egui::{
     Color32, FontId, Painter, Pos2, Rect, Response, RichText, Sense, Stroke, StrokeKind, Ui, Vec2,
     vec2,
@@ -39,6 +40,58 @@ pub enum MapAction {
     Command(&'static str),
     /// Open the scripts, to set a mapper up.
     Scripts,
+    /// This room was chosen to look at: say it.
+    Selected(RoomId),
+    /// Say the way to this room, without going.
+    Way(RoomId),
+    /// The room chosen has no exit that way, as asked with the keys.
+    NoExit,
+}
+
+/// The keys that move the room chosen along its exits while the map has
+/// the keyboard: the arrows, the digits as on a keypad, and the pages up
+/// and down.
+const MOVES: [(egui::Key, &str); 14] = [
+    (egui::Key::ArrowUp, "n"),
+    (egui::Key::ArrowDown, "s"),
+    (egui::Key::ArrowLeft, "w"),
+    (egui::Key::ArrowRight, "e"),
+    (egui::Key::Num8, "n"),
+    (egui::Key::Num2, "s"),
+    (egui::Key::Num4, "w"),
+    (egui::Key::Num6, "e"),
+    (egui::Key::Num7, "nw"),
+    (egui::Key::Num9, "ne"),
+    (egui::Key::Num1, "sw"),
+    (egui::Key::Num3, "se"),
+    (egui::Key::PageUp, "u"),
+    (egui::Key::PageDown, "d"),
+];
+
+/// A room as it is told when chosen: its name, its region if the name
+/// does not say it, its number, how many moves away it is from `from`,
+/// and its exits.
+pub fn selection_line(map: &Map, from: Option<RoomId>, room: &Room) -> String {
+    let name = map.bare_name(&room.name);
+    let mut parts = vec![name.to_owned()];
+    if let Some(region) = map.region(room).filter(|region| !name.starts_with(region)) {
+        parts.push(region.to_owned());
+    }
+    parts.push(format!("#{}", room.id));
+    parts.push(match from {
+        Some(from) if from == room.id => tr("you are here").to_owned(),
+        Some(from) => match map.route(from, room.id) {
+            Some(steps) => crate::i18n::trn("{0} move", "{0} moves", steps.len() as u64),
+            None => tr("no known way").to_owned(),
+        },
+        None => tr("the map does not know where you are").to_owned(),
+    });
+    let exits: Vec<&str> = room.exits.keys().map(|way| map.command_for(way)).collect();
+    parts.push(match exits.is_empty() {
+        true => tr("no exits").to_owned(),
+        false => crate::i18n::trf("exits: {0}", &[&exits.join(", ")]),
+    });
+    parts.join(" · ")
 }
 
 /// What the map's tools asked for.
@@ -77,7 +130,21 @@ pub struct MapView {
     on_level: Option<(Shown, Vec<(Pos, RoomId)>)>,
     /// How many areas the map has, at a revision of it.
     areas: Option<(u64, usize)>,
+    /// The room chosen to look at, with a click or the keys.
+    selected: Option<RoomId>,
+    /// What is told of it, for the room chosen, where the player is and
+    /// the map's revision it was worked out at.
+    told: Option<(Told, String)>,
+    /// A room to bring into sight, as the keys move the one chosen.
+    reveal: Option<RoomId>,
+    /// Whether the map had the keyboard the frame before: Escape takes it
+    /// before it is seen.
+    had_focus: bool,
 }
+
+/// What is told of the room chosen depends on: it, where the player is,
+/// and the map's revision.
+type Told = (RoomId, Option<RoomId>, u64);
 
 /// What the rooms on show depend on: the map's revision, the area, the
 /// level, and whether every area is shown.
@@ -97,6 +164,10 @@ impl Default for MapView {
             asked: Tools::default(),
             on_level: None,
             areas: None,
+            selected: None,
+            told: None,
+            reveal: None,
+            had_focus: false,
         }
     }
 }
@@ -140,7 +211,8 @@ impl MapView {
 
     /// Shows one level of one area: the player's, unless the user chose
     /// another with the controls on top, with the rest of `walk`, if one
-    /// is under way. Double-clicking a room asks to walk there, right-clicking
+    /// is under way. Clicking a room chooses it, to be told under the map;
+    /// the keys move it along the exits. Double-clicking a room asks to walk there, right-clicking
     /// opens its menu, dragging pans, the scroll wheel zooms, and
     /// Shift+drag moves a room to another cell.
     pub fn show(&mut self, ui: &mut Ui, map: &Map, walk: Option<&Walk>) -> Option<MapAction> {
@@ -167,9 +239,24 @@ impl MapView {
         }
         let (area, level, home) = self.place(ui, map, current, tools.locate);
         let (area, level) = self.place_controls(ui, map, (area, level), home);
-        let (response, painter) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
+        // A room no longer there, or left over, is no longer chosen.
+        self.selected = self
+            .selected
+            .filter(|id| map.room(*id).is_some() && !map.is_ghost(*id));
+        let told = self.told_of_selected(map);
+        // The room chosen is told under the map.
+        let footer = match told {
+            Some(_) => ui.text_style_height(&egui::TextStyle::Body) + ui.spacing().item_spacing.y,
+            None => 0.0,
+        };
+        let size = ui.available_size() - vec2(0.0, footer);
+        let (response, painter) = ui.allocate_painter(size, Sense::click_and_drag());
+        let label = match &told {
+            Some(told) => format!("{}. {}", tr("Map view"), told),
+            None => tr("Map view").to_owned(),
+        };
         ui.ctx()
-            .accesskit_node_builder(response.id, |node| node.set_label(tr("Map view")));
+            .accesskit_node_builder(response.id, |node| node.set_label(label));
         self.zoom_and_pan(ui, &response);
         let gliding = self.glide_offset(ui);
         let all_areas = self.all_areas;
@@ -218,6 +305,7 @@ impl MapView {
         let marks = Marks {
             here: &here,
             destination: walk.and_then(|walk| walk.left().1),
+            selected: self.selected,
             area: &area,
         };
         draw_rooms(&painter, &visible, &grid, &colours, &marks);
@@ -255,8 +343,122 @@ impl MapView {
             let walked = there.iter().find(reached).or(there.first());
             chosen = walked.map(|room| MapAction::Walk(room.id));
         }
+        // A click chooses the room to look at, or none; not Enter, which
+        // egui takes for a click of what has the keyboard.
+        if response.clicked_by(egui::PointerButton::Primary) {
+            response.request_focus();
+            let before = self.selected;
+            self.selected = pointed.map(|room| room.id);
+            if let Some(id) = self.selected.filter(|id| before != Some(*id)) {
+                chosen = chosen.or(Some(MapAction::Selected(id)));
+            }
+        }
+        if let Some(keyed) = self.keys(ui, &response, map, current) {
+            chosen = chosen.or(Some(keyed));
+        }
+        self.bring_into_sight(ui, &response, map, &grid, (&area, level));
         room_tip(response, pointed);
+        if let Some(told) = told {
+            ui.label(RichText::new(told).color(theme::current().text_dim));
+        }
         chosen
+    }
+
+    /// What is told of the room chosen, worked out again only when it,
+    /// where the player is or the map changes.
+    fn told_of_selected(&mut self, map: &Map) -> Option<String> {
+        let room = map.room(self.selected?)?;
+        let key = (room.id, map.current().map(|here| here.id), map.revision());
+        if self.told.as_ref().is_none_or(|(known, _)| *known != key) {
+            self.told = Some((key, selection_line(map, key.1, room)));
+        }
+        self.told.as_ref().map(|(_, told)| told.clone())
+    }
+
+    /// The keys, while the map has the keyboard: those that move the room
+    /// chosen along its exits, from where the player is if none is chosen;
+    /// Enter, to walk there; Shift and Enter, to say the way; Escape, to
+    /// choose none.
+    fn keys(
+        &mut self,
+        ui: &Ui,
+        response: &Response,
+        map: &Map,
+        current: &Room,
+    ) -> Option<MapAction> {
+        let had_focus = std::mem::replace(&mut self.had_focus, response.has_focus());
+        if had_focus
+            && self.selected.is_some()
+            && ui.input(|input| input.key_pressed(egui::Key::Escape))
+        {
+            self.selected = None;
+            return None;
+        }
+        if !response.has_focus() {
+            return None;
+        }
+        // The arrows are the map's while it has the keyboard, not to move
+        // to another widget.
+        let filter = egui::EventFilter {
+            horizontal_arrows: true,
+            vertical_arrows: true,
+            ..Default::default()
+        };
+        ui.memory_mut(|memory| memory.set_focus_lock_filter(response.id, filter));
+        let pressed = |modifiers, key| ui.input_mut(|input| input.consume_key(modifiers, key));
+        if let Some(id) = self.selected {
+            if pressed(egui::Modifiers::SHIFT, egui::Key::Enter) {
+                return Some(MapAction::Way(id));
+            }
+            if pressed(egui::Modifiers::NONE, egui::Key::Enter) {
+                return Some(MapAction::Walk(id));
+            }
+        }
+        let from = self.selected.unwrap_or(current.id);
+        let way = MOVES
+            .iter()
+            .find(|(key, _)| pressed(egui::Modifiers::NONE, *key))?
+            .1;
+        let to = (map.room(from))
+            .and_then(|room| room.exits.get(way))
+            .map(|exit| exit.to)
+            .filter(|to| map.room(*to).is_some());
+        match to {
+            Some(to) => {
+                self.selected = Some(to);
+                self.reveal = Some(to);
+                Some(MapAction::Selected(to))
+            }
+            None => Some(MapAction::NoExit),
+        }
+    }
+
+    /// Brings the room the keys chose into sight: to its area and level,
+    /// and onto the screen.
+    fn bring_into_sight(
+        &mut self,
+        ui: &Ui,
+        response: &Response,
+        map: &Map,
+        grid: &Grid,
+        (area, level): (&str, i32),
+    ) {
+        let Some(room) = self.reveal.and_then(|id| map.room(id)) else {
+            return;
+        };
+        if room.area != area || room.pos.z != level {
+            // Another area or level: shown first, brought onto the screen
+            // when drawn.
+            self.browsing = Some((room.area.clone(), room.pos.z));
+            ui.ctx().request_repaint();
+            return;
+        }
+        self.reveal = None;
+        let at = grid.on_screen(room.pos);
+        if !response.rect.shrink(grid.cell * 1.5).contains(at) {
+            self.pan += response.rect.center() - at;
+            ui.ctx().request_repaint();
+        }
     }
 
     /// Which area and level to show: the player's, unless the view was

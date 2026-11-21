@@ -524,6 +524,10 @@ is what a name begins with, as Anduar in "Anduar: Plaza Mayor".
 
 | Action | What it does |
 |---|---|
+| Click a room | Chooses it: ringed, and told under the map and to the screen reader: its name, number, how many moves away and its exits. A click on nothing chooses none |
+| Arrows, the digits as on a keypad, Page Up and Down | With the map clicked, move the room chosen along its exits, from yours if none is; the view follows it |
+| Enter, Shift+Enter | Walk to the room chosen; say the way there without going |
+| Escape | Chooses none |
 | Double-click a room | Walks there, one step at a time, waiting for each to succeed |
 | Right-click a room | Walk here, avoid in routes, tidy the area |
 | Drag | Moves the view; the wheel zooms |

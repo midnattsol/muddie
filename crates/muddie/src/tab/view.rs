@@ -110,6 +110,19 @@ impl Tab {
             Some(MapAction::Walk(room)) => self.walk_to(room),
             Some(MapAction::Tidy(area)) => self.tidy(&area),
             Some(MapAction::Scripts) => self.open_automation(automation::SCRIPTS),
+            Some(MapAction::Selected(room)) => {
+                let told = {
+                    let map = self.map.borrow();
+                    let from = map.current().map(|here| here.id);
+                    map.room(room)
+                        .map(|room| crate::mapview::selection_line(&map, from, room))
+                };
+                if let Some(told) = told {
+                    self.voice.say_now(&told);
+                }
+            }
+            Some(MapAction::Way(room)) => self.say_route(&room.to_string()),
+            Some(MapAction::NoExit) => self.voice.say_now(tr("No exit that way.")),
             Some(MapAction::Command(command)) => {
                 self.do_client_command(command);
             }

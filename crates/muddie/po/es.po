@@ -1593,8 +1593,8 @@ msgstr "Muestra los complementos instalados"
 msgid "Lists these commands"
 msgstr "Muestra estos comandos"
 
-msgid "Double-click a room to walk there, right-click for more, Shift+drag to move it."
-msgstr "Haz doble clic en una sala para ir hasta ella, clic derecho para ver más opciones y Mayús+arrastrar para moverla."
+msgid "Click a room to see it, double-click to walk there, right-click for more, Shift+drag to move it."
+msgstr "Haz clic en una sala para verla, doble clic para ir hasta ella, clic derecho para ver más opciones y Mayús+arrastrar para moverla."
 
 msgid "Colour when on"
 msgstr "Color al estar encendida"
@@ -2350,3 +2350,21 @@ msgstr "No se ha podido leer una plantilla: {0}"
 
 msgid "It is left over: a copy of #{0}, in its place, that no other room leads to. It is not drawn, nor found."
 msgstr "Es una sala fantasma: una copia de #{0}, en su mismo sitio, a la que no lleva ninguna otra sala. No se dibuja ni aparece en las búsquedas."
+
+msgid "you are here"
+msgstr "estás aquí"
+
+msgid "no known way"
+msgstr "sin camino conocido"
+
+msgid "the map does not know where you are"
+msgstr "el mapa no sabe dónde estás"
+
+msgid "no exits"
+msgstr "sin salidas"
+
+msgid "exits: {0}"
+msgstr "salidas: {0}"
+
+msgid "No exit that way."
+msgstr "No hay salida por ahí."

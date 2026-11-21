@@ -519,3 +519,63 @@ fn places_are_found_in_the_palette_and_a_walk_stops_with_escape() {
     assert!(app.walk.is_none());
     assert!(notes(app).iter().any(|said| said == "Walk stopped."));
 }
+
+/// A room of the map is chosen with a click, to be told under it and to
+/// whoever reads the screen; the keys move it along the exits, Enter walks
+/// there, and Escape chooses none.
+#[test]
+fn a_room_is_chosen_on_the_map_to_see_it_and_moved_with_the_keys() {
+    let mut harness = window(None);
+    harness.set_size(egui::vec2(1300.0, 860.0));
+    let app = harness.state_mut().tab_mut();
+    let (_events, mut sent) = fake_connection(app);
+    desert(app);
+    app.scripts.exec(
+        "t",
+        r#"map.directions({e = {"este"}, w = {"oeste"}, n = {"norte"}, s = {"sur"}}) map.names({exits = "[]"})"#,
+    );
+    app.run_actions();
+    assert!(app.map.borrow_mut().set_current(1));
+    harness.run_steps(3);
+    // The player's room is in the middle of the map.
+    let middle = harness.get_by_label("Map view").rect().center();
+    harness.hover_at(middle);
+    harness.run_steps(1);
+    harness.drag_at(middle);
+    harness.run_steps(1);
+    harness.drop_at(middle);
+    harness.run_steps(2);
+    let label = |harness: &Harness<'_, App>| {
+        harness
+            .get_by_label_contains("Map view")
+            .accesskit_node()
+            .label()
+            .unwrap_or_default()
+    };
+    assert!(
+        label(&harness).contains("Dunas · #1 · you are here · exits: este"),
+        "{}",
+        label(&harness)
+    );
+    // East along the exits, twice: two moves away, said.
+    harness.key_press(egui::Key::ArrowRight);
+    harness.key_press(egui::Key::ArrowRight);
+    harness.run_steps(2);
+    assert!(
+        label(&harness).contains("#3 · 2 moves"),
+        "{}",
+        label(&harness)
+    );
+    // No exit south: said so, and it stays.
+    harness.key_press(egui::Key::ArrowDown);
+    harness.run_steps(2);
+    assert!(label(&harness).contains("#3"));
+    // Enter walks there.
+    harness.key_press(egui::Key::Enter);
+    harness.run_steps(2);
+    assert_eq!(sent_lines(&mut sent), ["este"]);
+    // Escape: none chosen.
+    harness.key_press(egui::Key::Escape);
+    harness.run_steps(2);
+    assert_eq!(label(&harness), "Map view");
+}

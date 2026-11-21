@@ -20,6 +20,8 @@ pub(super) struct Colours {
     exit: Color32,
     locked: Color32,
     route: Color32,
+    /// The ring round the room chosen to look at.
+    selected: Color32,
     pub(super) mark: Color32,
     name: Color32,
     name_behind: Color32,
@@ -41,6 +43,7 @@ pub(super) struct Grid {
 pub(super) struct Marks<'a> {
     pub(super) here: &'a [RoomId],
     pub(super) destination: Option<RoomId>,
+    pub(super) selected: Option<RoomId>,
     pub(super) area: &'a str,
 }
 
@@ -265,6 +268,11 @@ pub(super) fn draw_rooms(
             let stroke = Stroke::new(2.0, ring);
             painter.rect_stroke(rect.expand(2.5), corner + 2.5, stroke, StrokeKind::Outside);
         }
+        // The room chosen to look at, round whatever ring it has.
+        if marks.selected == Some(room.id) {
+            let stroke = Stroke::new(2.5, colours.selected);
+            painter.rect_stroke(rect.expand(5.5), corner + 5.5, stroke, StrokeKind::Outside);
+        }
     }
 }
 
@@ -334,7 +342,7 @@ pub(super) fn room_tip(response: Response, pointed: Option<&Room>) {
     let Some(room) = pointed else {
         if response.hovered() && !response.dragged() {
             let hint = tr(
-                "Double-click a room to walk there, right-click for more, Shift+drag to move it.",
+                "Click a room to see it, double-click to walk there, right-click for more, Shift+drag to move it.",
             );
             response.on_hover_text_at_pointer(hint);
         }
@@ -361,6 +369,7 @@ impl Colours {
             exit: theme::mix(theme.surface, theme.text_dim, 0.7),
             locked: theme.danger,
             route: theme.accent.gamma_multiply(0.8),
+            selected: theme.accent,
             mark: theme.text_dim,
             name: theme.text_dim,
             name_behind: theme.surface.gamma_multiply(0.8),
