@@ -279,6 +279,24 @@ fn shows_editor() {
     rules.run_steps(3);
     save(&mut rules, "commands");
     rules.state_mut().tab_mut().editor.draft.triggers[1].lua = true;
+    // The script's editor made taller from its grip, with the keyboard on
+    // it; and then open larger, over the window.
+    rules.set_size(egui::vec2(1500.0, 1300.0));
+    rules.run_steps(2);
+    rules.get_by_label("Editor height").focus();
+    rules.run_steps(2);
+    for _ in 0..4 {
+        rules.key_press(egui::Key::ArrowDown);
+    }
+    rules.run_steps(3);
+    save(&mut rules, "taller");
+    rules.set_size(egui::vec2(1500.0, 900.0));
+    rules.state_mut().tab_mut().editor.code = Default::default();
+    rules.state_mut().tab_mut().editor.code.expanded = true;
+    rules.run_steps(4);
+    save(&mut rules, "expanded");
+    rules.state_mut().tab_mut().editor.code.expanded = false;
+    rules.run_steps(3);
     let app = rules.state_mut().tab_mut();
     app.editor.section = 2;
     rules.run_steps(3);

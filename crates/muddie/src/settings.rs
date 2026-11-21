@@ -119,6 +119,9 @@ pub struct Settings {
     pub keep_command: bool,
     /// The widths of the automation view's first two panes.
     pub automation_panes: [f32; 2],
+    /// How tall the editors of commands and of scripts were made, in
+    /// points; 0 fits them to what they hold.
+    pub code_heights: [f32; 2],
 }
 
 impl Default for Settings {
@@ -147,6 +150,7 @@ impl Default for Settings {
             keepalive_seconds: 60,
             keep_command: false,
             automation_panes: [190.0, 320.0],
+            code_heights: [0.0; 2],
         }
     }
 }

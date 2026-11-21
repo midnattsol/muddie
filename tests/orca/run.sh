@@ -156,6 +156,20 @@ for _ in $(seq 5); do keys Tab; sleep 0.3; done
 # says ancestors aloud only once it knows where the keyboard was before,
 # which a display with no window manager does not let it know.
 expect "a card says its name" "When panel Contains page tab"
+# On to the editor of what the rule sends, which says how to leave it:
+# Tab types in it, Escape and then Tab go on to its height's grip.
+for _ in $(seq 25); do
+    since | grep -aqF "Tab inserts a tab" && break
+    keys Tab
+    sleep 0.3
+done
+expect "an editor of code says how to leave it" "Tab inserts a tab"
+keys Escape Tab
+expect "Escape and Tab go on to the editor's grip" "SPEECH OUTPUT: 'separator Editor height'"
+expect "the grip says how tall the editor is" "SPEECH OUTPUT: '3 lines'"
+remember
+keys Down
+expect "the grip says, once, how tall the editor has been made" "SPEECH OUTPUT: '4 lines'"
 keys ctrl+e
 sleep 1
 

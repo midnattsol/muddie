@@ -338,10 +338,15 @@ impl App {
         if ui.input(|input| input.pointer.any_down()) {
             return;
         }
-        let panes = self.tabs[self.active].pane_widths();
-        if panes != self.settings.automation_panes {
+        let (panes, heights) = self.tabs[self.active].layout();
+        if (panes, heights) != (self.settings.automation_panes, self.settings.code_heights) {
             self.settings.automation_panes = panes;
+            self.settings.code_heights = heights;
             self.settings_unsaved = true;
+            // The same in every session, as it was made in this one.
+            for tab in &mut self.tabs {
+                tab.share_layout(&self.settings);
+            }
         }
         self.save_settings();
     }

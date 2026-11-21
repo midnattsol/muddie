@@ -202,6 +202,9 @@ pub(super) struct Editor {
     /// its details are.
     pub(super) panes: [f32; 2],
     pub(super) detail_height: f32,
+    /// How tall the editors of commands and of scripts were made, and
+    /// whether the one of the rule shown is open over the window.
+    pub(super) code: widgets::CodeSizes,
 }
 
 impl Default for Editor {
@@ -250,6 +253,7 @@ impl Default for Editor {
             folded: Vec::new(),
             panes: Settings::default().automation_panes,
             detail_height: 600.0,
+            code: widgets::CodeSizes::default(),
         }
     }
 }

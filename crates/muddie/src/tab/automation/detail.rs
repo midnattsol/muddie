@@ -30,57 +30,141 @@ pub(in crate::tab) struct ActionEdit<'a> {
     pub(in crate::tab) script_hint: &'a str,
     pub(in crate::tab) about_commands: &'a str,
     pub(in crate::tab) about_script: &'a str,
+    /// How tall its editor was made, and whether it is open larger.
+    pub(in crate::tab) sizes: &'a mut widgets::CodeSizes,
 }
 
 /// The part of a rule that says what it does, the same for triggers,
 /// aliases, macros and timers: a card with the choice between commands
-/// and a Luau script, and the editor of the one chosen, which grows with
-/// what it holds.
+/// and a Luau script, and the editor of the one chosen, which fits what it
+/// holds until it is made taller or shorter by its grip, and which opens
+/// larger, over the window, from the card's heading. Returns what to say
+/// when the editor's height was changed with the keyboard.
 pub(in crate::tab) fn action_block(
     ui: &mut egui::Ui,
     action: ActionEdit<'_>,
     mistake: Option<&(usize, String)>,
-) {
-    widgets::card(
+) -> Option<String> {
+    let ActionEdit {
+        lua,
+        commands,
+        script,
+        matched,
+        commands_hint,
+        script_hint,
+        about_commands,
+        about_script,
+        sizes,
+    } = action;
+    let mut expand = None;
+    let said = widgets::card(
         ui,
         Some(widgets::Glyph::Send),
         tr("Do"),
-        |_| {},
         |ui| {
-            let current = usize::from(*action.lua);
+            expand = Some(widgets::glyph_button(
+                ui,
+                widgets::Glyph::Expand,
+                tr("Expand editor"),
+            ))
+        },
+        |ui| {
+            let current = usize::from(*lua);
             match widgets::segmented(ui, &[tr("Commands"), "Luau"], current) {
-                Some(0) => *action.lua = false,
+                Some(0) => *lua = false,
                 Some(_) => {
-                    *action.lua = true;
+                    *lua = true;
                     // Start the script from the commands there were.
-                    if action.script.trim().is_empty() {
-                        *action.script =
-                            crate::rules::commands_as_lua(action.commands, action.matched);
+                    if script.trim().is_empty() {
+                        *script = crate::rules::commands_as_lua(commands, matched);
                     }
                 }
                 None => {}
             }
             ui.add_space(4.0);
-            if *action.lua {
-                let luau = widgets::Language::Luau;
-                widgets::code_editor(
-                    ui,
+            let (label, value, hint, language, about, mistake) = match *lua {
+                true => (
                     "Luau",
-                    action.script,
-                    action.script_hint,
-                    luau,
-                    3,
+                    &mut *script,
+                    script_hint,
+                    widgets::Language::Luau,
+                    about_script,
                     mistake,
-                );
-                note(ui, action.about_script);
-            } else {
-                let commands = widgets::Language::Commands;
-                let (value, hint) = (action.commands, action.commands_hint);
-                widgets::code_editor(ui, tr("Commands"), value, hint, commands, 3, None);
-                note(ui, action.about_commands);
+                ),
+                false => (
+                    tr("Commands"),
+                    &mut *commands,
+                    commands_hint,
+                    widgets::Language::Commands,
+                    about_commands,
+                    None,
+                ),
+            };
+            let height = &mut sizes.heights[language.slot()];
+            let (_, said) =
+                widgets::sizable_code_editor(ui, label, value, hint, language, height, mistake);
+            note(ui, about);
+            said
+        },
+    );
+    let expand = expand?;
+    let focus = egui::Id::unique("focus the expanded editor");
+    if expand.clicked() {
+        sizes.expanded = true;
+        ui.data_mut(|data| data.insert_temp(focus, true));
+    }
+    let (label, value, hint, language) = match *lua {
+        true => ("Luau", script, script_hint, widgets::Language::Luau),
+        false => (
+            tr("Commands"),
+            commands,
+            commands_hint,
+            widgets::Language::Commands,
+        ),
+    };
+    // As large as the window lets it be, less the dialog's heading and
+    // margins.
+    let screen = ui.ctx().content_rect();
+    let tall = (screen.height() - 190.0).max(160.0);
+    widgets::dialog(
+        ui.ctx(),
+        "expanded editor",
+        label,
+        &mut sizes.expanded,
+        screen.width() - 120.0,
+        |ui| {
+            let height = widgets::CodeHeight::Fixed(tall);
+            let editor = widgets::code_editor(
+                ui,
+                label,
+                value,
+                hint,
+                language,
+                height,
+                mistake.filter(|_| *lua),
+            );
+            if ui
+                .data_mut(|data| data.remove_temp::<bool>(focus))
+                .is_some()
+            {
+                editor.request_focus();
             }
         },
     );
+    // Closed, the keyboard goes back to where it opened it: the frame after,
+    // as nothing under a dialog takes it while the dialog is drawn.
+    let back = focus.with("back");
+    if ui.data_mut(|data| data.remove_temp::<bool>(back)).is_some() {
+        expand.request_focus();
+    }
+    let was_open = ui.data(|data| data.get_temp::<bool>(focus.with("open")));
+    if !sizes.expanded && was_open == Some(true) {
+        ui.data_mut(|data| data.insert_temp(back, true));
+        ui.ctx().request_repaint();
+    }
+    let open = sizes.expanded;
+    ui.data_mut(|data| data.insert_temp(focus.with("open"), open));
+    said
 }
 
 /// Regular expressions as they were last compiled, so that one is not

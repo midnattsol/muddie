@@ -660,3 +660,109 @@ fn restarting_the_scripts_says_when_and_which_failed() {
     harness.get_by_label(&last.text.clone());
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// What a rule does is written in an editor which fits what it holds, up to
+/// a point, and which is made taller from its grip, by the keyboard too,
+/// saying how many lines it shows, and given back its own height with Home.
+#[test]
+fn the_editor_of_what_a_rule_does_is_made_taller_from_its_grip() {
+    let mut harness = window(None);
+    harness.set_size(egui::vec2(1400.0, 900.0));
+    let app = harness.state_mut().tab_mut();
+    app.voice.force_voice();
+    app.open_automation(automation::TRIGGERS);
+    app.add_rule();
+    harness.run_steps(4);
+    let tall = |harness: &Harness<'_, App>| {
+        let typing = egui::accesskit::Role::MultilineTextInput;
+        harness
+            .get_by_role_and_label(typing, "Commands")
+            .rect()
+            .height()
+    };
+    let short = tall(&harness);
+    // Thirty lines do not make it taller than twenty: it scrolls.
+    let app = harness.state_mut().tab_mut();
+    app.editor.draft.triggers[0].send = vec!["look"; 30].join("\n");
+    harness.run_steps(3);
+    let grip = harness.get_by_label("Editor height");
+    let lines = grip.accesskit_node().description();
+    assert_eq!(lines.as_deref(), Some("20 lines"));
+    assert!(short < tall(&harness));
+    // Down, with the keyboard on it, a line more, which is said.
+    grip.focus();
+    harness.run_steps(2);
+    harness.key_press(Key::ArrowDown);
+    harness.run_steps(3);
+    let app = harness.state().tab();
+    assert_eq!(app.voice.said.last().map(String::as_str), Some("21 lines"));
+    assert!(app.editor.code.heights[0] > 0.0);
+    let grip = harness.get_by_label("Editor height");
+    let lines = grip.accesskit_node().description();
+    assert_eq!(lines.as_deref(), Some("21 lines"));
+    // Home: it fits what it holds again.
+    harness.key_press(Key::Home);
+    harness.run_steps(3);
+    assert_eq!(harness.state().tab().editor.code.heights[0], 0.0);
+}
+
+/// The editor opens larger, over the window, with the keyboard in it; and
+/// Escape gives the keyboard back to where it was opened, with what was
+/// written there kept.
+#[test]
+fn the_editor_of_what_a_rule_does_opens_larger() {
+    let mut harness = window(None);
+    harness.set_size(egui::vec2(1400.0, 900.0));
+    let app = harness.state_mut().tab_mut();
+    app.open_automation(automation::TRIGGERS);
+    app.add_rule();
+    harness.run_steps(4);
+    harness.get_by_label("Expand editor").focus();
+    harness.run_steps(2);
+    harness.key_press(Key::Enter);
+    harness.run_steps(4);
+    assert!(harness.state().tab().editor.code.expanded);
+    let dialog = harness.get_by_role(egui::accesskit::Role::Dialog);
+    assert_eq!(dialog.accesskit_node().label().as_deref(), Some("Commands"));
+    let editors = harness.query_all_by_label("Commands").collect::<Vec<_>>();
+    let typing = editors
+        .iter()
+        .find(|node| node.accesskit_node().is_focused());
+    assert!(typing.is_some(), "the keyboard is in the larger editor");
+    harness.key_press(Key::Escape);
+    harness.run_steps(4);
+    assert!(!harness.state().tab().editor.code.expanded);
+    let expand = harness.get_by_label("Expand editor");
+    assert!(expand.accesskit_node().is_focused());
+}
+
+/// In an editor of code Tab types a tab; Escape, and then Tab, goes on to
+/// what is next, the grip of its height, and not back to the top of the
+/// window.
+#[test]
+fn escape_and_tab_leave_an_editor_of_code_for_what_is_next() {
+    let mut harness = window(None);
+    harness.set_size(egui::vec2(1400.0, 1200.0));
+    let app = harness.state_mut().tab_mut();
+    app.open_automation(automation::TRIGGERS);
+    app.add_rule();
+    harness.run_steps(4);
+    let typing = egui::accesskit::Role::MultilineTextInput;
+    harness.get_by_role_and_label(typing, "Commands").focus();
+    harness.run_steps(2);
+    harness.key_press(Key::Tab);
+    harness.run_steps(2);
+    assert_eq!(harness.state().tab().editor.draft.triggers[0].send, "\t");
+    harness.key_press(Key::Escape);
+    harness.run_steps(2);
+    let editor = harness.get_by_role_and_label(typing, "Commands");
+    assert!(
+        editor.accesskit_node().is_focused(),
+        "Escape leaves the keyboard there"
+    );
+    harness.key_press(Key::Tab);
+    harness.run_steps(3);
+    assert_eq!(harness.state().tab().editor.draft.triggers[0].send, "\t");
+    let grip = harness.get_by_label("Editor height");
+    assert!(grip.accesskit_node().is_focused());
+}

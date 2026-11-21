@@ -111,39 +111,76 @@ pub fn choice_value<V: PartialEq>(ui: &mut Ui, current: &mut V, value: V, text: 
     response
 }
 
+/// How tall a [`code_editor`] is.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum CodeHeight {
+    /// As tall as what it holds and a line more, `fewest` lines at least and
+    /// `most` at most: past that it scrolls.
+    Auto { fewest: usize, most: usize },
+    /// This many points tall, as the one who uses it made it; it scrolls.
+    Fixed(f32),
+    /// `rows` lines at least, growing with what it holds: for a page of its
+    /// own, which scrolls itself.
+    Fill(usize),
+}
+
 /// An editor of code, coloured as `language` is as it is typed, with the lines
-/// numbered and the one being written marked, as tall as what it holds
-/// and a line more, and `rows` lines at least. `mistake` is the line and the message of what keeps the code
-/// from running, shown at that line and under the editor. `label` names
-/// the editor for screen readers.
+/// numbered and the one being written marked, as tall as `height` says.
+/// `mistake` is the line and the message of what keeps the code from
+/// running, shown at that line and under the editor. `label` names the
+/// editor for screen readers. What it is coloured and laid out as is kept,
+/// and made again only when the text, the width or the theme changes.
 pub fn code_editor(
     ui: &mut Ui,
     label: &str,
     value: &mut String,
     hint: &str,
     language: Language,
-    rows: usize,
+    height: CodeHeight,
+    mistake: Option<&(usize, String)>,
+) -> Response {
+    let response = code_body(ui, label, value, hint, language, height, mistake);
+    mistake_line(ui, mistake);
+    response
+}
+
+/// The editor of [`code_editor`], without what keeps its code from running
+/// written under it.
+fn code_body(
+    ui: &mut Ui,
+    label: &str,
+    value: &mut String,
+    hint: &str,
+    language: Language,
+    height: CodeHeight,
     mistake: Option<&(usize, String)>,
 ) -> Response {
     let theme = theme::current();
     let font = egui::FontId::monospace(13.0);
-    // As tall as what it holds, and a line to go on: `rows` at least.
+    let line = code_line(ui);
     let lines = value.split('\n').count();
-    let rows = rows.max(lines + 1);
     // Room for the numbers of as many lines as there are, or will fit.
-    let lines = lines.max(rows);
     let digit = ui.fonts_mut(|fonts| fonts.glyph_width(&egui::FontId::monospace(11.5), '0'));
-    let gutter = lines.to_string().len().max(2) as f32 * digit + 26.0;
+    let gutter = (lines + 1).to_string().len().max(2) as f32 * digit + 26.0;
+    let id = ui.make_persistent_id(("code editor", label));
     let mut coloured = |ui: &Ui, text: &dyn egui::TextBuffer, wrap_width: f32| {
-        let source = text.as_str();
-        let mut job = match language {
-            Language::Luau => crate::luau::highlight(source, &font, &theme),
-            Language::Commands => {
-                crate::syntax::layout(&crate::syntax::command_tokens(source), &font, &theme)
-            }
-        };
-        job.wrap.max_width = wrap_width;
-        ui.fonts_mut(|fonts| fonts.layout_job(job))
+        cached_layout(
+            ui,
+            id,
+            (language, wrap_width.to_bits()),
+            text.as_str(),
+            || {
+                let source = text.as_str();
+                let mut job = match language {
+                    Language::Luau => crate::luau::highlight(source, &font, &theme),
+                    Language::Commands => {
+                        crate::syntax::layout(&crate::syntax::command_tokens(source), &font, &theme)
+                    }
+                };
+                job.wrap.max_width = wrap_width;
+                job
+            },
+        )
     };
     let margin = Margin {
         left: gutter as i8,
@@ -151,32 +188,206 @@ pub fn code_editor(
         top: 10,
         bottom: 10,
     };
-    let output = TextEdit::multiline(value)
-        .font(font.clone())
-        .hint_text(
-            RichText::new(hint)
-                .font(font.clone())
-                .color(theme.text_faint),
-        )
-        .margin(margin)
-        .desired_rows(rows)
-        .lock_focus(true)
-        .desired_width(f32::INFINITY)
-        .layouter(&mut coloured)
-        .show(ui);
+    let edge = CODE_EDGE;
+    // Tab types a tab, as in any editor of code; after Escape, it goes on
+    // to what is next instead, the keyboard staying where it was, until
+    // something is typed or the keyboard leaves.
+    let escaped_id = id.with("escaped");
+    let escaped = ui.data(|data| data.get_temp::<bool>(escaped_id)) == Some(true);
+    // How many lines are shown, and whether it scrolls past them.
+    let (rows, most) = match height {
+        CodeHeight::Auto { fewest, most } => ((lines + 1).clamp(fewest, most), Some(most)),
+        CodeHeight::Fixed(points) => {
+            let rows = (((points - edge) / line).floor() as usize).max(1);
+            (rows, Some(rows))
+        }
+        CodeHeight::Fill(rows) => (rows.max(lines + 1), None),
+    };
+    let mut editor = |ui: &mut Ui| {
+        let output = TextEdit::multiline(value)
+            .id(id)
+            .font(font.clone())
+            .hint_text(
+                RichText::new(hint)
+                    .font(font.clone())
+                    .color(theme.text_faint),
+            )
+            .margin(margin)
+            .desired_rows(rows.max(lines + 1))
+            .lock_focus(!escaped)
+            .desired_width(f32::INFINITY)
+            .layouter(&mut coloured)
+            .show(ui);
+        // Inside what scrolls, so that the numbers scroll with the lines.
+        line_numbers(ui, &output, gutter, mistake);
+        output
+    };
+    let output = match most {
+        // Taller than it is shown: it scrolls, its own height fixed.
+        Some(most) if lines + 1 > most || matches!(height, CodeHeight::Fixed(_)) => {
+            let shown = most as f32 * line + edge;
+            egui::ScrollArea::vertical()
+                .id_salt(("code scroll", label))
+                .max_height(shown)
+                .min_scrolled_height(shown)
+                .auto_shrink([false, true])
+                .show(ui, editor)
+                .inner
+        }
+        _ => editor(ui),
+    };
     let response = output.response.response.clone();
-    ui.ctx()
-        .accesskit_node_builder(response.id, |node| node.set_label(label));
-    line_numbers(ui, &output, gutter, mistake);
+    let escape = ui.input(|input| input.key_pressed(egui::Key::Escape));
+    let now_escaped = match escaped {
+        false if response.lost_focus() && escape => {
+            response.request_focus();
+            true
+        }
+        true => response.has_focus() && !response.changed(),
+        false => false,
+    };
+    if now_escaped != escaped {
+        ui.data_mut(|data| data.insert_temp(escaped_id, now_escaped));
+    }
+    let how = crate::i18n::tr(
+        "Tab inserts a tab. To move to the next control, press Escape and then Tab.",
+    );
+    ui.ctx().accesskit_node_builder(response.id, |node| {
+        node.set_label(label);
+        node.set_description(how);
+    });
+    response
+}
+
+/// The margin above and below the lines of a [`code_editor`], together.
+const CODE_EDGE: f32 = 20.0;
+/// How many lines a [`code_editor`] that fits what it holds shows at most,
+/// before it scrolls, and how many one made taller can show.
+const MOST_LINES: usize = 20;
+const TALLEST: usize = 60;
+
+/// How tall a line of code is.
+fn code_line(ui: &Ui) -> f32 {
+    ui.fonts_mut(|fonts| fonts.row_height(&egui::FontId::monospace(13.0)))
+}
+
+/// Under an editor of code, what keeps its code from running, by its line.
+fn mistake_line(ui: &mut Ui, mistake: Option<&(usize, String)>) {
     if let Some((line, message)) = mistake {
         let text = format!("{} {line}: {message}", crate::i18n::tr("Line"));
         ui.label(
             RichText::new(text)
                 .font(theme::font(Weight::Regular, 12.0))
-                .color(theme.danger),
+                .color(theme::current().danger),
         );
     }
-    response
+}
+
+/// A [`code_editor`] which fits what it holds, from `language`'s fewest
+/// lines to [`MOST_LINES`], until it is made taller or shorter with the
+/// grip under it: dragged, or with the arrow keys once Tab is on it. A
+/// double click, or Home, gives it back its own height. `height` is the
+/// height it was made, 0 while it fits what it holds. Returns what to say
+/// when the keyboard changed it.
+pub fn sizable_code_editor(
+    ui: &mut Ui,
+    label: &str,
+    value: &mut String,
+    hint: &str,
+    language: Language,
+    height: &mut f32,
+    mistake: Option<&(usize, String)>,
+) -> (Response, Option<String>) {
+    let fewest = language.fewest_lines();
+    let size = match *height > 0.0 {
+        true => CodeHeight::Fixed(*height),
+        false => CodeHeight::Auto {
+            fewest,
+            most: MOST_LINES,
+        },
+    };
+    let response = code_body(ui, label, value, hint, language, size, mistake);
+    let line = code_line(ui);
+    let lines = value.split('\n').count();
+    let shown = match *height > 0.0 {
+        true => *height,
+        false => (lines + 1).clamp(fewest, MOST_LINES) as f32 * line + CODE_EDGE,
+    };
+    let rows = |points: f32| (((points - CODE_EDGE) / line).floor() as usize).max(1);
+    let (rect, _) = ui.allocate_exact_size(vec2(ui.available_width(), 12.0), Sense::hover());
+    let grip = super::edge(
+        ui,
+        rect,
+        response.id.with("height"),
+        crate::i18n::tr("Editor height"),
+        false,
+    );
+    let mut said = None;
+    if grip.moved != 0.0 {
+        let by = match grip.by_keys {
+            true => grip.moved.signum() * line,
+            false => grip.moved,
+        };
+        let lowest = 3.0 * line + CODE_EDGE;
+        *height = (shown + by).clamp(lowest, TALLEST as f32 * line + CODE_EDGE);
+        if grip.by_keys {
+            let count = rows(*height).to_string();
+            said = Some(crate::i18n::trf("{0} lines", &[&count]));
+        }
+    }
+    let home = grip.response.has_focus()
+        && ui.input_mut(|input| input.consume_key(egui::Modifiers::NONE, egui::Key::Home));
+    if (grip.response.double_clicked() || home) && *height > 0.0 {
+        *height = 0.0;
+        said = home.then(|| crate::i18n::tr("Fits its contents").to_owned());
+    }
+    let count = match *height > 0.0 {
+        true => rows(*height),
+        false => (lines + 1).clamp(fewest, MOST_LINES),
+    };
+    // How tall it is, in words: a number alone, as a value, would be read
+    // as a percentage of the most it can be, which means nothing here.
+    let words = crate::i18n::trf("{0} lines", &[&count.to_string()]);
+    ui.ctx()
+        .accesskit_node_builder(grip.response.id, |node| node.set_description(words));
+    // A short bar in the middle, which stands out while it can be taken.
+    let theme = theme::current();
+    let active = grip.response.hovered() || grip.response.dragged() || grip.response.has_focus();
+    let colour = match active {
+        true => theme.accent,
+        false => theme.border,
+    };
+    let bar = egui::Rect::from_center_size(rect.center(), vec2(36.0, 4.0));
+    ui.painter().rect_filled(bar, CornerRadius::same(2), colour);
+    mistake_line(ui, mistake);
+    (response, said)
+}
+
+/// Lays out `text` as `build` says, or gives back how it was laid out the
+/// last time, if neither it nor `key` nor the theme changed since: colouring
+/// and laying out a long text every frame is what costs most in an editor.
+pub fn cached_layout(
+    ui: &Ui,
+    id: egui::Id,
+    key: impl std::hash::Hash,
+    text: &str,
+    build: impl FnOnce() -> egui::text::LayoutJob,
+) -> std::sync::Arc<egui::Galley> {
+    use std::hash::{Hash, Hasher};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    (text, theme::generation()).hash(&mut hasher);
+    key.hash(&mut hasher);
+    let wanted = hasher.finish();
+    let slot = id.with("laid out");
+    let kept = ui.data(|data| data.get_temp::<(u64, std::sync::Arc<egui::Galley>)>(slot));
+    if let Some((known, galley)) = kept
+        && known == wanted
+    {
+        return galley;
+    }
+    let galley = ui.fonts_mut(|fonts| fonts.layout_job(build()));
+    ui.data_mut(|data| data.insert_temp(slot, (wanted, galley.clone())));
+    galley
 }
 
 /// The numbers of the lines in the gutter, the line being written marked,
@@ -235,12 +446,40 @@ fn line_numbers(
     }
 }
 
+/// What the editors of code of a page remember: how tall those of commands
+/// and of scripts were made (see [`Language::slot`]; 0 fits them to what
+/// they hold), and whether one is open larger, over the window.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct CodeSizes {
+    pub heights: [f32; 2],
+    pub expanded: bool,
+}
+
 /// What a [`code_editor`] holds, for its colours.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Language {
     Luau,
     /// The commands a rule sends, a line each.
     Commands,
+}
+
+impl Language {
+    /// How many lines an editor of it shows at least: a script needs more
+    /// room than a few commands.
+    pub fn fewest_lines(self) -> usize {
+        match self {
+            Self::Luau => 8,
+            Self::Commands => 3,
+        }
+    }
+
+    /// Where the height its editors are made is kept, of the two.
+    pub fn slot(self) -> usize {
+        match self {
+            Self::Commands => 0,
+            Self::Luau => 1,
+        }
+    }
 }
 
 /// The tags of something: each a pill with a cross to take it off, a

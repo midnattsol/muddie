@@ -39,7 +39,7 @@ impl Tab {
         } else {
             None
         };
-        action_block(
+        let said = action_block(
             ui,
             ActionEdit {
                 lua: &mut rule.lua,
@@ -50,9 +50,13 @@ impl Tab {
                 script_hint: "if m[1] ~= \"you\" then\n\tsend(\"assist \" .. m[1])\nend",
                 about_commands: tr("One command per line. %1, %2… are the groups of the pattern."),
                 about_script: tr("m holds the match, line the whole line."),
+                sizes: &mut self.editor.code,
             },
             mistake.as_ref(),
         );
+        if let Some(said) = said {
+            self.voice.say_now(&said);
+        }
     }
 }
 

@@ -41,6 +41,13 @@ pub fn edge(ui: &mut Ui, rect: egui::Rect, id: egui::Id, label: &str, standing: 
     };
     let mut by_keys = false;
     if response.has_focus() {
+        // Its arrows move it, not the keyboard to what is beside it.
+        let filter = egui::EventFilter {
+            horizontal_arrows: standing,
+            vertical_arrows: !standing,
+            ..Default::default()
+        };
+        ui.memory_mut(|memory| memory.set_focus_lock_filter(response.id, filter));
         let (back, on) = match standing {
             true => (egui::Key::ArrowLeft, egui::Key::ArrowRight),
             false => (egui::Key::ArrowUp, egui::Key::ArrowDown),

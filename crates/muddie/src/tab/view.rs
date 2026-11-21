@@ -126,9 +126,17 @@ impl Tab {
         }
     }
 
-    /// The widths of the automation view's panes, as last dragged.
-    pub fn pane_widths(&self) -> [f32; 2] {
-        self.editor.panes
+    /// The widths of the automation view's panes and the heights of its
+    /// editors of code, as last made.
+    pub fn layout(&self) -> ([f32; 2], [f32; 2]) {
+        (self.editor.panes, self.editor.code.heights)
+    }
+
+    /// Lays out the automation view as `settings` say: as it was made in
+    /// whichever session it was.
+    pub fn share_layout(&mut self, settings: &Settings) {
+        self.editor.panes = settings.automation_panes;
+        self.editor.code.heights = settings.code_heights;
     }
 
     /// How the connection is doing: a colour for it, and the words.

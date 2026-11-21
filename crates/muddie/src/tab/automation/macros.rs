@@ -58,7 +58,7 @@ impl Tab {
         } else {
             None
         };
-        action_block(
+        let said = action_block(
             ui,
             ActionEdit {
                 lua: &mut rule.lua,
@@ -69,9 +69,13 @@ impl Tab {
                 script_hint: "map.walk(map.find(\"Temple\")[1].id)",
                 about_commands: tr("One command per line, sent as if you had typed them."),
                 about_script: tr("Run when the key is pressed."),
+                sizes: &mut self.editor.code,
             },
             mistake.as_ref(),
         );
+        if let Some(said) = said {
+            self.voice.say_now(&said);
+        }
         if toggle {
             self.editor.recording_key = !recording;
         }

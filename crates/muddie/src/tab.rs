@@ -316,7 +316,7 @@ impl Tab {
             keypad_pressed: Vec::new(),
             told_screen_reader: false,
         };
-        app.editor.panes = settings.automation_panes;
+        app.share_layout(settings);
         // Speech first: what is said from here on, connecting included, is
         // heard.
         app.voice.configure(settings);

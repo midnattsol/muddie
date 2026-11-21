@@ -43,6 +43,8 @@ pub enum Glyph {
     Settings,
     Profile,
     Text,
+    /// Four arrows outward: shown larger.
+    Expand,
 }
 
 impl Glyph {
@@ -80,6 +82,7 @@ impl Glyph {
             Self::Settings => 0xf013,
             Self::Profile => 0xf007,
             Self::Text => 0xf03a,
+            Self::Expand => 0xf065,
         };
         char::from_u32(code).unwrap_or('?')
     }

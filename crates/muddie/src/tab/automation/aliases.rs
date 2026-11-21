@@ -53,7 +53,7 @@ impl Tab {
         } else {
             None
         };
-        action_block(
+        let said = action_block(
             ui,
             ActionEdit {
                 lua: &mut rule.lua,
@@ -64,9 +64,13 @@ impl Tab {
                 script_hint: "send(\"say \" .. string.upper(m[1]))",
                 about_commands: tr("One command per line. %1 stands for what follows the word."),
                 about_script: tr("m holds the match, input what was typed."),
+                sizes: &mut self.editor.code,
             },
             mistake.as_ref(),
         );
+        if let Some(said) = said {
+            self.voice.say_now(&said);
+        }
         delete
     }
 }

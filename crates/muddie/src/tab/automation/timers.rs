@@ -54,7 +54,7 @@ impl Tab {
         } else {
             None
         };
-        action_block(
+        let said = action_block(
             ui,
             ActionEdit {
                 lua: &mut rule.lua,
@@ -65,9 +65,13 @@ impl Tab {
                 script_hint: "if gmcp(\"Char.Vitals\").hp < 50 then\n\tsend(\"rest\")\nend",
                 about_commands: tr("One command per line."),
                 about_script: tr("Run each time the timer goes off."),
+                sizes: &mut self.editor.code,
             },
             mistake.as_ref(),
         );
+        if let Some(said) = said {
+            self.voice.say_now(&said);
+        }
         delete
     }
 }

@@ -160,6 +160,13 @@ they then do is the same choice for all four:
 - **Luau**: a few lines of Luau instead, in an editor that numbers the
   lines, colours the code and marks the line of a mistake with what is wrong.
 
+The editor fits what it holds, from three lines for commands and eight for
+Luau up to twenty, and scrolls past that. The grip under it makes it taller
+or shorter, by dragging it or with the arrow keys, and a double click or
+Home fits it to its contents again; the height chosen is kept for every
+editor of the same kind. The button at the right of **Do** opens the editor
+over the whole window, and Escape closes it.
+
 The three, and what else there is:
 
 - A **trigger** goes off when a line of output matches. Besides its action
@@ -433,7 +440,8 @@ Everything can be done from the keyboard. Tab goes through the window as
 it is read, top to bottom; Shift+F10 or the menu key opens what a right
 click opens; the arrows move an edge between panels once Tab is on it, and
 the new size is said; and opening a dialog with the keyboard puts it on
-its first control.
+its first control. In an editor of code Tab inserts a tab; Escape and then
+Tab move on to the next control.
 
 A gauge is said as soon as it falls under one of its warnings (a step
 where it changes colour, or its low mark), as it is seen turning colour.

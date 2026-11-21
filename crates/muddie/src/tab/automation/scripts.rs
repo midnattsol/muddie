@@ -212,7 +212,7 @@ impl Tab {
             &mut self.editor.script_text,
             hint,
             widgets::Language::Luau,
-            rows,
+            widgets::CodeHeight::Fill(rows),
             mistake.as_ref(),
         );
         delete
