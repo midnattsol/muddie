@@ -79,6 +79,7 @@ impl Tab {
                     insert: said.run.unwrap_or_default(),
                     usage: said.text,
                     about: said.about,
+                    detail: String::new(),
                     more: false,
                     act: None,
                 });

@@ -162,6 +162,10 @@ end)
 local MAP = "https://mudlet.reinosdeleyenda.es/Mapa_Mudlet.zip"
 map.import(MAP)
 
+-- How its rooms are named: the region first, as in "Anduar: Plaza Mayor",
+-- and some with their exits after, as in "Desierto de Sharframna [n,s]".
+map.names({ region = ":", exits = "[]" })
+
 -- Directions as the MUD says them, long and short; the first is what a
 -- walk sends.
 map.directions({

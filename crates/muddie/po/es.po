@@ -280,10 +280,6 @@ msgid "weight"
 msgstr "peso"
 
 #, python-brace-format
-msgid "{0} (#{1}) in {2}. Exits: {3}."
-msgstr "{0} (n.º {1}) en {2}. Salidas: {3}."
-
-#, python-brace-format
 msgid "Script error: {0}"
 msgstr "Error de script: {0}"
 
@@ -2017,10 +2013,6 @@ msgstr[0] "{0} paso"
 msgstr[1] "{0} pasos"
 
 #, python-brace-format
-msgid "Going to {0}, in {1}: {2}."
-msgstr "Vas a {0}, en {1}: {2}."
-
-#, python-brace-format
 msgid "The nearest of {0} rooms of that name."
 msgid_plural "The nearest of {0} rooms of that name."
 msgstr[0] "La más cercana de {0} salas con ese nombre."
@@ -2297,3 +2289,31 @@ msgstr "completar"
 
 msgid "close"
 msgstr "cerrar"
+
+#, python-brace-format
+msgid "Going to {0}: {1}."
+msgstr "Vas a {0}: {1}."
+
+msgid "Escape stops it."
+msgstr "Escape lo para."
+
+#, python-brace-format
+msgid "{0}. Exits: {1}."
+msgstr "{0}. Salidas: {1}."
+
+msgid "Places"
+msgstr "Lugares"
+
+#, python-brace-format
+msgid "mark, {0}"
+msgstr "marca, {0}"
+
+#, python-brace-format
+msgid "Through {0}."
+msgstr "Pasa por {0}."
+
+#, python-brace-format
+msgid "nearest of {0}"
+msgid_plural "nearest of {0}"
+msgstr[0] "la más cercana de {0}"
+msgstr[1] "la más cercana de {0}"

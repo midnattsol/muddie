@@ -129,7 +129,7 @@ fn reinos_de_leyenda_is_followed_by_the_rooms_it_shows_and_walked_in_its_words()
     // To the well and back by the nearest of the dunes: sent as the MUD says.
     assert_eq!(
         answer(app, "/map travel pozo"),
-        ["Going to Pozo, in Desierto: 1 move."]
+        ["Going to Pozo: 1 move. Escape stops it."]
     );
     assert_eq!(sent_lines(&mut sent), ["norte"]);
     events.send(gmcp("Room.Movimiento", r#""norte""#)).unwrap();
@@ -139,7 +139,7 @@ fn reinos_de_leyenda_is_followed_by_the_rooms_it_shows_and_walked_in_its_words()
     assert!(app.walk.is_none());
     assert_eq!(
         answer(app, "/map travel dunas"),
-        ["Going to Dunas, in Desierto: 1 move. The nearest of 3 rooms of that name."]
+        ["Going to Dunas: 1 move. The nearest of 3 rooms of that name. Escape stops it."]
     );
     assert_eq!(sent_lines(&mut sent), ["sur"]);
     // A move that fails stops the walk.
@@ -165,10 +165,7 @@ fn the_map_is_said_in_words() {
         unknown[0].contains("does not know where you are"),
         "{unknown:?}"
     );
-    assert_eq!(
-        said(app, "/map here 3"),
-        ["Dunas (#3) in Desierto. Exits: norte, oeste."]
-    );
+    assert_eq!(said(app, "/map here 3"), ["Dunas. Exits: norte, oeste."]);
     assert_eq!(said(app, "/map exits"), ["norte: Pozo", "oeste: Dunas"]);
     assert_eq!(said(app, "/map route 1"), ["Dunas [e], 2 moves: 2 oeste."]);
     assert_eq!(
@@ -429,4 +426,62 @@ fn a_map_read_by_an_older_reader_is_taken_whole_again() {
     // By this one: only if newer than the version it has.
     let current = Some(muddie_mapper::MUDLET_READER);
     assert!(why_taken(current) == Some(crate::tab::places::Taking::Update));
+}
+
+/// For whoever does not see the map: the places of it found from the
+/// palette, nearest first, with how far; Enter goes, Shift and Enter says
+/// the way; Escape in the command line stops a walk.
+#[test]
+fn places_are_found_in_the_palette_and_a_walk_stops_with_escape() {
+    let mut harness = window(None);
+    let app = harness.state_mut().tab_mut();
+    let (_events, mut sent) = fake_connection(app);
+    desert(app);
+    app.scripts.exec("t", r#"map.names({exits = "[]"}) map.directions({n = {"norte"}, s = {"sur"}, e = {"este"}, w = {"oeste"}})"#);
+    assert!(app.map.borrow_mut().set_current(4));
+    app.map.borrow_mut().mark("casa", 1).unwrap();
+    app.toggle_palette();
+    app.palette.query = "dun".into();
+    harness.run_steps(2);
+    let items = harness.state_mut().tab_mut().palette_items();
+    let places: Vec<(String, String)> = (items.iter())
+        .filter(|item| matches!(item.act, Some(super::super::commands::Act::Place(_))))
+        .map(|item| (item.usage.clone(), item.detail.clone()))
+        .collect();
+    assert_eq!(
+        places,
+        [("Dunas".to_owned(), "1 move · nearest of 3".to_owned())]
+    );
+    // Shift and Enter says the way, in the palette.
+    harness.key_press_modifiers(Modifiers::SHIFT, Key::Enter);
+    harness.run_steps(2);
+    let app = harness.state_mut().tab_mut();
+    assert_eq!(
+        app.palette.message.clone(),
+        Some(("Dunas, 1 move: sur.".to_owned(), false))
+    );
+    // A mark is a place too; Enter goes there.
+    app.palette.query = "cas".into();
+    harness.run_steps(2);
+    harness.key_press(Key::Enter);
+    harness.run_steps(2);
+    let app = harness.state_mut().tab_mut();
+    assert!(app.walk.is_some() && !app.palette.open);
+    let lines: Vec<Command> = std::iter::from_fn(|| sent.try_recv().ok()).collect();
+    assert_eq!(lines.first(), Some(&Command::Send("sur".into())));
+    // Escape in the empty command line stops it.
+    harness.get_by_label("Command").click();
+    harness.run_steps(1);
+    eprintln!(
+        "DBG input {:?} walk {} popup {} focused {:?}",
+        harness.state().tab().input,
+        harness.state().tab().walk.is_some(),
+        egui::Popup::is_any_open(&harness.ctx),
+        harness.ctx.memory(|m| m.focused())
+    );
+    harness.key_press(Key::Escape);
+    harness.run_steps(2);
+    let app = harness.state().tab();
+    assert!(app.walk.is_none());
+    assert!(notes(app).iter().any(|said| said == "Walk stopped."));
 }

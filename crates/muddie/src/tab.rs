@@ -93,6 +93,8 @@ pub struct Tab {
     /// The last the server said asks for a password, though it does not
     /// hide what is typed: what is typed next is kept as secret.
     asks_password: bool,
+    /// The command line had the keyboard in the frame before.
+    line_focused: bool,
     history: History,
     voice: Voice,
     scripts: Engine,
@@ -268,6 +270,7 @@ impl Tab {
             input: String::new(),
             input_hidden: false,
             asks_password: false,
+            line_focused: false,
             history: History::default(),
             voice: Voice::default(),
             scripts: Engine::new(Rc::clone(&map)).expect("failed to start the script runtime"),

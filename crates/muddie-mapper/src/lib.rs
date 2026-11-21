@@ -21,10 +21,10 @@ mod walk;
 pub use info::RoomInfo;
 pub use locating::{Located, Sighting};
 pub use mudlet::{MUDLET_READER, MudletMap, read_mudlet_map};
+pub use naming::Naming;
 pub use rusqlite::Error;
 pub use walk::{Progress, Walk};
 
-use naming::name_key;
 use store::Store;
 
 pub type RoomId = i64;
@@ -215,6 +215,10 @@ pub struct Map {
     sent: HashMap<String, String>,
     /// The rooms by name as compared, made again when the rooms change.
     names: std::cell::RefCell<Option<(u64, Names)>>,
+    /// How the MUD names its rooms, as a script taught the map.
+    naming: Naming,
+    /// Whether the rooms are in more than one area, as of a revision.
+    several_areas: std::cell::Cell<Option<(u64, bool)>>,
     /// The rooms the player may be in when the map cannot tell which.
     candidates: Vec<RoomId>,
     /// The moves sent that the server has not shown the end of yet, in
@@ -323,7 +327,7 @@ impl Map {
 
     /// Rooms whose name contains `query`, ignoring case, ordered by name.
     pub fn find(&self, query: &str) -> Vec<&Room> {
-        let query = name_key(query);
+        let query = self.name_key(query);
         let mut found: Vec<&Room> = (self.with_names(|names| {
             (names.iter())
                 .filter(|(name, _)| name.contains(&query))

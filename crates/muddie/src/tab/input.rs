@@ -51,6 +51,18 @@ impl Tab {
     pub(super) fn input_line(&mut self, ui: &mut egui::Ui) {
         let id = ui.make_persistent_id("command input");
         let focused = ui.memory(|memory| memory.has_focus(id));
+        // While walking, Escape in the empty line stops the walk at once,
+        // unless it closes something open over it first. The line had the
+        // keyboard in the frame before: Escape takes it away before this.
+        let had_it = std::mem::replace(&mut self.line_focused, focused);
+        if (focused || had_it)
+            && self.walk.is_some()
+            && self.input.is_empty()
+            && crate::widgets::take_escape(ui)
+        {
+            self.stop_walking();
+            ui.memory_mut(|memory| memory.request_focus(id));
+        }
         let completing = self.complete_word(ui, focused);
         // A click on what takes no keyboard (the output, to choose text in
         // it; a button) leaves the keyboard here: given up and taken back,

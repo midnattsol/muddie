@@ -55,6 +55,8 @@ impl Tab {
             pressed(Modifiers::NONE, Key::PageUp),
             pressed(Modifiers::NONE, Key::PageDown),
         );
+        // With Shift first: without it, the plain one would take it too.
+        let way = pressed(Modifiers::SHIFT, Key::Enter);
         let (tab, escape, enter) = (
             pressed(Modifiers::NONE, Key::Tab),
             pressed(Modifiers::NONE, Key::Escape),
@@ -81,7 +83,14 @@ impl Tab {
         };
         let typed = format!("/{}", self.palette.query.trim_start_matches('/'));
         let typed_more = typed.trim_end().len() > chosen.insert.trim_end().len();
-        if enter {
+        // Shift and Enter on a place says the way there, without going.
+        if way && let Some(Act::Place(name)) = &chosen.act {
+            let line = format!("/map route {name}");
+            self.palette.query.clear();
+            self.run_command_from(&line, true);
+            return true;
+        }
+        if enter || way {
             self.choose(&chosen, typed_more, ctx);
             return true;
         }
@@ -419,10 +428,10 @@ fn palette_row(ui: &mut egui::Ui, item: &Item, chosen: bool) -> egui::Response {
         ui.allocate_exact_size(egui::vec2(ui.available_width(), ROW), egui::Sense::click());
     let command = item.act.is_none();
     // What it is for is said with it; for what the palette does, its
-    // group says that already.
+    // group says that already, and its detail says the rest.
     let about = match command {
         true => item.about.as_str(),
-        false => "",
+        false => item.detail.as_str(),
     };
     row.widget_info(|| {
         let usage = shown_usage(&item.usage);
@@ -554,6 +563,7 @@ fn look_of(item: &Item) -> (widgets::Glyph, &'static str) {
         Act::Speech | Act::ReadChannel(..) => (Glyph::Say, ""),
         Act::AddPanel(_) | Act::Panel(_) | Act::FullHeight | Act::Side(_) => (Glyph::Panel, ""),
         Act::Connect(_) => (Glyph::Profile, ""),
+        Act::Place(_) => (Glyph::Map, ""),
     }
 }
 

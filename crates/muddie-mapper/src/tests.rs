@@ -447,6 +447,11 @@ fn desert() -> Map {
         room(13, "Oasis", &[("s", 12)]),
     ];
     map.replace_all(rooms, None).unwrap();
+    // As maps taken from elsewhere are, the exits after a name.
+    map.set_naming(Naming {
+        exits_between: Some(("[".into(), "]".into())),
+        ..Naming::default()
+    });
     map
 }
 
@@ -697,4 +702,53 @@ fn a_rooms_colour_stays_when_the_server_says_none_and_is_kept() {
     drop(map);
     assert_eq!(Map::open(&path).unwrap().room(1).unwrap().colour, None);
     std::fs::remove_file(&path).unwrap();
+}
+
+#[test]
+fn a_room_is_in_its_area_unless_the_mud_names_its_region() {
+    let mut map = desert();
+    let rename = |map: &mut Map, id: RoomId, name: &str| {
+        let rooms: Vec<Room> = (map.rooms().cloned())
+            .map(|mut room| {
+                if room.id == id {
+                    room.name = name.to_owned();
+                }
+                room
+            })
+            .collect();
+        map.replace_all(rooms, None).unwrap();
+    };
+    rename(&mut map, 11, "Anduar: Calle de la Justicia [e,w]");
+    rename(&mut map, 12, "Anduar: Plaza Mayor");
+    let region = |map: &Map, id| map.region(map.room(id).unwrap()).map(str::to_owned);
+    // Of one area, and named in no way of the MUD's: nothing to say.
+    assert_eq!(region(&map, 11), None);
+    // Taught that a name begins with its region.
+    map.set_naming(Naming {
+        region_before: Some(":".into()),
+        exits_between: Some(("[".into(), "]".into())),
+    });
+    assert_eq!(region(&map, 11).as_deref(), Some("Anduar"));
+    assert_eq!(region(&map, 10).as_deref(), Some("Dune"));
+    // A route from the oasis to the first dune goes through Anduar.
+    let steps = map.route(13, 10).unwrap();
+    assert_eq!(map.regions_along(13, &steps), ["Anduar"]);
+    // Untaught again, with several areas, the area is the region.
+    map.set_naming(Naming::default());
+    let mut rooms: Vec<Room> = map.rooms().cloned().collect();
+    rooms
+        .iter_mut()
+        .filter(|room| room.id == 13)
+        .for_each(|room| room.area = "oasis".into());
+    map.replace_all(rooms, None).unwrap();
+    assert_eq!(region(&map, 11).as_deref(), Some("desert"));
+}
+
+#[test]
+fn a_name_is_compared_whole_unless_the_mud_writes_exits_after_it() {
+    let mut map = desert();
+    assert_eq!(map.locate("Dune", None), [10, 11, 12]);
+    map.set_naming(Naming::default());
+    assert_eq!(map.locate("Dune", None), [10, 12]);
+    assert_eq!(map.locate("dune [e,w]", None), [11]);
 }

@@ -218,6 +218,7 @@ impl Tab {
                     }
                 }
             }
+            Act::Place(name) => self.go_to(&name),
             Act::Connect(name) => {
                 if self.select_profile(Some(name)) {
                     self.connect(ctx);
@@ -238,6 +239,7 @@ fn item(label: &str, place: &str, act: Act) -> Item {
         insert: String::new(),
         usage: label.to_owned(),
         about: place.to_owned(),
+        detail: String::new(),
         more: false,
         act: Some(act),
     }

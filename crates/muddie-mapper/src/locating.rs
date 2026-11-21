@@ -4,7 +4,6 @@
 //! until the rooms they lead to tell them apart.
 
 use super::*;
-use naming::name_key;
 
 /// What the map keeps of the room the player was last known to be in.
 const LAST_ROOM: &str = "last room";
@@ -108,11 +107,11 @@ impl Map {
         // this room answers. Either way, that move is answered.
         let sent = self.next_move();
         let came = seen.came.map(|came| self.direction(came)).or(sent);
-        let key = seen.name.map(name_key);
+        let key = seen.name.map(|name| self.name_key(name));
         let exits = seen.exits.map(|exits| self.exit_set(exits));
         let named = |id: RoomId| {
             (key.as_ref()).is_none_or(|key| {
-                (self.rooms.get(&id)).is_some_and(|room| name_key(&room.name) == *key)
+                (self.rooms.get(&id)).is_some_and(|room| self.name_key(&room.name) == *key)
             })
         };
         let like =
@@ -222,7 +221,7 @@ impl Map {
     /// whose name has it in it or is in it, else those whose name shares
     /// the most of its words. None if no word is shared.
     pub(crate) fn called_alike(&self, name: &str) -> Vec<RoomId> {
-        let key = name_key(name);
+        let key = self.name_key(name);
         if key.is_empty() {
             return Vec::new();
         }

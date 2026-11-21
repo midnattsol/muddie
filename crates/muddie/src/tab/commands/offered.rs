@@ -115,6 +115,7 @@ fn item(insert: String, usage: String, about: &str, more: bool) -> Item {
         insert,
         usage,
         about: about.to_owned(),
+        detail: String::new(),
         more,
         act: None,
     }

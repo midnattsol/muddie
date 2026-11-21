@@ -99,7 +99,12 @@ impl Tab {
             from.map(|from| {
                 let route = map.route_to_nearest(from, &targets);
                 let to = route.as_ref().and_then(|(to, _)| map.room(*to));
-                let place = to.map(|room| (room.name.clone(), room.area.clone()));
+                let place = to.map(|room| {
+                    let through = route
+                        .as_ref()
+                        .map(|(_, steps)| map.regions_along(from, steps));
+                    (places::place_words(&map, room), through.unwrap_or_default())
+                });
                 (from, route, place)
             })
         };
@@ -107,14 +112,18 @@ impl Tab {
             let said = self.unknown_whereabouts();
             return self.refuse(&said);
         };
-        let Some(((_, route), (name, area))) = route.zip(place) else {
+        let Some(((_, route), (place, through))) = route.zip(place) else {
             return self.refuse(tr("No known route to that place."));
         };
         if route.is_empty() {
-            return self.note(&trf("You are already in {0}.", &[&name]));
+            return self.note(&trf("You are already in {0}.", &[&place]));
         }
         let moves = trn("{0} move", "{0} moves", route.len() as u64);
-        let mut said = trf("Going to {0}, in {1}: {2}.", &[&name, &area, &moves]);
+        let mut said = trf("Going to {0}: {1}.", &[&place, &moves]);
+        if !through.is_empty() {
+            said.push(' ');
+            said.push_str(&places::through(&through));
+        }
         if rooms.len() > 1 {
             said.push(' ');
             said.push_str(&trn(
@@ -123,6 +132,8 @@ impl Tab {
                 rooms.len() as u64,
             ));
         }
+        said.push(' ');
+        said.push_str(tr("Escape stops it."));
         self.note(&said);
         let walk = Walk::new(from, route);
         let progress = walk.start();
@@ -223,21 +234,13 @@ impl Tab {
             let exits: Vec<&str> = (room.exits.keys())
                 .map(|way| map.command_for(way))
                 .collect();
-            let fields = [
-                &room.name,
-                &room.id.to_string(),
-                &room.area,
-                &exits.join(", "),
-            ];
-            trf(
-                "{0} (#{1}) in {2}. Exits: {3}.",
-                &fields.map(String::as_str),
-            )
+            let place = places::place_words(&map, room);
+            trf("{0}. Exits: {1}.", &[&place, &exits.join(", ")])
         });
         // On the way somewhere, where to and how far.
         let going = self.walk.as_ref().and_then(|(walk, _)| {
             let (left, to) = walk.left();
-            let name = self.map.borrow().room(to?)?.name.clone();
+            let name = places::place_words(&map, map.room(to?)?);
             Some(
                 trn(
                     "Walking to {1}: {0} step left.",

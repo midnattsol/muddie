@@ -486,7 +486,17 @@ taken again the next time the plugin asks for it.
 
 Everything the map shows can be said: the `/map` commands above tell where
 you are, what is around, where each exit leads and the way to anywhere, and
-`/map travel` goes there.
+`/map travel` goes there. Typed in the palette, the name of a place lists
+the places of the map that have it, under **Places**, each once with where
+it is and how many moves away, the nearest first, and the names given to
+rooms with `/map mark`: Enter goes there, and Shift with Enter says the way
+without going. Going somewhere says how far, and the regions the way goes
+through; nothing of what the game says on the way is left unread. Escape in
+the empty command line stops the walk.
+
+Where a room is, its region, is its area; a plugin can teach how its MUD
+names rooms instead, as the one of Reinos de Leyenda does: there the region
+is what a name begins with, as Anduar in "Anduar: Plaza Mayor".
 | Action | What it does |
 |---|---|
 | Click a room | Walks there, one step at a time, waiting for each to succeed |

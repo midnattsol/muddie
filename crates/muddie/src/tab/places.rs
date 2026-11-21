@@ -71,12 +71,18 @@ impl Tab {
                     Some((to, steps)) => {
                         let name = map
                             .room(to)
-                            .map_or_else(String::new, |room| room.name.clone());
+                            .map_or_else(String::new, |room| place_words(&map, room));
                         Ok(if steps.is_empty() {
                             trf("You are already in {0}.", &[&name])
                         } else {
                             let moves = trn("{0} move", "{0} moves", steps.len() as u64);
-                            format!("{name}, {moves}: {}.", in_runs(&steps))
+                            let mut said = format!("{name}, {moves}: {}.", in_runs(&steps));
+                            let regions = map.regions_along(from, &steps);
+                            if !regions.is_empty() {
+                                said.push(' ');
+                                said.push_str(&through(&regions));
+                            }
+                            said
                         })
                     }
                 },
@@ -398,6 +404,94 @@ pub(super) enum Taking {
     Asked,
     Script,
     Update,
+}
+
+/// Of the rooms of a name: how many moves away the nearest is, if it can
+/// be reached, which it is, and how many there are.
+type Nearest = (Option<usize>, RoomId, usize);
+
+/// How many places the palette lists for what is typed, at most.
+const PLACES: usize = 8;
+
+impl Tab {
+    /// The places of the map whose name has `query`, for the palette: the
+    /// marks that have it, and each name once, at its nearest room, the
+    /// nearest first, with where it is and how many moves away.
+    pub(super) fn palette_places(&self, query: &str) -> Vec<commands::Item> {
+        let query = query.trim().to_lowercase();
+        if query.chars().count() < 2 {
+            return Vec::new();
+        }
+        let map = self.map.borrow();
+        let moves = map
+            .current()
+            .map(|here| map.moves_from(here.id))
+            .unwrap_or_default();
+        let place = |name: &str, detail: String| commands::Item {
+            insert: String::new(),
+            usage: name.to_owned(),
+            about: tr("Places").to_owned(),
+            detail,
+            more: false,
+            act: Some(commands::Act::Place(name.to_owned())),
+        };
+        let mut items: Vec<commands::Item> = (map.marks().iter())
+            .filter(|(mark, _)| mark.to_lowercase().contains(&query))
+            .map(|(mark, id)| {
+                let room = map
+                    .room(*id)
+                    .map_or_else(String::new, |room| place_words(&map, room));
+                place(mark, trf("mark, {0}", &[&room]))
+            })
+            .collect();
+        // Each name once, by the nearest of the rooms that have it.
+        let mut names: std::collections::BTreeMap<&str, Nearest> = Default::default();
+        for room in map.find(&query) {
+            let far = moves.get(&room.id).copied();
+            let named = names
+                .entry(map.bare_name(&room.name))
+                .or_insert((far, room.id, 0));
+            named.2 += 1;
+            if far.is_some_and(|far| named.0.is_none_or(|known| far < known)) {
+                (named.0, named.1) = (far, room.id);
+            }
+        }
+        let mut found: Vec<(&str, Nearest)> = names.into_iter().collect();
+        found.sort_by_key(|(name, (far, _, _))| (far.is_none(), *far, *name));
+        for (name, (far, id, count)) in found.into_iter().take(PLACES) {
+            let mut detail: Vec<String> = Vec::new();
+            if let Some(region) = map
+                .room(id)
+                .and_then(|room| map.region(room))
+                .filter(|region| *region != name)
+            {
+                detail.push(region.to_owned());
+            }
+            if let Some(far) = far {
+                detail.push(trn("{0} move", "{0} moves", far as u64));
+            }
+            if count > 1 {
+                detail.push(trn("nearest of {0}", "nearest of {0}", count as u64));
+            }
+            items.push(place(name, detail.join(" · ")));
+        }
+        items
+    }
+}
+
+/// A room as it is said: its name, without the exits some MUDs write
+/// after it, and its region when that is not its name already.
+pub(super) fn place_words(map: &muddie_mapper::Map, room: &muddie_mapper::Room) -> String {
+    let name = map.bare_name(&room.name);
+    match map.region(room) {
+        Some(region) if region != name && !name.starts_with(region) => format!("{name}, {region}"),
+        _ => name.to_owned(),
+    }
+}
+
+/// The regions a route goes through, said.
+pub(super) fn through(regions: &[String]) -> String {
+    trf("Through {0}.", &[&regions.join(", ")])
 }
 
 /// What tells a room from others of its name: where it is and its exits.

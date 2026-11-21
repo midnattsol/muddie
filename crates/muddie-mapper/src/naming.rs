@@ -9,14 +9,16 @@ const SOURCE_VERSION: &str = "source version";
 /// Which reader read the map from there (see [`crate::MUDLET_READER`]).
 const SOURCE_READER: &str = "source reader";
 
-/// A room's name as compared: without case, the spaces around it, or the
-/// exits some maps write after it in brackets (`Plaza [n,s]`).
-pub(crate) fn name_key(name: &str) -> String {
-    let name = name.trim();
-    let bare = (name.strip_suffix(']'))
-        .and_then(|rest| Some(rest[..rest.rfind('[')?].trim_end()))
-        .filter(|bare| !bare.is_empty());
-    bare.unwrap_or(name).to_lowercase()
+/// How a MUD names its rooms, where it has a way of its own that the map
+/// is to understand: none, unless taught (see [`Map::set_naming`]).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Naming {
+    /// A room's name begins with its region, up to this ("Anduar" in
+    /// "Anduar: Plaza Mayor" with ":"); else the region is its area.
+    pub region_before: Option<String>,
+    /// A room's name may end with its exits between these two
+    /// ("Plaza [n,s]" with "[" and "]"), which are not part of the name.
+    pub exits_between: Option<(String, String)>,
 }
 
 impl Map {
@@ -37,11 +39,13 @@ impl Map {
         }
     }
 
-    /// Takes what `other` was taught of the server's words for directions:
-    /// a map opened in place of another, for the session, knows them too.
+    /// Takes what `other` was taught of the MUD's ways, its words for
+    /// directions and how it names rooms: a map opened in place of
+    /// another, for the session, knows them too.
     pub fn learn_from(&mut self, other: &Map) {
         self.words.clone_from(&other.words);
         self.sent.clone_from(&other.sent);
+        self.set_naming(other.naming.clone());
     }
 
     /// A direction as the map keeps it, however the server or the user
@@ -58,6 +62,80 @@ impl Map {
     /// the map was taught one.
     pub fn command_for<'a>(&'a self, direction: &'a str) -> &'a str {
         self.sent.get(direction).map_or(direction, String::as_str)
+    }
+
+    /// Teaches the map how the MUD names its rooms, or, with the default,
+    /// that it names them in no way of its own.
+    pub fn set_naming(&mut self, naming: Naming) {
+        self.naming = naming;
+        // The rooms by name are found again by the new rule.
+        self.names.borrow_mut().take();
+    }
+
+    /// A room's name as compared: without case, the spaces around it, or
+    /// the exits written after it, if the MUD writes them so.
+    pub(crate) fn name_key(&self, name: &str) -> String {
+        self.bare_name(name).to_lowercase()
+    }
+
+    /// A room's name without the exits written after it, if the MUD
+    /// writes them so.
+    pub fn bare_name<'a>(&self, name: &'a str) -> &'a str {
+        let name = name.trim();
+        let Some((open, close)) = &self.naming.exits_between else {
+            return name;
+        };
+        (name.strip_suffix(close.as_str()))
+            .and_then(|rest| Some(rest[..rest.rfind(open.as_str())?].trim_end()))
+            .filter(|bare| !bare.is_empty())
+            .unwrap_or(name)
+    }
+
+    /// Where a room is, in words: what its name begins with, if the MUD
+    /// names its rooms so, or its name if it begins with nothing; else its
+    /// area, when the map has more than one. None when there is nothing
+    /// to tell one place from another.
+    pub fn region<'a>(&self, room: &'a Room) -> Option<&'a str> {
+        if let Some(before) = &self.naming.region_before {
+            let bare = self.bare_name(&room.name);
+            return match bare.split_once(before.as_str()) {
+                Some((region, _)) if !region.trim().is_empty() => Some(region.trim()),
+                _ => Some(bare).filter(|bare| !bare.is_empty()),
+            };
+        }
+        (self.several_areas() && !room.area.is_empty()).then_some(room.area.as_str())
+    }
+
+    /// The regions a route goes through, in order, each once, but the one
+    /// it starts in and the one it ends in.
+    pub fn regions_along(&self, from: RoomId, steps: &[Step]) -> Vec<String> {
+        let region = |id: RoomId| {
+            (self.rooms.get(&id)).and_then(|room| self.region(room).map(str::to_owned))
+        };
+        let (start, end) = (region(from), steps.last().and_then(|step| region(step.to)));
+        let mut regions: Vec<String> = Vec::new();
+        for region in steps.iter().filter_map(|step| region(step.to)) {
+            let known = regions.contains(&region);
+            if !known && Some(&region) != start.as_ref() && Some(&region) != end.as_ref() {
+                regions.push(region);
+            }
+        }
+        regions
+    }
+
+    /// Whether the rooms are in more than one area: worked out again only
+    /// when they change.
+    fn several_areas(&self) -> bool {
+        match self.several_areas.get() {
+            Some((revision, several)) if revision == self.revision => several,
+            _ => {
+                let mut areas = self.rooms.values().map(|room| room.area.as_str());
+                let first = areas.next();
+                let several = areas.any(|area| Some(area) != first);
+                self.several_areas.set(Some((self.revision, several)));
+                several
+            }
+        }
     }
 
     /// The rooms the user named, by name.
@@ -153,7 +231,10 @@ impl Map {
         {
             let mut index = Names::new();
             for room in self.rooms.values() {
-                index.entry(name_key(&room.name)).or_default().push(room.id);
+                index
+                    .entry(self.name_key(&room.name))
+                    .or_default()
+                    .push(room.id);
             }
             *names = Some((self.revision, index));
         }
@@ -163,7 +244,7 @@ impl Map {
 
     /// The rooms called `name`, in order of number.
     pub(crate) fn called(&self, name: &str) -> Vec<RoomId> {
-        let key = name_key(name);
+        let key = self.name_key(name);
         let mut ids = (self.with_names(|names| names.get(&key).cloned())).unwrap_or_default();
         ids.sort_unstable();
         ids

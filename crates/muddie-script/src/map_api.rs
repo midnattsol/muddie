@@ -200,6 +200,34 @@ fn install_visiting(
 
     let world = Rc::clone(map);
     api.set(
+        "names",
+        lua.create_function(move |_, ways: Option<Table>| {
+            let naming = match ways {
+                None => Naming::default(),
+                Some(ways) => {
+                    let exits: Option<String> = ways.get("exits")?;
+                    let exits_between = match exits.as_deref().map(|pair| pair.chars().collect::<Vec<_>>()) {
+                        None => None,
+                        Some(pair) if pair.len() == 2 => Some((pair[0].to_string(), pair[1].to_string())),
+                        Some(_) => {
+                            return Err(mlua::Error::runtime(
+                                "exits must be the two characters the exits are written between, such as \"[]\"",
+                            ));
+                        }
+                    };
+                    Naming {
+                        region_before: ways.get("region")?,
+                        exits_between,
+                    }
+                }
+            };
+            world.borrow_mut().set_naming(naming);
+            Ok(())
+        })?,
+    )?;
+
+    let world = Rc::clone(map);
+    api.set(
         "set_room",
         lua.create_function(move |_, room: Table| {
             let info = room_info(&room)?;

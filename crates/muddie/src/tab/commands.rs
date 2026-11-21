@@ -24,8 +24,10 @@ pub struct Item {
     pub insert: String,
     /// How it is shown: the command as it is typed.
     pub usage: String,
-    /// What it is for.
+    /// What it is for: for what the palette does, the group it is in.
     pub about: String,
+    /// More about it, shown after it: for a place, where it is and how far.
+    pub detail: String,
     /// Whether it takes something that has yet to be typed, so that
     /// choosing it completes it rather than runs it.
     pub more: bool,
@@ -67,6 +69,9 @@ pub enum Act {
     Side(super::layout::Side),
     /// Switches to the saved profile of this name and connects.
     Connect(String),
+    /// Goes to the nearest room of this name, or mark; or, asked for the
+    /// way, says it.
+    Place(String),
 }
 
 /// What a session asks the window to do.
@@ -164,6 +169,10 @@ impl Tab {
             query.split_whitespace().all(|word| words.contains(word))
         };
         let mut items: Vec<Item> = acts.iter().filter(named).cloned().collect();
+        // The places of the map whose name has what is typed.
+        if !self.palette.query.starts_with('/') {
+            items.extend(self.palette_places(&query));
+        }
         let commands = offered(&typed, &tags, &plugins);
         // One being typed as a command goes first, to run with Enter.
         if self.palette.query.starts_with('/') || items.is_empty() {

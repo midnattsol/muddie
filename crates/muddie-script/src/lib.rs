@@ -112,6 +112,12 @@
 //! - `map.directions{n = {"norte", "n"}, w = {"oeste", "o"}, ...}`: the
 //!   server's words for each direction, the first of each being what a
 //!   walk sends. The map understands them wherever a direction is given.
+//! - `map.names{region = ":", exits = "[]"}`: how the MUD names its
+//!   rooms, where it has a way of its own: a name begins with its region,
+//!   up to `region` ("Anduar: Plaza Mayor"), and may end with its exits
+//!   between the two characters of `exits` ("Plaza [n,s]"). Unless taught,
+//!   a room's region is its area and its name is compared whole;
+//!   `map.names()` goes back to that.
 //! - `map.import(address)`: take the map made with Mudlet at `address`, a
 //!   `.dat` file or a zip holding one, on the web or on disk, in place of
 //!   the map there is. A map taken from there already is taken again only
@@ -165,7 +171,9 @@ use std::time::{Duration, Instant};
 use mlua::serde::SerializeOptions;
 use mlua::{Function, Lua, LuaOptions, LuaSerdeExt, StdLib, Table, Value, Variadic, VmState};
 use muddie_core::{Color, Line};
-use muddie_mapper::{Colour, Exit, Located, Map, Pos, Room, RoomId, RoomInfo, Sighting, room_id};
+use muddie_mapper::{
+    Colour, Exit, Located, Map, Naming, Pos, Room, RoomId, RoomInfo, Sighting, room_id,
+};
 use regex::Regex;
 
 mod action;

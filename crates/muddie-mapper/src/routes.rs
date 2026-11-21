@@ -76,6 +76,29 @@ impl Map {
         Some((to, steps))
     }
 
+    /// How many moves away each room is that can be reached from `from`,
+    /// by exits that are not locked, through rooms routes may go through.
+    pub fn moves_from(&self, from: RoomId) -> HashMap<RoomId, usize> {
+        let mut moves = HashMap::from([(from, 0)]);
+        let mut queue = VecDeque::from([from]);
+        while let Some(id) = queue.pop_front() {
+            let Some(room) = self.rooms.get(&id) else {
+                continue;
+            };
+            let far = moves[&id] + 1;
+            for exit in room.exits.values().filter(|exit| !exit.locked) {
+                let through = self.rooms.get(&exit.to).is_some_and(|room| !room.avoid);
+                if let std::collections::hash_map::Entry::Vacant(entry) = moves.entry(exit.to) {
+                    entry.insert(far);
+                    if through {
+                        queue.push_back(exit.to);
+                    }
+                }
+            }
+        }
+        moves
+    }
+
     /// The rooms up to `moves` moves away, nearest first, each with the
     /// route to it: what is around, as routes would go there.
     pub fn around(&self, from: RoomId, moves: usize) -> Vec<(RoomId, Vec<Step>)> {
