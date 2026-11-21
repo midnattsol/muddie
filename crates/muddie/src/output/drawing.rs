@@ -45,8 +45,8 @@ pub(super) fn row_links(
             None => {}
         }
     }
-    if response.secondary_clicked()
-        && let Some(pointer) = response.interact_pointer_pos()
+    if crate::widgets::menu_pressed(response)
+        && let Some(pointer) = response.hover_pos()
         && let Some(LinkTarget::Menu(items)) = link_under(pointer).map(|link| &link.target)
     {
         *menu = Some((serial, items.clone()));
@@ -115,7 +115,7 @@ impl eframe::egui::plugin::Plugin for ChosenText {
 fn output_menu(response: &eframe::egui::Response, line: Option<&str>, asked: &mut Option<Asked>) {
     // Looked at only as the menu opens and while it is open, not for
     // every line every frame.
-    if response.secondary_clicked() {
+    if crate::widgets::menu_pressed(response) {
         let selection = response
             .ctx
             .plugin::<eframe::egui::text_selection::LabelSelectionState>();

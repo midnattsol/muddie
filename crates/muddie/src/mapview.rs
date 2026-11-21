@@ -179,7 +179,7 @@ impl MapView {
             return Some(moved);
         }
         let pointed = response.hover_pos().and_then(room_at);
-        if response.secondary_clicked() {
+        if crate::widgets::menu_pressed(&response) {
             self.menu_room = pointed.map(|room| room.id);
         }
         let mut chosen = tools.action(&area);

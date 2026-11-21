@@ -145,8 +145,7 @@ impl Tab {
         let (left, right) = (pressed(Key::ArrowLeft), pressed(Key::ArrowRight));
         let (delete, rename) = (pressed(Key::Delete), pressed(Key::F2));
         let all = ui.input_mut(|input| input.consume_key(Modifiers::COMMAND, Key::A));
-        let back = self.editor.marked.len() > 1
-            && ui.input_mut(|input| input.consume_key(Modifiers::NONE, Key::Escape));
+        let back = self.editor.marked.len() > 1 && widgets::take_escape(ui);
         let visible = self.editor.visible.clone();
         let rows: Vec<usize> = (visible.iter())
             .filter_map(|spot| match spot {

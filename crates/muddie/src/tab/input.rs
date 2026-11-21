@@ -315,7 +315,7 @@ impl Tab {
                 None => self.voice.say_now(tr("Not found.")),
             }
         }
-        let escape = ui.input_mut(|input| input.consume_key(Modifiers::NONE, Key::Escape));
+        let escape = crate::widgets::take_escape(ui);
         if close || escape {
             self.find.open = false;
             self.find.place = None;

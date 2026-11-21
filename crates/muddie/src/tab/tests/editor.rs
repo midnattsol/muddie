@@ -1280,3 +1280,42 @@ fn a_closed_folder_opens_under_what_is_dragged_and_escape_gives_up() {
     let folders = harness.state().tab().section_folders(Kind::Alias);
     assert!(folders.contains(&"Travel".to_owned()), "{folders:?}");
 }
+
+/// The right button opens a menu as it is pressed, as the desktop does, on
+/// a folder and on a rule; let go, it stays open; and Escape closes the
+/// menu alone, not the editor under it.
+#[test]
+fn a_menu_opens_as_the_right_button_is_pressed() {
+    let mut harness = list_with_a_folder();
+    let menu_item = |harness: &Harness<'_, App>, name: &str| {
+        let item = egui::accesskit::Role::MenuItem;
+        harness.query_by_role_and_label(item, name).is_some()
+    };
+    for (line, item) in [("Travel", "Rename"), ("Gamma", "Delete")] {
+        let at = line_of(&harness, line).center();
+        harness.event(egui::Event::PointerMoved(at));
+        harness.step();
+        let button = |pressed| egui::Event::PointerButton {
+            pos: at,
+            button: egui::PointerButton::Secondary,
+            pressed,
+            modifiers: Modifiers::NONE,
+        };
+        harness.event(button(true));
+        harness.step();
+        assert!(menu_item(&harness, item), "no menu on pressing on {line}");
+        harness.event(button(false));
+        harness.run_steps(2);
+        assert!(
+            menu_item(&harness, item),
+            "the menu of {line} closed on letting go"
+        );
+        harness.key_press(Key::Escape);
+        harness.run_steps(2);
+        assert!(!menu_item(&harness, item));
+        assert!(
+            harness.state().tab().editor.open,
+            "Escape closed the editor too"
+        );
+    }
+}

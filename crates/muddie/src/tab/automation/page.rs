@@ -47,7 +47,7 @@ impl Tab {
         let leaving = !self.editor.recording_key
             && !self.editor.was_typing
             && self.editor.marked.len() < 2
-            && ui.input_mut(|input| input.consume_key(Modifiers::NONE, Key::Escape));
+            && widgets::take_escape(ui);
         let page = egui::Frame::new()
             .fill(theme.surface)
             .inner_margin(egui::Margin {

@@ -373,7 +373,7 @@ impl Tab {
             }
             self.choose_folder(path);
         }
-        if line.secondary_clicked() {
+        if widgets::menu_pressed(&line) {
             self.choose_folder(path);
         }
         if line.double_clicked() {
@@ -602,7 +602,7 @@ impl Tab {
         if line.clicked() {
             self.choose_row(index, ui.input(|input| input.modifiers));
         }
-        if line.secondary_clicked() && !chosen {
+        if widgets::menu_pressed(&line) && !chosen {
             self.choose_row(index, Modifiers::NONE);
         }
         crate::widgets::context_menu_of(&line, |ui| self.row_menu(ui));

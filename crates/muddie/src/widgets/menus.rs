@@ -13,9 +13,26 @@ pub fn menu_of(button: &Response) -> egui::Popup<'_> {
     egui::Popup::menu(button)
 }
 
-/// The menu of a right click on `response`, which Shift+F10 and the menu
-/// key open too while it has the keyboard: under it then, with the keyboard
-/// on its first item.
+/// Takes Escape, if it was pressed and no menu is open: a menu open takes
+/// it for itself, to close, and it is not to close what is under it too.
+pub fn take_escape(ui: &Ui) -> bool {
+    !egui::Popup::is_any_open(ui.ctx())
+        && ui.input_mut(|input| input.consume_key(egui::Modifiers::NONE, egui::Key::Escape))
+}
+
+/// Whether the right button was pressed over `response` this frame: what
+/// opens its menu, as the desktop does, on the press rather than once the
+/// button is let go, which feels slow, and which a hand that moves while
+/// it is held turns into a drag and no menu at all.
+pub fn menu_pressed(response: &Response) -> bool {
+    response.contains_pointer()
+        && (response.ctx)
+            .input(|input| input.pointer.button_pressed(egui::PointerButton::Secondary))
+}
+
+/// The menu of a right click on `response`, opened as the button is
+/// pressed, which Shift+F10 and the menu key open too while it has the
+/// keyboard: under it then, with the keyboard on its first item.
 pub fn context_menu_of(
     response: &Response,
     add_contents: impl FnOnce(&mut Ui),
@@ -31,7 +48,7 @@ pub fn context_menu_of(
         ctx.data_mut(|data| data.insert_temp(by_keys, true));
     }
     let mut popup = egui::Popup::context_menu(response);
-    if asked {
+    if asked || menu_pressed(response) {
         popup = popup.open_memory(egui::SetOpenCommand::Bool(true));
     }
     if ctx

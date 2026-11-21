@@ -338,9 +338,15 @@ fn shows_editor() {
     rules.state_mut().tab_mut().editor.folder = None;
     rules.run_steps(2);
     let from = rules.get_by_label("Fight back").rect().center();
-    let social = rules.get_by_role_and_label(egui::accesskit::Role::TreeItem, "Social").rect();
+    let social = rules
+        .get_by_role_and_label(egui::accesskit::Role::TreeItem, "Social")
+        .rect();
     let over = social.center() + egui::vec2(40.0, 0.0);
-    for (at, pressed) in [(from, Some(true)), (from + egui::vec2(0.0, 12.0), None), (over, None)] {
+    for (at, pressed) in [
+        (from, Some(true)),
+        (from + egui::vec2(0.0, 12.0), None),
+        (over, None),
+    ] {
         rules.event(egui::Event::PointerMoved(at));
         if let Some(pressed) = pressed {
             rules.event(egui::Event::PointerButton {
