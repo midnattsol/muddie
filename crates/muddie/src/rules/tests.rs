@@ -161,7 +161,10 @@ fn templates_are_filled_from_a_match() {
         rule.when.gag = true;
     });
     assert_eq!(trigger.when.regex_source(), "a \\(b\\)\\?");
-    assert_eq!(trigger.summary(), "→ x  ·  ∅");
+    assert_eq!(
+        trigger.summary(),
+        [(Part::Send, "x".to_owned()), (Part::Hide, String::new())]
+    );
 }
 
 #[test]

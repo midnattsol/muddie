@@ -644,9 +644,10 @@ fn restarting_the_scripts_says_when_and_which_failed() {
     harness.run_steps(3);
     let app = harness.state().tab();
     assert_eq!(app.editor.failed, ["broken.luau"]);
-    // In the foot of the sections, with when.
+    // In the foot of the sections: how many failed, and when.
     let at = harness.state().tab().editor.restarted.clone().unwrap();
-    harness.get_by_label(&format!("Restarted at {at}; 1 failed"));
+    harness.get_by_label("1 script failed");
+    harness.get_by_label(&format!("Restarted at {at}"));
     // Said over the corner, as the lines of the game are not in sight,
     // and kept as something that could not be done.
     let (said, _) = harness.state().tab().notices();

@@ -162,6 +162,29 @@ impl When for OnTime {
     }
 }
 
+/// What a part of a rule's line in a list is: each is shown with its own
+/// picture.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Part {
+    /// The commands it sends.
+    Send,
+    /// That it runs a Luau script.
+    Script,
+    /// What it says aloud.
+    Say,
+    Sound,
+    /// The colour the match is drawn in.
+    Colour,
+    /// The panel it shows the line in.
+    Panel,
+    /// That it hides the line.
+    Hide,
+    /// The key that sets it off.
+    Key,
+    /// How often it goes off, or after how long.
+    Time,
+}
+
 impl<T: When> Rule<T> {
     /// What it is called: its name, or else what it is made of.
     pub fn title(&self) -> String {
@@ -171,41 +194,36 @@ impl<T: When> Rule<T> {
         }
     }
 
-    /// What it does, in a line: its commands, or that it runs a script.
-    pub fn does(&self) -> String {
+    /// What it does: its commands, or that it runs a script.
+    pub fn does(&self) -> Option<(Part, String)> {
         if self.lua {
-            return "Luau".to_owned();
+            return Some((Part::Script, "Luau".to_owned()));
         }
         let sent: Vec<&str> = commands(&self.send).collect();
-        match sent.is_empty() {
-            true => String::new(),
-            false => format!("→ {}", sent.join("; ")),
-        }
+        (!sent.is_empty()).then(|| (Part::Send, sent.join("; ")))
     }
 }
 
 impl Rule<OnLine> {
-    /// A line saying what the trigger does, for lists.
-    pub fn summary(&self) -> String {
+    /// What the trigger does, part by part, for lists. Hiding the line
+    /// has no words of its own.
+    pub fn summary(&self) -> Vec<(Part, String)> {
         let when = &self.when;
-        let mut parts = vec![self.does()];
-        if !when.speak.trim().is_empty() {
-            parts.push(format!("“{}”", when.speak.trim()));
-        }
-        if !when.sound.trim().is_empty() {
-            parts.push(format!("♪ {}", when.sound.trim()));
-        }
-        if !when.highlight.trim().is_empty() {
-            parts.push(when.highlight.trim().to_owned());
-        }
-        if !when.panel.trim().is_empty() {
-            parts.push(format!("▸ {}", when.panel.trim()));
+        let mut parts: Vec<(Part, String)> = self.does().into_iter().collect();
+        for (part, text) in [
+            (Part::Say, &when.speak),
+            (Part::Sound, &when.sound),
+            (Part::Colour, &when.highlight),
+            (Part::Panel, &when.panel),
+        ] {
+            if !text.trim().is_empty() {
+                parts.push((part, text.trim().to_owned()));
+            }
         }
         if when.gag {
-            parts.push("∅".to_owned());
+            parts.push((Part::Hide, String::new()));
         }
-        parts.retain(|part| !part.is_empty());
-        parts.join("  ·  ")
+        parts
     }
 }
 

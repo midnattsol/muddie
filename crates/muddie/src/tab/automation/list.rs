@@ -2,12 +2,17 @@
 //! with the way to search it, narrow it to a tag, and add to it.
 
 use super::*;
+use crate::rules::Part;
 use crate::rules::RuleList;
 
 /// What the list shows of one thing of a section.
 pub(in crate::tab) struct Row {
     pub(in crate::tab) title: String,
+    /// What it does in a line, in words: what a search looks in, and what
+    /// a screen reader is told.
     pub(in crate::tab) detail: String,
+    /// The same, part by part, each with its picture, as it is shown.
+    pub(in crate::tab) parts: Vec<(widgets::Glyph, String)>,
     /// Its own switch.
     pub(in crate::tab) on: bool,
     /// The folder it is in; empty for none.
@@ -28,10 +33,11 @@ impl Tab {
     pub(in crate::tab) fn automation_rows(&self) -> Vec<Row> {
         let draft = &self.editor.draft;
         match self.editor.section {
-            TRIGGERS => rule_rows(&draft.triggers, |rule| rule.summary()),
-            ALIASES => rule_rows(&draft.aliases, crate::rules::Rule::does),
+            TRIGGERS => rule_rows(&draft.triggers, crate::rules::Rule::summary),
+            ALIASES => rule_rows(&draft.aliases, |rule| rule.does().into_iter().collect()),
             MACROS => rule_rows(&draft.macros, |rule| {
-                format!("{}  {}", rule.when.key.trim(), rule.does())
+                let key = (Part::Key, rule.when.key.trim().to_uppercase());
+                std::iter::once(key).chain(rule.does()).collect()
             }),
             TIMERS => rule_rows(&draft.timers, |rule| {
                 let how = if rule.when.repeat {
@@ -39,7 +45,8 @@ impl Tab {
                 } else {
                     tr("after")
                 };
-                format!("{how} {}  {}", rule.when.interval(), rule.does())
+                let time = (Part::Time, format!("{how} {}", rule.when.interval()));
+                std::iter::once(time).chain(rule.does()).collect()
             }),
             GAUGES => draft.gauges.iter().map(gauge_row).collect(),
             VARIABLES => (self.scripts.variables().into_iter())
@@ -62,6 +69,7 @@ impl Tab {
         Row {
             title: title_of(file),
             detail: detail.to_owned(),
+            parts: Vec::new(),
             on: kept.enabled,
             folder: place
                 .rsplit_once('/')
@@ -118,11 +126,8 @@ impl Tab {
             .auto_shrink(false)
             .show(ui, |ui| {
                 ui.spacing_mut().item_spacing.y = 2.0;
-                if rows.is_empty() && folders.is_empty() {
-                    ui.add_space(24.0);
-                    let hint = RichText::new(tr("Nothing here yet.\nPress + to make one."))
-                        .color(theme::current().text_faint);
-                    ui.vertical_centered(|ui| ui.label(hint));
+                if rows.is_empty() && folders.is_empty() && self.empty_list(ui) {
+                    self.add_rule();
                 }
                 let mut spots = Vec::new();
                 let tree = Tree {
@@ -210,8 +215,8 @@ impl Tab {
         };
         // The switch, over the right end of the line, named or not.
         let place = egui::Rect::from_center_size(
-            rect.right_center() - egui::vec2(25.0, 0.0),
-            egui::vec2(34.0, 20.0),
+            rect.right_center() - egui::vec2(21.0, 0.0),
+            egui::vec2(30.0, 17.0),
         );
         let mut slot = ui.new_child(
             egui::UiBuilder::new()
@@ -219,7 +224,7 @@ impl Tab {
                 .max_rect(place),
         );
         let mut on = self.editor.draft.folder_on(kind, path);
-        if widgets::switch(&mut slot, &mut on, name).changed() {
+        if widgets::small_switch(&mut slot, &mut on, name).changed() {
             self.editor.draft.set_folder_on(kind, path, on);
         }
         rect
@@ -290,6 +295,7 @@ impl Tab {
         let line = widgets::ListRow {
             title: &row.title,
             detail: &row.detail,
+            parts: &row.parts,
             tags: &row.tags,
             selected: chosen,
             active,
@@ -438,10 +444,58 @@ pub(in crate::tab) fn parent_of(path: &str) -> &str {
     path.rsplit_once('/').map_or("", |(parent, _)| parent)
 }
 
+impl Tab {
+    /// What an empty section shows: its picture, that there is nothing in
+    /// it yet, and the button that makes the first. Returns whether it was
+    /// pressed.
+    fn empty_list(&self, ui: &mut egui::Ui) -> bool {
+        use widgets::Glyph;
+        let theme = theme::current();
+        let (glyph, new) = match self.editor.section {
+            TRIGGERS => (Glyph::When, tr("New trigger")),
+            ALIASES => (Glyph::Send, tr("New alias")),
+            MACROS => (Glyph::Key, tr("New macro")),
+            TIMERS => (Glyph::Timer, tr("New timer")),
+            GAUGES => (Glyph::Gauge, tr("New gauge")),
+            VARIABLES => (Glyph::Type, tr("New variable")),
+            _ => (Glyph::Script, tr("New script")),
+        };
+        let mut pressed = false;
+        ui.add_space(36.0);
+        ui.vertical_centered(|ui| {
+            widgets::glyph(ui, glyph, 26.0, theme.text_faint);
+            ui.add_space(6.0);
+            let said = RichText::new(tr("Nothing here yet."))
+                .font(theme::font(Weight::Medium, 13.5))
+                .color(theme.text_dim);
+            ui.add(egui::Label::new(said).selectable(false));
+            ui.add_space(8.0);
+            pressed = widgets::primary_button(ui, new).clicked();
+        });
+        pressed
+    }
+}
+
+/// A part of what a rule does as it is shown: its picture, and its words.
+fn shown_part(part: Part, text: String) -> (widgets::Glyph, String) {
+    use widgets::Glyph;
+    match part {
+        Part::Send => (Glyph::Send, text),
+        Part::Script => (Glyph::Code, text),
+        Part::Say => (Glyph::Say, text),
+        Part::Sound => (Glyph::Sound, text),
+        Part::Colour => (Glyph::Colour, text),
+        Part::Panel => (Glyph::Panel, text),
+        Part::Hide => (Glyph::Hide, tr("hides the line").to_owned()),
+        Part::Key => (Glyph::Key, text),
+        Part::Time => (Glyph::Timer, text),
+    }
+}
+
 /// The rows of rules of one kind, with what each does in a line.
 fn rule_rows<T: crate::rules::When>(
     rules: &Vec<crate::rules::Rule<T>>,
-    detail: impl Fn(&crate::rules::Rule<T>) -> String,
+    detail: impl Fn(&crate::rules::Rule<T>) -> Vec<(Part, String)>,
 ) -> Vec<Row> {
     (0..rules.len())
         .map(|index| {
@@ -450,9 +504,17 @@ fn rule_rows<T: crate::rules::When>(
                 title => title,
             };
             let rule = &rules[index];
+            let parts: Vec<(widgets::Glyph, String)> = (detail(rule).into_iter())
+                .filter(|(part, text)| *part == Part::Hide || !text.is_empty())
+                .map(|(part, text)| shown_part(part, text))
+                .collect();
             Row {
                 title,
-                detail: detail(rule),
+                detail: (parts.iter())
+                    .map(|(_, text)| text.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", "),
+                parts,
                 on: rule.enabled,
                 folder: rule.folder.trim().to_owned(),
                 tags: rule.tags.clone(),
@@ -478,6 +540,7 @@ fn gauge_row(rule: &crate::rules::Gauge) -> Row {
     Row {
         title,
         detail: format!("{kind}  ·  {}", rule.value.trim()),
+        parts: Vec::new(),
         on: rule.enabled,
         folder: String::new(),
         tags: Vec::new(),
@@ -490,6 +553,7 @@ fn variable_row((name, value): (String, serde_json::Value)) -> Row {
     Row {
         title: name,
         detail: format!("{}  ·  {held}", TYPES[kind_of(&value)]),
+        parts: Vec::new(),
         on: true,
         folder: String::new(),
         tags: Vec::new(),

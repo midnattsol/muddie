@@ -208,47 +208,73 @@ impl Tab {
             }
         }
         self.sidebar_tags(ui);
-        ui.add_space(18.0);
         self.sidebar_foot(ui);
     }
 
-    /// The foot of the sections: restarting the scripts, with when that
-    /// was last done and what failed then. What is edited is saved by
-    /// itself, and only saving that fails is said, as any failure is.
+    /// The foot of the sections, kept at the bottom: how the scripts are,
+    /// when they were last started over and what failed then, and the
+    /// button that starts them over. What is edited is saved by itself,
+    /// and only saving that fails is said, as any failure is.
     fn sidebar_foot(&mut self, ui: &mut egui::Ui) {
         let theme = theme::current();
-        let small = |text: &str, colour| {
-            RichText::new(text)
-                .font(theme::font(Weight::Regular, 11.5))
-                .color(colour)
-        };
-        ui.horizontal(|ui| {
-            ui.add_space(6.0);
-            let restart = widgets::button(ui, tr("Restart scripts")).on_hover_text(tr(
-                "Runs every script and rule again, as when a session starts. The variables are kept.",
-            ));
-            if restart.clicked() {
-                self.restart_scripts();
-            }
-        });
-        let Some(at) = &self.editor.restarted else {
-            return;
-        };
-        let (said, colour) = match self.editor.failed.len() {
-            0 => (trf("Restarted at {0}", &[at]), theme.text_faint),
+        const TALL: f32 = 58.0;
+        let rest = ui.available_rect_before_wrap();
+        let place = egui::Rect::from_min_max(
+            egui::pos2(rest.left(), (rest.bottom() - TALL).max(rest.top() + 12.0)),
+            rest.max,
+        );
+        let mut foot = ui.new_child(egui::UiBuilder::new().max_rect(place));
+        let failed = self.editor.failed.len();
+        let (state, colour) = match failed {
+            0 => (tr("Scripts running").to_owned(), theme.good),
             count => (
-                trn(
-                    "Restarted at {1}; {0} failed",
-                    "Restarted at {1}; {0} failed",
-                    count as u64,
-                )
-                .replace("{1}", at),
+                trn("{0} script failed", "{0} scripts failed", count as u64),
                 theme.danger,
             ),
         };
-        ui.horizontal(|ui| {
-            ui.add_space(10.0);
-            ui.label(small(&said, colour));
-        });
+        let when = (self.editor.restarted.as_ref()).map(|at| trf("Restarted at {0}", &[at]));
+        let mut restart = false;
+        egui::Frame::new()
+            .fill(theme.field)
+            .corner_radius(egui::CornerRadius::same(10))
+            .inner_margin(egui::Margin::symmetric(12, 8))
+            .show(&mut foot, |ui| {
+                ui.set_width(ui.available_width());
+                let id = ui.make_persistent_id("sidebar foot");
+                widgets::right_last(
+                    ui,
+                    id,
+                    |ui| {
+                        ui.vertical(|ui| {
+                            ui.spacing_mut().item_spacing.y = 1.0;
+                            ui.horizontal(|ui| {
+                                let size = egui::vec2(8.0, 8.0);
+                                let (dot, _) = ui.allocate_exact_size(size, egui::Sense::hover());
+                                ui.painter().circle_filled(dot.center(), 3.5, colour);
+                                let state = RichText::new(&state)
+                                    .font(theme::font(Weight::Medium, 12.5))
+                                    .color(theme.text);
+                                ui.add(Label::new(state).selectable(false));
+                            });
+                            if let Some(when) = &when {
+                                let when = RichText::new(when)
+                                    .font(theme::font(Weight::Regular, 11.5))
+                                    .color(theme.text_faint);
+                                ui.add(Label::new(when).selectable(false));
+                            }
+                        });
+                    },
+                    |ui| {
+                        restart = widgets::glyph_button(ui, widgets::Glyph::Restart, tr("Restart scripts"))
+                            .on_hover_text(tr(
+                                "Runs every script and rule again, as when a session starts. The variables are kept.",
+                            ))
+                            .clicked();
+                    },
+                );
+            });
+        if restart {
+            self.restart_scripts();
+        }
     }
 }

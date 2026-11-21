@@ -326,13 +326,13 @@ pub fn tag_field(
 
 /// A tag carried, as a pill with a cross; clicked, it is taken off.
 fn tag_chip(ui: &mut Ui, tag: &str) -> Response {
-    let theme = theme::current();
+    let colour = tag_colour(tag);
     let text = RichText::new(format!("{tag}  ×"))
         .font(theme::font(Weight::Medium, 12.0))
-        .color(theme.accent);
+        .color(colour);
     let chip = ui.add(
         egui::Button::new(text)
-            .fill(theme.accent.gamma_multiply(0.14))
+            .fill(colour.gamma_multiply(0.14))
             .stroke(Stroke::NONE)
             .corner_radius(CornerRadius::same(255)),
     );

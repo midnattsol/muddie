@@ -100,15 +100,19 @@ impl Tab {
                 (false, true) => theme.text_dim,
                 (false, false) => theme.text_faint,
             };
+            // Its colour, as its chips have it.
+            let dot = widgets::tag_colour(&name).gamma_multiply(if on { 1.0 } else { 0.4 });
+            ui.painter()
+                .circle_filled(rect.left_center() + egui::vec2(16.0, 0.0), 3.5, dot);
             text.text(
-                rect.left_center() + egui::vec2(12.0, 0.0),
+                rect.left_center() + egui::vec2(28.0, 0.0),
                 egui::Align2::LEFT_CENTER,
                 &name,
                 theme::font(Weight::Regular, 13.5),
                 colour,
             );
             ui.painter().text(
-                rect.right_center() - egui::vec2(56.0, 0.0),
+                rect.right_center() - egui::vec2(48.0, 0.0),
                 egui::Align2::RIGHT_CENTER,
                 carrying
                     .get(&tag_key(&name))
@@ -123,15 +127,15 @@ impl Tab {
             }
             // The switch, over the right end of the row.
             let place = egui::Rect::from_center_size(
-                rect.right_center() - egui::vec2(25.0, 0.0),
-                egui::vec2(34.0, 20.0),
+                rect.right_center() - egui::vec2(21.0, 0.0),
+                egui::vec2(30.0, 17.0),
             );
             let mut slot = ui.new_child(
                 egui::UiBuilder::new()
                     .id_salt(("tag switch", name.as_str()))
                     .max_rect(place),
             );
-            if widgets::switch(&mut slot, &mut on, &name).changed() {
+            if widgets::small_switch(&mut slot, &mut on, &name).changed() {
                 self.editor.draft.set_tag_on(&name, on);
             }
         }

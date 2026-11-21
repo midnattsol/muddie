@@ -35,7 +35,7 @@ pub fn nav_item(ui: &mut Ui, selected: bool, text: &str, count: Option<usize>) -
             theme::font(weight, 13.5),
             colour,
         );
-        if let Some(count) = count {
+        if let Some(count) = count.filter(|count| *count > 0) {
             painter.text(
                 rect.right_center() - vec2(12.0, 0.0),
                 egui::Align2::RIGHT_CENTER,
@@ -71,6 +71,9 @@ pub const INDENT: f32 = 18.0;
 pub struct ListRow<'a> {
     pub title: &'a str,
     pub detail: &'a str,
+    /// The detail part by part, each with its picture: shown in place of
+    /// `detail`, which is what a screen reader is told.
+    pub parts: &'a [(Glyph, String)],
     pub tags: &'a [String],
     pub selected: bool,
     pub active: bool,
@@ -82,7 +85,11 @@ pub struct ListRow<'a> {
 impl ListRow<'_> {
     pub fn show(self, ui: &mut Ui) -> Response {
         let theme = theme::current();
-        let height = if self.detail.is_empty() { 34.0 } else { 48.0 };
+        let height = if self.detail.is_empty() && self.parts.is_empty() {
+            34.0
+        } else {
+            48.0
+        };
         let (rect, response) =
             ui.allocate_exact_size(vec2(ui.available_width(), height), Sense::click());
         // Chosen, not ticked; what it does, and whether it is off, as it is
@@ -113,7 +120,7 @@ impl ListRow<'_> {
         let fade = if self.active { 1.0 } else { 0.45 };
         let painter = ui.painter().with_clip_rect(body.shrink2(vec2(8.0, 0.0)));
         let left = body.left() + 12.0;
-        let title_y = if self.detail.is_empty() {
+        let title_y = if self.detail.is_empty() && self.parts.is_empty() {
             body.center().y
         } else {
             body.top() + 16.0
@@ -134,13 +141,57 @@ impl ListRow<'_> {
         for tag in self.tags.iter().filter(|tag| !tag.trim().is_empty()) {
             at = tag_pill(&painter, egui::pos2(at, title_y), tag.trim(), fade).right() + 4.0;
         }
-        if !self.detail.is_empty() {
+        // Off, it says so at the right, besides being faded.
+        if !self.active {
+            let galley = painter.layout_no_wrap(
+                crate::i18n::tr("Off").to_owned(),
+                theme::font(Weight::Medium, 10.5),
+                theme.text_faint,
+            );
+            let pill = egui::Rect::from_min_size(
+                egui::pos2(
+                    body.right() - galley.size().x - 22.0,
+                    title_y - galley.size().y / 2.0 - 2.0,
+                ),
+                galley.size() + vec2(12.0, 4.0),
+            );
+            painter.rect_stroke(
+                pill,
+                CornerRadius::same(255),
+                Stroke::new(1.0, theme.border),
+                egui::StrokeKind::Inside,
+            );
+            painter.galley(pill.min + vec2(6.0, 2.0), galley, theme.text_faint);
+        }
+        let line_y = body.top() + 33.0;
+        let ink = theme.text_dim.gamma_multiply(fade);
+        if !self.parts.is_empty() {
+            let mut at = left;
+            for (glyph, text) in self.parts {
+                let mark = paint_glyph(
+                    &painter,
+                    egui::pos2(at, line_y),
+                    egui::Align2::LEFT_CENTER,
+                    *glyph,
+                    10.5,
+                    theme.text_faint.gamma_multiply(fade),
+                );
+                let words = painter.text(
+                    egui::pos2(mark.right() + 5.0, line_y),
+                    egui::Align2::LEFT_CENTER,
+                    text,
+                    theme::font(Weight::Regular, 12.0),
+                    ink,
+                );
+                at = words.right() + 12.0;
+            }
+        } else if !self.detail.is_empty() {
             painter.text(
-                egui::pos2(left, body.top() + 33.0),
+                egui::pos2(left, line_y),
                 egui::Align2::LEFT_CENTER,
                 self.detail,
                 theme::font(Weight::Regular, 12.0),
-                theme.text_dim.gamma_multiply(fade),
+                ink,
             );
         }
         response
@@ -159,26 +210,43 @@ fn indented(ui: &Ui, rect: egui::Rect, depth: usize) -> egui::Rect {
 }
 
 /// A tag, as a small pill starting at `left`, centred on its height.
+/// The colour of a tag, the same wherever it is shown, made from its name
+/// as it is compared: tags are told apart at a glance.
+pub fn tag_colour(tag: &str) -> Color32 {
+    use std::hash::{Hash, Hasher};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    crate::rules::tag_key(tag).hash(&mut hasher);
+    let terminal = theme::current().terminal;
+    [
+        terminal[4],
+        terminal[5],
+        terminal[6],
+        terminal[2],
+        terminal[3],
+        terminal[1],
+    ][(hasher.finish() % 6) as usize]
+}
+
 pub fn tag_pill(
     painter: &egui::Painter,
     left_centre: egui::Pos2,
     tag: &str,
     fade: f32,
 ) -> egui::Rect {
-    let theme = theme::current();
+    let colour = tag_colour(tag);
     let galley = painter.layout_no_wrap(
         tag.to_owned(),
         theme::font(Weight::Medium, 11.0),
-        theme.accent.gamma_multiply(fade),
+        colour.gamma_multiply(fade),
     );
     let size = galley.size() + vec2(12.0, 4.0);
     let pill = egui::Rect::from_min_size(left_centre - vec2(0.0, size.y / 2.0), size);
     painter.rect_filled(
         pill,
         CornerRadius::same(255),
-        theme.accent.gamma_multiply(0.14 * fade),
+        colour.gamma_multiply(0.14 * fade),
     );
-    painter.galley(pill.min + vec2(6.0, 2.0), galley, theme.accent);
+    painter.galley(pill.min + vec2(6.0, 2.0), galley, colour);
     pill
 }
 

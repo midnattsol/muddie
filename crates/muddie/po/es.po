@@ -381,13 +381,6 @@ msgid "Search"
 msgstr "Buscar"
 
 msgid ""
-"Nothing here yet.\n"
-"Press + to make one."
-msgstr ""
-"Aún no hay nada.\n"
-"Pulsa + para crear uno."
-
-msgid ""
 "An alias turns a short command you type\n"
 "into the commands you mean."
 msgstr ""
@@ -1685,12 +1678,6 @@ msgstr[1] "Scripts reiniciados; {0} han fallado."
 msgid "Restarted at {0}"
 msgstr "Reiniciados a las {0}"
 
-#, python-brace-format
-msgid "Restarted at {1}; {0} failed"
-msgid_plural "Restarted at {1}; {0} failed"
-msgstr[0] "Reiniciados a las {1}; {0} ha fallado"
-msgstr[1] "Reiniciados a las {1}; {0} han fallado"
-
 msgid "Restarts the scripts and rules"
 msgstr "Reinicia los scripts y las reglas"
 
@@ -1865,4 +1852,24 @@ msgstr "Añadir una acción"
 
 msgid "The line is not shown."
 msgstr "La línea no se muestra."
+
+msgid "{0} script failed"
+msgid_plural "{0} scripts failed"
+msgstr[0] "{0} script ha fallado"
+msgstr[1] "{0} scripts han fallado"
+
+msgid "Scripts running"
+msgstr "Scripts en marcha"
+
+msgid "New variable"
+msgstr "Nueva variable"
+
+msgid "New script"
+msgstr "Nuevo script"
+
+msgid "Nothing here yet."
+msgstr "Todavía no hay nada."
+
+msgid "hides the line"
+msgstr "oculta la línea"
 

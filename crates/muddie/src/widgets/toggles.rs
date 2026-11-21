@@ -5,8 +5,17 @@ use super::*;
 /// A switch, for a setting that is simply on or off. `label` names it for
 /// screen readers; show it yourself with [`switch_row`] if it needs showing.
 pub fn switch(ui: &mut Ui, on: &mut bool, label: &str) -> Response {
+    sized_switch(ui, on, label, vec2(40.0, 22.0))
+}
+
+/// A smaller switch, for one of many in a list, which should not outweigh
+/// what it switches.
+pub fn small_switch(ui: &mut Ui, on: &mut bool, label: &str) -> Response {
+    sized_switch(ui, on, label, vec2(30.0, 17.0))
+}
+
+fn sized_switch(ui: &mut Ui, on: &mut bool, label: &str, size: Vec2) -> Response {
     let theme = theme::current();
-    let size = vec2(40.0, 22.0);
     let (rect, mut response) = ui.allocate_exact_size(size, Sense::click());
     if response.clicked() {
         *on = !*on;
@@ -16,7 +25,7 @@ pub fn switch(ui: &mut Ui, on: &mut bool, label: &str) -> Response {
     if ui.is_rect_visible(rect) {
         let how_on = ui.ctx().animate_bool_with_time(response.id, *on, 0.14);
         let painter = ui.painter();
-        let round = CornerRadius::same(11);
+        let round = CornerRadius::same((size.y / 2.0) as u8);
         // Off: a hollow track and a grey knob. On: the track filled with
         // the accent, and a knob that stands out from it.
         let hollow = if response.hovered() {
@@ -35,7 +44,7 @@ pub fn switch(ui: &mut Ui, on: &mut bool, label: &str) -> Response {
         if response.has_focus() {
             painter.rect_stroke(
                 rect.expand(2.5),
-                CornerRadius::same(14),
+                CornerRadius::same((size.y / 2.0 + 3.0) as u8),
                 Stroke::new(1.5, theme.accent),
                 egui::StrokeKind::Outside,
             );
