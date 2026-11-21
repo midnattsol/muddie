@@ -96,9 +96,11 @@ fn unmarked_prompt_fires_triggers_once_it_settles() {
 fn client_commands_are_grouped() {
     let read = |line| client_command(line).map(|(command, rest)| format!("{command} {rest}"));
     assert_eq!(
-        read("/map walk Temple of Mota").unwrap(),
+        read("/map travel Temple of Mota").unwrap(),
         "/go Temple of Mota"
     );
+    // Its name before.
+    assert_eq!(read("/map walk 3").unwrap(), "/go 3");
     assert_eq!(
         read("/plugin install https://example.org/x.git mine").unwrap(),
         "/install https://example.org/x.git mine"

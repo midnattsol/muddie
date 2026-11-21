@@ -13,6 +13,9 @@ pub struct Notice {
     /// How many were said before it in the session, and when it was.
     pub serial: u64,
     pub at: Instant,
+    /// Shown over the corner wherever the user is, rather than among the
+    /// lines of the game: about work done aside, as taking a map.
+    pub aside: bool,
 }
 
 /// How many of the client's messages are kept to be read again.
@@ -22,6 +25,13 @@ impl Tab {
     /// Shows and speaks a message from the client itself.
     pub fn note(&mut self, text: &str) {
         self.say(text, false);
+    }
+
+    /// Says something about work done aside, over the corner of the
+    /// window: neither among the lines of the game nor in the command line.
+    pub(super) fn toast(&mut self, text: &str, problem: bool) {
+        self.keep_notice(text, problem, true);
+        self.voice.say(text);
     }
 
     /// Shows and speaks a message, kept as one of something that could not
@@ -46,6 +56,10 @@ impl Tab {
     /// Keeps something the client said, wherever it was shown, to be read
     /// again: what was shown for a moment is not lost.
     pub(super) fn remember_notice(&mut self, text: &str, problem: bool) {
+        self.keep_notice(text, problem, false);
+    }
+
+    fn keep_notice(&mut self, text: &str, problem: bool, aside: bool) {
         if text.trim().is_empty() {
             return;
         }
@@ -59,6 +73,7 @@ impl Tab {
             problem,
             serial: self.notices.said,
             at: Instant::now(),
+            aside,
         });
         self.notices.unread += 1;
     }

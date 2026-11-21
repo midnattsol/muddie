@@ -33,6 +33,7 @@ mod data;
 mod editor;
 mod input;
 mod media;
+mod places;
 mod profiles;
 mod screenshots;
 mod window;

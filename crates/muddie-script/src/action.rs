@@ -75,6 +75,14 @@ pub enum Action {
     Walk(RoomId),
     /// A script moved the player to this room on the map.
     Entered(RoomId),
+    /// The map lost track of where the player is: it cannot tell which of
+    /// several rooms it is, or knows none like it.
+    LostTrack,
+    /// Stop walking: the server said a move failed.
+    StopWalk,
+    /// Take the map made with Mudlet at this address in place of the one
+    /// there is; if it was taken from there, only if it has changed.
+    ImportMap(String),
     /// Send an MSDP message such as `REPORT` with variable names.
     Msdp {
         variable: String,

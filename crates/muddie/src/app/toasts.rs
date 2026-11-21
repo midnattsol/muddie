@@ -1,6 +1,7 @@
 //! Notices over the bottom right corner of the window, which move nothing:
-//! what the client says while the lines of the game are not in sight, and
-//! what waits for an answer, such as a plugin offered for the MUD. What is
+//! what the client says while the lines of the game are not in sight, what
+//! it says of work done aside wherever the user is, and what waits for an
+//! answer, such as a plugin offered for the MUD. What is
 //! said is kept under the bell too, and the screen reader is told of it as
 //! it is said.
 
@@ -31,7 +32,7 @@ impl App {
         }
         let (said, _) = tab.notices();
         let fresh: Vec<&crate::tab::Notice> = (said.iter())
-            .filter(|notice| notice.serial > self.toasts_after)
+            .filter(|notice| notice.aside || notice.serial > self.toasts_after)
             .filter(|notice| {
                 let lasts = if notice.problem {
                     PROBLEM_FOR

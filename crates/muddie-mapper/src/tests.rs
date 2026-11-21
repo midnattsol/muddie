@@ -413,3 +413,178 @@ fn map_survives_reopening() {
     assert_eq!(Map::open(&path).unwrap().rooms().count(), 0);
     std::fs::remove_file(&path).unwrap();
 }
+
+/// A desert of rooms alike, as maps taken from elsewhere have them: a row
+/// of three "Dune" rooms, 10 - 11 - 12, joined east and west, with an
+/// "Oasis" north of 12 and a "Dune [e,w]" written with its exits.
+fn desert() -> Map {
+    let mut map = Map::in_memory();
+    let room = |id: RoomId, name: &str, exits: &[(&str, RoomId)]| Room {
+        id,
+        name: name.to_owned(),
+        area: "desert".to_owned(),
+        pos: pos(id as i32, 0, 0),
+        exits: (exits.iter())
+            .map(|(way, to)| {
+                (
+                    (*way).to_owned(),
+                    Exit {
+                        to: *to,
+                        ..Exit::default()
+                    },
+                )
+            })
+            .collect(),
+        weight: 1,
+        avoid: false,
+    };
+    let rooms = vec![
+        room(10, "Dune", &[("e", 11)]),
+        room(11, "Dune [e,w]", &[("e", 12), ("w", 10)]),
+        room(12, "Dune", &[("w", 11), ("n", 13)]),
+        room(13, "Oasis", &[("s", 12)]),
+    ];
+    map.replace_all(rooms, None).unwrap();
+    map
+}
+
+#[test]
+fn rooms_alike_are_followed_until_a_move_tells_them_apart() {
+    let mut map = desert();
+    let seen = |name, came| Sighting {
+        name: Some(name),
+        exits: None,
+        came,
+    };
+    // Three rooms are dunes, one with its exits in its name.
+    assert_eq!(
+        map.arrive(seen("dune", None)),
+        Located::Unsure(vec![10, 11, 12])
+    );
+    // Going east, the player was in 10 or 11, so is in 11 or 12.
+    assert_eq!(
+        map.arrive(seen("Dune", Some("e"))),
+        Located::Unsure(vec![11, 12])
+    );
+    // Going east again, only 11 had a dune east of it.
+    assert_eq!(map.arrive(seen("Dune", Some("east"))), Located::Here(12));
+    // Looking leaves the player where they are; going north leads on.
+    assert_eq!(map.arrive(seen("Dune", None)), Located::Here(12));
+    assert_eq!(map.arrive(seen("Oasis", Some("n"))), Located::Here(13));
+    assert_eq!(map.current().unwrap().id, 13);
+}
+
+#[test]
+fn exits_tell_rooms_alike_apart_and_one_step_is_found_without_the_way() {
+    let mut map = desert();
+    let exits = ["w".to_owned(), "n".to_owned()];
+    let sighting = Sighting {
+        name: Some("Dune"),
+        exits: Some(&exits),
+        came: None,
+    };
+    assert_eq!(map.arrive(sighting), Located::Here(12));
+    // Without the exit taken, a room next to the last one that is so.
+    let sighting = Sighting {
+        name: Some("Oasis"),
+        ..Sighting::default()
+    };
+    assert_eq!(map.arrive(sighting), Located::Here(13));
+    // A room the map does not have is nowhere; the user can say where.
+    let sighting = Sighting {
+        name: Some("Sea"),
+        ..Sighting::default()
+    };
+    assert_eq!(map.arrive(sighting), Located::Nowhere);
+    assert!(map.current().is_none());
+    assert!(map.set_current(11) && !map.set_current(99));
+    assert_eq!(map.whereabouts(), Located::Here(11));
+}
+
+#[test]
+fn the_servers_words_for_directions_are_understood_and_sent() {
+    let mut map = desert();
+    let words = |direction: &str, said: &[&str]| {
+        (
+            direction.to_owned(),
+            said.iter().map(|word| (*word).to_owned()).collect(),
+        )
+    };
+    map.set_directions(&[
+        words("e", &["este", "e"]),
+        words("w", &["oeste", "o"]),
+        words("n", &["norte", "n"]),
+    ]);
+    assert_eq!(map.direction("Oeste"), "w");
+    assert_eq!(map.direction("o"), "w");
+    assert_eq!(map.direction("north"), "n");
+    let route = map.route(10, 13).unwrap();
+    let commands: Vec<&str> = route.iter().map(|step| step.command.as_str()).collect();
+    assert_eq!(commands, ["este", "este", "norte"]);
+    // Exits given in those words are the map's.
+    let exits = ["o".to_owned(), "norte".to_owned()];
+    assert_eq!(map.locate("dune", Some(&exits)), [12]);
+    map.set_exit(13, "oeste", 10).unwrap();
+    assert!(map.room(13).unwrap().exits.contains_key("w"));
+}
+
+#[test]
+fn the_nearest_of_several_rooms_is_gone_to() {
+    let map = desert();
+    let dunes = HashSet::from([10, 11]);
+    let (to, steps) = map.route_to_nearest(13, &dunes).unwrap();
+    assert_eq!((to, steps.len()), (11, 2));
+    let around: Vec<(RoomId, usize)> = (map.around(12, 2).into_iter())
+        .map(|(id, steps)| (id, steps.len()))
+        .collect();
+    // The same number of moves away, in the order of the exits.
+    assert_eq!(around, [(13, 1), (11, 1), (10, 2)]);
+}
+
+#[test]
+fn places_are_meant_by_number_mark_name_or_area() {
+    let mut map = desert();
+    map.mark("Water", 13).unwrap();
+    assert_eq!(map.rooms_meant("12"), [12]);
+    assert_eq!(map.rooms_meant("water"), [13]);
+    assert_eq!(map.rooms_meant("dune"), [10, 11, 12]);
+    assert_eq!(map.rooms_meant("oas"), [13]);
+    assert_eq!(map.rooms_meant("Desert oasis"), [13]);
+    assert_eq!(map.rooms_meant("desert"), [10, 11, 12, 13]);
+    assert!(map.rooms_meant("sea").is_empty());
+    // A name given again, in any case, names the room it is given to.
+    map.mark("WATER", 12).unwrap();
+    assert_eq!(map.marks().len(), 1);
+    assert_eq!(map.marked("water"), Some(12));
+    assert!(map.unmark("Water").unwrap() && !map.unmark("water").unwrap());
+}
+
+#[test]
+fn a_map_taken_again_keeps_what_the_user_set_and_where_it_came_from() {
+    let path = std::env::temp_dir().join(format!("muddie-taken-{}.sqlite", std::process::id()));
+    let _ = std::fs::remove_file(&path);
+    {
+        let mut map = Map::open(&path).unwrap();
+        map.replace_all(desert().rooms().cloned().collect(), Some(10))
+            .unwrap();
+        map.set_avoid(11, true).unwrap();
+        map.set_exit(13, "climb", 10).unwrap();
+        map.mark("water", 13).unwrap();
+        map.set_source(Some(("https://example.org/map.zip", Some("v1"))))
+            .unwrap();
+        // The newer map has the same rooms, and no exit of the user's.
+        map.replace_all(desert().rooms().cloned().collect(), Some(12))
+            .unwrap();
+        assert_eq!(map.current().unwrap().id, 12);
+    }
+    let map = Map::open(&path).unwrap();
+    assert!(map.room(11).unwrap().avoid);
+    assert_eq!(map.room(13).unwrap().exits["climb"].to, 10);
+    assert_eq!(map.marked("water"), Some(13));
+    assert_eq!(
+        map.source(),
+        Some(("https://example.org/map.zip", Some("v1")))
+    );
+    drop(map);
+    std::fs::remove_file(&path).unwrap();
+}

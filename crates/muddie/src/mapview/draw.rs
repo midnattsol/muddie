@@ -23,7 +23,7 @@ pub(super) struct Grid {
 }
 
 /// Where the player is, as text: for screen readers, and at a glance.
-pub(super) fn heading(ui: &mut Ui, current: &Room) {
+pub(super) fn heading(ui: &mut Ui, map: &Map, current: &Room) {
     let palette = theme::current();
     ui.label(
         RichText::new(&current.name)
@@ -43,7 +43,7 @@ pub(super) fn heading(ui: &mut Ui, current: &Room) {
                 .corner_radius(eframe::egui::CornerRadius::same(5))
                 .inner_margin(eframe::egui::Margin::symmetric(6, 1))
                 .show(ui, |ui| {
-                    let text = RichText::new(exit)
+                    let text = RichText::new(map.command_for(exit))
                         .font(FontId::monospace(11.5))
                         .color(palette.text_dim);
                     ui.add(eframe::egui::Label::new(text).selectable(false));
@@ -85,10 +85,9 @@ pub(super) fn level_steps(ui: &mut Ui, level: &mut i32) {
 }
 
 /// The middle of the rooms given, to centre on.
-pub(super) fn middle_of<'a>(rooms: impl Iterator<Item = &'a Room>) -> (i32, i32) {
-    let spans = rooms.fold(None, |spans, room| {
+pub(super) fn middle_of(places: impl Iterator<Item = Pos>) -> (i32, i32) {
+    let spans = places.fold(None, |spans, pos| {
         let ((x0, x1), (y0, y1)) = spans.unwrap_or(((i32::MAX, i32::MIN), (i32::MAX, i32::MIN)));
-        let pos = room.pos;
         Some((
             (x0.min(pos.x), x1.max(pos.x)),
             (y0.min(pos.y), y1.max(pos.y)),

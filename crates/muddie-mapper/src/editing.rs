@@ -7,13 +7,36 @@ impl Map {
     /// Takes `rooms` in place of every room there is, all at once and kept
     /// in one go: a map brought from elsewhere, with the room the player
     /// was in, if it is among them.
+    ///
+    /// What the user set on rooms that are in both, the rooms to avoid and
+    /// the exits of their own, carries over, and so do the marks: the same
+    /// map brought again, newer, keeps them.
     pub fn replace_all(&mut self, rooms: Vec<Room>, current: Option<RoomId>) -> Result<(), Error> {
-        self.clear()?;
-        let ids: Vec<RoomId> = rooms.iter().map(|room| room.id).collect();
-        self.rooms = rooms.into_iter().map(|room| (room.id, room)).collect();
+        let mut rooms: HashMap<RoomId, Room> =
+            rooms.into_iter().map(|room| (room.id, room)).collect();
+        for (id, old) in &self.rooms {
+            let Some(room) = rooms.get_mut(id) else {
+                continue;
+            };
+            room.avoid |= old.avoid;
+            for (direction, exit) in old.exits.iter().filter(|(_, exit)| exit.custom) {
+                room.exits
+                    .entry(direction.clone())
+                    .or_insert_with(|| exit.clone());
+            }
+        }
+        self.rooms = rooms;
         self.current = current.filter(|id| self.rooms.contains_key(id));
-        self.keep(ids);
-        self.flush()
+        self.candidates.clear();
+        self.unsaved.clear();
+        self.revision += 1;
+        // In order of number, as the file keeps them, to be written faster.
+        let mut ordered: Vec<&Room> = self.rooms.values().collect();
+        ordered.sort_unstable_by_key(|room| room.id);
+        match &mut self.store {
+            Some(store) => store.replace(ordered),
+            None => Ok(()),
+        }
     }
 
     /// Moves a room on the map grid. Returns false if there is no such room.
@@ -35,7 +58,7 @@ impl Map {
     /// `direction` is what a walk sends to use it unless the exit is given
     /// a command, so it need not be a compass direction.
     pub fn set_exit(&mut self, from: RoomId, direction: &str, to: RoomId) -> Result<bool, Error> {
-        let direction = canonical_direction(direction);
+        let direction = self.direction(direction);
         self.edit_room(from, |room| {
             let exit = room.exits.entry(direction).or_insert(Exit {
                 custom: true,
@@ -53,7 +76,7 @@ impl Map {
         direction: &str,
         edit: impl FnOnce(&mut Exit),
     ) -> Result<bool, Error> {
-        let direction = canonical_direction(direction);
+        let direction = self.direction(direction);
         let has_exit =
             (self.rooms.get(&from)).is_some_and(|room| room.exits.contains_key(&direction));
         if !has_exit {
@@ -65,7 +88,7 @@ impl Map {
     }
 
     pub fn remove_exit(&mut self, from: RoomId, direction: &str) -> Result<bool, Error> {
-        let direction = canonical_direction(direction);
+        let direction = self.direction(direction);
         self.edit_room(from, |room| {
             room.exits.remove(&direction);
         })

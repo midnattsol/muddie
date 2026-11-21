@@ -1,0 +1,223 @@
+//! The map in words, and following a MUD that shows rooms by name only,
+//! as Reinos de Leyenda does, with its plugin.
+
+use super::*;
+use muddie_mapper::{Exit, Room};
+
+/// A desert of dunes alike, 1 - 2 - 3 from west to east, with a well
+/// north of the last, written as a map taken from Mudlet would be.
+fn desert(app: &mut Tab) {
+    let room = |id: RoomId, name: &str, exits: &[(&str, RoomId)]| Room {
+        id,
+        name: name.to_owned(),
+        area: "Desierto".to_owned(),
+        pos: Pos {
+            x: id as i32 * 2,
+            y: 0,
+            z: 0,
+        },
+        exits: (exits.iter())
+            .map(|(way, to)| {
+                (
+                    (*way).to_owned(),
+                    Exit {
+                        to: *to,
+                        ..Exit::default()
+                    },
+                )
+            })
+            .collect(),
+        weight: 1,
+        avoid: false,
+    };
+    let rooms = vec![
+        room(1, "Dunas [e]", &[("e", 2)]),
+        room(2, "Dunas", &[("w", 1), ("e", 3)]),
+        room(3, "Dunas", &[("w", 2), ("n", 4)]),
+        room(4, "Pozo", &[("s", 3)]),
+    ];
+    app.map.borrow_mut().replace_all(rooms, None).unwrap();
+}
+
+/// What a command answers: each line, with what it is about if anything.
+fn answer(app: &mut Tab, command: &str) -> Vec<String> {
+    app.run_command(command);
+    if let Some(note) = &app.palette.bar_note {
+        return vec![note.text.clone()];
+    }
+    (app.palette.results.iter().flatten())
+        .map(|item| match item.about.as_str() {
+            "" => item.usage.clone(),
+            about => format!("{}: {about}", item.usage),
+        })
+        .collect()
+}
+
+/// The last thing the client said of itself.
+fn last_said(app: &Tab) -> String {
+    (app.notices().0.last()).map_or_else(String::new, |notice| notice.text.clone())
+}
+
+fn sent_lines(sent: &mut tokio::sync::mpsc::UnboundedReceiver<Command>) -> Vec<String> {
+    std::iter::from_fn(|| sent.try_recv().ok())
+        .filter_map(|command| match command {
+            Command::Send(line) => Some(line),
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn reinos_de_leyenda_is_followed_by_the_rooms_it_shows_and_walked_in_its_words() {
+    let mut harness = window(None);
+    let app = harness.state_mut().tab_mut();
+    let (events, mut sent) = fake_connection(app);
+    desert(app);
+    app.scripts.exec(
+        "reinos",
+        include_str!("../../../plugins/reinos-de-leyenda.luau"),
+    );
+    let gmcp = |package: &str, data: &str| Event::Gmcp {
+        package: package.into(),
+        data: data.into(),
+    };
+    // Three dunes, one written with its exits: the map is unsure.
+    events.send(gmcp("Room.Actual", r#""Dunas""#)).unwrap();
+    harness.run_steps(2);
+    let app = harness.state_mut().tab_mut();
+    assert_eq!(app.map.borrow().candidates(), [1, 2, 3]);
+    assert!(
+        output_lines(app)
+            .last()
+            .unwrap()
+            .contains("in one of 3 rooms alike")
+    );
+    // East, to a dune with a door west and an exit east: of the two
+    // east of a dune, the middle one.
+    events.send(gmcp("Room.Movimiento", r#""este""#)).unwrap();
+    events
+        .send(gmcp("Room.Actual", r#""Dunas [|o|, e]""#))
+        .unwrap();
+    harness.run_steps(2);
+    let app = harness.state_mut().tab_mut();
+    assert_eq!(app.map.borrow().current().unwrap().id, 2);
+    assert!(
+        output_lines(app)
+            .last()
+            .unwrap()
+            .contains("knows where you are again: Dunas")
+    );
+    events.send(gmcp("Room.Movimiento", r#""este""#)).unwrap();
+    events
+        .send(gmcp("Room.Actual", r#""Dunas [o, n]""#))
+        .unwrap();
+    harness.run_steps(2);
+    let app = harness.state_mut().tab_mut();
+    assert_eq!(app.map.borrow().current().unwrap().id, 3);
+    // To the well and back by the nearest of the dunes: sent as the MUD says.
+    assert_eq!(
+        answer(app, "/map travel pozo"),
+        ["Going to Pozo, in Desierto: 1 move."]
+    );
+    assert_eq!(sent_lines(&mut sent), ["norte"]);
+    events.send(gmcp("Room.Movimiento", r#""norte""#)).unwrap();
+    events.send(gmcp("Room.Actual", r#""Pozo [s]""#)).unwrap();
+    harness.run_steps(2);
+    let app = harness.state_mut().tab_mut();
+    assert!(app.walk.is_none());
+    assert_eq!(
+        answer(app, "/map travel dunas"),
+        ["Going to Dunas, in Desierto: 1 move. The nearest of 3 rooms of that name."]
+    );
+    assert_eq!(sent_lines(&mut sent), ["sur"]);
+    // A move that fails stops the walk.
+    app.run_command("/map travel 1");
+    assert_eq!(sent_lines(&mut sent), ["sur"]);
+    events.send(gmcp("Room.MovimientoErroneo", "{}")).unwrap();
+    harness.run_steps(2);
+    assert!(harness.state().tab().walk.is_none());
+}
+
+#[test]
+fn the_map_is_said_in_words() {
+    let mut harness = window(None);
+    let app = harness.state_mut().tab_mut();
+    desert(app);
+    app.scripts.exec(
+        "t",
+        r#"map.directions({n = {"norte"}, s = {"sur"}, e = {"este"}, w = {"oeste", "o"}})"#,
+    );
+    let said = answer;
+    let unknown = said(app, "/map exits");
+    assert!(
+        unknown[0].contains("does not know where you are"),
+        "{unknown:?}"
+    );
+    assert_eq!(
+        said(app, "/map here 3"),
+        ["Dunas (#3) in Desierto. Exits: norte, oeste."]
+    );
+    assert_eq!(said(app, "/map exits"), ["norte: Pozo", "oeste: Dunas"]);
+    assert_eq!(said(app, "/map route 1"), ["Dunas [e], 2 moves: 2 oeste."]);
+    assert_eq!(
+        said(app, "/map near"),
+        ["Pozo: 1 move: norte", "Dunas [e]: 2 moves: 2 oeste"]
+    );
+    said(app, "/map mark casa");
+    assert_eq!(said(app, "/map mark"), ["casa: Dunas"]);
+    assert_eq!(
+        said(app, "/map info casa"),
+        ["Dunas (#3). In Desierto, at 6, 0, 0. Exits: norte, oeste. Called casa."]
+    );
+    assert_eq!(said(app, "/map areas"), ["Desierto: 4 rooms"]);
+    assert!(said(app, "/map unmark casa")[0].contains("No room is called casa now"));
+}
+
+#[test]
+fn a_map_of_mudlet_is_imported_from_a_file() {
+    let mut harness = window(None);
+    let app = harness.state_mut().tab_mut();
+    let refused = answer(app, "/map import");
+    assert!(
+        refused[0].contains("Give a map made with Mudlet"),
+        "{refused:?}"
+    );
+    app.run_command("/map import /no/such/map.dat");
+    for _ in 0..50 {
+        harness.run_steps(1);
+        if harness.state().tab().map_source.taking.is_none() {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    let said = last_said(harness.state().tab());
+    assert!(said.starts_with("Could not take the map"), "{said}");
+}
+
+#[test]
+fn the_plugin_takes_the_servers_map_at_once_and_it_is_said_aside() {
+    let mut harness = window(None);
+    let app = harness.state_mut().tab_mut();
+    app.set_map_shown(false);
+    app.scripts.exec(
+        "reinos",
+        include_str!("../../../plugins/reinos-de-leyenda.luau"),
+    );
+    harness.run_steps(2);
+    let said = harness.state().tab().notices().0.to_vec();
+    let taking = (said.iter())
+        .find(|notice| notice.text.starts_with("Taking the map from https://"))
+        .unwrap();
+    assert!(taking.aside);
+    // Tests do not reach the web: it failed, and says so aside too.
+    let failed = harness.state().tab().notices().0.last().cloned().unwrap();
+    assert!(failed.aside && failed.problem, "{failed:?}");
+    assert!(failed.text.starts_with("Could not take the map"));
+    // Over the corner, though the game is in sight.
+    harness.get_by_label(&failed.text);
+    assert!(
+        !output_lines(harness.state().tab())
+            .iter()
+            .any(|line| line.contains("map from"))
+    );
+}

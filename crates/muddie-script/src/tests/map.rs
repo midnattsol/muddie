@@ -176,3 +176,49 @@ fn text_mapper_example_maps_rooms() {
     let room = map.current().unwrap();
     assert_eq!((room.name.as_str(), room.exits.len()), ("Market Square", 2));
 }
+
+#[test]
+fn script_can_follow_a_server_that_shows_rooms_by_name_only() {
+    // A server in Spanish shows each room's name and exits, and the move
+    // made: two rooms alike, told apart by where the player goes.
+    let mut engine = engine(
+        r#"map.directions({n = {"norte", "n"}, s = {"sur", "s"}, e = {"este", "e"}, w = {"oeste", "o"}})
+        for _, room in {{1, "Dune", {e = 2}}, {2, "Dune", {o = 1, norte = 3}}, {3, "Oasis", {sur = 2}}} do
+            map.set_room({id = room[1], name = room[2], area = "desert", exits = room[3]})
+        end
+        on_gmcp("Room.Actual", function(seen) map.arrive(seen) end)
+        on_gmcp("Room.Fallido", function() map.stop() end)"#,
+    );
+    engine.exec("test", r#"map.import("https://mud.example.org/map.zip")"#);
+    assert_eq!(
+        engine.take_actions(),
+        [Action::ImportMap("https://mud.example.org/map.zip".into())]
+    );
+    engine.on_gmcp("Room.Actual", r#"{"name": "Dune"}"#);
+    assert_eq!(engine.take_actions(), [Action::LostTrack]);
+    engine.on_gmcp("Room.Actual", r#"{"name": "Dune", "came": "este"}"#);
+    engine.on_gmcp(
+        "Room.Actual",
+        r#"{"name": "Oasis", "came": "norte", "exits": ["s"]}"#,
+    );
+    engine.on_gmcp("Room.Fallido", "");
+    assert_eq!(
+        engine.take_actions(),
+        [Action::Entered(2), Action::Entered(3), Action::StopWalk]
+    );
+    engine.exec(
+        "test",
+        r#"echo(table.concat(map.path(1), ","))
+        echo(tostring(map.here(1)) .. " " .. tostring(map.here(7)))
+        echo(map.exit(2, "Oeste").to)"#,
+    );
+    assert_eq!(
+        engine.take_actions(),
+        [
+            Action::Echo("sur,oeste".into()),
+            Action::Entered(1),
+            Action::Echo("true false".into()),
+            Action::Echo("1".into()),
+        ]
+    );
+}

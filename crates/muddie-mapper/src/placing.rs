@@ -17,6 +17,7 @@ impl Map {
         let free_layout = info.pos.is_none();
         let saved = self.upsert(info, came_from);
         self.current = Some(id);
+        self.candidates.clear();
         let joined = if free_layout {
             self.join_islands(came_from, id)
         } else {
@@ -139,6 +140,7 @@ impl Map {
         // them, and the exits the user added, carry over.
         let mut exits: BTreeMap<String, Exit> = (info.exits.into_iter())
             .map(|(direction, to)| {
+                let direction = self.direction(&direction);
                 let old = old_exits.and_then(|exits| exits.get(&direction));
                 let exit = Exit {
                     to,

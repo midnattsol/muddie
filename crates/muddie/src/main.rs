@@ -11,6 +11,7 @@ mod i18n;
 mod keypad;
 mod logger;
 mod luau;
+mod mapfetch;
 mod mapview;
 mod media;
 mod output;

@@ -19,6 +19,7 @@ eframe = { version = "0.37.0", default-features = false, features = [
     "web_screen_reader",
     "x11",
 ] }
+flate2 = "1.1.11"
 fontdb = "0.24.0"
 jiff = "1.0.1"
 keyring = "4.2.0"

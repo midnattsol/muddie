@@ -93,6 +93,21 @@
 //!   optionally `name`, `area`, `exits` (direction to room id) and `x`,
 //!   `y`, `z`. This is how a script maps a MUD the built-in loader does not
 //!   understand, from whatever the server sends.
+//! - `map.arrive{name = ..., exits = {...}, came = "n"}`: the player is
+//!   now in a room the server showed by its name and exits, having taken
+//!   the exit `came`, for servers that do not say which room it is: the
+//!   map works out which, following each room it could be along the exits
+//!   taken until they tell them apart. Each part is optional. Returns the
+//!   room's number, or `nil` while unsure, which the user is told.
+//! - `map.here(id)`: the player is in that room; false if there is none.
+//! - `map.directions{n = {"norte", "n"}, w = {"oeste", "o"}, ...}`: the
+//!   server's words for each direction, the first of each being what a
+//!   walk sends. The map understands them wherever a direction is given.
+//! - `map.import(address)`: take the map made with Mudlet at `address`, a
+//!   `.dat` file or a zip holding one, on the web or on disk, in place of
+//!   the map there is. A map taken from there already is taken again only
+//!   if the file has changed, so a plugin may call it on every connection
+//!   to keep it up to date. The user is told how it goes.
 //! - `map.native(false)`: turn the built-in loader (GMCP `Room.Info`, MSDP
 //!   `ROOM`) off, leaving the map to the script.
 //! - `map.persist(false)`: keep the map in memory only instead of saving
@@ -105,7 +120,8 @@
 //! - `map.find(text)`: the rooms whose name contains `text`.
 //! - `map.path(to, from)`: the directions to walk, from the current room
 //!   if `from` is omitted; `nil` if there is no known route.
-//! - `map.walk(to)`: walk there.
+//! - `map.walk(to)`: walk there. `map.stop()`: stop walking, as when the
+//!   server says a move failed.
 //! - `map.set_exit(from, direction, to, options)`: add an exit of your
 //!   own or change where one leads. `map.edit_exit(from, direction,
 //!   options)` changes an existing exit. The options, all optional, are
@@ -135,7 +151,7 @@ use std::time::{Duration, Instant};
 use mlua::serde::SerializeOptions;
 use mlua::{Function, Lua, LuaOptions, LuaSerdeExt, StdLib, Table, Value, Variadic, VmState};
 use muddie_core::{Color, Line};
-use muddie_mapper::{Exit, Map, Pos, Room, RoomId, RoomInfo, room_id};
+use muddie_mapper::{Exit, Located, Map, Pos, Room, RoomId, RoomInfo, Sighting, room_id};
 use regex::Regex;
 
 mod action;

@@ -135,8 +135,16 @@ walks to it, and on a tag or a plugin switches it.
 | `/log` | Starts or stops logging the session to a file |
 | `/tag`, `/tag <name> [on\|off]` | Lists the tags; switches one on or off for this session |
 | `/map where` | Says where the map has you, and the exits |
+| `/map here [number]` | Tells the map which room you are in; alone, lists the rooms it is unsure between |
 | `/map find <text>` | Lists rooms whose name contains the text |
-| `/map walk <number or name>` | Walks to a room |
+| `/map travel <place>` | Goes to a room by number, mark, name, or area and name: of several, the nearest |
+| `/map route <place>` | Says the way to a place, without going |
+| `/map exits` | Says where each exit of this room leads, to go through one by choosing it |
+| `/map near [moves]` | Lists what is up to three moves away (or as many as given), with the way |
+| `/map info [place]` | Says all the map knows of a room: the current one if none is given |
+| `/map mark [name]`, `/map unmark <name>` | Names this room, to travel to it by that name; alone, lists the names |
+| `/map areas` | Lists the areas, with how many rooms each has |
+| `/map import <file or address>` | Takes a map made with Mudlet in place of this one |
 | `/map stop` | Stops walking |
 | `/map avoid [number]` | Keeps routes out of a room (the current one), or allows them again |
 | `/map lock <direction>` | Keeps routes off an exit of this room, or allows it again |
@@ -363,7 +371,10 @@ per profile like the ones you install. Two come with it.
   way: `Char.Vitals` as gauges, `Room.Info` as the map, `Comm.Channel.Text`
   as channels. It is on in a new profile; switched off, the client makes
   nothing of them by itself, and scripts still get them.
-- **Reinos de Leyenda** shows the channels of that MUD, each in its tab. It
+- **Reinos de Leyenda** shows the channels of that MUD, each in its tab, and
+  gives it its map: the one the MUD publishes, taken as soon as the plugin
+  is on and brought up to date when it changes. It follows you on it from
+  the rooms the MUD shows, and walks in Spanish. It
   is off until asked for. On connecting to that MUD it is offered in a
   notice over the bottom right corner: **Enable** switches it on there and then, and **Not now**
   puts the offer away for that profile. The MUD sends nothing over GMCP until
@@ -421,8 +432,18 @@ keeping it, to see what comes on connecting, and **Clear** empties the list.
 ## The map
 
 The map draws itself as you walk, on servers that report rooms through GMCP
-or MSDP, and is saved per profile. Scripts can map other servers.
+or MSDP, and is saved per profile. Scripts can map other servers, or take
+the map a MUD publishes made with Mudlet, as the plugin of Reinos de Leyenda
+does; `/map import` takes one from a file of your own.
 
+On servers that do not say which room you are in, only its name and exits,
+the map works it out from those and the exit you took. Where several rooms
+are alike, as in a desert, it says it is not sure and follows each it could
+be until a move tells them apart; `/map here` lists them, to say which.
+
+Everything the map shows can be said: the `/map` commands above tell where
+you are, what is around, where each exit leads and the way to anywhere, and
+`/map travel` goes there.
 | Action | What it does |
 |---|---|
 | Click a room | Walks there, one step at a time, waiting for each to succeed |

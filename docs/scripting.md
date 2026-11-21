@@ -181,7 +181,11 @@ server identifies the room with.
 | `map.room(id)` | A room as a table, the current one if `id` is omitted. Also has `weight` and `avoid`. |
 | `map.find(text)` | Rooms whose name contains `text`. |
 | `map.path(to, from)` | The commands to walk, or `nil`. |
-| `map.walk(to)` | Walks there, one confirmed step at a time. |
+| `map.walk(to)` | Walks there, one confirmed step at a time. `map.stop()` stops, as when the server says a move failed. |
+| `map.arrive{name, exits, came}` | For servers that do not say which room it is: the player is in a room of this name and exits, reached by the exit `came`. Returns the room's number, or `nil` while unsure. |
+| `map.here(id)` | The player is in that room. |
+| `map.directions{n = {"norte", "n"}, ...}` | The server's words for each direction; the first is what walks send. |
+| `map.import(address)` | Takes the map made with Mudlet at `address` (a `.dat`, or a zip with one; web or disk) in place of this one; one taken from there before, only if it changed. |
 | `map.set_exit(from, direction, to, options)` | Adds an exit of your own or changes where one leads. |
 | `map.edit_exit(from, direction, options)` | Changes an exit's `cost`, `locked` or `command` (`"open door;n"`). |
 | `map.exit(from, direction)` | An exit as a table. |

@@ -5,13 +5,33 @@ use super::*;
 /// The client's own commands, as they are typed, and what each is for.
 /// They are in English whatever the language of the interface, like the
 /// words of a programming language.
-pub(super) const COMMANDS: [(&str, &str); 21] = [
+pub(super) const COMMANDS: [(&str, &str); 30] = [
     ("/map where", "Says where you are"),
+    (
+        "/map here [number]",
+        "Tells the map which room you are in; alone, lists those it is unsure between",
+    ),
     (
         "/map find <text>",
         "Lists the rooms whose name contains the text",
     ),
-    ("/map walk <room>", "Walks to a room, by name or number"),
+    (
+        "/map travel <place>",
+        "Goes to a room by number, mark, name or area: of several, the nearest",
+    ),
+    (
+        "/map route <place>",
+        "Says the way to a place, without going",
+    ),
+    ("/map exits", "Says where each exit of this room leads"),
+    ("/map near [moves]", "Lists what is a few moves away"),
+    ("/map info [place]", "Says all the map knows of a room"),
+    (
+        "/map mark [name]",
+        "Names this room, to travel to it by name; alone, lists the names",
+    ),
+    ("/map unmark <name>", "Forgets a name given to a room"),
+    ("/map areas", "Lists the areas, to travel to one"),
     ("/map stop", "Stops walking"),
     (
         "/map avoid [number]",
@@ -22,6 +42,10 @@ pub(super) const COMMANDS: [(&str, &str); 21] = [
         "Keeps routes from an exit of this room, or lets them use it again",
     ),
     ("/map tidy", "Draws this area again from scratch"),
+    (
+        "/map import [file or address]",
+        "Takes a map made with Mudlet in place of this one",
+    ),
     ("/map show", "Shows the map panel"),
     ("/map hide", "Hides the map panel"),
     ("/plugin list", "Lists the installed plugins"),
@@ -63,6 +87,15 @@ impl Tab {
             "/where" => self.say_where(),
             "/find" if given => self.find_rooms(argument),
             "/go" if given => self.go_to(argument),
+            "/here" => self.here(argument),
+            "/route" if given => self.say_route(argument),
+            "/exits" => self.say_exits(),
+            "/near" => self.say_near(argument),
+            "/info" => self.say_info(argument),
+            "/mark" => self.mark_here(argument),
+            "/unmark" if given => self.unmark(argument),
+            "/areas" => self.list_areas(),
+            "/import" => self.import_map(argument),
             "/avoid" => self.toggle_avoid(argument),
             "/lock" if given => self.toggle_lock(argument),
             "/tidy" => self.tidy_here(),
@@ -158,7 +191,17 @@ pub(super) fn client_command(line: &str) -> Option<(&'static str, String)> {
     let command = match (group, what) {
         ("/map", "where") => "/where",
         ("/map", "find") => "/find",
-        ("/map", "walk") => "/go",
+        // Walking was its name before; it is kept for those used to it.
+        ("/map", "travel" | "walk") => "/go",
+        ("/map", "here") => "/here",
+        ("/map", "route") => "/route",
+        ("/map", "exits") => "/exits",
+        ("/map", "near") => "/near",
+        ("/map", "info") => "/info",
+        ("/map", "mark") => "/mark",
+        ("/map", "unmark") => "/unmark",
+        ("/map", "areas") => "/areas",
+        ("/map", "import") => "/import",
         ("/map", "stop") => "/stop",
         ("/map", "avoid") => "/avoid",
         ("/map", "lock") => "/lock",

@@ -123,6 +123,64 @@ fn install_visiting(
         })?,
     )?;
 
+    let (shared, world) = (Rc::clone(state), Rc::clone(map));
+    api.set(
+        "arrive",
+        lua.create_function(move |_, seen: Table| {
+            let name: Option<String> = seen.get("name")?;
+            let exits: Option<Vec<String>> = seen.get("exits")?;
+            let came: Option<String> = seen.get("came")?;
+            let located = world.borrow_mut().arrive(Sighting {
+                name: name.as_deref(),
+                exits: exits.as_deref(),
+                came: came.as_deref(),
+            });
+            let (action, here) = match located {
+                Located::Here(id) => (Action::Entered(id), Some(id)),
+                _ => (Action::LostTrack, None),
+            };
+            shared.borrow_mut().actions.push(action);
+            Ok(here)
+        })?,
+    )?;
+
+    let (shared, world) = (Rc::clone(state), Rc::clone(map));
+    api.set(
+        "here",
+        lua.create_function(move |_, id: Value| {
+            let id = id_of(&id)?;
+            let found = world.borrow_mut().set_current(id);
+            if found {
+                shared.borrow_mut().actions.push(Action::Entered(id));
+            }
+            Ok(found)
+        })?,
+    )?;
+
+    let world = Rc::clone(map);
+    api.set(
+        "directions",
+        lua.create_function(move |_, words: Table| {
+            let mut taught = Vec::new();
+            for pair in words.pairs::<String, Value>() {
+                let (direction, said) = pair?;
+                let said: Vec<String> = match said {
+                    Value::String(word) => vec![word.to_str()?.to_owned()],
+                    Value::Table(list) => list.sequence_values().collect::<mlua::Result<_>>()?,
+                    other => {
+                        return Err(mlua::Error::runtime(format!(
+                            "the words for {direction} must be a string or a list, not {}",
+                            other.type_name()
+                        )));
+                    }
+                };
+                taught.push((direction, said));
+            }
+            world.borrow_mut().set_directions(&taught);
+            Ok(())
+        })?,
+    )?;
+
     let world = Rc::clone(map);
     api.set(
         "set_room",
@@ -303,6 +361,24 @@ fn install_routes(
             Ok(())
         })?,
     )?;
+
+    let shared = Rc::clone(state);
+    api.set(
+        "stop",
+        lua.create_function(move |_, ()| {
+            shared.borrow_mut().actions.push(Action::StopWalk);
+            Ok(())
+        })?,
+    )?;
+
+    let shared = Rc::clone(state);
+    api.set(
+        "import",
+        lua.create_function(move |_, address: String| {
+            shared.borrow_mut().actions.push(Action::ImportMap(address));
+            Ok(())
+        })?,
+    )?;
     Ok(())
 }
 
@@ -348,7 +424,7 @@ fn install_exits(lua: &Lua, map: &Rc<RefCell<Map>>, api: &Table) -> mlua::Result
         "exit",
         lua.create_function(move |lua, (from, direction): (Value, String)| {
             let world = world.borrow();
-            let direction = muddie_mapper::canonical_direction(&direction);
+            let direction = world.direction(&direction);
             let exit = world
                 .room(id_of(&from)?)
                 .and_then(|room| room.exits.get(&direction));

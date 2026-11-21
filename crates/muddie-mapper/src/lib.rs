@@ -7,7 +7,9 @@ use std::path::Path;
 
 mod editing;
 mod info;
+mod locating;
 mod mudlet;
+mod naming;
 mod placing;
 mod relayout;
 mod routes;
@@ -17,10 +19,12 @@ mod tests;
 mod walk;
 
 pub use info::RoomInfo;
+pub use locating::{Located, Sighting};
 pub use mudlet::{MudletMap, read_mudlet_map};
 pub use rusqlite::Error;
 pub use walk::{Progress, Walk};
 
+use naming::name_key;
 use store::Store;
 
 pub type RoomId = i64;
@@ -155,6 +159,9 @@ pub fn direction_offset(direction: &str) -> Option<(i32, i32, i32)> {
     })
 }
 
+/// The rooms by name as compared (see [`naming::name_key`]).
+type Names = HashMap<String, Vec<RoomId>>;
+
 /// A room's neighbour for layout: the neighbour, the grid step of the
 /// compass exit joining them, and which way along it the neighbour lies.
 type Link = (RoomId, (i32, i32, i32), i32);
@@ -171,6 +178,18 @@ pub struct Map {
     /// Counts the changes to its rooms, for what is worked out from them
     /// to be worked out again only when they change.
     revision: u64,
+    /// Rooms named by the user, by the name as given.
+    marks: BTreeMap<String, RoomId>,
+    /// What is known about the map, by key: where it was taken from.
+    about: BTreeMap<String, String>,
+    /// The words of the server's language for directions, each with the
+    /// direction it is, and the word a walk sends for each direction.
+    words: HashMap<String, String>,
+    sent: HashMap<String, String>,
+    /// The rooms by name as compared, made again when the rooms change.
+    names: std::cell::RefCell<Option<(u64, Names)>>,
+    /// The rooms the player may be in when the map cannot tell which.
+    candidates: Vec<RoomId>,
 }
 
 impl Drop for Map {
@@ -187,14 +206,15 @@ impl Map {
 
     /// Opens the map stored at `path`, creating the file if needed.
     pub fn open(path: &Path) -> Result<Self, Error> {
-        let (store, rooms) = Store::open(path)?;
-        Ok(Self {
-            rooms: rooms.into_iter().map(|room| (room.id, room)).collect(),
-            current: None,
-            store: Some(store),
-            unsaved: Default::default(),
-            revision: 0,
-        })
+        let (store, stored) = Store::open(path)?;
+        let mut map = Self::default();
+        map.rooms = (stored.rooms.into_iter())
+            .map(|room| (room.id, room))
+            .collect();
+        map.store = Some(store);
+        map.marks = stored.marks;
+        map.about = stored.about;
+        Ok(map)
     }
 
     /// Whether changes are being saved to a file.
@@ -241,6 +261,7 @@ impl Map {
     pub fn clear(&mut self) -> Result<(), Error> {
         self.rooms.clear();
         self.current = None;
+        self.candidates.clear();
         self.unsaved.clear();
         self.revision += 1;
         match &mut self.store {
@@ -270,10 +291,16 @@ impl Map {
 
     /// Rooms whose name contains `query`, ignoring case, ordered by name.
     pub fn find(&self, query: &str) -> Vec<&Room> {
-        let query = query.to_lowercase();
-        let mut found: Vec<&Room> = (self.rooms.values())
-            .filter(|room| room.name.to_lowercase().contains(&query))
-            .collect();
+        let query = name_key(query);
+        let mut found: Vec<&Room> = (self.with_names(|names| {
+            (names.iter())
+                .filter(|(name, _)| name.contains(&query))
+                .flat_map(|(_, ids)| ids.clone())
+                .collect::<Vec<_>>()
+        }))
+        .into_iter()
+        .filter_map(|id| self.rooms.get(&id))
+        .collect();
         found.sort_by(|a, b| (&a.name, a.id).cmp(&(&b.name, b.id)));
         found
     }

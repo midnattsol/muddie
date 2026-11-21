@@ -66,7 +66,7 @@ pub struct MapView {
     asked: Tools,
     /// The rooms on the level shown, worked out again only when the map,
     /// the area, the level or whether every area is shown changes.
-    on_level: Option<(Shown, Vec<RoomId>)>,
+    on_level: Option<(Shown, Vec<(Pos, RoomId)>)>,
 }
 
 /// What the rooms on show depend on: the map's revision, the area, the
@@ -86,6 +86,18 @@ impl Default for MapView {
             asked: Tools::default(),
             on_level: None,
         }
+    }
+}
+
+/// Why the map cannot say where the player is, and what to do.
+pub fn unknown_whereabouts(map: &Map) -> String {
+    match map.candidates().len() {
+        0 => tr("The map does not know where you are. /map here <number> tells it.").to_owned(),
+        several => crate::i18n::trn(
+            "The map is not sure where you are: in one of {0} rooms alike. Moving tells them apart; /map here lists them.",
+            "The map is not sure where you are: in one of {0} rooms alike. Moving tells them apart; /map here lists them.",
+            several as u64,
+        ),
     }
 }
 
@@ -120,11 +132,14 @@ impl MapView {
     /// and Shift+drag moves a room to another cell.
     pub fn show(&mut self, ui: &mut Ui, map: &Map) -> Option<MapAction> {
         let Some(current) = map.current() else {
-            ui.label(tr("No map yet: the server has not reported a room."));
+            ui.label(match map.rooms().next() {
+                None => tr("No map yet: the server has not reported a room.").to_owned(),
+                Some(_) => unknown_whereabouts(map),
+            });
             return None;
         };
         let tools = std::mem::take(&mut self.asked);
-        heading(ui, current);
+        heading(ui, map, current);
         let (area, level, home) = self.place(current, tools.locate);
         let (area, level) = self.place_controls(ui, map, (area, level), home);
         let (response, painter) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
@@ -139,22 +154,22 @@ impl MapView {
             .as_ref()
             .is_none_or(|(known, _)| *known != shown)
         {
-            let ids = map
+            let places = map
                 .rooms()
                 .filter(|room| on_level(room))
-                .map(|room| room.id);
-            self.on_level = Some((shown, ids.collect()));
+                .map(|room| (room.pos, room.id));
+            self.on_level = Some((shown, places.collect()));
         }
-        let level_rooms: Vec<&Room> = (self.on_level.iter())
-            .flat_map(|(_, ids)| ids.iter().filter_map(|id| map.room(*id)))
-            .collect();
+        // Where the rooms on the level are, kept: of a map of thousands,
+        // only those on the screen are looked up.
+        let places: &[(Pos, RoomId)] = self.on_level.as_ref().map_or(&[], |(_, places)| places);
         // The player's own area is centred on the player whatever the
         // level, so going up and down keeps the place; any other area is
         // centred on the middle of what is drawn.
         let origin = if area == current.area || all_areas {
             (current.pos.x, current.pos.y)
         } else {
-            middle_of(level_rooms.iter().copied())
+            middle_of(places.iter().map(|(pos, _)| *pos))
         };
         let grid = Grid {
             centre: response.rect.center() + self.pan,
@@ -163,8 +178,9 @@ impl MapView {
             level,
         };
         let around = response.rect.expand(grid.cell);
-        let visible: Vec<&Room> = (level_rooms.into_iter())
-            .filter(|room| around.contains(grid.on_screen(room.pos)))
+        let visible: Vec<&Room> = (places.iter())
+            .filter(|(pos, _)| around.contains(grid.on_screen(*pos)))
+            .filter_map(|(_, id)| map.room(*id))
             .collect();
         let colours = Colours::of(theme::current());
         draw_grid(&painter, response.rect, &grid, theme::current().border);

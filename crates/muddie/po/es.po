@@ -228,12 +228,6 @@ msgstr "El mapa no se guardará: no hay carpeta de datos."
 msgid "Could not save the map: {0}"
 msgstr "No se pudo guardar el mapa: {0}"
 
-msgid "The map does not know where you are yet."
-msgstr "El mapa aún no conoce tu ubicación."
-
-msgid "No known route to that room."
-msgstr "No hay ruta conocida hasta esa sala."
-
 msgid "Arrived."
 msgstr "Has llegado a tu destino."
 
@@ -677,9 +671,6 @@ msgstr "Indica un nombre para el complemento después de la dirección (letras, 
 
 msgid "Says where you are"
 msgstr "Indica tu ubicación actual"
-
-msgid "Walks to a room, by name or number"
-msgstr "Camina hasta una sala, por nombre o número"
 
 msgid "Stops walking"
 msgstr "Detiene el recorrido"
@@ -1994,3 +1985,176 @@ msgstr "Movido abajo, {0} de {1}."
 msgid "Cmd+click  Shift+click"
 msgstr "Cmd+clic  Mayús+clic"
 
+# The map in words, and maps taken from Mudlet
+
+#, python-brace-format
+msgid "The map knows where you are again: {0}."
+msgstr "El mapa vuelve a saber dónde estás: {0}."
+
+msgid "Walk stopped: the map lost track of where you are."
+msgstr "Camino detenido: el mapa ha perdido la pista de dónde estás."
+
+msgid "The map does not know where you are. /map here <number> tells it."
+msgstr "El mapa no sabe dónde estás. Díselo con /map here <número>."
+
+#, python-brace-format
+msgid "The map is not sure where you are: in one of {0} rooms alike. Moving tells them apart; /map here lists them."
+msgid_plural "The map is not sure where you are: in one of {0} rooms alike. Moving tells them apart; /map here lists them."
+msgstr[0] "El mapa no está seguro de dónde estás: en una de {0} salas iguales. Al moverte las distingue; /map here las lista."
+msgstr[1] "El mapa no está seguro de dónde estás: en una de {0} salas iguales. Al moverte las distingue; /map here las lista."
+
+msgid "No known route to that place."
+msgstr "No hay ruta conocida hasta ese sitio."
+
+#, python-brace-format
+msgid "You are already in {0}."
+msgstr "Ya estás en {0}."
+
+#, python-brace-format
+msgid "{0} move"
+msgid_plural "{0} moves"
+msgstr[0] "{0} paso"
+msgstr[1] "{0} pasos"
+
+#, python-brace-format
+msgid "Going to {0}, in {1}: {2}."
+msgstr "Vas a {0}, en {1}: {2}."
+
+#, python-brace-format
+msgid "The nearest of {0} rooms of that name."
+msgid_plural "The nearest of {0} rooms of that name."
+msgstr[0] "La más cercana de {0} salas con ese nombre."
+msgstr[1] "La más cercana de {0} salas con ese nombre."
+
+msgid "There is no room of that number."
+msgstr "No hay ninguna sala con ese número."
+
+msgid "Give the number of the room you are in: /map here <number>."
+msgstr "Da el número de la sala en la que estás: /map here <número>."
+
+#, python-brace-format
+msgid "You are in one of {0} rooms alike:"
+msgid_plural "You are in one of {0} rooms alike:"
+msgstr[0] "Estás en una de {0} salas iguales:"
+msgstr[1] "Estás en una de {0} salas iguales:"
+
+msgid "somewhere not yet mapped"
+msgstr "un sitio aún sin mapear"
+
+#, python-brace-format
+msgid "{0} (routes do not use it)"
+msgstr "{0} (las rutas no la usan)"
+
+msgid "This room has no exits on the map."
+msgstr "Esta sala no tiene salidas en el mapa."
+
+msgid "Nothing else is that near on the map."
+msgstr "No hay nada más tan cerca en el mapa."
+
+#, python-brace-format
+msgid "Called {0}."
+msgstr "Se llama {0}."
+
+msgid "Routes avoid it."
+msgstr "Las rutas la evitan."
+
+#, python-brace-format
+msgid "Costs {0} to enter."
+msgstr "Entrar cuesta {0}."
+
+msgid "No room has a name yet: /map mark <name> names this one."
+msgstr "Ninguna sala tiene nombre aún: /map mark <nombre> le pone uno a esta."
+
+#, python-brace-format
+msgid "This room is now called {0}: /map travel {0} goes to it."
+msgstr "Esta sala se llama ahora {0}: /map travel {0} te lleva a ella."
+
+#, python-brace-format
+msgid "No room is called {0} now."
+msgstr "Ya ninguna sala se llama {0}."
+
+#, python-brace-format
+msgid "No room is called {0}."
+msgstr "Ninguna sala se llama {0}."
+
+msgid "The map has no areas yet."
+msgstr "El mapa aún no tiene zonas."
+
+#, python-brace-format
+msgid "{0} room"
+msgid_plural "{0} rooms"
+msgstr[0] "{0} sala"
+msgstr[1] "{0} salas"
+
+msgid "Give a map made with Mudlet: /map import <file or address>."
+msgstr "Indica un mapa hecho con Mudlet: /map import <fichero o dirección>."
+
+msgid "A map is being taken already."
+msgstr "Ya se está trayendo un mapa."
+
+#, python-brace-format
+msgid "Taking the map from {0}…"
+msgstr "Trayendo el mapa de {0}…"
+
+msgid "it stopped half way"
+msgstr "se detuvo a medias"
+
+#, python-brace-format
+msgid "The map was taken: {0}."
+msgstr "Mapa importado: {0}."
+
+#, python-brace-format
+msgid "The server's map was brought up to date: {0}."
+msgstr "El mapa del servidor se ha actualizado: {0}."
+
+#, python-brace-format
+msgid "Could not take the map: {0}"
+msgstr "No se pudo importar el mapa: {0}"
+
+#, python-brace-format
+msgid "Could not bring the server's map up to date: {0}"
+msgstr "No se pudo actualizar el mapa del servidor: {0}"
+
+#, python-brace-format
+msgid "In {0}, at {1}."
+msgstr "En {0}, en {1}."
+
+msgid "No exits."
+msgstr "Sin salidas."
+
+#, python-brace-format
+msgid "Exits: {0}."
+msgstr "Salidas: {0}."
+
+msgid "Walk stopped: the server said the move failed."
+msgstr "Camino detenido: el servidor dice que el movimiento falló."
+
+msgid "Tells the map which room you are in; alone, lists those it is unsure between"
+msgstr "Le dice al mapa en qué sala estás; sin número, lista entre cuáles duda"
+
+msgid "Goes to a room by number, mark, name or area: of several, the nearest"
+msgstr "Va a una sala por número, marca, nombre o zona: de varias, a la más cercana"
+
+msgid "Says the way to a place, without going"
+msgstr "Dice el camino hasta un sitio, sin ir"
+
+msgid "Says where each exit of this room leads"
+msgstr "Dice adónde lleva cada salida de esta sala"
+
+msgid "Lists what is a few moves away"
+msgstr "Lista lo que hay a pocos pasos"
+
+msgid "Says all the map knows of a room"
+msgstr "Dice todo lo que el mapa sabe de una sala"
+
+msgid "Names this room, to travel to it by name; alone, lists the names"
+msgstr "Pone nombre a esta sala, para ir a ella por ese nombre; sin nombre, lista los nombres"
+
+msgid "Forgets a name given to a room"
+msgstr "Olvida el nombre que le diste a una sala"
+
+msgid "Lists the areas, to travel to one"
+msgstr "Lista las zonas, para ir a una"
+
+msgid "Takes a map made with Mudlet in place of this one"
+msgstr "Importa un mapa hecho con Mudlet en lugar de este"

@@ -8,9 +8,10 @@ use rusqlite::{Connection, Result, Transaction, params};
 use crate::{Exit, Pos, Room};
 
 /// Version of the schema below, kept in the database's `user_version`.
-/// Version 1 lacked the rooms' `weight` and `avoid` columns, and versions
-/// 1 and 2 the exits' `cost`, `locked`, `command` and `custom`.
-const VERSION: i64 = 3;
+/// Version 1 lacked the rooms' `weight` and `avoid` columns, versions 1
+/// and 2 the exits' `cost`, `locked`, `command` and `custom`, and versions
+/// up to 3 the marks and what is known about the map.
+const VERSION: i64 = 4;
 
 const SCHEMA: &str = "
     CREATE TABLE IF NOT EXISTS rooms (
@@ -33,6 +34,14 @@ const SCHEMA: &str = "
         custom INTEGER NOT NULL DEFAULT 0,
         PRIMARY KEY (room_id, direction)
     );
+    CREATE TABLE IF NOT EXISTS marks (
+        name TEXT PRIMARY KEY,
+        room_id INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS about (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+    );
 ";
 
 const UPGRADE_ROOMS_FROM_1: &str = "
@@ -51,9 +60,18 @@ pub struct Store {
     connection: Connection,
 }
 
+/// What a stored map holds: its rooms, its marks by name, and what is known
+/// about it by key.
+#[derive(Default)]
+pub struct Stored {
+    pub rooms: Vec<Room>,
+    pub marks: BTreeMap<String, i64>,
+    pub about: BTreeMap<String, String>,
+}
+
 impl Store {
-    /// Opens (or creates) the database and returns it with all its rooms.
-    pub fn open(path: &Path) -> Result<(Self, Vec<Room>)> {
+    /// Opens (or creates) the database and returns it with all it holds.
+    pub fn open(path: &Path) -> Result<(Self, Stored)> {
         let connection = Connection::open(path)?;
         let version: i64 = connection.query_row("PRAGMA user_version", [], |row| row.get(0))?;
         if version > VERSION {
@@ -116,7 +134,67 @@ impl Store {
             })?
             .collect::<Result<Vec<Room>>>()?;
         drop(statement);
-        Ok((Self { connection }, rooms))
+        let pairs = |sql: &str| -> Result<Vec<(String, rusqlite::types::Value)>> {
+            let mut statement = connection.prepare(sql)?;
+            let rows = statement.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?;
+            rows.collect()
+        };
+        let marks = (pairs("SELECT name, room_id FROM marks")?.into_iter())
+            .filter_map(|(name, id)| match id {
+                rusqlite::types::Value::Integer(id) => Some((name, id)),
+                _ => None,
+            })
+            .collect();
+        let about = (pairs("SELECT key, value FROM about")?.into_iter())
+            .filter_map(|(key, value)| match value {
+                rusqlite::types::Value::Text(value) => Some((key, value)),
+                _ => None,
+            })
+            .collect();
+        let stored = Stored {
+            rooms,
+            marks,
+            about,
+        };
+        Ok((Self { connection }, stored))
+    }
+
+    /// Puts `rooms` in place of every room there was, all or none, with
+    /// their marks kept: a map taken from elsewhere.
+    pub fn replace<'a>(&mut self, rooms: impl IntoIterator<Item = &'a Room>) -> Result<()> {
+        let transaction = self.connection.transaction()?;
+        transaction.execute_batch("DELETE FROM exits; DELETE FROM rooms;")?;
+        for room in rooms {
+            save_room(&transaction, room, false)?;
+        }
+        transaction.commit()
+    }
+
+    /// Names a room, or forgets the name if `room` is `None`.
+    pub fn mark(&mut self, name: &str, room: Option<i64>) -> Result<()> {
+        match room {
+            Some(id) => self.connection.execute(
+                "INSERT INTO marks (name, room_id) VALUES (?1, ?2)
+                 ON CONFLICT(name) DO UPDATE SET room_id = excluded.room_id",
+                params![name, id],
+            ),
+            None => (self.connection).execute("DELETE FROM marks WHERE name = ?1", [name]),
+        }
+        .map(drop)
+    }
+
+    /// Keeps something known about the map, or forgets it if `value` is
+    /// `None`.
+    pub fn set_about(&mut self, key: &str, value: Option<&str>) -> Result<()> {
+        match value {
+            Some(value) => self.connection.execute(
+                "INSERT INTO about (key, value) VALUES (?1, ?2)
+                 ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                params![key, value],
+            ),
+            None => (self.connection).execute("DELETE FROM about WHERE key = ?1", [key]),
+        }
+        .map(drop)
     }
 
     /// Removes every room.
@@ -136,21 +214,25 @@ impl Store {
     pub fn save<'a>(&mut self, rooms: impl IntoIterator<Item = &'a Room>) -> Result<()> {
         let transaction = self.connection.transaction()?;
         for room in rooms {
-            save_room(&transaction, room)?;
+            save_room(&transaction, room, true)?;
         }
         transaction.commit()
     }
 }
 
-fn save_room(transaction: &Transaction, room: &Room) -> Result<()> {
-    transaction.execute(
-        "INSERT INTO rooms (id, name, area, x, y, z, weight, avoid)
+/// Writes a room and its exits; `known` if it may be there already, to be
+/// replaced, rather than certainly new.
+fn save_room(transaction: &Transaction, room: &Room, known: bool) -> Result<()> {
+    transaction
+        .prepare_cached(
+            "INSERT INTO rooms (id, name, area, x, y, z, weight, avoid)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
          ON CONFLICT(id) DO UPDATE SET
              name = excluded.name, area = excluded.area,
              x = excluded.x, y = excluded.y, z = excluded.z,
              weight = excluded.weight, avoid = excluded.avoid",
-        params![
+        )?
+        .execute(params![
             room.id,
             room.name,
             room.area,
@@ -159,23 +241,24 @@ fn save_room(transaction: &Transaction, room: &Room) -> Result<()> {
             room.pos.z,
             room.weight,
             room.avoid
-        ],
+        ])?;
+    if known {
+        (transaction.prepare_cached("DELETE FROM exits WHERE room_id = ?1")?).execute([room.id])?;
+    }
+    let mut insert = transaction.prepare_cached(
+        "INSERT INTO exits (room_id, direction, to_id, cost, locked, command, custom)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
     )?;
-    transaction.execute("DELETE FROM exits WHERE room_id = ?1", [room.id])?;
     for (direction, exit) in &room.exits {
-        transaction.execute(
-            "INSERT INTO exits (room_id, direction, to_id, cost, locked, command, custom)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-            params![
-                room.id,
-                direction,
-                exit.to,
-                exit.cost,
-                exit.locked,
-                exit.command,
-                exit.custom
-            ],
-        )?;
+        insert.execute(params![
+            room.id,
+            direction,
+            exit.to,
+            exit.cost,
+            exit.locked,
+            exit.command,
+            exit.custom
+        ])?;
     }
     Ok(())
 }
@@ -202,7 +285,7 @@ mod tests {
             )
             .unwrap();
         }
-        let (mut store, mut rooms) = Store::open(&path).unwrap();
+        let (mut store, Stored { mut rooms, .. }) = Store::open(&path).unwrap();
         assert_eq!(rooms.len(), 1);
         assert_eq!((rooms[0].weight, rooms[0].avoid), (1, false));
         assert_eq!(
@@ -216,7 +299,7 @@ mod tests {
         rooms[0].avoid = true;
         store.save(&rooms).unwrap();
         drop(store);
-        let (store, rooms) = Store::open(&path).unwrap();
+        let (store, Stored { rooms, .. }) = Store::open(&path).unwrap();
         assert_eq!((rooms[0].weight, rooms[0].avoid), (5, true));
 
         store

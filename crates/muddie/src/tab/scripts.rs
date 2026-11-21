@@ -229,6 +229,13 @@ impl Tab {
                 }
                 Action::Walk(room) => self.walk_to(room),
                 Action::Entered(room) => self.arrived_in(room),
+                Action::LostTrack => self.lost_track(),
+                Action::StopWalk => {
+                    if self.walk.take().is_some() {
+                        self.note(tr("Walk stopped: the server said the move failed."));
+                    }
+                }
+                Action::ImportMap(address) => self.import_for_script(address),
                 Action::Panel { name, text } => self.show_in_panel(&name, text.as_deref()),
                 Action::PanelAdd { name, text } => {
                     for line in panels::styled_lines(&text) {

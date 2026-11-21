@@ -46,6 +46,7 @@ mod media;
 mod messages;
 mod mxp;
 mod panel_sizes;
+mod places;
 mod plugins;
 mod scripts;
 mod switching;
@@ -109,6 +110,9 @@ pub struct Tab {
     /// The route being followed, if a walk is under way, and when it last
     /// made progress.
     walk: Option<(Walk, Instant)>,
+    /// The map: what the server offered of its own this session, the one
+    /// being taken, and whether the user was told the map lost track.
+    map_source: walking::MapSource,
     /// Output arrived while the session was not on screen.
     unread: bool,
     /// The settings in force, as of the last change.
@@ -268,6 +272,7 @@ impl Tab {
             map,
             map_view: MapView::default(),
             walk: None,
+            map_source: Default::default(),
             unread: false,
             settings: settings.clone(),
             log: None,
@@ -392,6 +397,7 @@ impl Tab {
         self.scripts.tick(now);
         self.run_actions();
         self.check_walk(ctx);
+        self.check_map_taken(ctx);
         self.check_partial(ctx);
         self.check_timers(ctx);
         self.check_packages(ctx);
