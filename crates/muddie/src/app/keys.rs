@@ -38,7 +38,28 @@ pub(super) fn drop_alt_typing(events: &mut Vec<egui::Event>, held: Modifiers, la
 mod alt_tests {
     use super::*;
 
+    /// On a Mac, what Option types is typed: the @ of a Spanish keyboard is
+    /// Option+2.
     #[test]
+    #[cfg(target_os = "macos")]
+    fn option_types_on_a_mac() {
+        let mut events = vec![
+            egui::Event::Key {
+                key: egui::Key::Num2,
+                physical_key: None,
+                pressed: true,
+                repeat: false,
+                modifiers: Modifiers::ALT,
+            },
+            egui::Event::Text("@".into()),
+        ];
+        drop_alt_typing(&mut events, Modifiers::NONE, &mut false);
+        assert!(matches!(&events[1], egui::Event::Text(text) if text == "@"));
+    }
+
+    /// Not on a Mac, where Option types characters and is left alone.
+    #[test]
+    #[cfg(not(target_os = "macos"))]
     fn alt_and_a_key_does_not_type_but_altgr_does() {
         let key = |key, modifiers| egui::Event::Key {
             key,

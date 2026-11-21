@@ -455,14 +455,25 @@ fn an_idle_window_draws_nothing() {
         let mut harness = connected_demo_window();
         setup(&mut harness);
         harness.run_steps(10);
-        std::thread::sleep(std::time::Duration::from_millis(300));
-        harness.run_steps(3);
-        let wait = (harness
-            .output()
-            .viewport_output
-            .get(&egui::ViewportId::ROOT))
-        .map(|viewport| viewport.repaint_delay)
-        .unwrap_or_default();
+        // What settles a moment after a change waits for that moment as
+        // it is, which a busy machine makes longer: up to two seconds.
+        let wait_now = |harness: &Harness<'_, App>| {
+            (harness
+                .output()
+                .viewport_output
+                .get(&egui::ViewportId::ROOT))
+            .map(|viewport| viewport.repaint_delay)
+            .unwrap_or_default()
+        };
+        let mut wait = wait_now(&harness);
+        for _ in 0..6 {
+            if wait.as_secs() >= 30 {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(300));
+            harness.run_steps(3);
+            wait = wait_now(&harness);
+        }
         assert!(
             wait.as_secs() >= 30,
             "the {name} asks for a frame in {wait:?}"

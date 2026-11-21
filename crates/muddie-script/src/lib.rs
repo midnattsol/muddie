@@ -381,7 +381,7 @@ impl Engine {
         match std::fs::read_to_string(path) {
             Ok(code) => {
                 let name = path.file_name().unwrap_or(path.as_os_str());
-                let owner = path.display().to_string();
+                let owner = owner_of(path);
                 self.exec_owned(&owner, &name.to_string_lossy(), &code);
             }
             Err(error) => self.error(format!("cannot read {}: {error}", path.display())),
@@ -450,7 +450,7 @@ impl Engine {
     /// Runs a script file again by itself: what it made before is taken
     /// away first, and the other scripts are not touched.
     pub fn reload_file(&mut self, path: &Path) {
-        self.unload(&path.display().to_string());
+        self.unload(&owner_of(path));
         self.load_file(path);
     }
 
@@ -461,7 +461,7 @@ impl Engine {
 
     /// Forgets a script file, taking away what it made.
     pub fn unload_file(&mut self, path: &Path) {
-        self.unload(&path.display().to_string());
+        self.unload(&owner_of(path));
         self.files.retain(|loaded| loaded != path);
     }
 
@@ -548,3 +548,11 @@ impl ExitOptions {
 
 #[cfg(test)]
 mod tests;
+
+/// Who a script file is, as the owner of what it makes: its path with the
+/// separators of the system throughout, so that the same file reached as
+/// `scripts\New folder/hunt.luau` and as `scripts\New folder\hunt.luau`, as
+/// Windows takes both, is one owner.
+fn owner_of(path: &Path) -> String {
+    path.components().collect::<PathBuf>().display().to_string()
+}

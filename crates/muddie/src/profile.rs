@@ -525,10 +525,10 @@ mod tests {
         assert_eq!(profiles.packages(), ["combat"]);
         let relative: Vec<String> = (profiles.scripts("Main", &profile).iter())
             .map(|path| {
-                path.strip_prefix(&profiles.dir)
-                    .unwrap()
-                    .display()
-                    .to_string()
+                // Each part, joined with / on every system.
+                let inner = path.strip_prefix(&profiles.dir).unwrap();
+                let parts: Vec<_> = inner.iter().map(|part| part.to_string_lossy()).collect();
+                parts.join("/")
             })
             .collect();
         assert_eq!(

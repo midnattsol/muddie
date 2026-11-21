@@ -74,7 +74,7 @@ fn shows_welcome() {
 
 /// A plugin for the MUD connected to, offered over the command line.
 fn shows_plugin_offer() {
-    let mut offer = connected_demo_window();
+    let mut offer = connected_drawn_demo_window();
     let app = offer.state_mut().tab_mut();
     app.offer_plugin_for("rlmud.org", "");
     offer.run_steps(3);
@@ -83,7 +83,7 @@ fn shows_plugin_offer() {
 
 /// The channels of the MUD, each with its tab in one panel.
 fn shows_channels() {
-    let mut channels = connected_demo_window();
+    let mut channels = connected_drawn_demo_window();
     let app = channels.state_mut().tab_mut();
     app.scripts.exec(
             "t",
@@ -178,7 +178,7 @@ fn shows_every_settings_page() {
 /// The settings, and the same text in each of the fonts that come with the
 /// program.
 fn shows_settings_and_fonts() {
-    let mut settings = demo_window();
+    let mut settings = drawn_demo_window();
     settings
         .state_mut()
         .open_settings(crate::app::Section::Appearance);
@@ -191,7 +191,7 @@ fn shows_settings_and_fonts() {
     save(&mut settings, "settings-general");
     // The same text in each of the fonts that come with the program.
     for (name, _) in crate::theme::BUNDLED_FONTS {
-        let mut fonts = connected_demo_window();
+        let mut fonts = connected_drawn_demo_window();
         let ctx = fonts.ctx.clone();
         fonts
             .state_mut()
@@ -229,7 +229,7 @@ fn shows_plugins() {
 
 /// The automation window, with rules of each kind to look at.
 fn shows_editor() {
-    let mut rules = demo_window();
+    let mut rules = drawn_demo_window();
     rules.set_size(egui::vec2(1500.0, 900.0));
     let app = rules.state_mut().tab_mut();
     app.rules.triggers.push(trigger("tells you", |rule| {
@@ -475,7 +475,7 @@ fn shows_unmapped() {
 /// The panels with their headers, sharing sides and places, and the
 /// gauges made from them.
 fn shows_panels() {
-    let mut layout = connected_demo_window();
+    let mut layout = connected_drawn_demo_window();
     layout.set_size(egui::vec2(1500.0, 900.0));
     let app = layout.state_mut().tab_mut();
     // The chat at the right, under the map, sharing its side.
@@ -544,7 +544,7 @@ fn shows_panels() {
 
 /// The palette of commands over the command line, and an answer.
 fn shows_palette() {
-    let mut palette = connected_demo_window();
+    let mut palette = connected_drawn_demo_window();
     let app = palette.state_mut().tab_mut();
     app.scripts.exec(
         "t",
@@ -568,7 +568,7 @@ fn shows_palette() {
 
 /// The command line with nothing typed in it.
 fn shows_empty_line() {
-    let mut empty = connected_demo_window();
+    let mut empty = connected_drawn_demo_window();
     empty.state_mut().tab_mut().input.clear();
     empty.run_steps(3);
     save(&mut empty, "empty");
@@ -576,7 +576,7 @@ fn shows_empty_line() {
 
 /// The find bar and the view of the latest lines while scrolled back.
 fn shows_find_and_themes() {
-    let mut find = connected_demo_window();
+    let mut find = connected_drawn_demo_window();
     let app = find.state_mut().tab_mut();
     (0..60).for_each(|n| app.show_local(&format!("line {n} of filler to scroll through")));
     app.find.open = true;
@@ -590,7 +590,7 @@ fn shows_find_and_themes() {
         (crate::settings::ThemeName::Light, "light"),
         (crate::settings::ThemeName::Contrast, "contrast"),
     ] {
-        let mut themed = connected_demo_window();
+        let mut themed = connected_drawn_demo_window();
         let ctx = themed.ctx.clone();
         themed.state_mut().use_theme(&ctx, theme);
         themed.run_steps(3);
@@ -606,7 +606,7 @@ fn shows_find_and_themes() {
 fn shows_map() {
     // The first is the image named itself.
     let path = std::env::var_os("MUDDIE_SCREENSHOT").map(PathBuf::from);
-    let mut harness = connected_demo_window();
+    let mut harness = connected_drawn_demo_window();
     assert!(harness.query_by_label("Connection").is_none());
     let image = harness.render().expect("rendering failed");
     assert_eq!((image.width(), image.height()), (1100, 700));

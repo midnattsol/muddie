@@ -91,9 +91,18 @@ fn fake_connection(
 
 /// A window with every panel in use, as after some minutes of play.
 fn demo_window<'a>() -> Harness<'a, App> {
-    let mut harness = Harness::builder()
+    demo(Harness::builder())
+}
+
+/// The same, drawn with the GPU, for pictures of it: a machine with none,
+/// such as the CI's, has the others, which are not drawn.
+fn drawn_demo_window<'a>() -> Harness<'a, App> {
+    demo(Harness::builder().wgpu())
+}
+
+fn demo<'a>(builder: egui_kittest::HarnessBuilder<App>) -> Harness<'a, App> {
+    let mut harness = builder
         .with_size(egui::vec2(1100.0, 700.0))
-        .wgpu()
         .build_eframe(|cc| {
             let startup = Startup {
                 profiles: None,
@@ -176,7 +185,15 @@ fn demo_window<'a>() -> Harness<'a, App> {
 
 /// The same window as it looks during play, with the connection open.
 fn connected_demo_window<'a>() -> Harness<'a, App> {
-    let mut harness = demo_window();
+    connected(demo_window())
+}
+
+/// The same, drawn with the GPU, for pictures of it.
+fn connected_drawn_demo_window<'a>() -> Harness<'a, App> {
+    connected(drawn_demo_window())
+}
+
+fn connected(mut harness: Harness<'_, App>) -> Harness<'_, App> {
     // Dropping the far ends is fine: nothing is sent or received here.
     fake_connection(harness.state_mut().tab_mut());
     harness.run_steps(3);

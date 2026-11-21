@@ -1,0 +1,5 @@
+# Text is kept with \n line ends on every system: a text of several lines
+# written in the code is what is looked up in the catalogues of
+# translations, and with \r\n, as Windows checks text out by default, it
+# would no longer be found.
+* text=auto eol=lf

@@ -112,7 +112,10 @@ fn character_name_answers_the_first_prompt() {
     assert_eq!(harness.state().tab().login, Login::Idle);
 }
 
+/// On a Mac, Option types characters (@ on a Spanish keyboard), and what it
+/// types is left alone.
 #[test]
+#[cfg(not(target_os = "macos"))]
 fn alt_r_reconnects_without_typing_an_r() {
     let mut harness = window(None);
     harness.state_mut().tab_mut().started = true;
