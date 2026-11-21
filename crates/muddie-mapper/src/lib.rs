@@ -190,11 +190,15 @@ pub struct Map {
     names: std::cell::RefCell<Option<(u64, Names)>>,
     /// The rooms the player may be in when the map cannot tell which.
     candidates: Vec<RoomId>,
+    /// The moves sent that the server has not shown the end of yet, in
+    /// order, each with when it was sent.
+    moves: VecDeque<(String, std::time::Instant)>,
 }
 
 impl Drop for Map {
     fn drop(&mut self) {
         let _ = self.flush();
+        self.keep_whereabouts();
     }
 }
 
@@ -214,6 +218,7 @@ impl Map {
         map.store = Some(store);
         map.marks = stored.marks;
         map.about = stored.about;
+        map.current = map.last_room();
         Ok(map)
     }
 

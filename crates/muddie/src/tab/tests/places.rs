@@ -58,6 +58,14 @@ fn last_said(app: &Tab) -> String {
     (app.notices().0.last()).map_or_else(String::new, |notice| notice.text.clone())
 }
 
+/// Steps the window once what the plugin of Reinos waits for, to take the
+/// messages of one step together, has passed.
+fn settle(harness: &mut Harness<'_, App>) {
+    harness.run_steps(1);
+    std::thread::sleep(Duration::from_millis(80));
+    harness.run_steps(2);
+}
+
 fn sent_lines(sent: &mut tokio::sync::mpsc::UnboundedReceiver<Command>) -> Vec<String> {
     std::iter::from_fn(|| sent.try_recv().ok())
         .filter_map(|command| match command {
@@ -83,7 +91,7 @@ fn reinos_de_leyenda_is_followed_by_the_rooms_it_shows_and_walked_in_its_words()
     };
     // Three dunes, one written with its exits: the map is unsure.
     events.send(gmcp("Room.Actual", r#""Dunas""#)).unwrap();
-    harness.run_steps(2);
+    settle(&mut harness);
     let app = harness.state_mut().tab_mut();
     assert_eq!(app.map.borrow().candidates(), [1, 2, 3]);
     assert!(
@@ -98,7 +106,7 @@ fn reinos_de_leyenda_is_followed_by_the_rooms_it_shows_and_walked_in_its_words()
     events
         .send(gmcp("Room.Actual", r#""Dunas [|o|, e]""#))
         .unwrap();
-    harness.run_steps(2);
+    settle(&mut harness);
     let app = harness.state_mut().tab_mut();
     assert_eq!(app.map.borrow().current().unwrap().id, 2);
     assert!(
@@ -111,7 +119,7 @@ fn reinos_de_leyenda_is_followed_by_the_rooms_it_shows_and_walked_in_its_words()
     events
         .send(gmcp("Room.Actual", r#""Dunas [o, n]""#))
         .unwrap();
-    harness.run_steps(2);
+    settle(&mut harness);
     let app = harness.state_mut().tab_mut();
     assert_eq!(app.map.borrow().current().unwrap().id, 3);
     // To the well and back by the nearest of the dunes: sent as the MUD says.
@@ -122,7 +130,7 @@ fn reinos_de_leyenda_is_followed_by_the_rooms_it_shows_and_walked_in_its_words()
     assert_eq!(sent_lines(&mut sent), ["norte"]);
     events.send(gmcp("Room.Movimiento", r#""norte""#)).unwrap();
     events.send(gmcp("Room.Actual", r#""Pozo [s]""#)).unwrap();
-    harness.run_steps(2);
+    settle(&mut harness);
     let app = harness.state_mut().tab_mut();
     assert!(app.walk.is_none());
     assert_eq!(
@@ -134,7 +142,7 @@ fn reinos_de_leyenda_is_followed_by_the_rooms_it_shows_and_walked_in_its_words()
     app.run_command("/map travel 1");
     assert_eq!(sent_lines(&mut sent), ["sur"]);
     events.send(gmcp("Room.MovimientoErroneo", "{}")).unwrap();
-    harness.run_steps(2);
+    settle(&mut harness);
     assert!(harness.state().tab().walk.is_none());
 }
 
@@ -220,4 +228,35 @@ fn the_plugin_takes_the_servers_map_at_once_and_it_is_said_aside() {
             .iter()
             .any(|line| line.contains("map from"))
     );
+}
+
+#[test]
+fn reinos_is_followed_whichever_comes_first_or_by_the_move_sent() {
+    let mut harness = window(None);
+    let app = harness.state_mut().tab_mut();
+    let (events, _sent) = fake_connection(app);
+    desert(app);
+    app.scripts.exec(
+        "reinos",
+        include_str!("../../../plugins/reinos-de-leyenda.luau"),
+    );
+    assert!(app.map.borrow_mut().set_current(1));
+    let gmcp = |package: &str, data: &str| Event::Gmcp {
+        package: package.into(),
+        data: data.into(),
+    };
+    // The room before the move: one step all the same.
+    events
+        .send(gmcp("Room.Actual", r#""Dunas [o, e]""#))
+        .unwrap();
+    events.send(gmcp("Room.Movimiento", r#""este""#)).unwrap();
+    settle(&mut harness);
+    assert_eq!(harness.state().tab().map.borrow().current().unwrap().id, 2);
+    // No word of the move: the one sent, by a key bound or typed, is it.
+    harness.state_mut().tab_mut().send("e".into());
+    events
+        .send(gmcp("Room.Actual", r#""Dunas [o, n]""#))
+        .unwrap();
+    settle(&mut harness);
+    assert_eq!(harness.state().tab().map.borrow().current().unwrap().id, 3);
 }

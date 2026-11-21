@@ -6,6 +6,13 @@
 use super::*;
 use naming::name_key;
 
+/// What the map keeps of the room the player was last known to be in.
+const LAST_ROOM: &str = "last room";
+
+/// How long a move sent is waited for: one the server has not answered by
+/// then did not happen.
+const MOVE_ANSWERED_IN: std::time::Duration = std::time::Duration::from_secs(5);
+
 /// What the server showed of the room the player is now in. Each part is
 /// optional; the more there is, the surer the map can be.
 #[derive(Debug, Clone, Copy, Default)]
@@ -27,6 +34,34 @@ pub enum Located {
 }
 
 impl Map {
+    /// A command was sent to the server: if it is a move, the next room
+    /// shown is where it led, unless the server says otherwise.
+    pub fn sent(&mut self, command: &str) {
+        let way = self.direction(command);
+        let here = self.current.and_then(|id| self.rooms.get(&id));
+        let a_move = direction_offset(&way).is_some()
+            || matches!(way.as_str(), "in" | "out")
+            || here.is_some_and(|room| room.exits.contains_key(&way));
+        if a_move {
+            self.moves.push_back((way, std::time::Instant::now()));
+        }
+    }
+
+    /// The moves sent did not happen, as the server said.
+    pub fn moves_failed(&mut self) {
+        self.moves.clear();
+    }
+
+    /// The oldest move sent that is still awaited.
+    fn next_move(&mut self) -> Option<String> {
+        while let Some((way, at)) = self.moves.pop_front() {
+            if at.elapsed() < MOVE_ANSWERED_IN {
+                return Some(way);
+            }
+        }
+        None
+    }
+
     /// Puts the player in a room, as the user or a script says. Returns
     /// false if there is no such room.
     pub fn set_current(&mut self, id: RoomId) -> bool {
@@ -45,9 +80,13 @@ impl Map {
     }
 
     /// The rooms of that name and exits; of that name if none has just
-    /// those exits. In order of number.
+    /// those exits. With no room of that name, those of the names most
+    /// like it (see [`Map::called_alike`]). In order of number.
     pub fn locate(&self, name: &str, exits: Option<&[String]>) -> Vec<RoomId> {
-        let called = self.called(name);
+        let mut called = self.called(name);
+        if called.is_empty() {
+            called = self.called_alike(name);
+        }
         let Some(exits) = exits.map(|exits| self.exit_set(exits)) else {
             return called;
         };
@@ -65,13 +104,15 @@ impl Map {
     /// the player was in if it is so, as after looking, or one next to it.
     /// Failing those, any room of that name and exits.
     pub fn arrive(&mut self, seen: Sighting<'_>) -> Located {
+        // The exit taken: as the server says, or else the move sent that
+        // this room answers. Either way, that move is answered.
+        let sent = self.next_move();
+        let came = seen.came.map(|came| self.direction(came)).or(sent);
         let key = seen.name.map(name_key);
         let exits = seen.exits.map(|exits| self.exit_set(exits));
         let named = |id: RoomId| {
             (key.as_ref()).is_none_or(|key| {
-                self.rooms
-                    .get(&id)
-                    .is_some_and(|room| name_key(&room.name) == *key)
+                (self.rooms.get(&id)).is_some_and(|room| name_key(&room.name) == *key)
             })
         };
         let like =
@@ -80,26 +121,36 @@ impl Map {
             Some(id) => vec![id],
             None => self.candidates.clone(),
         };
-        let mut found: Vec<RoomId> = match seen.came {
-            Some(came) => {
-                let way = self.direction(came);
+        // Where the player was, to take the nearest of rooms alike.
+        let was = self
+            .current
+            .and_then(|id| self.rooms.get(&id))
+            .map(|room| (room.area.clone(), room.pos));
+        let moved: Vec<RoomId> = match &came {
+            Some(way) => {
                 let led_to = (before.iter())
-                    .filter_map(|id| Some(self.rooms.get(id)?.exits.get(&way)?.to))
+                    .filter_map(|id| Some(self.rooms.get(id)?.exits.get(way)?.to))
                     .filter(|id| self.rooms.contains_key(id) && named(*id));
                 preferring(led_to.collect(), like)
             }
-            None if key.is_none() && exits.is_none() => return self.whereabouts(),
-            None => {
-                let staying: Vec<RoomId> = before.iter().copied().filter(|id| like(*id)).collect();
-                if staying.is_empty() {
-                    let next = (before.iter())
-                        .filter_map(|id| self.rooms.get(id))
-                        .flat_map(|room| room.exits.values().map(|exit| exit.to))
-                        .filter(|id| like(*id));
-                    next.collect()
-                } else {
-                    staying
-                }
+            None => Vec::new(),
+        };
+        let mut found = if !moved.is_empty() {
+            moved
+        } else if key.is_none() && exits.is_none() {
+            return self.whereabouts();
+        } else {
+            // Still there, as after looking or a move that did not happen;
+            // else a room next to it.
+            let staying: Vec<RoomId> = before.iter().copied().filter(|id| like(*id)).collect();
+            if staying.is_empty() {
+                let next = (before.iter())
+                    .filter_map(|id| self.rooms.get(id))
+                    .flat_map(|room| room.exits.values().map(|exit| exit.to))
+                    .filter(|id| like(*id));
+                next.collect()
+            } else {
+                staying
             }
         };
         found.sort_unstable();
@@ -109,7 +160,41 @@ impl Map {
         {
             found = self.locate(name, seen.exits);
         }
+        // Of several, the nearest to where the player was comes first: it
+        // is where the map is drawn while it is unsure.
+        if let Some((area, pos)) = was {
+            let far = |id: &RoomId| {
+                let room = &self.rooms[id];
+                let gap = |a: i32, b: i32| i64::from(a - b).pow(2);
+                let elsewhere = i64::from(room.area != area || room.pos.z != pos.z);
+                (elsewhere, gap(room.pos.x, pos.x) + gap(room.pos.y, pos.y))
+            };
+            found.sort_by_key(far);
+        }
         self.settle(found)
+    }
+
+    /// Keeps the room the player is in with the map, to start from there
+    /// when it is opened again: the next room the server shows tells
+    /// whether they are still there.
+    pub(crate) fn keep_whereabouts(&mut self) {
+        let Some(id) = self.current else {
+            return;
+        };
+        let id = id.to_string();
+        if self.about.get(LAST_ROOM) == Some(&id) {
+            return;
+        }
+        if let Some(store) = &mut self.store {
+            let _ = store.set_about(LAST_ROOM, Some(&id));
+        }
+        self.about.insert(LAST_ROOM.to_owned(), id);
+    }
+
+    /// The room the player was last known to be in, if it is still there.
+    pub(crate) fn last_room(&self) -> Option<RoomId> {
+        let id = self.about.get(LAST_ROOM)?.parse().ok()?;
+        self.rooms.contains_key(&id).then_some(id)
     }
 
     /// Where the map has the player, as [`Map::arrive`] answers.
@@ -131,6 +216,45 @@ impl Map {
             _ => self.candidates = found,
         }
         self.whereabouts()
+    }
+
+    /// The rooms whose name is most like `name`, when none has it: those
+    /// whose name has it in it or is in it, else those whose name shares
+    /// the most of its words. None if no word is shared.
+    pub(crate) fn called_alike(&self, name: &str) -> Vec<RoomId> {
+        let key = name_key(name);
+        if key.is_empty() {
+            return Vec::new();
+        }
+        let words = |text: &str| -> BTreeSet<String> {
+            (text.split(|c: char| !c.is_alphanumeric()))
+                .filter(|word| word.chars().count() > 2)
+                .map(str::to_owned)
+                .collect()
+        };
+        let wanted = words(&key);
+        let mut ids = self.with_names(|names| {
+            let within: Vec<RoomId> = (names.iter())
+                .filter(|(known, _)| {
+                    !known.is_empty() && (known.contains(&key) || key.contains(known.as_str()))
+                })
+                .flat_map(|(_, ids)| ids.iter().copied())
+                .collect();
+            if !within.is_empty() {
+                return within;
+            }
+            let shared = |known: &str| words(known).intersection(&wanted).count();
+            let most = names.keys().map(|known| shared(known)).max().unwrap_or(0);
+            if most == 0 {
+                return Vec::new();
+            }
+            (names.iter())
+                .filter(|(known, _)| shared(known) == most)
+                .flat_map(|(_, ids)| ids.iter().copied())
+                .collect()
+        });
+        ids.sort_unstable();
+        ids
     }
 
     /// Exits as the map keeps them, however they were said.

@@ -588,3 +588,71 @@ fn a_map_taken_again_keeps_what_the_user_set_and_where_it_came_from() {
     drop(map);
     std::fs::remove_file(&path).unwrap();
 }
+
+#[test]
+fn the_room_the_player_was_in_is_where_the_map_starts_next_time() {
+    let path = std::env::temp_dir().join(format!("muddie-last-room-{}.sqlite", std::process::id()));
+    let _ = std::fs::remove_file(&path);
+    {
+        let mut map = Map::open(&path).unwrap();
+        map.replace_all(desert().rooms().cloned().collect(), None)
+            .unwrap();
+        assert!(map.set_current(12));
+    }
+    let mut map = Map::open(&path).unwrap();
+    assert_eq!(map.current().map(|room| room.id), Some(12));
+    // The server shows another room: the map does not stay there.
+    let seen = Sighting {
+        name: Some("Oasis"),
+        ..Sighting::default()
+    };
+    assert_eq!(map.arrive(seen), Located::Here(13));
+    drop(map);
+    std::fs::remove_file(&path).unwrap();
+}
+
+#[test]
+fn a_move_sent_is_the_exit_taken_when_the_server_does_not_say() {
+    let mut map = desert();
+    assert!(map.set_current(11));
+    let seen = |name| Sighting {
+        name: Some(name),
+        ..Sighting::default()
+    };
+    // Rooms alike either way: the move sent tells which.
+    map.sent("e");
+    assert_eq!(map.arrive(seen("Dune")), Located::Here(12));
+    // Looking is no move: the player stays.
+    map.sent("look");
+    assert_eq!(map.arrive(seen("Dune")), Located::Here(12));
+    // A move the server said failed is not taken.
+    map.sent("w");
+    map.moves_failed();
+    assert_eq!(map.arrive(seen("Dune")), Located::Here(12));
+    // A move that led nowhere new leaves the player where they were.
+    map.sent("s");
+    assert_eq!(map.arrive(seen("Dune")), Located::Here(12));
+}
+
+#[test]
+fn a_name_not_on_the_map_finds_the_rooms_most_like_it_the_nearest_first() {
+    let mut map = desert();
+    assert!(map.set_current(12));
+    // No room is called so: those whose name has it come, the nearest to
+    // where the player was first.
+    let seen = Sighting {
+        name: Some("Dun"),
+        ..Sighting::default()
+    };
+    assert_eq!(map.arrive(seen), Located::Unsure(vec![12, 11, 10]));
+    let seen = Sighting {
+        name: Some("A quiet oasis"),
+        ..Sighting::default()
+    };
+    assert_eq!(map.arrive(seen), Located::Here(13));
+    let seen = Sighting {
+        name: Some("Sea"),
+        ..Sighting::default()
+    };
+    assert_eq!(map.arrive(seen), Located::Nowhere);
+}

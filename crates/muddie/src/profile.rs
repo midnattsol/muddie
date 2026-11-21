@@ -123,6 +123,12 @@ pub enum UserDir {
 /// Muddie's folder of a kind, if the system says where such things go:
 /// where the desktop says, or the usual place under the home folder.
 pub fn user_dir(kind: UserDir) -> Option<PathBuf> {
+    // Tests keep what they write apart from the user's own: their maps
+    // and fetched files were left among the user's.
+    if cfg!(test) {
+        let run = std::env::temp_dir().join(format!("muddie-tests-{}", std::process::id()));
+        return Some(run.join(format!("{kind:?}").to_lowercase()).join("muddie"));
+    }
     let (named, windows, usual) = match kind {
         UserDir::Config => ("XDG_CONFIG_HOME", "APPDATA", ".config"),
         UserDir::Cache => ("XDG_CACHE_HOME", "LOCALAPPDATA", ".cache"),

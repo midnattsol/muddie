@@ -7,6 +7,9 @@
 -- If nothing has come a while after connecting, this says so.
 
 supports("Comm 1")
+-- Where the player is; the plugin of the usual GMCP asks for it too, but
+-- this one may be on without it.
+supports("Room 1")
 
 local heard = false
 
@@ -50,46 +53,76 @@ map.directions({
 })
 
 -- The MUD does not say which room the player is in: it says the move made,
--- then shows the room as "Name [exits]". The map works out the room from
--- both, following the player.
-local came = nil
+-- and shows the room as "Name [exits]". The two of one step are taken
+-- together, whichever comes first; the map works out the room from them,
+-- or from the move sent when the MUD does not say it.
+local seen = {}
+local due = false
+
+-- Text, as it comes or inside a table of the MUD's.
+local function text_of(value)
+    if type(value) == "string" then
+        return value
+    end
+    if type(value) == "table" then
+        for _, field in { "nombre", "name", "short", "salida", "direccion", 1 } do
+            if type(value[field]) == "string" then
+                return value[field]
+            end
+        end
+    end
+    return nil
+end
+
+local function settle()
+    due = false
+    local step = seen
+    seen = {}
+    map.arrive(step)
+end
+
+local function soon()
+    if not due then
+        due = true
+        after(0.05, settle)
+    end
+end
 
 on_gmcp("Room.Movimiento", function(way)
     heard = true
-    if type(way) == "string" then
-        came = way
-    end
+    seen.came = text_of(way)
+    soon()
 end)
 
 on_gmcp("Room.MovimientoErroneo", function()
-    came = nil
+    seen.came = nil
     map.stop()
 end)
 
 on_gmcp("Room.Actual", function(shown)
     heard = true
-    if type(shown) ~= "string" then
+    shown = text_of(shown)
+    if not shown then
         return
     end
     local name, list = shown:match("^(.-)%s*(%b[])%s*$")
-    local exits = nil
     if name then
-        exits = {}
+        local exits = {}
         -- Doors are marked on their exits with | and -.
         for exit in (list:gsub("[|%-]", "")):gmatch("[^%[%],%s]+") do
             table.insert(exits, exit)
         end
+        seen.name, seen.exits = name, exits
     else
-        name = shown
+        seen.name = shown
     end
-    map.arrive({ name = name, exits = exits, came = came })
-    came = nil
+    soon()
 end)
 
 -- Long enough to have logged in; once per connection.
 on_event("connect", function()
     heard = false
-    came = nil
+    seen = {}
     map.import(MAP)
     after(90, function()
         if not heard then

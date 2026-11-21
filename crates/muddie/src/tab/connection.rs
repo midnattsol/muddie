@@ -152,6 +152,8 @@ impl Tab {
     pub(super) fn send(&mut self, line: String) {
         match &self.connection {
             Some(connection) => {
+                // A move: the map takes the next room shown as its end.
+                self.map.borrow_mut().sent(&line);
                 let _ = connection.commands.send(Command::Send(line));
                 self.last_activity = Instant::now();
             }

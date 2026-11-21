@@ -97,8 +97,10 @@
 //!   now in a room the server showed by its name and exits, having taken
 //!   the exit `came`, for servers that do not say which room it is: the
 //!   map works out which, following each room it could be along the exits
-//!   taken until they tell them apart. Each part is optional. Returns the
-//!   room's number, or `nil` while unsure, which the user is told.
+//!   taken until they tell them apart. Each part is optional; without
+//!   `came`, the move sent last that no room has answered yet is taken
+//!   for it. Returns the room's number, or `nil` while unsure, which the
+//!   user is told.
 //! - `map.here(id)`: the player is in that room; false if there is none.
 //! - `map.directions{n = {"norte", "n"}, w = {"oeste", "o"}, ...}`: the
 //!   server's words for each direction, the first of each being what a
@@ -120,8 +122,8 @@
 //! - `map.find(text)`: the rooms whose name contains `text`.
 //! - `map.path(to, from)`: the directions to walk, from the current room
 //!   if `from` is omitted; `nil` if there is no known route.
-//! - `map.walk(to)`: walk there. `map.stop()`: stop walking, as when the
-//!   server says a move failed.
+//! - `map.walk(to)`: walk there. `map.stop()`: the server said a move
+//!   failed: the moves sent did not happen, and a walk stops.
 //! - `map.set_exit(from, direction, to, options)`: add an exit of your
 //!   own or change where one leads. `map.edit_exit(from, direction,
 //!   options)` changes an existing exit. The options, all optional, are

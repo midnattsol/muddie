@@ -24,6 +24,8 @@ pub(super) struct Arrange {
     pub chosen: Option<u32>,
     pub focus: bool,
     pub reveal: bool,
+    /// The panel being dragged in the picture of the window.
+    pub dragged: Option<u32>,
 }
 
 /// An arrangement to start from.
@@ -661,15 +663,17 @@ impl Tab {
     }
 
     /// A picture of the window as the panels are, the one chosen marked.
-    /// Choosing a panel in it chooses it in the list. A screen reader is
-    /// told what it is, and has the list for what it shows.
+    /// Choosing a panel in it chooses it in the list, and dragging it puts
+    /// it elsewhere, as on the game, the picture showing meanwhile how the
+    /// window would be. A screen reader is told what it is, and has the
+    /// list for what it shows and does.
     fn miniature(&mut self, ui: &mut egui::Ui) {
         let theme = theme::current();
         let screen = ui.ctx().content_rect();
         let width = ui.available_width();
         let height = (width * screen.height() / screen.width().max(1.0)).clamp(120.0, 240.0);
-        let (rect, response) =
-            ui.allocate_exact_size(egui::vec2(width, height), egui::Sense::CLICK);
+        let sense = egui::Sense::CLICK | egui::Sense::DRAG;
+        let (rect, response) = ui.allocate_exact_size(egui::vec2(width, height), sense);
         response.widget_info(|| {
             egui::WidgetInfo::labeled(
                 egui::Role::Image,
@@ -677,11 +681,55 @@ impl Tab {
                 tr("Picture of the window's panels"),
             )
         });
-        let blocks = self.blocks(rect, rect.width() / screen.width().max(1.0));
+        let scale = rect.width() / screen.width().max(1.0);
+        let now = blocks(&self.layout, rect, scale);
+        let under = |point: egui::Pos2| {
+            (now.iter())
+                .find(|(block, ids, _)| !ids.is_empty() && block.contains(point))
+                .map(|(_, ids, _)| ids.clone())
+        };
+        let pointer = response
+            .interact_pointer_pos()
+            .or(ui.ctx().pointer_latest_pos());
+        // A panel taken by the pointer: the one chosen, if it is in the
+        // place taken, else the first there.
+        if response.drag_started()
+            && let Some(ids) = pointer.and_then(under)
+        {
+            let taken = (self.arrange.chosen)
+                .filter(|id| ids.contains(id))
+                .unwrap_or(ids[0]);
+            self.arrange.chosen = Some(taken);
+            self.arrange.dragged = Some(taken);
+        }
+        // While it is dragged, the picture is of the window as it would be
+        // if it were let go there; let go, it is.
+        let mut shown = None;
+        if let (Some(id), Some(pointer)) = (self.arrange.dragged, pointer) {
+            let rects: Vec<(u32, egui::Rect)> = (now.iter())
+                .flat_map(|(block, ids, _)| ids.iter().map(|id| (*id, *block)))
+                .collect();
+            let onto = self.layout.drop_target(id, pointer, &rects);
+            let nearest = layout::nearest_side(rect, pointer);
+            if response.drag_stopped() || !ui.input(|input| input.pointer.any_down()) {
+                self.arrange.dragged = None;
+                self.drop_panel(id, onto, nearest);
+                let side = self.layout.panel(id).map_or(nearest, |panel| panel.side);
+                self.voice.say_now(&trf("Moved: {0}.", &[side_name(side)]));
+            } else {
+                let mut after = self.layout.clone();
+                after.drop_panel(id, onto, nearest);
+                shown = Some(blocks(&after, rect, scale));
+                ui.ctx().set_cursor_icon(egui::CursorIcon::Grabbing);
+            }
+        } else if response.hovered() && pointer.and_then(under).is_some() {
+            ui.ctx().set_cursor_icon(egui::CursorIcon::Grab);
+        }
+        let drawn = shown.as_ref().unwrap_or(&now);
         let painter = ui.painter_at(rect);
         let round = egui::CornerRadius::same(8);
         painter.rect_filled(rect, round, theme.field);
-        for (block, ids, name) in &blocks {
+        for (block, ids, name) in drawn {
             let chosen = self.arrange.chosen.is_some_and(|id| ids.contains(&id));
             let game = ids.is_empty();
             let fill = match (game, chosen) {
@@ -713,121 +761,10 @@ impl Tab {
             );
         }
         if response.clicked()
-            && let Some(point) = response.interact_pointer_pos()
-            && let Some((_, ids, _)) = blocks
-                .iter()
-                .find(|(block, ids, _)| !ids.is_empty() && block.contains(point))
+            && let Some(ids) = pointer.and_then(under)
         {
             self.arrange.chosen = ids.first().copied();
         }
-    }
-
-    /// Where the panels on screen, and the game, are in a picture of the
-    /// window at `rect`, `scale` times its size: each place with its panels
-    /// and its words. The game's place has no panels.
-    fn blocks(&self, rect: egui::Rect, scale: f32) -> Vec<(egui::Rect, Vec<u32>, String)> {
-        let on: Vec<&PanelSpec> = (self.layout.panels.iter())
-            .filter(|panel| self.layout.on_screen(panel))
-            .collect();
-        let depth = |side: Side| {
-            let most = (on.iter())
-                .filter(|panel| panel.side == side)
-                .map(|panel| panel.size)
-                .fold(0.0_f32, f32::max);
-            let limit = match side {
-                Side::Left | Side::Right => rect.width() * 0.4,
-                Side::Top | Side::Bottom => rect.height() * 0.4,
-            };
-            (most * scale).min(limit)
-        };
-        let (left, right, top, bottom) = (
-            depth(Side::Left),
-            depth(Side::Right),
-            depth(Side::Top),
-            depth(Side::Bottom),
-        );
-        let full = self.layout.columns_full;
-        let region = |side: Side| match side {
-            Side::Left => egui::Rect::from_min_max(
-                egui::pos2(rect.left(), rect.top() + if full { 0.0 } else { top }),
-                egui::pos2(
-                    rect.left() + left,
-                    rect.bottom() - if full { 0.0 } else { bottom },
-                ),
-            ),
-            Side::Right => egui::Rect::from_min_max(
-                egui::pos2(
-                    rect.right() - right,
-                    rect.top() + if full { 0.0 } else { top },
-                ),
-                egui::pos2(
-                    rect.right(),
-                    rect.bottom() - if full { 0.0 } else { bottom },
-                ),
-            ),
-            Side::Top => egui::Rect::from_min_max(
-                egui::pos2(rect.left() + if full { left } else { 0.0 }, rect.top()),
-                egui::pos2(
-                    rect.right() - if full { right } else { 0.0 },
-                    rect.top() + top,
-                ),
-            ),
-            Side::Bottom => egui::Rect::from_min_max(
-                egui::pos2(
-                    rect.left() + if full { left } else { 0.0 },
-                    rect.bottom() - bottom,
-                ),
-                egui::pos2(rect.right() - if full { right } else { 0.0 }, rect.bottom()),
-            ),
-        };
-        let mut blocks = Vec::new();
-        for side in SIDES {
-            // The places of the side: a panel, or those sharing one as tabs.
-            let mut places: Vec<(Vec<u32>, Vec<String>, f32)> = Vec::new();
-            for panel in on.iter().filter(|panel| panel.side == side) {
-                match places.last_mut() {
-                    Some((ids, names, _))
-                        if panel.stack != 0
-                            && self
-                                .layout
-                                .panel(ids[0])
-                                .is_some_and(|first| first.stack == panel.stack) =>
-                    {
-                        ids.push(panel.id);
-                        names.push(panel.shown_name());
-                    }
-                    _ => places.push((
-                        vec![panel.id],
-                        vec![panel.shown_name()],
-                        panel.weight.max(0.1),
-                    )),
-                }
-            }
-            let total: f32 = places.iter().map(|(_, _, weight)| weight).sum();
-            let area = region(side);
-            let mut start = 0.0;
-            for (ids, names, weight) in places {
-                let (from, to) = (start / total, (start + weight) / total);
-                start += weight;
-                let block = match side {
-                    Side::Left | Side::Right => egui::Rect::from_x_y_ranges(
-                        area.x_range(),
-                        area.top() + area.height() * from..=area.top() + area.height() * to,
-                    ),
-                    Side::Top | Side::Bottom => egui::Rect::from_x_y_ranges(
-                        area.left() + area.width() * from..=area.left() + area.width() * to,
-                        area.y_range(),
-                    ),
-                };
-                blocks.push((block, ids, names.join(" | ")));
-            }
-        }
-        let game = egui::Rect::from_min_max(
-            egui::pos2(rect.left() + left, rect.top() + top),
-            egui::pos2(rect.right() - right, rect.bottom() - bottom),
-        );
-        blocks.push((game, Vec::new(), tr("Game").to_owned()));
-        blocks
     }
 }
 
@@ -840,4 +777,115 @@ impl Tab {
     pub(super) fn share_place_for_tests(&mut self, id: u32, with: u32) {
         self.share_place(id, with);
     }
+}
+
+/// The places of a picture of the window: each with its panels, none for
+/// the game's, and its words.
+type Blocks = Vec<(egui::Rect, Vec<u32>, String)>;
+
+/// Where the panels on screen, and the game, are in a picture of the
+/// window at `rect`, `scale` times its size: each place with its panels
+/// and its words. The game's place has no panels.
+fn blocks(layout: &layout::Layout, rect: egui::Rect, scale: f32) -> Blocks {
+    let on: Vec<&PanelSpec> = (layout.panels.iter())
+        .filter(|panel| layout.on_screen(panel))
+        .collect();
+    let depth = |side: Side| {
+        let most = (on.iter())
+            .filter(|panel| panel.side == side)
+            .map(|panel| panel.size)
+            .fold(0.0_f32, f32::max);
+        let limit = match side {
+            Side::Left | Side::Right => rect.width() * 0.4,
+            Side::Top | Side::Bottom => rect.height() * 0.4,
+        };
+        (most * scale).min(limit)
+    };
+    let (left, right, top, bottom) = (
+        depth(Side::Left),
+        depth(Side::Right),
+        depth(Side::Top),
+        depth(Side::Bottom),
+    );
+    let full = layout.columns_full;
+    let region = |side: Side| match side {
+        Side::Left => egui::Rect::from_min_max(
+            egui::pos2(rect.left(), rect.top() + if full { 0.0 } else { top }),
+            egui::pos2(
+                rect.left() + left,
+                rect.bottom() - if full { 0.0 } else { bottom },
+            ),
+        ),
+        Side::Right => egui::Rect::from_min_max(
+            egui::pos2(
+                rect.right() - right,
+                rect.top() + if full { 0.0 } else { top },
+            ),
+            egui::pos2(
+                rect.right(),
+                rect.bottom() - if full { 0.0 } else { bottom },
+            ),
+        ),
+        Side::Top => egui::Rect::from_min_max(
+            egui::pos2(rect.left() + if full { left } else { 0.0 }, rect.top()),
+            egui::pos2(
+                rect.right() - if full { right } else { 0.0 },
+                rect.top() + top,
+            ),
+        ),
+        Side::Bottom => egui::Rect::from_min_max(
+            egui::pos2(
+                rect.left() + if full { left } else { 0.0 },
+                rect.bottom() - bottom,
+            ),
+            egui::pos2(rect.right() - if full { right } else { 0.0 }, rect.bottom()),
+        ),
+    };
+    let mut blocks = Vec::new();
+    for side in SIDES {
+        // The places of the side: a panel, or those sharing one as tabs.
+        let mut places: Vec<(Vec<u32>, Vec<String>, f32)> = Vec::new();
+        for panel in on.iter().filter(|panel| panel.side == side) {
+            match places.last_mut() {
+                Some((ids, names, _))
+                    if panel.stack != 0
+                        && layout
+                            .panel(ids[0])
+                            .is_some_and(|first| first.stack == panel.stack) =>
+                {
+                    ids.push(panel.id);
+                    names.push(panel.shown_name());
+                }
+                _ => places.push((
+                    vec![panel.id],
+                    vec![panel.shown_name()],
+                    panel.weight.max(0.1),
+                )),
+            }
+        }
+        let total: f32 = places.iter().map(|(_, _, weight)| weight).sum();
+        let area = region(side);
+        let mut start = 0.0;
+        for (ids, names, weight) in places {
+            let (from, to) = (start / total, (start + weight) / total);
+            start += weight;
+            let block = match side {
+                Side::Left | Side::Right => egui::Rect::from_x_y_ranges(
+                    area.x_range(),
+                    area.top() + area.height() * from..=area.top() + area.height() * to,
+                ),
+                Side::Top | Side::Bottom => egui::Rect::from_x_y_ranges(
+                    area.left() + area.width() * from..=area.left() + area.width() * to,
+                    area.y_range(),
+                ),
+            };
+            blocks.push((block, ids, names.join(" | ")));
+        }
+    }
+    let game = egui::Rect::from_min_max(
+        egui::pos2(rect.left() + left, rect.top() + top),
+        egui::pos2(rect.right() - right, rect.bottom() - bottom),
+    );
+    blocks.push((game, Vec::new(), tr("Game").to_owned()));
+    blocks
 }

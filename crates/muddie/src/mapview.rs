@@ -131,15 +131,27 @@ impl MapView {
     /// right-clicking opens its menu, dragging pans, the scroll wheel zooms,
     /// and Shift+drag moves a room to another cell.
     pub fn show(&mut self, ui: &mut Ui, map: &Map) -> Option<MapAction> {
-        let Some(current) = map.current() else {
+        // Where the player is, or, while the map is unsure, the first of
+        // the rooms they may be in: the map is drawn there all the same.
+        let unsure = map.current().is_none();
+        let first_candidate = || map.candidates().first().and_then(|id| map.room(*id));
+        let Some(current) = map.current().or_else(first_candidate) else {
             ui.label(match map.rooms().next() {
                 None => tr("No map yet: the server has not reported a room.").to_owned(),
                 Some(_) => unknown_whereabouts(map),
             });
             return None;
         };
+        let here: Vec<RoomId> = match unsure {
+            true => map.candidates().to_vec(),
+            false => vec![current.id],
+        };
         let tools = std::mem::take(&mut self.asked);
-        heading(ui, map, current);
+        if unsure {
+            ui.label(unknown_whereabouts(map));
+        } else {
+            heading(ui, map, current);
+        }
         let (area, level, home) = self.place(current, tools.locate);
         let (area, level) = self.place_controls(ui, map, (area, level), home);
         let (response, painter) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
@@ -185,7 +197,7 @@ impl MapView {
         let colours = Colours::of(theme::current());
         draw_grid(&painter, response.rect, &grid, theme::current().border);
         draw_exits(&painter, map, &visible, &grid, &colours, &on_level);
-        draw_rooms(&painter, &visible, &grid, current, &area, &colours);
+        draw_rooms(&painter, &visible, &grid, &here, &area, &colours);
         let room_at = |point: Pos2| {
             (visible.iter())
                 .find(|room| grid.on_screen(room.pos).distance(point) <= grid.half() * 1.5)

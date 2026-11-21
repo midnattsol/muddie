@@ -14,6 +14,7 @@ pub(in crate::tab) enum Drop {
 
 /// Where a dragged panel would go over another: that panel, its side,
 /// how it would join it, and the part of it that says so.
+#[derive(Clone, Copy)]
 pub(in crate::tab) struct DropTarget {
     other: u32,
     side: Side,
@@ -23,7 +24,7 @@ pub(in crate::tab) struct DropTarget {
 
 /// Over nothing: the side the pointer is nearest to, each way in its own
 /// measure.
-fn nearest_side(area: egui::Rect, pointer: egui::Pos2) -> Side {
+pub(in crate::tab) fn nearest_side(area: egui::Rect, pointer: egui::Pos2) -> Side {
     let reach = [
         (Side::Left, (pointer.x - area.left()) / area.width()),
         (Side::Right, (area.right() - pointer.x) / area.width()),
@@ -37,7 +38,7 @@ fn nearest_side(area: egui::Rect, pointer: egui::Pos2) -> Side {
 }
 
 /// The part of the window a panel would take on a side.
-fn side_band(area: egui::Rect, side: Side) -> egui::Rect {
+pub(in crate::tab) fn side_band(area: egui::Rect, side: Side) -> egui::Rect {
     match side {
         Side::Left => area.with_max_x(area.left() + area.width() * 0.28),
         Side::Right => area.with_min_x(area.right() - area.width() * 0.28),
@@ -80,7 +81,7 @@ impl Tab {
             self.panels.dragged = None;
             return;
         };
-        let onto = self.drop_target(id, pointer);
+        let onto = self.layout.drop_target(id, pointer, &self.panels.rects);
         let nearest = nearest_side(area, pointer);
         if ui.input(|input| input.pointer.any_down()) {
             let band = match onto {
@@ -94,13 +95,43 @@ impl Tab {
         self.drop_panel(id, onto, nearest);
     }
 
-    /// The panel the pointer is over, but the one dragged: its side, and
-    /// by where on it, before it, after it, or in its place as a tab.
-    fn drop_target(&self, id: u32, pointer: egui::Pos2) -> Option<DropTarget> {
-        let (other, rect) = (self.panels.rects.iter())
+    /// Puts a panel where it was dropped, and shows it if it joined
+    /// another as a tab.
+    pub(in crate::tab) fn drop_panel(&mut self, id: u32, onto: Option<DropTarget>, nearest: Side) {
+        let shown = self.layout.drop_panel(id, onto, nearest);
+        self.show_tab(shown);
+    }
+
+    /// Puts a panel before, after, or in the place of the one at `place`,
+    /// and shows it if it joined it as a tab.
+    pub(in crate::tab) fn drop_beside(&mut self, moved: PanelSpec, place: usize, drop: Drop) {
+        let shown = self.layout.drop_beside(moved, place, drop);
+        self.show_tab(shown);
+    }
+
+    /// Of the panels that share a place, shows this one: `(place, panel)`.
+    fn show_tab(&mut self, shown: Option<(u32, u32)>) {
+        if let Some((stack, id)) = shown {
+            self.panels.shown_tabs.retain(|(known, _)| *known != stack);
+            self.panels.shown_tabs.push((stack, id));
+        }
+    }
+}
+
+impl Layout {
+    /// The panel at `pointer` among those drawn at `rects`, but the one
+    /// dragged: its side, and by where on it, before it, after it, or in
+    /// its place as a tab.
+    pub(in crate::tab) fn drop_target(
+        &self,
+        id: u32,
+        pointer: egui::Pos2,
+        rects: &[(u32, egui::Rect)],
+    ) -> Option<DropTarget> {
+        let (other, rect) = (rects.iter())
             .find(|(other, rect)| *other != id && rect.contains(pointer))
             .copied()?;
-        let side = self.layout.panel(other)?.side;
+        let side = self.panel(other)?.side;
         let (start, length, at) = match side.is_beside() {
             true => (rect.top(), rect.height(), pointer.y),
             false => (rect.left(), rect.width(), pointer.x),
@@ -131,18 +162,18 @@ impl Tab {
 
     /// Puts the panel dropped where it was let go: on the side of the one
     /// it is over, or the side it is nearest to, taking a size that suits.
-    pub(in crate::tab) fn drop_panel(&mut self, id: u32, onto: Option<DropTarget>, nearest: Side) {
-        let Some(from) = self.layout.panels.iter().position(|panel| panel.id == id) else {
-            return;
-        };
-        let mut moved = self.layout.panels.remove(from);
+    /// Returns the place it shares as a tab, and itself, if it joined one.
+    pub(in crate::tab) fn drop_panel(
+        &mut self,
+        id: u32,
+        onto: Option<DropTarget>,
+        nearest: Side,
+    ) -> Option<(u32, u32)> {
+        let from = self.panels.iter().position(|panel| panel.id == id)?;
+        let mut moved = self.panels.remove(from);
         let side = onto.as_ref().map_or(nearest, |target| target.side);
         // It takes the size of the side it joins, or one that suits it.
-        let there = self
-            .layout
-            .panels
-            .iter()
-            .find(|panel| panel.visible && panel.side == side);
+        let there = (self.panels.iter()).find(|panel| panel.visible && panel.side == side);
         moved.size = match there {
             Some(panel) => panel.size,
             None if moved.side.is_beside() == side.is_beside() => moved.size,
@@ -150,48 +181,48 @@ impl Tab {
             None => ACROSS,
         };
         moved.side = side;
-        self.layout.reveal(side);
+        self.reveal(side);
         moved.weight = 1.0;
         moved.stack = 0;
-        let place = onto.as_ref().and_then(|target| {
-            self.layout
-                .panels
-                .iter()
-                .position(|panel| panel.id == target.other)
-        });
+        let place = onto
+            .as_ref()
+            .and_then(|target| (self.panels.iter()).position(|panel| panel.id == target.other));
         match (onto, place) {
             (Some(target), Some(place)) => self.drop_beside(moved, place, target.drop),
-            _ => self.layout.panels.push(moved),
+            _ => {
+                self.panels.push(moved);
+                None
+            }
         }
     }
 
     /// Puts a panel before, after, or in the place of the one at `place`,
     /// as a tab with it and those it shares its place with. Joined as a
-    /// tab, it is shown, so that it is seen to be there.
-    pub(in crate::tab) fn drop_beside(&mut self, mut moved: PanelSpec, place: usize, drop: Drop) {
-        let (side, stack) = (
-            self.layout.panels[place].side,
-            self.layout.panels[place].stack,
-        );
+    /// tab, it is to be shown, so that it is seen to be there: the place
+    /// and the panel are returned.
+    pub(in crate::tab) fn drop_beside(
+        &mut self,
+        mut moved: PanelSpec,
+        place: usize,
+        drop: Drop,
+    ) -> Option<(u32, u32)> {
+        let (side, stack) = (self.panels[place].side, self.panels[place].stack);
         let shares = |panel: &PanelSpec| stack != 0 && panel.stack == stack && panel.side == side;
-        let first = self.layout.panels.iter().position(&shares).unwrap_or(place);
-        let last = self.layout.panels.iter().rposition(shares).unwrap_or(place);
+        let first = self.panels.iter().position(&shares).unwrap_or(place);
+        let last = self.panels.iter().rposition(shares).unwrap_or(place);
         match drop {
-            Drop::Before => self.layout.panels.insert(first, moved),
-            Drop::After => self.layout.panels.insert(last + 1, moved),
+            Drop::Before => self.panels.insert(first, moved),
+            Drop::After => self.panels.insert(last + 1, moved),
             Drop::Into => {
-                let joined = if stack == 0 {
-                    self.layout.next_stack()
-                } else {
-                    stack
-                };
-                self.layout.panels[place].stack = joined;
+                let joined = if stack == 0 { self.next_stack() } else { stack };
+                self.panels[place].stack = joined;
                 moved.stack = joined;
-                moved.weight = self.layout.panels[place].weight;
-                self.panels.shown_tabs.retain(|(known, _)| *known != joined);
-                self.panels.shown_tabs.push((joined, moved.id));
-                self.layout.panels.insert(last + 1, moved);
+                moved.weight = self.panels[place].weight;
+                let shown = (joined, moved.id);
+                self.panels.insert(last + 1, moved);
+                return Some(shown);
             }
         }
+        None
     }
 }

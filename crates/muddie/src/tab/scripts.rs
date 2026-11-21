@@ -231,6 +231,7 @@ impl Tab {
                 Action::Entered(room) => self.arrived_in(room),
                 Action::LostTrack => self.lost_track(),
                 Action::StopWalk => {
+                    self.map.borrow_mut().moves_failed();
                     if self.walk.take().is_some() {
                         self.note(tr("Walk stopped: the server said the move failed."));
                     }

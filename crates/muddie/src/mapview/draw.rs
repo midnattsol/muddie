@@ -175,19 +175,20 @@ pub(super) fn draw_grid(painter: &Painter, rect: Rect, grid: &Grid, colour: Colo
     }
 }
 
-/// The rooms shown: the player's ringed, avoided ones marked, and those of
-/// other areas, with every area on show, faint.
+/// The rooms shown: the player's ringed (each they may be in, while the
+/// map is unsure), avoided ones marked, and those of other areas, with
+/// every area on show, faint.
 pub(super) fn draw_rooms(
     painter: &Painter,
     visible: &[&Room],
     grid: &Grid,
-    current: &Room,
+    here: &[RoomId],
     area: &str,
     colours: &Colours,
 ) {
     for room in visible {
         let rect = Rect::from_center_size(grid.on_screen(room.pos), Vec2::splat(grid.half() * 2.0));
-        let is_current = room.id == current.id;
+        let is_current = here.contains(&room.id);
         let fill = match (is_current, room.avoid) {
             (true, _) => colours.current,
             (false, true) => colours.avoided,

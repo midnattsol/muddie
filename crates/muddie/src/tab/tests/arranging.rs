@@ -657,3 +657,46 @@ fn arrangements_put_the_panels_where_they_say_and_keep_them() {
         0
     );
 }
+
+#[test]
+fn panels_are_dragged_in_the_picture_of_the_window_seeing_how_it_would_be() {
+    use layout::Side::{Left, Right};
+    let mut harness = connected_demo_window();
+    harness.set_size(egui::vec2(1400.0, 1000.0));
+    harness.state_mut().tab_mut().open_arrange(None);
+    harness.run_steps(3);
+    let picture = harness
+        .get_by_label("Picture of the window's panels")
+        .rect();
+    let (map_at, left_edge) = (
+        egui::pos2(picture.right() - 20.0, picture.top() + 20.0),
+        egui::pos2(picture.left() + 6.0, picture.center().y),
+    );
+    let pointer = |harness: &mut Harness<'_, App>, at: egui::Pos2, pressed: Option<bool>| {
+        harness.event(egui::Event::PointerMoved(at));
+        if let Some(pressed) = pressed {
+            harness.event(egui::Event::PointerButton {
+                pos: at,
+                button: egui::PointerButton::Primary,
+                pressed,
+                modifiers: Modifiers::NONE,
+            });
+        }
+        harness.run_steps(2);
+    };
+    pointer(&mut harness, map_at, Some(true));
+    pointer(&mut harness, map_at + egui::vec2(-30.0, 10.0), None);
+    pointer(&mut harness, left_edge, None);
+    // Meanwhile it is only seen: the panels are as they were.
+    let side_of_map = |app: &Tab| {
+        (app.layout.panels.iter())
+            .find(|panel| panel.kind == layout::Kind::Map)
+            .map(|panel| panel.side)
+    };
+    assert_eq!(side_of_map(harness.state().tab()), Some(Right));
+    assert!(harness.state().tab().arrange.dragged.is_some());
+    pointer(&mut harness, left_edge, Some(false));
+    let app = harness.state().tab();
+    assert_eq!(side_of_map(app), Some(Left));
+    assert!(app.arrange.dragged.is_none());
+}

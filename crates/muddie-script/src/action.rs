@@ -78,7 +78,8 @@ pub enum Action {
     /// The map lost track of where the player is: it cannot tell which of
     /// several rooms it is, or knows none like it.
     LostTrack,
-    /// Stop walking: the server said a move failed.
+    /// The server said a move failed: the moves sent did not happen, and
+    /// a walk stops.
     StopWalk,
     /// Take the map made with Mudlet at this address in place of the one
     /// there is; if it was taken from there, only if it has changed.
