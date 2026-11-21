@@ -311,3 +311,30 @@ fn many_triggers_fire_as_few_do_and_follow_changes() {
     engine.on_line("word 3");
     assert_eq!(engine.take_actions(), [send("any")]);
 }
+
+/// Many patterns with `\w`, every letter of every language, are put in one
+/// set all the same, on a thread of their own, and fire as each would: too
+/// big for what the regex crate allows by default, they used to leave every
+/// line tried on every trigger.
+#[test]
+fn many_wide_patterns_are_put_in_one_set() {
+    // In several goes: each takes a while to compile, unoptimised.
+    let mut engine = engine("");
+    for start in (0..300).step_by(30) {
+        let mut code = String::new();
+        for n in start..start + 30 {
+            code.push_str(&format!(
+                "trigger(\"^(\\\\w+) attacks you with (\\\\w+) {n}$\", function(m) send(m[1] .. \" {n}\") end)\n"
+            ));
+        }
+        engine.exec("test", &code);
+        assert_eq!(engine.take_actions(), []);
+    }
+    engine.on_line("nothing to see");
+    assert!(
+        engine.trigger_set_made(),
+        "the patterns were not put in one set"
+    );
+    engine.on_line("Ñandú attacks you with garras 250");
+    assert_eq!(engine.take_actions(), [send("Ñandú 250")]);
+}

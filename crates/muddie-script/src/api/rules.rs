@@ -22,7 +22,7 @@ fn install_triggers_and_aliases(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::
             name,
             lua.create_function(
                 move |_, (pattern, callback, options): (String, Function, Option<Table>)| {
-                    let regex = Regex::new(&pattern).map_err(mlua::Error::runtime)?;
+                    let regex = compiled(&shared, &pattern)?;
                     let belongs = belongs(options.as_ref())?;
                     let once = match &options {
                         Some(options) => options.get::<Option<bool>>("once")?.unwrap_or(false),
@@ -50,6 +50,23 @@ fn install_triggers_and_aliases(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::
         )?;
     }
     Ok(())
+}
+
+/// A pattern compiled, or as it was compiled before.
+fn compiled(state: &Rc<RefCell<State>>, pattern: &str) -> mlua::Result<Regex> {
+    /// Patterns kept at most: those typed while a rule is written are
+    /// kept too, and forgotten all together past this many.
+    const MOST_KEPT: usize = 4096;
+    if let Some(known) = state.borrow().compiled.get(pattern) {
+        return Ok(known.clone());
+    }
+    let regex = Regex::new(pattern).map_err(mlua::Error::runtime)?;
+    let kept = &mut state.borrow_mut().compiled;
+    if kept.len() >= MOST_KEPT {
+        kept.clear();
+    }
+    kept.insert(pattern.to_owned(), regex.clone());
+    Ok(regex)
 }
 
 /// What `options` say a thing is switched by: its `name`, which is its

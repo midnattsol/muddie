@@ -225,18 +225,62 @@ impl Engine {
     fn matching_triggers(&self, text: &str) -> Option<regex::SetMatches> {
         /// Below this many, trying each is as quick.
         const SET_FROM: usize = 16;
+        /// How big the set may grow: patterns with `\w`, which is every
+        /// letter of every language, are big, and three hundred of them do
+        /// not fit in what the regex crate allows by default, which left
+        /// every line tried on every trigger.
+        const SET_SIZE: usize = 128 << 20;
         let mut state = self.state.borrow_mut();
         if state.triggers.len() < SET_FROM {
             return None;
         }
-        let ids: Vec<u64> = state.triggers.iter().map(|matcher| matcher.id).collect();
-        if (state.trigger_set.as_ref()).is_none_or(|(known, _)| *known != ids) {
-            let patterns = state.triggers.iter().map(|matcher| matcher.regex.as_str());
-            let set = regex::RegexSet::new(patterns).ok();
-            state.trigger_set = Some((ids, set));
+        let state = &mut *state;
+        let known = &state.trigger_set.ids;
+        let same = known.len() == state.triggers.len()
+            && known
+                .iter()
+                .zip(&state.triggers)
+                .all(|(id, matcher)| *id == matcher.id);
+        if !same {
+            let patterns: Vec<String> = (state.triggers.iter())
+                .map(|matcher| matcher.regex.as_str().to_owned())
+                .collect();
+            let (made, making) = std::sync::mpsc::channel();
+            std::thread::spawn(move || {
+                let set = regex::RegexSetBuilder::new(patterns)
+                    .size_limit(SET_SIZE)
+                    .dfa_size_limit(SET_SIZE)
+                    .build()
+                    .ok();
+                let _ = made.send(set);
+            });
+            state.trigger_set = crate::state::TriggerSet {
+                ids: state.triggers.iter().map(|matcher| matcher.id).collect(),
+                set: None,
+                making: Some(making),
+            };
         }
-        let (_, set) = state.trigger_set.as_ref()?;
-        Some(set.as_ref()?.matches(text))
+        let set = &mut state.trigger_set;
+        if let Some(made) = set
+            .making
+            .as_ref()
+            .and_then(|making| making.try_recv().ok())
+        {
+            (set.set, set.making) = (made, None);
+        }
+        Some(set.set.as_ref()?.matches(text))
+    }
+
+    /// Waits for the set of the triggers' patterns being made, if it is:
+    /// for tests that measure, or count on, the set.
+    #[cfg(test)]
+    pub(crate) fn trigger_set_made(&self) -> bool {
+        let mut state = self.state.borrow_mut();
+        let set = &mut state.trigger_set;
+        if let Some(making) = set.making.take() {
+            set.set = making.recv().ok().flatten();
+        }
+        set.set.is_some()
     }
 
     pub(super) fn fire(&mut self, hit: &Hit, text: &str) {

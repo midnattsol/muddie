@@ -73,9 +73,12 @@ pub(super) struct State {
     /// drawing, by its name in lower case.
     pub(crate) panel_sizes: HashMap<String, (u32, u32)>,
     pub(crate) triggers: Vec<Matcher>,
-    /// The triggers' patterns in one set, by the ids of the triggers it
-    /// was made of; none if they could not be put in one.
-    pub(crate) trigger_set: Option<(Vec<u64>, Option<regex::RegexSet>)>,
+    /// The triggers' patterns in one set, to find in one pass which may
+    /// match a line.
+    pub(crate) trigger_set: TriggerSet,
+    /// Patterns as they were compiled, kept for when the rules are put to
+    /// work again: each takes a while, and most are as they were.
+    pub(crate) compiled: HashMap<String, regex::Regex>,
     pub(crate) aliases: Vec<Matcher>,
     pub(crate) timers: Vec<Timer>,
     pub(crate) data_handlers: Vec<DataHandler>,
@@ -132,4 +135,16 @@ pub(super) struct Hit {
     pub(crate) callback: Function,
     pub(crate) groups: Vec<Option<String>>,
     pub(crate) named: Vec<(String, String)>,
+}
+
+/// The triggers' patterns in one set, by the ids of the triggers it is made
+/// of. With many patterns it takes a moment to make, so it is made on a
+/// thread of its own; until it is ready, lines are tried on each trigger,
+/// with the same result, only slower.
+#[derive(Default)]
+pub(crate) struct TriggerSet {
+    pub(crate) ids: Vec<u64>,
+    /// None if the patterns could not be put in one set, or until it is.
+    pub(crate) set: Option<regex::RegexSet>,
+    pub(crate) making: Option<std::sync::mpsc::Receiver<Option<regex::RegexSet>>>,
 }

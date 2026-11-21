@@ -508,3 +508,82 @@ fn a_long_coloured_value_leaves_its_path_room() {
     assert!(!value.contains('\u{1b}'), "{value:?}");
     assert!(value.ends_with("en la partida"), "told whole: {value:?}");
 }
+
+/// Says what a line costs going through the triggers, with none and with
+/// three hundred, and how long a burst of lines takes to be shown:
+/// `cargo test -p muddie line_costs -- --ignored --nocapture`.
+#[test]
+#[ignore = "a measurement, not a check"]
+fn line_costs() {
+    for count in [0usize, 300] {
+        let mut harness = window(None);
+        let app = harness.state_mut().tab_mut();
+        let mut rules = app.rules.clone();
+        for n in 0..count {
+            rules.triggers.push(trigger(
+                &if n % 2 == 0 {
+                    format!("pattern {n} here")
+                } else {
+                    format!(r"^(\w+) attacks you with (\w+) {n}")
+                },
+                |rule| {
+                    rule.when.regex = n % 2 == 1;
+                    rule.send = "say hi".into();
+                    rule.when.highlight = if n % 3 == 0 {
+                        "yellow".into()
+                    } else {
+                        String::new()
+                    };
+                },
+            ));
+        }
+        let started = Instant::now();
+        app.reload_rules(Some(rules.clone()));
+        let first = started.elapsed();
+        let started = Instant::now();
+        app.reload_rules(Some(rules));
+        eprintln!(
+            "{count} triggers: rules put to work in {:.1} ms, again in {:.1} ms",
+            first.as_secs_f64() * 1000.0,
+            started.elapsed().as_secs_f64() * 1000.0
+        );
+        let (events, _sent) = fake_connection(app);
+        harness.run_steps(3);
+        let lines: Vec<_> = (0..5000)
+            .map(|n| {
+                panels::styled_lines(&format!(
+                    "\x1b[32mAn orc number {n} arrives\x1b[0m from the north, looking for a fight"
+                ))
+                .remove(0)
+            })
+            .collect();
+        // The triggers alone, as each line goes through them, once their
+        // set is made.
+        let app = harness.state_mut().tab_mut();
+        app.scripts.on_line("start");
+        std::thread::sleep(std::time::Duration::from_millis(1500));
+        app.scripts.on_line("start");
+        let started = Instant::now();
+        for line in &lines {
+            std::hint::black_box(app.scripts.on_styled_line(line));
+        }
+        let triggers = started.elapsed();
+        // The whole way, drawing included, as they arrive at once.
+        for line in &lines {
+            events.send(Event::Line(line.clone())).unwrap();
+        }
+        let start = harness.state().tab().output.total_pushed();
+        let started = Instant::now();
+        let mut frames = 0;
+        while harness.state().tab().output.total_pushed() < start + 5000 && frames < 2000 {
+            harness.step();
+            frames += 1;
+        }
+        let whole = started.elapsed();
+        eprintln!(
+            "{count} triggers: {:.1} µs a line in the triggers; 5000 lines shown in {:.0} ms over {frames} frames",
+            triggers.as_secs_f64() * 1e6 / 5000.0,
+            whole.as_secs_f64() * 1000.0
+        );
+    }
+}
