@@ -301,10 +301,7 @@ impl Tab {
                     (tr("In a script"), in_scripts),
                 ] {
                     widgets::setting_row(ui, place, None, &mut |ui| {
-                        let copy = widgets::button_with(ui, widgets::Glyph::Copy, tr("Copy"));
-                        if copy.clicked() {
-                            ui.ctx().copy_text(written.clone());
-                        }
+                        let copy = widgets::copy_button_with(ui, &written);
                         let shown = RichText::new(&written)
                             .font(egui::FontId::monospace(13.0))
                             .color(theme::current().text);

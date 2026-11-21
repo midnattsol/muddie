@@ -22,14 +22,24 @@ pub fn button(ui: &mut Ui, text: impl Into<egui::WidgetText>) -> Response {
 
 /// A button with a picture before its words.
 pub fn button_with(ui: &mut Ui, glyph: Glyph, text: &str) -> Response {
+    button_with_tint(ui, glyph, text, None)
+}
+
+/// A [`button_with`] whose picture is in a colour of its own, if given.
+pub(super) fn button_with_tint(
+    ui: &mut Ui,
+    glyph: Glyph,
+    text: &str,
+    tint: Option<Color32>,
+) -> Response {
     let theme = theme::current();
     let response = button(ui, format!("     {text}"));
     let at = response.rect.left_center() + vec2(14.0, 0.0);
-    let colour = if response.hovered() {
+    let colour = tint.unwrap_or(if response.hovered() {
         theme.text
     } else {
         theme.text_dim
-    };
+    });
     paint_glyph(
         ui.painter(),
         at,

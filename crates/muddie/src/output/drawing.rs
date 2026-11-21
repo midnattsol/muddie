@@ -169,15 +169,14 @@ impl Output {
                     .lock()
                     .text
                     .clone();
-                if let Some(text) = chosen {
-                    ui.ctx().copy_text(text);
-                }
+                let text = chosen?;
+                ui.ctx().copy_text(text);
             }
             Asked::CopyLine(line) => ui.ctx().copy_text(line),
             Asked::CopyAll => ui.ctx().copy_text(self.all_text()),
             Asked::Find => return Some(Clicked::Find),
         }
-        None
+        Some(Clicked::Copied)
     }
 
     /// Draws the rows that are on screen, and what is not yet a whole line,

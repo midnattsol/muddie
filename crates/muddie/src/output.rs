@@ -42,6 +42,8 @@ pub enum Clicked {
     Prompt(String),
     /// To look for something in it, from its menu.
     Find,
+    /// Something of it was copied, from its menu, to be said.
+    Copied,
 }
 
 pub struct Output {

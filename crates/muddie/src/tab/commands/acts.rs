@@ -196,7 +196,7 @@ impl Tab {
             Act::Undo(again) => self.undo_step(again),
             Act::CopyOutput => {
                 ctx.copy_text(self.output.all_text());
-                self.note(tr("Output copied."));
+                self.toast(tr("Output copied."), false);
             }
             Act::Find => {
                 self.find.open = true;

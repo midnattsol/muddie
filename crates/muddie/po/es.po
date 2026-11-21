@@ -2279,3 +2279,9 @@ msgstr "Su lado recogido"
 
 msgid "The whole side is kept as a thin strip, to bring back as it was."
 msgstr "Todo el lado queda como una tira fina, para sacarlo tal como estaba."
+
+msgid "Copied"
+msgstr "Copiado"
+
+msgid "Copied."
+msgstr "Copiado."

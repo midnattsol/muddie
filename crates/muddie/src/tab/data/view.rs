@@ -117,10 +117,7 @@ pub(in crate::tab) fn values_group(ui: &mut egui::Ui, seen: &Seen, all: &[Leaf])
             ui.spacing_mut().item_spacing.y = 0.0;
             for leaf in all {
                 widgets::setting_row(ui, &leaf.path, None, &mut |ui| {
-                    let copy = widgets::glyph_button(ui, widgets::Glyph::Copy, tr("Copy the path"));
-                    if copy.clicked() {
-                        ui.ctx().copy_text(leaf.path.clone());
-                    }
+                    let copy = widgets::copy_button(ui, tr("Copy the path"), &leaf.path);
                     if leaf.gauge
                         && widgets::glyph_button(ui, widgets::Glyph::Gauge, tr("Make a gauge"))
                             .clicked()
