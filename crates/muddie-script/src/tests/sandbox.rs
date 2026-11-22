@@ -25,19 +25,19 @@ fn runaway_script_is_stopped() {
     assert!(error_text(&engine.take_actions()).contains("ran too long"));
     assert!(started.elapsed() < TIME_BUDGET * 4);
     // The engine keeps working afterwards.
-    engine.on_input("/lua send('alive')");
+    engine.exec("lua", "send('alive')");
     assert_eq!(engine.take_actions(), [send("alive")]);
 }
 
 #[test]
 fn errors_are_reported_and_globals_persist_between_chunks() {
     let mut engine = engine("counter = 41");
-    engine.on_input("/lua counter += 1; send(tostring(counter))");
+    engine.exec("lua", "counter += 1; send(tostring(counter))");
     assert_eq!(engine.take_actions(), [send("42")]);
-    engine.on_input("/lua trigger('(', print)");
+    engine.exec("lua", "trigger('(', print)");
     assert!(error_text(&engine.take_actions()).contains("regex parse error"));
-    engine.on_input("/lua error('boom')");
-    assert_eq!(error_text(&engine.take_actions()), "input:1: boom");
+    engine.exec("lua", "error('boom')");
+    assert_eq!(error_text(&engine.take_actions()), "lua:1: boom");
 }
 
 #[test]

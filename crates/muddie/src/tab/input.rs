@@ -11,14 +11,9 @@ impl Tab {
         let line = std::mem::take(&mut self.input);
         // The command stays, selected, to be sent again or typed over.
         // Never a password.
-        // Never a password, and not a command of the client: that is not
-        // something to send again and again.
         let secret = self.typing_secret();
         self.asks_password = false;
-        let keep = self.settings.keep_command
-            && !secret
-            && !line.is_empty()
-            && client_command(&line).is_none();
+        let keep = self.settings.keep_command && !secret && !line.is_empty();
         self.kept_input = keep.then(|| line.clone());
         if let Some(kept) = &self.kept_input {
             self.input.clone_from(kept);
@@ -31,12 +26,11 @@ impl Tab {
             // told as sent.
             self.send_secret(line);
         } else {
+            // All of it is for the MUD, through the aliases: what the
+            // client does is done from the palette.
             self.history.add(&line);
-            // A command of the client answers at the command line.
-            if !self.run_command(&line) {
-                self.scripts.on_input(&line);
-                self.run_actions();
-            }
+            self.scripts.on_input(&line);
+            self.run_actions();
         }
     }
 

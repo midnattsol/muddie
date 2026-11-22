@@ -18,8 +18,8 @@ All paths are under the configuration folder: `~/.config/muddie` on Linux,
 | `profiles/<profile>/scripts/*.luau` | In that profile, in name order |
 | files given with `--script` | In every session, last |
 
-Type `/reload` to start the scripts afresh after editing them, and
-`/lua <code>` to run a line of Luau on the spot.
+In the palette (Ctrl+K), `reload` starts the scripts afresh after
+editing them, and `lua <code>` runs a line of Luau on the spot.
 
 A script can be split into modules: `require("name")` loads `name.luau` or
 `name/init.luau` from the folder of any loaded script, once, and returns what
@@ -34,7 +34,7 @@ when the connection is lost and made again: scripts are not run again for
 that, only told with `"disconnect"` and `"connect"`. It is kept when another
 script, or a rule, is changed and saved: only what changed is run again. It
 is lost when the script itself is run again, by saving it or with its run
-button, when everything is run again (`/reload`, another profile, a plugin
+button, when everything is run again (`reload`, another profile, a plugin
 switched), and when Muddie is closed. A script that is run again starts
 from its first line with nothing: that is where to ask a MUD for whatever
 it had sent. What must outlast all of this is kept in `vars`.
@@ -188,7 +188,7 @@ server identifies the room with.
 | `map.go(to)` | Goes there, one confirmed step at a time. `map.stop()` stops, as when the server says a move failed. |
 | `map.arrive{name, exits, came}` | For servers that do not say which room it is: the player is in a room of this name and exits, reached by the exit `came`. Returns the room's number, or `nil` while unsure. |
 | `map.here(id)` | The player is in that room, one the map has. Returns whether it has it. |
-| `map.learn(true)` | For servers that do not say which room it is, has the map learn as the player goes from the rooms `map.arrive` is given, never on one sighting alone, nor from a room it does not know for certain the player was in: it adds the rooms it has not where the player goes by the compass, as `map.add` does; puts right the names of rooms it followed the player through by the way and the exits though it named them otherwise, once the next move is to a room as it has it; adds the exits a room shows that it lacks, leading to rooms not explored; and has an exit that led to a room beside the one it had lead there, once the next move bears it out. Exits it has that are not shown are only counted, for `/map check`. Each change is told and undone as one of the map's own. Off unless asked for; `false` switches it off. |
+| `map.learn(true)` | For servers that do not say which room it is, has the map learn as the player goes from the rooms `map.arrive` is given, never on one sighting alone, nor from a room it does not know for certain the player was in: it adds the rooms it has not where the player goes by the compass, as `map.add` does; puts right the names of rooms it followed the player through by the way and the exits though it named them otherwise, once the next move is to a room as it has it; adds the exits a room shows that it lacks, leading to rooms not explored; and has an exit that led to a room beside the one it had lead there, once the next move bears it out. Exits it has that are not shown are only counted, for `map check`. Each change is told and undone as one of the map's own. Off unless asked for; `false` switches it off. |
 | `map.candidates()` | The numbers of the rooms the player may be in while the map cannot tell which; empty when it can, or has no idea. |
 | `map.add{name, exits, came}` | For servers that do not say which room it is, when the player went by `came` where the map has no room: finds the room among those the map has, or makes it, and has the exit lead there and the player be there. Returns the room's number and `"found"` or `"made"`, or `nil` and why not: `"lost"`, the map does not know for certain which room the player was in; `"known"`, the exit leads to a room already; `"alike"`, rooms the map has could be the one and it cannot tell which; `"unnamed"`. By a compass exit the room is looked for that way; by any other, as a portal, which could lead anywhere, any room with that name and exits refuses it. A room made is drawn the way of the exit, or beside the room left; its exits lead to unexplored rooms until taken, the way back too. The user can undo the rooms added, the last first, and taking the map again keeps them, or joins each with the room the map taken has, once it has it. |
 | `map.language("es")` | The language the MUD is played in, by its code or name: the map takes its words for directions, and exits kept in them, as a map taken from Mudlet may keep "fu" for out, become those directions. A profile's own choice comes first. |

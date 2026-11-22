@@ -15,7 +15,7 @@ mod offered;
 mod window;
 
 pub use offered::offered;
-use offered::shown_usage;
+use offered::{fixed, shown_usage};
 
 /// Something the palette offers.
 #[derive(Debug, Clone, PartialEq)]
@@ -203,13 +203,20 @@ impl Tab {
             items.extend(self.palette_places(&query));
         }
         let mut commands = offered(&typed, &tags, &plugins);
+        // What is typed is a command once its first word is one of theirs.
+        let first = query.trim_start_matches('/').split_whitespace().next();
+        let as_command = first.is_some_and(|first| {
+            COMMANDS
+                .iter()
+                .any(|(usage, _)| fixed(usage).first() == Some(&format!("/{first}").as_str()))
+        });
         // A command the palette has as something to do is listed so, once:
         // as a command only when typed as one.
-        if !self.palette.query.starts_with('/') {
+        if !as_command {
             commands.retain(|command| !DONE_AS_ACTS.contains(&command.usage.as_str()));
         }
         // One being typed as a command goes first, to run with Enter.
-        if self.palette.query.starts_with('/') || items.is_empty() {
+        if as_command || items.is_empty() {
             items.splice(0..0, commands);
         } else {
             items.extend(commands);
@@ -249,7 +256,8 @@ impl Tab {
         } else {
             item.insert.clone()
         };
-        self.history.add(&line);
+        // Kept with the palette's, not the command line's: that is the
+        // MUD's.
         self.remember_chosen(Item {
             insert: line.clone(),
             usage: line.clone(),

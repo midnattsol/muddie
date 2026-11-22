@@ -83,14 +83,14 @@ fn several_commands_on_one_line_each_go_through_aliases() {
     );
     engine.on_input("");
     assert_eq!(engine.take_actions(), [send("")]);
-    engine.on_input("/lua separator('|')");
+    engine.exec("lua", "separator('|')");
     engine.on_input("n|s;e");
     assert_eq!(engine.take_actions(), [send("n"), send("s;e")]);
-    engine.on_input("/lua separator(false)");
+    engine.exec("lua", "separator(false)");
     engine.on_input("n|s;e");
     assert_eq!(engine.take_actions(), [send("n|s;e")]);
     // Given back, the usual `;`.
-    engine.on_input("/lua separator()");
+    engine.exec("lua", "separator()");
     engine.on_input("n|s;e");
     assert_eq!(engine.take_actions(), [send("n|s"), send("e")]);
 }
@@ -104,11 +104,11 @@ fn tags_switch_triggers_off_and_once_fires_a_single_time() {
     );
     engine.on_line("you are hit");
     assert_eq!(engine.take_actions(), [send("flee"), send("first blood")]);
-    engine.on_input("/lua tags.disable('combat')");
+    engine.exec("lua", "tags.disable('combat')");
     engine.on_line("you are hit");
     engine.on_input("x");
     assert_eq!(engine.take_actions(), [send("x")]);
-    engine.on_input("/lua tags.enable('COMBAT')");
+    engine.exec("lua", "tags.enable('COMBAT')");
     engine.on_line("you are hit");
     engine.on_input("x");
     assert_eq!(engine.take_actions(), [send("flee"), send("special")]);
@@ -186,7 +186,7 @@ fn trigger_can_read_the_colours_of_its_line() {
         )]
     );
     // Outside a trigger there is no line to describe.
-    engine.on_input("/lua echo(tostring(#line_spans()))");
+    engine.exec("lua", "echo(tostring(#line_spans()))");
     assert_eq!(engine.take_actions(), [Action::Echo("0".into())]);
 }
 
@@ -217,7 +217,7 @@ fn trigger_can_recolour_its_match_or_gag_the_line() {
         ]
     );
     assert_eq!(engine.on_styled_line(&plain("secret plans")), None);
-    engine.on_input("/lua highlight('plaid')");
+    engine.exec("lua", "highlight('plaid')");
     assert!(error_text(&engine.take_actions()).contains("a colour is"));
 }
 
@@ -234,7 +234,7 @@ fn keys_run_their_binding() {
         engine.take_actions(),
         [send("look"), send("inventory"), send("kick")]
     );
-    engine.on_input("/lua echo(`{cancel(f5)} {cancel(f5)}`)");
+    engine.exec("lua", "echo(`{cancel(f5)} {cancel(f5)}`)");
     assert!(!engine.on_key("f5"));
     assert_eq!(engine.take_actions(), [Action::Echo("true false".into())]);
     assert_eq!(key_name("Shift+Alt+Ctrl+Enter"), "ctrl+alt+shift+enter");

@@ -203,7 +203,7 @@ pub struct Engine {
     state: Rc<RefCell<State>>,
     /// The automapper's map, shared with the frontend.
     map: Rc<RefCell<Map>>,
-    /// Script files loaded so far, in order, for `/reload`.
+    /// Script files loaded so far, in order.
     files: Vec<PathBuf>,
 }
 
@@ -418,23 +418,14 @@ impl Engine {
         }
     }
 
+    /// The map the scripts work on, shared with the frontend.
+    pub fn map(&self) -> &Rc<RefCell<Map>> {
+        &self.map
+    }
+
     /// Takes the actions requested since the last call, in order.
     pub fn take_actions(&mut self) -> Vec<Action> {
         std::mem::take(&mut self.state.borrow_mut().actions)
-    }
-
-    /// Starts from a clean runtime and runs the loaded files again.
-    fn reload(&mut self) {
-        let mut fresh = match Engine::new(Rc::clone(&self.map)) {
-            Ok(fresh) => fresh,
-            Err(error) => return self.error(format!("cannot restart scripts: {error}")),
-        };
-        fresh.push_all(self.take_actions());
-        for file in std::mem::take(&mut self.files) {
-            fresh.load_file(&file);
-        }
-        fresh.push(Action::Echo("Scripts reloaded.".into()));
-        *self = fresh;
     }
 
     /// Runs script code as `owner`, whose what it makes then is, and
@@ -467,10 +458,6 @@ impl Engine {
 
     fn push(&self, action: Action) {
         self.state.borrow_mut().actions.push(action);
-    }
-
-    fn push_all(&self, actions: Vec<Action>) {
-        self.state.borrow_mut().actions.extend(actions);
     }
 }
 

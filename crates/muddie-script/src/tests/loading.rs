@@ -31,7 +31,7 @@ fn require_loads_modules_once_from_the_script_folder_only() {
         ("missing", "module not found"),
         ("loop", "circular require"),
     ] {
-        engine.on_input(&format!("/lua require('{name}')"));
+        engine.exec("lua", &format!("require('{name}')"));
         assert!(
             error_text(&engine.take_actions()).contains(problem),
             "{name}"
@@ -165,30 +165,6 @@ fn variables_are_a_table_that_is_kept_and_go_into_commands() {
     );
     assert_eq!(later.take_actions(), [Action::Echo("trollnil".into())]);
     std::fs::remove_file(&file).unwrap();
-}
-
-#[test]
-fn reload_runs_files_again_from_a_clean_state() {
-    let dir = std::env::temp_dir().join(format!("muddie-script-test-{}", std::process::id()));
-    std::fs::create_dir_all(&dir).unwrap();
-    let file = dir.join("init.luau");
-    std::fs::write(&file, r#"trigger("hi", function() send("v1") end)"#).unwrap();
-    let mut engine = Engine::new(Rc::default()).unwrap();
-    engine.load_file(&file);
-    engine.on_input("/lua stray = 1");
-    std::fs::write(
-        &file,
-        r#"trigger("hi", function() send("v2 " .. tostring(stray)) end)"#,
-    )
-    .unwrap();
-    engine.on_input("/reload");
-    assert_eq!(
-        engine.take_actions(),
-        [Action::Echo("Scripts reloaded.".into())]
-    );
-    engine.on_line("hi");
-    assert_eq!(engine.take_actions(), [send("v2 nil")]);
-    std::fs::remove_dir_all(&dir).unwrap();
 }
 
 #[test]

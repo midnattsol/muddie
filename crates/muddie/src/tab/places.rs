@@ -27,7 +27,7 @@ impl Tab {
         }
         if !argument.is_empty() {
             return self.refuse(tr(
-                "Give the number of the room you are in: /map here <number>.",
+                "Give the number of the room you are in: map here <number>.",
             ));
         }
         let rooms: Vec<(String, String, String)> = {
@@ -253,9 +253,7 @@ impl Tab {
                     .collect()
             };
             if marks.is_empty() {
-                return self.refuse(tr(
-                    "No room is marked yet: /map mark <name> marks this one.",
-                ));
+                return self.refuse(tr("No room is marked yet: map mark <name> marks this one."));
             }
             for (name, room) in marks {
                 self.offer(&name, &room, &format!("/map go {name}"));
@@ -269,7 +267,7 @@ impl Tab {
         };
         if self.mark_room(here, name) {
             self.note(&trf(
-                "This room is now marked {0}: /map go {0} goes to it.",
+                "This room is now marked {0}: map go {0} goes to it.",
                 &[name],
             ));
         }
@@ -372,7 +370,7 @@ impl Tab {
     pub(super) fn import_map(&mut self, source: &str) {
         if source.is_empty() {
             return self.refuse(tr(
-                "Give a map made with Mudlet: /map import <file or address>.",
+                "Give a map made with Mudlet: map import <file or address>.",
             ));
         }
         self.take_map(source.to_owned(), None, Taking::Asked);

@@ -68,12 +68,6 @@ impl Engine {
     /// Handles a line typed by the user: a client command, or one or more
     /// commands, each of them an alias or sent as it is.
     pub fn on_input(&mut self, input: &str) {
-        if let Some(code) = input.strip_prefix("/lua ") {
-            return self.exec("input", code);
-        }
-        if input == "/reload" {
-            return self.reload();
-        }
         let separator = match &self.state.borrow().separator {
             Some(chosen) => chosen.clone(),
             None => Some(";".to_owned()),

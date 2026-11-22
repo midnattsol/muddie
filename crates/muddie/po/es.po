@@ -243,8 +243,8 @@ msgid "This room has no such exit."
 msgstr "Esta sala no tiene esa salida."
 
 #, python-brace-format
-msgid "{0} has {1} rooms: tidying it would draw them all again, and what was drawn by hand would be lost. To tidy it anyway: /map tidy all."
-msgstr "{0} tiene {1} salas: ordenarla volvería a dibujarlas todas, y se perdería lo colocado a mano. Para ordenarla de todos modos: /map tidy all."
+msgid "{0} has {1} rooms: tidying it would draw them all again, and what was drawn by hand would be lost. To tidy it anyway: map tidy all."
+msgstr "{0} tiene {1} salas: ordenarla volvería a dibujarlas todas, y se perdería lo colocado a mano. Para ordenarla de todos modos: map tidy all."
 
 msgid "Tidied the map: {0} rooms moved."
 msgstr "Mapa ordenado: {0} salas movidas."
@@ -601,8 +601,8 @@ msgstr "Complemento {0} activado."
 msgid "Plugin {0} disabled."
 msgstr "Complemento {0} desactivado."
 
-msgid "No such plugin is installed; see /plugin list."
-msgstr "No hay ningún complemento instalado con ese nombre; consulta /plugin list."
+msgid "No such plugin is installed; see plugin list, in the palette."
+msgstr "No hay ningún plugin instalado con ese nombre; mira plugin list, en la paleta."
 
 #, python-brace-format
 msgid "Plugin {0} removed."
@@ -624,11 +624,11 @@ msgstr "Complemento {0} actualizado."
 msgid "The plugin could not be installed or updated: {0}"
 msgstr "No se pudo instalar o actualizar el complemento: {0}"
 
-msgid "No plugins are installed. Use /plugin install with a git address."
-msgstr "No hay complementos instalados. Usa /plugin install con una dirección git."
+msgid "No plugins are installed: plugin install, in the palette, installs one from its git address."
+msgstr "No hay plugins instalados: plugin install, en la paleta, instala uno desde su dirección git."
 
-msgid "not enabled; use /plugin enable"
-msgstr "sin activar; usa /plugin enable"
+msgid "not enabled; plugin enable, in the palette, enables it"
+msgstr "no activado; plugin enable, en la paleta, lo activa"
 
 msgid "Plugins need a configuration folder, and none was found."
 msgstr "Los complementos necesitan una carpeta de configuración, y no se encontró ninguna."
@@ -1903,14 +1903,14 @@ msgstr "Cmd+clic  Mayús+clic"
 msgid "The map knows where you are again: {0}."
 msgstr "El mapa vuelve a saber dónde estás: {0}."
 
-msgid "The map does not know where you are. /map here <number> tells it."
-msgstr "El mapa no sabe dónde estás. Díselo con /map here <número>."
+msgid "The map does not know where you are: map here <number>, in the palette, tells it."
+msgstr "El mapa no sabe dónde estás: map here <número>, en la paleta, se lo dice."
 
 #, python-brace-format
-msgid "The map is not sure where you are: in one of {0} rooms alike. Moving tells them apart; /map here lists them."
-msgid_plural "The map is not sure where you are: in one of {0} rooms alike. Moving tells them apart; /map here lists them."
-msgstr[0] "El mapa no está seguro de dónde estás: en una de {0} salas iguales. Al moverte las distingue; /map here las lista."
-msgstr[1] "El mapa no está seguro de dónde estás: en una de {0} salas iguales. Al moverte las distingue; /map here las lista."
+msgid "The map is not sure where you are: in one of {0} rooms alike. Moving tells them apart; map here, in the palette, lists them."
+msgid_plural "The map is not sure where you are: in one of {0} rooms alike. Moving tells them apart; map here, in the palette, lists them."
+msgstr[0] "El mapa no está seguro de dónde estás: en una de {0} salas iguales. Al moverte las distingue; map here, en la paleta, las lista."
+msgstr[1] "El mapa no está seguro de dónde estás: en una de {0} salas iguales. Al moverte las distingue; map here, en la paleta, las lista."
 
 msgid "No known route to that place."
 msgstr "No hay ruta conocida hasta ese sitio."
@@ -1934,8 +1934,8 @@ msgstr[1] "La más cercana de {0} salas con ese nombre."
 msgid "There is no room of that number."
 msgstr "No hay ninguna sala con ese número."
 
-msgid "Give the number of the room you are in: /map here <number>."
-msgstr "Da el número de la sala en la que estás: /map here <número>."
+msgid "Give the number of the room you are in: map here <number>."
+msgstr "Da el número de la sala en la que estás: map here <número>."
 
 #, python-brace-format
 msgid "You are in one of {0} rooms alike:"
@@ -1976,8 +1976,8 @@ msgid_plural "{0} rooms"
 msgstr[0] "{0} sala"
 msgstr[1] "{0} salas"
 
-msgid "Give a map made with Mudlet: /map import <file or address>."
-msgstr "Indica un mapa hecho con Mudlet: /map import <fichero o dirección>."
+msgid "Give a map made with Mudlet: map import <file or address>."
+msgstr "Indica un mapa hecho con Mudlet: map import <fichero o dirección>."
 
 msgid "A map is being taken already."
 msgstr "Ya se está trayendo un mapa."
@@ -2601,8 +2601,8 @@ msgstr[1] "{0} nombres corregidos"
 msgid "Map: {0}."
 msgstr "Mapa: {0}."
 
-msgid "{0} To undo the last: /map undo."
-msgstr "{0} Para deshacer el último: /map undo."
+msgid "{0} To undo the last: map undo, in the palette."
+msgstr "{0} Para deshacer el último: map undo, en la paleta."
 
 msgid "{0} exit added"
 msgid_plural "{0} exits added"
@@ -2702,8 +2702,8 @@ msgstr "Parado."
 msgid "Not going anywhere."
 msgstr "No vas a ningún sitio."
 
-msgid "This room is now marked {0}: /map go {0} goes to it."
-msgstr "Esta sala tiene ahora la marca {0}: /map go {0} lleva a ella."
+msgid "This room is now marked {0}: map go {0} goes to it."
+msgstr "Esta sala tiene ahora la marca {0}: map go {0} lleva a ella."
 
 msgid "Stopped: the server said the move failed."
 msgstr "Parado: el servidor dice que el movimiento ha fallado."
@@ -2729,8 +2729,8 @@ msgstr "Marca para {0}"
 msgid "Mark the room"
 msgstr "Marcar la sala"
 
-msgid "No room is marked yet: /map mark <name> marks this one."
-msgstr "Ninguna sala tiene marca todavía: /map mark <nombre> marca esta."
+msgid "No room is marked yet: map mark <name> marks this one."
+msgstr "Ninguna sala tiene marca todavía: map mark <nombre> marca esta."
 
 msgid "No room is marked {0} now."
 msgstr "Ya ninguna sala tiene la marca {0}."
@@ -2780,8 +2780,8 @@ msgstr "Lista estos comandos, en la paleta"
 msgid "Lists what is up to three moves away, or as many as given"
 msgstr "Lista lo que hay a tres movimientos o menos, o a los que se digan"
 
-msgid "Say which room: /map remove <place>."
-msgstr "Di qué sala: /map remove <lugar>."
+msgid "Say which room: map remove <place>."
+msgstr "Di qué sala: map remove <lugar>."
 
 msgid "Room appearance…"
 msgstr "Apariencia de la sala…"

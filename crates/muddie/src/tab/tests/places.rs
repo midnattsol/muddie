@@ -1049,7 +1049,7 @@ fn reinos_has_the_map_keep_itself_up_to_date_unless_switched_off() {
     app.tell_map_changes(&ctx2, Instant::now() + Duration::from_secs(5));
     assert_eq!(
         last_said(app),
-        "Map: 1 room added, 2 names put right. To undo the last: /map undo."
+        "Map: 1 room added, 2 names put right. To undo the last: map undo, in the palette."
     );
     app.run_command("/map undo");
     assert_eq!(last_said(app), "Undone: Cueva is no longer on the map.");
@@ -1105,7 +1105,7 @@ fn a_very_large_area_is_tidied_only_when_told_all() {
     assert_eq!(
         answer(app, "/map tidy"),
         [
-            "Mapa Completo has 2001 rooms: tidying it would draw them all again, and what was drawn by hand would be lost. To tidy it anyway: /map tidy all."
+            "Mapa Completo has 2001 rooms: tidying it would draw them all again, and what was drawn by hand would be lost. To tidy it anyway: map tidy all."
         ]
     );
     assert_eq!(x_of_2(app), 6);

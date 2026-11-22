@@ -126,7 +126,7 @@ English and Spanish; **Automatic** takes the one the game's plugin says, or
 the one the MUD says of itself, else English. More are read from the
 `languages` folder of the configuration folder, one TOML file each, named
 by the language's code (`fr.toml`); one of the code of one that comes takes
-its place, and is read again with `/reload`:
+its place, and is read again with `reload`:
 
 ```toml
 name = "Français"
@@ -159,58 +159,55 @@ addresses in the output can be clicked, as can links the server marks.
 
 ## Commands
 
-Lines starting with `/` and one of these words are for Muddie itself;
-anything else is sent to the MUD.
+What is typed in the command line is for the MUD, all of it. What
+Muddie itself does is done from the palette: **Ctrl+K** opens it over the
+window, with the game in view behind it, with Muddie's commands together
+with the places to go, the panels, the settings and the rest, in groups
+under their names. Type to find one; Up and Down choose, which is also
+read aloud with where it is in the list, and Enter runs it. One that
+needs something more, such as the room to go to, is completed instead, to
+type that after it; Tab completes without running. Escape, or a click
+anywhere else, closes it. Its foot says these keys. Opened empty, what
+was run in it last comes first.
 
-**Ctrl+K** opens them in a palette over the window, with the game in view
-behind it, together with the places to go, the panels, the settings and
-the rest, in groups under their names. Type to find one; Up and Down
-choose, which is also read aloud with where it is in the list, and Enter
-runs it. One that needs something more, such as the room to walk to, is
-completed instead, to type that after it; Tab completes without running.
-Escape, or a click anywhere else, closes it. Its foot says these keys.
-Typed in the command line after the `/`, a command is carried out the same.
-
-What a command answers is shown where it was asked: run from the palette,
-in the palette, which stays open to read it; typed in the command line,
-over the corner, as the client says anything. A list, of the rooms found,
-the tags or the plugins, is shown in the palette under the command, to
-choose from: Enter on a room walks to it, and on a tag or a plugin switches
-it.
+What a command answers is shown in the palette, which stays open to read
+it. A list, of the rooms found, the tags or the plugins, is shown under
+the command, to choose from: Enter on a room goes to it, and on a tag or
+a plugin switches it.
 
 | Command | What it does |
 |---|---|
-| `/help` | Lists these commands, in the palette |
-| `/lua <code>` | Runs a line of Luau |
-| `/reload` | Restarts the scripts and rules, as **Restart scripts** does in the editor |
-| `/log` | Starts or stops logging the session to a file |
-| `/tag`, `/tag <name> [on\|off]` | Lists the tags; switches one on or off for this session |
-| `/map where` | Says where you are |
-| `/map here [number]` | Tells the map which room you are in; alone, lists the rooms it is unsure between |
-| `/map find <text>` | Lists rooms whose name contains the text |
-| `/map go <place>` | Goes to a room by number, mark, name, or area and name: of several, the nearest (`/map travel` and `/map walk` too) |
-| `/map route <place>` | Says the way to a place, without going |
-| `/map exits` | Says where each exit of this room leads, to go through one by choosing it |
-| `/map near [moves]` | Lists what is up to three moves away (or as many as given), with the way |
-| `/map info [place]` | Says all the map knows of a room: the current one if none is given |
-| `/map mark [name]`, `/map unmark <name>` | Marks this room, to go to it by its mark; alone, lists the marks |
-| `/map note <text>`, `/map unnote` | Writes a note on this room, said with it and found by its words; takes it off |
-| `/map areas` | Lists the areas, with how many rooms each has |
-| `/map import [file or address]` | Takes a map made with Mudlet in place of this one |
-| `/map stop` | Stops going |
-| `/map avoid [place]` | Keeps routes out of a room (the current one), or lets them in again |
-| `/map lock <direction>` | Keeps routes off an exit of this room, or allows it again |
-| `/map tidy [all]` | Draws the current area again from scratch. An area of more than 2000 rooms, as a map with all in one area, only with `all`; from the map, it is asked first |
-| `/map added` | Lists the rooms the map added of itself where you went, to go to each |
-| `/map undo` | Undoes the last change the map made of itself, a room added or a name put right; also **Undo the map's last change**, in the map's menu and the palette |
-| `/map check` | Lists the rooms that look wrong: with no name, that no exit leads to or from, or with an exit the game has not shown the last times you came |
-| `/map remove <place>` | Takes a room off the map |
-| `/map show`, `/map hide` | Shows or hides the map panel |
-| `/plugin list` | Lists the installed plugins |
-| `/plugin install <git address> [name]` | Installs a plugin and enables it in this profile |
-| `/plugin update <name>` | Brings a plugin up to date |
-| `/plugin enable <name>`, `/plugin disable <name>` | Switches a plugin on or off in this profile |
-| `/plugin remove <name>` | Deletes a plugin |
+| `help` | Lists these commands, in the palette |
+| `lua <code>` | Runs a line of Luau |
+| `reload` | Restarts the scripts and rules, as **Restart scripts** does in the editor |
+| `log` | Starts or stops logging the session to a file |
+| `tag`, `tag <name> [on\|off]` | Lists the tags; switches one on or off for this session |
+| `map where` | Says where you are |
+| `map here [number]` | Tells the map which room you are in; alone, lists the rooms it is unsure between |
+| `map find <text>` | Lists rooms whose name contains the text |
+| `map go <place>` | Goes to a room by number, mark, name, or area and name: of several, the nearest (`map travel` and `map walk` too) |
+| `map route <place>` | Says the way to a place, without going |
+| `map exits` | Says where each exit of this room leads, to go through one by choosing it |
+| `map near [moves]` | Lists what is up to three moves away (or as many as given), with the way |
+| `map info [place]` | Says all the map knows of a room: the current one if none is given |
+| `map mark [name]`, `map unmark <name>` | Marks this room, to go to it by its mark; alone, lists the marks |
+| `map note <text>`, `map unnote` | Writes a note on this room, said with it and found by its words; takes it off |
+| `map areas` | Lists the areas, with how many rooms each has |
+| `map import [file or address]` | Takes a map made with Mudlet in place of this one |
+| `map stop` | Stops going |
+| `map avoid [place]` | Keeps routes out of a room (the current one), or lets them in again |
+| `map lock <direction>` | Keeps routes off an exit of this room, or allows it again |
+| `map tidy [all]` | Draws the current area again from scratch. An area of more than 2000 rooms, as a map with all in one area, only with `all`; from the map, it is asked first |
+| `map added` | Lists the rooms the map added of itself where you went, to go to each |
+| `map undo` | Undoes the last change the map made of itself, a room added or a name put right; also **Undo the map's last change**, in the map's menu and the palette |
+| `map check` | Lists the rooms that look wrong: with no name, that no exit leads to or from, or with an exit the game has not shown the last times you came |
+| `map remove <place>` | Takes a room off the map |
+| `map show`, `map hide` | Shows or hides the map panel |
+| `plugin list` | Lists the installed plugins |
+| `plugin install <git address> [name]` | Installs a plugin and enables it in this profile |
+| `plugin update <name>` | Brings a plugin up to date |
+| `plugin enable <name>`, `plugin disable <name>` | Switches a plugin on or off in this profile |
+| `plugin remove <name>` | Deletes a plugin |
 
 These are in English whatever the language of the interface, and Tab
 completes them.
@@ -289,7 +286,7 @@ folder has a switch: switched off, nothing in it runs, however deep.
 **Restart scripts**, under the sections, runs every script and rule again as
 when a session starts, keeping the variables; under it, when that was done
 and how many failed, and the scripts that failed are marked in the list.
-`/reload` does the same.
+`reload` does the same.
 
 The list is a tree, and answers the keys a tree does while it has the
 keyboard (Tab stops on it once, at the one chosen) or nothing has:
@@ -327,7 +324,7 @@ the lists to what carries it.
 Something runs while it, every folder it is in and every tag it carries are
 switched on; its details say which of them keeps it from running, if one
 does. The switches in the editor are what is saved, and how a session
-starts. `/tag <name> on` and `/tag <name> off` switch a tag for the session in
+starts. `tag <name> on` and `tag <name> off` switch a tag for the session in
 course, as a script does with `tags.disable(name)`, and a script switches
 any folder or rule by its place, as `triggers.disable("Combat")`; what is
 saved does not change. The same key can be bound by several macros, so that
@@ -525,12 +522,12 @@ keeping it, to see what comes on connecting, and **Clear** empties the list.
 The map draws itself as you walk, on servers that report rooms through GMCP
 or MSDP, and is saved per profile. Scripts can map other servers, or take
 the map a MUD publishes made with Mudlet, as the plugin of Reinos de Leyenda
-does; `/map import` takes one from a file of your own.
+does; `map import` takes one from a file of your own.
 
 On servers that do not say which room you are in, only its name and exits,
 the map works it out from those and the exit you took. Where several rooms
 are alike, as in a desert, it says it is not sure and follows each it could
-be until a move tells them apart; `/map here` lists them, to say which.
+be until a move tells them apart; `map here` lists them, to say which.
 
 Each room is drawn in its colour: a map taken from Mudlet keeps the colours
 of its rooms, which in most MUDs follow the land (sand, forest, rock), and
@@ -547,12 +544,12 @@ the new room. The list of areas only shows when the map has more than one.
 A map taken from Mudlet before this version of Muddie read its colours is
 taken again the next time the plugin asks for it.
 
-Everything the map shows can be said: the `/map` commands above tell where
+Everything the map shows can be said: the `map` commands above tell where
 you are, what is around, where each exit leads and the way to anywhere, and
-`/map go` goes there. Typed in the palette, the name of a place lists
+`map go` goes there. Typed in the palette, the name of a place lists
 the places of the map that have it, under **Places**, each once with where
 it is and how many moves away, the nearest first, the names given to
-rooms with `/map mark` and the rooms whose note has it: Enter goes there, and Shift with Enter says the way
+rooms with `map mark` and the rooms whose note has it: Enter goes there, and Shift with Enter says the way
 without going. Going somewhere says how far, and the regions the way goes
 through; nothing of what the game says on the way is left unread. Escape in
 the empty command line stops the walk.
@@ -564,13 +561,13 @@ is what a name begins with, as Anduar in "Anduar: Plaza Mayor".
 | Action | What it does |
 |---|---|
 | Click a room | Chooses it: ringed, and told under the map: its name, number, how many moves away and which way, and its exits. A click on nothing chooses none |
-| Alt+E (Ctrl+E on a Mac), or `/map explore` | Explores the map with the keys, from where you are, without moving: the map takes the keyboard and says so |
+| Alt+E (Ctrl+E on a Mac), or `map explore` | Explores the map with the keys, from where you are, without moving: the map takes the keyboard and says so |
 | Arrows, the digits as on a keypad, Page Up and Down | Move the room chosen along its exits, from yours if none is; the view follows it |
 | The keypad | By where its keys are, Num Lock on or off: the digits are the compass, minus and plus up and down, slash and star in and out, 5 says the room again, Enter goes there |
 | Home | Back to your room |
 | Backspace | Back to the room chosen before, and the one before it, to where you began |
 | Space | Says the room chosen again |
-| Ctrl+I | Says all the map knows of it, as `/map info` |
+| Ctrl+I | Says all the map knows of it, as `map info` |
 | Ctrl+L | Says what is noted up to ten moves around it: rooms with a name or a note, and the way into each other region, the nearest first |
 | Ctrl+F | Searches the map: type, Enter says how many were found and the first; the arrows go through them; Enter again goes to the one said, on the map. Escape goes back to the map |
 | Ctrl+B, Ctrl+N | Gives the room chosen a name, or writes a note on it (an empty one takes it off) |
@@ -592,7 +589,7 @@ closed, that routes avoid it, its names and its note. Its number is not
 said, but it is under the map. While exploring, the keys are the map's:
 nothing bound to the keypad, F1 or the map's Ctrl keys is sent to the MUD,
 so a keypad that walks in the game moves on the map instead. Nothing is
-sent until you press Enter on a room or go back to the command line. Which way a place lies is said in the palette and by `/map info`
+sent until you press Enter on a room or go back to the command line. Which way a place lies is said in the palette and by `map info`
 too, when it is in your area and level.
 
 A room marked to avoid is never walked through, and a locked exit is never
@@ -626,7 +623,7 @@ at all, and MUDs rename rooms. What it learns:
   were, with that name and those exits, it links to it rather than have
   it twice. A room added is drawn with a dashed border, and said to be
   added; its exits are said not explored until you take them, and the way
-  back is not assumed until you walk it. `/map added` lists them.
+  back is not assumed until you walk it. `map added` lists them.
 - **Names.** Once your next move is to a room as the map has it, by its
   name and with every exit it has among those shown, the rooms you went
   through between are given the names the game showed.
@@ -637,11 +634,11 @@ at all, and MUDs rename rooms. What it learns:
   the one the map has it lead to, and your next move bears that out, the
   exit leads there from then on.
 - **Exits never shown** are not taken away, as a door shut or an exit
-  hidden is not shown either: `/map check` lists those the game has not
+  hidden is not shown either: `map check` lists those the game has not
   shown the last three times you came, for you to look at.
 
 A notice says what it learnt a moment after, with whatever else it learnt
-meanwhile, and `/map undo` undoes it, the last first. When the map is
+meanwhile, and `map undo` undoes it, the last first. When the map is
 taken again, what it learnt stays; a room it added that the map taken has
 by then, reached from a room by the same exit and with the same name and
 exits, becomes that room, with your notes and names.
@@ -649,7 +646,7 @@ exits, becomes that room, with your notes and names.
 Maps made by hand gather rooms left over: a copy of a room, in its very
 place and of its name, that no other room leads to, made when a room was
 made again instead of fixed. Muddie keeps them but leaves them aside: they
-are not drawn, nor found, nor taken for where you are. `/map info` with the
+are not drawn, nor found, nor taken for where you are. `map info` with the
 room's number says so, and which room it copies; should a way to one be
 made, it is one of the rest again. Of several rooms drawn in one place, a
 double click walks to one there is a way to.

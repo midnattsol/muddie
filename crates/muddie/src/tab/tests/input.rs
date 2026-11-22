@@ -94,7 +94,9 @@ fn unmarked_prompt_fires_triggers_once_it_settles() {
 
 #[test]
 fn client_commands_are_grouped() {
-    let read = |line| client_command(line).map(|(command, rest)| format!("{command} {rest}"));
+    let read = |line| {
+        client_commands::client_command(line).map(|(command, rest)| format!("{command} {rest}"))
+    };
     assert_eq!(
         read("/map go Temple of Mota").unwrap(),
         "/go Temple of Mota"
@@ -137,7 +139,8 @@ fn commands_are_chosen_from_a_palette_and_answer_at_the_line() {
     let mut harness = window(None);
     harness.run_steps(2);
     let before = output_lines(harness.state().tab()).len();
-    // Typing a slash in the command line offers nothing over it.
+    // Typing in the command line offers nothing over it: it is the
+    // MUD's.
     harness.state_mut().tab_mut().input = "/pl".into();
     harness.run_steps(3);
     assert!(harness.query_by_label_contains("plugin install").is_none());
@@ -277,19 +280,18 @@ fn commands_are_chosen_from_a_palette_and_answer_at_the_line() {
     );
     harness.key_press(Key::Escape);
     harness.run_steps(2);
-    // Typed in the command line after a slash, a command is carried
-    // out the same, and is not kept there to be sent again. What it
-    // answers is said over the corner, as the client says anything.
+    // The command line is the MUD's: what is typed there, a slash
+    // before it or not, is sent, as the client's commands are run from
+    // the palette.
+    let (_events, mut sent) = fake_connection(harness.state_mut().tab_mut());
     harness.state_mut().tab_mut().input = "/map find nowhere".into();
     harness.run_steps(2);
     harness.key_press(Key::Enter);
-    harness.run_steps(40);
-    let app = harness.state().tab();
-    assert!(app.input.is_empty());
-    let note = app.notices().0.last().unwrap();
-    assert_eq!(
-        (note.text.as_str(), note.problem, note.corner),
-        ("No room matches.", true, true)
+    harness.run_steps(3);
+    let sent: Vec<Command> = std::iter::from_fn(|| sent.try_recv().ok()).collect();
+    assert!(
+        sent.contains(&Command::Send("/map find nowhere".into())),
+        "{sent:?}"
     );
 }
 

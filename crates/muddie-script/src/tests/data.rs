@@ -32,7 +32,10 @@ fn gmcp_data_reaches_handlers_and_is_remembered() {
     engine.on_gmcp("Core.Ping", "");
     assert_eq!(engine.take_actions(), []);
 
-    engine.on_input("/lua echo(`{gmcp('char.vitals').hp} {gmcp('Nope')} {gmcp('Core.Ping')}`)");
+    engine.exec(
+        "lua",
+        "echo(`{gmcp('char.vitals').hp} {gmcp('Nope')} {gmcp('Core.Ping')}`)",
+    );
     assert_eq!(engine.take_actions(), [Action::Echo("80 nil nil".into())]);
     engine.on_gmcp("Char.Vitals", "{not json");
     assert!(error_text(&engine.take_actions()).contains("bad data for Char.Vitals"));
@@ -206,7 +209,10 @@ fn a_package_that_sends_only_what_changed_is_merged_when_asked() {
         r#"{"pvs": {"min": 80, "max": 100}, "pe": 5}"#,
     );
     engine.on_gmcp("Char.Status", r#"{"pvs": {"min": 70}}"#);
-    engine.on_input("/lua local s = gmcp('Char.Status') echo(`{s.pvs.min}/{s.pvs.max} {s.pe}`)");
+    engine.exec(
+        "lua",
+        "local s = gmcp('Char.Status') echo(`{s.pvs.min}/{s.pvs.max} {s.pe}`)",
+    );
     assert_eq!(
         engine.take_actions(),
         [
@@ -219,7 +225,7 @@ fn a_package_that_sends_only_what_changed_is_merged_when_asked() {
     // Others are as they come.
     engine.on_gmcp("Room.Info", r#"{"exits": ["n", "s"]}"#);
     engine.on_gmcp("Room.Info", r#"{"name": "Plaza"}"#);
-    engine.on_input("/lua echo(`{gmcp('Room.Info').exits}`)");
+    engine.exec("lua", "echo(`{gmcp('Room.Info').exits}`)");
     assert_eq!(engine.take_actions(), [Action::Echo("nil".into())]);
 }
 

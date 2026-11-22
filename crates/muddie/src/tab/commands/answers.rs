@@ -48,8 +48,9 @@ impl Tab {
         // A line of Lua is a command of the client too, carried out by
         // the scripts: what it prints is its answer, and if it prints
         // nothing, that it was run is.
-        if !ours && (line == "/lua" || line.starts_with("/lua ")) {
-            self.scripts.on_input(line);
+        let lua = line.trim_start().trim_start_matches('/');
+        if let (false, Some(code)) = (ours, lua.strip_prefix("lua")) {
+            self.scripts.exec("lua", code.trim());
             self.run_actions();
             if self.palette.answer.is_empty() {
                 self.note(tr("Done."));

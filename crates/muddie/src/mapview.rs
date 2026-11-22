@@ -339,10 +339,13 @@ impl Default for MapView {
 /// Why the map cannot say where the player is, and what to do.
 pub fn unknown_whereabouts(map: &Map) -> String {
     match map.candidates().len() {
-        0 => tr("The map does not know where you are. /map here <number> tells it.").to_owned(),
+        0 => {
+            tr("The map does not know where you are: map here <number>, in the palette, tells it.")
+                .to_owned()
+        }
         several => crate::i18n::trn(
-            "The map is not sure where you are: in one of {0} rooms alike. Moving tells them apart; /map here lists them.",
-            "The map is not sure where you are: in one of {0} rooms alike. Moving tells them apart; /map here lists them.",
+            "The map is not sure where you are: in one of {0} rooms alike. Moving tells them apart; map here, in the palette, lists them.",
+            "The map is not sure where you are: in one of {0} rooms alike. Moving tells them apart; map here, in the palette, lists them.",
             several as u64,
         ),
     }

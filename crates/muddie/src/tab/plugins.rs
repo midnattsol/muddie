@@ -297,7 +297,9 @@ impl Tab {
             .map(Profiles::packages)
             .unwrap_or_default();
         let Some(folder) = folder.filter(|_| installed.iter().any(|plugin| plugin == name)) else {
-            return self.refuse(tr("No such plugin is installed; see /plugin list."));
+            return self.refuse(tr(
+                "No such plugin is installed; see plugin list, in the palette.",
+            ));
         };
         // Its name came from the list of folders there, so this is one.
         match std::fs::remove_dir_all(folder.join(name)) {
@@ -360,13 +362,16 @@ impl Tab {
             .unwrap_or_default();
         if installed.is_empty() {
             self.refuse(tr(
-                "No plugins are installed. Use /plugin install with a git address.",
+                "No plugins are installed: plugin install, in the palette, installs one from its git address.",
             ));
         }
         for package in installed {
             let (state, switch) = match self.packages.contains(&package) {
                 true => (tr("enabled in this profile"), "disable"),
-                false => (tr("not enabled; use /plugin enable"), "enable"),
+                false => (
+                    tr("not enabled; plugin enable, in the palette, enables it"),
+                    "enable",
+                ),
             };
             self.offer(&package, state, &format!("/plugin {switch} {package}"));
         }
@@ -418,7 +423,9 @@ impl Tab {
             .map(Profiles::packages)
             .unwrap_or_default();
         if enable && !installed.iter().any(|package| package == name) {
-            return self.refuse(tr("No such plugin is installed; see /plugin list."));
+            return self.refuse(tr(
+                "No such plugin is installed; see plugin list, in the palette.",
+            ));
         }
         self.set_package(name, enable);
     }
