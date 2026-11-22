@@ -152,6 +152,7 @@ impl Output {
         self.rows.push_back(Row {
             links: found.chain(marked).collect(),
             content,
+            characters: text.chars().count(),
             text,
             time: clock(),
             height: None,

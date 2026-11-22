@@ -77,26 +77,52 @@ impl Map {
     }
 
     /// How many moves away each room is that can be reached from `from`,
-    /// by exits that are not locked, through rooms routes may go through.
-    pub fn moves_from(&self, from: RoomId) -> HashMap<RoomId, usize> {
-        let mut moves = HashMap::from([(from, 0)]);
-        let mut queue = VecDeque::from([from]);
-        while let Some(id) = queue.pop_front() {
+    /// by the cheapest routes, as [`Map::route`] finds them: the moves a
+    /// walk there would take. Worked out once for a room and a revision
+    /// of the map, as what is said of every place counts on it.
+    pub fn moves_from(&self, from: RoomId) -> Distances {
+        let mut known = self.distances.borrow_mut();
+        if let Some((of, revision, distances)) = known.as_ref()
+            && *of == from
+            && *revision == self.revision
+        {
+            return std::sync::Arc::clone(distances);
+        }
+        // Dijkstra's algorithm, as for a route, over every room reached;
+        // a room to avoid is reached, but not gone through.
+        let mut cost_to: HashMap<RoomId, u64> = HashMap::from([(from, 0)]);
+        let mut moves: HashMap<RoomId, usize> = HashMap::from([(from, 0)]);
+        let mut queue = BinaryHeap::from([Reverse((0_u64, from))]);
+        while let Some(Reverse((cost, id))) = queue.pop() {
+            if cost > cost_to[&id] {
+                continue;
+            }
             let Some(room) = self.rooms.get(&id) else {
                 continue;
             };
+            if room.avoid && id != from {
+                continue;
+            }
             let far = moves[&id] + 1;
             for exit in room.exits.values().filter(|exit| !exit.locked) {
-                let through = self.rooms.get(&exit.to).is_some_and(|room| !room.avoid);
-                if let std::collections::hash_map::Entry::Vacant(entry) = moves.entry(exit.to) {
-                    entry.insert(far);
-                    if through {
-                        queue.push_back(exit.to);
-                    }
+                let next = exit.to;
+                let weight = self.rooms.get(&next).map_or(1, |room| room.weight);
+                let next_cost = cost + u64::from(weight) + u64::from(exit.cost);
+                if cost_to.get(&next).is_none_or(|known| next_cost < *known) {
+                    cost_to.insert(next, next_cost);
+                    moves.insert(next, far);
+                    queue.push(Reverse((next_cost, next)));
                 }
             }
         }
-        moves
+        let distances = std::sync::Arc::new(moves);
+        *known = Some((from, self.revision, std::sync::Arc::clone(&distances)));
+        distances
+    }
+
+    /// How many moves a walk from `from` to `to` takes, if there is a way.
+    pub fn moves_between(&self, from: RoomId, to: RoomId) -> Option<usize> {
+        self.moves_from(from).get(&to).copied()
     }
 
     /// The rooms up to `moves` moves away, nearest first, each with the

@@ -29,6 +29,9 @@ pub(super) struct Row {
     pub(super) content: Content,
     /// The row without styling, for search, review and logs.
     pub(super) text: String,
+    /// How many characters it has, counted once: its height is guessed
+    /// from it, for every row, whenever the width changes.
+    pub(super) characters: usize,
     /// When it arrived, as `HH:MM:SS`.
     pub(super) time: String,
     /// Parts of `text` that can be clicked: web addresses found in it, and

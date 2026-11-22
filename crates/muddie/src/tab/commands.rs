@@ -148,9 +148,15 @@ impl Tab {
         if self.palette.query.is_empty() && self.palette.message.is_some() {
             return Vec::new();
         }
-        // Worked out when what is typed changes, not every frame.
-        if let Some((typed, items)) = &self.palette.cache
-            && *typed == self.palette.query
+        // Worked out when what is typed, the map or where the player is
+        // changes, not every frame: the places listed say how far.
+        let key = {
+            let map = self.map.borrow();
+            let here = map.current().map(|room| room.id);
+            (self.palette.query.clone(), map.revision(), here)
+        };
+        if let Some((known, items)) = &self.palette.cache
+            && *known == key
         {
             return items.clone();
         }
@@ -198,7 +204,7 @@ impl Tab {
             items.splice(0..0, self.palette.recent.iter().cloned());
         }
         order_by_relevance(&mut items, &query);
-        self.palette.cache = Some((self.palette.query.clone(), items.clone()));
+        self.palette.cache = Some((key, items.clone()));
         items
     }
 
@@ -294,6 +300,10 @@ pub(super) fn group_of(item: &Item) -> String {
     item.group.clone()
 }
 
+/// What the palette's items are worked out from: what is typed, the
+/// map's revision and the room the player is in.
+type PaletteKey = (String, u64, Option<RoomId>);
+
 /// The palette of commands: whether it is open, what is typed in it, what
 /// it lists, and what the last command answered.
 #[derive(Default)]
@@ -306,7 +316,7 @@ pub(super) struct Palette {
     /// to the end of what was put in it.
     pub(super) focus: bool,
     pub(super) cursor_end: bool,
-    pub(super) cache: Option<(String, Vec<commands::Item>)>,
+    pub(super) cache: Option<(PaletteKey, Vec<commands::Item>)>,
     pub(super) chosen: usize,
     /// The one chosen was chosen with the keys: the list is to be scrolled
     /// to it.

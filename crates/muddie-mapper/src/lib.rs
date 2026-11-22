@@ -193,6 +193,9 @@ pub fn direction_offset(direction: &str) -> Option<(i32, i32, i32)> {
 /// The rooms by name as compared (see [`naming::name_key`]).
 type Names = HashMap<String, Vec<RoomId>>;
 
+/// How many moves away each room is, by the routes walks take.
+pub type Distances = std::sync::Arc<HashMap<RoomId, usize>>;
+
 /// A room's neighbour for layout: the neighbour, the grid step of the
 /// compass exit joining them, and which way along it the neighbour lies.
 type Link = (RoomId, (i32, i32, i32), i32);
@@ -225,6 +228,8 @@ pub struct Map {
     several_areas: std::cell::Cell<Option<(u64, bool)>>,
     /// The rooms left over, as of a revision.
     ghosts: std::cell::RefCell<Option<(u64, ghosts::Ghosts)>>,
+    /// How many moves away each room is from one, as of a revision.
+    distances: std::cell::RefCell<Option<(RoomId, u64, Distances)>>,
     /// The rooms the player may be in when the map cannot tell which.
     candidates: Vec<RoomId>,
     /// The moves sent that the server has not shown the end of yet, in
@@ -287,6 +292,11 @@ impl Map {
     /// Notes that rooms changed: they are written with the next
     /// [`Map::flush`].
     pub(crate) fn keep(&mut self, ids: impl IntoIterator<Item = RoomId>) {
+        // None changed, nothing to work out again.
+        let mut ids = ids.into_iter().peekable();
+        if ids.peek().is_none() {
+            return;
+        }
         self.revision += 1;
         if self.store.is_some() {
             self.unsaved.extend(ids);

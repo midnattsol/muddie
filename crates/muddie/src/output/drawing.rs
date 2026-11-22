@@ -340,7 +340,7 @@ impl Output {
         }
         let timestamps = self.timestamps;
         let guess = move |row: &Row| {
-            let characters = row.text.chars().count() + if timestamps { 9 } else { 0 };
+            let characters = row.characters + if timestamps { 9 } else { 0 };
             unit * (characters as f32 * glyph / width.max(1.0)).ceil().max(1.0)
         };
         self.ends.update(&self.rows, &guess);

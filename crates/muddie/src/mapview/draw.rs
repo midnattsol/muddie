@@ -8,6 +8,8 @@ use eframe::egui::text::{LayoutJob, TextWrapping};
 
 /// The cell size from which the rooms' names are written under them.
 const NAMES_FROM: f32 = 60.0;
+/// The cell size from which exits are drawn with their arrows and dashes.
+const DETAILED_FROM: f32 = 16.0;
 
 /// The map's colours, taken from the theme.
 pub(super) struct Colours {
@@ -244,6 +246,9 @@ pub(super) fn draw_exits(
     on_level: &dyn Fn(&Room) -> bool,
 ) {
     let width = grid.line_width();
+    // Zoomed far out, thousands of rooms on show, what cannot be told
+    // apart at that size is not drawn: arrow heads, and dashes.
+    let detailed = grid.cell >= DETAILED_FROM;
     for room in visible {
         let from = grid.on_screen(room.pos);
         for (direction, exit) in &room.exits {
@@ -261,13 +266,13 @@ pub(super) fn draw_exits(
             match (target, step) {
                 (Some(target), _) => {
                     let to = grid.on_screen(target.pos);
-                    if step.is_some() {
+                    if step.is_some() || !detailed {
                         painter.line_segment([from, to], line);
                     } else {
                         let dash = grid.half() * 0.5;
                         painter.extend(Shape::dashed_line(&[from, to], line, dash, dash));
                     }
-                    if !target.exits.values().any(|back| back.to == room.id) {
+                    if detailed && !target.exits.values().any(|back| back.to == room.id) {
                         arrow(painter, from, to, grid, colour);
                     }
                 }

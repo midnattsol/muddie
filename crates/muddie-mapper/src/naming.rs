@@ -56,6 +56,7 @@ impl Map {
             return Vec::new();
         }
         let moves = from.map(|from| self.moves_from(from)).unwrap_or_default();
+        let moves: &HashMap<RoomId, usize> = &moves;
         let far = |id: &RoomId| moves.get(id).copied();
         let nearest_first =
             |found: &Found, name: &str| (found.moves.is_none(), found.moves, name.to_lowercase());
@@ -75,7 +76,8 @@ impl Map {
             .collect();
         marks.sort_by_cached_key(|(found, mark)| nearest_first(found, mark));
         let mut rest: Vec<(Found, &str)> = (self.rooms.values())
-            .filter(|room| room.note.to_lowercase().contains(&query) && !self.is_ghost(room.id))
+            .filter(|room| !room.note.is_empty() && room.note.to_lowercase().contains(&query))
+            .filter(|room| !self.is_ghost(room.id))
             .map(|room| {
                 let found = Found {
                     room: room.id,
@@ -362,17 +364,14 @@ impl Map {
             .is_none_or(|(revision, _)| *revision != self.revision)
         {
             let mut index = Names::new();
-            let ghosts = self.with_ghosts(Clone::clone);
-            for room in self
-                .rooms
-                .values()
-                .filter(|room| !ghosts.contains_key(&room.id))
-            {
-                index
-                    .entry(self.name_key(&room.name))
-                    .or_default()
-                    .push(room.id);
-            }
+            self.with_ghosts(|ghosts| {
+                for room in (self.rooms.values()).filter(|room| !ghosts.contains_key(&room.id)) {
+                    index
+                        .entry(self.name_key(&room.name))
+                        .or_default()
+                        .push(room.id);
+                }
+            });
             *names = Some((self.revision, index));
         }
         let (_, index) = names.as_ref().expect("made above");

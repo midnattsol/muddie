@@ -158,10 +158,10 @@ pub fn how_far(map: &Map, from: Option<RoomId>, room: &Room) -> String {
     if from == room.id {
         return tr("you are here").to_owned();
     }
-    let Some(steps) = map.route(from, room.id) else {
+    let Some(moves) = map.moves_between(from, room.id) else {
         return tr("no known way").to_owned();
     };
-    let moves = crate::i18n::trn("{0} move", "{0} moves", steps.len() as u64);
+    let moves = crate::i18n::trn("{0} move", "{0} moves", moves as u64);
     match toward(map, from, room.id) {
         Some(way) => format!("{moves} {way}"),
         None => moves,
@@ -468,8 +468,7 @@ impl MapView {
         // Of several in one place, one there is a way to.
         if chosen.is_none() && response.double_clicked() {
             let there = response.hover_pos().map(rooms_at).unwrap_or_default();
-            let reached =
-                |room: &&&Room| room.id == current.id || map.route(current.id, room.id).is_some();
+            let reached = |room: &&&Room| map.moves_between(current.id, room.id).is_some();
             let walked = there.iter().find(reached).or(there.first());
             chosen = walked.map(|room| MapAction::Walk(room.id));
         }

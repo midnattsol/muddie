@@ -39,17 +39,21 @@ impl Map {
     /// to are not left over, nor those that one of these leads to, and so
     /// on. Of a place where none is led to, the one with most exits stays.
     fn find_ghosts(&self) -> Ghosts {
-        let mut alike: HashMap<(&str, i32, i32, i32, String), Vec<RoomId>> = HashMap::new();
+        // By place first, which costs nothing to compare; then, of the
+        // places shared, by name.
+        let mut placed: HashMap<(&str, Pos), Vec<RoomId>> = HashMap::new();
         for room in self.rooms.values() {
-            let place = (room.area.as_str(), room.pos.x, room.pos.y, room.pos.z);
-            let key = (
-                place.0,
-                place.1,
-                place.2,
-                place.3,
-                self.name_key(&room.name),
-            );
-            alike.entry(key).or_default().push(room.id);
+            (placed.entry((room.area.as_str(), room.pos)).or_default()).push(room.id);
+        }
+        let mut alike: HashMap<(&str, Pos, String), Vec<RoomId>> = HashMap::new();
+        for ((area, pos), ids) in placed.into_iter().filter(|(_, ids)| ids.len() > 1) {
+            for id in ids {
+                let name = self.rooms.get(&id).map(|room| self.name_key(&room.name));
+                alike
+                    .entry((area, pos, name.unwrap_or_default()))
+                    .or_default()
+                    .push(id);
+            }
         }
         alike.retain(|_, ids| ids.len() > 1);
         if alike.is_empty() {

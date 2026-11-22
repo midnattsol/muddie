@@ -876,3 +876,27 @@ fn places_are_found_by_mark_note_and_name_the_nearest_first() {
     map.set_note(2, " ").unwrap();
     assert!(map.search("fountain", None).is_empty());
 }
+
+#[test]
+fn moving_between_known_rooms_leaves_the_map_as_it_was_and_moves_are_counted_as_walked() {
+    let mut map = town();
+    map.visit(info(1, "Gate", &[("n", 2), ("portal", 4)]))
+        .unwrap();
+    let revision = map.revision();
+    // Walking known rooms changes none: what is worked out of them stays.
+    map.visit(info(2, "Square", &[("s", 1), ("e", 3)])).unwrap();
+    map.visit(info(1, "Gate", &[("n", 2), ("portal", 4)]))
+        .unwrap();
+    assert_eq!(map.revision(), revision);
+    // The moves to each room are those of its route, the portal included.
+    for to in 1..=4 {
+        let route = map.route(1, to).map(|steps| steps.len());
+        assert_eq!(map.moves_between(1, to), route, "to {to}");
+    }
+    // A room to avoid is reached, but not gone through.
+    map.set_avoid(2, true).unwrap();
+    assert_eq!(map.moves_between(1, 2), Some(1));
+    // The tower, then, by the portal and down, as a walk would go.
+    assert_eq!(map.moves_between(1, 3), Some(2));
+    assert_eq!(map.route(1, 3).map(|steps| steps.len()), Some(2));
+}
