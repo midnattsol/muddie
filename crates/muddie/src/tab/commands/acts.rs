@@ -21,7 +21,7 @@ impl Tab {
             };
             item(&label, map, Act::MapTool(tool.label))
         }));
-        acts.push(item(tr("Undo the last room added"), map, Act::UndoAdded));
+        acts.push(item(tr("Undo the map's last change"), map, Act::UndoChange));
         // In the editor, what is changed in it is undone and redone.
         if self.editor.open {
             acts.push(item(tr("Undo"), tr("Editor"), Act::Undo(false)));
@@ -212,7 +212,7 @@ impl Tab {
             },
             Act::Undo(again) => self.undo_step(again),
             Act::MapTool(label) => self.use_map_tool(&label),
-            Act::UndoAdded => self.undo_added(),
+            Act::UndoChange => self.undo_change(),
             Act::CopyOutput => {
                 ctx.copy_text(self.output.all_text());
                 self.say(tr("Output copied."), false);

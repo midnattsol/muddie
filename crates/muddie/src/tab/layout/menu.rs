@@ -40,10 +40,10 @@ impl Tab {
                 Kind::Map => {
                     self.map_view.menu_items(ui);
                     // The last room the map added, while there is one.
-                    if self.map.borrow().last_added().is_some()
-                        && widgets::menu_item(ui, tr("Undo the last room added"), "").clicked()
+                    if self.map.borrow().last_change().is_some()
+                        && widgets::menu_item(ui, tr("Undo the map's last change"), "").clicked()
                     {
-                        asked = Some(PanelAsk::UndoAdded);
+                        asked = Some(PanelAsk::UndoChange);
                         ui.close();
                     }
                     // What the scripts offer to do with the map, under the
@@ -76,7 +76,7 @@ impl Tab {
             Some(PanelAsk::Hide) => self.layout.panels[index].visible = false,
             Some(PanelAsk::Remove) => self.panels.removed = Some(index),
             Some(PanelAsk::MapTool(label)) => self.use_map_tool(&label),
-            Some(PanelAsk::UndoAdded) => self.undo_added(),
+            Some(PanelAsk::UndoChange) => self.undo_change(),
             None => {}
         }
     }
@@ -163,7 +163,7 @@ enum PanelAsk {
     Remove,
     /// What a script offered to do with the map, by what it is chosen by.
     MapTool(String),
-    UndoAdded,
+    UndoChange,
 }
 
 /// Hiding the panel, and removing it.

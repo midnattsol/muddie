@@ -58,7 +58,7 @@ pub(super) const COMMANDS: [(&str, &str); 37] = [
         "/map added",
         "Lists the rooms the map added of itself where you went",
     ),
-    ("/map undo", "Undoes the last room the map added"),
+    ("/map undo", "Undoes the last change the map made of itself"),
     (
         "/map check",
         "Lists the rooms that look wrong: with no name, or that no exit leads to or from",
@@ -125,7 +125,7 @@ impl Tab {
             "/lock" if given => self.toggle_lock(argument),
             "/tidy" => self.tidy_here(argument),
             "/added" => self.list_added(),
-            "/undo" => self.undo_added(),
+            "/undo" => self.undo_change(),
             "/check" => self.check_map(),
             "/remove-room" => self.remove_room_command(argument),
             "/packages" => self.list_plugins(),

@@ -69,8 +69,16 @@ impl Map {
         }
         self.current = Some(id);
         self.candidates.clear();
+        self.pending.clear();
         self.keep_whereabouts();
         true
+    }
+
+    /// Whether the map puts right the name of a room the player is
+    /// followed to by the way they went and its exits, though the server
+    /// names it otherwise (see [`Map::arrive`]). Off unless asked for.
+    pub fn set_fix_names(&mut self, on: bool) {
+        self.fix_names = on;
     }
 
     /// The rooms the player may be in while the map cannot tell which, in
@@ -103,6 +111,15 @@ impl Map {
     /// could have been it, to a room of that name. With no exit, the room
     /// the player was in if it is so, as after looking, or one next to it.
     /// Failing those, any room of that name and exits.
+    ///
+    /// A room is known by where it is as much as by its name: if the exit
+    /// the server says was taken leads to a room with just the exits shown,
+    /// and no room around has the name shown with them, the player is
+    /// followed there, though the map names it otherwise, as maps taken
+    /// from elsewhere name rooms with what was said in them, cut short, or
+    /// not at all. If the next move is to a room as the map has it, name
+    /// and exits, the room between is the one: with [`Map::set_fix_names`],
+    /// it is given the name shown, as a change that can be undone.
     pub fn arrive(&mut self, seen: Sighting<'_>) -> Located {
         // The exit taken: as the server says, or else the move sent that
         // this room answers. Either way, that move is answered.
@@ -110,9 +127,15 @@ impl Map {
         let came = seen.came.map(|came| self.direction(came)).or(sent);
         let key = seen.name.map(|name| self.name_key(name));
         let exits = seen.exits.map(|exits| self.exit_set(exits));
+        // A room the player was followed to though named otherwise goes by
+        // the name shown there until it is put right, or the player is lost.
+        let pending = std::mem::take(&mut self.pending);
+        let last_pending = pending.last().map(|(room, _)| *room);
         let named = |id: RoomId| {
             (key.as_ref()).is_none_or(|key| {
-                (self.rooms.get(&id)).is_some_and(|room| self.name_key(&room.name) == *key)
+                let called = |name: &str| self.name_key(name) == *key;
+                (self.rooms.get(&id)).is_some_and(|room| called(&room.name))
+                    || (pending.iter()).any(|(room, name)| *room == id && called(name))
             })
         };
         let like = |id: RoomId| {
@@ -130,6 +153,15 @@ impl Map {
             .current
             .and_then(|id| self.rooms.get(&id))
             .map(|room| (room.area.clone(), room.pos));
+        let led_by = |way: &str| -> Vec<RoomId> {
+            let mut led: Vec<RoomId> = (before.iter())
+                .filter_map(|id| Some(self.rooms.get(id)?.exits.get(way)?.to))
+                .filter(|id| self.rooms.contains_key(id))
+                .collect();
+            led.sort_unstable();
+            led.dedup();
+            led
+        };
         // A room of that name the exit leads to, though its exits are not
         // those shown, is taken only if no room of that name has them: else
         // the map is not trusted there, and the player is looked for.
@@ -139,10 +171,7 @@ impl Map {
         };
         let moved: Vec<RoomId> = match &came {
             Some(way) => {
-                let led_to: Vec<RoomId> = (before.iter())
-                    .filter_map(|id| Some(self.rooms.get(id)?.exits.get(way)?.to))
-                    .filter(|id| self.rooms.contains_key(id) && named(*id))
-                    .collect();
+                let led_to: Vec<RoomId> = led_by(way).into_iter().filter(|id| named(*id)).collect();
                 let fitting: Vec<RoomId> = led_to.iter().copied().filter(|id| like(*id)).collect();
                 if !fitting.is_empty() {
                     fitting
@@ -157,11 +186,11 @@ impl Map {
         // The rooms up to two moves from where the player was that are as
         // the server shows: where a map that is wrong in a place, or a move
         // it did not follow, most likely left the player.
-        let around = || {
+        let around_within = |moves: usize| {
             let mut near: Vec<RoomId> = Vec::new();
             let mut seen: HashSet<RoomId> = before.iter().copied().collect();
             let mut ring = before.clone();
-            for _ in 0..2 {
+            for _ in 0..moves {
                 let next: Vec<RoomId> = (ring.iter())
                     .filter_map(|id| self.rooms.get(id))
                     .flat_map(|room| room.exits.values().map(|exit| exit.to))
@@ -175,14 +204,39 @@ impl Map {
             }
             near
         };
+        let around = || around_within(2);
+        // By the way the server says was taken and the exits shown, though
+        // not the name: the one room it leads to with just those exits.
+        let shaped = || -> Option<RoomId> {
+            let (Some(way), Some(exits), Some(_)) = (seen.came.and(came.as_ref()), &exits, &key)
+            else {
+                return None;
+            };
+            match led_by(way).as_slice() {
+                [one] if self.shows_exits(*one, exits) && !exits.is_empty() => Some(*one),
+                _ => None,
+            }
+        };
+        let mut followed = None;
         let mut found = if !moved.is_empty() {
             moved
         } else if key.is_none() && exits.is_none() {
+            self.pending = pending;
             return self.whereabouts();
         } else if seen.came.is_some() {
             // A move the server says was made, which the map's exits do not
-            // lead to such a room by: one around.
-            around()
+            // lead to such a room by: one next to where the player was, as
+            // the map has the exit wrong; else the one the way and the
+            // exits lead to, by whatever name; else one further.
+            let next_to = around_within(1);
+            match shaped() {
+                Some(room) if next_to.is_empty() => {
+                    followed = Some(room);
+                    vec![room]
+                }
+                _ if !next_to.is_empty() => next_to,
+                _ => around(),
+            }
         } else {
             // No move, or only one sent, which may not have been made:
             // still there, as after looking; else one around.
@@ -211,7 +265,65 @@ impl Map {
             };
             found.sort_by_key(far);
         }
-        self.settle(found)
+        // The rooms named otherwise, left by a move to a room as the map has
+        // it, name and exits: they are the ones, and their names those shown.
+        // Only from the last of them, where the map had the player.
+        let from_pending =
+            matches!((before.as_slice(), last_pending), ([was], Some(last)) if *was == last);
+        let confirmed = match found.as_slice() {
+            [next] => {
+                from_pending
+                    && Some(*next) != last_pending
+                    && seen.came.is_some()
+                    && exits.is_some()
+                    && (self.rooms.get(next))
+                        .is_some_and(|known| Some(self.name_key(&known.name)) == key)
+                    && like(*next)
+            }
+            _ => false,
+        };
+        let staying = from_pending && found.as_slice() == before.as_slice();
+        let written = seen.name.map(|name| name.trim().to_owned());
+        let located = self.settle(found);
+        if confirmed {
+            for (room, name) in pending {
+                self.put_right(room, &name);
+            }
+        } else if staying {
+            self.pending = pending;
+        } else if let (Some(room), Some(name)) = (followed, written) {
+            // On from the last, the way goes on; else it starts here.
+            if from_pending {
+                self.pending = pending;
+                self.pending.retain(|(known, _)| *known != room);
+            }
+            self.pending.push((room, name));
+        }
+        located
+    }
+
+    /// Gives a room the name the server showed for it, as a change of the
+    /// map's own, if names are put right.
+    fn put_right(&mut self, id: RoomId, name: &str) {
+        let Some(room) = self.rooms.get(&id).cloned() else {
+            return;
+        };
+        if !self.fix_names || name.is_empty() || room.name == name {
+            return;
+        }
+        let changed = Changed::Renamed {
+            room: id,
+            was: room.name.clone(),
+            now: name.to_owned(),
+        };
+        if let Some(room) = self.rooms.get_mut(&id) {
+            room.name = name.to_owned();
+            room.renamed = true;
+        }
+        self.keep([id]);
+        self.revision += 1;
+        self.told.push(changed.clone());
+        self.record(changed, vec![(id, Some(room))]);
     }
 
     /// Keeps the room the player is in with the map, as it changes, to

@@ -1,27 +1,89 @@
-//! Looking over what the map added of itself, and what may be wrong in
-//! it: the rooms added, to go to or take off, undoing the last, and the
-//! rooms that look wrong. All is said, and chosen from a list.
+//! Looking over what the map changed of itself, and what may be wrong in
+//! it: what it changed, told as it goes and undone the last first; the
+//! rooms it added, to go to or take off; and the rooms that look wrong.
+//! All is said, and chosen from a list.
 
 use super::*;
-use muddie_mapper::Added;
+use muddie_mapper::Changed;
 use std::collections::HashSet;
+use std::time::Duration;
+
+/// How long after the map changes something of itself it is told, with
+/// whatever else it changed meanwhile.
+const TELL_CHANGES_AFTER: Duration = Duration::from_secs(3);
 use walking::MAX_LISTED_ROOMS;
 
 impl Tab {
-    /// Undoes the last room the map added, and says what was undone.
-    pub(super) fn undo_added(&mut self) {
-        let undone = self.map.borrow_mut().undo_added();
+    /// Undoes the last change the map made of itself, and says what was
+    /// undone.
+    pub(super) fn undo_change(&mut self) {
+        let undone = self.map.borrow_mut().undo_change();
         match self.map_saved(undone) {
             None => {}
-            Some(None) => self.refuse(tr("The map has added no room to undo.")),
-            Some(Some((Added::Made(_), name))) => {
+            Some(None) => self.refuse(tr("The map has changed nothing of itself to undo.")),
+            Some(Some(Changed::Made(_, name))) => {
                 self.note(&trf("Undone: {0} is no longer on the map.", &[&name]))
             }
-            Some(Some((Added::Found(_), name))) => self.note(&trf(
+            Some(Some(Changed::Found(_, name))) => self.note(&trf(
                 "Undone: the way to {0} is no longer on the map.",
                 &[&name],
             )),
+            Some(Some(Changed::Renamed { was, now, .. })) => self.note(&match was.is_empty() {
+                true => trf("Undone: “{0}” has no name again.", &[&now]),
+                false => trf("Undone: “{0}” is called “{1}” again.", &[&now, &was]),
+            }),
         }
+    }
+
+    /// Tells what the map changed of itself, a moment after the first of
+    /// it, all together: as the player walks, one notice and not many.
+    pub(super) fn tell_map_changes(&mut self, ctx: &egui::Context, now: Instant) {
+        let told = self.map.borrow_mut().take_told();
+        if !told.is_empty() {
+            self.map_told.1.get_or_insert(now);
+            self.map_told.0.extend(told);
+        }
+        let Some(since) = self.map_told.1 else {
+            return;
+        };
+        let wait = TELL_CHANGES_AFTER.saturating_sub(now.duration_since(since));
+        if !wait.is_zero() {
+            ctx.request_repaint_after(wait);
+            return;
+        }
+        let changes = std::mem::take(&mut self.map_told).0;
+        let said = match changes.as_slice() {
+            [Changed::Made(_, name)] => trf("Map: added the room “{0}”.", &[name]),
+            [Changed::Found(_, name)] => trf("Map: added the way to “{0}”.", &[name]),
+            [Changed::Renamed { was, now, .. }] if was.is_empty() => trf(
+                "Map put right: a room with no name is now called “{0}”.",
+                &[now],
+            ),
+            [Changed::Renamed { was, now, .. }] => {
+                trf("Map put right: “{0}” is now called “{1}”.", &[was, now])
+            }
+            _ => {
+                let count =
+                    |kind: fn(&Changed) -> bool| changes.iter().filter(|c| kind(c)).count() as u64;
+                let made = count(|change| matches!(change, Changed::Made(..)));
+                let found = count(|change| matches!(change, Changed::Found(..)));
+                let renamed = count(|change| matches!(change, Changed::Renamed { .. }));
+                let parts: Vec<String> = [
+                    (made, trn("{0} room added", "{0} rooms added", made)),
+                    (found, trn("{0} way added", "{0} ways added", found)),
+                    (
+                        renamed,
+                        trn("{0} name put right", "{0} names put right", renamed),
+                    ),
+                ]
+                .into_iter()
+                .filter(|(number, _)| *number > 0)
+                .map(|(_, part)| part)
+                .collect();
+                trf("Map: {0}.", &[&parts.join(", ")])
+            }
+        };
+        self.note(&trf("{0} To undo the last: /map undo.", &[&said]));
     }
 
     /// Lists the rooms the map added of itself, each to go to.

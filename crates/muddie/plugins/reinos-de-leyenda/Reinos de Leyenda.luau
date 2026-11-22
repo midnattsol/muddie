@@ -179,27 +179,23 @@ local function exits_of(list)
 end
 
 ---------------------------------------------------------------------------
--- Putting the map's names right. The map the MUD publishes has rooms with
--- no name, and rooms named with what was said or done in them as they were
--- mapped: "Moony te dice: ...", "Abres la puerta sur.", "Estás siendo
--- atacado por Lobo.". On coming to one, it is given the name the game
--- writes, if the exits the game writes are the room's, so that no other
--- room is named should the map have lost the player.
+-- Putting the map's names right. The map the MUD publishes names some rooms
+-- with what was said or done in them as they were mapped ("Moony te dice:
+-- ..."), with their names cut short ("Erial de los Condenados: Ca"), or
+-- with nothing. The map follows the player through them by the way they go
+-- and their exits, and once the next room is as it has it, gives them the
+-- names the game writes, and says so. On unless switched off, from the
+-- map's menu or the palette, and remembered in the profile.
 
--- What a room's name is not: nothing, a sentence, or something said.
-local NOT_NAMES = { " dice", "Dices ", " grita", " susurra", " exclama", "Abres ", "Estás ", "Empiezas " }
-
-local function wrong_name(name)
-    if name == "" or name:find("[%.!%?]%s*$") then
-        return true
-    end
-    for _, said in NOT_NAMES do
-        if name:find(said, 1, true) then
-            return true
-        end
-    end
-    return false
-end
+local FIXING = "Reinos de Leyenda: corregir nombres"
+local FIXING_ACTION = { en = "Put right the names of rooms", es = "Corregir los nombres de las salas" }
+local fixing = recall(FIXING) ~= false
+map.fix_names(fixing)
+map.action(FIXING_ACTION, function(on)
+    fixing = on
+    remember(FIXING, on)
+    map.fix_names(on)
+end, { checked = fixing })
 
 -- Whether every exit the game writes is one the room has.
 local function has_exits(room, exits)
@@ -212,69 +208,6 @@ local function has_exits(room, exits)
         end
     end
     return true
-end
-
--- The rooms put right lately, told together: a few seconds after the first.
-local renamed = {}
-
-local function tell_renamed()
-    if #renamed == 1 then
-        local room = renamed[1]
-        if room.was == "" then
-            notify(tr({
-                en = `Map put right: a room with no name is now called “{room.now}”.`,
-                es = `Mapa corregido: una sala sin nombre se llama ahora «{room.now}».`,
-            }))
-        else
-            notify(tr({
-                en = `Map put right: “{room.was}” is now called “{room.now}”.`,
-                es = `Mapa corregido: «{room.was}» se llama ahora «{room.now}».`,
-            }))
-        end
-    elseif #renamed > 1 then
-        notify(tr({
-            en = `Map put right: {#renamed} rooms now have their names.`,
-            es = `Mapa corregido: {#renamed} salas tienen ahora su nombre.`,
-        }))
-    end
-    renamed = {}
-end
-
--- The room the game wrote is the one the move leads to, or, with no move,
--- the one the player is in: if the map has it named wrong, it is given
--- the name written. While the map is not sure which room the player was
--- in, the move is followed from each it could be: if only one leads to a
--- room named wrong with the exits written, that is the one, and the map
--- finds the player there by its name.
-local function put_right(seen)
-    if not seen.name or wrong_name(seen.name) then
-        return
-    end
-    local here = map.room()
-    local from = if here then { here.id } else map.candidates()
-    local there = nil
-    for _, id in from do
-        local room = map.room(id)
-        if seen.came then
-            local exit = map.exit(id, seen.came)
-            room = exit and map.room(exit.to)
-        end
-        if room and wrong_name(room.name) and has_exits(room, seen.exits or {}) then
-            if there and there.id ~= room.id then
-                return
-            end
-            there = room
-        end
-    end
-    if not there then
-        return
-    end
-    if map.rename(there.id, seen.name) then
-        table.insert(renamed, { was = there.name, now = seen.name })
-        if #renamed == 1 then
-            after(3, tell_renamed)
-        end
-    end
 end
 
 ---------------------------------------------------------------------------
@@ -297,39 +230,6 @@ local adding = recall(ADDING) == true
 -- so that none hangs from a room the map has the player in wrongly.
 local confirmed = false
 
--- The rooms added lately, told together: a few seconds after the first.
-local added = { rooms = {}, ways = {} }
-
-local function tell_added()
-    local rooms, ways = added.rooms, added.ways
-    local function counted(count, one, many)
-        return `{count} {if count == 1 then one else many}`
-    end
-    local function listed(room, rooms_word, way, ways_word, also)
-        local parts = {}
-        if #rooms > 0 then
-            table.insert(parts, counted(#rooms, room, rooms_word))
-        end
-        if #ways > 0 then
-            table.insert(parts, counted(#ways, way, ways_word))
-        end
-        return table.concat(parts, also)
-    end
-    local said
-    if #rooms == 1 and #ways == 0 then
-        said = tr({ en = `Map: added the room “{rooms[1]}”.`, es = `Mapa: añadida la sala «{rooms[1]}».` })
-    elseif #rooms == 0 and #ways == 1 then
-        said = tr({ en = `Map: added the way to “{ways[1]}”.`, es = `Mapa: añadido el camino a «{ways[1]}».` })
-    else
-        said = tr({
-            en = `Map: added {listed("room", "rooms", "way", "ways", " and ")}.`,
-            es = `Mapa: se han añadido {listed("sala", "salas", "camino", "caminos", " y ")}.`,
-        })
-    end
-    notify(`{said} {tr({ en = "To undo the last: /map undo.", es = "Para deshacer la última: /map undo." })}`)
-    added = { rooms = {}, ways = {} }
-end
-
 -- Whether every exit written is a direction.
 local function all_directions(exits)
     if #exits == 0 then
@@ -349,7 +249,7 @@ local function add_room(seen)
     if not (adding and confirmed and seen.written and seen.came and seen.name) then
         return false
     end
-    if wrong_name(seen.name) or not map.direction(seen.came) or not all_directions(seen.exits or {}) then
+    if not map.direction(seen.came) or not all_directions(seen.exits or {}) then
         return false
     end
     local here = map.room()
@@ -359,14 +259,7 @@ local function add_room(seen)
     end
     local id, how = map.add(seen)
     log(`Reinos: añadir {seen.name} por {seen.came} -> {id} {how}`)
-    if not id then
-        return false
-    end
-    table.insert(if how == "made" then added.rooms else added.ways, seen.name)
-    if #added.rooms + #added.ways == 1 then
-        after(3, tell_added)
-    end
-    return true
+    return id ~= nil
 end
 
 -- A switch: the map's menu shows it ticked while on, and the palette says
@@ -384,16 +277,19 @@ end, { checked = adding })
 
 local function step(seen)
     -- What the game wrote in its text, rather than told over GMCP: it
-    -- may be a room the map has named wrong, or one it has not. If it is
-    -- not a room the map has, the line was not a room, and the move alone
-    -- is followed.
+    -- may be a room the map has not. A line whose brackets hold anything
+    -- but directions was said, not a room. A name the map has no room of
+    -- is kept only where the way taken leads to a room, which may be the
+    -- one, named otherwise; elsewhere, the move alone is followed.
     if seen.written then
-        put_right(seen)
         if add_room(seen) then
             confirmed = true
             return
         end
-        if #map.named(seen.name) == 0 then
+        local here = map.room()
+        local exit = here and seen.came and map.exit(here.id, seen.came)
+        local leads = exit ~= nil and map.room(exit.to) ~= nil
+        if not all_directions(seen.exits or {}) or (#map.named(seen.name) == 0 and not leads) then
             seen.name, seen.exits = nil, nil
         end
     end

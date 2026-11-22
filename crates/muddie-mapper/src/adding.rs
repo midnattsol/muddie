@@ -1,7 +1,7 @@
 //! Rooms the map adds of itself, where the player went and it had none:
 //! looked for among the rooms it has before one is made, so that no room
 //! is had twice, refused while the map does not know where the player
-//! was, and undone if wrong. Taking a map again keeps them, or joins each
+//! was, and undone if wrong (see the journal). Taking a map again keeps them, or joins each
 //! with the room the map taken has, once it has it.
 
 use super::*;
@@ -50,17 +50,6 @@ pub enum Refused {
     /// rather than have the room twice, none is made.
     Alike(Vec<RoomId>),
 }
-
-/// What adding a room changed, to undo it: the rooms it changed as they
-/// were, `None` for one it made, and where the player was.
-pub(crate) struct Change {
-    added: Added,
-    name: String,
-    before: Vec<(RoomId, Option<Room>)>,
-}
-
-/// How many additions can be undone, the last first.
-const CHANGES_KEPT: usize = 100;
 
 /// What became of the rooms the map had added on taking a map.
 #[derive(Default)]
@@ -195,57 +184,14 @@ impl Map {
         self.current = Some(to);
         self.candidates.clear();
         self.keep_whereabouts();
-        if self.changes.len() == CHANGES_KEPT {
-            self.changes.remove(0);
-        }
-        self.changes.push(Change {
-            added,
-            name: name.to_owned(),
-            before,
-        });
-        Ok(added)
-    }
-
-    /// The last room added that can be undone, with its name.
-    pub fn last_added(&self) -> Option<(Added, &str)> {
-        let change = self.changes.last()?;
-        Some((change.added, change.name.as_str()))
-    }
-
-    /// Undoes the last room added: the room made is taken away, and the
-    /// room it was reached from is as it was. What was changed of those
-    /// rooms since goes with it. Returns what was undone, if anything was.
-    pub fn undo_added(&mut self) -> Result<Option<(Added, String)>, Error> {
-        let Some(change) = self.changes.pop() else {
-            return Ok(None);
+        self.pending.clear();
+        let changed = match added {
+            Added::Made(id) => Changed::Made(id, name.to_owned()),
+            Added::Found(id) => Changed::Found(id, name.to_owned()),
         };
-        let mut removed = Vec::new();
-        for (id, before) in change.before {
-            match before {
-                Some(room) => {
-                    self.rooms.insert(id, room);
-                    self.keep([id]);
-                }
-                None => {
-                    self.rooms.remove(&id);
-                    self.unsaved.remove(&id);
-                    removed.push(id);
-                }
-            }
-        }
-        // In a room no longer there, the map does not know where the
-        // player is until the server shows a room.
-        if self.current.is_some_and(|id| !self.rooms.contains_key(&id)) {
-            self.current = None;
-            self.candidates.clear();
-        }
-        self.revision += 1;
-        if let Some(store) = &mut self.store {
-            for id in removed {
-                store.delete(id)?;
-            }
-        }
-        Ok(Some((change.added, change.name)))
+        self.told.push(changed.clone());
+        self.record(changed, before);
+        Ok(added)
     }
 
     /// The rooms the map added of itself, in the order they were made.

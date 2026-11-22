@@ -10,6 +10,7 @@ mod directions;
 mod editing;
 mod ghosts;
 mod info;
+mod journal;
 mod locating;
 mod mudlet;
 mod naming;
@@ -27,6 +28,7 @@ pub use directions::{
 };
 pub use editing::Replaced;
 pub use info::RoomInfo;
+pub use journal::Changed;
 pub use locating::{Located, Sighting};
 pub use mudlet::{MUDLET_READER, MudletMap, read_mudlet_map};
 pub use naming::{Found, FoundBy, Naming};
@@ -227,9 +229,18 @@ pub struct Map {
     /// The moves sent that the server has not shown the end of yet, in
     /// order, each with when it was sent.
     moves: VecDeque<(String, std::time::Instant)>,
-    /// The rooms the map added of itself, as they were before each, the
-    /// last last: to be undone.
-    changes: Vec<adding::Change>,
+    /// What the map changed of itself, with the rooms as they were before
+    /// each, the last last: to be undone.
+    changes: Vec<journal::Entry>,
+    /// What it changed of itself that has not been told yet.
+    told: Vec<Changed>,
+    /// The rooms the player was followed through, one move after another,
+    /// by the way they went and the exits, though the server named them
+    /// otherwise, each with that name: put right once a move is to a room
+    /// as the map has it. The last is where the player is.
+    pending: Vec<(RoomId, String)>,
+    /// Whether names are put right so.
+    fix_names: bool,
 }
 
 impl Drop for Map {
@@ -311,6 +322,7 @@ impl Map {
         self.candidates.clear();
         self.unsaved.clear();
         self.changes.clear();
+        self.pending.clear();
         self.revision += 1;
         match &mut self.store {
             Some(store) => store.clear(),

@@ -1127,19 +1127,21 @@ fn a_room_the_map_has_not_is_added_where_the_player_went_and_undone() {
     // Undone, the last first: the room made goes, and the room it was
     // reached from is as it was; the map does not know where the player
     // is in a room no longer there.
-    assert_eq!(map.last_added(), Some((made, "Cave")));
-    assert_eq!(map.undo_added().unwrap(), Some((made, "Cave".to_owned())));
+    let cave = Changed::Made(made.room(), "Cave".into());
+    assert_eq!(map.take_told().last(), Some(&cave));
+    assert_eq!(map.last_change(), Some(&cave));
+    assert_eq!(map.undo_change().unwrap(), Some(cave));
     assert!(map.room(ADDED_FROM + 1).is_none());
     assert!(!map.room(13).unwrap().exits.contains_key("enter portal"));
     assert!(map.current().is_none());
     assert_eq!(
-        map.undo_added().unwrap(),
-        Some((Added::Found(13), "Oasis".to_owned()))
+        map.undo_change().unwrap(),
+        Some(Changed::Found(13, "Oasis".into()))
     );
     assert_eq!(map.room(ADDED_FROM).unwrap().exits["s"].to, UNEXPLORED);
-    map.undo_added().unwrap();
+    map.undo_change().unwrap();
     assert!(map.room(ADDED_FROM).is_none() && !map.room(13).unwrap().exits.contains_key("n"));
-    assert_eq!(map.undo_added().unwrap(), None);
+    assert_eq!(map.undo_change().unwrap(), None);
     assert_eq!(map.rooms().count(), 4);
 }
 
@@ -1245,5 +1247,171 @@ fn rooms_added_are_kept_when_the_map_is_taken_again_or_joined_with_its_own() {
     assert_eq!(kept.pos, pos(114, 1, -1));
     assert_eq!(map.current().unwrap().id, cellar);
     // Nothing is left to undo: the rooms it would undo are the map's now.
-    assert_eq!(map.last_added(), None);
+    assert_eq!(map.last_change(), None);
+}
+
+/// A road as maps taken from elsewhere have them: 1 "Road", then 2 named
+/// with what was said there, 3 with its name cut short, 4 "Gate", each
+/// east of the last, and 5 "Square" north of the gate.
+fn road() -> Map {
+    let mut map = Map::in_memory();
+    let room = |id: RoomId, name: &str, exits: &[(&str, RoomId)]| Room {
+        id,
+        name: name.to_owned(),
+        area: "road".to_owned(),
+        pos: pos(id as i32, 0, 0),
+        exits: (exits.iter())
+            .map(|(way, to)| {
+                (
+                    (*way).to_owned(),
+                    Exit {
+                        to: *to,
+                        ..Exit::default()
+                    },
+                )
+            })
+            .collect(),
+        weight: 1,
+        avoid: false,
+        colour: None,
+        note: String::new(),
+        renamed: false,
+        added: false,
+    };
+    let rooms = vec![
+        room(1, "Road", &[("e", 2)]),
+        room(2, "Traveller says: these roads", &[("w", 1), ("e", 3)]),
+        room(3, "Wall of Am", &[("w", 2), ("e", 4)]),
+        room(4, "Gate", &[("w", 3), ("n", 5)]),
+        room(5, "Square", &[("s", 4)]),
+    ];
+    map.replace_all(rooms, None).unwrap();
+    map
+}
+
+/// The server shows `name` with `exits`, reached by `came`.
+fn shown(map: &mut Map, name: &str, exits: &[&str], came: Option<&str>) -> Located {
+    let exits: Vec<String> = exits.iter().map(|exit| (*exit).to_owned()).collect();
+    map.arrive(Sighting {
+        name: Some(name),
+        exits: Some(&exits),
+        came,
+    })
+}
+
+#[test]
+fn rooms_named_otherwise_are_followed_by_the_way_and_put_right_between_rooms_as_the_map_has_them() {
+    let mut map = road();
+    map.set_fix_names(true);
+    assert!(map.set_current(1));
+    // The way and the exits lead to rooms named otherwise: the player is
+    // followed through them, and nothing is renamed yet.
+    assert_eq!(
+        shown(&mut map, "Road", &["w", "e"], Some("e")),
+        Located::Here(2)
+    );
+    assert_eq!(
+        shown(&mut map, "Wall of Amün", &["w", "e"], Some("e")),
+        Located::Here(3)
+    );
+    // Looking there changes nothing.
+    assert_eq!(
+        shown(&mut map, "Wall of Amün", &["w", "e"], None),
+        Located::Here(3)
+    );
+    assert_eq!(map.room(2).unwrap().name, "Traveller says: these roads");
+    assert!(map.take_told().is_empty());
+    // On to a room as the map has it: both were the ones, and are named as
+    // shown, each a change of the map's own, told and undone.
+    assert_eq!(
+        shown(&mut map, "Gate", &["w", "n"], Some("e")),
+        Located::Here(4)
+    );
+    let named = |map: &Map, id| {
+        let room = map.room(id).unwrap();
+        (room.name.clone(), room.renamed)
+    };
+    assert_eq!(named(&map, 2), ("Road".into(), true));
+    assert_eq!(named(&map, 3), ("Wall of Amün".into(), true));
+    let wall = Changed::Renamed {
+        room: 3,
+        was: "Wall of Am".into(),
+        now: "Wall of Amün".into(),
+    };
+    assert_eq!(map.take_told().len(), 2);
+    assert_eq!(map.undo_change().unwrap(), Some(wall));
+    assert_eq!(named(&map, 3), ("Wall of Am".into(), false));
+    assert_eq!(named(&map, 2), ("Road".into(), true));
+}
+
+#[test]
+fn a_room_named_otherwise_is_not_put_right_unless_the_next_move_bears_it_out() {
+    let mut map = road();
+    map.set_fix_names(true);
+    // Lost after it: nothing is renamed.
+    assert!(map.set_current(1));
+    assert_eq!(
+        shown(&mut map, "Road", &["w", "e"], Some("e")),
+        Located::Here(2)
+    );
+    assert_eq!(
+        shown(&mut map, "Forest", &["n"], Some("e")),
+        Located::Nowhere
+    );
+    assert_eq!(map.room(2).unwrap().name, "Traveller says: these roads");
+    // Exits not those shown: not followed there.
+    assert!(map.set_current(1));
+    assert_ne!(shown(&mut map, "Road", &["w"], Some("e")), Located::Here(2));
+    // Only followed, if names are not put right.
+    map.set_fix_names(false);
+    assert!(map.set_current(1));
+    assert_eq!(
+        shown(&mut map, "Road", &["w", "e"], Some("e")),
+        Located::Here(2)
+    );
+    assert_eq!(
+        shown(&mut map, "Wall of Amün", &["w", "e"], Some("e")),
+        Located::Here(3)
+    );
+    assert_eq!(
+        shown(&mut map, "Gate", &["w", "n"], Some("e")),
+        Located::Here(4)
+    );
+    assert_eq!(map.room(3).unwrap().name, "Wall of Am");
+    assert!(map.take_told().is_empty() && map.last_change().is_none());
+}
+
+#[test]
+fn while_unsure_the_one_way_to_a_room_of_those_exits_is_followed_and_put_right() {
+    let mut map = road();
+    map.set_fix_names(true);
+    // Another road, with no way east.
+    let other = RoomInfo {
+        id: 6,
+        name: "Road".into(),
+        area: "road".into(),
+        exits: [("n".to_owned(), 5)].into(),
+        pos: Some(pos(1, 5, 0)),
+        colour: None,
+    };
+    map.set_room(other).unwrap();
+    let looked = map.arrive(Sighting {
+        name: Some("Road"),
+        ..Sighting::default()
+    });
+    assert_eq!(looked, Located::Unsure(vec![1, 6]));
+    // Only one of them leads east, to a room of the exits shown.
+    assert_eq!(
+        shown(&mut map, "Road", &["w", "e"], Some("e")),
+        Located::Here(2)
+    );
+    assert_eq!(
+        shown(&mut map, "Wall of Amün", &["w", "e"], Some("e")),
+        Located::Here(3)
+    );
+    assert_eq!(
+        shown(&mut map, "Gate", &["w", "n"], Some("e")),
+        Located::Here(4)
+    );
+    assert_eq!(map.room(2).unwrap().name, "Road");
 }

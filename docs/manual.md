@@ -202,7 +202,7 @@ it.
 | `/map lock <direction>` | Keeps routes off an exit of this room, or allows it again |
 | `/map tidy [all]` | Draws the current area again from scratch. An area of more than 2000 rooms, as a map with all in one area, only with `all` |
 | `/map added` | Lists the rooms the map added of itself where you went, to travel to each |
-| `/map undo` | Undoes the last room the map added; also **Undo the last room added**, in the map's menu and the palette |
+| `/map undo` | Undoes the last change the map made of itself, a room added or a name put right; also **Undo the map's last change**, in the map's menu and the palette |
 | `/map check` | Lists the rooms that look wrong: with no name, or that no exit leads to or from |
 | `/map remove <number>` | Takes a room off the map |
 | `/map show`, `/map hide` | Shows or hides the map panel |
@@ -453,10 +453,11 @@ per profile like the ones you install. Two come with it.
   brings it, keeping what you set on the map. It follows you on it by each
   move, checked by the room the game writes, so that lag does not lose it,
   and walks in Spanish. The published map names some rooms with something
-  said in them as they were mapped, or with nothing: coming to one, the
-  plugin gives it the name the game writes, if the exits written are the
-  room's, and says so in a notice; those names stay when the map is
-  brought up to date. **Add the rooms the map has not**, a switch in the
+  said in them as they were mapped, with their names cut short, or with
+  nothing, and the MUD renames rooms of its own: **Put right the names of
+  rooms**, a switch in the map's menu and the palette, on unless switched
+  off, has the map put them right as you go (see "The map", below); those
+  names stay when the map is brought up to date. **Add the rooms the map has not**, a switch in the
   map's menu and the palette, has the map add the rooms it does not have
   where you go by the compass (see "The map", below); it is remembered in
   the profile, and off until switched on. What it shows is in English or
@@ -612,6 +613,18 @@ lists them, and `/map undo` undoes the last. When the map is taken again,
 they stay; one the map taken has by then, reached from a room by the same
 exit and with the same name and exits, becomes that room, with your notes
 and names.
+
+For such a MUD, a room is known by where it is as much as by its name.
+When the exit you took leads to a room with just the exits the game
+shows, and no room next to where you were has the name shown with them,
+the map follows you there though it names it otherwise: maps taken from
+elsewhere name some rooms with what was said in them as they were
+mapped, cut short, or not at all, and MUDs rename rooms. A plugin can have
+it put such names right: once your next move is to a room as the map has
+it, name and exits, the rooms you went through between are given the
+names the game showed. A notice says so a moment after, with whatever
+else the map changed meanwhile, and `/map undo` undoes them, the last
+first. They are kept when the map is taken again.
 
 Maps made by hand gather rooms left over: a copy of a room, in its very
 place and of its name, that no other room leads to, made when a room was

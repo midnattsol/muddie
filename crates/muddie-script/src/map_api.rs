@@ -203,6 +203,15 @@ fn install_visiting(
 
     let world = Rc::clone(map);
     api.set(
+        "fix_names",
+        lua.create_function(move |_, on: bool| {
+            world.borrow_mut().set_fix_names(on);
+            Ok(())
+        })?,
+    )?;
+
+    let world = Rc::clone(map);
+    api.set(
         "candidates",
         lua.create_function(move |_, ()| Ok(world.borrow().candidates().to_vec()))?,
     )?;

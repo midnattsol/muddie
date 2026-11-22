@@ -585,7 +585,7 @@ fn look_of(item: &Item) -> (widgets::Glyph, &'static str) {
             (Glyph::Panel, "")
         }
         Act::Connect(_) => (Glyph::Profile, ""),
-        Act::Place(_) | Act::MapTool(_) | Act::UndoAdded => (Glyph::Map, ""),
+        Act::Place(_) | Act::MapTool(_) | Act::UndoChange => (Glyph::Map, ""),
     }
 }
 

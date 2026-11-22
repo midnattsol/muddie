@@ -310,11 +310,13 @@ fn the_plugin_leaves_a_map_there_is_and_brings_it_up_to_date_when_asked() {
     assert!(app.scripts.map_tools().is_empty());
 }
 
-/// The map the MUD publishes names some rooms with what was said in them:
-/// coming to one, the plugin gives it the name the game writes, if the
-/// exits written are the room's, and says so a moment after.
+/// The map the MUD publishes names some rooms with what was said in them,
+/// or with nothing: the map follows the player through them by the way
+/// and the exits, and once the next room is as it has it, the plugin
+/// having asked for it, gives them the names the game writes, says so a
+/// moment after, and can undo it.
 #[test]
-fn the_plugin_puts_right_a_room_named_wrong_by_the_room_written() {
+fn the_plugin_has_the_map_put_right_the_rooms_named_wrong_it_goes_through() {
     let mut harness = window(None);
     let app = harness.state_mut().tab_mut();
     let (events, _sent) = fake_connection(app);
@@ -334,8 +336,8 @@ fn the_plugin_puts_right_a_room_named_wrong_by_the_room_written() {
         };
         map.set_room(info).unwrap();
     };
-    said_there(4, "Moony te dice: hola", &[("s", 3)]);
-    said_there(2, "", &[("w", 1), ("e", 3)]);
+    said_there(2, "Moony te dice: hola", &[("w", 1), ("e", 3)]);
+    said_there(3, "", &[("w", 2), ("n", 4)]);
     reinos(app);
     let step = |title: &str, way: &str| {
         let line = panels::styled_lines(title).remove(0);
@@ -348,88 +350,54 @@ fn the_plugin_puts_right_a_room_named_wrong_by_the_room_written() {
     };
     let name = |harness: &Harness<'_, App>, id| {
         let map = harness.state().tab().map.borrow();
-        map.room(id).map(|room| (room.name.clone(), room.renamed))
+        map.room(id).map(|room| room.name.clone()).unwrap()
     };
-    // Exits written that are not the room's: it is left as it is, and
-    // followed by the move.
-    assert!(harness.state().tab().map.borrow_mut().set_current(3));
-    step("Pozo [s,e]", "norte");
+    let here = |harness: &Harness<'_, App>| {
+        harness
+            .state()
+            .tab()
+            .map
+            .borrow()
+            .current()
+            .map(|room| room.id)
+    };
+    assert!(harness.state().tab().map.borrow_mut().set_current(1));
+    // Through the two named wrong: followed, not yet renamed.
+    step("Dunas [o,e]", "este");
+    step("Dunas [o,n]", "este");
     harness.run_steps(2);
-    assert_eq!(
-        name(&harness, 4),
-        Some(("Moony te dice: hola".into(), false))
-    );
-    assert_eq!(harness.state().tab().map.borrow().current().unwrap().id, 4);
-    // The exits are the room's: it is named as written.
-    step("Dunas [o,n]", "sur");
+    assert_eq!(here(&harness), Some(3));
+    assert_eq!(name(&harness, 2), "Moony te dice: hola");
+    // On to the well, as the map has it: both are the dunes they are.
     step("Pozo [s]", "norte");
     harness.run_steps(2);
-    assert_eq!(name(&harness, 4), Some(("Pozo".into(), true)));
-    assert_eq!(harness.state().tab().map.borrow().current().unwrap().id, 4);
-    // A room with a good name is not touched, though the game wrote
-    // another name.
-    step("Oasis [n,o]", "sur");
-    // One with none is named too, and both are said together.
-    step("Dunas [o,e]", "oeste");
-    harness.run_steps(2);
-    assert_eq!(name(&harness, 3), Some(("Dunas".into(), false)));
-    assert_eq!(name(&harness, 2), Some(("Dunas".into(), true)));
-    let app = harness.state_mut().tab_mut();
-    assert!(
-        !notes(app)
-            .iter()
-            .any(|said| said.starts_with("Map put right"))
+    assert_eq!(here(&harness), Some(4));
+    assert_eq!(
+        (name(&harness, 2), name(&harness, 3)),
+        ("Dunas".into(), "Dunas".into())
     );
-    app.scripts.tick(Instant::now() + Duration::from_secs(5));
-    app.run_actions();
+    let ctx = harness.ctx.clone();
+    let app = harness.state_mut().tab_mut();
+    app.tell_map_changes(&ctx, Instant::now() + Duration::from_secs(5));
     assert_eq!(
         last_said(app),
-        "Map put right: 2 rooms now have their names."
+        "Map: 2 names put right. To undo the last: /map undo."
     );
-}
-
-/// As a session with Reinos de Leyenda showed: the map, not sure which of
-/// the dunes the player is in, follows the move from each, and the only
-/// one leading to a room named wrong with the exits written is the one.
-#[test]
-fn the_plugin_puts_right_a_room_named_wrong_while_the_map_is_not_sure() {
-    let mut harness = window(None);
-    let app = harness.state_mut().tab_mut();
-    let (events, _sent) = fake_connection(app);
-    desert(app);
-    {
-        let mut map = app.map.borrow_mut();
-        let well = map.room(4).unwrap().clone();
-        let info = RoomInfo {
-            id: 4,
-            name: "Viajero dice: estos caminos son agobiantes".into(),
-            area: well.area,
-            exits: [("s".to_owned(), 3)].into(),
-            pos: Some(well.pos),
-            colour: None,
-        };
-        map.set_room(info).unwrap();
-    }
-    reinos(app);
-    let seen = muddie_mapper::Sighting {
-        name: Some("Dunas"),
-        ..Default::default()
-    };
-    let unsure = app.map.borrow_mut().arrive(seen);
-    assert_eq!(unsure, muddie_mapper::Located::Unsure(vec![1, 2, 3]));
-    events
-        .send(Event::Line(panels::styled_lines("Pozo [s]").remove(0)))
-        .unwrap();
-    let moved = Event::Gmcp {
-        package: "Room.Movimiento".into(),
-        data: "\"norte\"".into(),
-    };
-    events.send(moved).unwrap();
+    app.run_command("/map undo");
+    assert_eq!(last_said(app), "Undone: “Dunas” has no name again.");
+    assert_eq!(app.map.borrow().room(3).unwrap().name, "");
+    // Switched off from the map's menu, rooms named wrong are only
+    // followed.
+    app.act(
+        commands::Act::MapTool("Put right the names of rooms".into()),
+        &ctx,
+    );
+    assert!(app.map.borrow_mut().set_current(4));
+    step("Dunas [o,n]", "sur");
+    step("Dunas [o,e]", "oeste");
     harness.run_steps(2);
-    let map = harness.state().tab().map.borrow();
-    let well = map.room(4).unwrap();
-    assert_eq!((well.name.as_str(), well.renamed), ("Pozo", true));
-    assert_eq!(map.current().unwrap().id, 4);
+    assert_eq!(here(&harness), Some(2));
+    assert_eq!(name(&harness, 3), "");
 }
 
 /// As a session with Reinos de Leyenda showed: with lag, steps come in
@@ -1073,7 +1041,7 @@ fn the_rooms_the_map_added_are_listed_said_apart_undone_and_checked() {
     assert!(app.map.borrow().room(id).is_none());
     assert_eq!(
         answer(app, "/map undo"),
-        ["The map has added no room to undo."]
+        ["The map has changed nothing of itself to undo."]
     );
     assert_eq!(
         answer(app, "/map remove 9"),
@@ -1107,6 +1075,7 @@ fn reinos_adds_the_rooms_the_map_has_not_once_switched_on() {
         switched(app),
         [
             ("Sync with the official map".into(), None),
+            ("Put right the names of rooms".into(), Some(true)),
             (adding.into(), Some(false))
         ]
     );
@@ -1115,7 +1084,7 @@ fn reinos_adds_the_rooms_the_map_has_not_once_switched_on() {
     assert_eq!(app.palette_items()[0].usage, format!("{adding} (off)"));
     app.palette.query.clear();
     app.act(commands::Act::MapTool(adding.into()), &ctx);
-    assert_eq!(switched(app)[1], (adding.into(), Some(true)));
+    assert_eq!(switched(app)[2], (adding.into(), Some(true)));
     assert!(last_said(app).starts_with("Rooms the map has not will be added where you go"));
     let step = |title: &str, way: &str| {
         let line = panels::styled_lines(title).remove(0);
@@ -1168,12 +1137,12 @@ fn reinos_adds_the_rooms_the_map_has_not_once_switched_on() {
             .to,
         4
     );
+    let ctx = harness.ctx.clone();
     let app = harness.state_mut().tab_mut();
-    app.scripts.tick(Instant::now() + Duration::from_secs(5));
-    app.run_actions();
+    app.tell_map_changes(&ctx, Instant::now() + Duration::from_secs(5));
     assert_eq!(
         last_said(app),
-        "Map: added 1 room and 1 way. To undo the last: /map undo."
+        "Map: 1 room added, 1 way added. To undo the last: /map undo."
     );
     // Something said with brackets, then a move the map has not: not a
     // room, nothing is added, and the map stays where it was.

@@ -87,6 +87,7 @@ impl Map {
         self.candidates.clear();
         self.unsaved.clear();
         self.changes.clear();
+        self.pending.clear();
         self.revision += 1;
         // In order of number, as the file keeps them, to be written faster.
         let mut ordered: Vec<&Room> = self.rooms.values().collect();

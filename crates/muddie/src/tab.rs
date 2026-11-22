@@ -122,6 +122,9 @@ pub struct Tab {
     /// The map: what the server offered of its own this session, the one
     /// being taken, and whether the user was told the map lost track.
     map_source: walking::MapSource,
+    /// What the map changed of itself and is yet to be told, from when the
+    /// first of it was: told together a moment later.
+    map_told: (Vec<muddie_mapper::Changed>, Option<Instant>),
     /// The view where the panels are laid out.
     arrange: arrange::Arrange,
     /// Output arrived while the session was not on screen.
@@ -297,6 +300,7 @@ impl Tab {
             map_view: MapView::default(),
             walk: None,
             map_source: Default::default(),
+            map_told: Default::default(),
             arrange: Default::default(),
             unread: false,
             settings: settings.clone(),
@@ -428,6 +432,7 @@ impl Tab {
         self.check_walk(ctx);
         self.check_map_taken(ctx);
         self.check_newer_maps(ctx);
+        self.tell_map_changes(ctx, now);
         self.check_partial(ctx);
         self.check_timers(ctx);
         self.check_packages(ctx);

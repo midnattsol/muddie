@@ -2616,11 +2616,11 @@ msgstr "La añadió el mapa donde fuiste: el mapa traído de fuera no la tiene."
 msgid "added by the map"
 msgstr "añadida por el mapa"
 
-msgid "Undo the last room added"
-msgstr "Deshacer la última sala añadida"
+msgid "Undo the map's last change"
+msgstr "Deshacer el último cambio del mapa"
 
-msgid "The map has added no room to undo."
-msgstr "El mapa no ha añadido ninguna sala que deshacer."
+msgid "The map has changed nothing of itself to undo."
+msgstr "El mapa no ha cambiado nada por sí solo que deshacer."
 
 #, python-brace-format
 msgid "Undone: {0} is no longer on the map."
@@ -2670,8 +2670,8 @@ msgstr[1] "Se han mantenido {0} salas que añadió el mapa y que el mapa traído
 msgid "Lists the rooms the map added of itself where you went"
 msgstr "Muestra las salas que el mapa añadió por su cuenta donde fuiste"
 
-msgid "Undoes the last room the map added"
-msgstr "Deshace la última sala que añadió el mapa"
+msgid "Undoes the last change the map made of itself"
+msgstr "Deshace el último cambio que hizo el mapa por sí solo"
 
 msgid "Lists the rooms that look wrong: with no name, or that no exit leads to or from"
 msgstr "Muestra las salas que parecen estar mal: sin nombre, o sin ninguna salida que lleve a ellas ni salga de ellas"
@@ -2693,3 +2693,42 @@ msgstr "{0} (activado)"
 
 msgid "{0} (off)"
 msgstr "{0} (desactivado)"
+
+msgid "Undone: “{0}” has no name again."
+msgstr "Deshecho: «{0}» vuelve a no tener nombre."
+
+msgid "Undone: “{0}” is called “{1}” again."
+msgstr "Deshecho: «{0}» vuelve a llamarse «{1}»."
+
+msgid "Map: added the room “{0}”."
+msgstr "Mapa: añadida la sala «{0}»."
+
+msgid "Map: added the way to “{0}”."
+msgstr "Mapa: añadido el camino a «{0}»."
+
+msgid "Map put right: a room with no name is now called “{0}”."
+msgstr "Mapa corregido: una sala sin nombre se llama ahora «{0}»."
+
+msgid "Map put right: “{0}” is now called “{1}”."
+msgstr "Mapa corregido: «{0}» se llama ahora «{1}»."
+
+msgid "{0} room added"
+msgid_plural "{0} rooms added"
+msgstr[0] "{0} sala añadida"
+msgstr[1] "{0} salas añadidas"
+
+msgid "{0} way added"
+msgid_plural "{0} ways added"
+msgstr[0] "{0} camino añadido"
+msgstr[1] "{0} caminos añadidos"
+
+msgid "{0} name put right"
+msgid_plural "{0} names put right"
+msgstr[0] "{0} nombre corregido"
+msgstr[1] "{0} nombres corregidos"
+
+msgid "Map: {0}."
+msgstr "Mapa: {0}."
+
+msgid "{0} To undo the last: /map undo."
+msgstr "{0} Para deshacer el último: /map undo."
