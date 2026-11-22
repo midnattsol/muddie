@@ -91,7 +91,7 @@ impl Map {
             return called;
         };
         let exact: Vec<RoomId> = (called.iter().copied())
-            .filter(|id| self.has_exits(*id, &exits))
+            .filter(|id| self.shows_exits(*id, &exits))
             .collect();
         if exact.is_empty() { called } else { exact }
     }
@@ -115,8 +115,12 @@ impl Map {
                 (self.rooms.get(&id)).is_some_and(|room| self.name_key(&room.name) == *key)
             })
         };
-        let like =
-            |id: RoomId| named(id) && exits.as_ref().is_none_or(|exits| self.has_exits(id, exits));
+        let like = |id: RoomId| {
+            named(id)
+                && exits
+                    .as_ref()
+                    .is_none_or(|exits| self.shows_exits(id, exits))
+        };
         let before: Vec<RoomId> = match self.current {
             Some(id) => vec![id],
             None => self.candidates.clone(),
@@ -126,12 +130,27 @@ impl Map {
             .current
             .and_then(|id| self.rooms.get(&id))
             .map(|room| (room.area.clone(), room.pos));
+        // A room of that name the exit leads to, though its exits are not
+        // those shown, is taken only if no room of that name has them: else
+        // the map is not trusted there, and the player is looked for.
+        let fits_elsewhere = || {
+            exits.is_some()
+                && (seen.name).is_some_and(|name| self.called(name).into_iter().any(like))
+        };
         let moved: Vec<RoomId> = match &came {
             Some(way) => {
-                let led_to = (before.iter())
+                let led_to: Vec<RoomId> = (before.iter())
                     .filter_map(|id| Some(self.rooms.get(id)?.exits.get(way)?.to))
-                    .filter(|id| self.rooms.contains_key(id) && named(*id));
-                preferring(led_to.collect(), like)
+                    .filter(|id| self.rooms.contains_key(id) && named(*id))
+                    .collect();
+                let fitting: Vec<RoomId> = led_to.iter().copied().filter(|id| like(*id)).collect();
+                if !fitting.is_empty() {
+                    fitting
+                } else if fits_elsewhere() {
+                    Vec::new()
+                } else {
+                    led_to
+                }
             }
             None => Vec::new(),
         };
@@ -287,6 +306,16 @@ impl Map {
             .collect()
     }
 
+    /// Whether a room has the exits the server shows, and no other of the
+    /// compass: an exit by a command, which it does not show, may be there.
+    pub(crate) fn shows_exits(&self, id: RoomId, exits: &BTreeSet<String>) -> bool {
+        self.rooms.get(&id).is_some_and(|room| {
+            exits.iter().all(|exit| room.exits.contains_key(exit))
+                && (room.exits.keys())
+                    .all(|exit| exits.contains(exit) || known_direction(exit).is_none())
+        })
+    }
+
     /// Whether a room has just these exits.
     pub(crate) fn has_exits(&self, id: RoomId, exits: &BTreeSet<String>) -> bool {
         self.rooms.get(&id).is_some_and(|room| {
@@ -294,10 +323,4 @@ impl Map {
                 && exits.iter().all(|exit| room.exits.contains_key(exit))
         })
     }
-}
-
-/// Those of `ids` that are `better`, if any are; else all of them.
-fn preferring(ids: Vec<RoomId>, better: impl Fn(RoomId) -> bool) -> Vec<RoomId> {
-    let best: Vec<RoomId> = ids.iter().copied().filter(|id| better(*id)).collect();
-    if best.is_empty() { ids } else { best }
 }

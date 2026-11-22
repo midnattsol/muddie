@@ -512,6 +512,28 @@ fn exits_tell_rooms_alike_apart_and_one_step_is_found_without_the_way() {
 }
 
 #[test]
+fn a_room_led_to_whose_exits_are_not_those_shown_is_not_trusted_if_another_has_them() {
+    let mut map = desert();
+    // 12 has also an exit by a command, which the server does not show.
+    map.set_exit(12, "cavar", 13).unwrap();
+    let shown = |map: &mut Map, exits: &[&str]| {
+        let exits: Vec<String> = exits.iter().map(|exit| (*exit).to_owned()).collect();
+        map.arrive(Sighting {
+            name: Some("Dune"),
+            exits: Some(&exits),
+            came: Some("e"),
+        })
+    };
+    // East of 10 is 11, but the dune shown is as 12 is: the map is wrong
+    // there, and the player is looked for around.
+    assert!(map.set_current(10));
+    assert_eq!(shown(&mut map, &["w", "n"]), Located::Here(12));
+    // A dune as none on the map is: the exit is followed.
+    assert!(map.set_current(10));
+    assert_eq!(shown(&mut map, &["w", "s"]), Located::Here(11));
+}
+
+#[test]
 fn the_servers_words_for_directions_are_understood_and_sent() {
     let mut map = desert();
     let words = |direction: &str, said: &[&str]| {
