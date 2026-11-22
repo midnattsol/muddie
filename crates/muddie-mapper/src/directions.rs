@@ -103,8 +103,8 @@ impl Map {
     /// the first being what a walk sends. In place of the language's
     /// before; what scripts taught stays over them.
     pub fn set_language(&mut self, words: &[(String, Vec<String>)]) {
-        self.language = Words::default();
-        self.language.add(words);
+        self.ways.language = Words::default();
+        self.ways.language.add(words);
         self.respell_exits();
     }
 
@@ -112,7 +112,7 @@ impl Map {
     /// its language: added to them, and the first of each is sent from now
     /// on. A MUD's own abbreviations, as its plugin knows them.
     pub fn teach_directions(&mut self, words: &[(String, Vec<String>)]) {
-        self.taught.add(words);
+        self.ways.taught.add(words);
         self.respell_exits();
     }
 
@@ -161,15 +161,15 @@ impl Map {
     /// Forgets what scripts taught of directions, as they are run again:
     /// the words of the language are left.
     pub fn forget_taught_directions(&mut self) {
-        self.taught = Words::default();
+        self.ways.taught = Words::default();
     }
 
     /// A direction as the map keeps it, however the server or the user
     /// said it: in the server's words, in English, long or short.
     pub fn direction(&self, word: &str) -> String {
         let lower = word.trim().to_lowercase();
-        (self.taught.said.get(&lower))
-            .or_else(|| self.language.said.get(&lower))
+        (self.ways.taught.said.get(&lower))
+            .or_else(|| self.ways.language.said.get(&lower))
             .cloned()
             .unwrap_or_else(|| canonical_direction(&lower))
     }
@@ -177,8 +177,8 @@ impl Map {
     /// What a walk sends to go `direction`: the server's word for it, if
     /// the map was given one.
     pub fn command_for<'a>(&'a self, direction: &'a str) -> &'a str {
-        (self.taught.sent.get(direction))
-            .or_else(|| self.language.sent.get(direction))
+        (self.ways.taught.sent.get(direction))
+            .or_else(|| self.ways.language.sent.get(direction))
             .map_or(direction, String::as_str)
     }
 }

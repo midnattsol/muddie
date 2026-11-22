@@ -121,20 +121,21 @@ impl Map {
             .collect()
     }
 
-    /// Takes what `other` was taught of the MUD's ways, its words for
-    /// directions and how it names rooms: a map opened in place of
-    /// another, for the session, knows them too.
+    /// Takes all `other` was taught of the MUD's ways: its words for
+    /// directions, how it names rooms, and whether to learn as the player
+    /// goes. A map opened in place of another, for the session, is as it
+    /// was taught.
     pub fn learn_from(&mut self, other: &Map) {
-        self.language.clone_from(&other.language);
-        self.taught.clone_from(&other.taught);
-        self.set_naming(other.naming.clone());
+        self.ways = other.ways.clone();
+        // The rooms by name are found again by its rule.
+        self.names.borrow_mut().take();
         self.respell_exits();
     }
 
     /// Teaches the map how the MUD names its rooms, or, with the default,
     /// that it names them in no way of its own.
     pub fn set_naming(&mut self, naming: Naming) {
-        self.naming = naming;
+        self.ways.naming = naming;
         // The rooms by name are found again by the new rule.
         self.names.borrow_mut().take();
     }
@@ -149,7 +150,7 @@ impl Map {
     /// writes them so.
     pub fn bare_name<'a>(&self, name: &'a str) -> &'a str {
         let name = name.trim();
-        let Some((open, close)) = &self.naming.exits_between else {
+        let Some((open, close)) = &self.ways.naming.exits_between else {
             return name;
         };
         (name.strip_suffix(close.as_str()))
@@ -163,7 +164,7 @@ impl Map {
     /// Mayor [n,s]".
     pub fn short_name<'a>(&self, room: &'a Room) -> &'a str {
         let bare = self.bare_name(&room.name);
-        let Some(before) = &self.naming.region_before else {
+        let Some(before) = &self.ways.naming.region_before else {
             return bare;
         };
         match bare.split_once(before.as_str()) {
@@ -198,7 +199,7 @@ impl Map {
     /// area, when the map has more than one. None when there is nothing
     /// to tell one place from another.
     pub fn region<'a>(&self, room: &'a Room) -> Option<&'a str> {
-        if let Some(before) = &self.naming.region_before {
+        if let Some(before) = &self.ways.naming.region_before {
             let bare = self.bare_name(&room.name);
             return match bare.split_once(before.as_str()) {
                 Some((region, _)) if !region.trim().is_empty() => Some(region.trim()),

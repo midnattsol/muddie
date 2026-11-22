@@ -55,7 +55,7 @@ impl Map {
     /// elsewhere, and adds the rooms it has not where the player goes by
     /// the compass from a room it knew they were in. Off unless asked for.
     pub fn set_learning(&mut self, on: bool) {
-        self.learning = on;
+        self.ways.learning = on;
     }
 
     /// The room shown, gone to by the compass from a room the map knew for
@@ -75,7 +75,7 @@ impl Map {
         let leads = (self.rooms.get(&here))
             .and_then(|room| room.exits.get(way))
             .is_some_and(|exit| self.rooms.contains_key(&exit.to));
-        let new = self.learning
+        let new = self.ways.learning
             && self.sure
             && seen.came.is_some()
             && known_direction(way).is_some()
@@ -208,7 +208,7 @@ impl Map {
         let Some(room) = self.rooms.get(&id).cloned() else {
             return;
         };
-        if !self.learning || name.is_empty() || room.name == name {
+        if !self.ways.learning || name.is_empty() || room.name == name {
             return;
         }
         if let Some(room) = self.rooms.get_mut(&id) {
@@ -231,7 +231,7 @@ impl Map {
             return;
         };
         let still = room.exits.get(&reroute.way).map(|exit| exit.to) == Some(reroute.was);
-        if !self.learning || !still || !self.rooms.contains_key(&reroute.to) {
+        if !self.ways.learning || !still || !self.rooms.contains_key(&reroute.to) {
             return;
         }
         if let Some(exit) =
@@ -261,7 +261,7 @@ impl Map {
             .filter(|way| known_direction(way).is_some() && !room.exits.contains_key(*way))
             .cloned()
             .collect();
-        if !self.learning || lacking.is_empty() {
+        if !self.ways.learning || lacking.is_empty() {
             return;
         }
         if let Some(room) = self.rooms.get_mut(&id) {

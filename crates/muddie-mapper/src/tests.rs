@@ -1590,3 +1590,17 @@ fn a_room_the_map_has_not_is_added_as_it_learns_from_where_it_knew_the_player_wa
     );
     assert_eq!(map.rooms().count(), 5);
 }
+
+#[test]
+fn a_map_opened_in_place_of_another_learns_as_that_one_was_taught_to() {
+    let mut taught = Map::in_memory();
+    taught.set_learning(true);
+    let mut map = road();
+    map.learn_from(&taught);
+    assert!(map.set_current(5));
+    shown(&mut map, "Square", &["s"], None);
+    assert_eq!(
+        shown(&mut map, "Fountain", &["w"], Some("e")),
+        Located::Here(ADDED_FROM)
+    );
+}

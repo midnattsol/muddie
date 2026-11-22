@@ -212,14 +212,10 @@ pub struct Map {
     marks: BTreeMap<String, RoomId>,
     /// What is known about the map, by key: where it was taken from.
     about: BTreeMap<String, String>,
-    /// The words of the MUD's language for directions, and those scripts
-    /// taught over them.
-    language: directions::Words,
-    taught: directions::Words,
+    /// What scripts taught the map of the MUD's ways.
+    ways: Ways,
     /// The rooms by name as compared, made again when the rooms change.
     names: std::cell::RefCell<Option<(u64, Names)>>,
-    /// How the MUD names its rooms, as a script taught the map.
-    naming: Naming,
     /// Whether the rooms are in more than one area, as of a revision.
     several_areas: std::cell::Cell<Option<(u64, bool)>>,
     /// The rooms left over, as of a revision.
@@ -241,9 +237,6 @@ pub struct Map {
     /// otherwise, each with that name: put right once a move is to a room
     /// as the map has it. The last is where the player is.
     pending: Vec<(RoomId, String)>,
-    /// Whether the map learns as the player goes: what it has wrong put
-    /// right, and the rooms it has not added.
-    learning: bool,
     /// Whether the map knows for certain the player is where it has them:
     /// the room as last shown, by its own name and with all its exits.
     sure: bool,
@@ -252,6 +245,21 @@ pub struct Map {
     /// For each exit of a room the player came to without the server
     /// showing it, how many times in a row.
     unshown: HashMap<(RoomId, String), u32>,
+}
+
+/// What scripts teach a map of the MUD's ways, all of which a map opened
+/// in place of another for the session takes from it.
+#[derive(Default, Clone)]
+pub(crate) struct Ways {
+    /// The words of the MUD's language for directions, and those taught
+    /// over them.
+    language: directions::Words,
+    taught: directions::Words,
+    /// How the MUD names its rooms.
+    naming: Naming,
+    /// Whether the map learns as the player goes: what it has wrong put
+    /// right, and the rooms it has not added.
+    learning: bool,
 }
 
 impl Drop for Map {
