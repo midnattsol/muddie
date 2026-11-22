@@ -2,7 +2,10 @@
 
 use super::*;
 
+pub use language::set_interface_language;
+
 mod data;
+mod language;
 mod memory;
 mod output;
 mod require;
@@ -13,6 +16,7 @@ mod sound;
 /// Defines the global functions scripts call.
 pub(crate) fn install_api(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     output::install(lua, state)?;
+    language::install(lua)?;
     rules::install(lua, state)?;
     memory::install(lua, state)?;
     sound::install(lua, state)?;

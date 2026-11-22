@@ -358,8 +358,6 @@ msgstr "Registrar esta sesión"
 msgid "Show my position"
 msgstr "Mostrar mi ubicación"
 
-msgid "Avoid this room in routes"
-msgstr "Evitar esta sala en las rutas"
 
 msgid "Stop walking"
 msgstr "Dejar de caminar"
@@ -2268,8 +2266,6 @@ msgstr "{0} quitado."
 msgid "Picture of the window's panels"
 msgstr "Dibujo de los paneles de la ventana"
 
-msgid "Arrange the panels…"
-msgstr "Organizar los paneles…"
 
 msgid "Its side put away"
 msgstr "Su lado recogido"
@@ -2682,3 +2678,18 @@ msgstr "Muestra las salas que parecen estar mal: sin nombre, o sin ninguna salid
 
 msgid "Takes a room off the map"
 msgstr "Quita una sala del mapa"
+
+msgid "Rename…"
+msgstr "Renombrar…"
+
+msgid "Rename {0}"
+msgstr "Renombrar {0}"
+
+msgid "Name of the panel"
+msgstr "Nombre del panel"
+
+msgid "{0} (on)"
+msgstr "{0} (activado)"
+
+msgid "{0} (off)"
+msgstr "{0} (desactivado)"

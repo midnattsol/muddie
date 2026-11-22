@@ -206,7 +206,19 @@ mod state;
 mod switches;
 
 pub use action::{Action, GaugeLook};
+
+/// Something a script offers to do with the map, as the user is shown it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OfferedTool {
+    /// What the user chooses it by.
+    pub label: String,
+    /// The script that offers it, by its name: a plugin's is the plugin's.
+    pub by: String,
+    /// For one that switches something on or off, whether it is on.
+    pub checked: Option<bool>,
+}
 use api::install_api;
+pub use api::set_interface_language;
 use convert::*;
 use map_api::*;
 use state::*;
@@ -544,24 +556,36 @@ impl Engine {
         modules
     }
 
-    /// What the scripts offer to do with the map, by what each is chosen
-    /// by, in the order offered.
-    pub fn map_tools(&self) -> Vec<String> {
+    /// What the scripts offer to do with the map, in the order offered.
+    pub fn map_tools(&self) -> Vec<OfferedTool> {
         (self.state.borrow().map_tools.iter())
-            .map(|tool| tool.label.clone())
+            .map(|tool| OfferedTool {
+                label: tool.label.clone(),
+                by: (Path::new(&tool.owner).file_stem()).map_or_else(
+                    || tool.owner.clone(),
+                    |stem| stem.to_string_lossy().into_owned(),
+                ),
+                checked: tool.checked,
+            })
             .collect()
     }
 
-    /// Does what a script offered to do with the map, chosen by `label`.
-    /// Returns false if none offers it.
+    /// Does what a script offered to do with the map, chosen by `label`:
+    /// one that switches something is switched, and told to what. Returns
+    /// false if none offers it.
     pub fn use_map_tool(&mut self, label: &str) -> bool {
-        let tool = (self.state.borrow().map_tools.iter())
-            .find(|tool| tool.label == label)
-            .map(|tool| (tool.owner.clone(), tool.callback.clone()));
-        let Some((owner, callback)) = tool else {
+        let tool = {
+            let mut state = self.state.borrow_mut();
+            let tool = state.map_tools.iter_mut().find(|tool| tool.label == label);
+            tool.map(|tool| {
+                tool.checked = tool.checked.map(|on| !on);
+                (tool.owner.clone(), tool.callback.clone(), tool.checked)
+            })
+        };
+        let Some((owner, callback, checked)) = tool else {
             return false;
         };
-        self.as_owner(&owner, || callback.call::<()>(()));
+        self.as_owner(&owner, || callback.call::<()>(checked));
         true
     }
 

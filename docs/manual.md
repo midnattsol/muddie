@@ -376,17 +376,20 @@ map and the panels of text at the right, the gauges below), **Wide screen**
 (the map at the left) or **The game alone** (all hidden, kept to show
 again). With the keyboard, the arrows go through the panels, and Alt with
 Up or Down moves the one chosen on its side, Alt with Left or Right to
-another side, saying where it is now. Escape goes back to the game; a
-panel's menu has **Arrange the panels…** to come here with it chosen.
+another side, saying where it is now. Escape goes back to the game.
 
 - **Drag** a panel by its dots to another side of the window, or to another
   panel: on its upper or lower half (left or right, above and below the
   output) to go before or after it, on its middle to share its place as a
   tab. Drag the edge between two panels, or between a panel and the output,
   to size them.
-- Its **menu** has its name, what goes with its kind (the channels for one
-  of text, editing the gauges, the areas of the map), hiding it and removing
-  it.
+- Its **menu** has **Rename…**, what goes with its kind (the channels for
+  one of text, editing the gauges; for the map, showing every area, undoing
+  the last room it added, and under the name of each plugin what it offers
+  to do with the map), hiding it and removing it. **Rename…**, a double
+  click on the name, or **Rename** and the panel's name in the palette, turn
+  the name in the header into a field: Enter keeps what is written, Escape
+  the name it had.
 - **A whole side** can be put away, with all its panels, from the arrow
   to the edge in the header of its first panel. It leaves a thin strip
   with the arrow that brings the side back as it was, where the other one
@@ -446,18 +449,18 @@ per profile like the ones you install. Two come with it.
   its tab, and gives it its map: the one the MUD publishes, taken when the
   session has none. After that the map only changes when you ask: when the
   MUD publishes a newer one, a notice says so on connecting, and
-  **Sincronizar con el mapa oficial**, in the map's menu and the palette,
+  **Sync with the official map**, in the map's menu and the palette,
   brings it, keeping what you set on the map. It follows you on it by each
   move, checked by the room the game writes, so that lag does not lose it,
   and walks in Spanish. The published map names some rooms with something
   said in them as they were mapped, or with nothing: coming to one, the
   plugin gives it the name the game writes, if the exits written are the
   room's, and says so in a notice; those names stay when the map is
-  brought up to date. **Añadir al mapa las salas que no tiene**, in the
+  brought up to date. **Add the rooms the map has not**, a switch in the
   map's menu and the palette, has the map add the rooms it does not have
-  where you go by the compass (see "The map", below), until **Dejar de
-  añadir salas al mapa**; it is remembered in the profile, and off until
-  then. It
+  where you go by the compass (see "The map", below); it is remembered in
+  the profile, and off until switched on. What it shows is in English or
+  Spanish, as the interface is. It
   is off until asked for. On connecting to that MUD it is offered in a
   notice over the bottom right corner: **Enable** switches it on there and then, and **Not now**
   puts the offer away for that profile. The MUD sends nothing over GMCP until

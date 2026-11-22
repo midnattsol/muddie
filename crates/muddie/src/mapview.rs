@@ -245,7 +245,6 @@ struct Tools {
     locate: bool,
     tidy: bool,
     stop: bool,
-    avoid: bool,
     hide: bool,
 }
 
@@ -363,13 +362,10 @@ impl MapView {
         }
     }
 
-    /// What the map adds to its panel's menu.
+    /// What the map adds to its panel's menu: how much of it is shown.
+    /// What is done with a room is in the room's own menu.
     pub fn menu_items(&mut self, ui: &mut Ui) {
         widgets::menu_check(ui, &mut self.all_areas, tr("Show all areas"));
-        if widgets::menu_item(ui, tr("Avoid this room in routes"), "").clicked() {
-            self.asked.avoid = true;
-            ui.close();
-        }
     }
 
     /// Shows one level of one area: the player's, unless the user chose
@@ -837,8 +833,6 @@ impl Tools {
     fn action(self, area: &str) -> Option<MapAction> {
         if self.hide {
             Some(MapAction::Command("/map hide"))
-        } else if self.avoid {
-            Some(MapAction::Command("/map avoid"))
         } else if self.stop {
             Some(MapAction::Command("/map stop"))
         } else if self.tidy {

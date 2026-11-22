@@ -43,6 +43,7 @@ it had sent. What must outlast all of this is kept with `remember`.
 |---|---|
 | `send(text)` | Sends a command to the MUD. Aliases are not applied. |
 | `echo(text)` | Shows a line in the output, and speaks it if speech is on. |
+| `tr{en = "Map", es = "Mapa"}` | The text in the language of the interface, of those given by language code: else that of its language without the country (`es` for `es_AR`), else English, else the first by code. For what a script shows the user, as a plugin that is shared does. |
 | `log(text)` | Shows something on the standard output of a run started with `--debug` (see the manual); nothing otherwise. |
 | `speak(text, {interrupt = true})` | Says something through speech. |
 | `chat(text)` | Adds a line to the chat panel. Colour codes are allowed. |
@@ -196,7 +197,7 @@ server identifies the room with.
 | `map.names{region = ":", exits = "[]"}` | How the MUD names its rooms: the region first, up to `region`, and the exits after, between the characters of `exits`. Unless taught, the region is the area and names are compared whole; `map.names()` goes back to that. |
 | `map.import(address)` | Takes the map made with Mudlet at `address` (a `.dat`, or a zip with one; web or disk) in place of this one; one taken from there before, only if it changed, or if this version of Muddie reads more of Mudlet's maps than the one that took it. What the user set stays: names given to rooms, notes, marks, rooms to avoid and exits of their own; and so do the rooms the map added, each joined with the room the map taken has where it has it, reached from a room by the same exit, with the same name and exits. |
 | `map.newer(address, fn)` | Finds out, without taking it, whether the map at `address` changed since the map was taken from there, and calls `fn()` if it did: to tell the user, rather than change the map unasked. |
-| `map.action(name, fn)` | Offers to do `fn()` with the map, chosen by `name` in the map's menu and the palette, while the script is loaded. `map.action(name)` takes it away. |
+| `map.action(name, fn, {checked = false})` | Offers to do `fn()` with the map, chosen by `name` in the map's menu and the palette, while the script is loaded; the menu shows them under the name of the script, a plugin's under the plugin's. With `checked`, it is a switch: the menu ticks it while on, the palette says whether it is, and choosing it switches it and calls `fn(on)` with what it is now. `map.action(name)` takes it away. |
 | `map.rename(id, name)` | Names a room in place of the name it has, such as one taken wrong; the server reporting the room, or the map taken again, leaves the name given. The room's table says `renamed`. |
 | `map.count()` | How many rooms the map has. |
 | `map.set_exit(from, direction, to, options)` | Adds an exit of your own or changes where one leads. |

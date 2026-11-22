@@ -272,23 +272,37 @@ fn script_offers_to_do_things_with_the_map_and_is_told_when_its_map_changed() {
         r#"map.action("Sync", function() map.import("https://mud.example.org/map.zip") end)
         map.action("Gone", function() end)
         map.action("Gone")
+        map.action("Adding", function(on) echo(`adding {on}`) end, {checked = false})
         map.newer("https://mud.example.org/map.zip", function() notify(`newer, of {map.count()} rooms`) end)"#,
     );
     let actions = engine.take_actions();
     assert_eq!(
         actions.iter().filter(|a| **a == Action::MapTools).count(),
-        3
+        4
     );
     let Some(Action::MapNewer { address, answer }) = actions.last().cloned() else {
         panic!("{actions:?}");
     };
     assert_eq!(address, "https://mud.example.org/map.zip");
-    assert_eq!(engine.map_tools(), ["Sync"]);
+    // Each with the script that offers it; one that switches, whether on.
+    let offered = |label: &str, checked| crate::OfferedTool {
+        label: label.into(),
+        by: "plugin".into(),
+        checked,
+    };
+    assert_eq!(
+        engine.map_tools(),
+        [offered("Sync", None), offered("Adding", Some(false))]
+    );
     assert!(engine.use_map_tool("Sync") && !engine.use_map_tool("Gone"));
     assert_eq!(
         engine.take_actions(),
         [Action::ImportMap("https://mud.example.org/map.zip".into())]
     );
+    // Chosen, a switch is switched, and the script told to what.
+    assert!(engine.use_map_tool("Adding"));
+    assert_eq!(engine.take_actions(), [Action::Echo("adding true".into())]);
+    assert_eq!(engine.map_tools()[1].checked, Some(true));
     // Told once.
     engine.answer(answer);
     engine.answer(answer);

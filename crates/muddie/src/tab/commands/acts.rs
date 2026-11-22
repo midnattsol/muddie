@@ -13,10 +13,14 @@ impl Tab {
         acts.extend(self.panel_acts());
         acts.extend(self.channel_acts());
         let map = tr("Map");
-        acts.extend(
-            (self.scripts.map_tools().into_iter())
-                .map(|label| item(&label, map, Act::MapTool(label.clone()))),
-        );
+        acts.extend(self.scripts.map_tools().into_iter().map(|tool| {
+            let label = match tool.checked {
+                None => tool.label.clone(),
+                Some(true) => trf("{0} (on)", &[&tool.label]),
+                Some(false) => trf("{0} (off)", &[&tool.label]),
+            };
+            item(&label, map, Act::MapTool(tool.label))
+        }));
         acts.push(item(tr("Undo the last room added"), map, Act::UndoAdded));
         // In the editor, what is changed in it is undone and redone.
         if self.editor.open {
@@ -128,6 +132,13 @@ impl Tab {
                 item(&label, panels, Act::Panel(panel.id))
             })
             .collect();
+        acts.extend((self.layout.panels.iter()).map(|panel| {
+            item(
+                &trf("Rename {0}", &[&panel.shown_name()]),
+                panels,
+                Act::RenamePanel(panel.id),
+            )
+        }));
         acts.push(item(
             tr("Add a text panel"),
             panels,
@@ -226,6 +237,7 @@ impl Tab {
                     }
                 }
             }
+            Act::RenamePanel(id) => self.rename_panel(id),
             Act::Place(name) => self.go_to(&name),
             Act::Connect(name) => {
                 if self.select_profile(Some(name)) {

@@ -98,6 +98,8 @@ pub(super) struct MapTool {
     pub(crate) owner: String,
     /// What the user chooses it by.
     pub(crate) label: String,
+    /// For one that switches something on or off, whether it is on.
+    pub(crate) checked: Option<bool>,
     pub(crate) callback: Function,
 }
 

@@ -24,6 +24,7 @@ fn screenshot() {
     shows_empty_line();
     shows_find_and_themes();
     shows_map();
+    shows_map_menu();
 }
 
 /// Writes what the window shows to the image of this name, if asked to.
@@ -769,4 +770,33 @@ fn shows_map() {
     // the alley, one cell east of the square.
     let map = harness.state().tab().map.borrow();
     assert_eq!(map.room(7).unwrap().pos, Pos { x: 2, y: 2, z: 0 });
+}
+
+/// The menu of the map's panel, with what a plugin offers under its name,
+/// and its name being changed in the header.
+fn shows_map_menu() {
+    let mut harness = connected_drawn_demo_window();
+    harness.set_size(egui::vec2(1500.0, 900.0));
+    let app = harness.state_mut().tab_mut();
+    let plugin = crate::bundled::find("reinos-de-leyenda").unwrap();
+    for (name, code) in plugin.scripts {
+        app.scripts.exec(name, code);
+    }
+    app.run_actions();
+    harness.run_steps(4);
+    harness.get_by_label("Map options").click();
+    harness.run_steps(4);
+    save(&mut harness, "map-panel-menu");
+    harness.key_press(egui::Key::Escape);
+    let ctx = harness.ctx.clone();
+    let app = harness.state_mut().tab_mut();
+    let map = app
+        .layout
+        .panels
+        .iter()
+        .find(|panel| panel.kind == layout::Kind::Map);
+    let id = map.unwrap().id;
+    app.act(commands::Act::RenamePanel(id), &ctx);
+    harness.run_steps(4);
+    save(&mut harness, "map-panel-rename");
 }

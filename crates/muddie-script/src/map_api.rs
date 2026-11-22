@@ -519,35 +519,37 @@ fn install_tools(
     let shared = Rc::clone(state);
     api.set(
         "action",
-        lua.create_function(move |_, (label, callback): (String, Option<Function>)| {
-            let label = label.trim().to_owned();
-            if label.is_empty() {
-                return Err(mlua::Error::runtime(
-                    "an action needs a name to be chosen by",
-                ));
-            }
-            let mut state = shared.borrow_mut();
-            let owner = state.owner.clone();
-            let at = state.map_tools.iter().position(|tool| tool.label == label);
-            match (at, callback) {
-                (Some(at), Some(callback)) => {
-                    state.map_tools[at] = MapTool {
-                        owner,
-                        label,
-                        callback,
-                    }
+        lua.create_function(
+            move |_, (label, callback, options): (String, Option<Function>, Option<Table>)| {
+                let label = label.trim().to_owned();
+                if label.is_empty() {
+                    return Err(mlua::Error::runtime(
+                        "an action needs a name to be chosen by",
+                    ));
                 }
-                (None, Some(callback)) => state.map_tools.push(MapTool {
+                let checked = match &options {
+                    Some(options) => options.get::<Option<bool>>("checked")?,
+                    None => None,
+                };
+                let mut state = shared.borrow_mut();
+                let owner = state.owner.clone();
+                let at = state.map_tools.iter().position(|tool| tool.label == label);
+                let tool = |callback| MapTool {
                     owner,
                     label,
+                    checked,
                     callback,
-                }),
-                (Some(at), None) => drop(state.map_tools.remove(at)),
-                (None, None) => return Ok(()),
-            }
-            state.actions.push(Action::MapTools);
-            Ok(())
-        })?,
+                };
+                match (at, callback) {
+                    (Some(at), Some(callback)) => state.map_tools[at] = tool(callback),
+                    (None, Some(callback)) => state.map_tools.push(tool(callback)),
+                    (Some(at), None) => drop(state.map_tools.remove(at)),
+                    (None, None) => return Ok(()),
+                }
+                state.actions.push(Action::MapTools);
+                Ok(())
+            },
+        )?,
     )?;
 
     let shared = Rc::clone(state);

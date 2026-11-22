@@ -64,6 +64,8 @@ pub enum Act {
     AddPanel(super::layout::Kind),
     /// Shows or hides the panel with this number.
     Panel(u32),
+    /// Names again the panel with this number, in its header.
+    RenamePanel(u32),
     /// Lets the side panels reach the top and the bottom, or not.
     FullHeight,
     /// Puts a side away with its panels, or brings it back.

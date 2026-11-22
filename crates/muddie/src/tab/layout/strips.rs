@@ -330,6 +330,46 @@ impl Tab {
         place[ids.iter().position(|id| *id == shown).unwrap_or(0)]
     }
 
+    /// The field a panel is named again in, in its header, where its name
+    /// was: Enter or leaving it keeps the name, Escape keeps the old one.
+    fn rename_field(&mut self, ui: &mut egui::Ui, index: usize) {
+        let Some((id, mut name, focus)) = self.panels.renaming.take() else {
+            return;
+        };
+        let theme = theme::current();
+        // In the room the name had, as tall: wider, it would go on to
+        // another line and the header grow.
+        // What is left of the row: in a row that wraps, the width
+        // available is a whole line's.
+        let left = ui.max_rect().right() - ui.cursor().left();
+        let size = egui::vec2(left.max(40.0), 22.0);
+        let (place, _) = ui.allocate_exact_size(size, egui::Sense::hover());
+        ui.spacing_mut().interact_size.y = 0.0;
+        let field = ui.put(
+            place,
+            egui::TextEdit::singleline(&mut name)
+                .font(theme::font(Weight::Semibold, 12.5))
+                .text_color(theme.text)
+                .margin(egui::Margin::symmetric(6, 2)),
+        );
+        let label = tr("Name of the panel");
+        ui.ctx()
+            .accesskit_node_builder(field.id, |node| node.set_label(label));
+        if focus {
+            field.request_focus();
+        }
+        if field.lost_focus() {
+            let kept = name.trim();
+            let panel = &mut self.layout.panels[index];
+            let escaped = ui.input(|input| input.key_pressed(egui::Key::Escape));
+            if !escaped && !kept.is_empty() && kept != panel.shown_name() {
+                panel.name = kept.to_owned();
+            }
+            return;
+        }
+        self.panels.renaming = Some((id, name, focus && !field.has_focus()));
+    }
+
     /// What a panel shows, by its kind.
     pub(in crate::tab) fn panel_body(
         &mut self,
@@ -384,7 +424,13 @@ impl Tab {
                     ui.painter().circle_filled(dot, 1.2, dots);
                 }
                 **dragged = handle.drag_started();
-                if place.len() > 1 {
+                let renaming = this.panels.renaming.as_ref().map(|(id, ..)| *id);
+                let renamed = (place.iter().copied())
+                    .find(|&index| Some(this.layout.panels[index].id) == renaming);
+                if let Some(index) = renamed {
+                    **shown = index;
+                    this.rename_field(ui, index);
+                } else if place.len() > 1 {
                     **shown = this.tab_bar(ui, place);
                 } else {
                     let spec = &this.layout.panels[**shown];
@@ -399,7 +445,15 @@ impl Tab {
                     let caption = RichText::new(name)
                         .font(theme::font(Weight::Semibold, 12.5))
                         .color(theme.text_dim);
-                    ui.add(Label::new(caption).selectable(false));
+                    let id = spec.id;
+                    let caption = ui.add(
+                        Label::new(caption)
+                            .selectable(false)
+                            .sense(egui::Sense::click()),
+                    );
+                    if caption.double_clicked() {
+                        this.rename_panel(id);
+                    }
                 }
             },
             |(this, shown, _), ui| {

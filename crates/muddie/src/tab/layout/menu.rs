@@ -3,9 +3,9 @@
 use super::*;
 
 impl Tab {
-    /// What a panel's menu has: its name, what goes with its kind, and
-    /// hiding or removing it. Where it goes, its order and sharing a place
-    /// as tabs are done by dragging it by its handle.
+    /// What a panel's menu has: naming it again, what goes with its kind,
+    /// and hiding or removing it. Where it goes, its order and sharing a
+    /// place as tabs are done by dragging it by its handle, or in Layout.
     pub(in crate::tab) fn panel_menu(&mut self, ui: &mut egui::Ui, index: usize) {
         let Some(spec) = self.layout.panels.get(index).cloned() else {
             return;
@@ -19,9 +19,12 @@ impl Tab {
         let mut asked = None;
         crate::widgets::menu_of(&more).show(|ui| {
             widgets::menu_width(ui);
-            let panel = &mut self.layout.panels[index];
-            name_field(ui, &mut panel.name);
+            if widgets::menu_item(ui, tr("Rename…"), "").clicked() {
+                asked = Some(PanelAsk::Rename);
+                ui.close();
+            }
             widgets::menu_separator(ui);
+            let panel = &mut self.layout.panels[index];
             match spec.kind {
                 Kind::Text => drop(widgets::menu_check(
                     ui,
@@ -36,13 +39,6 @@ impl Tab {
                 }
                 Kind::Map => {
                     self.map_view.menu_items(ui);
-                    // What the scripts offer to do with the map.
-                    for label in self.scripts.map_tools() {
-                        if widgets::menu_item(ui, &label, "").clicked() {
-                            asked = Some(PanelAsk::MapTool(label));
-                            ui.close();
-                        }
-                    }
                     // The last room the map added, while there is one.
                     if self.map.borrow().last_added().is_some()
                         && widgets::menu_item(ui, tr("Undo the last room added"), "").clicked()
@@ -50,24 +46,54 @@ impl Tab {
                         asked = Some(PanelAsk::UndoAdded);
                         ui.close();
                     }
+                    // What the scripts offer to do with the map, under the
+                    // name of each that offers something.
+                    let tools = self.scripts.map_tools();
+                    let mut by = None;
+                    for tool in tools {
+                        if by.as_ref() != Some(&tool.by) {
+                            widgets::menu_separator(ui);
+                            widgets::menu_heading(ui, &tool.by);
+                            by = Some(tool.by.clone());
+                        }
+                        let chosen = match tool.checked {
+                            Some(mut on) => widgets::menu_check(ui, &mut on, &tool.label),
+                            None => widgets::menu_item(ui, &tool.label, ""),
+                        };
+                        if chosen.clicked() {
+                            asked = Some(PanelAsk::MapTool(tool.label));
+                            ui.close();
+                        }
+                    }
                 }
-            }
-            if widgets::menu_item(ui, tr("Arrange the panels…"), "").clicked() {
-                asked = Some(PanelAsk::Arrange);
-                ui.close();
             }
             widgets::menu_separator(ui);
             asked = closing_items(ui, &spec.shown_name()).or(asked.take());
         });
         match asked {
+            Some(PanelAsk::Rename) => self.rename_panel(spec.id),
             Some(PanelAsk::Gauges) => self.open_gauges(spec.id),
-            Some(PanelAsk::Arrange) => self.open_arrange(Some(spec.id)),
             Some(PanelAsk::Hide) => self.layout.panels[index].visible = false,
             Some(PanelAsk::Remove) => self.panels.removed = Some(index),
             Some(PanelAsk::MapTool(label)) => self.use_map_tool(&label),
             Some(PanelAsk::UndoAdded) => self.undo_added(),
             None => {}
         }
+    }
+
+    /// Starts naming a panel again, in its header: it is shown first, if
+    /// it was hidden or behind another as a tab.
+    pub(in crate::tab) fn rename_panel(&mut self, id: u32) {
+        let Some(panel) = self.layout.panel_mut(id) else {
+            return;
+        };
+        panel.visible = true;
+        let (side, stack, name) = (panel.side, panel.stack, panel.shown_name());
+        self.layout.reveal(side);
+        self.set_view(0);
+        self.panels.shown_tabs.retain(|(known, _)| *known != stack);
+        self.panels.shown_tabs.push((stack, id));
+        self.panels.renaming = Some((id, name, true));
     }
 
     /// Adds a panel of a kind, under a name not taken, where that kind
@@ -131,24 +157,13 @@ impl Tab {
 
 /// What a panel's menu asks to be done once it is closed.
 enum PanelAsk {
+    Rename,
     Gauges,
-    Arrange,
     Hide,
     Remove,
     /// What a script offered to do with the map, by what it is chosen by.
     MapTool(String),
     UndoAdded,
-}
-
-/// The panel's name, to change.
-fn name_field(ui: &mut egui::Ui, name: &mut String) {
-    widgets::menu_heading(ui, tr("Name"));
-    ui.horizontal(|ui| {
-        ui.add_space(8.0);
-        let field = ui.add(TextEdit::singleline(name).desired_width(200.0));
-        ui.ctx()
-            .accesskit_node_builder(field.id, |node| node.set_label(tr("Name")));
-    });
 }
 
 /// Hiding the panel, and removing it.

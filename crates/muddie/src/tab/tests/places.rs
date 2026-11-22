@@ -292,9 +292,10 @@ fn the_plugin_leaves_a_map_there_is_and_brings_it_up_to_date_when_asked() {
     assert!(app.map_source.taking.is_none());
     assert!(!notes(app).iter().any(|said| said.contains("map from")));
     // Offered in the palette, under the map, and in the map's menu.
-    let sync = "Sincronizar con el mapa oficial";
-    assert_eq!(app.scripts.map_tools()[0], sync);
-    app.palette.query = "sincronizar".into();
+    let sync = "Sync with the official map";
+    assert_eq!(app.scripts.map_tools()[0].label, sync);
+    assert_eq!(app.scripts.map_tools()[0].by, "Reinos de Leyenda");
+    app.palette.query = "official map".into();
     let offered = app.palette_items();
     assert_eq!(
         (offered[0].usage.as_str(), offered[0].group.as_str()),
@@ -377,13 +378,13 @@ fn the_plugin_puts_right_a_room_named_wrong_by_the_room_written() {
     assert!(
         !notes(app)
             .iter()
-            .any(|said| said.starts_with("Mapa corregido"))
+            .any(|said| said.starts_with("Map put right"))
     );
     app.scripts.tick(Instant::now() + Duration::from_secs(5));
     app.run_actions();
     assert_eq!(
         last_said(app),
-        "Mapa corregido: 2 salas tienen ahora su nombre."
+        "Map put right: 2 rooms now have their names."
     );
 }
 
@@ -611,7 +612,7 @@ fn a_move_by_an_exit_the_map_does_not_have_is_said() {
     assert_eq!(app.map.borrow().current().unwrap().id, 4);
     let said = notes(app);
     assert!(
-        (said.iter()).any(|said| said.starts_with("El mapa no tiene la salida norte desde Pozo")),
+        (said.iter()).any(|said| said.starts_with("The map has no exit norte from Pozo")),
         "{said:?}"
     );
 }
@@ -1096,18 +1097,26 @@ fn reinos_adds_the_rooms_the_map_has_not_once_switched_on() {
     let (events, _sent) = fake_connection(app);
     desert(app);
     reinos(app);
-    let start = "Añadir al mapa las salas que no tiene";
-    let stop = "Dejar de añadir salas al mapa";
+    let adding = "Add the rooms the map has not";
+    let switched = |app: &Tab| {
+        (app.scripts.map_tools().into_iter())
+            .map(|tool| (tool.label, tool.checked))
+            .collect::<Vec<_>>()
+    };
     assert_eq!(
-        app.scripts.map_tools(),
-        ["Sincronizar con el mapa oficial", start]
+        switched(app),
+        [
+            ("Sync with the official map".into(), None),
+            (adding.into(), Some(false))
+        ]
     );
-    app.act(commands::Act::MapTool(start.into()), &ctx);
-    assert_eq!(
-        app.scripts.map_tools(),
-        ["Sincronizar con el mapa oficial", stop]
-    );
-    assert!(last_said(app).starts_with("Las salas que no estén en el mapa se añadirán"));
+    // The palette says whether it is on.
+    app.palette.query = "rooms the map has not".into();
+    assert_eq!(app.palette_items()[0].usage, format!("{adding} (off)"));
+    app.palette.query.clear();
+    app.act(commands::Act::MapTool(adding.into()), &ctx);
+    assert_eq!(switched(app)[1], (adding.into(), Some(true)));
+    assert!(last_said(app).starts_with("Rooms the map has not will be added where you go"));
     let step = |title: &str, way: &str| {
         let line = panels::styled_lines(title).remove(0);
         events.send(Event::Line(line)).unwrap();
@@ -1164,7 +1173,7 @@ fn reinos_adds_the_rooms_the_map_has_not_once_switched_on() {
     app.run_actions();
     assert_eq!(
         last_said(app),
-        "Mapa: se han añadido 1 sala y 1 camino. Para deshacer la última: /map undo."
+        "Map: added 1 room and 1 way. To undo the last: /map undo."
     );
     // Something said with brackets, then a move the map has not: not a
     // room, nothing is added, and the map stays where it was.
@@ -1174,15 +1183,15 @@ fn reinos_adds_the_rooms_the_map_has_not_once_switched_on() {
     assert_eq!(harness.state().tab().map.borrow().added().len(), 1);
     // Switched off, a room the map has not is not added.
     let app = harness.state_mut().tab_mut();
-    app.act(commands::Act::MapTool(stop.into()), &ctx);
-    assert_eq!(last_said(app), "Ya no se añaden salas al mapa.");
+    app.act(commands::Act::MapTool(adding.into()), &ctx);
+    assert_eq!(last_said(app), "Rooms are no longer added to the map.");
     step("Cueva [o]", "este");
     harness.run_steps(2);
     assert_eq!(harness.state().tab().map.borrow().added().len(), 1);
     assert!(
         notes(harness.state_mut().tab_mut())
             .iter()
-            .any(|said| said.contains("no te ha seguido"))
+            .any(|said| said.contains("it has not followed you"))
     );
 }
 
@@ -1230,4 +1239,43 @@ fn a_very_large_area_is_tidied_only_when_told_all() {
     assert_eq!(x_of_2(app), 6);
     answer(app, "/map tidy all");
     assert_eq!(x_of_2(app), 4);
+}
+
+/// A panel is named again in its header, from its menu or the palette:
+/// Enter keeps the name, Escape the old one.
+#[test]
+fn a_panel_is_renamed_in_its_header() {
+    let mut harness = window(None);
+    harness.state_mut().tab_mut().started = true;
+    harness.run_steps(2);
+    let ctx = harness.ctx.clone();
+    let app = harness.state_mut().tab_mut();
+    let map = (app.layout.panels.iter()).find(|panel| panel.kind == layout::Kind::Map);
+    let id = map.unwrap().id;
+    let name = |harness: &Harness<'_, App>| {
+        let layout = &harness.state().tab().layout;
+        layout
+            .panels
+            .iter()
+            .find(|panel| panel.id == id)
+            .unwrap()
+            .name
+            .clone()
+    };
+    app.act(commands::Act::RenamePanel(id), &ctx);
+    harness.run_steps(3);
+    harness.key_press_modifiers(egui::Modifiers::COMMAND, Key::A);
+    harness.get_by_label("Name of the panel").type_text("Mundo");
+    harness.key_press(Key::Enter);
+    harness.run_steps(2);
+    assert_eq!(name(&harness), "Mundo");
+    assert!(harness.state().tab().panels.renaming.is_none());
+    // Escape leaves it as it was.
+    let app = harness.state_mut().tab_mut();
+    app.act(commands::Act::RenamePanel(id), &ctx);
+    harness.run_steps(3);
+    harness.get_by_label("Name of the panel").type_text("Otro");
+    harness.key_press(Key::Escape);
+    harness.run_steps(2);
+    assert_eq!(name(&harness), "Mundo");
 }

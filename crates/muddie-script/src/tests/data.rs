@@ -218,3 +218,32 @@ fn a_package_that_sends_only_what_changed_is_merged_when_asked() {
     engine.on_input("/lua echo(`{gmcp('Room.Info').exits}`)");
     assert_eq!(engine.take_actions(), [Action::Echo("nil".into())]);
 }
+
+#[test]
+fn scripts_show_their_text_in_the_language_of_the_interface() {
+    let mut engine = engine("");
+    let shown = |engine: &mut Engine, code: &str| {
+        crate::set_interface_language(code);
+        engine.exec(
+            "test",
+            r#"echo(tr({en = "Map", es = "Mapa"}))
+            echo(tr({fr = "Carte", de = "Karte"}))
+            echo(tr("Same"))"#,
+        );
+        engine.take_actions()
+    };
+    let echoed = |texts: [&str; 3]| texts.map(|text| Action::Echo(text.into())).to_vec();
+    assert_eq!(shown(&mut engine, "es"), echoed(["Mapa", "Karte", "Same"]));
+    // Of a country's language, the language's; else English; else the
+    // first by code.
+    assert_eq!(
+        shown(&mut engine, "es_AR"),
+        echoed(["Mapa", "Karte", "Same"])
+    );
+    assert_eq!(
+        shown(&mut engine, "pt_BR"),
+        echoed(["Map", "Karte", "Same"])
+    );
+    assert_eq!(shown(&mut engine, "fr"), echoed(["Map", "Carte", "Same"]));
+    crate::set_interface_language("");
+}

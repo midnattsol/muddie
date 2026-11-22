@@ -368,6 +368,9 @@ pub(super) struct Panels {
     /// The channel each panel of channels is showing; none is all.
     pub(super) channel_shown: Vec<(u32, String)>,
     pub(super) removed: Option<usize>,
+    /// The panel being named again in its header, with the name so far,
+    /// and whether the field is yet to take the keyboard.
+    pub(super) renaming: Option<(u32, String, bool)>,
     /// Stands in for the channels when no panel shows them.
     pub(super) no_chat: Output,
 }

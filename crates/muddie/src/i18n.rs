@@ -101,8 +101,15 @@ pub fn set_language(code: &str) {
         code => code.to_owned(),
     };
     // `pt_BR` falls back to `pt` if only that is there.
-    let found = catalogue(&code).or_else(|| catalogue(code.split(['_', '-']).next()?));
-    *CURRENT.write().expect("locale lock") = found;
+    let base = code.split(['_', '-']).next().unwrap_or_default().to_owned();
+    let found = match catalogue(&code) {
+        Some(found) => Some((found, code)),
+        None => catalogue(&base).map(|found| (found, base)),
+    };
+    *CURRENT.write().expect("locale lock") = found.as_ref().map(|(found, _)| *found);
+    // Scripts show their own text in it too, if they have it.
+    let code = found.map_or_else(|| "en".to_owned(), |(_, code)| code);
+    muddie_script::set_interface_language(&code);
 }
 
 /// The language the system is in, as `LANG` and its like say it.

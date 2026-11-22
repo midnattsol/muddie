@@ -581,7 +581,9 @@ fn look_of(item: &Item) -> (widgets::Glyph, &'static str) {
         Act::Undo(true) => (Glyph::Restart, crate::shortcuts::command!("Y")),
         Act::Log => (Glyph::Text, ""),
         Act::Speech | Act::ReadChannel(..) => (Glyph::Say, ""),
-        Act::AddPanel(_) | Act::Panel(_) | Act::FullHeight | Act::Side(_) => (Glyph::Panel, ""),
+        Act::AddPanel(_) | Act::Panel(_) | Act::RenamePanel(_) | Act::FullHeight | Act::Side(_) => {
+            (Glyph::Panel, "")
+        }
         Act::Connect(_) => (Glyph::Profile, ""),
         Act::Place(_) | Act::MapTool(_) | Act::UndoAdded => (Glyph::Map, ""),
     }

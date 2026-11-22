@@ -17,6 +17,9 @@
 -- The MUD sends nothing over GMCP until asked from inside the game:
 --     consentir gmcp on
 -- If nothing has come a while after connecting, this says so.
+--
+-- What it shows is in the language of the interface, English or Spanish,
+-- each text given in both with tr.
 
 supports("Char 1")
 supports("Comm 1")
@@ -135,7 +138,7 @@ end)
 -- map added where the player went, if the user switched that on (below).
 
 local MAP = "https://mudlet.reinosdeleyenda.es/Mapa_Mudlet.zip"
-local SYNC = "Sincronizar con el mapa oficial"
+local SYNC = tr({ en = "Sync with the official map", es = "Sincronizar con el mapa oficial" })
 
 map.action(SYNC, function()
     map.import(MAP)
@@ -217,12 +220,21 @@ local function tell_renamed()
     if #renamed == 1 then
         local room = renamed[1]
         if room.was == "" then
-            notify(`Mapa corregido: una sala sin nombre se llama ahora «{room.now}».`)
+            notify(tr({
+                en = `Map put right: a room with no name is now called “{room.now}”.`,
+                es = `Mapa corregido: una sala sin nombre se llama ahora «{room.now}».`,
+            }))
         else
-            notify(`Mapa corregido: «{room.was}» se llama ahora «{room.now}».`)
+            notify(tr({
+                en = `Map put right: “{room.was}” is now called “{room.now}”.`,
+                es = `Mapa corregido: «{room.was}» se llama ahora «{room.now}».`,
+            }))
         end
     elseif #renamed > 1 then
-        notify(`Mapa corregido: {#renamed} salas tienen ahora su nombre.`)
+        notify(tr({
+            en = `Map put right: {#renamed} rooms now have their names.`,
+            es = `Mapa corregido: {#renamed} salas tienen ahora su nombre.`,
+        }))
     end
     renamed = {}
 end
@@ -276,8 +288,7 @@ end
 -- by a command or a portal, are not added.
 
 local ADDING = "Reinos de Leyenda: añadir salas"
-local START_ADDING = "Añadir al mapa las salas que no tiene"
-local STOP_ADDING = "Dejar de añadir salas al mapa"
+local ADDING_ACTION = tr({ en = "Add the rooms the map has not", es = "Añadir al mapa las salas que no tiene" })
 local adding = recall(ADDING) == true
 
 -- Whether the room the map has the player in is the one the game wrote
@@ -293,22 +304,28 @@ local function tell_added()
     local function counted(count, one, many)
         return `{count} {if count == 1 then one else many}`
     end
-    local said
-    if #rooms == 1 and #ways == 0 then
-        said = `Mapa: añadida la sala «{rooms[1]}».`
-    elseif #rooms == 0 and #ways == 1 then
-        said = `Mapa: añadido el camino a «{ways[1]}».`
-    else
+    local function listed(room, rooms_word, way, ways_word, also)
         local parts = {}
         if #rooms > 0 then
-            table.insert(parts, counted(#rooms, "sala", "salas"))
+            table.insert(parts, counted(#rooms, room, rooms_word))
         end
         if #ways > 0 then
-            table.insert(parts, counted(#ways, "camino", "caminos"))
+            table.insert(parts, counted(#ways, way, ways_word))
         end
-        said = `Mapa: se han añadido {table.concat(parts, " y ")}.`
+        return table.concat(parts, also)
     end
-    notify(`{said} Para deshacer la última: /map undo.`)
+    local said
+    if #rooms == 1 and #ways == 0 then
+        said = tr({ en = `Map: added the room “{rooms[1]}”.`, es = `Mapa: añadida la sala «{rooms[1]}».` })
+    elseif #rooms == 0 and #ways == 1 then
+        said = tr({ en = `Map: added the way to “{ways[1]}”.`, es = `Mapa: añadido el camino a «{ways[1]}».` })
+    else
+        said = tr({
+            en = `Map: added {listed("room", "rooms", "way", "ways", " and ")}.`,
+            es = `Mapa: se han añadido {listed("sala", "salas", "camino", "caminos", " y ")}.`,
+        })
+    end
+    notify(`{said} {tr({ en = "To undo the last: /map undo.", es = "Para deshacer la última: /map undo." })}`)
     added = { rooms = {}, ways = {} }
 end
 
@@ -351,22 +368,18 @@ local function add_room(seen)
     return true
 end
 
-local function offer_adding()
-    map.action(START_ADDING, if adding then nil else function()
-        adding = true
-        remember(ADDING, true)
-        offer_adding()
-        notify("Las salas que no estén en el mapa se añadirán donde vayas. Se ven con el borde discontinuo; /map added las muestra y /map undo deshace la última.")
-    end)
-    map.action(STOP_ADDING, if adding then function()
-        adding = false
-        remember(ADDING, false)
-        offer_adding()
-        notify("Ya no se añaden salas al mapa.")
-    end else nil)
-end
-
-offer_adding()
+-- A switch: the map's menu shows it ticked while on, and the palette says
+-- whether it is.
+map.action(ADDING_ACTION, function(on)
+    adding = on
+    remember(ADDING, on)
+    notify(if on
+        then tr({
+            en = "Rooms the map has not will be added where you go. They are drawn with a dashed edge; /map added lists them and /map undo undoes the last.",
+            es = "Las salas que no estén en el mapa se añadirán donde vayas. Se ven con el borde discontinuo; /map added las muestra y /map undo deshace la última.",
+        })
+        else tr({ en = "Rooms are no longer added to the map.", es = "Ya no se añaden salas al mapa." }))
+end, { checked = adding })
 
 local function step(seen)
     -- What the game wrote in its text, rather than told over GMCP: it
@@ -389,7 +402,10 @@ local function step(seen)
     local here = map.room()
     local exit = here and seen.came and map.exit(here.id, seen.came)
     if seen.came and not seen.name and here and not (exit and map.room(exit.to)) then
-        notify(`El mapa no tiene la salida {seen.came} desde {here.name}: no te ha seguido.`)
+        notify(tr({
+            en = `The map has no exit {seen.came} from {here.name}: it has not followed you.`,
+            es = `El mapa no tiene la salida {seen.came} desde {here.name}: no te ha seguido.`,
+        }))
     end
     local now = map.arrive(seen)
     local there = now and map.room(now)
@@ -456,12 +472,18 @@ on_event("connect", function()
         map.import(MAP)
     else
         map.newer(MAP, function()
-            notify(`Hay una versión nueva del mapa oficial. Para traerla: «{SYNC}», en el menú del mapa o en la paleta. Lo que hayas corregido en el mapa se mantiene.`)
+            notify(tr({
+                en = `There is a new version of the official map. To bring it: “{SYNC}”, in the map's menu or the palette. What you have put right on the map is kept.`,
+                es = `Hay una versión nueva del mapa oficial. Para traerla: «{SYNC}», en el menú del mapa o en la paleta. Lo que hayas corregido en el mapa se mantiene.`,
+            }))
         end)
     end
     after(90, function()
         if not heard then
-            notify("Reinos de Leyenda no manda la vida, los canales ni dónde estás hasta que escribas en el juego: consentir gmcp on")
+            notify(tr({
+                en = "Reinos de Leyenda does not send your life, the channels or where you are until you write in the game: consentir gmcp on",
+                es = "Reinos de Leyenda no manda la vida, los canales ni dónde estás hasta que escribas en el juego: consentir gmcp on",
+            }))
         end
     end)
 end)
