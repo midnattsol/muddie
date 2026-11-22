@@ -1,0 +1,10 @@
+# id	name	area	x	y	z	exits (direction=room, a room not here leads nowhere known)
+8650	Erial de los Condenados: Cañón hacia Golthur Orod	Mapa Completo	788	-421	1	n=8651,s=8649,sw=36704
+36704	Descendiendo por un cráter [ne,so]	Mapa Completo	787	-422	1	ne=8650,sw=36705
+36705	Catedral de la Guerra - Portón Céltico [-de-,ne]	Mapa Completo	786	-423	1	in=36706,ne=36704
+36706	Catedral de la Guerra: Ojo Odioso de la Horda Negra [o,-fu-]	Mapa Completo	1965	0	1	out=36705,w=36709
+36709	Catedral de la Guerra: Ojo Odioso de la Horda Negra [o,-fu-]	Mapa Completo	1964	0	1	e=36706,w=36710
+36710	Catedral de la Guerra [s,e,n,o]	Mapa Completo	1963	0	1	e=36709,n=36712,s=36714,w=36715
+36712	Catedral de la Guerra [s,e,n,o]	Mapa Completo	1963	1	1	s=36710
+36714	Catedral de la Guerra [n]	Mapa Completo	1963	-1	1	n=36710
+36715	Galuzur pilla a Whisk, el Rastreador intentando robarle su Tablilla Antigua.	Mapa Completo	1962	0	1	e=36710

@@ -758,3 +758,42 @@ fn before_a_session_is_anyones_its_layout_and_rules_say_whose_they_would_be() {
     fresh.run_steps(3);
     assert_eq!(fresh.state().tab().view(), 0);
 }
+
+/// A panel is named again in its header, from its menu or the palette:
+/// Enter keeps the name, Escape the old one.
+#[test]
+fn a_panel_is_renamed_in_its_header() {
+    let mut harness = window(None);
+    harness.state_mut().tab_mut().started = true;
+    harness.run_steps(2);
+    let ctx = harness.ctx.clone();
+    let app = harness.state_mut().tab_mut();
+    let map = (app.layout.panels.iter()).find(|panel| panel.kind == layout::Kind::Map);
+    let id = map.unwrap().id;
+    let name = |harness: &Harness<'_, App>| {
+        let layout = &harness.state().tab().layout;
+        layout
+            .panels
+            .iter()
+            .find(|panel| panel.id == id)
+            .unwrap()
+            .name
+            .clone()
+    };
+    app.act(commands::Act::RenamePanel(id), &ctx);
+    harness.run_steps(3);
+    harness.key_press_modifiers(egui::Modifiers::COMMAND, Key::A);
+    harness.get_by_label("Name of the panel").type_text("Mundo");
+    harness.key_press(Key::Enter);
+    harness.run_steps(2);
+    assert_eq!(name(&harness), "Mundo");
+    assert!(harness.state().tab().panels.renaming.is_none());
+    // Escape leaves it as it was.
+    let app = harness.state_mut().tab_mut();
+    app.act(commands::Act::RenamePanel(id), &ctx);
+    harness.run_steps(3);
+    harness.get_by_label("Name of the panel").type_text("Otro");
+    harness.key_press(Key::Escape);
+    harness.run_steps(2);
+    assert_eq!(name(&harness), "Mundo");
+}

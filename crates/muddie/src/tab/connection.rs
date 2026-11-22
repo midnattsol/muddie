@@ -37,7 +37,7 @@ impl Tab {
         // The map of where it leads takes the place of the one there was,
         // knowing what the scripts taught that one.
         let mut map = self.map_for(&host, port);
-        map.learn_from(&self.map.borrow());
+        map.take_settings_from(&self.map.borrow());
         *self.map.borrow_mut() = map;
         let target = Target {
             host,

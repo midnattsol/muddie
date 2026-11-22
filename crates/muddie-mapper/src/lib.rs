@@ -212,8 +212,8 @@ pub struct Map {
     marks: BTreeMap<String, RoomId>,
     /// What is known about the map, by key: where it was taken from.
     about: BTreeMap<String, String>,
-    /// What scripts taught the map of the MUD's ways.
-    ways: Ways,
+    /// How scripts set the map up for the MUD.
+    settings: Settings,
     /// The rooms by name as compared, made again when the rooms change.
     names: std::cell::RefCell<Option<(u64, Names)>>,
     /// Whether the rooms are in more than one area, as of a revision.
@@ -247,10 +247,10 @@ pub struct Map {
     unshown: HashMap<(RoomId, String), u32>,
 }
 
-/// What scripts teach a map of the MUD's ways, all of which a map opened
-/// in place of another for the session takes from it.
+/// How scripts set a map up for the MUD, all of which a map opened in
+/// place of another for the session takes from it.
 #[derive(Default, Clone)]
-pub(crate) struct Ways {
+pub(crate) struct Settings {
     /// The words of the MUD's language for directions, and those taught
     /// over them.
     language: directions::Words,
