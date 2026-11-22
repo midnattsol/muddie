@@ -173,6 +173,7 @@ impl Map {
             colour: info.colour.or(existing.and_then(|room| room.colour)),
             note: existing.map_or_else(String::new, |room| room.note.clone()),
             renamed,
+            added: existing.is_some_and(|room| room.added),
         };
         if self.rooms.get(&room.id) == Some(&room) {
             return Ok(());
@@ -205,28 +206,77 @@ impl Map {
                 Some((neighbour.pos, direction_offset(direction)?, -1))
             })
         };
-        let taken =
-            |pos: Pos| (self.rooms.values()).any(|room| room.area == info.area && room.pos == pos);
         match after_previous().or_else(beside_neighbour) {
-            // MUD geography is rarely a true grid: when the natural cell is
-            // taken, lengthen the link rather than stack two rooms.
-            Some((anchor, step, sign)) => (1..=MAX_STRETCH)
-                .map(|distance| anchor.offset(step, sign * distance))
-                .find(|pos| !taken(*pos))
-                .unwrap_or(anchor.offset(step, sign)),
-            // Nothing to hang it from (the first room, or after a teleport):
-            // start a new island to the east of what is already drawn.
-            None => {
-                let east_edge = (self.rooms.values())
-                    .filter(|room| room.area == info.area)
-                    .map(|room| room.pos.x)
-                    .max();
-                Pos {
-                    x: east_edge.map_or(0, |x| x + 2),
-                    y: 0,
-                    z: 0,
-                }
-            }
+            Some((anchor, step, sign)) => self.free_along(&info.area, anchor, step, sign),
+            None => self.clear_of(&info.area),
+        }
+    }
+
+    /// The cells taken in an area.
+    fn taken(&self, area: &str) -> HashSet<Pos> {
+        (self.rooms.values())
+            .filter(|room| room.area == area)
+            .map(|room| room.pos)
+            .collect()
+    }
+
+    /// The first free cell `step` from `anchor`, `sign` saying which way
+    /// along it: MUD geography is rarely a true grid, so when the natural
+    /// cell is taken the link is lengthened rather than two rooms stacked.
+    pub(super) fn free_along(
+        &self,
+        area: &str,
+        anchor: Pos,
+        step: (i32, i32, i32),
+        sign: i32,
+    ) -> Pos {
+        let taken = self.taken(area);
+        (1..=MAX_STRETCH)
+            .map(|distance| anchor.offset(step, sign * distance))
+            .find(|pos| !taken.contains(pos))
+            .unwrap_or(anchor.offset(step, sign))
+    }
+
+    /// The nearest free cell round `anchor` on its level, for a room
+    /// reached by no compass exit: in rings, each from the east round by
+    /// the north; clear of the area if all are taken.
+    pub(super) fn free_beside(&self, area: &str, anchor: Pos) -> Pos {
+        let taken = self.taken(area);
+        let ring = |distance: i32| {
+            let side = -distance..=distance;
+            let cells = (side.clone()).flat_map(move |dx| {
+                let side = -distance..=distance;
+                side.map(move |dy| (dx, dy))
+            });
+            let mut cells: Vec<(i32, i32)> = cells
+                .filter(|(dx, dy)| dx.abs().max(dy.abs()) == distance)
+                .collect();
+            // From the east, round by the north.
+            let angle = |(dx, dy): &(i32, i32)| {
+                let turn = f64::from(*dy).atan2(f64::from(*dx));
+                (turn.rem_euclid(std::f64::consts::TAU) * 1000.0) as i64
+            };
+            cells.sort_by_key(angle);
+            cells
+        };
+        (1..=MAX_STRETCH)
+            .flat_map(ring)
+            .map(|(dx, dy)| anchor.offset((dx, dy, 0), 1))
+            .find(|pos| !taken.contains(pos))
+            .unwrap_or_else(|| self.clear_of(area))
+    }
+
+    /// A cell to start a new island in, to the east of what is already
+    /// drawn of the area: for the first room, or one after a teleport.
+    pub(super) fn clear_of(&self, area: &str) -> Pos {
+        let east_edge = (self.rooms.values())
+            .filter(|room| room.area == area)
+            .map(|room| room.pos.x)
+            .max();
+        Pos {
+            x: east_edge.map_or(0, |x| x + 2),
+            y: 0,
+            z: 0,
         }
     }
 }

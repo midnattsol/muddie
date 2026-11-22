@@ -5,6 +5,7 @@ use std::cmp::Reverse;
 use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, VecDeque};
 use std::path::Path;
 
+mod adding;
 mod directions;
 mod editing;
 mod ghosts;
@@ -20,6 +21,7 @@ mod store;
 mod tests;
 mod walk;
 
+pub use adding::{Added, Arrival, Refused};
 pub use directions::{
     DIRECTIONS, Direction, canonical_direction, direction_offset, direction_rank, known_direction,
 };
@@ -63,19 +65,24 @@ pub struct Pos {
 impl Pos {
     /// Whether `other` lies one or more whole `step`s away from here.
     fn in_line_with(self, other: Pos, step: (i32, i32, i32)) -> bool {
+        self.steps_to(other, step).is_some()
+    }
+
+    /// How many whole `step`s away from here `other` lies, if one or more.
+    fn steps_to(self, other: Pos, step: (i32, i32, i32)) -> Option<i32> {
         let gaps = [other.x - self.x, other.y - self.y, other.z - self.z];
         let steps = [step.0, step.1, step.2];
         let mut distance = None;
         for (gap, step) in gaps.into_iter().zip(steps) {
             if step == 0 {
                 if gap != 0 {
-                    return false;
+                    return None;
                 }
             } else if gap % step != 0 || *distance.get_or_insert(gap / step) != gap / step {
-                return false;
+                return None;
             }
         }
-        distance.is_some_and(|distance| distance >= 1)
+        distance.filter(|distance| *distance >= 1)
     }
 
     fn offset(self, (dx, dy, dz): (i32, i32, i32), sign: i32) -> Self {
@@ -111,7 +118,20 @@ pub struct Room {
     /// place of the one it had: kept when the server reports the room, or
     /// a map taken again names it otherwise.
     pub renamed: bool,
+    /// Made by the map, from what the player saw on going where it had no
+    /// room, rather than reported by the server or taken with a map from
+    /// elsewhere: numbered from [`ADDED_FROM`], kept when a map is taken
+    /// again, and joined with the room it has if it has it by then.
+    pub added: bool,
 }
+
+/// The first number of the rooms the map adds of itself: far above any
+/// number a server or a map from elsewhere gives a room, and within 52
+/// bits, so scripts hold it exactly.
+pub const ADDED_FROM: RoomId = 1 << 40;
+
+/// The room an exit leads to while it is not known which: no room has it.
+pub const UNEXPLORED: RoomId = -1;
 
 /// A colour: red, green and blue.
 pub type Colour = [u8; 3];
@@ -207,6 +227,9 @@ pub struct Map {
     /// The moves sent that the server has not shown the end of yet, in
     /// order, each with when it was sent.
     moves: VecDeque<(String, std::time::Instant)>,
+    /// The rooms the map added of itself, as they were before each, the
+    /// last last: to be undone.
+    changes: Vec<adding::Change>,
 }
 
 impl Drop for Map {
@@ -287,6 +310,7 @@ impl Map {
         self.current = None;
         self.candidates.clear();
         self.unsaved.clear();
+        self.changes.clear();
         self.revision += 1;
         match &mut self.store {
             Some(store) => store.clear(),

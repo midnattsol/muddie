@@ -309,3 +309,50 @@ fn script_offers_to_do_things_with_the_map_and_is_told_when_its_map_changed() {
     assert_eq!(engine.take_actions(), [Action::MapTools]);
     assert!(engine.map_tools().is_empty());
 }
+
+#[test]
+fn script_adds_the_room_the_map_has_not_where_the_player_went() {
+    let mut engine = engine(
+        r#"map.directions({n = {"norte", "n"}, s = {"sur", "s"}})
+        map.set_room({id = 1, name = "Gate", area = "town", exits = {}})
+        local function tell(id, how) echo(tostring(id) .. " " .. how) end
+        on_gmcp("Room.Nueva", function(seen) tell(map.add(seen)) end)"#,
+    );
+    // Not knowing where the player is, nothing is added.
+    engine.on_gmcp(
+        "Room.Nueva",
+        r#"{"name": "Square", "exits": ["s"], "came": "norte"}"#,
+    );
+    engine.exec("test", "map.here(1)");
+    engine.on_gmcp(
+        "Room.Nueva",
+        r#"{"name": "Square", "exits": ["s"], "came": "norte"}"#,
+    );
+    let made = muddie_mapper::ADDED_FROM;
+    // Walking back, the gate is found, which leads there already.
+    engine.on_gmcp(
+        "Room.Nueva",
+        r#"{"name": "Gate", "exits": ["n"], "came": "sur"}"#,
+    );
+    engine.on_gmcp(
+        "Room.Nueva",
+        r#"{"name": "Square", "exits": ["s"], "came": "norte"}"#,
+    );
+    engine.exec(
+        "test",
+        "local room = map.room() echo(tostring(room.added) .. ' ' .. room.name)",
+    );
+    assert_eq!(
+        engine.take_actions(),
+        [
+            Action::Echo("nil lost".into()),
+            Action::Entered(1),
+            Action::Entered(made),
+            Action::Echo(format!("{made} made")),
+            Action::Entered(1),
+            Action::Echo("1 found".into()),
+            Action::Echo("nil known".into()),
+            Action::Echo("false Gate".into()),
+        ]
+    );
+}

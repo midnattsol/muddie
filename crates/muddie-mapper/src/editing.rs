@@ -12,6 +12,12 @@ pub struct Replaced {
     pub new: usize,
     /// How many kept the name the user gave them.
     pub renamed: usize,
+    /// How many of the rooms the map had added it kept, the map taken not
+    /// having them.
+    pub added: usize,
+    /// How many of the rooms the map had added the map taken had, and were
+    /// joined with them.
+    pub joined: usize,
 }
 
 impl Map {
@@ -22,7 +28,10 @@ impl Map {
     /// What the user set on rooms that are in both, the rooms to avoid,
     /// the names they gave, the exits of their own, and a colour and a
     /// note where the new rooms have none, carries over, and so do the
-    /// marks: the same map brought again, newer, keeps them.
+    /// marks: the same map brought again, newer, keeps them. The rooms the
+    /// map added of itself are kept too, or joined with the rooms that are
+    /// they (see [`Map::carry_added`]); what is added can no longer be
+    /// undone.
     pub fn replace_all(
         &mut self,
         rooms: Vec<Room>,
@@ -68,18 +77,33 @@ impl Map {
                     .or_insert_with(|| exit.clone());
             }
         }
+        let carried = self.carry_added(&mut rooms);
+        let now = |id: RoomId| carried.joined.get(&id).copied().unwrap_or(id);
+        replaced.rooms = rooms.len();
+        replaced.added = carried.kept;
+        replaced.joined = carried.joined.len();
         self.rooms = rooms;
-        self.current = current.filter(|id| self.rooms.contains_key(id));
+        self.current = current.map(now).filter(|id| self.rooms.contains_key(id));
         self.candidates.clear();
         self.unsaved.clear();
+        self.changes.clear();
         self.revision += 1;
         // In order of number, as the file keeps them, to be written faster.
         let mut ordered: Vec<&Room> = self.rooms.values().collect();
         ordered.sort_unstable_by_key(|room| room.id);
-        match &mut self.store {
-            Some(store) => store.replace(ordered).map(|()| replaced),
-            None => Ok(replaced),
+        if let Some(store) = &mut self.store {
+            store.replace(ordered)?;
         }
+        // The names given to rooms joined name the rooms they were joined
+        // with.
+        let moved: Vec<(String, RoomId)> = (self.marks.iter())
+            .filter(|(_, id)| carried.joined.contains_key(id))
+            .map(|(name, id)| (name.clone(), now(*id)))
+            .collect();
+        for (name, id) in moved {
+            self.mark(&name, id)?;
+        }
+        Ok(replaced)
     }
 
     /// Gives a room a name of the user's in place of the one it has, which

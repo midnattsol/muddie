@@ -52,7 +52,7 @@ impl Map {
     }
 
     /// The oldest move sent that is still awaited.
-    fn next_move(&mut self) -> Option<String> {
+    pub(crate) fn next_move(&mut self) -> Option<String> {
         while let Some((way, at)) = self.moves.pop_front() {
             if at.elapsed() < MOVE_ANSWERED_IN {
                 return Some(way);
@@ -280,7 +280,7 @@ impl Map {
     }
 
     /// Exits as the map keeps them, however they were said.
-    fn exit_set(&self, exits: &[String]) -> BTreeSet<String> {
+    pub(crate) fn exit_set(&self, exits: &[String]) -> BTreeSet<String> {
         (exits.iter())
             .map(|exit| self.direction(exit))
             .filter(|exit| !exit.is_empty())
@@ -288,7 +288,7 @@ impl Map {
     }
 
     /// Whether a room has just these exits.
-    fn has_exits(&self, id: RoomId, exits: &BTreeSet<String>) -> bool {
+    pub(crate) fn has_exits(&self, id: RoomId, exits: &BTreeSet<String>) -> bool {
         self.rooms.get(&id).is_some_and(|room| {
             room.exits.len() == exits.len()
                 && exits.iter().all(|exit| room.exits.contains_key(exit))

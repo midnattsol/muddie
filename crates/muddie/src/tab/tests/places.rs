@@ -32,6 +32,7 @@ fn desert(app: &mut Tab) {
         colour: None,
         note: String::new(),
         renamed: false,
+        added: false,
     };
     let rooms = vec![
         room(1, "Dunas [e]", &[("e", 2)]),

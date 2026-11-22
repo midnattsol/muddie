@@ -191,7 +191,8 @@ use mlua::serde::SerializeOptions;
 use mlua::{Function, Lua, LuaOptions, LuaSerdeExt, StdLib, Table, Value, Variadic, VmState};
 use muddie_core::{Color, Line};
 use muddie_mapper::{
-    Colour, Exit, Located, Map, Naming, Pos, Room, RoomId, RoomInfo, Sighting, room_id,
+    Added, Arrival, Colour, Exit, Located, Map, Naming, Pos, Refused, Room, RoomId, RoomInfo,
+    Sighting, room_id,
 };
 use regex::Regex;
 

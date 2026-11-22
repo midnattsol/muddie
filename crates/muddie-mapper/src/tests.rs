@@ -441,6 +441,7 @@ fn desert() -> Map {
         colour: None,
         note: String::new(),
         renamed: false,
+        added: false,
     };
     let rooms = vec![
         room(10, "Dune", &[("e", 11)]),
@@ -606,6 +607,7 @@ fn a_map_taken_again_keeps_what_the_user_set_and_where_it_came_from() {
                 rooms: desert().rooms().count() + 1,
                 new: 1,
                 renamed: 1,
+                ..Replaced::default()
             }
         );
         assert_eq!(map.current().unwrap().id, 12);
@@ -815,6 +817,7 @@ fn copies_of_rooms_no_room_leads_to_are_left_over() {
         colour: None,
         note: String::new(),
         renamed: false,
+        added: false,
     };
     map.replace_all(
         vec![
@@ -1034,4 +1037,191 @@ fn exits_kept_in_the_muds_words_are_the_maps_once_it_knows_them() {
     map.set_language(&spanish);
     assert_eq!(map.revision(), revision);
     assert_eq!(map.route(10, 13).unwrap()[0].command, "fuera");
+}
+
+/// What the player saw, for [`Map::add`].
+fn arrival<'a>(name: &'a str, exits: &'a [String], came: &'a str) -> Arrival<'a> {
+    Arrival { name, exits, came }
+}
+
+fn ways(ways: &[&str]) -> Vec<String> {
+    ways.iter().map(|way| (*way).to_owned()).collect()
+}
+
+#[test]
+fn a_room_the_map_has_not_is_added_where_the_player_went_and_undone() {
+    let mut map = desert();
+    // Lost, the map adds nothing.
+    let grove = ways(&["s", "e"]);
+    assert_eq!(
+        map.add(arrival("Palm Grove", &grove, "n")),
+        Err(Refused::Lost)
+    );
+    assert!(map.set_current(13));
+    assert_eq!(map.add(arrival(" ", &grove, "n")), Err(Refused::Unnamed));
+    // Where an exit leads to a room, it is not for adding.
+    assert_eq!(
+        map.add(arrival("Palm Grove", &grove, "s")),
+        Err(Refused::Known(12))
+    );
+    // North of the oasis, the way north from it; its exits lead nowhere
+    // known yet, the way back too.
+    let palms = map.add(arrival("Palm Grove", &grove, "n")).unwrap();
+    assert_eq!(palms, Added::Made(ADDED_FROM));
+    let room = map.room(ADDED_FROM).unwrap().clone();
+    assert!(room.added);
+    assert_eq!((room.pos, room.area.as_str()), (pos(13, 1, 0), "desert"));
+    assert_eq!(room.exits["s"].to, UNEXPLORED);
+    assert_eq!(room.exits["e"].to, UNEXPLORED);
+    let way = &map.room(13).unwrap().exits["n"];
+    assert_eq!((way.to, way.custom), (ADDED_FROM, true));
+    assert_eq!(map.current().unwrap().id, ADDED_FROM);
+    // Walking back, the oasis is found, not made again; the way back is
+    // known now.
+    let oasis = ways(&["s", "n"]);
+    assert_eq!(
+        map.add(arrival("Oasis", &oasis, "south")),
+        Ok(Added::Found(13))
+    );
+    assert_eq!(map.room(ADDED_FROM).unwrap().exits["s"].to, 13);
+    assert_eq!(map.rooms().count(), 5);
+    // Through a portal, a room the map has anywhere could be the one: it
+    // cannot tell, and adds nothing.
+    let dune = ways(&["e", "w"]);
+    assert_eq!(
+        map.add(arrival("Dune", &dune, "portal")),
+        Err(Refused::Alike(vec![11]))
+    );
+    // One it has not is made beside the room left.
+    let cave = ways(&["out"]);
+    let made = map.add(arrival("Cave", &cave, "enter portal")).unwrap();
+    assert_eq!(made, Added::Made(ADDED_FROM + 1));
+    assert_eq!(map.room(ADDED_FROM + 1).unwrap().pos, pos(14, 0, 0));
+    assert_eq!(
+        map.room(13).unwrap().exits["enter portal"].to,
+        ADDED_FROM + 1
+    );
+    assert_eq!(map.added().len(), 2);
+    // Undone, the last first: the room made goes, and the room it was
+    // reached from is as it was; the map does not know where the player
+    // is in a room no longer there.
+    assert_eq!(map.last_added(), Some((made, "Cave")));
+    assert_eq!(map.undo_added().unwrap(), Some((made, "Cave".to_owned())));
+    assert!(map.room(ADDED_FROM + 1).is_none());
+    assert!(!map.room(13).unwrap().exits.contains_key("enter portal"));
+    assert!(map.current().is_none());
+    assert_eq!(
+        map.undo_added().unwrap(),
+        Some((Added::Found(13), "Oasis".to_owned()))
+    );
+    assert_eq!(map.room(ADDED_FROM).unwrap().exits["s"].to, UNEXPLORED);
+    map.undo_added().unwrap();
+    assert!(map.room(ADDED_FROM).is_none() && !map.room(13).unwrap().exits.contains_key("n"));
+    assert_eq!(map.undo_added().unwrap(), None);
+    assert_eq!(map.rooms().count(), 4);
+}
+
+#[test]
+fn a_room_that_way_is_found_unless_it_is_reached_back_from_another() {
+    let mut map = desert();
+    // East of the oasis, a dune the map has, but drawn apart: no exit
+    // leads to it.
+    let mut lone = map.room(10).unwrap().clone();
+    lone.id = 40;
+    lone.pos = pos(15, 0, 0);
+    lone.exits.clear();
+    lone.exits.insert("w".into(), Exit::default());
+    let mut rooms: Vec<Room> = map.rooms().cloned().collect();
+    rooms.push(lone);
+    map.replace_all(rooms.clone(), Some(13)).unwrap();
+    let dune = ways(&["w"]);
+    assert_eq!(map.add(arrival("Dune", &dune, "e")), Ok(Added::Found(40)));
+    assert_eq!(map.room(13).unwrap().exits["e"].to, 40);
+    // Had its way back led to another room, it would not be the one.
+    for room in rooms.iter_mut().filter(|room| room.id == 40) {
+        room.exits.insert(
+            "w".into(),
+            Exit {
+                to: 10,
+                ..Exit::default()
+            },
+        );
+    }
+    map.replace_all(rooms, Some(13)).unwrap();
+    // The exit found before is the user's, which the map taken keeps.
+    map.remove_exit(13, "e").unwrap();
+    assert_eq!(
+        map.add(arrival("Dune", &dune, "e")),
+        Ok(Added::Made(ADDED_FROM))
+    );
+    assert_eq!(map.room(ADDED_FROM).unwrap().pos, pos(14, 0, 0));
+}
+
+#[test]
+fn rooms_added_are_kept_when_the_map_is_taken_again_or_joined_with_its_own() {
+    let mut map = desert();
+    assert!(map.set_current(13));
+    // North of the oasis a grove, east of it a spring, down from it a
+    // cellar: none of them on the map.
+    let grove = map
+        .add(arrival("Palm Grove", &ways(&["s", "e"]), "n"))
+        .unwrap()
+        .room();
+    map.set_note(grove, "Shade").unwrap();
+    map.mark("palms", grove).unwrap();
+    let spring = map
+        .add(arrival("Spring", &ways(&["w", "d"]), "e"))
+        .unwrap()
+        .room();
+    let cellar = map
+        .add(arrival("Cellar", &ways(&["u"]), "d"))
+        .unwrap()
+        .room();
+    assert_eq!(map.room(cellar).unwrap().pos, pos(14, 1, -1));
+    // The map taken again has the grove and the spring now, all of it
+    // drawn further east.
+    let mut newer: Vec<Room> = desert().rooms().cloned().collect();
+    let exit = |to| Exit {
+        to,
+        ..Exit::default()
+    };
+    let mut grove_too = newer[0].clone();
+    (grove_too.id, grove_too.name) = (30, "Palm Grove".into());
+    grove_too.exits = BTreeMap::from([("s".into(), exit(13)), ("e".into(), exit(31))]);
+    grove_too.pos = pos(13, 1, 0);
+    let mut spring_too = grove_too.clone();
+    (spring_too.id, spring_too.name) = (31, "Spring".into());
+    spring_too.exits = BTreeMap::from([("w".into(), exit(30)), ("d".into(), exit(99))]);
+    spring_too.pos = pos(14, 1, 0);
+    newer.extend([grove_too, spring_too]);
+    for room in newer.iter_mut() {
+        room.pos.x += 100;
+        if room.id == 13 {
+            room.exits.insert("n".into(), exit(30));
+        }
+    }
+    let replaced = map.replace_all(newer, Some(cellar)).unwrap();
+    assert_eq!(
+        replaced,
+        Replaced {
+            rooms: 7,
+            new: 2,
+            renamed: 0,
+            added: 1,
+            joined: 2,
+        }
+    );
+    // The grove and the spring are the map's, with what was set on them,
+    // and its way down from the spring; the cellar is kept, drawn as the
+    // spring it hangs from moved.
+    assert!(map.room(grove).is_none() && map.room(spring).is_none());
+    assert_eq!(map.room(30).unwrap().note, "Shade");
+    assert_eq!(map.marked("palms"), Some(30));
+    assert_eq!(map.room(31).unwrap().exits["d"].to, 99);
+    let kept = map.room(cellar).unwrap();
+    assert!(kept.added);
+    assert_eq!(kept.pos, pos(114, 1, -1));
+    assert_eq!(map.current().unwrap().id, cellar);
+    // Nothing is left to undo: the rooms it would undo are the map's now.
+    assert_eq!(map.last_added(), None);
 }

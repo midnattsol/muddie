@@ -262,6 +262,7 @@ fn read_room(
         colour: colours.colour(environment),
         note: String::new(),
         renamed: false,
+        added: false,
     })
 }
 

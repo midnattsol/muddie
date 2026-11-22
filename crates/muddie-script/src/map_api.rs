@@ -92,6 +92,7 @@ pub(super) fn room_table(lua: &Lua, room: &Room) -> mlua::Result<Table> {
     table.set("colour", room.colour.map(colour_text))?;
     table.set("note", room.note.as_str())?;
     table.set("renamed", room.renamed)?;
+    table.set("added", room.added)?;
     let exits = lua.create_table()?;
     for (direction, exit) in &room.exits {
         exits.set(direction.as_str(), exit.to)?;
@@ -161,6 +162,33 @@ fn install_visiting(
             };
             shared.borrow_mut().actions.push(action);
             Ok(here)
+        })?,
+    )?;
+
+    let (shared, world) = (Rc::clone(state), Rc::clone(map));
+    api.set(
+        "add",
+        lua.create_function(move |_, seen: Table| {
+            let name: Option<String> = seen.get("name")?;
+            let exits: Option<Vec<String>> = seen.get("exits")?;
+            let came: Option<String> = seen.get("came")?;
+            let added = world.borrow_mut().add(Arrival {
+                name: name.as_deref().unwrap_or_default(),
+                exits: exits.as_deref().unwrap_or_default(),
+                came: came.as_deref().unwrap_or_default(),
+            });
+            let (id, said) = match added {
+                Ok(Added::Made(id)) => (Some(id), "made"),
+                Ok(Added::Found(id)) => (Some(id), "found"),
+                Err(Refused::Lost) => (None, "lost"),
+                Err(Refused::Unnamed) => (None, "unnamed"),
+                Err(Refused::Known(_)) => (None, "known"),
+                Err(Refused::Alike(_)) => (None, "alike"),
+            };
+            if let Some(id) = id {
+                shared.borrow_mut().actions.push(Action::Entered(id));
+            }
+            Ok((id, said))
         })?,
     )?;
 
