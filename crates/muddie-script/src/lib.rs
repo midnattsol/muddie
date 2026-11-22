@@ -111,9 +111,13 @@
 //!   for it. Returns the room's number, or `nil` while unsure, which the
 //!   user is told.
 //! - `map.here(id)`: the player is in that room; false if there is none.
-//! - `map.directions{n = {"norte", "n"}, w = {"oeste", "o"}, ...}`: the
-//!   server's words for each direction, the first of each being what a
-//!   walk sends. The map understands them wherever a direction is given.
+//! - `map.language("es")`: the language the MUD is played in, by its code
+//!   or name; the map takes its words for directions, unless the profile
+//!   chose another.
+//! - `map.directions{n = {"nte"}, ...}`: words of the MUD's own for
+//!   directions, over those of its language, the first of each being what
+//!   a walk sends from then on. The map understands them wherever a
+//!   direction is given.
 //! - `map.names{region = ":", exits = "[]"}`: how the MUD names its
 //!   rooms, where it has a way of its own: a name begins with its region,
 //!   up to `region` ("Anduar: Plaza Mayor"), and may end with its exits

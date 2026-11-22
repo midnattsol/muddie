@@ -42,6 +42,7 @@ mod events;
 mod input;
 mod its_profile;
 mod keys;
+mod language;
 mod layout;
 mod media;
 mod messages;
@@ -201,6 +202,8 @@ pub struct Tab {
     address: String,
     /// Label of the text encoding the server uses; `auto` for most.
     encoding: String,
+    /// The language the MUD is played in, and who said which.
+    language: language::GameLanguage,
     /// The plugins that come with Muddie: those switched on, those
     /// switched off, those declined for this MUD, and the one being
     /// offered for it now.
@@ -325,6 +328,7 @@ impl Tab {
             sizes: panel_sizes::Sizes::default(),
             address: String::new(),
             encoding: "auto".into(),
+            language: language::GameLanguage::default(),
             included_on: Vec::new(),
             included_off: Vec::new(),
             included_declined: Vec::new(),

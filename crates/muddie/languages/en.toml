@@ -1,0 +1,19 @@
+# The words of MUDs in English. For each direction, the words that mean it;
+# the first is what a walk sends.
+name = "English"
+# What else the language is called, as a MUD may say it of itself.
+names = ["English", "en"]
+
+[directions]
+n = ["n", "north"]
+ne = ["ne", "northeast"]
+e = ["e", "east"]
+se = ["se", "southeast"]
+s = ["s", "south"]
+sw = ["sw", "southwest"]
+w = ["w", "west"]
+nw = ["nw", "northwest"]
+u = ["u", "up"]
+d = ["d", "down"]
+in = ["in"]
+out = ["out"]

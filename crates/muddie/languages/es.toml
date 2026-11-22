@@ -1,0 +1,19 @@
+# Las palabras de los MUDs en español. Para cada dirección, las palabras que
+# la dicen; la primera es la que envía un viaje.
+name = "Español"
+# Cómo más se llama el idioma, como un MUD puede decirlo de sí mismo.
+names = ["Spanish", "Español", "Castellano", "es"]
+
+[directions]
+n = ["norte", "n"]
+ne = ["noreste", "nordeste", "ne"]
+e = ["este", "e"]
+se = ["sudeste", "sureste", "se"]
+s = ["sur", "s"]
+sw = ["sudoeste", "suroeste", "so"]
+w = ["oeste", "o"]
+nw = ["noroeste", "no"]
+u = ["arriba", "ar"]
+d = ["abajo", "ab"]
+in = ["dentro", "de"]
+out = ["fuera", "fu"]

@@ -121,46 +121,13 @@ impl Map {
             .collect()
     }
 
-    /// Teaches the map the server's words for directions: for each
-    /// direction (`n`, `ne`... `u`, `d`, `in`, `out`), the words that mean
-    /// it, the first being what a walk sends. Replaces what was taught.
-    pub fn set_directions(&mut self, words: &[(String, Vec<String>)]) {
-        self.words.clear();
-        self.sent.clear();
-        for (direction, said) in words {
-            let direction = canonical_direction(direction);
-            for word in said {
-                (self.words).insert(word.trim().to_lowercase(), direction.clone());
-            }
-            if let Some(first) = said.first() {
-                self.sent.insert(direction, first.trim().to_owned());
-            }
-        }
-    }
-
     /// Takes what `other` was taught of the MUD's ways, its words for
     /// directions and how it names rooms: a map opened in place of
     /// another, for the session, knows them too.
     pub fn learn_from(&mut self, other: &Map) {
-        self.words.clone_from(&other.words);
-        self.sent.clone_from(&other.sent);
+        self.language.clone_from(&other.language);
+        self.taught.clone_from(&other.taught);
         self.set_naming(other.naming.clone());
-    }
-
-    /// A direction as the map keeps it, however the server or the user
-    /// said it: in the server's words, in English, long or short.
-    pub fn direction(&self, word: &str) -> String {
-        let lower = word.trim().to_lowercase();
-        match self.words.get(&lower) {
-            Some(direction) => direction.clone(),
-            None => canonical_direction(&lower),
-        }
-    }
-
-    /// What a walk sends to go `direction`: the server's word for it, if
-    /// the map was taught one.
-    pub fn command_for<'a>(&'a self, direction: &'a str) -> &'a str {
-        self.sent.get(direction).map_or(direction, String::as_str)
     }
 
     /// Teaches the map how the MUD names its rooms, or, with the default,
@@ -218,10 +185,11 @@ impl Map {
         if dx == 0 && dy == 0 {
             return None;
         }
-        // Eight slices of the circle, each centred on its direction.
+        // Eight slices of the circle, each centred on its direction: the
+        // compass ones, clockwise from the north at a quarter turn.
         let angle = f64::from(dy).atan2(f64::from(dx)).to_degrees();
-        let slice = ((angle + 360.0 + 22.5) / 45.0) as usize % 8;
-        Some(["e", "ne", "n", "nw", "w", "sw", "s", "se"][slice])
+        let slice = ((90.0 - angle + 720.0 + 22.5) / 45.0) as usize % 8;
+        Some(DIRECTIONS[slice].key)
     }
 
     /// Where a room is, in words: what its name begins with, if the MUD

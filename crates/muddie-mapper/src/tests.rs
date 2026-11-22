@@ -518,7 +518,7 @@ fn the_servers_words_for_directions_are_understood_and_sent() {
             said.iter().map(|word| (*word).to_owned()).collect(),
         )
     };
-    map.set_directions(&[
+    map.teach_directions(&[
         words("e", &["este", "e"]),
         words("w", &["oeste", "o"]),
         words("n", &["norte", "n"]),
@@ -899,4 +899,53 @@ fn moving_between_known_rooms_leaves_the_map_as_it_was_and_moves_are_counted_as_
     // The tower, then, by the portal and down, as a walk would go.
     assert_eq!(map.moves_between(1, 3), Some(2));
     assert_eq!(map.route(1, 3).map(|steps| steps.len()), Some(2));
+}
+
+#[test]
+fn a_languages_words_are_under_those_taught_and_stay_when_these_go() {
+    let mut map = Map::in_memory();
+    let words = |pairs: &[(&str, &[&str])]| -> Vec<(String, Vec<String>)> {
+        (pairs.iter())
+            .map(|(key, said)| {
+                (
+                    (*key).to_owned(),
+                    said.iter().map(|word| (*word).to_owned()).collect(),
+                )
+            })
+            .collect()
+    };
+    map.set_language(&words(&[
+        ("nw", &["noroeste", "no"]),
+        ("n", &["norte", "n"]),
+    ]));
+    assert_eq!(
+        (map.direction("Noroeste"), map.command_for("nw")),
+        ("nw".to_owned(), "noroeste")
+    );
+    // English is understood of any MUD.
+    assert_eq!(map.direction("north"), "n");
+    // A plugin's own word goes over the language's, which still mean it.
+    map.teach_directions(&words(&[("nw", &["nor", "noroeste"])]));
+    assert_eq!(
+        (map.direction("nor"), map.direction("no")),
+        ("nw".to_owned(), "nw".to_owned())
+    );
+    assert_eq!(
+        (map.command_for("nw"), map.command_for("n")),
+        ("nor", "norte")
+    );
+    map.forget_taught_directions();
+    assert_eq!(
+        (map.direction("nor"), map.command_for("nw")),
+        ("nor".to_owned(), "noroeste")
+    );
+    // Each direction known once, in the order exits are listed.
+    let keys: Vec<&str> = DIRECTIONS.iter().map(|direction| direction.key).collect();
+    assert_eq!(
+        keys,
+        [
+            "n", "ne", "e", "se", "s", "sw", "w", "nw", "u", "d", "in", "out"
+        ]
+    );
+    assert_eq!((direction_rank("w"), direction_rank("portal")), (6, 12));
 }

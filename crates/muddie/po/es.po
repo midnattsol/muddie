@@ -2547,3 +2547,16 @@ msgstr "Cerrada: {0}"
 
 msgid "No way straight back"
 msgstr "Sin vuelta directa"
+
+msgid "Game language"
+msgstr "Idioma del juego"
+
+msgid "The words of the game for directions, for the map. Automatic takes the one its plugin or the game says, else English."
+msgstr "Las palabras del juego para las direcciones, para el mapa. Automático toma el que diga su plugin o el propio juego, y si no, inglés."
+
+#, python-brace-format
+msgid "Could not read a language: {0}"
+msgstr "No se pudo leer un idioma: {0}"
+
+msgid "Automatic, as the game says"
+msgstr "Automático, según el juego"

@@ -9,6 +9,7 @@
 //! port = 5001
 //! tls = false
 //! encoding = "auto"
+//! language = "es"
 //! plugins = ["reinos-de-leyenda"]
 //! ```
 
@@ -31,6 +32,10 @@ pub struct Template {
     /// The server's text encoding; `auto` if not given.
     #[serde(default)]
     pub encoding: Option<String>,
+    /// The language the game is played in, by its code; as the plugin or
+    /// the MUD says if not given.
+    #[serde(default)]
+    pub language: Option<String>,
     /// The plugins that come with Muddie switched on, by their ids.
     #[serde(default)]
     pub plugins: Vec<String>,
@@ -50,6 +55,9 @@ impl Template {
         profile.tls = self.tls;
         if let Some(encoding) = &self.encoding {
             profile.encoding.clone_from(encoding);
+        }
+        if let Some(language) = &self.language {
+            profile.language.clone_from(language);
         }
         for plugin in self
             .plugins

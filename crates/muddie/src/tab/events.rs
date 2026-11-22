@@ -287,6 +287,7 @@ impl Tab {
         if let Some((_, name)) = named {
             self.offer_plugin_for("", &name.clone());
         }
+        self.announce_language(status);
         if recording {
             let fields: serde_json::Map<String, serde_json::Value> = (status.iter())
                 .map(|(name, value)| (name.clone(), value.clone().into()))

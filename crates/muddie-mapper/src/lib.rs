@@ -5,6 +5,7 @@ use std::cmp::Reverse;
 use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, VecDeque};
 use std::path::Path;
 
+mod directions;
 mod editing;
 mod ghosts;
 mod info;
@@ -19,6 +20,9 @@ mod store;
 mod tests;
 mod walk;
 
+pub use directions::{
+    DIRECTIONS, Direction, canonical_direction, direction_offset, direction_rank, known_direction,
+};
 pub use info::RoomInfo;
 pub use locating::{Located, Sighting};
 pub use mudlet::{MUDLET_READER, MudletMap, read_mudlet_map};
@@ -153,43 +157,6 @@ pub struct Step {
     pub to: RoomId,
 }
 
-/// Lower-cases a direction and shortens the compass ones (`north` to `n`),
-/// so exits compare equal however the server spells them.
-pub fn canonical_direction(direction: &str) -> String {
-    let lower = direction.trim().to_lowercase();
-    let short = match lower.as_str() {
-        "north" => "n",
-        "south" => "s",
-        "east" => "e",
-        "west" => "w",
-        "northeast" => "ne",
-        "northwest" => "nw",
-        "southeast" => "se",
-        "southwest" => "sw",
-        "up" => "u",
-        "down" => "d",
-        _ => return lower,
-    };
-    short.to_owned()
-}
-
-/// The grid step a compass direction stands for, if it is one.
-pub fn direction_offset(direction: &str) -> Option<(i32, i32, i32)> {
-    Some(match direction {
-        "n" => (0, 1, 0),
-        "s" => (0, -1, 0),
-        "e" => (1, 0, 0),
-        "w" => (-1, 0, 0),
-        "ne" => (1, 1, 0),
-        "nw" => (-1, 1, 0),
-        "se" => (1, -1, 0),
-        "sw" => (-1, -1, 0),
-        "u" => (0, 0, 1),
-        "d" => (0, 0, -1),
-        _ => return None,
-    })
-}
-
 /// The rooms by name as compared (see [`naming::name_key`]).
 type Names = HashMap<String, Vec<RoomId>>;
 
@@ -216,10 +183,10 @@ pub struct Map {
     marks: BTreeMap<String, RoomId>,
     /// What is known about the map, by key: where it was taken from.
     about: BTreeMap<String, String>,
-    /// The words of the server's language for directions, each with the
-    /// direction it is, and the word a walk sends for each direction.
-    words: HashMap<String, String>,
-    sent: HashMap<String, String>,
+    /// The words of the MUD's language for directions, and those scripts
+    /// taught over them.
+    language: directions::Words,
+    taught: directions::Words,
     /// The rooms by name as compared, made again when the rooms change.
     names: std::cell::RefCell<Option<(u64, Names)>>,
     /// How the MUD names its rooms, as a script taught the map.

@@ -46,6 +46,9 @@ pub enum Action {
     },
     /// A script was stopped: what it showed, as its gauges, goes.
     Unloaded(String),
+    /// The MUD is played in this language, by its code or name: its words
+    /// for directions are those of the map, under any a script teaches.
+    Language(String),
     /// Add a line to the chat panel.
     Chat(String),
     /// A channel of the MUD's is no longer heard: its tab goes.

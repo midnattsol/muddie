@@ -4,4 +4,5 @@ name = "Reinos de Leyenda"
 host = "reinosdeleyenda.es"
 port = 5001
 tls = false
+language = "es"
 plugins = ["reinos-de-leyenda"]

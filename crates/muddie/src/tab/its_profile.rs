@@ -31,6 +31,7 @@ impl Tab {
             verify_certificate: self.verify_certificate,
             character: self.character.trim().to_owned(),
             encoding: self.encoding.trim().to_owned(),
+            language: self.language.chosen.clone(),
             packages: self.packages.clone(),
             included_on: self.included_on.clone(),
             included_off: self.included_off.clone(),
@@ -69,6 +70,8 @@ impl Tab {
         self.verify_certificate = profile.verify_certificate;
         self.character.clone_from(&profile.character);
         self.encoding.clone_from(&profile.encoding);
+        self.language.chosen.clone_from(&profile.language);
+        self.speak_the_language();
         self.prefs =
             (profile.session.clone()).unwrap_or_else(|| SessionPrefs::from(&self.settings));
         let switched: Vec<(&'static crate::bundled::Bundled, bool)> = (crate::bundled::ALL.iter())
@@ -194,6 +197,7 @@ impl Tab {
             self.packages = profile.packages;
             self.character = profile.character;
             self.encoding = profile.encoding;
+            self.language.chosen = profile.language;
             self.included_on = profile.included_on;
             self.included_off = profile.included_off;
             self.included_declined = profile.included_declined;

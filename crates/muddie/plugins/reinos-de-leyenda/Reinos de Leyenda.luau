@@ -137,22 +137,10 @@ map.import(MAP)
 -- and some with their exits after, as in "Desierto de Sharframna [n,s]".
 map.names({ region = ":", exits = "[]" })
 
--- Directions as the MUD says them, long and short; the first is what a
--- walk sends.
-map.directions({
-    n = { "norte", "n" },
-    ne = { "noreste", "ne" },
-    nw = { "noroeste", "no" },
-    e = { "este", "e" },
-    w = { "oeste", "o" },
-    s = { "sur", "s" },
-    se = { "sudeste", "se" },
-    sw = { "sudoeste", "so" },
-    u = { "arriba", "ar" },
-    d = { "abajo", "ab" },
-    ["in"] = { "dentro", "de" },
-    out = { "fuera", "fu" },
-})
+-- It is played in Spanish: its words for directions are those of the
+-- language, long and short, "norte" and "n" to "fuera" and "fu". One of its
+-- own would go after it, with map.directions.
+map.language("es")
 
 -- Following the player. The MUD tells three things, each used for what it
 -- is good for:

@@ -29,6 +29,9 @@ pub struct Profile {
     pub character: String,
     /// Label of the server's text encoding; `auto` suits most servers.
     pub encoding: String,
+    /// The language its MUD is played in, by its code; empty for the one
+    /// its plugin or the MUD says, else English.
+    pub language: String,
     /// Script packages to load before the profile's own scripts.
     pub packages: Vec<String>,
     /// The plugins that come with Muddie: those switched on that are
@@ -90,6 +93,7 @@ impl Default for Profile {
             verify_certificate: true,
             character: String::new(),
             encoding: "auto".into(),
+            language: String::new(),
             packages: Vec::new(),
             included_on: Vec::new(),
             included_off: Vec::new(),
@@ -157,6 +161,11 @@ impl Profiles {
     /// Where translations of the user's own are looked for.
     pub fn locale_dir(&self) -> PathBuf {
         self.dir.join("locale")
+    }
+
+    /// Where more languages of MUDs are kept (see [`crate::languages`]).
+    pub fn languages_dir(&self) -> PathBuf {
+        self.dir.join("languages")
     }
 
     /// Where the settings shared by all profiles are kept.
@@ -473,6 +482,7 @@ mod tests {
             verify_certificate: false,
             character: "Gandalf".into(),
             encoding: "koi8-r".into(),
+            language: "es".into(),
             packages: vec!["combat".into()],
             included_on: vec!["reinos-de-leyenda".into()],
             included_off: vec!["common".into()],

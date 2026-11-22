@@ -37,7 +37,41 @@ pub(in crate::app) fn server_group(ui: &mut Ui, draft: &mut Profile) {
             Some(tr("Automatic works with nearly every MUD.")),
             &mut |ui| encoding_choice(ui, &mut draft.encoding),
         );
+        widgets::setting_row(
+            ui,
+            tr("Game language"),
+            Some(tr(
+                "The words of the game for directions, for the map. Automatic takes the one its plugin or the game says, else English.",
+            )),
+            &mut |ui| language_choice(ui, &mut draft.language),
+        );
     });
+}
+
+/// The language the game is played in, from those there are: automatic,
+/// or one of them.
+fn language_choice(ui: &mut Ui, language: &mut String) -> egui::Response {
+    let (languages, _) = crate::languages::all();
+    let shown = (languages.iter())
+        .find(|known| known.code == *language)
+        .map_or_else(
+            || tr("Automatic, as the game says").to_owned(),
+            |known| known.name.clone(),
+        );
+    widgets::dropdown("game language")
+        .selected_text(shown)
+        .show_ui(ui, |ui| {
+            if widgets::choice(ui, language.is_empty(), tr("Automatic, as the game says")).clicked()
+            {
+                language.clear();
+            }
+            for known in &languages {
+                if widgets::choice(ui, *language == known.code, &known.name).clicked() {
+                    language.clone_from(&known.code);
+                }
+            }
+        })
+        .response
 }
 
 /// Whether the connection is encrypted, and whether the server's

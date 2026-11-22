@@ -101,16 +101,8 @@ fn selection_shown(map: &Map, from: Option<RoomId>, room: &Room) -> String {
 /// A room's exits, in the order of the compass, then up and down, in and
 /// out, and the rest: the one order they are shown and said in.
 pub fn ordered_exits(room: &Room) -> Vec<&str> {
-    const ORDER: [&str; 12] = [
-        "n", "ne", "e", "se", "s", "sw", "w", "nw", "u", "d", "in", "out",
-    ];
     let mut ways: Vec<&str> = room.exits.keys().map(String::as_str).collect();
-    ways.sort_by_key(|way| {
-        ORDER
-            .iter()
-            .position(|known| known == way)
-            .unwrap_or(ORDER.len())
-    });
+    ways.sort_by_key(|way| muddie_mapper::direction_rank(way));
     ways
 }
 
@@ -121,22 +113,10 @@ pub fn direction_words(map: &Map, direction: &str) -> String {
     if taught != direction {
         return taught.to_owned();
     }
-    match direction {
-        "n" => tr("north"),
-        "ne" => tr("northeast"),
-        "e" => tr("east"),
-        "se" => tr("southeast"),
-        "s" => tr("south"),
-        "sw" => tr("southwest"),
-        "w" => tr("west"),
-        "nw" => tr("northwest"),
-        "u" => tr("up"),
-        "d" => tr("down"),
-        "in" => tr("in"),
-        "out" => tr("out"),
-        other => other,
+    match muddie_mapper::known_direction(direction) {
+        Some(known) => tr(known.english).to_owned(),
+        None => direction.to_owned(),
     }
-    .to_owned()
 }
 
 /// Which way `to` lies from `from`, said: "to the north-east". None if

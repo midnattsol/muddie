@@ -162,6 +162,15 @@ fn install_visiting(
         })?,
     )?;
 
+    let shared = Rc::clone(state);
+    api.set(
+        "language",
+        lua.create_function(move |_, language: String| {
+            (shared.borrow_mut().actions).push(Action::Language(language));
+            Ok(())
+        })?,
+    )?;
+
     let (shared, world) = (Rc::clone(state), Rc::clone(map));
     api.set(
         "here",
@@ -194,7 +203,7 @@ fn install_visiting(
                 };
                 taught.push((direction, said));
             }
-            world.borrow_mut().set_directions(&taught);
+            world.borrow_mut().teach_directions(&taught);
             Ok(())
         })?,
     )?;

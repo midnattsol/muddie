@@ -73,7 +73,8 @@ session plays with, and the one chosen at the right. Its page has its name,
 **Connect**, its menu (duplicate, rename, delete) and three tabs:
 
 - **Connection**: the **Server** (host, port, encryption: none, TLS, or TLS
-  without verifying the certificate; and the encoding) and the **Login**
+  without verifying the certificate; the encoding; and the **Game
+  language**) and the **Login**
   (the character, and its password, kept in the system keyring).
 - **Session**: **Auto-reconnect** when the connection drops; **Keep-alive**,
   off or every so often, so that an idle connection is not closed; the
@@ -106,6 +107,7 @@ host = "reinosdeleyenda.es"
 port = 5001
 tls = false                       # optional
 encoding = "auto"                 # optional
+language = "es"                   # optional: the language the game is played in
 plugins = ["reinos-de-leyenda"]   # optional: plugins that come with Muddie
 ```
 
@@ -116,6 +118,25 @@ the server hides typing.
 The text encoding is `auto` for nearly every MUD: UTF-8, with Latin-1 for
 anything that is not valid UTF-8. Set it only for servers that use something
 else, such as `big5` or `koi8-r`.
+
+The **Game language** is the language the MUD is played in, whatever the
+language of Muddie's own window: its words for directions are what the map
+understands of exits and moves, and what a walk sends. Muddie comes with
+English and Spanish; **Automatic** takes the one the game's plugin says, or
+the one the MUD says of itself, else English. More are read from the
+`languages` folder of the configuration folder, one TOML file each, named
+by the language's code (`fr.toml`); one of the code of one that comes takes
+its place, and is read again with `/reload`:
+
+```toml
+name = "Français"
+names = ["French"]                # what else a MUD may call it
+
+[directions]                      # the first word is what a walk sends
+n = ["nord", "n"]
+ne = ["nord-est", "ne"]
+# … e, se, s, sw, w, nw, u, d, in and out
+```
 
 ## Typing
 

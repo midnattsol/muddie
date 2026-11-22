@@ -10,6 +10,7 @@ mod debug;
 mod history;
 mod i18n;
 mod keypad;
+mod languages;
 mod logger;
 mod luau;
 mod mapfetch;

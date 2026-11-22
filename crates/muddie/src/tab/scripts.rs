@@ -20,6 +20,15 @@ impl Tab {
         self.completions.clear();
         self.panels_untold();
         self.fresh_runtime();
+        // The scripts teach their words for directions again, over those
+        // of the language, and a plugin may say the language anew.
+        self.language.declared = None;
+        crate::languages::read_again();
+        for problem in crate::languages::all().1 {
+            self.note(&trf("Could not read a language: {0}", &[&problem]));
+        }
+        self.map.borrow_mut().forget_taught_directions();
+        self.speak_the_language();
         let mut files = self.script_files_to_run();
         // The plugins that come with Muddie are among the player's own once
         // installed; one switched on and not installed yet is installed now.
@@ -236,6 +245,7 @@ impl Tab {
                     self.set_gauge(&name, level, look, Some(&owner));
                 }
                 Action::Unloaded(owner) => self.gauges.drop_owned_by(&owner),
+                Action::Language(language) => self.declare_language(language),
                 Action::Walk(room) => self.walk_to(room),
                 Action::Entered(room) => {
                     self.record_whereabouts();

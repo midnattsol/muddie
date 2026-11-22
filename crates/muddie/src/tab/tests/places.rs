@@ -826,3 +826,29 @@ fn the_map_explored_is_searched_named_noted_and_gone_back_along() {
         ("Agua fresca", Some(4))
     );
 }
+
+#[test]
+fn the_game_is_played_in_the_language_its_profile_plugin_or_mud_says() {
+    let mut harness = window(None);
+    let app = harness.state_mut().tab_mut();
+    let spoken = |app: &Tab| {
+        let map = app.map.borrow();
+        (map.direction("noroeste"), map.command_for("nw").to_owned())
+    };
+    // Nothing said: English.
+    app.speak_the_language();
+    assert_eq!(spoken(app), ("noroeste".to_owned(), "nw".to_owned()));
+    // The MUD says it over MSSP, by a name of the language.
+    app.announce_language(&[("LANGUAGE".into(), "Spanish".into())]);
+    assert_eq!(spoken(app), ("nw".to_owned(), "noroeste".to_owned()));
+    // The profile's choice comes before the MUD's, and the plugin's.
+    app.language.chosen = "en".into();
+    app.scripts.exec("plugin", r#"map.language("es")"#);
+    app.run_actions();
+    assert_eq!(spoken(app).1, "nw");
+    // Automatic, the plugin's is taken over the MUD's.
+    app.language.chosen.clear();
+    app.language.announced = Some("English".into());
+    app.speak_the_language();
+    assert_eq!(spoken(app).1, "noroeste");
+}
