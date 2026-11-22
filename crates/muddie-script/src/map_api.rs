@@ -201,6 +201,12 @@ fn install_visiting(
         })?,
     )?;
 
+    let world = Rc::clone(map);
+    api.set(
+        "candidates",
+        lua.create_function(move |_, ()| Ok(world.borrow().candidates().to_vec()))?,
+    )?;
+
     let (shared, world) = (Rc::clone(state), Rc::clone(map));
     api.set(
         "here",

@@ -229,18 +229,31 @@ end
 
 -- The room the game wrote is the one the move leads to, or, with no move,
 -- the one the player is in: if the map has it named wrong, it is given
--- the name written.
+-- the name written. While the map is not sure which room the player was
+-- in, the move is followed from each it could be: if only one leads to a
+-- room named wrong with the exits written, that is the one, and the map
+-- finds the player there by its name.
 local function put_right(seen)
     if not seen.name or wrong_name(seen.name) then
         return
     end
     local here = map.room()
-    local there = here
-    if here and seen.came then
-        local exit = map.exit(here.id, seen.came)
-        there = exit and map.room(exit.to)
+    local from = if here then { here.id } else map.candidates()
+    local there = nil
+    for _, id in from do
+        local room = map.room(id)
+        if seen.came then
+            local exit = map.exit(id, seen.came)
+            room = exit and map.room(exit.to)
+        end
+        if room and wrong_name(room.name) and has_exits(room, seen.exits or {}) then
+            if there and there.id ~= room.id then
+                return
+            end
+            there = room
+        end
     end
-    if not there or not wrong_name(there.name) or not has_exits(there, seen.exits or {}) then
+    if not there then
         return
     end
     if map.rename(there.id, seen.name) then

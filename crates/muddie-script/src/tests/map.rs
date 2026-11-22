@@ -196,6 +196,8 @@ fn script_can_follow_a_server_that_shows_rooms_by_name_only() {
     );
     engine.on_gmcp("Room.Actual", r#"{"name": "Dune"}"#);
     assert_eq!(engine.take_actions(), [Action::LostTrack]);
+    engine.exec("test", r#"echo(table.concat(map.candidates(), ","))"#);
+    assert_eq!(engine.take_actions(), [Action::Echo("1,2".into())]);
     engine.on_gmcp("Room.Actual", r#"{"name": "Dune", "came": "este"}"#);
     engine.on_gmcp(
         "Room.Actual",

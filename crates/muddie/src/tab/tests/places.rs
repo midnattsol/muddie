@@ -387,6 +387,50 @@ fn the_plugin_puts_right_a_room_named_wrong_by_the_room_written() {
     );
 }
 
+/// As a session with Reinos de Leyenda showed: the map, not sure which of
+/// the dunes the player is in, follows the move from each, and the only
+/// one leading to a room named wrong with the exits written is the one.
+#[test]
+fn the_plugin_puts_right_a_room_named_wrong_while_the_map_is_not_sure() {
+    let mut harness = window(None);
+    let app = harness.state_mut().tab_mut();
+    let (events, _sent) = fake_connection(app);
+    desert(app);
+    {
+        let mut map = app.map.borrow_mut();
+        let well = map.room(4).unwrap().clone();
+        let info = RoomInfo {
+            id: 4,
+            name: "Viajero dice: estos caminos son agobiantes".into(),
+            area: well.area,
+            exits: [("s".to_owned(), 3)].into(),
+            pos: Some(well.pos),
+            colour: None,
+        };
+        map.set_room(info).unwrap();
+    }
+    reinos(app);
+    let seen = muddie_mapper::Sighting {
+        name: Some("Dunas"),
+        ..Default::default()
+    };
+    let unsure = app.map.borrow_mut().arrive(seen);
+    assert_eq!(unsure, muddie_mapper::Located::Unsure(vec![1, 2, 3]));
+    events
+        .send(Event::Line(panels::styled_lines("Pozo [s]").remove(0)))
+        .unwrap();
+    let moved = Event::Gmcp {
+        package: "Room.Movimiento".into(),
+        data: "\"norte\"".into(),
+    };
+    events.send(moved).unwrap();
+    harness.run_steps(2);
+    let map = harness.state().tab().map.borrow();
+    let well = map.room(4).unwrap();
+    assert_eq!((well.name.as_str(), well.renamed), ("Pozo", true));
+    assert_eq!(map.current().unwrap().id, 4);
+}
+
 /// As a session with Reinos de Leyenda showed: with lag, steps come in
 /// bursts, each the room written and then the move, and none is lost; a
 /// map gone astray is put right by the room written; and looking, which
