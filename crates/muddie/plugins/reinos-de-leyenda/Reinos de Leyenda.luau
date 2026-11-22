@@ -267,6 +267,11 @@ local START_ADDING = "Añadir al mapa las salas que no tiene"
 local STOP_ADDING = "Dejar de añadir salas al mapa"
 local adding = recall(ADDING) == true
 
+-- Whether the room the map has the player in is the one the game wrote
+-- last, by its name and exits: a room is only added after one that is,
+-- so that none hangs from a room the map has the player in wrongly.
+local confirmed = false
+
 -- The rooms added lately, told together: a few seconds after the first.
 local added = { rooms = {}, ways = {} }
 
@@ -310,7 +315,7 @@ end
 -- Adds the room written, if the move leads nowhere the map has; returns
 -- whether the map now has the player there.
 local function add_room(seen)
-    if not (adding and seen.written and seen.came and seen.name) then
+    if not (adding and confirmed and seen.written and seen.came and seen.name) then
         return false
     end
     if wrong_name(seen.name) or not map.direction(seen.came) or not all_directions(seen.exits or {}) then
@@ -358,19 +363,27 @@ local function step(seen)
     if seen.written then
         put_right(seen)
         if add_room(seen) then
+            confirmed = true
             return
         end
         if #map.named(seen.name) == 0 then
             seen.name, seen.exits = nil, nil
         end
     end
-    -- A move by an exit the map does not have, with no room written to
-    -- check it by: it is said, and the map stays where it was.
+    -- A move by an exit the map does not have, or that leads nowhere it
+    -- knows, with no room written to check it by: it is said, and the map
+    -- stays where it was.
     local here = map.room()
-    if seen.came and not seen.name and here and not map.exit(here.id, seen.came) then
+    local exit = here and seen.came and map.exit(here.id, seen.came)
+    if seen.came and not seen.name and here and not (exit and map.room(exit.to)) then
         notify(`El mapa no tiene la salida {seen.came} desde {here.name}: no te ha seguido.`)
     end
     local now = map.arrive(seen)
+    local there = now and map.room(now)
+    confirmed = there ~= nil
+        and seen.name ~= nil
+        and table.find(map.named(seen.name), now) ~= nil
+        and has_exits(there, seen.exits or {})
     -- Shown when Muddie is started with --debug.
     log(`Reinos: name={seen.name} exits={table.concat(seen.exits or {}, ",")} came={seen.came} -> {now}`)
 end

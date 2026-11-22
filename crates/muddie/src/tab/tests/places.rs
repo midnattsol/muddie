@@ -1073,8 +1073,20 @@ fn reinos_adds_the_rooms_the_map_has_not_once_switched_on() {
         };
         events.send(moved).unwrap();
     };
+    // Where the map has the player, but not as the game wrote it: from
+    // there nothing is added, and the move is not followed.
     assert!(harness.state().tab().map.borrow_mut().set_current(4));
-    // North of the well, where the map has nothing: added.
+    step("Oasis [s,e]", "norte");
+    harness.run_steps(2);
+    assert!(harness.state().tab().map.borrow().added().is_empty());
+    assert_eq!(harness.state().tab().map.borrow().current().unwrap().id, 4);
+    // Looking, the game writes the well: north of it, where the map has
+    // nothing, a room is added.
+    let gmcp = Event::Gmcp {
+        package: "Room.Actual".into(),
+        data: r#""Pozo [s]""#.into(),
+    };
+    events.send(gmcp).unwrap();
     step("Oasis [s,e]", "norte");
     harness.run_steps(2);
     let oasis = muddie_mapper::ADDED_FROM;
