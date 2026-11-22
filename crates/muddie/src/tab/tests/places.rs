@@ -660,6 +660,20 @@ fn the_map_is_explored_with_the_keys_alone() {
     harness.key_press(Key::Home);
     harness.run_steps(2);
     assert_eq!(said(&mut harness), "Dunas. you are here. exits: este");
+    // The room chosen is kept in the middle, as the player's is.
+    harness.key_press(Key::ArrowRight);
+    harness.key_press(Key::ArrowRight);
+    harness.run_steps(3);
+    let cells = |harness: &Harness<'_, App>| harness.state().tab().map_view.pan().x.round() as i32;
+    let cell = cells(&harness) / -4;
+    assert!(cell > 0, "two rooms east, four cells, centred");
+    // Leaving, the view follows the player again.
+    harness.key_press(Key::Escape);
+    harness.run_steps(3);
+    assert_eq!(cells(&harness), 0);
+    harness.key_press_modifiers(crate::shortcuts::WITH_KEY, Key::E);
+    harness.run_steps(3);
+    said(&mut harness);
     // To the well, and Enter goes there.
     for key in [Key::ArrowRight, Key::ArrowRight, Key::ArrowUp, Key::Enter] {
         harness.key_press(key);

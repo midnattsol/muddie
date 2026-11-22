@@ -295,8 +295,13 @@ impl MapView {
         self.reveal = Some(room);
     }
 
-    /// Leaves the map for the command line, choosing no room.
+    /// Leaves the map for the command line, choosing no room; the view
+    /// goes back to following the player.
     fn leave(&mut self, ui: &Ui, response: &Response, typed: String) -> MapAction {
+        match self.browsing.take() {
+            Some(_) => (self.pan, self.glide) = (Vec2::ZERO, None),
+            None => self.shift(ui, -self.pan),
+        }
         self.selected = None;
         self.had_focus = false;
         self.trail.clear();

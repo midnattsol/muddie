@@ -493,7 +493,7 @@ impl MapView {
     }
 
     /// Brings the room the keys chose into sight: to its area and level,
-    /// and onto the screen.
+    /// and into the middle of the screen.
     fn bring_into_sight(
         &mut self,
         ui: &Ui,
@@ -513,11 +513,28 @@ impl MapView {
             return;
         }
         self.reveal = None;
+        // In the middle, as the player's room is while they play.
         let at = grid.on_screen(room.pos);
-        if !response.rect.shrink(grid.cell * 1.5).contains(at) {
-            self.pan += response.rect.center() - at;
-            ui.ctx().request_repaint();
+        self.shift(ui, response.rect.center() - at);
+    }
+
+    /// Moves the view by `by`, gliding there as it does after the player,
+    /// unless animations are off.
+    pub(super) fn shift(&mut self, ui: &Ui, by: Vec2) {
+        if by == Vec2::ZERO {
+            return;
         }
+        let gliding = self.glide_offset(ui);
+        self.pan += by;
+        self.glide = (ui.style().animation_time > 0.0)
+            .then(|| ((gliding - by) / self.cell, ui.input(|input| input.time)));
+        ui.ctx().request_repaint();
+    }
+
+    /// How far the view was moved from where it follows the player.
+    #[cfg(test)]
+    pub fn pan(&self) -> Vec2 {
+        self.pan
     }
 
     /// Which area and level to show: the player's, unless the view was
