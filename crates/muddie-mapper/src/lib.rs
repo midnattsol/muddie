@@ -22,7 +22,7 @@ mod walk;
 pub use info::RoomInfo;
 pub use locating::{Located, Sighting};
 pub use mudlet::{MUDLET_READER, MudletMap, read_mudlet_map};
-pub use naming::Naming;
+pub use naming::{Found, FoundBy, Naming};
 pub use rusqlite::Error;
 pub use walk::{Progress, Walk};
 
@@ -99,6 +99,9 @@ pub struct Room {
     /// The colour the room is drawn in, as red, green and blue; `None` for
     /// the map's own. Kept when the server reports the room without one.
     pub colour: Option<Colour>,
+    /// What the user wrote of the room, to be told with it; empty for
+    /// none. Kept, as what the user sets, when the server reports it.
+    pub note: String,
 }
 
 /// A colour: red, green and blue.

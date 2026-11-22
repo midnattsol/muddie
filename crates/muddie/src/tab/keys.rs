@@ -29,7 +29,11 @@ impl Tab {
         // Keypad keys come from the window layer, as egui cannot tell them
         // from the main block's. A bound one must not also type its digit.
         let held = ui.input(|input| input.modifiers);
-        for name in std::mem::take(&mut self.keypad_pressed) {
+        // While the map is explored, the keypad moves on it: nothing bound
+        // to it is sent to the MUD.
+        let keypad = std::mem::take(&mut self.keypad_pressed);
+        let exploring = self.map_view.exploring();
+        for name in keypad.into_iter().filter(|_| !exploring) {
             let mut full = String::new();
             for (down, modifier) in [
                 (held.ctrl, "ctrl+"),
@@ -54,7 +58,9 @@ impl Tab {
             let name = key.name().to_lowercase();
             let is_function_key =
                 name.len() > 1 && name.starts_with('f') && name[1..].parse::<u8>().is_ok();
-            if !(modifiers.ctrl || modifiers.alt || is_function_key) {
+            if !(modifiers.ctrl || modifiers.alt || is_function_key)
+                || self.map_view.takes(key, modifiers)
+            {
                 continue;
             }
             let mut full = String::new();

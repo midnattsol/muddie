@@ -10,9 +10,9 @@ use crate::{Colour, Exit, Pos, Room};
 /// Version of the schema below, kept in the database's `user_version`.
 /// Version 1 lacked the rooms' `weight` and `avoid` columns, versions 1
 /// and 2 the exits' `cost`, `locked`, `command` and `custom`, and versions
-/// up to 3 the marks and what is known about the map, and versions up to 4
-/// the rooms' `colour`.
-const VERSION: i64 = 5;
+/// up to 3 the marks and what is known about the map, versions up to 4
+/// the rooms' `colour`, and versions up to 5 their `note`.
+const VERSION: i64 = 6;
 
 const SCHEMA: &str = "
     CREATE TABLE IF NOT EXISTS rooms (
@@ -24,7 +24,8 @@ const SCHEMA: &str = "
         z INTEGER NOT NULL,
         weight INTEGER NOT NULL DEFAULT 1,
         avoid INTEGER NOT NULL DEFAULT 0,
-        colour INTEGER
+        colour INTEGER,
+        note TEXT NOT NULL DEFAULT ''
     );
     CREATE TABLE IF NOT EXISTS exits (
         room_id INTEGER NOT NULL,
@@ -49,7 +50,7 @@ const SCHEMA: &str = "
 /// The columns added since the first format, each with how it is made: a
 /// map of an older format is given those it lacks, whatever its version
 /// says.
-const ADDED: [(&str, &str, &str); 7] = [
+const ADDED: [(&str, &str, &str); 8] = [
     ("rooms", "weight", "INTEGER NOT NULL DEFAULT 1"),
     ("rooms", "avoid", "INTEGER NOT NULL DEFAULT 0"),
     ("exits", "cost", "INTEGER NOT NULL DEFAULT 0"),
@@ -57,6 +58,7 @@ const ADDED: [(&str, &str, &str); 7] = [
     ("exits", "command", "TEXT"),
     ("exits", "custom", "INTEGER NOT NULL DEFAULT 0"),
     ("rooms", "colour", "INTEGER"),
+    ("rooms", "note", "TEXT NOT NULL DEFAULT ''"),
 ];
 
 pub struct Store {
@@ -127,7 +129,7 @@ impl Store {
         drop(statement);
 
         let mut statement = connection
-            .prepare("SELECT id, name, area, x, y, z, weight, avoid, colour FROM rooms")?;
+            .prepare("SELECT id, name, area, x, y, z, weight, avoid, colour, note FROM rooms")?;
         let rooms = statement
             .query_map([], |row| {
                 let id = row.get(0)?;
@@ -144,6 +146,7 @@ impl Store {
                     weight: row.get(6)?,
                     avoid: row.get(7)?,
                     colour: row.get::<_, Option<u32>>(8)?.map(unpacked),
+                    note: row.get(9)?,
                 })
             })?
             .collect::<Result<Vec<Room>>>()?;
@@ -239,13 +242,13 @@ impl Store {
 fn save_room(transaction: &Transaction, room: &Room, known: bool) -> Result<()> {
     transaction
         .prepare_cached(
-            "INSERT INTO rooms (id, name, area, x, y, z, weight, avoid, colour)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+            "INSERT INTO rooms (id, name, area, x, y, z, weight, avoid, colour, note)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
          ON CONFLICT(id) DO UPDATE SET
              name = excluded.name, area = excluded.area,
              x = excluded.x, y = excluded.y, z = excluded.z,
              weight = excluded.weight, avoid = excluded.avoid,
-             colour = excluded.colour",
+             colour = excluded.colour, note = excluded.note",
         )?
         .execute(params![
             room.id,
@@ -256,7 +259,8 @@ fn save_room(transaction: &Transaction, room: &Room, known: bool) -> Result<()> 
             room.pos.z,
             room.weight,
             room.avoid,
-            room.colour.map(packed)
+            room.colour.map(packed),
+            room.note
         ])?;
     if known {
         (transaction.prepare_cached("DELETE FROM exits WHERE room_id = ?1")?).execute([room.id])?;
@@ -325,11 +329,13 @@ mod tests {
         rooms[0].weight = 5;
         rooms[0].avoid = true;
         rooms[0].colour = Some([200, 16, 0]);
+        rooms[0].note = "A guard".to_owned();
         store.save(&rooms).unwrap();
         drop(store);
         let (store, Stored { rooms, .. }) = Store::open(&path).unwrap();
         assert_eq!((rooms[0].weight, rooms[0].avoid), (5, true));
         assert_eq!(rooms[0].colour, Some([200, 16, 0]));
+        assert_eq!(rooms[0].note, "A guard");
         // Said to be older than it is, with a column it is said to lack: it
         // opens, and keeps what it has.
         store

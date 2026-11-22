@@ -90,6 +90,7 @@ pub(super) fn room_table(lua: &Lua, room: &Room) -> mlua::Result<Table> {
     table.set("weight", room.weight)?;
     table.set("avoid", room.avoid)?;
     table.set("colour", room.colour.map(colour_text))?;
+    table.set("note", room.note.as_str())?;
     let exits = lua.create_table()?;
     for (direction, exit) in &room.exits {
         exits.set(direction.as_str(), exit.to)?;

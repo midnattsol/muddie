@@ -9,8 +9,8 @@ impl Map {
     /// was in, if it is among them.
     ///
     /// What the user set on rooms that are in both, the rooms to avoid,
-    /// the exits of their own and a colour where the new rooms have none,
-    /// carries over, and so do the marks: the same map brought again,
+    /// the exits of their own, and a colour and a note where the new rooms
+    /// have none, carries over, and so do the marks: the same map brought again,
     /// newer, keeps them.
     pub fn replace_all(&mut self, rooms: Vec<Room>, current: Option<RoomId>) -> Result<(), Error> {
         let mut rooms: HashMap<RoomId, Room> =
@@ -21,6 +21,9 @@ impl Map {
             };
             room.avoid |= old.avoid;
             room.colour = room.colour.or(old.colour);
+            if room.note.is_empty() {
+                room.note.clone_from(&old.note);
+            }
             for (direction, exit) in old.exits.iter().filter(|(_, exit)| exit.custom) {
                 room.exits
                     .entry(direction.clone())
@@ -54,6 +57,11 @@ impl Map {
     /// Sets the colour a room is drawn in, or gives it back the map's own.
     pub fn set_colour(&mut self, id: RoomId, colour: Option<Colour>) -> Result<bool, Error> {
         self.edit_room(id, |room| room.colour = colour)
+    }
+
+    /// Writes a note on a room, or, empty, takes it away.
+    pub fn set_note(&mut self, id: RoomId, note: &str) -> Result<bool, Error> {
+        self.edit_room(id, |room| room.note = note.trim().to_owned())
     }
 
     /// Sets whether routes must keep out of a room.

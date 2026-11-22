@@ -129,6 +129,18 @@ impl Tab {
                 let way = crate::mapview::direction_words(&self.map.borrow(), way);
                 self.voice.say_now(&trf("No exit {0}.", &[&way]));
             }
+            Some(MapAction::Say(said)) => self.voice.say_now(&said),
+            Some(MapAction::Info(room)) => self.say_info_aloud(room),
+            Some(MapAction::Mark(room, name)) => {
+                if self.mark_room(room, &name) {
+                    self.voice.say_now(&trf("Called {0}.", &[&name]));
+                }
+            }
+            Some(MapAction::Note(room, note)) => {
+                if let Some(said) = self.write_note(room, &note) {
+                    self.voice.say_now(&said);
+                }
+            }
             Some(MapAction::Leave(typed)) => {
                 self.input.push_str(&typed);
                 self.cursor_to_end = true;

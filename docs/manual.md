@@ -173,6 +173,7 @@ it.
 | `/map near [moves]` | Lists what is up to three moves away (or as many as given), with the way |
 | `/map info [place]` | Says all the map knows of a room: the current one if none is given |
 | `/map mark [name]`, `/map unmark <name>` | Names this room, to travel to it by that name; alone, lists the names |
+| `/map note <text>`, `/map unnote` | Writes a note on this room, said with it and found by its words; takes it off |
 | `/map areas` | Lists the areas, with how many rooms each has |
 | `/map import <file or address>` | Takes a map made with Mudlet in place of this one |
 | `/map stop` | Stops walking |
@@ -512,8 +513,8 @@ Everything the map shows can be said: the `/map` commands above tell where
 you are, what is around, where each exit leads and the way to anywhere, and
 `/map travel` goes there. Typed in the palette, the name of a place lists
 the places of the map that have it, under **Places**, each once with where
-it is and how many moves away, the nearest first, and the names given to
-rooms with `/map mark`: Enter goes there, and Shift with Enter says the way
+it is and how many moves away, the nearest first, the names given to
+rooms with `/map mark` and the rooms whose note has it: Enter goes there, and Shift with Enter says the way
 without going. Going somewhere says how far, and the regions the way goes
 through; nothing of what the game says on the way is left unread. Escape in
 the empty command line stops the walk.
@@ -528,6 +529,13 @@ is what a name begins with, as Anduar in "Anduar: Plaza Mayor".
 | Alt+E (Ctrl+E on a Mac), or `/map explore` | Explores the map with the keys, from where you are, without moving: the map takes the keyboard and says so |
 | Arrows, the digits as on a keypad, Page Up and Down | Move the room chosen along its exits, from yours if none is; the view follows it |
 | Home | Back to your room |
+| Backspace | Back to the room chosen before, and the one before it, to where you began |
+| Space | Says the room chosen again |
+| Ctrl+I | Says all the map knows of it, as `/map info` |
+| Ctrl+L | Says what is noted up to ten moves around it: rooms with a name or a note, and the way into each other region, the nearest first |
+| Ctrl+F | Searches the map: type, Enter says how many were found and the first; the arrows go through them; Enter again goes to the one said, on the map. Escape goes back to the map |
+| Ctrl+B, Ctrl+N | Gives the room chosen a name, or writes a note on it (an empty one takes it off) |
+| F1 | Says all these keys |
 | Enter, Shift+Enter | Walk to the room chosen; say the way there without going |
 | Escape, or typing | Back to the command line, with what was typed |
 | Double-click a room | Walks there, one step at a time, waiting for each to succeed |
@@ -541,8 +549,11 @@ Exploring, each room is said short, as one who does not see it wants it:
 its name, and its region on coming to another; how many moves away and
 which way; its exits, in the MUD's words, in the order of the compass;
 and only when so, that it has no way straight back, that an exit is
-closed, or that routes avoid it. Its number is not said, but it is under
-the map. Which way a place lies is said in the palette and by `/map info`
+closed, that routes avoid it, its names and its note. Its number is not
+said, but it is under the map. While exploring, the keys are the map's:
+nothing bound to the keypad, F1 or the map's Ctrl keys is sent to the MUD,
+so a keypad that walks in the game moves on the map instead. Nothing is
+sent until you press Enter on a room or go back to the command line. Which way a place lies is said in the palette and by `/map info`
 too, when it is in your area and level.
 
 A room marked to avoid is never walked through, and a locked exit is never

@@ -260,6 +260,7 @@ fn read_room(
         weight: weight as u32,
         avoid,
         colour: colours.colour(environment),
+        note: String::new(),
     })
 }
 

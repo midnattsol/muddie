@@ -30,6 +30,7 @@ fn desert(app: &mut Tab) {
         weight: 1,
         avoid: false,
         colour: None,
+        note: String::new(),
     };
     let rooms = vec![
         room(1, "Dunas [e]", &[("e", 2)]),
@@ -190,6 +191,20 @@ fn the_map_is_said_in_words() {
     );
     assert_eq!(said(app, "/map areas"), ["Desierto: 4 rooms"]);
     assert!(said(app, "/map unmark casa")[0].contains("No room is called casa now"));
+    // A note, said with the room and found by its words.
+    assert_eq!(said(app, "/map note  Cactus seco "), ["Noted: Cactus seco"]);
+    assert_eq!(
+        said(app, "/map info"),
+        ["Dunas (#3). In Desierto, at 6, 0, 0. Exits: norte, oeste. Note: Cactus seco"]
+    );
+    let found = app.palette_places("cactus");
+    assert_eq!(
+        (found[0].usage.as_str(), found[0].about.as_str()),
+        ("Cactus seco", "note, Dunas · you are here")
+    );
+    assert_eq!(found[0].act, Some(commands::Act::Place("3".into())));
+    assert_eq!(said(app, "/map unnote"), ["The note was taken off."]);
+    assert!(app.palette_places("cactus").is_empty());
 }
 
 #[test]
@@ -615,7 +630,7 @@ fn the_map_is_explored_with_the_keys_alone() {
     harness.run_steps(3);
     assert_eq!(
         said(&mut harness),
-        "Exploring the map from Dunas. exits: este. Arrows follow the exits, Home comes back to you, Enter goes, Escape goes back."
+        "Exploring the map from Dunas. exits: este. Arrows follow the exits, Enter goes, Escape goes back. F1 says all the keys."
     );
     let focused = |harness: &Harness<'_, App>, label: &str| {
         harness
@@ -666,4 +681,122 @@ fn the_map_is_explored_with_the_keys_alone() {
     harness.run_steps(3);
     assert!(focused(&harness, "Command"));
     assert_eq!(harness.state().tab().input, "m");
+}
+
+#[test]
+fn the_map_explored_is_searched_named_noted_and_gone_back_along() {
+    let mut harness = window(None);
+    harness.set_size(egui::vec2(1300.0, 860.0));
+    let app = harness.state_mut().tab_mut();
+    let (_events, mut sent) = fake_connection(app);
+    desert(app);
+    app.scripts.exec(
+        "t",
+        r#"map.directions({e = {"este"}, w = {"oeste"}, n = {"norte"}, s = {"sur"}}) map.names({exits = "[]"}) bind("numpad6", "este")"#,
+    );
+    app.run_actions();
+    assert!(app.map.borrow_mut().set_current(1));
+    app.voice.force_voice();
+    harness.run_steps(3);
+    let said = |harness: &mut Harness<'_, App>| {
+        let app = harness.state_mut().tab_mut();
+        let said = app.voice.said.join(" | ");
+        app.voice.said.clear();
+        said
+    };
+    // The field and the words before it both have the label.
+    let focused = |harness: &Harness<'_, App>, label: &str| {
+        (harness.query_all_by_label_contains(label)).any(|node| node.accesskit_node().is_focused())
+    };
+    let typed = |harness: &mut Harness<'_, App>, text: &str| {
+        harness.event(egui::Event::Text(text.into()));
+        harness.run_steps(2);
+        harness.key_press(Key::Enter);
+        harness.run_steps(3);
+    };
+    let command = |harness: &mut Harness<'_, App>, key| {
+        harness.key_press_modifiers(Modifiers::COMMAND, key);
+        harness.run_steps(3);
+    };
+    harness.key_press_modifiers(crate::shortcuts::WITH_KEY, Key::E);
+    harness.run_steps(3);
+    said(&mut harness);
+    // The keypad moves on the map: what it is bound to is not sent.
+    harness.state_mut().tab_mut().keypad_pressed = vec!["numpad6"];
+    harness.key_press(Key::Num6);
+    harness.event(egui::Event::Text("6".into()));
+    harness.run_steps(2);
+    assert_eq!(
+        said(&mut harness),
+        "Dunas. 1 move to the este. exits: este, oeste"
+    );
+    // Backspace goes back along the rooms chosen, to where it began.
+    harness.key_press(Key::ArrowRight);
+    harness.run_steps(2);
+    said(&mut harness);
+    for _ in 0..3 {
+        harness.key_press(Key::Backspace);
+        harness.run_steps(2);
+    }
+    assert_eq!(
+        said(&mut harness),
+        "Dunas. 1 move to the este. exits: este, oeste | Dunas. you are here. exits: este | This is where you began exploring."
+    );
+    // A search: what is found is said, Enter goes to it on the map.
+    command(&mut harness, Key::F);
+    assert!(focused(&harness, "Search the map"));
+    typed(&mut harness, "pozo");
+    assert_eq!(
+        said(&mut harness),
+        "1 found. 1 of 1: Pozo, 3 moves to the este"
+    );
+    harness.key_press(Key::Enter);
+    harness.run_steps(3);
+    assert_eq!(said(&mut harness), "Pozo. 3 moves to the este. exits: sur");
+    assert!(focused(&harness, "Map view"));
+    // A note and a name, said with the room from then on.
+    command(&mut harness, Key::N);
+    assert!(focused(&harness, "Note on Pozo"));
+    typed(&mut harness, "Agua fresca");
+    assert_eq!(said(&mut harness), "Noted: Agua fresca");
+    command(&mut harness, Key::B);
+    typed(&mut harness, "agua");
+    assert_eq!(said(&mut harness), "Called agua.");
+    assert!(focused(&harness, "Map view"));
+    harness.key_press(Key::Space);
+    harness.run_steps(2);
+    assert_eq!(
+        said(&mut harness),
+        "Pozo. 3 moves to the este. exits: sur. called agua. note: Agua fresca"
+    );
+    command(&mut harness, Key::I);
+    let info = said(&mut harness);
+    assert!(info.starts_with("Pozo (#4)."), "{info}");
+    assert!(info.contains("Called agua. Note: Agua fresca"), "{info}");
+    // From where the player is, what is noted near.
+    harness.key_press(Key::Home);
+    harness.run_steps(2);
+    said(&mut harness);
+    command(&mut harness, Key::L);
+    assert_eq!(said(&mut harness), "Near: agua, 3 moves to the este.");
+    harness.key_press(Key::F1);
+    harness.run_steps(2);
+    assert!(said(&mut harness).starts_with("Arrows, or the keypad, follow the exits"));
+    // Escape leaves a search for the map, and the map for the line.
+    command(&mut harness, Key::F);
+    harness.event(egui::Event::Text("agua".into()));
+    harness.run_steps(2);
+    harness.key_press(Key::Escape);
+    harness.run_steps(3);
+    assert!(focused(&harness, "Map view"));
+    harness.key_press(Key::Escape);
+    harness.run_steps(3);
+    assert!(focused(&harness, "Command"));
+    // All of it without a word to the MUD.
+    assert!(sent_lines(&mut sent).is_empty());
+    let map = harness.state().tab().map.borrow();
+    assert_eq!(
+        (map.room(4).unwrap().note.as_str(), map.marked("agua")),
+        ("Agua fresca", Some(4))
+    );
 }

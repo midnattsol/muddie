@@ -182,7 +182,7 @@ server identifies the room with.
 | `map.native(false)` | Turns the built-in loader off. |
 | `map.persist(false)` | Keeps the map in memory only, for servers that send it themselves. |
 | `map.clear()` | Forgets every room. |
-| `map.room(id)` | A room as a table, the current one if `id` is omitted. Also has `weight`, `avoid` and `colour` (`"#rrggbb"`, or `nil`). |
+| `map.room(id)` | A room as a table, the current one if `id` is omitted. Also has `weight`, `avoid`, `colour` (`"#rrggbb"`, or `nil`) and `note`, what the user wrote of it (`""` for none). |
 | `map.find(text)` | Rooms whose name contains `text`. |
 | `map.named(name)` | The numbers of the rooms called just `name`, as the MUD names them. |
 | `map.path(to, from)` | The commands to walk, or `nil`. |

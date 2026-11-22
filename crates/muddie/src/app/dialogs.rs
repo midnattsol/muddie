@@ -10,7 +10,7 @@ impl App {
             &mut self.show_shortcuts,
             size::DIALOG_S,
             |ui| {
-                let groups: [(&str, &[(&str, &str)]); 6] = [
+                let groups: [(&str, &[(&str, &str)]); 7] = [
                     (
                         tr("Typing"),
                         &[
@@ -45,6 +45,26 @@ impl App {
                                 crate::shortcuts::with_key!("E"),
                                 tr("Explore the map with the keys"),
                             ),
+                        ],
+                    ),
+                    (
+                        tr("Exploring the map"),
+                        &[
+                            ("↑ ↓ ← →  PgUp PgDn", tr("Follow the exits")),
+                            (tr("Home"), tr("Back to your room")),
+                            (tr("Backspace"), tr("Back to the room before")),
+                            (tr("Space"), tr("Say the room again")),
+                            (crate::shortcuts::command!("I"), tr("All about the room")),
+                            (crate::shortcuts::command!("L"), tr("What is noted near")),
+                            (crate::shortcuts::command!("F"), tr("Search the map")),
+                            (crate::shortcuts::command!("B"), tr("Give the room a name")),
+                            (
+                                crate::shortcuts::command!("N"),
+                                tr("Write a note on the room"),
+                            ),
+                            (tr("Enter  Shift+Enter"), tr("Go there, or say the way")),
+                            ("F1", tr("Say all the keys")),
+                            (tr("Escape"), tr("Back to the command line")),
                         ],
                     ),
                     (

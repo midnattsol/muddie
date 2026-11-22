@@ -2408,8 +2408,8 @@ msgstr "fuera"
 msgid "to the {0}"
 msgstr "al {0}"
 
-msgid "Arrows follow the exits, Home comes back to you, Enter goes, Escape goes back."
-msgstr "Las flechas siguen las salidas, Inicio vuelve a ti, Intro va, Escape vuelve."
+msgid "Arrows follow the exits, Enter goes, Escape goes back. F1 says all the keys."
+msgstr "Las flechas siguen las salidas, Intro va, Escape vuelve. F1 dice todas las teclas."
 
 msgid "Exploring the map from {0}. {1}. {2}"
 msgstr "Explorando el mapa desde {0}. {1}. {2}"
@@ -2434,3 +2434,133 @@ msgstr "Explora el mapa con el teclado desde donde estás, sin moverte"
 
 msgid "Explore the map with the keys"
 msgstr "Explorar el mapa con el teclado"
+
+#, python-brace-format
+msgid "Arrows, or the keypad, follow the exits; Page Up and Page Down go up and down. Home comes back to you, Backspace to the room before. Space says the room again, {0} all about it, {1} what is noted near. {2} searches the map. {3} gives the room a name, {4} writes a note on it. Enter goes there, Shift+Enter says the way. Escape, or typing, goes back to the command line."
+msgstr "Las flechas, o el teclado numérico, siguen las salidas; Re Pág y Av Pág suben y bajan. Inicio vuelve a ti, Retroceso a la sala anterior. Espacio repite la sala, {0} dice todo de ella, {1} lo anotado cerca. {2} busca en el mapa. {3} le da un nombre a la sala, {4} le escribe una nota. Intro va allí, Mayús+Intro dice el camino. Escape, o escribir, vuelve a la línea de comandos."
+
+msgid "This is where you began exploring."
+msgstr "Aquí empezaste a explorar."
+
+#, python-brace-format
+msgid "note, {0}"
+msgstr "nota, {0}"
+
+#, python-brace-format
+msgid "called {0}"
+msgstr "se llama {0}"
+
+#, python-brace-format
+msgid "note: {0}"
+msgstr "nota: {0}"
+
+#, python-brace-format
+msgid "Note: {0}"
+msgstr "Nota: {0}"
+
+msgid "Search the map"
+msgstr "Buscar en el mapa"
+
+#, python-brace-format
+msgid "Name for {0}"
+msgstr "Nombre para {0}"
+
+#, python-brace-format
+msgid "Note on {0}"
+msgstr "Nota de {0}"
+
+#, python-brace-format
+msgid "Nothing on the map has {0}."
+msgstr "Nada del mapa tiene {0}."
+
+#, python-brace-format
+msgid "{0} found"
+msgid_plural "{0} found"
+msgstr[0] "{0} encontrado"
+msgstr[1] "{0} encontrados"
+
+#, python-brace-format
+msgid "{0} of {1}: {2}"
+msgstr "{0} de {1}: {2}"
+
+#, python-brace-format
+msgid "{0}, note: {1}"
+msgstr "{0}, nota: {1}"
+
+#, python-brace-format
+msgid "into {0}"
+msgstr "entrada a {0}"
+
+#, python-brace-format
+msgid "Nothing noted within {0} move."
+msgid_plural "Nothing noted within {0} moves."
+msgstr[0] "Nada anotado a {0} paso."
+msgstr[1] "Nada anotado a menos de {0} pasos."
+
+#, python-brace-format
+msgid "Near: {0}."
+msgstr "Cerca: {0}."
+
+msgid "The note was taken off."
+msgstr "Se quitó la nota."
+
+#, python-brace-format
+msgid "Noted: {0}"
+msgstr "Anotado: {0}"
+
+msgid "Writes a note on this room, said with it"
+msgstr "Escribe una nota en esta sala, que se dice con ella"
+
+msgid "Takes the note off this room"
+msgstr "Quita la nota de esta sala"
+
+msgid "Exploring the map"
+msgstr "Explorando el mapa"
+
+msgid "Follow the exits"
+msgstr "Seguir las salidas"
+
+msgid "Home"
+msgstr "Inicio"
+
+msgid "Back to your room"
+msgstr "Volver a tu sala"
+
+msgid "Backspace"
+msgstr "Retroceso"
+
+msgid "Back to the room before"
+msgstr "Volver a la sala anterior"
+
+msgid "Space"
+msgstr "Espacio"
+
+msgid "Say the room again"
+msgstr "Repetir la sala"
+
+msgid "All about the room"
+msgstr "Todo sobre la sala"
+
+msgid "What is noted near"
+msgstr "Lo anotado cerca"
+
+msgid "Give the room a name"
+msgstr "Dar un nombre a la sala"
+
+msgid "Write a note on the room"
+msgstr "Escribir una nota en la sala"
+
+msgid "Enter  Shift+Enter"
+msgstr "Intro  Mayús+Intro"
+
+msgid "Go there, or say the way"
+msgstr "Ir allí, o decir el camino"
+
+msgid "Say all the keys"
+msgstr "Decir todas las teclas"
+
+msgid "Escape"
+msgstr "Escape"
+
+msgid "Back to the command line"
+msgstr "Volver a la línea de comandos"

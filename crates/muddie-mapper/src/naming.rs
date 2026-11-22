@@ -21,7 +21,104 @@ pub struct Naming {
     pub exits_between: Option<(String, String)>,
 }
 
+/// A place found by what the user looked for (see [`Map::search`]).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Found {
+    pub room: RoomId,
+    pub by: FoundBy,
+    /// How many moves away it is from where it was looked for from, if
+    /// the map knows a way.
+    pub moves: Option<usize>,
+    /// Found by its name: how many rooms have it, of which this is the
+    /// nearest.
+    pub alike: usize,
+}
+
+/// What a place was found by.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FoundBy {
+    /// The name the user gave it.
+    Mark(String),
+    /// The note the user wrote on it.
+    Note,
+    /// Its name, as the MUD names it.
+    Name,
+}
+
 impl Map {
+    /// The places `query` is in, ignoring case, as seen from `from`: the
+    /// rooms the user gave a name that has it, then those whose note or
+    /// name has it, each name once, at its nearest room; the nearest
+    /// first. Rooms left over are not found.
+    pub fn search(&self, query: &str, from: Option<RoomId>) -> Vec<Found> {
+        let query = query.trim().to_lowercase();
+        if query.is_empty() {
+            return Vec::new();
+        }
+        let moves = from.map(|from| self.moves_from(from)).unwrap_or_default();
+        let far = |id: &RoomId| moves.get(id).copied();
+        let nearest_first =
+            |found: &Found, name: &str| (found.moves.is_none(), found.moves, name.to_lowercase());
+        let mut marks: Vec<(Found, &str)> = (self.marks.iter())
+            .filter(|(mark, id)| {
+                mark.to_lowercase().contains(&query) && self.rooms.contains_key(id)
+            })
+            .map(|(mark, id)| {
+                let found = Found {
+                    room: *id,
+                    by: FoundBy::Mark(mark.clone()),
+                    moves: far(id),
+                    alike: 1,
+                };
+                (found, mark.as_str())
+            })
+            .collect();
+        marks.sort_by_cached_key(|(found, mark)| nearest_first(found, mark));
+        let mut rest: Vec<(Found, &str)> = (self.rooms.values())
+            .filter(|room| room.note.to_lowercase().contains(&query) && !self.is_ghost(room.id))
+            .map(|room| {
+                let found = Found {
+                    room: room.id,
+                    by: FoundBy::Note,
+                    moves: far(&room.id),
+                    alike: 1,
+                };
+                (found, room.note.as_str())
+            })
+            .collect();
+        // Each name once, at the nearest of the rooms that have it.
+        let mut names: BTreeMap<&str, Found> = BTreeMap::new();
+        for room in self.find(&query) {
+            let moves = far(&room.id);
+            let named = names.entry(self.bare_name(&room.name)).or_insert(Found {
+                room: room.id,
+                by: FoundBy::Name,
+                moves,
+                alike: 0,
+            });
+            named.alike += 1;
+            if moves.is_some_and(|moves| named.moves.is_none_or(|known| moves < known)) {
+                (named.room, named.moves) = (room.id, moves);
+            }
+        }
+        rest.extend(names.into_iter().map(|(name, found)| (found, name)));
+        rest.sort_by_cached_key(|(found, name)| nearest_first(found, name));
+        // A room once, by the first it was found by.
+        let mut seen = HashSet::new();
+        (marks.into_iter().chain(rest))
+            .map(|(found, _)| found)
+            .filter(|found| seen.insert(found.room))
+            .collect()
+    }
+
+    /// The names the user gave a room.
+    pub fn marks_of(&self, room: RoomId) -> Vec<&str> {
+        (self.marks.iter())
+            .filter(|(_, id)| **id == room)
+            .map(|(mark, _)| mark.as_str())
+            .collect()
+    }
+
     /// Teaches the map the server's words for directions: for each
     /// direction (`n`, `ne`... `u`, `d`, `in`, `out`), the words that mean
     /// it, the first being what a walk sends. Replaces what was taught.

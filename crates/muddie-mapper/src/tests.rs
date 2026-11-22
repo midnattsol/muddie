@@ -439,6 +439,7 @@ fn desert() -> Map {
         weight: 1,
         avoid: false,
         colour: None,
+        note: String::new(),
     };
     let rooms = vec![
         room(10, "Dune", &[("e", 11)]),
@@ -583,6 +584,7 @@ fn a_map_taken_again_keeps_what_the_user_set_and_where_it_came_from() {
         map.set_source_reader(Some(MUDLET_READER)).unwrap();
         map.set_colour(10, Some([7, 7, 7])).unwrap();
         map.set_colour(12, Some([5, 5, 5])).unwrap();
+        map.set_note(13, "  Fresh water  ").unwrap();
         // The newer map has the same rooms, and no exit of the user's; it
         // colours one room, where the colour set before gives way.
         let mut newer: Vec<Room> = desert().rooms().cloned().collect();
@@ -601,6 +603,7 @@ fn a_map_taken_again_keeps_what_the_user_set_and_where_it_came_from() {
         (Some([1, 1, 1]), None, Some([5, 5, 5]))
     );
     assert_eq!(map.marked("water"), Some(13));
+    assert_eq!(map.room(13).unwrap().note, "Fresh water");
     assert_eq!(map.source_reader(), Some(MUDLET_READER));
     assert_eq!(
         map.source(),
@@ -779,6 +782,7 @@ fn copies_of_rooms_no_room_leads_to_are_left_over() {
         weight: 1,
         avoid: false,
         colour: None,
+        note: String::new(),
     };
     map.replace_all(
         vec![
@@ -839,4 +843,36 @@ fn a_room_lies_some_way_from_another_and_is_called_short() {
     street.name = "Anduar: Calle [e,w]".into();
     assert_eq!(map.short_name(&street), "Calle");
     assert_eq!(map.short_name(map.room(10).unwrap()), "Dune");
+}
+
+#[test]
+fn places_are_found_by_mark_note_and_name_the_nearest_first() {
+    // 1 Gate -n-> 2 Square -e-> 3 Tower -u-> 4 Tower Top, and a Tower far
+    // off that no way leads to.
+    let mut map = town();
+    map.visit(info(9, "Tower", &[])).unwrap();
+    map.mark("home tower", 4).unwrap();
+    map.set_note(2, "A fountain by the tower").unwrap();
+    map.visit(info(1, "Gate", &[("n", 2), ("portal", 4)]))
+        .unwrap();
+    let found = map.search("TOWER", Some(1));
+    let said: Vec<(RoomId, FoundBy, Option<usize>, usize)> = (found.into_iter())
+        .map(|found| (found.room, found.by, found.moves, found.alike))
+        .collect();
+    assert_eq!(
+        said,
+        [
+            (4, FoundBy::Mark("home tower".into()), Some(1), 1),
+            (2, FoundBy::Note, Some(1), 1),
+            // Two rooms are called Tower: the one there is a way to.
+            (3, FoundBy::Name, Some(2), 2),
+        ]
+    );
+    assert_eq!(map.marks_of(4), ["home tower"]);
+    assert!(map.search("  ", Some(1)).is_empty());
+    // Nowhere to look from: all the same, found.
+    assert_eq!(map.search("fountain", None)[0].moves, None);
+    // A note emptied is no note.
+    map.set_note(2, " ").unwrap();
+    assert!(map.search("fountain", None).is_empty());
 }

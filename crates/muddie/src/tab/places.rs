@@ -181,40 +181,7 @@ impl Tab {
                 "" => map.current(),
                 place => map.rooms_meant(place).first().and_then(|id| map.room(*id)),
             };
-            room.map(|room| {
-                let mut said = format!("{} (#{}). {}", room.name, room.id, describe(&map, room));
-                // Another room than the player's: how far, and which way.
-                let here = map.current().map(|here| here.id);
-                if here.is_some_and(|here| here != room.id) {
-                    said.push(' ');
-                    said.push_str(&crate::mapview::how_far(&map, here, room));
-                    said.push('.');
-                }
-                let marks: Vec<&str> = (map.marks().iter())
-                    .filter(|(_, id)| **id == room.id)
-                    .map(|(name, _)| name.as_str())
-                    .collect();
-                if !marks.is_empty() {
-                    said.push(' ');
-                    said.push_str(&trf("Called {0}.", &[&marks.join(", ")]));
-                }
-                if let Some(copied) = map.ghost_of(room.id) {
-                    said.push(' ');
-                    said.push_str(&trf(
-                        "It is left over: a copy of #{0}, in its place, that no other room leads to. It is not drawn, nor found.",
-                        &[&copied.to_string()],
-                    ));
-                }
-                if room.avoid {
-                    said.push(' ');
-                    said.push_str(tr("Routes avoid it."));
-                }
-                if room.weight > 1 {
-                    said.push(' ');
-                    said.push_str(&trf("Costs {0} to enter.", &[&room.weight.to_string()]));
-                }
-                said
-            })
+            room.map(|room| info_of(&map, room))
         };
         match said {
             Some(said) => self.note(&said),
@@ -223,6 +190,44 @@ impl Tab {
                 self.refuse(&said);
             }
             None => self.refuse(tr("No room matches.")),
+        }
+    }
+
+    /// Says aloud all the map knows of a room, as it is explored.
+    pub(super) fn say_info_aloud(&mut self, room: RoomId) {
+        let said = {
+            let map = self.map.borrow();
+            map.room(room).map(|room| info_of(&map, room))
+        };
+        if let Some(said) = said {
+            self.voice.say_now(&said);
+        }
+    }
+
+    /// Writes a note on the room the player is in, or, with none, takes
+    /// it off.
+    pub(super) fn note_here(&mut self, note: &str) {
+        let here = self.map.borrow().current().map(|room| room.id);
+        let Some(here) = here else {
+            let said = self.unknown_whereabouts();
+            return self.refuse(&said);
+        };
+        if let Some(said) = self.write_note(here, note) {
+            self.note(&said);
+        }
+    }
+
+    /// Writes a note on a room, or, empty, takes it off. Returns what to
+    /// say of it, or None if it could not be saved, which is said.
+    pub(super) fn write_note(&mut self, room: RoomId, note: &str) -> Option<String> {
+        let saved = self.map.borrow_mut().set_note(room, note);
+        match saved {
+            Ok(_) if note.trim().is_empty() => Some(tr("The note was taken off.").to_owned()),
+            Ok(_) => Some(trf("Noted: {0}", &[note.trim()])),
+            Err(error) => {
+                self.refuse(&trf("Could not save the map: {0}", &[&error.to_string()]));
+                None
+            }
         }
     }
 
@@ -256,14 +261,21 @@ impl Tab {
             let said = self.unknown_whereabouts();
             return self.refuse(&said);
         };
-        let saved = self.map.borrow_mut().mark(name, here);
-        match saved {
-            Ok(()) => self.note(&trf(
+        if self.mark_room(here, name) {
+            self.note(&trf(
                 "This room is now called {0}: /map travel {0} goes to it.",
                 &[name],
-            )),
-            Err(error) => self.refuse(&trf("Could not save the map: {0}", &[&error.to_string()])),
+            ));
         }
+    }
+
+    /// Names a room. Returns whether it was saved; if not, says so.
+    pub(super) fn mark_room(&mut self, room: RoomId, name: &str) -> bool {
+        let saved = self.map.borrow_mut().mark(name, room);
+        if let Err(error) = &saved {
+            self.refuse(&trf("Could not save the map: {0}", &[&error.to_string()]));
+        }
+        saved.is_ok()
     }
 
     /// Forgets a name given to a room.
@@ -420,98 +432,88 @@ pub(super) enum Taking {
     Update,
 }
 
-/// Of the rooms of a name: how many moves away the nearest is, if it can
-/// be reached, which it is, and how many there are.
-type Nearest = (Option<usize>, RoomId, usize);
-
-/// How many places the palette lists for what is typed, at most.
+/// How many places the palette lists for what is typed, at most, besides
+/// the rooms named.
 const PLACES: usize = 8;
 
 impl Tab {
-    /// The places of the map whose name has `query`, for the palette: the
-    /// marks that have it, and each name once, at its nearest room, the
-    /// nearest first, with where it is and how many moves away.
+    /// The places of the map that have `query`, for the palette: the rooms
+    /// named, then those whose note or name has it, each name once, at its
+    /// nearest room, the nearest first, with where each is and how far.
     pub(super) fn palette_places(&self, query: &str) -> Vec<commands::Item> {
-        let query = query.trim().to_lowercase();
-        if query.chars().count() < 2 {
+        if query.trim().chars().count() < 2 {
             return Vec::new();
         }
         let map = self.map.borrow();
-        let moves = map
-            .current()
-            .map(|here| map.moves_from(here.id))
-            .unwrap_or_default();
-        let place = |name: &str, about: String| commands::Item {
-            insert: String::new(),
-            usage: name.to_owned(),
-            group: tr("Places").to_owned(),
-            about,
-            more: false,
-            act: Some(commands::Act::Place(name.to_owned())),
-        };
-        let mut items: Vec<commands::Item> = (map.marks().iter())
-            .filter(|(mark, _)| mark.to_lowercase().contains(&query))
-            .map(|(mark, id)| {
-                let room = map
-                    .room(*id)
-                    .map_or_else(String::new, |room| place_words(&map, room));
-                place(mark, trf("mark, {0}", &[&room]))
+        let here = map.current().map(|here| here.id);
+        let found = map.search(query, here);
+        let (marks, rest): (Vec<_>, Vec<_>) = (found.into_iter())
+            .partition(|found| matches!(found.by, muddie_mapper::FoundBy::Mark(_)));
+        (marks.into_iter().chain(rest.into_iter().take(PLACES)))
+            .map(|found| {
+                let (title, about) = crate::mapview::found_words(&map, here, &found);
+                // A note says little of how to go there: the room's number does.
+                let place = match found.by {
+                    muddie_mapper::FoundBy::Note => found.room.to_string(),
+                    _ => title.clone(),
+                };
+                commands::Item {
+                    insert: String::new(),
+                    usage: title,
+                    group: tr("Places").to_owned(),
+                    about,
+                    more: false,
+                    act: Some(commands::Act::Place(place)),
+                }
             })
-            .collect();
-        // Each name once, by the nearest of the rooms that have it.
-        let mut names: std::collections::BTreeMap<&str, Nearest> = Default::default();
-        for room in map.find(&query) {
-            let far = moves.get(&room.id).copied();
-            let named = names
-                .entry(map.bare_name(&room.name))
-                .or_insert((far, room.id, 0));
-            named.2 += 1;
-            if far.is_some_and(|far| named.0.is_none_or(|known| far < known)) {
-                (named.0, named.1) = (far, room.id);
-            }
-        }
-        let mut found: Vec<(&str, Nearest)> = names.into_iter().collect();
-        found.sort_by_key(|(name, (far, _, _))| (far.is_none(), *far, *name));
-        for (name, (far, id, count)) in found.into_iter().take(PLACES) {
-            let mut detail: Vec<String> = Vec::new();
-            if let Some(region) = map
-                .room(id)
-                .and_then(|room| map.region(room))
-                .filter(|region| *region != name)
-            {
-                detail.push(region.to_owned());
-            }
-            if let Some(far) = far {
-                let moves = trn("{0} move", "{0} moves", far as u64);
-                let way =
-                    (map.current()).and_then(|here| crate::mapview::toward(&map, here.id, id));
-                detail.push(match way {
-                    Some(way) => format!("{moves} {way}"),
-                    None => moves,
-                });
-            }
-            if count > 1 {
-                detail.push(trn("nearest of {0}", "nearest of {0}", count as u64));
-            }
-            items.push(place(name, detail.join(" · ")));
-        }
-        items
+            .collect()
     }
 }
 
-/// A room as it is said: its name, without the exits some MUDs write
-/// after it, and its region when that is not its name already.
-pub(super) fn place_words(map: &muddie_mapper::Map, room: &muddie_mapper::Room) -> String {
-    let name = map.bare_name(&room.name);
-    match map.region(room) {
-        Some(region) if region != name && !name.starts_with(region) => format!("{name}, {region}"),
-        _ => name.to_owned(),
-    }
-}
+pub(super) use crate::mapview::place_words;
 
 /// The regions a route goes through, said.
 pub(super) fn through(regions: &[String]) -> String {
     trf("Through {0}.", &[&regions.join(", ")])
+}
+
+/// All the map knows of a room: its name and number, where it is and its
+/// exits, how far it is and which way, its names, its note, and whether
+/// it is left over, avoided or costs more to enter.
+fn info_of(map: &muddie_mapper::Map, room: &muddie_mapper::Room) -> String {
+    let mut said = format!("{} (#{}). {}", room.name, room.id, describe(map, room));
+    // Another room than the player's: how far, and which way.
+    let here = map.current().map(|here| here.id);
+    if here.is_some_and(|here| here != room.id) {
+        said.push(' ');
+        said.push_str(&crate::mapview::how_far(map, here, room));
+        said.push('.');
+    }
+    let marks = map.marks_of(room.id);
+    if !marks.is_empty() {
+        said.push(' ');
+        said.push_str(&trf("Called {0}.", &[&marks.join(", ")]));
+    }
+    if !room.note.is_empty() {
+        said.push(' ');
+        said.push_str(&trf("Note: {0}", &[&room.note]));
+    }
+    if let Some(copied) = map.ghost_of(room.id) {
+        said.push(' ');
+        said.push_str(&trf(
+            "It is left over: a copy of #{0}, in its place, that no other room leads to. It is not drawn, nor found.",
+            &[&copied.to_string()],
+        ));
+    }
+    if room.avoid {
+        said.push(' ');
+        said.push_str(tr("Routes avoid it."));
+    }
+    if room.weight > 1 {
+        said.push(' ');
+        said.push_str(&trf("Costs {0} to enter.", &[&room.weight.to_string()]));
+    }
+    said
 }
 
 /// What tells a room from others of its name: where it is and its exits.

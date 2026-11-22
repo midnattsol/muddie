@@ -694,6 +694,16 @@ fn shows_map() {
     harness.key_press(egui::Key::ArrowRight);
     harness.run_steps(3);
     save(&mut harness, "map-selected");
+    // Searching the map, over it, with what was found said.
+    harness.key_press_modifiers(egui::Modifiers::COMMAND, egui::Key::F);
+    harness.run_steps(3);
+    harness.event(egui::Event::Text("pa".into()));
+    harness.run_steps(2);
+    harness.key_press(egui::Key::Enter);
+    harness.run_steps(3);
+    save(&mut harness, "map-search");
+    harness.key_press(egui::Key::Escape);
+    harness.run_steps(3);
     // The map placed the rooms as walked: the patio is north-east of
     // the alley, one cell east of the square.
     let map = harness.state().tab().map.borrow();
