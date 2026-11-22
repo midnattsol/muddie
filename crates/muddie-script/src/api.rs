@@ -3,6 +3,7 @@
 use super::*;
 
 pub use language::set_interface_language;
+pub(crate) use language::{in_interface_language, texts_of};
 
 mod data;
 mod language;

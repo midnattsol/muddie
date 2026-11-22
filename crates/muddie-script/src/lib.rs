@@ -217,8 +217,8 @@ pub struct OfferedTool {
     /// For one that switches something on or off, whether it is on.
     pub checked: Option<bool>,
 }
-use api::install_api;
 pub use api::set_interface_language;
+use api::{in_interface_language, install_api, texts_of};
 use convert::*;
 use map_api::*;
 use state::*;
@@ -560,7 +560,7 @@ impl Engine {
     pub fn map_tools(&self) -> Vec<OfferedTool> {
         (self.state.borrow().map_tools.iter())
             .map(|tool| OfferedTool {
-                label: tool.label.clone(),
+                label: in_interface_language(&tool.label).unwrap_or_default(),
                 by: (Path::new(&tool.owner).file_stem()).map_or_else(
                     || tool.owner.clone(),
                     |stem| stem.to_string_lossy().into_owned(),
@@ -576,7 +576,8 @@ impl Engine {
     pub fn use_map_tool(&mut self, label: &str) -> bool {
         let tool = {
             let mut state = self.state.borrow_mut();
-            let tool = state.map_tools.iter_mut().find(|tool| tool.label == label);
+            let tool = (state.map_tools.iter_mut())
+                .find(|tool| in_interface_language(&tool.label).as_deref() == Some(label));
             tool.map(|tool| {
                 tool.checked = tool.checked.map(|on| !on);
                 (tool.owner.clone(), tool.callback.clone(), tool.checked)

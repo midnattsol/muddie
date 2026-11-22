@@ -33,22 +33,33 @@ pub(crate) fn in_interface_language(texts: &[(String, String)]) -> Option<String
     })
 }
 
+/// A text a script gives, as one string or by language code, as
+/// `{en = "Map", es = "Mapa"}`: each language's, in order of code; a
+/// string alone is under no code.
+pub(crate) fn texts_of(value: Value) -> mlua::Result<Vec<(String, String)>> {
+    let mut texts: Vec<(String, String)> = match value {
+        Value::String(text) => vec![(String::new(), text.to_str()?.trim().to_owned())],
+        Value::Table(texts) => (texts.pairs::<String, String>())
+            .map(|pair| pair.map(|(code, text)| (code, text.trim().to_owned())))
+            .collect::<mlua::Result<_>>()?,
+        other => {
+            return Err(mlua::Error::runtime(format!(
+                "a text is a string, or the texts by language, as {{en = \"Hello\", es = \"Hola\"}}, not {}",
+                other.type_name()
+            )));
+        }
+    };
+    texts.retain(|(_, text)| !text.is_empty());
+    texts.sort();
+    Ok(texts)
+}
+
 pub(crate) fn install(lua: &Lua) -> mlua::Result<()> {
     lua.globals().set(
         "tr",
-        lua.create_function(|_, texts: Value| match texts {
-            Value::String(text) => Ok(text.to_str()?.to_owned()),
-            Value::Table(texts) => {
-                let texts: Vec<(String, String)> = texts
-                    .pairs::<String, String>()
-                    .collect::<mlua::Result<_>>()?;
-                in_interface_language(&texts)
-                    .ok_or_else(|| mlua::Error::runtime("tr needs a text in some language"))
-            }
-            other => Err(mlua::Error::runtime(format!(
-                "tr takes the texts by language, as tr{{en = \"Hello\", es = \"Hola\"}}, not {}",
-                other.type_name()
-            ))),
+        lua.create_function(|_, texts: Value| {
+            in_interface_language(&texts_of(texts)?)
+                .ok_or_else(|| mlua::Error::runtime("tr needs a text in some language"))
         })?,
     )
 }

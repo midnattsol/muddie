@@ -96,8 +96,8 @@ pub(super) struct DataHandler {
 /// from the map's menu or the palette.
 pub(super) struct MapTool {
     pub(crate) owner: String,
-    /// What the user chooses it by.
-    pub(crate) label: String,
+    /// What the user chooses it by, by language code (see `tr`).
+    pub(crate) label: Vec<(String, String)>,
     /// For one that switches something on or off, whether it is on.
     pub(crate) checked: Option<bool>,
     pub(crate) callback: Function,

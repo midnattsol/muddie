@@ -520,8 +520,8 @@ fn install_tools(
     api.set(
         "action",
         lua.create_function(
-            move |_, (label, callback, options): (String, Option<Function>, Option<Table>)| {
-                let label = label.trim().to_owned();
+            move |_, (label, callback, options): (Value, Option<Function>, Option<Table>)| {
+                let label = texts_of(label)?;
                 if label.is_empty() {
                     return Err(mlua::Error::runtime(
                         "an action needs a name to be chosen by",

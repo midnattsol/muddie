@@ -245,5 +245,18 @@ fn scripts_show_their_text_in_the_language_of_the_interface() {
         echoed(["Map", "Karte", "Same"])
     );
     assert_eq!(shown(&mut engine, "fr"), echoed(["Map", "Carte", "Same"]));
+    // What a script offers to do with the map is named so too, in the
+    // language the interface is in when shown, and chosen by that name.
+    engine.exec(
+        "test",
+        r#"map.action({en = "Sync", es = "Sincronizar"}, function() echo("synced") end)"#,
+    );
+    engine.take_actions();
+    let named = |engine: &Engine| engine.map_tools()[0].label.clone();
+    assert_eq!(named(&engine), "Sync");
+    crate::set_interface_language("es");
+    assert_eq!(named(&engine), "Sincronizar");
+    assert!(engine.use_map_tool("Sincronizar"));
+    assert_eq!(engine.take_actions(), [Action::Echo("synced".into())]);
     crate::set_interface_language("");
 }

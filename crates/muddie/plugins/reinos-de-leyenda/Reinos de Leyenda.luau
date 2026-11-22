@@ -138,7 +138,8 @@ end)
 -- map added where the player went, if the user switched that on (below).
 
 local MAP = "https://mudlet.reinosdeleyenda.es/Mapa_Mudlet.zip"
-local SYNC = tr({ en = "Sync with the official map", es = "Sincronizar con el mapa oficial" })
+-- Its name, in the language the interface is in when shown.
+local SYNC = { en = "Sync with the official map", es = "Sincronizar con el mapa oficial" }
 
 map.action(SYNC, function()
     map.import(MAP)
@@ -288,7 +289,7 @@ end
 -- by a command or a portal, are not added.
 
 local ADDING = "Reinos de Leyenda: añadir salas"
-local ADDING_ACTION = tr({ en = "Add the rooms the map has not", es = "Añadir al mapa las salas que no tiene" })
+local ADDING_ACTION = { en = "Add the rooms the map has not", es = "Añadir al mapa las salas que no tiene" }
 local adding = recall(ADDING) == true
 
 -- Whether the room the map has the player in is the one the game wrote
@@ -473,8 +474,8 @@ on_event("connect", function()
     else
         map.newer(MAP, function()
             notify(tr({
-                en = `There is a new version of the official map. To bring it: “{SYNC}”, in the map's menu or the palette. What you have put right on the map is kept.`,
-                es = `Hay una versión nueva del mapa oficial. Para traerla: «{SYNC}», en el menú del mapa o en la paleta. Lo que hayas corregido en el mapa se mantiene.`,
+                en = `There is a new version of the official map. To bring it: “{SYNC.en}”, in the map's menu or the palette. What you have put right on the map is kept.`,
+                es = `Hay una versión nueva del mapa oficial. Para traerla: «{SYNC.es}», en el menú del mapa o en la paleta. Lo que hayas corregido en el mapa se mantiene.`,
             }))
         end)
     end
