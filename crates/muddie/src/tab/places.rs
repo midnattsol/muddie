@@ -183,6 +183,13 @@ impl Tab {
             };
             room.map(|room| {
                 let mut said = format!("{} (#{}). {}", room.name, room.id, describe(&map, room));
+                // Another room than the player's: how far, and which way.
+                let here = map.current().map(|here| here.id);
+                if here.is_some_and(|here| here != room.id) {
+                    said.push(' ');
+                    said.push_str(&crate::mapview::how_far(&map, here, room));
+                    said.push('.');
+                }
                 let marks: Vec<&str> = (map.marks().iter())
                     .filter(|(_, id)| **id == room.id)
                     .map(|(name, _)| name.as_str())
@@ -475,7 +482,13 @@ impl Tab {
                 detail.push(region.to_owned());
             }
             if let Some(far) = far {
-                detail.push(trn("{0} move", "{0} moves", far as u64));
+                let moves = trn("{0} move", "{0} moves", far as u64);
+                let way =
+                    (map.current()).and_then(|here| crate::mapview::toward(&map, here.id, id));
+                detail.push(match way {
+                    Some(way) => format!("{moves} {way}"),
+                    None => moves,
+                });
             }
             if count > 1 {
                 detail.push(trn("nearest of {0}", "nearest of {0}", count as u64));

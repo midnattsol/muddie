@@ -40,12 +40,15 @@ pub enum MapAction {
     Command(&'static str),
     /// Open the scripts, to set a mapper up.
     Scripts,
-    /// This room was chosen to look at: say it.
-    Selected(RoomId),
+    /// This room was chosen to look at, from the one before it if the keys
+    /// moved there: say it.
+    Selected(RoomId, Option<RoomId>),
     /// Say the way to this room, without going.
     Way(RoomId),
-    /// The room chosen has no exit that way, as asked with the keys.
-    NoExit,
+    /// The room chosen has no exit this way, as asked with the keys.
+    NoExit(&'static str),
+    /// Leave the map for the command line, with what was typed on it.
+    Leave(String),
 }
 
 /// The keys that move the room chosen along its exits while the map has
@@ -68,6 +71,10 @@ const MOVES: [(egui::Key, &str); 14] = [
     (egui::Key::PageDown, "d"),
 ];
 
+/// The keys while exploring the map, said on coming to it.
+const EXPLORING_KEYS: &str =
+    "Arrows follow the exits, Home comes back to you, Enter goes, Escape goes back.";
+
 /// A room as it is told when chosen: its name, its region if the name
 /// does not say it, its number, how many moves away it is from `from`,
 /// and its exits.
@@ -78,20 +85,86 @@ pub fn selection_line(map: &Map, from: Option<RoomId>, room: &Room) -> String {
         parts.push(region.to_owned());
     }
     parts.push(format!("#{}", room.id));
-    parts.push(match from {
-        Some(from) if from == room.id => tr("you are here").to_owned(),
-        Some(from) => match map.route(from, room.id) {
-            Some(steps) => crate::i18n::trn("{0} move", "{0} moves", steps.len() as u64),
-            None => tr("no known way").to_owned(),
-        },
-        None => tr("the map does not know where you are").to_owned(),
+    parts.push(how_far(map, from, room));
+    parts.push(exits_words(map, room));
+    parts.join(" · ")
+}
+
+/// A direction in words: the MUD's, if the map was taught them, else as
+/// people say it.
+pub fn direction_words(map: &Map, direction: &str) -> String {
+    let taught = map.command_for(direction);
+    if taught != direction {
+        return taught.to_owned();
+    }
+    match direction {
+        "n" => tr("north"),
+        "ne" => tr("northeast"),
+        "e" => tr("east"),
+        "se" => tr("southeast"),
+        "s" => tr("south"),
+        "sw" => tr("southwest"),
+        "w" => tr("west"),
+        "nw" => tr("northwest"),
+        "u" => tr("up"),
+        "d" => tr("down"),
+        "in" => tr("in"),
+        "out" => tr("out"),
+        other => other,
+    }
+    .to_owned()
+}
+
+/// Which way `to` lies from `from`, said: "to the north-east". None if
+/// the map cannot tell, being in another area or level.
+pub fn toward(map: &Map, from: RoomId, to: RoomId) -> Option<String> {
+    let direction = map.bearing(from, to)?;
+    Some(crate::i18n::trf(
+        "to the {0}",
+        &[&direction_words(map, direction)],
+    ))
+}
+
+/// How far a room is from `from`, said: here, or how many moves and which
+/// way, or that there is no known way.
+pub fn how_far(map: &Map, from: Option<RoomId>, room: &Room) -> String {
+    let Some(from) = from else {
+        return tr("the map does not know where you are").to_owned();
+    };
+    if from == room.id {
+        return tr("you are here").to_owned();
+    }
+    let Some(steps) = map.route(from, room.id) else {
+        return tr("no known way").to_owned();
+    };
+    let moves = crate::i18n::trn("{0} move", "{0} moves", steps.len() as u64);
+    match toward(map, from, room.id) {
+        Some(way) => format!("{moves} {way}"),
+        None => moves,
+    }
+}
+
+/// A room's exits, said in the MUD's words, in the order of the compass,
+/// then up and down, in and out, and the rest.
+fn exits_words(map: &Map, room: &Room) -> String {
+    const ORDER: [&str; 12] = [
+        "n", "ne", "e", "se", "s", "sw", "w", "nw", "u", "d", "in", "out",
+    ];
+    let mut ways: Vec<&String> = room.exits.keys().collect();
+    ways.sort_by_key(|way| {
+        ORDER
+            .iter()
+            .position(|known| known == way)
+            .unwrap_or(ORDER.len())
     });
-    let exits: Vec<&str> = room.exits.keys().map(|way| map.command_for(way)).collect();
-    parts.push(match exits.is_empty() {
+    let exits: Vec<String> = ways
+        .into_iter()
+        .map(|way| direction_words(map, way))
+        .collect();
+    match exits.is_empty() {
         true => tr("no exits").to_owned(),
         false => crate::i18n::trf("exits: {0}", &[&exits.join(", ")]),
-    });
-    parts.join(" · ")
+    }
 }
 
 /// What the map's tools asked for.
@@ -140,6 +213,10 @@ pub struct MapView {
     /// Whether the map had the keyboard the frame before: Escape takes it
     /// before it is seen.
     had_focus: bool,
+    /// Whether the map is to take the keyboard when drawn, to explore it.
+    focus_wanted: bool,
+    /// The region of the room said last, to say a region on coming to it.
+    said_region: Option<String>,
 }
 
 /// What is told of the room chosen depends on: it, where the player is,
@@ -168,6 +245,8 @@ impl Default for MapView {
             told: None,
             reveal: None,
             had_focus: false,
+            focus_wanted: false,
+            said_region: None,
         }
     }
 }
@@ -245,10 +324,16 @@ impl MapView {
             .filter(|id| map.room(*id).is_some() && !map.is_ghost(*id));
         let told = self.told_of_selected(map);
         // The room chosen is told under the map.
-        let footer = match told {
-            Some(_) => ui.text_style_height(&egui::TextStyle::Body) + ui.spacing().item_spacing.y,
-            None => 0.0,
-        };
+        // As many lines as it takes at this width, room kept for them.
+        let told_text = told.as_ref().map(|told| {
+            let font = egui::TextStyle::Body.resolve(ui.style());
+            let colour = theme::current().text_dim;
+            ui.painter()
+                .layout(told.clone(), font, colour, ui.available_width())
+        });
+        let footer = told_text
+            .as_ref()
+            .map_or(0.0, |galley| galley.size().y + ui.spacing().item_spacing.y);
         let size = ui.available_size() - vec2(0.0, footer);
         let (response, painter) = ui.allocate_painter(size, Sense::click_and_drag());
         let label = match &told {
@@ -257,6 +342,9 @@ impl MapView {
         };
         ui.ctx()
             .accesskit_node_builder(response.id, |node| node.set_label(label));
+        if std::mem::take(&mut self.focus_wanted) {
+            response.request_focus();
+        }
         self.zoom_and_pan(ui, &response);
         let gliding = self.glide_offset(ui);
         let all_areas = self.all_areas;
@@ -350,7 +438,7 @@ impl MapView {
             let before = self.selected;
             self.selected = pointed.map(|room| room.id);
             if let Some(id) = self.selected.filter(|id| before != Some(*id)) {
-                chosen = chosen.or(Some(MapAction::Selected(id)));
+                chosen = chosen.or(Some(MapAction::Selected(id, None)));
             }
         }
         if let Some(keyed) = self.keys(ui, &response, map, current) {
@@ -358,8 +446,8 @@ impl MapView {
         }
         self.bring_into_sight(ui, &response, map, &grid, (&area, level));
         room_tip(response, pointed);
-        if let Some(told) = told {
-            ui.label(RichText::new(told).color(theme::current().text_dim));
+        if let Some(galley) = told_text {
+            ui.add(egui::Label::new(galley));
         }
         chosen
     }
@@ -387,15 +475,27 @@ impl MapView {
         current: &Room,
     ) -> Option<MapAction> {
         let had_focus = std::mem::replace(&mut self.had_focus, response.has_focus());
-        if had_focus
-            && self.selected.is_some()
-            && ui.input(|input| input.key_pressed(egui::Key::Escape))
-        {
-            self.selected = None;
-            return None;
+        // Escape, or anything typed but the digits that move: back to the
+        // command line, with what was typed.
+        if had_focus && ui.input(|input| input.key_pressed(egui::Key::Escape)) {
+            return Some(self.leave(ui, response, String::new()));
         }
         if !response.has_focus() {
             return None;
+        }
+        let typed: String = ui.input(|input| {
+            (input.events.iter())
+                .filter_map(|event| match event {
+                    egui::Event::Text(text) => Some(text.as_str()),
+                    _ => None,
+                })
+                .collect()
+        });
+        if typed
+            .chars()
+            .any(|c| !c.is_ascii_digit() && !c.is_whitespace())
+        {
+            return Some(self.leave(ui, response, typed));
         }
         // The arrows are the map's while it has the keyboard, not to move
         // to another widget.
@@ -414,23 +514,92 @@ impl MapView {
                 return Some(MapAction::Walk(id));
             }
         }
+        if pressed(egui::Modifiers::NONE, egui::Key::Home) {
+            // A jump, not a move: nothing is said of the way back.
+            self.selected = Some(current.id);
+            self.reveal = Some(current.id);
+            return Some(MapAction::Selected(current.id, None));
+        }
         let from = self.selected.unwrap_or(current.id);
-        let way = MOVES
+        let (_, way) = MOVES
             .iter()
-            .find(|(key, _)| pressed(egui::Modifiers::NONE, *key))?
-            .1;
+            .find(|(key, _)| pressed(egui::Modifiers::NONE, *key))?;
         let to = (map.room(from))
-            .and_then(|room| room.exits.get(way))
+            .and_then(|room| room.exits.get(*way))
             .map(|exit| exit.to)
             .filter(|to| map.room(*to).is_some());
         match to {
             Some(to) => {
                 self.selected = Some(to);
                 self.reveal = Some(to);
-                Some(MapAction::Selected(to))
+                Some(MapAction::Selected(to, Some(from)))
             }
-            None => Some(MapAction::NoExit),
+            None => Some(MapAction::NoExit(way)),
         }
+    }
+
+    /// Leaves the map for the command line, choosing no room.
+    fn leave(&mut self, ui: &Ui, response: &Response, typed: String) -> MapAction {
+        self.selected = None;
+        self.had_focus = false;
+        ui.memory_mut(|memory| memory.surrender_focus(response.id));
+        MapAction::Leave(typed)
+    }
+
+    /// Starts exploring the map from `from`: it is chosen, and the map
+    /// takes the keyboard when next drawn. Returns what is said on coming
+    /// to it.
+    pub fn explore(&mut self, map: &Map, from: &Room) -> String {
+        self.selected = Some(from.id);
+        self.reveal = Some(from.id);
+        self.focus_wanted = true;
+        self.said_region = map.region(from).map(str::to_owned);
+        let name = map.short_name(from);
+        let here = match map.region(from) {
+            Some(region) if region != name => format!("{name}, {region}"),
+            _ => name.to_owned(),
+        };
+        crate::i18n::trf(
+            "Exploring the map from {0}. {1}. {2}",
+            &[&here, &exits_words(map, from), tr(EXPLORING_KEYS)],
+        )
+    }
+
+    /// What is said of a room the keys or a click chose, `came` from the
+    /// one before: its name, and its region on coming to another; how far
+    /// it is and which way; its exits; and, only if so, that it has none
+    /// back, that some are closed, or that routes avoid it.
+    pub fn said_of(&mut self, map: &Map, room: &Room, came: Option<RoomId>) -> String {
+        let name = map.short_name(room);
+        let region = map.region(room).map(str::to_owned);
+        let mut said = match &region {
+            Some(region) if self.said_region.as_ref() != Some(region) && region != name => {
+                crate::i18n::trf("Into {0}: {1}", &[region, name])
+            }
+            _ => name.to_owned(),
+        };
+        self.said_region = region;
+        let here = map.current().map(|here| here.id);
+        let mut parts = vec![how_far(map, here, room), exits_words(map, room)];
+        if let Some(came) = came.filter(|came| *came != room.id)
+            && !room.exits.values().any(|exit| exit.to == came)
+        {
+            parts.push(tr("no way straight back").to_owned());
+        }
+        let closed: Vec<String> = (room.exits.iter())
+            .filter(|(_, exit)| exit.locked)
+            .map(|(way, _)| direction_words(map, way))
+            .collect();
+        if !closed.is_empty() {
+            parts.push(crate::i18n::trf("closed: {0}", &[&closed.join(", ")]));
+        }
+        if room.avoid {
+            parts.push(tr("routes avoid it").to_owned());
+        }
+        for part in parts {
+            said = format!("{said}. {part}");
+        }
+        said
     }
 
     /// Brings the room the keys chose into sight: to its area and level,

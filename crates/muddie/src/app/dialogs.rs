@@ -41,6 +41,10 @@ impl App {
                                 crate::shortcuts::with_key!("M"),
                                 tr("Say where you are, by the map"),
                             ),
+                            (
+                                crate::shortcuts::with_key!("E"),
+                                tr("Explore the map with the keys"),
+                            ),
                         ],
                     ),
                     (

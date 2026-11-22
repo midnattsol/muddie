@@ -5,7 +5,7 @@ use super::*;
 /// The client's own commands, as they are typed, and what each is for.
 /// They are in English whatever the language of the interface, like the
 /// words of a programming language.
-pub(super) const COMMANDS: [(&str, &str); 30] = [
+pub(super) const COMMANDS: [(&str, &str); 31] = [
     ("/map where", "Says where you are"),
     (
         "/map here [number]",
@@ -24,6 +24,10 @@ pub(super) const COMMANDS: [(&str, &str); 30] = [
         "Says the way to a place, without going",
     ),
     ("/map exits", "Says where each exit of this room leads"),
+    (
+        "/map explore",
+        "Explores the map with the keys, from where you are, without moving",
+    ),
     ("/map near [moves]", "Lists what is a few moves away"),
     ("/map info [place]", "Says all the map knows of a room"),
     (
@@ -90,6 +94,7 @@ impl Tab {
             "/here" => self.here(argument),
             "/route" if given => self.say_route(argument),
             "/exits" => self.say_exits(),
+            "/explore" => self.explore_map(),
             "/near" => self.say_near(argument),
             "/info" => self.say_info(argument),
             "/mark" => self.mark_here(argument),
@@ -196,6 +201,7 @@ pub(super) fn client_command(line: &str) -> Option<(&'static str, String)> {
         ("/map", "here") => "/here",
         ("/map", "route") => "/route",
         ("/map", "exits") => "/exits",
+        ("/map", "explore") => "/explore",
         ("/map", "near") => "/near",
         ("/map", "info") => "/info",
         ("/map", "mark") => "/mark",

@@ -820,3 +820,23 @@ fn copies_of_rooms_no_room_leads_to_are_left_over() {
     map.set_exit(3, "w", 6).unwrap();
     assert!(!map.is_ghost(6) && !map.is_ghost(5));
 }
+
+#[test]
+fn a_room_lies_some_way_from_another_and_is_called_short() {
+    let mut map = desert();
+    // The desert's dunes are in a row from west to east, the oasis at the
+    // east end, one place apart.
+    assert_eq!(map.bearing(10, 12), Some("e"));
+    assert_eq!(map.bearing(12, 10), Some("w"));
+    assert_eq!(map.bearing(10, 10), None);
+    map.move_room(13, pos(15, 5, 0)).unwrap();
+    assert_eq!(map.bearing(10, 13), Some("ne"));
+    map.set_naming(Naming {
+        region_before: Some(":".into()),
+        exits_between: Some(("[".into(), "]".into())),
+    });
+    let mut street = map.room(11).unwrap().clone();
+    street.name = "Anduar: Calle [e,w]".into();
+    assert_eq!(map.short_name(&street), "Calle");
+    assert_eq!(map.short_name(map.room(10).unwrap()), "Dune");
+}

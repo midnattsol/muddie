@@ -91,6 +91,40 @@ impl Map {
             .unwrap_or(name)
     }
 
+    /// A room's name without its region, if the MUD begins names with it,
+    /// nor the exits written after it: "Plaza Mayor" of "Anduar: Plaza
+    /// Mayor [n,s]".
+    pub fn short_name<'a>(&self, room: &'a Room) -> &'a str {
+        let bare = self.bare_name(&room.name);
+        let Some(before) = &self.naming.region_before else {
+            return bare;
+        };
+        match bare.split_once(before.as_str()) {
+            Some((region, rest)) if !region.trim().is_empty() && !rest.trim().is_empty() => {
+                rest.trim()
+            }
+            _ => bare,
+        }
+    }
+
+    /// Which way `to` lies from `from`, on the map as drawn, of the eight of
+    /// the compass: none if they are not in one area and on one level, or
+    /// are in one place.
+    pub fn bearing(&self, from: RoomId, to: RoomId) -> Option<&'static str> {
+        let (from, to) = (self.rooms.get(&from)?, self.rooms.get(&to)?);
+        if from.area != to.area || from.pos.z != to.pos.z {
+            return None;
+        }
+        let (dx, dy) = (to.pos.x - from.pos.x, to.pos.y - from.pos.y);
+        if dx == 0 && dy == 0 {
+            return None;
+        }
+        // Eight slices of the circle, each centred on its direction.
+        let angle = f64::from(dy).atan2(f64::from(dx)).to_degrees();
+        let slice = ((angle + 360.0 + 22.5) / 45.0) as usize % 8;
+        Some(["e", "ne", "n", "nw", "w", "sw", "s", "se"][slice])
+    }
+
     /// Where a room is, in words: what its name begins with, if the MUD
     /// names its rooms so, or its name if it begins with nothing; else its
     /// area, when the map has more than one. None when there is nothing

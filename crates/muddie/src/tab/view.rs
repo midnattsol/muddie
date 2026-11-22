@@ -23,9 +23,13 @@ impl Tab {
         if self.editor.open {
             return self.automation_page(ui);
         }
-        // Alt+M (Ctrl+M on a Mac) says where the player is, by the map.
+        // Alt+M (Ctrl+M on a Mac) says where the player is, by the map;
+        // Alt+E explores it.
         if ui.input_mut(|input| input.consume_key(crate::shortcuts::WITH_KEY, Key::M)) {
             self.say_where_aloud();
+        }
+        if ui.input_mut(|input| input.consume_key(crate::shortcuts::WITH_KEY, Key::E)) {
+            self.explore_map();
         }
         // Alt+0 (Ctrl+0 on a Mac) reads the gauges aloud.
         if ui.input_mut(|input| input.consume_key(crate::shortcuts::WITH_KEY, Key::Num0)) {
@@ -110,19 +114,25 @@ impl Tab {
             Some(MapAction::Walk(room)) => self.walk_to(room),
             Some(MapAction::Tidy(area)) => self.tidy(&area),
             Some(MapAction::Scripts) => self.open_automation(automation::SCRIPTS),
-            Some(MapAction::Selected(room)) => {
+            Some(MapAction::Selected(room, came)) => {
                 let told = {
                     let map = self.map.borrow();
-                    let from = map.current().map(|here| here.id);
-                    map.room(room)
-                        .map(|room| crate::mapview::selection_line(&map, from, room))
+                    let room = map.room(room);
+                    room.map(|room| self.map_view.said_of(&map, room, came))
                 };
                 if let Some(told) = told {
                     self.voice.say_now(&told);
                 }
             }
             Some(MapAction::Way(room)) => self.say_route(&room.to_string()),
-            Some(MapAction::NoExit) => self.voice.say_now(tr("No exit that way.")),
+            Some(MapAction::NoExit(way)) => {
+                let way = crate::mapview::direction_words(&self.map.borrow(), way);
+                self.voice.say_now(&trf("No exit {0}.", &[&way]));
+            }
+            Some(MapAction::Leave(typed)) => {
+                self.input.push_str(&typed);
+                self.cursor_to_end = true;
+            }
             Some(MapAction::Command(command)) => {
                 self.do_client_command(command);
             }

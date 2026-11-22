@@ -524,16 +524,26 @@ is what a name begins with, as Anduar in "Anduar: Plaza Mayor".
 
 | Action | What it does |
 |---|---|
-| Click a room | Chooses it: ringed, and told under the map and to the screen reader: its name, number, how many moves away and its exits. A click on nothing chooses none |
-| Arrows, the digits as on a keypad, Page Up and Down | With the map clicked, move the room chosen along its exits, from yours if none is; the view follows it |
+| Click a room | Chooses it: ringed, and told under the map: its name, number, how many moves away and which way, and its exits. A click on nothing chooses none |
+| Alt+E (Ctrl+E on a Mac), or `/map explore` | Explores the map with the keys, from where you are, without moving: the map takes the keyboard and says so |
+| Arrows, the digits as on a keypad, Page Up and Down | Move the room chosen along its exits, from yours if none is; the view follows it |
+| Home | Back to your room |
 | Enter, Shift+Enter | Walk to the room chosen; say the way there without going |
-| Escape | Chooses none |
+| Escape, or typing | Back to the command line, with what was typed |
 | Double-click a room | Walks there, one step at a time, waiting for each to succeed |
 | Right-click a room | Walk here, avoid in routes, tidy the area |
 | Drag | Moves the view; the wheel zooms |
 | Shift+drag a room | Moves it to another cell |
 | The area list, − and + | Looks at another area or level; **Back to me** returns |
 | The buttons beside the map's title | Find where you are, tidy the area, stop walking; the dots hold the rest: show every area, avoid this room, hide the map |
+
+Exploring, each room is said short, as one who does not see it wants it:
+its name, and its region on coming to another; how many moves away and
+which way; its exits, in the MUD's words, in the order of the compass;
+and only when so, that it has no way straight back, that an exit is
+closed, or that routes avoid it. Its number is not said, but it is under
+the map. Which way a place lies is said in the palette and by `/map info`
+too, when it is in your area and level.
 
 A room marked to avoid is never walked through, and a locked exit is never
 used. Both are kept when the server reports the room again.
@@ -577,6 +587,7 @@ one being said, for games where what came before is soon old.
 | Alt+Shift with the same keys | The same for the panel of channels |
 | Alt+0 | Reads the gauges |
 | Alt+M | Says where you are by the map, and how far a walk has left |
+| Alt+E | Explores the map with the keys, from where you are, without moving |
 
 On a Mac, Option types characters (@ on a Spanish keyboard is Option+2),
 so the shortcuts held with Alt and a letter or a figure are held with Ctrl

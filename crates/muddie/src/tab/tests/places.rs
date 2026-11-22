@@ -484,7 +484,11 @@ fn places_are_found_in_the_palette_and_a_walk_stops_with_escape() {
         .collect();
     assert_eq!(
         places,
-        [("Dunas".to_owned(), "1 move · nearest of 3".to_owned())]
+        // Which way, on the map as drawn: the dunes are in a row.
+        [(
+            "Dunas".to_owned(),
+            "1 move to the oeste · nearest of 3".to_owned()
+        )]
     );
     // Shift and Enter says the way, in the palette.
     harness.key_press_modifiers(Modifiers::SHIFT, Key::Enter);
@@ -578,4 +582,88 @@ fn a_room_is_chosen_on_the_map_to_see_it_and_moved_with_the_keys() {
     harness.key_press(egui::Key::Escape);
     harness.run_steps(2);
     assert_eq!(label(&harness), "Map view");
+}
+
+/// For whoever does not see the map: Alt+E explores it from where they
+/// are, without moving, all with the keys. Each room is said short: its
+/// name, how far and which way, its exits, and only what is worth knowing
+/// besides. Home comes back, Enter goes, and Escape or anything typed
+/// leaves it for the command line, with what was typed.
+#[test]
+fn the_map_is_explored_with_the_keys_alone() {
+    let mut harness = window(None);
+    harness.set_size(egui::vec2(1300.0, 860.0));
+    let app = harness.state_mut().tab_mut();
+    let (_events, mut sent) = fake_connection(app);
+    desert(app);
+    app.scripts.exec(
+        "t",
+        r#"map.directions({e = {"este"}, w = {"oeste"}, n = {"norte"}, s = {"sur"}}) map.names({exits = "[]"})"#,
+    );
+    app.run_actions();
+    assert!(app.map.borrow_mut().set_current(1));
+    app.voice.force_voice();
+    harness.run_steps(3);
+    let said = |harness: &mut Harness<'_, App>| {
+        let app = harness.state_mut().tab_mut();
+        let said = app.voice.said.join(" | ");
+        app.voice.said.clear();
+        said
+    };
+    said(&mut harness);
+    harness.key_press_modifiers(crate::shortcuts::WITH_KEY, Key::E);
+    harness.run_steps(3);
+    assert_eq!(
+        said(&mut harness),
+        "Exploring the map from Dunas. exits: este. Arrows follow the exits, Home comes back to you, Enter goes, Escape goes back."
+    );
+    let focused = |harness: &Harness<'_, App>, label: &str| {
+        harness
+            .get_by_label_contains(label)
+            .accesskit_node()
+            .is_focused()
+    };
+    assert!(focused(&harness, "Map view"));
+    harness.key_press(Key::ArrowRight);
+    harness.run_steps(2);
+    assert_eq!(
+        said(&mut harness),
+        "Dunas. 1 move to the este. exits: este, oeste"
+    );
+    harness.key_press(Key::ArrowRight);
+    harness.key_press(Key::ArrowUp);
+    harness.run_steps(2);
+    assert_eq!(
+        said(&mut harness),
+        "Dunas. 2 moves to the este. exits: norte, oeste | Pozo. 3 moves to the este. exits: sur"
+    );
+    // No way on: said, and it stays.
+    harness.key_press(Key::ArrowUp);
+    harness.run_steps(2);
+    assert_eq!(said(&mut harness), "No exit norte.");
+    // Home: back to the player.
+    harness.key_press(Key::Home);
+    harness.run_steps(2);
+    assert_eq!(said(&mut harness), "Dunas. you are here. exits: este");
+    // To the well, and Enter goes there.
+    for key in [Key::ArrowRight, Key::ArrowRight, Key::ArrowUp, Key::Enter] {
+        harness.key_press(key);
+    }
+    harness.run_steps(2);
+    assert_eq!(sent_lines(&mut sent), ["este"]);
+    // A letter typed: back to the command line, with it.
+    harness.key_press_modifiers(crate::shortcuts::WITH_KEY, Key::E);
+    harness.run_steps(3);
+    assert!(focused(&harness, "Map view"));
+    harness.event(egui::Event::Text("m".into()));
+    harness.run_steps(3);
+    assert!(focused(&harness, "Command"));
+    assert_eq!(harness.state().tab().input, "m");
+    // Escape: back too, as it was.
+    harness.key_press_modifiers(crate::shortcuts::WITH_KEY, Key::E);
+    harness.run_steps(3);
+    harness.key_press(Key::Escape);
+    harness.run_steps(3);
+    assert!(focused(&harness, "Command"));
+    assert_eq!(harness.state().tab().input, "m");
 }

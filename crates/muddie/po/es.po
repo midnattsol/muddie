@@ -2368,3 +2368,69 @@ msgstr "salidas: {0}"
 
 msgid "No exit that way."
 msgstr "No hay salida por ahí."
+
+msgid "north"
+msgstr "norte"
+
+msgid "northeast"
+msgstr "noreste"
+
+msgid "east"
+msgstr "este"
+
+msgid "southeast"
+msgstr "sureste"
+
+msgid "south"
+msgstr "sur"
+
+msgid "southwest"
+msgstr "suroeste"
+
+msgid "west"
+msgstr "oeste"
+
+msgid "northwest"
+msgstr "noroeste"
+
+msgid "up"
+msgstr "arriba"
+
+msgid "down"
+msgstr "abajo"
+
+msgid "in"
+msgstr "dentro"
+
+msgid "out"
+msgstr "fuera"
+
+msgid "to the {0}"
+msgstr "al {0}"
+
+msgid "Arrows follow the exits, Home comes back to you, Enter goes, Escape goes back."
+msgstr "Las flechas siguen las salidas, Inicio vuelve a ti, Intro va, Escape vuelve."
+
+msgid "Exploring the map from {0}. {1}. {2}"
+msgstr "Explorando el mapa desde {0}. {1}. {2}"
+
+msgid "Into {0}: {1}"
+msgstr "Entras en {0}: {1}"
+
+msgid "no way straight back"
+msgstr "sin vuelta directa"
+
+msgid "closed: {0}"
+msgstr "cerrada: {0}"
+
+msgid "routes avoid it"
+msgstr "el mapa la evita"
+
+msgid "No exit {0}."
+msgstr "No hay salida al {0}."
+
+msgid "Explores the map with the keys, from where you are, without moving"
+msgstr "Explora el mapa con el teclado desde donde estás, sin moverte"
+
+msgid "Explore the map with the keys"
+msgstr "Explorar el mapa con el teclado"

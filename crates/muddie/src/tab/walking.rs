@@ -218,6 +218,25 @@ impl Tab {
         }
     }
 
+    /// Explores the map with the keys, from where the player is, without
+    /// moving: the map is shown, takes the keyboard, and says so.
+    pub(super) fn explore_map(&mut self) {
+        let said = {
+            let map = self.map.borrow();
+            let first = || map.candidates().first().and_then(|id| map.room(*id));
+            map.current()
+                .or_else(first)
+                .map(|from| self.map_view.explore(&map, from))
+        };
+        let Some(said) = said else {
+            let said = self.unknown_whereabouts();
+            return self.refuse(&said);
+        };
+        self.set_view(0);
+        self.set_map_shown(true);
+        self.voice.say_now(&said);
+    }
+
     /// Says where the player is aloud only, at once: for a key pressed
     /// often, which would fill the output.
     pub(super) fn say_where_aloud(&mut self) {
