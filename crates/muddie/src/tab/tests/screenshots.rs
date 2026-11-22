@@ -707,6 +707,22 @@ fn shows_map() {
     // map alone at its side.
     let app = harness.state_mut().tab_mut();
     app.layout.panels.retain(|panel| panel.name != "Minimapa");
+    // Beside the player's room, one the map added of itself, dashed round.
+    {
+        let mut map = app.map.borrow_mut();
+        let here = map.current().map(|room| room.id).unwrap();
+        let exits = ["e".to_owned()];
+        let added = ["w", "s", "n", "e"].into_iter().find_map(|way| {
+            let seen = muddie_mapper::Arrival {
+                name: "Claro",
+                exits: &exits,
+                came: way,
+            };
+            map.add(seen).ok()
+        });
+        assert!(added.is_some());
+        map.set_current(here);
+    }
     let route = app.map.borrow().route(2, 6).unwrap();
     app.walk = Some((
         muddie_mapper::Walk::new(2, route),
