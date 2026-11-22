@@ -117,6 +117,7 @@ impl Output {
             target: link.target.clone(),
             hint: link.hint.clone(),
             name: link.name.clone(),
+            found: false,
         });
         self.push_row(Content::Server(line.clone()), line.text(), marked.collect());
     }
@@ -146,6 +147,7 @@ impl Output {
             range,
             hint: String::new(),
             name: String::new(),
+            found: true,
         });
         self.rows.push_back(Row {
             links: found.chain(marked).collect(),
@@ -408,9 +410,11 @@ mod tests {
     fn links_marked_by_the_server_are_kept_with_the_row() {
         let mut output = Output::default();
         let mut line = Line::default();
-        "Go north"
-            .chars()
-            .for_each(|ch| line.push(ch, Default::default()));
+        let red = muddie_core::Style {
+            fg: muddie_core::Color::Rgb(200, 30, 30),
+            ..Default::default()
+        };
+        "Go north".chars().for_each(|ch| line.push(ch, red));
         line.links.push(muddie_core::LineLink {
             range: 3..8,
             target: LinkTarget::Send("north".into()),
@@ -422,6 +426,18 @@ mod tests {
             output.rows[0].link_at(4, false),
             Some(&LinkTarget::Send("north".into()))
         );
+        // Underlined, in the colours the server gave it, not the client's.
+        // The link ends the line: the last of what it is drawn in.
+        let format_at =
+            |job: &LayoutJob, _: usize| job.sections.last().expect("a section").format.clone();
+        let mut plain = Output::default();
+        let mut unlinked = line.clone();
+        unlinked.links.clear();
+        plain.push(&unlinked);
+        let (linked, as_sent) = (output.rows[0].job(false), plain.rows[0].job(false));
+        let (linked, as_sent) = (format_at(&linked, 4), format_at(&as_sent, 4));
+        assert_eq!(linked.color, as_sent.color);
+        assert!(linked.underline.width > 0.0 && as_sent.underline.width == 0.0);
         // Named by the server, it can be taken away; the others stay.
         output.push_local("see https://example.org");
         output.expire("exits");

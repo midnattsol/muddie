@@ -20,6 +20,9 @@ pub(super) struct RowLink {
     pub(super) target: LinkTarget,
     pub(super) hint: String,
     pub(super) name: String,
+    /// A web address found in the text, rather than a link the server
+    /// marked: the server chose no colour for it.
+    pub(super) found: bool,
 }
 
 pub(super) struct Row {
@@ -99,12 +102,17 @@ impl Row {
         match &self.content {
             Content::Server(line) if self.links.is_empty() => append_line(&mut job, line),
             Content::Server(line) => {
+                // A link is underlined; one the server marked keeps the
+                // colours it gave it, an address found in the text takes
+                // the accent.
                 let accent = theme::current().accent;
                 let mut line = line.clone();
                 for link in &self.links {
                     line.restyle(link.range.clone(), |style| {
                         style.underline = true;
-                        style.fg = Color::Rgb(accent.r(), accent.g(), accent.b());
+                        if link.found {
+                            style.fg = Color::Rgb(accent.r(), accent.g(), accent.b());
+                        }
                     });
                 }
                 append_line(&mut job, &line);
