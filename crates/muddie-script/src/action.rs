@@ -8,12 +8,10 @@ use super::*;
 pub struct GaugeLook {
     /// A colour name or `#rrggbb`; empty lets the client choose.
     pub colour: String,
-    /// Drawn as a row of cells instead of a continuous bar.
-    pub segments: bool,
     /// The percentage under which the numbers turn to a warning colour.
     pub low: f64,
     /// What it is drawn as: `bar`, `cells`, `number`, `light` or `text`;
-    /// empty for a bar, or cells if `segments`.
+    /// empty for a bar.
     pub kind: String,
     /// The colour it takes under each percentage, whatever its order.
     pub steps: Vec<(f64, String)>,

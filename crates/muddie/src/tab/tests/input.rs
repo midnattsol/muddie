@@ -238,7 +238,7 @@ fn commands_are_chosen_from_a_palette_and_answer_at_the_line() {
         app.palette.message.clone().expect("an answer")
     };
     assert_eq!(
-        run(&mut harness, r#"supports("Comm 1")"#),
+        run(&mut harness, r#"support_gmcp("Comm 1")"#),
         ("Done.".to_owned(), false)
     );
     assert!(

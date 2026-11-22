@@ -129,7 +129,7 @@ fn install_supports(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     let add = |name: &str, function: Function| globals.set(name, function);
     let shared = Rc::clone(state);
     add(
-        "gmcp_merge",
+        "merge_gmcp",
         lua.create_function(move |_, packages: mlua::Variadic<String>| {
             let mut state = shared.borrow_mut();
             for package in packages {
@@ -143,7 +143,7 @@ fn install_supports(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     )?;
     let shared = Rc::clone(state);
     add(
-        "supports",
+        "support_gmcp",
         lua.create_function(move |_, modules: mlua::Variadic<String>| {
             let mut state = shared.borrow_mut();
             let owner = state.owner.clone();

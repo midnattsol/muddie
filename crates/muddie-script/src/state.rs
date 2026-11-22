@@ -66,6 +66,8 @@ pub(super) enum Binding {
 /// switched by. A key can be bound several times, to do one thing while
 /// one is on and another while another is: the first on does.
 pub(super) struct Bound {
+    /// What `cancel` takes it away by.
+    pub(crate) id: u64,
     pub(crate) owner: String,
     pub(crate) belongs: Belongs,
     pub(crate) binding: Binding,
@@ -177,7 +179,8 @@ pub(super) struct State {
     /// The scripts there are, as the frontend tells: to list them and
     /// their tags, as it is the frontend that runs them.
     pub(crate) scripts: Vec<Belongs>,
-    /// Set by `separator()`: `Some(None)` turns command splitting off.
+    /// Set by `separator()`: `Some(None)` turns command splitting off;
+    /// `None` is the usual `;`.
     pub(crate) separator: Option<Option<String>>,
     /// Folders `require` looks in: those scripts were loaded from.
     pub(crate) module_dirs: Vec<PathBuf>,

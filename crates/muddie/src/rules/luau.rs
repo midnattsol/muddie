@@ -215,17 +215,21 @@ impl Gauge {
         }
     }
 
-    /// How it looks: its colours, its style, and its levels.
+    /// How it looks, named as the rule names it: its kind, its colours,
+    /// and its steps.
     fn look(&self) -> String {
         let steps: Vec<String> = (self.steps.iter())
             .filter(|step| !step.colour.trim().is_empty())
-            .map(|step| format!("{{{}, {}}}", step.under, quoted(step.colour.trim())))
+            .map(|step| {
+                let colour = quoted(step.colour.trim());
+                format!("{{under = {}, colour = {colour}}}", step.under)
+            })
             .collect();
         format!(
-            "colour = {}, off = {}, style = {}, steps = {{{}}}",
+            "kind = {}, colour = {}, off_colour = {}, step = {{{}}}",
+            quoted(self.kind.key()),
             quoted(self.colour.trim()),
             quoted(self.off_colour.trim()),
-            quoted(self.kind.style()),
             steps.join(", ")
         )
     }

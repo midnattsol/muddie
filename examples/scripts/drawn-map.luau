@@ -4,7 +4,7 @@
 -- much room there is so the drawing fits.
 
 map.native(false)
-supports("Map.Render 1")
+support_gmcp("Map.Render 1")
 
 -- The size in characters of the map's panel, whenever it changes.
 on_event("panel", function(size)

@@ -335,7 +335,8 @@ impl GaugeKind {
         matches!(self, Self::Bar | Self::Cells | Self::Number)
     }
 
-    pub(super) fn style(self) -> &'static str {
+    /// Its name, as rules and scripts write it.
+    pub(super) fn key(self) -> &'static str {
         match self {
             Self::Bar => "bar",
             Self::Cells => "cells",

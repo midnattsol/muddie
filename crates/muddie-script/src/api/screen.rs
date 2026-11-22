@@ -33,24 +33,20 @@ fn install_gauge(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
                     _ => return Err(mlua::Error::runtime("gauge needs both a value and a max")),
                 };
                 let mut look = GaugeLook::default();
+                // As a gauge of the rules is written: `kind`, `colour`,
+                // `off_colour`, and `step = {{under = 30, colour = "red"}}`.
                 if let Some(options) = options {
-                    let colour: Option<String> = options.get("colour")?;
-                    let color: Option<String> = options.get("color")?;
-                    look.colour = colour.or(color).unwrap_or_default();
-                    let style: Option<String> = options.get("style")?;
-                    look.segments = style.as_deref() == Some("segments");
-                    look.kind = match style.as_deref() {
-                        Some("segments") => "cells".to_owned(),
-                        Some(kind) => kind.to_owned(),
-                        None => String::new(),
+                    let text = |key: &str| -> mlua::Result<String> {
+                        Ok(options.get::<Option<String>>(key)?.unwrap_or_default())
                     };
+                    look.colour = text("colour")?;
+                    look.kind = text("kind")?;
+                    look.off_colour = text("off_colour")?;
+                    look.text = text("text")?;
                     look.low = options.get::<Option<f64>>("low")?.unwrap_or(0.0);
-                    look.text = options.get::<Option<String>>("text")?.unwrap_or_default();
-                    look.off_colour = options.get::<Option<String>>("off")?.unwrap_or_default();
-                    // `steps = {{30, "red"}, {60, "yellow"}}`
-                    if let Some(steps) = options.get::<Option<Vec<mlua::Table>>>("steps")? {
+                    if let Some(steps) = options.get::<Option<Vec<mlua::Table>>>("step")? {
                         for step in steps {
-                            look.steps.push((step.get(1)?, step.get(2)?));
+                            look.steps.push((step.get("under")?, step.get("colour")?));
                         }
                     }
                 }

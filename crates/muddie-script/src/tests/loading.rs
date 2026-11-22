@@ -48,18 +48,18 @@ fn remembered_values_survive_a_new_engine() {
     engine.use_memory_file(file.clone());
     engine.exec(
         "test",
-        r#"remember("kills", 41)
-        remember("friends", {"ana", "luis"})
-        remember("config", {speed = "fast"})
-        remember("gone", 1)
-        remember("gone", nil)"#,
+        r#"vars.kills = 41
+        vars.friends = {"ana", "luis"}
+        vars.config = {speed = "fast"}
+        vars.gone = 1
+        vars.gone = nil"#,
     );
     assert_eq!(engine.take_actions(), []);
     let mut engine = self::engine("");
     engine.use_memory_file(file.clone());
     engine.exec(
         "test",
-        r#"echo(`{recall("kills") + 1} {recall("friends")[2]} {recall("config").speed} {recall("gone")}`)"#,
+        r#"echo(`{vars.kills + 1} {vars.friends[2]} {vars.config.speed} {vars.gone}`)"#,
     );
     assert_eq!(
         engine.take_actions(),
@@ -71,7 +71,7 @@ fn remembered_values_survive_a_new_engine() {
     engine.use_memory_file(file.clone());
     assert!(error_text(&engine.take_actions()).contains("not loaded"));
     // The damaged file is left alone rather than overwritten.
-    engine.exec("test", r#"remember("x", 1)"#);
+    engine.exec("test", r#"vars.x = 1"#);
     assert_eq!(std::fs::read_to_string(&file).unwrap(), "not json");
     std::fs::remove_file(&file).unwrap();
 }

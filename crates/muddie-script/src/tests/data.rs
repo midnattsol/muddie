@@ -107,7 +107,7 @@ fn client_events_modules_and_completions() {
     engine.exec(
         "test",
         r#"
-        supports("Map.Render 1", "Dev 1")
+        support_gmcp("Map.Render 1", "Dev 1")
         on_event("panel", function(size) echo(size.columns .. "x" .. size.rows) end)
         on_event("connect", function() echo("in") end)
         completions("cmds", {"north", "look"})
@@ -140,8 +140,12 @@ fn client_events_modules_and_completions() {
 #[test]
 fn the_modules_a_script_asks_for_go_with_it() {
     let mut engine = Engine::new(Rc::default()).unwrap();
-    engine.exec_owned("one", "one", r#"supports("Comm 1", "Room 1")"#);
-    engine.exec_owned("two", "two", r#"supports("Room 1") supports("Room 1")"#);
+    engine.exec_owned("one", "one", r#"support_gmcp("Comm 1", "Room 1")"#);
+    engine.exec_owned(
+        "two",
+        "two",
+        r#"support_gmcp("Room 1") support_gmcp("Room 1")"#,
+    );
     assert_eq!(engine.supports(), ["Comm 1", "Room 1"]);
     engine.unload("one");
     assert_eq!(engine.supports(), ["Room 1"]);
@@ -194,7 +198,7 @@ fn the_size_of_a_panel_can_be_asked_for() {
 #[test]
 fn a_package_that_sends_only_what_changed_is_merged_when_asked() {
     let mut engine = engine(
-        r#"gmcp_merge("Char.Status")
+        r#"merge_gmcp("Char.Status")
         on_gmcp("Char.Status", function(data) echo(`came {data.pvs.min} {data.pe}`) end)"#,
     );
     engine.on_gmcp(

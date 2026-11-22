@@ -86,9 +86,13 @@ fn several_commands_on_one_line_each_go_through_aliases() {
     engine.on_input("/lua separator('|')");
     engine.on_input("n|s;e");
     assert_eq!(engine.take_actions(), [send("n"), send("s;e")]);
-    engine.on_input("/lua separator(nil)");
+    engine.on_input("/lua separator(false)");
     engine.on_input("n|s;e");
     assert_eq!(engine.take_actions(), [send("n|s;e")]);
+    // Given back, the usual `;`.
+    engine.on_input("/lua separator()");
+    engine.on_input("n|s;e");
+    assert_eq!(engine.take_actions(), [send("n|s"), send("e")]);
 }
 
 #[test]
@@ -220,7 +224,7 @@ fn trigger_can_recolour_its_match_or_gag_the_line() {
 #[test]
 fn keys_run_their_binding() {
     let mut engine = engine(
-        r#"bind("F5", "look;inventory")
+        r#"f5 = bind("F5", "look;inventory")
         bind("Shift + CTRL+k", function() send("kick") end)"#,
     );
     assert!(engine.on_key("f5"));
@@ -230,7 +234,7 @@ fn keys_run_their_binding() {
         engine.take_actions(),
         [send("look"), send("inventory"), send("kick")]
     );
-    engine.on_input("/lua echo(`{unbind('f5')} {unbind('f5')}`)");
+    engine.on_input("/lua echo(`{cancel(f5)} {cancel(f5)}`)");
     assert!(!engine.on_key("f5"));
     assert_eq!(engine.take_actions(), [Action::Echo("true false".into())]);
     assert_eq!(key_name("Shift+Alt+Ctrl+Enter"), "ctrl+alt+shift+enter");

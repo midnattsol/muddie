@@ -34,8 +34,8 @@ bind("numpad5", "look")
 
 -- Count kills across sessions.
 trigger("is DEAD!", function()
-    local kills = (recall("kills") or 0) + 1
-    remember("kills", kills)
+    local kills = (vars.kills or 0) + 1
+    vars.kills = kills
     echo(`That makes {kills} kills.`)
 end)
 

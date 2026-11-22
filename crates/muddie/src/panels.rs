@@ -249,7 +249,6 @@ fn plain(number: f64) -> String {
 /// words.
 pub fn draw_gauge(ui: &mut Ui, name: &str, value: f64, max: f64, look: &GaugeLook) {
     let kind = match look.kind.as_str() {
-        "" if look.segments => "cells",
         "" => "bar",
         kind => kind,
     };

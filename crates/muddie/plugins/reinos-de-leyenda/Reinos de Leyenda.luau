@@ -21,9 +21,9 @@
 -- What it shows is in the language of the interface, English or Spanish,
 -- each text given in both with tr.
 
-supports("Char 1")
-supports("Comm 1")
-supports("Room 1")
+support_gmcp("Char 1")
+support_gmcp("Comm 1")
+support_gmcp("Room 1")
 
 local heard = false
 
@@ -48,7 +48,7 @@ end
 -- max = most}, at first all of them and then only what changed: it is
 -- merged into what came before, for the gauges to have it whole.
 
-gmcp_merge("Char.Status")
+merge_gmcp("Char.Status")
 on_gmcp("Char", function()
     heard = true
 end)
@@ -66,7 +66,7 @@ local function state_on(state)
         return
     end
     states[name] = true
-    gauge(name, 1, 1, { style = "light", colour = "#e0a040" })
+    gauge(name, 1, 1, { kind = "light", colour = "#e0a040" })
 end
 
 local function state_off(state)
@@ -192,11 +192,11 @@ end
 
 local LEARNING = "Reinos de Leyenda: mantener el mapa"
 local LEARNING_ACTION = { en = "Keep the map up to date as you go", es = "Mantener el mapa al día sobre la marcha" }
-local learning = recall(LEARNING) ~= false
+local learning = vars[LEARNING] ~= false
 map.learn(learning)
 map.action(LEARNING_ACTION, function(on)
     learning = on
-    remember(LEARNING, on)
+    vars[LEARNING] = on
     map.learn(on)
 end, { checked = learning })
 
@@ -247,7 +247,7 @@ end
 -- a room of, or else up to the last prompt.
 trigger([[^(.*?) \[([A-Za-z|,\-]+)\]\s*$]], function(m)
     local name = m[1]
-    while #map.named(name) == 0 do
+    while #map.find(name, { exact = true }) == 0 do
         local rest = name:match("^.-[%]>]%s+(.+)$")
         if not rest then
             break

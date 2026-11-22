@@ -137,7 +137,7 @@ fn a_script_turns_a_muds_own_channel_messages_into_tabs() {
     app.layout
         .panels
         .retain(|panel| panel.kind != layout::Kind::Text);
-    let script = r#"supports("Comm 1")
+    let script = r#"support_gmcp("Comm 1")
 
 on_gmcp("Comm.MensajeCanal", function(data)
     channel(data.canal, data.mensaje)

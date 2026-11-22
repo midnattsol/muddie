@@ -104,22 +104,22 @@ fn script_can_edit_and_query_the_map() {
     assert!(engine.native_map());
     engine.exec(
         "test",
-        r#"echo(`{map.room()} {map.path(2)} {#map.find("square")} {map.find("square")[2].id}`)
+        r#"echo(`{map.room()} {map.path(2)} {#map.find("square")} {map.find("square")[2]}`)
         echo(table.concat(map.path(2, 1), ",") .. " " .. tostring(map.path(3, 1)))
         echo(`{map.set_exit(2, "enter portal", 3)} {map.set_exit(9, "n", 1)}`)
         echo(table.concat(map.path(3, 1), ";"))
-        echo(`{map.move(3, 7, 8)} {map.room(3).x},{map.room(3).y},{map.room(3).z}`)
+        echo(`{map.edit_room(3, {x = 7, y = 8})} {map.room(3).x},{map.room(3).y},{map.room(3).z}`)
         echo(`{map.remove_exit(2, "enter portal")} {map.remove_room(3)} {map.room(3)}`)
         map.set_room({id = 4, name = "Detour", area = "wilds", exits = {n = 2}})
         map.set_exit(1, "e", 4)
-        echo(`{map.avoid(2, true)} {map.room(2).avoid} {map.path(2, 1)[1]} {map.path(4, 1)[1]}`)
-        echo(`{map.set_weight(4, 9)} {map.room(4).weight} {table.concat(map.areas(), "+")}`)
-        map.avoid(2, false)
+        echo(`{map.edit_room(2, {avoid = true})} {map.room(2).avoid} {map.path(2, 1)[1]} {map.path(4, 1)[1]}`)
+        echo(`{map.edit_room(4, {weight = 9})} {map.room(4).weight} {table.concat(map.areas(), "+")}`)
+        map.edit_room(2, {avoid = false})
         map.set_exit(1, "gate", 2, {command = "open gate;n", cost = 0})
-        map.edit_exit(1, "n", {locked = true})
+        map.set_exit(1, "n", nil, {locked = true})
         local gate = map.exit(1, "gate")
         echo(`{map.path(2, 1)[1]} {gate.custom} {gate.locked} {map.exit(1, "n").locked} {map.exit(1, "x")}`)
-        echo(`{map.edit_exit(1, "gate", {command = ""})} {map.exit(1, "gate").command} {map.edit_exit(1, "x", {})}`)
+        echo(`{map.set_exit(1, "gate", nil, {command = ""})} {map.exit(1, "gate").command} {map.set_exit(1, "x", nil, {})}`)
         echo(`{map.relayout("nowhere")} {map.relayout()}`)
         panel("Minimap", "+-+\n| |")
         panel("Minimap")
@@ -235,11 +235,11 @@ fn script_can_choose_how_rooms_look() {
         "test",
         r##"echo(`{map.room(1).colour} {map.room(2).colour}`)
         map.set_room({id = 1, name = "Gate", exits = {n = 2}})
-        echo(`{map.room(1).colour} {map.set_colour(2, "bright red")} {map.room(2).colour}`)
-        echo(`{map.set_colour(2, 196)} {map.room(2).colour} {map.set_colour(9, 1)}`)
-        echo(`{map.set_colour(2, nil)} {map.room(2).colour} {pcall(map.set_colour, 1, "mauve")}`)
-        echo(`{map.room(2).shape} {map.set_shape(2, "circle")} {map.room(2).shape} {pcall(map.set_shape, 2, "star")} {map.set_shape(2, nil)} {map.room(2).shape}`)
-        echo(`[{map.room(2).symbol}] {map.set_symbol(2, "$")} [{map.room(2).symbol}] {map.set_symbol(2, nil)} [{map.room(2).symbol}]`)"##,
+        echo(`{map.room(1).colour} {map.edit_room(2, {colour = "bright red"})} {map.room(2).colour}`)
+        echo(`{map.edit_room(2, {colour = 196})} {map.room(2).colour} {map.edit_room(9, {colour = 1})}`)
+        echo(`{map.edit_room(2, {colour = false})} {map.room(2).colour} {pcall(map.edit_room, 1, {colour = "mauve"})}`)
+        echo(`{map.room(2).shape} {map.edit_room(2, {shape = "circle"})} {map.room(2).shape} {pcall(map.edit_room, 2, {shape = "star"})} {map.edit_room(2, {shape = false})} {map.room(2).shape}`)
+        echo(`[{map.room(2).symbol}] {map.edit_room(2, {symbol = "$"})} [{map.room(2).symbol}] {map.edit_room(2, {symbol = false})} [{map.room(2).symbol}]`)"##,
     );
     let echoes: Vec<String> = (engine.take_actions().into_iter())
         .filter_map(|action| match action {
@@ -317,8 +317,8 @@ fn script_offers_to_do_things_with_the_map_and_is_told_when_its_map_changed() {
     // A room named again keeps it, and says so.
     engine.exec(
         "test",
-        r#"assert(map.rename(1, "Puerta"))
-        assert(not map.rename(9, "Nada"))
+        r#"assert(map.edit_room(1, {name = "Puerta"}))
+        assert(not map.edit_room(9, {name = "Nada"}))
         local room = map.room(1)
         assert(room.name == "Puerta" and room.renamed)
         assert(not map.room(2).renamed)"#,

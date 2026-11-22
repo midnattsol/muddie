@@ -95,8 +95,19 @@ fn install_separator(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> 
     let shared = Rc::clone(state);
     add(
         "separator",
-        lua.create_function(move |_, separator: Option<String>| {
-            shared.borrow_mut().separator = Some(separator);
+        // A text to split by; `false` for none; nothing for `;` again.
+        lua.create_function(move |_, separator: Value| {
+            shared.borrow_mut().separator = match separator {
+                Value::Nil => None,
+                Value::Boolean(false) => Some(None),
+                Value::String(text) => Some(Some(text.to_str()?.to_owned())),
+                other => {
+                    return Err(mlua::Error::runtime(format!(
+                        "separator takes a text, or false for none, not {}",
+                        other.type_name()
+                    )));
+                }
+            };
             Ok(())
         })?,
     )?;

@@ -314,12 +314,18 @@ fn install_finding(lua: &Lua, map: &Rc<RefCell<Map>>, api: &Table) -> mlua::Resu
     let world = Rc::clone(map);
     api.set(
         "find",
-        lua.create_function(move |lua, text: String| {
+        // Rooms whose name has the text in it, or, exact, called just so as
+        // the MUD names them; by number.
+        lua.create_function(move |_, (text, options): (String, Option<Table>)| {
+            let exact = match options {
+                Some(options) => options.get::<Option<bool>>("exact")?.unwrap_or(false),
+                None => false,
+            };
             let world = world.borrow();
-            let rooms = world.find(&text).into_iter();
-            rooms
-                .map(|room| room_table(lua, room))
-                .collect::<mlua::Result<Vec<Table>>>()
+            Ok(match exact {
+                true => world.called(&text),
+                false => world.find(&text).into_iter().map(|room| room.id).collect(),
+            })
         })?,
     )?;
 
@@ -332,12 +338,6 @@ fn install_finding(lua: &Lua, map: &Rc<RefCell<Map>>, api: &Table) -> mlua::Resu
                 .collect();
             Ok(areas)
         })?,
-    )?;
-
-    let world = Rc::clone(map);
-    api.set(
-        "named",
-        lua.create_function(move |_, name: String| Ok(world.borrow().called(&name)))?,
     )?;
 
     api.set(
@@ -362,86 +362,120 @@ fn install_changing(lua: &Lua, map: &Rc<RefCell<Map>>, api: &Table) -> mlua::Res
 
     let world = Rc::clone(map);
     api.set(
-        "move",
-        lua.create_function(move |_, (id, x, y, z): (Value, i32, i32, Option<i32>)| {
-            let pos = Pos {
-                x,
-                y,
-                z: z.unwrap_or(0),
+        "edit_room",
+        lua.create_function(move |_, (id, options): (Value, Table)| {
+            let id = id_of(&id)?;
+            let edit = RoomEdit::read(&options)?;
+            let mut world = world.borrow_mut();
+            let Some(room) = world.room(id) else {
+                return Ok(false);
             };
-            let result = world.borrow_mut().move_room(id_of(&id)?, pos);
-            let found = *result.as_ref().unwrap_or(&true);
-            saved(result.map(drop))?;
-            Ok(found)
-        })?,
-    )?;
-
-    let world = Rc::clone(map);
-    api.set(
-        "set_weight",
-        lua.create_function(move |_, (id, weight): (Value, u32)| {
-            let result = world.borrow_mut().set_weight(id_of(&id)?, weight);
-            let found = *result.as_ref().unwrap_or(&true);
-            saved(result.map(drop))?;
-            Ok(found)
-        })?,
-    )?;
-
-    let world = Rc::clone(map);
-    api.set(
-        "set_colour",
-        lua.create_function(move |_, (id, colour): (Value, Value)| {
-            let colour = room_colour(&colour)?;
-            let result = world.borrow_mut().set_colour(id_of(&id)?, colour);
-            let found = *result.as_ref().unwrap_or(&true);
-            saved(result.map(drop))?;
-            Ok(found)
-        })?,
-    )?;
-
-    let world = Rc::clone(map);
-    api.set(
-        "set_shape",
-        lua.create_function(move |_, (id, shape): (Value, Option<String>)| {
-            let shape = match shape.as_deref().map(str::trim) {
-                None => None,
-                Some(key) => Some(muddie_mapper::Shape::from_key(key).ok_or_else(|| {
-                    mlua::Error::runtime(format!(
-                        "a room's shape is square, circle, diamond or hexagon, not {key}"
-                    ))
-                })?),
-            };
-            let result = world.borrow_mut().set_shape(id_of(&id)?, shape);
-            let found = *result.as_ref().unwrap_or(&true);
-            saved(result.map(drop))?;
-            Ok(found)
-        })?,
-    )?;
-
-    let world = Rc::clone(map);
-    api.set(
-        "set_symbol",
-        lua.create_function(move |_, (id, symbol): (Value, Option<String>)| {
-            let result = world
-                .borrow_mut()
-                .set_symbol(id_of(&id)?, &symbol.unwrap_or_default());
-            let found = *result.as_ref().unwrap_or(&true);
-            saved(result.map(drop))?;
-            Ok(found)
-        })?,
-    )?;
-
-    let world = Rc::clone(map);
-    api.set(
-        "avoid",
-        lua.create_function(move |_, (id, avoid): (Value, bool)| {
-            let result = world.borrow_mut().set_avoid(id_of(&id)?, avoid);
-            let found = *result.as_ref().unwrap_or(&true);
-            saved(result.map(drop))?;
-            Ok(found)
+            let at = room.pos;
+            saved(edit.apply(&mut world, id, at))?;
+            Ok(true)
         })?,
     )?;
     Ok(())
+}
+
+/// What `map.edit_room` changes of a room: each only if given; `false`
+/// gives back the map's own colour, shape or weight, or no symbol.
+struct RoomEdit {
+    name: Option<String>,
+    weight: Option<u32>,
+    avoid: Option<bool>,
+    colour: Option<Option<muddie_mapper::Colour>>,
+    shape: Option<Option<muddie_mapper::Shape>>,
+    symbol: Option<String>,
+    x: Option<i32>,
+    y: Option<i32>,
+    z: Option<i32>,
+}
+
+impl RoomEdit {
+    fn read(options: &Table) -> mlua::Result<Self> {
+        let given = |key: &str| -> mlua::Result<Option<Value>> {
+            Ok(match options.get::<Value>(key)? {
+                Value::Nil => None,
+                value => Some(value),
+            })
+        };
+        let shape = |value: Value| -> mlua::Result<Option<muddie_mapper::Shape>> {
+            match value {
+                Value::Boolean(false) => Ok(None),
+                Value::String(key) => {
+                    let key = key.to_str()?.trim().to_owned();
+                    let shape = muddie_mapper::Shape::from_key(&key);
+                    shape.map(Some).ok_or_else(|| {
+                        mlua::Error::runtime(format!(
+                            "a room's shape is square, circle, diamond or hexagon, not {key}"
+                        ))
+                    })
+                }
+                other => Err(mlua::Error::runtime(format!(
+                    "a room's shape is a name, or false for the map's, not {}",
+                    other.type_name()
+                ))),
+            }
+        };
+        let colour = |value: Value| match value {
+            Value::Boolean(false) => Ok(None),
+            value => room_colour(&value),
+        };
+        let symbol = |value: Value| match value {
+            Value::Boolean(false) => Ok(String::new()),
+            Value::String(text) => Ok(text.to_str()?.to_owned()),
+            other => Err(mlua::Error::runtime(format!(
+                "a room's symbol is a text, or false for none, not {}",
+                other.type_name()
+            ))),
+        };
+        Ok(Self {
+            name: options.get("name")?,
+            weight: match given("weight")? {
+                Some(Value::Boolean(false)) => Some(1),
+                Some(_) => options.get("weight")?,
+                None => None,
+            },
+            avoid: options.get("avoid")?,
+            colour: given("colour")?.map(colour).transpose()?,
+            shape: given("shape")?.map(shape).transpose()?,
+            symbol: given("symbol")?.map(symbol).transpose()?,
+            x: options.get("x")?,
+            y: options.get("y")?,
+            z: options.get("z")?,
+        })
+    }
+
+    fn apply(self, map: &mut Map, id: RoomId, at: Pos) -> Result<(), muddie_mapper::Error> {
+        if let Some(name) = &self.name {
+            map.rename(id, name)?;
+        }
+        if let Some(weight) = self.weight {
+            map.set_weight(id, weight)?;
+        }
+        if let Some(avoid) = self.avoid {
+            map.set_avoid(id, avoid)?;
+        }
+        if let Some(colour) = self.colour {
+            map.set_colour(id, colour)?;
+        }
+        if let Some(shape) = self.shape {
+            map.set_shape(id, shape)?;
+        }
+        if let Some(symbol) = &self.symbol {
+            map.set_symbol(id, symbol)?;
+        }
+        if self.x.is_some() || self.y.is_some() || self.z.is_some() {
+            let pos = Pos {
+                x: self.x.unwrap_or(at.x),
+                y: self.y.unwrap_or(at.y),
+                z: self.z.unwrap_or(at.z),
+            };
+            map.move_room(id, pos)?;
+        }
+        Ok(())
+    }
 }
 
 /// Whether the client keeps the map itself, and in a file.
@@ -544,17 +578,6 @@ fn install_tools(
 ) -> mlua::Result<()> {
     let world = Rc::clone(map);
     api.set(
-        "rename",
-        lua.create_function(move |_, (id, name): (Value, String)| {
-            let result = world.borrow_mut().rename(id_of(&id)?, &name);
-            let found = *result.as_ref().unwrap_or(&true);
-            saved(result.map(drop))?;
-            Ok(found)
-        })?,
-    )?;
-
-    let world = Rc::clone(map);
-    api.set(
         "count",
         lua.create_function(move |_, ()| Ok(world.borrow().rooms().count()))?,
     )?;
@@ -624,28 +647,22 @@ fn install_exits(lua: &Lua, map: &Rc<RefCell<Map>>, api: &Table) -> mlua::Result
         "set_exit",
         lua.create_function(
             move |_, (from, direction, to, options): (Value, String, Value, Option<Table>)| {
-                let (from, to) = (id_of(&from)?, id_of(&to)?);
+                // With no room to lead to, the exit there is changed only.
+                let from = id_of(&from)?;
+                let to = match to {
+                    Value::Nil => None,
+                    to => Some(id_of(&to)?),
+                };
                 let options = ExitOptions::read(options)?;
                 let mut world = world.borrow_mut();
-                let result = world.set_exit(from, &direction, to).and_then(|found| {
-                    world.edit_exit(from, &direction, |exit| apply_exit_options(exit, &options))?;
-                    Ok(found)
-                });
-                let found = *result.as_ref().unwrap_or(&true);
-                saved(result.map(drop))?;
-                Ok(found)
-            },
-        )?,
-    )?;
-
-    let world = Rc::clone(map);
-    api.set(
-        "edit_exit",
-        lua.create_function(
-            move |_, (from, direction, options): (Value, String, Option<Table>)| {
-                let options = ExitOptions::read(options)?;
-                let result = (world.borrow_mut()).edit_exit(id_of(&from)?, &direction, |exit| {
-                    apply_exit_options(exit, &options)
+                let led = match to {
+                    Some(to) => world.set_exit(from, &direction, to),
+                    None => Ok(true),
+                };
+                let result = led.and_then(|found| {
+                    let edited = world
+                        .edit_exit(from, &direction, |exit| apply_exit_options(exit, &options))?;
+                    Ok(found && edited)
                 });
                 let found = *result.as_ref().unwrap_or(&true);
                 saved(result.map(drop))?;
