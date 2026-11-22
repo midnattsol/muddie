@@ -235,7 +235,7 @@ impl Tab {
     pub(super) fn tidy(&mut self, area: &str, all: bool) {
         if let (Some(rooms), false) = (self.too_many_to_tidy(area), all) {
             return self.refuse(&trf(
-                "{0} has {1} rooms: tidying it would draw them all again, and what was drawn by hand would be lost. To tidy it anyway: map tidy all.",
+                "{0} has {1} rooms: tidying it would draw them all again, and what was drawn by hand would be lost.",
                 &[area, &rooms.to_string()],
             ));
         }

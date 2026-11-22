@@ -107,8 +107,8 @@ fn client_commands_are_grouped() {
         read("/plugin install https://example.org/x.git mine").unwrap(),
         "/install https://example.org/x.git mine"
     );
-    assert_eq!(read("/map").unwrap(), "/map ");
-    // The names of before are gone, and what is not ours is the MUD's.
+    // What is not one of the client's is the MUD's.
+    assert_eq!(read("/map"), None);
     assert_eq!(read("/where"), None);
     assert_eq!(read("/say hello"), None);
     assert_eq!(read("north"), None);
@@ -117,9 +117,6 @@ fn client_commands_are_grouped() {
     let app = harness.state_mut().tab_mut();
     assert!(app.do_client_command("/map hide") && !app.map_shown());
     assert!(app.do_client_command("/map show") && app.map_shown());
-    // The palette is the list of the commands: asking for help opens it.
-    assert!(app.do_client_command("/help") && app.palette.open);
-    app.toggle_palette();
     // Tags: listed, and switched for the session by name.
     app.scripts
         .exec("t", r#"bind("f9", "kick", {tags = {"Combat"}})"#);
@@ -128,31 +125,24 @@ fn client_commands_are_grouped() {
     assert!(app.do_client_command("/tag combat") && tag_on(app));
     assert!(app.do_client_command("/tag"));
     assert!(notes(app).iter().any(|line| line == "combat: on"));
-    // An incomplete group opens the palette at what it has, instead
-    // of going to the MUD.
-    assert!(app.do_client_command("/map dance"));
-    assert!(app.palette.open && app.palette.query == "map ");
 }
 
+/// The palette is what can be done, each by what it does, in the
+/// language of the interface: what needs a word more asks for it in the
+/// palette's field, named so for a screen reader, and Escape goes back to
+/// the search. The command line is the MUD's.
 #[test]
-fn commands_are_chosen_from_a_palette_and_answer_at_the_line() {
+fn the_palette_does_what_is_chosen_and_asks_in_its_field_for_what_it_needs() {
     let mut harness = window(None);
     harness.run_steps(2);
     let before = output_lines(harness.state().tab()).len();
-    // Typing in the command line offers nothing over it: it is the
-    // MUD's.
-    harness.state_mut().tab_mut().input = "/pl".into();
-    harness.run_steps(3);
-    assert!(harness.query_by_label_contains("plugin install").is_none());
-    harness.state_mut().tab_mut().input.clear();
-    // The palette goes to places, and lists the commands, each said for
-    // what it is.
     harness.state_mut().tab_mut().toggle_palette();
     harness.run_steps(3);
     harness.get_by_label("Where am I");
+    // No command's words are shown, whatever is typed.
     harness.state_mut().tab_mut().palette.query = "map".into();
     harness.run_steps(3);
-    harness.get_by_label_contains("map where");
+    assert!(harness.query_by_label_contains("map where").is_none());
     // What it goes to is done there and then: the editor, at a section.
     harness.state_mut().tab_mut().palette.query = "timers".into();
     harness.run_steps(3);
@@ -174,70 +164,41 @@ fn commands_are_chosen_from_a_palette_and_answer_at_the_line() {
     );
     harness.key_press(Key::Escape);
     harness.run_steps(2);
-    harness.state_mut().tab_mut().toggle_palette();
-    harness.run_steps(2);
-    // A slash puts the commands first, to run with Enter.
-    harness.state_mut().tab_mut().palette.query = "/pl".into();
-    harness.run_steps(3);
-    harness.get_by_label_contains("plugin install");
-    assert!(harness.query_by_label_contains("map where").is_none());
-    // The arrows choose; Enter on one that takes something more
-    // completes it, to type that after.
-    harness.key_press(Key::ArrowDown);
-    harness.run_steps(2);
-    harness.key_press(Key::Enter);
-    harness.run_steps(2);
-    let app = harness.state().tab();
-    assert!(app.palette.open);
-    assert_eq!(app.palette.query, "plugin install ");
-    // Escape closes it.
-    harness.key_press(Key::Escape);
-    harness.run_steps(2);
-    assert!(!harness.state().tab().palette.open);
-    assert!(harness.query_by_label_contains("plugin install").is_none());
-    // One Enter runs what is chosen, typed in full or not, and closes
-    // the palette. A line of answer is said in the command line, and
-    // the lines of the game are as they were.
+    // A tag is a switch, said on or off, and what it answers stays in
+    // the palette, not over the corner nor among the lines of the game.
     let app = harness.state_mut().tab_mut();
     app.scripts
         .exec("t", r#"bind("f9", "kick", {tags = {"Combat"}})"#);
     app.toggle_palette();
-    app.palette.query = "map hi".into();
+    app.palette.query = "tag combat".into();
     harness.run_steps(2);
+    harness.get_by_label("Tag combat (on)");
     harness.key_press(Key::Enter);
     harness.run_steps(3);
     let app = harness.state().tab();
-    assert!(!app.map_shown() && !app.palette.open);
-    assert_eq!(output_lines(app).len(), before);
-    let app = harness.state_mut().tab_mut();
-    app.toggle_palette();
-    app.palette.query = "tag com".into();
-    harness.run_steps(2);
-    harness.key_press(Key::Enter);
-    harness.run_steps(3);
-    let app = harness.state().tab();
-    assert!(!app.scripts.switches().tag_on("combat"));
-    // What it answers is in the palette, which stays open to read it,
-    // and not over the corner nor among the lines of the game.
-    assert!(app.palette.open);
+    assert!(!app.scripts.switches().tag_on("combat") && app.palette.open);
     assert_eq!(
         app.palette.message.clone(),
         Some(("Tag combat off.".to_owned(), false))
     );
     assert!(!app.notices().0.last().unwrap().corner);
     assert_eq!(output_lines(app).len(), before);
-    // A line of Lua is run from the palette as from the command line:
-    // what it prints is its answer, and so is that it was run, or
-    // that it could not be.
+    // Run Lua… asks for it in the field, named as what it asks.
     let run = |harness: &mut Harness<'_, App>, code: &str| {
         let app = harness.state_mut().tab_mut();
-        app.palette.query = format!("lua {code}");
         app.palette.open = true;
+        app.palette.query = "run lua".into();
+        harness.run_steps(2);
+        harness.key_press(Key::Enter);
+        harness.run_steps(2);
+        // The field is named as what it asks, for a screen reader.
+        harness.get_by_role_and_label(egui::accesskit::Role::TextInput, "Lua to run");
+        harness.state_mut().tab_mut().palette.query = code.into();
         harness.run_steps(2);
         harness.key_press(Key::Enter);
         harness.run_steps(3);
         let app = harness.state().tab();
-        assert!(app.palette.open);
+        assert!(app.palette.open && app.palette.asking.is_none());
         app.palette.message.clone().expect("an answer")
     };
     assert_eq!(
@@ -258,31 +219,30 @@ fn commands_are_chosen_from_a_palette_and_answer_at_the_line() {
     let (said, problem) = run(&mut harness, "error('boom')");
     assert!(said.contains("boom") && problem, "{said}");
     assert_eq!(output_lines(harness.state().tab()).len(), before);
-    // What a command lists stays in the palette, to choose from:
-    // Enter on a tag switches it.
+    // Enter with nothing typed says what is asked; Escape goes back to
+    // the search, and then closes the palette.
     let app = harness.state_mut().tab_mut();
-    app.palette.query = "tag".into();
+    app.palette.query = "run lua".into();
     harness.run_steps(2);
     harness.key_press(Key::Enter);
-    harness.run_steps(3);
-    let app = harness.state().tab();
-    assert!(app.palette.open && app.palette.results.is_some());
-    // Under the command it answers.
-    assert_eq!(app.palette.title.as_deref(), Some("/tag"));
-    harness.get_by_label("combat. off");
+    harness.run_steps(2);
     harness.key_press(Key::Enter);
-    harness.run_steps(3);
-    let app = harness.state().tab();
-    assert!(app.scripts.switches().tag_on("combat") && app.palette.open);
-    assert_eq!(
-        app.palette.message.clone(),
-        Some(("Tag combat on.".to_owned(), false))
+    harness.run_steps(2);
+    let said = harness.state().tab().voice.said.clone();
+    assert!(
+        said.iter()
+            .any(|line| line == "Lua to run: write it, then Enter."),
+        "{said:?}"
     );
     harness.key_press(Key::Escape);
     harness.run_steps(2);
+    let app = harness.state().tab();
+    assert!(app.palette.open && app.palette.asking.is_none());
+    harness.key_press(Key::Escape);
+    harness.run_steps(2);
+    assert!(!harness.state().tab().palette.open);
     // The command line is the MUD's: what is typed there, a slash
-    // before it or not, is sent, as the client's commands are run from
-    // the palette.
+    // before it or not, is sent.
     let (_events, mut sent) = fake_connection(harness.state_mut().tab_mut());
     harness.state_mut().tab_mut().input = "/map find nowhere".into();
     harness.run_steps(2);

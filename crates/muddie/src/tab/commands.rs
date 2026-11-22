@@ -11,11 +11,7 @@ use crate::theme::Weight;
 
 mod acts;
 mod answers;
-mod offered;
 mod window;
-
-pub use offered::offered;
-use offered::{fixed, shown_usage};
 
 /// Something the palette offers.
 #[derive(Debug, Clone, PartialEq)]
@@ -69,9 +65,40 @@ pub enum Act {
     MapTool(String),
     /// Undoes the last change the map made of itself.
     UndoChange,
-    /// Runs one of Muddie's commands that takes nothing, offered under a
-    /// name of its own.
-    Run(&'static str),
+    /// Carries out one of Muddie's commands, offered under a name of its
+    /// own.
+    Run(String),
+    /// Asks, in the palette's field, what something is to be done with.
+    Ask(Asking),
+    /// What was asked, given: the answer chosen or typed.
+    Answer(String),
+    /// Tidies the area the player is in, asking first if it is large.
+    TidyHere,
+}
+
+/// Something to do that needs a word more, asked in the palette's field:
+/// what is asked, the command it completes, and what is offered to choose
+/// from as it is typed.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Asking {
+    pub(super) title: String,
+    pub(super) command: String,
+    pub(super) offers: Offers,
+}
+
+/// What is offered as an answer, as it is typed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Offers {
+    /// Nothing: what is typed is the answer.
+    Nothing,
+    /// The places of the map.
+    Places,
+    /// The rooms' marks.
+    Marks,
+    /// The exits of the room the player is in.
+    Exits,
+    /// The plugins installed.
+    Plugins,
 }
 
 impl Act {
@@ -80,33 +107,13 @@ impl Act {
     fn is_front(&self) -> bool {
         match self {
             Act::Run(command) => {
-                ["/map where", "/map near", "/map stop", "/map explore"].contains(command)
+                ["/map where", "/map near", "/map stop", "/map explore"].contains(&command.as_str())
             }
             Act::Reconnect | Act::Speech | Act::MapTool(_) | Act::UndoChange => true,
             _ => false,
         }
     }
 }
-
-/// The commands the palette offers as something to do, under a name of
-/// their own: as commands, only when typed as one.
-const DONE_AS_ACTS: [&str; 15] = [
-    "/map undo",
-    "/log",
-    "/map show",
-    "/map hide",
-    "/map where",
-    "/map exits",
-    "/map near",
-    "/map explore",
-    "/map areas",
-    "/map stop",
-    "/map added",
-    "/map check",
-    "/plugin list",
-    "/reload",
-    "/help",
-];
 
 /// What a session asks the window to do.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -123,6 +130,8 @@ pub enum AppRequest {
     Profile(crate::app::ProfileAction, String),
     /// Keeps this session, which has none, as a profile.
     SaveAsProfile,
+    /// Asks whether to remove this plugin, then does.
+    RemovePlugin(String),
 }
 
 /// What a command said: a line of text, and for a thing that can be
@@ -162,6 +171,7 @@ impl Tab {
 
     fn close_palette(&mut self) {
         self.palette.open = false;
+        self.palette.asking = None;
         self.palette.results = None;
         self.palette.title = None;
         self.palette.message = None;
@@ -169,17 +179,23 @@ impl Tab {
         self.palette.chosen = 0;
     }
 
-    /// What the palette offers: what the last command listed, until
-    /// something is typed, or the commands that begin as what is typed.
+    /// What the palette offers: what the last thing done listed, until
+    /// something is typed; while it asks, what may answer it; else what can
+    /// be done and the places of the map, as typed, or with nothing typed
+    /// what was done last and the few most used.
     pub(super) fn palette_items(&mut self) -> Vec<Item> {
         if self.palette.query.is_empty()
             && let Some(results) = &self.palette.results
         {
             return results.clone();
         }
-        // What a command answered is read alone, till something is typed.
+        // What was answered is read alone, till something is typed.
         if self.palette.query.is_empty() && self.palette.message.is_some() {
             return Vec::new();
+        }
+        let query = self.palette.query.trim().to_lowercase();
+        if let Some(asking) = self.palette.asking.clone() {
+            return self.answers(asking.offers, &query);
         }
         // Worked out when what is typed, the map or where the player is
         // changes, not every frame: the places listed say how far.
@@ -193,120 +209,157 @@ impl Tab {
         {
             return items.clone();
         }
-        // As it would be typed in the command line: after a slash.
-        let typed = format!("/{}", self.palette.query.trim_start_matches('/'));
-        // The tags and the plugins there are, for the commands that take
-        // the name of one; the plugins are read from the disk.
-        let tags: Vec<(String, bool)> = if typed.starts_with("/tag") {
-            let switches = self.scripts.switches();
-            (self.scripts.tags().into_iter())
-                .map(|name| {
-                    let on = switches.tag_on(&name);
-                    (name, on)
-                })
-                .collect()
-        } else {
-            Vec::new()
-        };
-        let plugins = match &self.profiles {
-            Some(profiles) if typed.starts_with("/plugin ") => profiles.packages(),
-            _ => Vec::new(),
-        };
-        // What can be done, by what it is called, then the commands that
-        // begin as what is typed; with nothing typed, the first of both.
-        let query = self.palette.query.trim().to_lowercase();
         let acts = self.palette_acts();
         let named = |item: &&Item| {
             let words = format!("{} {} {}", item.usage, item.about, item.group).to_lowercase();
             query.split_whitespace().all(|word| words.contains(word))
         };
-        // With nothing typed, the few most used; the rest, as typed.
-        let front = |item: &&Item| query.is_empty() && item.act.as_ref().is_some_and(Act::is_front);
-        let mut items: Vec<Item> = (acts.iter())
-            .filter(|item| front(item) || (!query.is_empty() && named(item)))
-            .cloned()
-            .collect();
-        // The places of the map whose name has what is typed.
-        if !self.palette.query.starts_with('/') {
-            items.extend(self.palette_places(&query));
-        }
-        // The commands, once something is typed: they are for those who type
-        // them.
-        let mut commands = match query.is_empty() {
-            true => Vec::new(),
-            false => offered(&typed, &tags, &plugins),
+        let mut items: Vec<Item> = match query.is_empty() {
+            // With nothing typed, what was done last, and the few most used.
+            true => (self.palette.recent.iter().cloned())
+                .chain(
+                    (acts.iter())
+                        .filter(|item| item.act.as_ref().is_some_and(Act::is_front))
+                        .cloned(),
+                )
+                .collect(),
+            false => acts.iter().filter(named).cloned().collect(),
         };
-        // What is typed is a command once its first word is one of theirs.
-        let first = query.trim_start_matches('/').split_whitespace().next();
-        let as_command = self.palette.query.starts_with('/')
-            || first.is_some_and(|first| {
-                COMMANDS
-                    .iter()
-                    .any(|(usage, _)| fixed(usage).first() == Some(&format!("/{first}").as_str()))
-            });
-        // A command the palette has as something to do is listed so, once:
-        // as a command only when typed as one.
-        if !as_command {
-            commands.retain(|command| {
-                !DONE_AS_ACTS.contains(&fixed(&command.usage).join(" ").as_str())
-            });
-        }
-        // One being typed as a command goes first, to run with Enter.
-        if as_command || items.is_empty() {
-            items.splice(0..0, commands);
-        } else {
-            items.extend(commands);
-        }
-        // With nothing typed, what was run last comes first.
-        if query.is_empty() {
-            items.splice(0..0, self.palette.recent.iter().cloned());
+        if !query.is_empty() {
+            items.extend(self.palette_places(&query));
         }
         order_by_relevance(&mut items, &query);
         self.palette.cache = Some((key, items.clone()));
         items
     }
 
-    /// Does what choosing `item` means: runs it, or, if it takes
-    /// something yet to be typed, completes it to type that after. With
-    /// `typed_more`, what it takes is already there, and it is run as
-    /// typed.
-    fn choose(&mut self, item: &Item, typed_more: bool, ctx: &egui::Context) {
-        if let Some(act) = item.act.clone() {
-            self.remember_chosen(item.clone());
-            self.close_palette();
-            return self.act(act, ctx);
-        }
-        // Something only to be read: done with the list.
-        if item.insert.is_empty() {
-            return self.close_palette();
-        }
-        let typed = format!("/{}", self.palette.query.trim_start_matches('/'));
-        if item.more && !typed_more {
-            self.palette.query = item.insert.trim_start_matches('/').to_owned();
-            self.palette.chosen = 0;
-            self.palette.cursor_end = true;
-            return;
-        }
-        let line = if item.more {
-            typed
-        } else {
-            item.insert.clone()
+    /// What may answer what is asked, of what it offers, as typed.
+    fn answers(&self, offers: Offers, query: &str) -> Vec<Item> {
+        let answer = |name: String, about: String| Item {
+            insert: name.clone(),
+            usage: name.clone(),
+            group: String::new(),
+            about,
+            more: false,
+            act: Some(Act::Answer(name)),
         };
-        // Kept with the palette's, not the command line's: that is the
-        // MUD's.
+        let has = |name: &str| name.to_lowercase().contains(query);
+        match offers {
+            Offers::Nothing => Vec::new(),
+            Offers::Places if query.is_empty() => Vec::new(),
+            Offers::Places => (self.palette_places(query).into_iter())
+                .filter_map(|item| match item.act {
+                    Some(Act::Place(name)) => Some(answer(name, item.about)),
+                    _ => None,
+                })
+                .collect(),
+            Offers::Marks => (self.map.borrow().marks().iter())
+                .filter(|(name, _)| has(name))
+                .map(|(name, _)| answer(name.to_owned(), String::new()))
+                .collect(),
+            Offers::Exits => {
+                let map = self.map.borrow();
+                let ways: Vec<String> = (map.current().into_iter())
+                    .flat_map(|room| room.exits.keys().cloned())
+                    .collect();
+                (ways.iter())
+                    .map(|way| crate::mapview::direction_words(&map, way))
+                    .filter(|word| has(word))
+                    .map(|word| answer(word, String::new()))
+                    .collect()
+            }
+            Offers::Plugins => (self.profiles.as_ref())
+                .map(Profiles::packages)
+                .unwrap_or_default()
+                .into_iter()
+                .filter(|name| has(name))
+                .map(|name| answer(name, String::new()))
+                .collect(),
+        }
+    }
+
+    /// Asks, in the palette's field, what something is to be done with:
+    /// the field is emptied, and named and said as what it asks.
+    pub(super) fn ask(&mut self, asking: Asking) {
+        self.voice.say_now(&asking.title);
+        self.palette.query.clear();
+        self.palette.chosen = 0;
+        self.palette.cache = None;
+        self.palette.focus = true;
+        self.palette.asking = Some(asking);
+    }
+
+    /// Stops asking, back to looking for something to do.
+    pub(super) fn stop_asking(&mut self) {
+        if self.palette.asking.take().is_some() {
+            self.palette.query.clear();
+            self.palette.chosen = 0;
+            self.palette.cache = None;
+            self.voice.say_now(tr("Back to the search."));
+        }
+    }
+
+    /// Does what was asked, with the answer given.
+    pub(super) fn answer(&mut self, answer: &str) {
+        let Some(asking) = self.palette.asking.take() else {
+            return;
+        };
+        let answer = answer.trim();
+        let done = format!("{} {answer}", asking.title.trim_end_matches('…'));
+        let line = format!("{}{answer}", asking.command);
         self.remember_chosen(Item {
-            insert: line.clone(),
-            usage: line.clone(),
+            insert: String::new(),
+            usage: done,
+            group: String::new(),
             about: String::new(),
             more: false,
-            ..item.clone()
+            act: Some(Act::Run(line.clone())),
         });
         self.palette.query.clear();
+        self.palette.doing = Some(asking.title.clone());
+        // Taking a plugin away, files and all, is asked once more.
+        if let Some(name) = line.strip_prefix("/plugin remove ") {
+            self.close_palette();
+            self.app_request = Some(AppRequest::RemovePlugin(name.to_owned()));
+            return;
+        }
         self.run_command_from(&line, true);
-        // What it answered stays in sight; a command that answers nothing
-        // is done with.
+        // What it answered stays in sight; what answers nothing is done.
         if self.palette.message.is_none() && self.palette.results.is_none() {
             self.close_palette();
+        }
+    }
+
+    /// Does what choosing `item` means.
+    fn choose(&mut self, item: &Item, ctx: &egui::Context) {
+        match item.act.clone() {
+            Some(Act::Ask(asking)) => self.ask(asking),
+            Some(Act::Answer(answer)) => self.answer(&answer),
+            Some(Act::Run(line)) => {
+                self.remember_chosen(item.clone());
+                self.palette.query.clear();
+                self.palette.doing = Some(item.usage.clone());
+                self.run_command_from(&line, true);
+                if self.palette.message.is_none() && self.palette.results.is_none() {
+                    self.close_palette();
+                }
+            }
+            Some(act) => {
+                self.remember_chosen(item.clone());
+                self.close_palette();
+                self.act(act, ctx);
+            }
+            // Something only to be read: done with the list.
+            None if item.insert.is_empty() => self.close_palette(),
+            // What something done listed, to choose: it is done.
+            None => {
+                let line = item.insert.clone();
+                self.palette.query.clear();
+                self.run_command_from(&line, true);
+                if self.palette.message.is_none() && self.palette.results.is_none() {
+                    self.close_palette();
+                }
+            }
         }
     }
 }
@@ -315,8 +368,7 @@ impl Tab {
 /// then one of its words, then having it anywhere, then only what it says
 /// of itself having it.
 fn relevance(item: &Item, typed: &str) -> usize {
-    let name = shown_usage(&item.usage).to_lowercase();
-    let typed = typed.trim_start_matches('/');
+    let name = item.usage.to_lowercase();
     if typed.is_empty() || name.starts_with(typed) {
         0
     } else if (name.split(|c: char| !c.is_alphanumeric())).any(|word| word.starts_with(typed)) {
@@ -396,6 +448,11 @@ pub(super) struct Palette {
     /// typed.
     pub(super) recent: Vec<commands::Item>,
     pub(super) message: Option<(String, bool)>,
+    /// What is being asked in its field, while it asks.
+    pub(super) asking: Option<Asking>,
+    /// What was chosen, by its name, while it is done: what it lists is
+    /// shown under it.
+    pub(super) doing: Option<String>,
     /// When what is typed last changed, until what it finds is said.
     pub(super) typed_at: Option<Instant>,
 }

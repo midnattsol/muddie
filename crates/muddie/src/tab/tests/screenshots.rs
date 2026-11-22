@@ -604,12 +604,24 @@ fn shows_palette() {
     palette.state_mut().tab_mut().palette.query = "map".into();
     palette.run_steps(4);
     save(&mut palette, "palette-typed");
-    palette.state_mut().tab_mut().palette.query = "tag".into();
+    // What needs a word more asks for it in the field: a place to go to,
+    // offered as it is typed.
+    palette.state_mut().tab_mut().palette.query = "go to".into();
+    palette.run_steps(3);
+    palette.key_press(Key::Enter);
+    palette.run_steps(3);
+    palette.state_mut().tab_mut().palette.query = "to".into();
+    palette.run_steps(4);
+    save(&mut palette, "palette-asking");
+    palette.key_press(Key::Escape);
+    palette.run_steps(2);
+    // A tag, switched, answers in the palette.
+    palette.state_mut().tab_mut().palette.query = "tag combate".into();
     palette.run_steps(3);
     palette.key_press(Key::Enter);
     palette.run_steps(4);
     save(&mut palette, "answer");
-    palette.key_press(Key::Enter);
+    palette.key_press(Key::Escape);
     palette.run_steps(3);
     save(&mut palette, "bar-note");
 }

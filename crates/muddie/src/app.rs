@@ -213,6 +213,10 @@ impl App {
             AppRequest::CloseSession => self.close_tab(self.active, ctx),
             AppRequest::Settings(section) => self.open_settings(section),
             AppRequest::Profiles => self.open_profiles(None),
+            AppRequest::RemovePlugin(name) => {
+                self.asking = Some(asks::Ask::RemovePlugin(name));
+                self.ask_error = None;
+            }
             AppRequest::Shortcuts => self.show_shortcuts = true,
             AppRequest::About => self.show_about = true,
             AppRequest::Profile(action, name) => self.profile_action(action, &name),

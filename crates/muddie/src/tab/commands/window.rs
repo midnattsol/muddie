@@ -21,7 +21,7 @@ impl Tab {
         let (area, clicked) = self.palette_card(ctx, &items, shown);
         if let Some(index) = clicked {
             self.palette.focus = true;
-            return self.choose(&items[index].clone(), false, ctx);
+            return self.choose(&items[index].clone(), ctx);
         }
         // A click anywhere else closes it; not the one that opened it,
         // from the field at the top, in the frame it opened.
@@ -62,8 +62,12 @@ impl Tab {
             pressed(Modifiers::NONE, Key::Escape),
             pressed(Modifiers::NONE, Key::Enter),
         );
+        // Escape stops asking, back to the search; else it closes.
         if escape {
-            self.close_palette();
+            match self.palette.asking.is_some() {
+                true => self.stop_asking(),
+                false => self.close_palette(),
+            }
             return true;
         }
         let step = match (up, down, page_up, page_down, first, last) {
@@ -79,14 +83,26 @@ impl Tab {
             self.move_choice(items, step);
         }
         let Some(chosen) = items.get(self.palette.chosen).cloned() else {
-            // Nothing to run: it is said, and nothing moves.
+            // While asking, what is typed is the answer; with nothing typed,
+            // what is asked is said again.
+            if let (true, Some(asking)) = (enter, self.palette.asking.clone()) {
+                match self.palette.query.trim().is_empty() {
+                    true => self
+                        .voice
+                        .say_now(&trf("{0}: write it, then Enter.", &[&asking.title])),
+                    false => {
+                        let answer = self.palette.query.clone();
+                        self.answer(&answer);
+                    }
+                }
+                return true;
+            }
+            // Nothing to do: it is said, and nothing moves.
             if enter || way {
                 self.voice.say_now(tr("No matches."));
             }
             return false;
         };
-        let typed = format!("/{}", self.palette.query.trim_start_matches('/'));
-        let typed_more = typed.trim_end().len() > chosen.insert.trim_end().len();
         // Shift and Enter on a place says the way there, without going.
         if way && let Some(Act::Place(name)) = &chosen.act {
             let line = format!("/map route {name}");
@@ -95,13 +111,12 @@ impl Tab {
             return true;
         }
         if enter || way {
-            self.choose(&chosen, typed_more, ctx);
+            self.choose(&chosen, ctx);
             return true;
         }
-        // Tab completes, and there is nothing to complete in a list.
-        let listed = self.palette.results.is_some() && self.palette.query.is_empty();
-        if tab && !listed && !typed_more {
-            self.palette.query = chosen.insert.trim_start_matches('/').to_owned();
+        // While asking, Tab puts the answer chosen in the field, to change.
+        if tab && self.palette.asking.is_some() {
+            self.palette.query.clone_from(&chosen.usage);
             self.palette.chosen = 0;
             self.palette.cursor_end = true;
         }
@@ -139,7 +154,7 @@ impl Tab {
             said = format!("{group}. ");
         }
         self.palette.spoken_group = Some(group);
-        said.push_str(shown_usage(&chosen.usage));
+        said.push_str(&chosen.usage);
         if !chosen.about.is_empty() {
             said = format!("{said}. {}", chosen.about);
         }
@@ -222,13 +237,20 @@ impl Tab {
                         if let Some((text, problem)) = self.palette.message.clone() {
                             answered(ui, &text, problem);
                         }
-                        if let Some(title) = self.palette.title.clone() {
+                        // What is asked stays in sight over what may answer
+                        // it, typed or not.
+                        let asked = self.palette.asking.as_ref().map(|a| a.title.clone());
+                        if let Some(title) = asked.clone().or_else(|| self.palette.title.clone()) {
                             group_heading(ui, &title, true);
                         }
                         if items.is_empty() && self.palette.message.is_none() {
+                            let note = match &asked {
+                                Some(_) => tr("Write it, then Enter."),
+                                None => tr("No matches."),
+                            };
                             ui.horizontal(|ui| {
                                 ui.add_space(14.0);
-                                widgets::page_note(ui, tr("No matches."));
+                                widgets::page_note(ui, note);
                             });
                             ui.add_space(10.0);
                         }
@@ -236,7 +258,8 @@ impl Tab {
                             // A list to scroll, by the wheel or its bar too, as
                             // tall as a page of it at most.
                             let reveal = std::mem::take(&mut self.palette.reveal);
-                            let grouped = self.palette.title.is_none();
+                            let grouped =
+                                self.palette.title.is_none() && self.palette.asking.is_none();
                             egui::ScrollArea::vertical()
                                 .id_salt("palette list")
                                 .max_height(most)
@@ -254,7 +277,10 @@ impl Tab {
                                         let mut group = None;
                                         for (index, item) in items.iter().enumerate() {
                                             let this = super::group_of(item);
-                                            if grouped && group.as_ref() != Some(&this) {
+                                            if grouped
+                                                && !this.is_empty()
+                                                && group.as_ref() != Some(&this)
+                                            {
                                                 group_heading(ui, &this, false);
                                                 group = Some(this);
                                             }
@@ -285,10 +311,15 @@ impl Tab {
         let theme = theme::current();
         let field = egui::Id::unique("palette field");
         let listed = self.palette.results.is_some() && self.palette.query.is_empty();
-        let hint = if listed || self.palette.message.is_some() {
-            tr("Choose one, or type a command")
-        } else {
-            tr("Search for a section, an action or a command")
+        let asked = self
+            .palette
+            .asking
+            .as_ref()
+            .map(|asking| asking.title.clone());
+        let hint = match &asked {
+            Some(title) => title.as_str(),
+            None if listed || self.palette.message.is_some() => tr("Choose one"),
+            None => tr("Search for something to do, or a place"),
         };
         let hint = RichText::new(hint)
             .font(theme::font(Weight::Regular, 15.0))
@@ -330,9 +361,10 @@ impl Tab {
                 .inner
             })
             .inner;
-        // Named for a screen reader; what it is for is its hint.
+        // Named for a screen reader: what it asks, while it asks.
+        let label = asked.unwrap_or_else(|| tr("Command palette").to_owned());
         ui.ctx().accesskit_node_builder(edit.response.id, |node| {
-            node.set_label(tr("Command palette"));
+            node.set_label(label);
         });
         if edit.response.changed() {
             self.palette.chosen = 0;
@@ -357,16 +389,18 @@ impl Tab {
 }
 
 /// The name of a group of the list, or of what the list answers, over it.
-fn group_heading(ui: &mut egui::Ui, text: &str, command: bool) {
+fn group_heading(ui: &mut egui::Ui, text: &str, asked: bool) {
     let theme = theme::current();
     ui.add_space(6.0);
     ui.horizontal(|ui| {
         ui.add_space(14.0);
-        let font = match command {
-            true => egui::FontId::monospace(12.0),
+        // What is asked, or answered, is written as said; a group's name
+        // smaller, in capitals.
+        let font = match asked {
+            true => theme::font(Weight::Medium, 13.0),
             false => theme::font(Weight::Medium, 11.0),
         };
-        let text = match command {
+        let text = match asked {
             true => text.to_owned(),
             false => text.to_uppercase(),
         };
@@ -378,7 +412,7 @@ fn group_heading(ui: &mut egui::Ui, text: &str, command: bool) {
     ui.add_space(4.0);
 }
 
-/// What a command run from the palette answered, in a line of its own,
+/// What was done from the palette answered, in a line of its own,
 /// marked as done or as something that could not be done.
 fn answered(ui: &mut egui::Ui, text: &str, problem: bool) {
     let theme = theme::current();
@@ -454,9 +488,9 @@ fn palette_row(ui: &mut egui::Ui, item: &Item, chosen: bool) -> egui::Response {
         ui.allocate_exact_size(egui::vec2(ui.available_width(), ROW), egui::Sense::click());
     let about = item.about.as_str();
     row.widget_info(|| {
-        let usage = shown_usage(&item.usage);
+        let usage = &item.usage;
         let said = match about.is_empty() {
-            true => usage.to_owned(),
+            true => usage.clone(),
             false => format!("{usage}. {about}"),
         };
         egui::WidgetInfo::selected(egui::Role::ListItem, true, chosen, said)
@@ -508,7 +542,7 @@ fn palette_row(ui: &mut egui::Ui, item: &Item, chosen: bool) -> egui::Response {
     let start = inside.left() + 28.0;
     let mut job = egui::text::LayoutJob::default();
     let typed = theme::font(Weight::Medium, 14.0);
-    for (index, word) in shown_usage(&item.usage).split(' ').enumerate() {
+    for (index, word) in item.usage.split(' ').enumerate() {
         let given = word.starts_with(['<', '[']);
         let colour = match given {
             true => theme.text_faint,
@@ -581,7 +615,8 @@ fn look_of(item: &Item) -> (widgets::Glyph, &'static str) {
         Act::Speech | Act::ReadChannel(..) => (Glyph::Say, ""),
         Act::Panel(_) => (Glyph::Panel, ""),
         Act::Connect(_) => (Glyph::Profile, ""),
-        Act::Place(_) | Act::MapTool(_) | Act::UndoChange => (Glyph::Map, ""),
+        Act::Place(_) | Act::MapTool(_) | Act::UndoChange | Act::TidyHere => (Glyph::Map, ""),
+        Act::Ask(_) | Act::Answer(_) => (Glyph::Search, ""),
         Act::Run(command) if command.starts_with("/map") => (Glyph::Map, ""),
         Act::Run(_) => (Glyph::Check, ""),
     }

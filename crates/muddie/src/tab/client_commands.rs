@@ -1,100 +1,7 @@
-//! The commands of the client itself, typed after a slash.
+//! What the client does, as the palette's actions ask it: each by a
+//! line of its own, `/map go <place>`, which nothing shows the user.
 
 use super::*;
-
-/// The client's own commands, as they are typed, and what each is for.
-/// They are in English whatever the language of the interface, like the
-/// words of a programming language.
-pub(super) const COMMANDS: [(&str, &str); 37] = [
-    ("/map where", "Says where you are"),
-    (
-        "/map here [number]",
-        "Tells the map which room you are in; alone, lists those it is unsure between",
-    ),
-    (
-        "/map find <text>",
-        "Lists the rooms whose name contains the text",
-    ),
-    (
-        "/map go <place>",
-        "Goes to a room by number, mark, name or area: of several, the nearest",
-    ),
-    (
-        "/map route <place>",
-        "Says the way to a place, without going",
-    ),
-    ("/map exits", "Says where each exit of this room leads"),
-    (
-        "/map explore",
-        "Explores the map with the keys, from where you are, without moving",
-    ),
-    (
-        "/map near [moves]",
-        "Lists what is up to three moves away, or as many as given",
-    ),
-    ("/map info [place]", "Says all the map knows of a room"),
-    (
-        "/map mark [name]",
-        "Marks this room, to go to it by its mark; alone, lists the marks",
-    ),
-    ("/map unmark <name>", "Forgets a mark"),
-    (
-        "/map note <text>",
-        "Writes a note on this room, said with it",
-    ),
-    ("/map unnote", "Takes the note off this room"),
-    ("/map areas", "Lists the areas, to go to one"),
-    ("/map stop", "Stops going"),
-    (
-        "/map avoid [place]",
-        "Keeps routes out of a room, or lets them in again",
-    ),
-    (
-        "/map lock <direction>",
-        "Keeps routes from an exit of this room, or lets them use it again",
-    ),
-    (
-        "/map tidy [all]",
-        "Draws this area again from scratch; all, even if it is very large",
-    ),
-    (
-        "/map added",
-        "Lists the rooms the map added of itself where you went",
-    ),
-    ("/map undo", "Undoes the last change the map made of itself"),
-    (
-        "/map check",
-        "Lists the rooms that look wrong: with no name, or that no exit leads to or from",
-    ),
-    ("/map remove <place>", "Takes a room off the map"),
-    (
-        "/map import [file or address]",
-        "Takes a map made with Mudlet in place of this one",
-    ),
-    ("/map show", "Shows the map panel"),
-    ("/map hide", "Hides the map panel"),
-    ("/plugin list", "Lists the installed plugins"),
-    (
-        "/plugin install <git address> [name]",
-        "Installs a plugin and enables it",
-    ),
-    ("/plugin update <name>", "Brings a plugin up to date"),
-    ("/plugin enable <name>", "Enables a plugin in this profile"),
-    (
-        "/plugin disable <name>",
-        "Disables a plugin in this profile",
-    ),
-    ("/plugin remove <name>", "Deletes a plugin"),
-    ("/tag", "Lists the tags and whether they are on"),
-    (
-        "/tag <name> [on|off]",
-        "Switches a tag on or off for this session",
-    ),
-    ("/log", "Starts or stops logging the session"),
-    ("/reload", "Restarts the scripts and rules"),
-    ("/lua <code>", "Runs a line of Luau"),
-    ("/help", "Lists these commands, in the palette"),
-];
 
 impl Tab {
     /// Carries out a command of the client's own. Returns false if `line`
@@ -106,7 +13,6 @@ impl Tab {
         let argument = argument.as_str();
         let given = !argument.is_empty();
         match command {
-            "/help" | "/map" | "/plugin" => self.open_command_list(command),
             "/map-show" | "/map-hide" => self.set_map_shown(command == "/map-show"),
             "/tag" => self.tag_command(argument),
             "/where" => self.say_where(),
@@ -144,18 +50,6 @@ impl Tab {
         true
     }
 
-    /// The palette is the list of commands: opens it, at the group if one
-    /// was given.
-    fn open_command_list(&mut self, command: &str) {
-        self.palette.open = true;
-        self.palette.focus = true;
-        self.palette.cursor_end = true;
-        self.palette.query = match command {
-            "/help" => String::new(),
-            group => format!("{} ", &group[1..]),
-        };
-    }
-
     /// Switches a tag for this session, or lists them all.
     fn tag_command(&mut self, argument: &str) {
         let (name, wanted) = match argument.rsplit_once(' ') {
@@ -171,10 +65,7 @@ impl Tab {
             .iter()
             .find(|tag| **tag == muddie_script::tag_key(name))
         else {
-            return self.refuse(&trf(
-                "There is no tag called {0}; /tag lists them.",
-                &[name],
-            ));
+            return self.refuse(&trf("There is no tag called {0}.", &[name]));
         };
         let mut switches = self.scripts.switches();
         let on = wanted.unwrap_or(!switches.tag_on(tag));
@@ -247,21 +138,18 @@ pub(super) fn client_command(line: &str) -> Option<(&'static str, String)> {
         ("/map", "remove") => "/remove-room",
         ("/map", "show") => "/map-show",
         ("/map", "hide") => "/map-hide",
-        ("/map", _) => "/map",
         ("/plugin", "list") => "/packages",
         ("/plugin", "install") => "/install",
         ("/plugin", "update") => "/update",
         ("/plugin", "enable") => "/enable",
         ("/plugin", "disable") => "/disable",
         ("/plugin", "remove") => "/remove",
-        ("/plugin", _) => "/plugin",
         ("/tag", _) => {
             let after = line.trim_start().strip_prefix("/tag").unwrap_or_default();
             return Some(("/tag", after.trim().to_owned()));
         }
         ("/log", _) => "/log",
         ("/reload", _) => "/reload",
-        ("/help", _) => "/help",
         _ => return None,
     };
     Some((command, rest))

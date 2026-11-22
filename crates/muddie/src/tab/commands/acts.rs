@@ -118,32 +118,189 @@ impl Tab {
             .collect()
     }
 
-    /// What is asked of the map, and of the scripts and plugins, that
-    /// takes nothing: Muddie's commands, by what they do.
+    /// What is done with the map, and with the scripts, plugins and tags:
+    /// each by what it does, asking in the field for what it needs more.
     fn map_acts(&self) -> Vec<Item> {
+        let run = |line: &str| Act::Run(line.to_owned());
+        let ask = |title: String, command: &str, offers: Offers| {
+            Act::Ask(Asking {
+                title,
+                command: command.to_owned(),
+                offers,
+            })
+        };
         let map = tr("Map");
         let mut acts = vec![
-            item(tr("Where am I"), map, Act::Run("/map where")),
-            item(tr("Exits of this room"), map, Act::Run("/map exits")),
-            item(tr("What is near"), map, Act::Run("/map near")),
-            item(tr("Explore the map"), map, Act::Run("/map explore")),
-            item(tr("Areas of the map"), map, Act::Run("/map areas")),
-            item(tr("Check the map"), map, Act::Run("/map check")),
+            item(tr("Where am I"), map, run("/map where")),
+            item(tr("Exits of this room"), map, run("/map exits")),
+            item(tr("What is near"), map, run("/map near")),
+            item(tr("Explore the map"), map, run("/map explore")),
+            item(
+                tr("Go to…"),
+                map,
+                ask(tr("Go to").into(), "/map go ", Offers::Places),
+            ),
+            item(
+                tr("The way to…"),
+                map,
+                ask(tr("The way to").into(), "/map route ", Offers::Places),
+            ),
+            item(
+                tr("Find rooms…"),
+                map,
+                ask(
+                    tr("Find rooms called").into(),
+                    "/map find ",
+                    Offers::Nothing,
+                ),
+            ),
+            item(
+                tr("What the map knows of…"),
+                map,
+                ask(
+                    tr("What the map knows of").into(),
+                    "/map info ",
+                    Offers::Places,
+                ),
+            ),
+            item(tr("Areas of the map"), map, run("/map areas")),
+            item(tr("Check the map"), map, run("/map check")),
+            item(tr("Tidy this area"), map, Act::TidyHere),
+            item(
+                tr("Remove a room…"),
+                map,
+                ask(tr("Remove the room").into(), "/map remove ", Offers::Places),
+            ),
+            item(
+                tr("Import a Mudlet map…"),
+                map,
+                ask(
+                    tr("Import the Mudlet map at").into(),
+                    "/map import ",
+                    Offers::Nothing,
+                ),
+            ),
         ];
-        if self.walk.is_some() {
-            acts.push(item(tr("Stop going"), map, Act::Run("/map stop")));
-        }
-        if !self.map.borrow().added().is_empty() {
-            acts.push(item(tr("Rooms the map added"), map, Act::Run("/map added")));
-        }
-        let scripts = tr("Scripts");
-        acts.push(item(tr("Restart scripts"), scripts, Act::Run("/reload")));
         acts.push(item(
-            tr("Installed plugins"),
-            scripts,
-            Act::Run("/plugin list"),
+            tr("I am in…"),
+            map,
+            ask(
+                tr("The room you are in").into(),
+                "/map here ",
+                Offers::Places,
+            ),
         ));
-        acts.push(item(tr("All commands"), tr("Help"), Act::Run("/help")));
+        let state = self.map.borrow();
+        if !state.candidates().is_empty() {
+            acts.push(item(tr("Which room am I in"), map, run("/map here")));
+        }
+        if let Some(room) = state.current() {
+            let name = state.short_name(room).to_owned();
+            acts.push(item(
+                &trf("Mark {0}…", &[&name]),
+                map,
+                ask(trf("Mark for {0}", &[&name]), "/map mark ", Offers::Nothing),
+            ));
+            acts.push(item(
+                &trf("Note on {0}…", &[&name]),
+                map,
+                ask(trf("Note on {0}", &[&name]), "/map note ", Offers::Nothing),
+            ));
+            if !room.note.is_empty() {
+                acts.push(item(
+                    &trf("Take the note off {0}", &[&name]),
+                    map,
+                    run("/map unnote"),
+                ));
+            }
+            let avoid = switched(&trf("Avoid {0} in routes", &[&name]), room.avoid);
+            acts.push(item(&avoid, map, run("/map avoid")));
+            if !room.exits.is_empty() {
+                acts.push(item(
+                    tr("Keep routes off an exit…"),
+                    map,
+                    ask(
+                        tr("Keep routes off the exit").into(),
+                        "/map lock ",
+                        Offers::Exits,
+                    ),
+                ));
+            }
+        }
+        if !state.marks().is_empty() {
+            acts.push(item(
+                tr("Forget a mark…"),
+                map,
+                ask(tr("Forget the mark").into(), "/map unmark ", Offers::Marks),
+            ));
+        }
+        if !state.added().is_empty() {
+            acts.push(item(tr("Rooms the map added"), map, run("/map added")));
+        }
+        drop(state);
+        if self.walk.is_some() {
+            acts.push(item(tr("Stop going"), map, run("/map stop")));
+        }
+        // The scripts, plugins and tags.
+        let scripts = tr("Scripts");
+        acts.push(item(
+            tr("Run Lua…"),
+            scripts,
+            ask(tr("Lua to run").into(), "/lua ", Offers::Nothing),
+        ));
+        acts.push(item(tr("Restart scripts"), scripts, run("/reload")));
+        let switches = self.scripts.switches();
+        for tag in self.scripts.tags() {
+            let on = switches.tag_on(&tag);
+            let line = format!("/tag {tag} {}", if on { "off" } else { "on" });
+            acts.push(item(
+                &switched(&trf("Tag {0}", &[&tag]), on),
+                scripts,
+                Act::Run(line),
+            ));
+        }
+        let plugins = tr("Plugins");
+        let installed = (self.profiles.as_ref())
+            .map(Profiles::packages)
+            .unwrap_or_default();
+        for name in &installed {
+            let on = self.packages.contains(name);
+            let line = format!("/plugin {} {name}", if on { "disable" } else { "enable" });
+            acts.push(item(
+                &switched(&trf("Plugin {0}", &[name]), on),
+                plugins,
+                Act::Run(line),
+            ));
+        }
+        acts.push(item(
+            tr("Install a plugin…"),
+            plugins,
+            ask(
+                tr("Git address of the plugin").into(),
+                "/plugin install ",
+                Offers::Nothing,
+            ),
+        ));
+        if !installed.is_empty() {
+            acts.push(item(
+                tr("Update a plugin…"),
+                plugins,
+                ask(
+                    tr("Plugin to update").into(),
+                    "/plugin update ",
+                    Offers::Plugins,
+                ),
+            ));
+            acts.push(item(
+                tr("Remove a plugin…"),
+                plugins,
+                ask(
+                    tr("Plugin to remove").into(),
+                    "/plugin remove ",
+                    Offers::Plugins,
+                ),
+            ));
+        }
         acts
     }
 
@@ -208,7 +365,19 @@ impl Tab {
                     }
                 }
             }
-            Act::Run(command) => drop(self.run_command(command)),
+            Act::Run(line) => drop(self.run_command(&line)),
+            Act::Ask(asking) => self.ask(asking),
+            Act::Answer(answer) => self.answer(&answer),
+            Act::TidyHere => {
+                let area = self.map.borrow().current().map(|room| room.area.clone());
+                match area {
+                    Some(area) => self.tidy_chosen(&area),
+                    None => {
+                        let said = self.unknown_whereabouts();
+                        self.refuse(&said);
+                    }
+                }
+            }
             Act::Place(name) => self.go_to(&name),
             Act::Connect(name) => {
                 if self.select_profile(Some(name)) {

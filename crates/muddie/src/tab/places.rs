@@ -14,21 +14,18 @@ const NEAR: usize = 3;
 const FARTHEST: usize = 10;
 
 impl Tab {
-    /// Puts the player in a room the user names by number; with none,
-    /// lists the rooms the map is unsure between, to choose, or says
-    /// where the player is.
+    /// Puts the player in a room the user names: by number, mark or name;
+    /// with none, lists the rooms the map is unsure between, to choose, or
+    /// says where the player is.
     pub(super) fn here(&mut self, argument: &str) {
-        if let Ok(id) = argument.parse::<RoomId>() {
-            if !self.map.borrow_mut().set_current(id) {
-                return self.refuse(tr("There is no room of that number."));
-            }
+        if !argument.trim().is_empty() {
+            let id = match self.room_meant(argument) {
+                Ok(id) => id,
+                Err(why) => return self.refuse(&why),
+            };
+            self.map.borrow_mut().set_current(id);
             self.arrived_in(id);
             return self.say_where();
-        }
-        if !argument.is_empty() {
-            return self.refuse(tr(
-                "Give the number of the room you are in: map here <number>.",
-            ));
         }
         let rooms: Vec<(String, String, String)> = {
             let map = self.map.borrow();
@@ -253,7 +250,9 @@ impl Tab {
                     .collect()
             };
             if marks.is_empty() {
-                return self.refuse(tr("No room is marked yet: map mark <name> marks this one."));
+                return self.refuse(tr(
+                    "No room is marked yet: Mark…, in the palette, marks the room you are in.",
+                ));
             }
             for (name, room) in marks {
                 self.offer(&name, &room, &format!("/map go {name}"));
@@ -267,7 +266,7 @@ impl Tab {
         };
         if self.mark_room(here, name) {
             self.note(&trf(
-                "This room is now marked {0}: map go {0} goes to it.",
+                "This room is now marked {0}: typed in the palette, {0} goes to it.",
                 &[name],
             ));
         }
@@ -370,7 +369,7 @@ impl Tab {
     pub(super) fn import_map(&mut self, source: &str) {
         if source.is_empty() {
             return self.refuse(tr(
-                "Give a map made with Mudlet: map import <file or address>.",
+                "Say which map made with Mudlet to take: a file or an address.",
             ));
         }
         self.take_map(source.to_owned(), None, Taking::Asked);

@@ -61,7 +61,6 @@ mod view;
 mod walking;
 mod welcome;
 
-use client_commands::COMMANDS;
 pub use messages::Notice;
 
 pub use commands::AppRequest;

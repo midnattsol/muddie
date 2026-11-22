@@ -85,7 +85,8 @@ impl Tab {
                     act: None,
                 });
                 self.palette.results = Some(items.collect());
-                self.palette.title = Some(line.trim().to_owned());
+                // Under what was chosen, by its name; never the line.
+                self.palette.title = self.palette.doing.take();
                 self.palette.query.clear();
                 self.palette.open = true;
             }

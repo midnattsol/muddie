@@ -243,9 +243,6 @@ msgid "This room has no such exit."
 msgstr "Esta sala no tiene esa salida."
 
 #, python-brace-format
-msgid "{0} has {1} rooms: tidying it would draw them all again, and what was drawn by hand would be lost. To tidy it anyway: map tidy all."
-msgstr "{0} tiene {1} salas: ordenarla volvería a dibujarlas todas, y se perdería lo colocado a mano. Para ordenarla de todos modos: map tidy all."
-
 msgid "Tidied the map: {0} rooms moved."
 msgstr "Mapa ordenado: {0} salas movidas."
 
@@ -601,9 +598,6 @@ msgstr "Complemento {0} activado."
 msgid "Plugin {0} disabled."
 msgstr "Complemento {0} desactivado."
 
-msgid "No such plugin is installed; see plugin list, in the palette."
-msgstr "No hay ningún plugin instalado con ese nombre; mira plugin list, en la paleta."
-
 #, python-brace-format
 msgid "Plugin {0} removed."
 msgstr "Complemento {0} eliminado."
@@ -623,12 +617,6 @@ msgstr "Complemento {0} actualizado."
 #, python-brace-format
 msgid "The plugin could not be installed or updated: {0}"
 msgstr "No se pudo instalar o actualizar el complemento: {0}"
-
-msgid "No plugins are installed: plugin install, in the palette, installs one from its git address."
-msgstr "No hay plugins instalados: plugin install, en la paleta, instala uno desde su dirección git."
-
-msgid "not enabled; plugin enable, in the palette, enables it"
-msgstr "no activado; plugin enable, en la paleta, lo activa"
 
 msgid "Plugins need a configuration folder, and none was found."
 msgstr "Los complementos necesitan una carpeta de configuración, y no se encontró ninguna."
@@ -934,9 +922,6 @@ msgid "In the order of the list: drag a gauge there, or press Alt+Up or Alt+Down
 msgstr "Se muestra en el orden de la lista. Para cambiarlo, arrastra el indicador o usa Alt+Arriba y Alt+Abajo."
 
 
-msgid "Choose one, or type a command"
-msgstr "Selecciona una opción o escribe un comando"
-
 msgid "Commands"
 msgstr "Comandos"
 
@@ -1082,9 +1067,6 @@ msgstr "Mostrar {0}"
 
 msgid "Connect to profile"
 msgstr "Conectar al perfil"
-
-msgid "Search for a section, an action or a command"
-msgstr "Busca una sección, una acción o un comando"
 
 msgid "Messages"
 msgstr "Mensajes"
@@ -1340,9 +1322,6 @@ msgid "Remove the tag {0}"
 msgstr "Quitar la etiqueta {0}"
 
 #, python-brace-format
-msgid "There is no tag called {0}; /tag lists them."
-msgstr "No existe la etiqueta {0}. Usa /tag para ver las disponibles."
-
 msgid "There are no tags. Give a rule a tag in the editor."
 msgstr "No hay etiquetas. Puedes asignarlas a las reglas desde el editor."
 
@@ -1885,14 +1864,11 @@ msgstr "Cmd+clic  Mayús+clic"
 msgid "The map knows where you are again: {0}."
 msgstr "El mapa vuelve a saber dónde estás: {0}."
 
-msgid "The map does not know where you are: map here <number>, in the palette, tells it."
-msgstr "El mapa no sabe dónde estás: map here <número>, en la paleta, se lo dice."
-
 #, python-brace-format
-msgid "The map is not sure where you are: in one of {0} rooms alike. Moving tells them apart; map here, in the palette, lists them."
-msgid_plural "The map is not sure where you are: in one of {0} rooms alike. Moving tells them apart; map here, in the palette, lists them."
-msgstr[0] "El mapa no está seguro de dónde estás: en una de {0} salas iguales. Al moverte las distingue; map here, en la paleta, las lista."
-msgstr[1] "El mapa no está seguro de dónde estás: en una de {0} salas iguales. Al moverte las distingue; map here, en la paleta, las lista."
+msgid "The map is not sure where you are: in one of {0} rooms alike. Moving tells them apart; Which room am I in, in the palette, lists them."
+msgid_plural "The map is not sure where you are: in one of {0} rooms alike. Moving tells them apart; Which room am I in, in the palette, lists them."
+msgstr[0] "El mapa no está seguro de dónde estás: en una de {0} salas iguales. Al moverte las distingue; En qué sala estoy, en la paleta, las lista."
+msgstr[1] "El mapa no está seguro de dónde estás: en una de {0} salas iguales. Al moverte las distingue; En qué sala estoy, en la paleta, las lista."
 
 msgid "No known route to that place."
 msgstr "No hay ruta conocida hasta ese sitio."
@@ -1915,9 +1891,6 @@ msgstr[1] "La más cercana de {0} salas con ese nombre."
 
 msgid "There is no room of that number."
 msgstr "No hay ninguna sala con ese número."
-
-msgid "Give the number of the room you are in: map here <number>."
-msgstr "Da el número de la sala en la que estás: map here <número>."
 
 #, python-brace-format
 msgid "You are in one of {0} rooms alike:"
@@ -1957,9 +1930,6 @@ msgid "{0} room"
 msgid_plural "{0} rooms"
 msgstr[0] "{0} sala"
 msgstr[1] "{0} salas"
-
-msgid "Give a map made with Mudlet: map import <file or address>."
-msgstr "Indica un mapa hecho con Mudlet: map import <fichero o dirección>."
 
 msgid "A map is being taken already."
 msgstr "Ya se está trayendo un mapa."
@@ -2580,9 +2550,6 @@ msgstr[1] "{0} nombres corregidos"
 msgid "Map: {0}."
 msgstr "Mapa: {0}."
 
-msgid "{0} To undo the last: map undo, in the palette."
-msgstr "{0} Para deshacer el último: map undo, en la paleta."
-
 msgid "{0} exit added"
 msgid_plural "{0} exits added"
 msgstr[0] "{0} salida añadida"
@@ -2681,9 +2648,6 @@ msgstr "Parado."
 msgid "Not going anywhere."
 msgstr "No vas a ningún sitio."
 
-msgid "This room is now marked {0}: map go {0} goes to it."
-msgstr "Esta sala tiene ahora la marca {0}: map go {0} lleva a ella."
-
 msgid "Stopped: the server said the move failed."
 msgstr "Parado: el servidor dice que el movimiento ha fallado."
 
@@ -2707,9 +2671,6 @@ msgstr "Marca para {0}"
 
 msgid "Mark the room"
 msgstr "Marcar la sala"
-
-msgid "No room is marked yet: map mark <name> marks this one."
-msgstr "Ninguna sala tiene marca todavía: map mark <nombre> marca esta."
 
 msgid "No room is marked {0} now."
 msgstr "Ya ninguna sala tiene la marca {0}."
@@ -2758,9 +2719,6 @@ msgstr "Lista estos comandos, en la paleta"
 
 msgid "Lists what is up to three moves away, or as many as given"
 msgstr "Lista lo que hay a tres movimientos o menos, o a los que se digan"
-
-msgid "Say which room: map remove <place>."
-msgstr "Di qué sala: map remove <lugar>."
 
 msgid "Room appearance…"
 msgstr "Apariencia de la sala…"
@@ -2834,9 +2792,6 @@ msgstr "Salas añadidas por el mapa"
 msgid "Installed plugins"
 msgstr "Plugins instalados"
 
-msgid "All commands"
-msgstr "Todos los comandos"
-
 msgid "Add a text panel"
 msgstr "Añadir un panel de texto"
 
@@ -2857,3 +2812,147 @@ msgstr "Deshacer"
 
 msgid "Redo"
 msgstr "Rehacer"
+
+msgid "There is no tag called {0}."
+msgstr "No hay ningún tag llamado {0}."
+
+msgid "{0}: write it, then Enter."
+msgstr "{0}: escríbelo y pulsa Enter."
+
+msgid "Choose one"
+msgstr "Elige uno"
+
+msgid "Search for something to do, or a place"
+msgstr "Busca algo que hacer, o un lugar"
+
+msgid "Go to…"
+msgstr "Ir a…"
+
+msgid "The way to…"
+msgstr "El camino a…"
+
+msgid "The way to"
+msgstr "El camino a"
+
+msgid "Find rooms…"
+msgstr "Buscar salas…"
+
+msgid "Find rooms called"
+msgstr "Buscar salas llamadas"
+
+msgid "What the map knows of…"
+msgstr "Lo que sabe el mapa de…"
+
+msgid "What the map knows of"
+msgstr "Lo que sabe el mapa de"
+
+msgid "Remove a room…"
+msgstr "Quitar una sala…"
+
+msgid "Remove the room"
+msgstr "Quitar la sala"
+
+msgid "Import a Mudlet map…"
+msgstr "Importar un mapa de Mudlet…"
+
+msgid "Import the Mudlet map at"
+msgstr "Importar el mapa de Mudlet de"
+
+msgid "Which room am I in"
+msgstr "En qué sala estoy"
+
+msgid "Mark {0}…"
+msgstr "Marcar {0}…"
+
+msgid "Note on {0}…"
+msgstr "Nota en {0}…"
+
+msgid "Take the note off {0}"
+msgstr "Quitar la nota de {0}"
+
+msgid "Avoid {0} in routes"
+msgstr "Evitar {0} en las rutas"
+
+msgid "Keep routes off an exit…"
+msgstr "Que las rutas no usen una salida…"
+
+msgid "Keep routes off the exit"
+msgstr "Que las rutas no usen la salida"
+
+msgid "Forget a mark…"
+msgstr "Olvidar una marca…"
+
+msgid "Forget the mark"
+msgstr "Olvidar la marca"
+
+msgid "Run Lua…"
+msgstr "Ejecutar Lua…"
+
+msgid "Lua to run"
+msgstr "Lua que ejecutar"
+
+msgid "Tag {0}"
+msgstr "Tag {0}"
+
+msgid "Plugin {0}"
+msgstr "Plugin {0}"
+
+msgid "Install a plugin…"
+msgstr "Instalar un plugin…"
+
+msgid "Git address of the plugin"
+msgstr "Dirección git del plugin"
+
+msgid "Update a plugin…"
+msgstr "Actualizar un plugin…"
+
+msgid "Plugin to update"
+msgstr "Plugin que actualizar"
+
+msgid "Remove a plugin…"
+msgstr "Quitar un plugin…"
+
+msgid "Plugin to remove"
+msgstr "Plugin que quitar"
+
+msgid "Back to the search."
+msgstr "De vuelta a la búsqueda."
+
+msgid "The map does not know where you are: moving tells it, or I am in…, in the palette."
+msgstr "El mapa no sabe dónde estás: moverte se lo dice, o En esta sala estoy…, en la paleta."
+
+msgid "{0} To undo the last: Undo the map's last change, in the palette."
+msgstr "{0} Para deshacer el último: Deshacer el último cambio del mapa, en la paleta."
+
+msgid "Say which room."
+msgstr "Di qué sala."
+
+msgid "No room is marked yet: Mark…, in the palette, marks the room you are in."
+msgstr "Ninguna sala tiene marca todavía: Marcar…, en la paleta, marca la sala en que estás."
+
+msgid "This room is now marked {0}: typed in the palette, {0} goes to it."
+msgstr "Esta sala tiene ahora la marca {0}: escribir {0} en la paleta lleva a ella."
+
+msgid "Say which map made with Mudlet to take: a file or an address."
+msgstr "Di qué mapa de Mudlet tomar: un fichero o una dirección."
+
+msgid "{0} has {1} rooms: tidying it would draw them all again, and what was drawn by hand would be lost."
+msgstr "{0} tiene {1} salas: ordenarla volvería a dibujarlas todas, y se perdería lo colocado a mano."
+
+msgid "No such plugin is installed."
+msgstr "No hay ningún plugin instalado con ese nombre."
+
+msgid "No plugins are installed: Install a plugin…, in the palette, installs one from its git address."
+msgstr "No hay plugins instalados: Instalar un plugin…, en la paleta, instala uno desde su dirección git."
+
+msgid "not enabled; choose it to enable it"
+msgstr "no activado; elígelo para activarlo"
+
+msgid "I am in…"
+msgstr "En esta sala estoy…"
+
+msgid "The room you are in"
+msgstr "La sala en la que estás"
+
+msgid "Write it, then Enter."
+msgstr "Escríbelo y pulsa Enter."

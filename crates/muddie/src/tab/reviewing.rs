@@ -150,7 +150,7 @@ impl Tab {
             }
         };
         self.note(&trf(
-            "{0} To undo the last: map undo, in the palette.",
+            "{0} To undo the last: Undo the map's last change, in the palette.",
             &[&said],
         ));
     }
@@ -231,7 +231,7 @@ impl Tab {
     /// Takes a room off the map: by number, mark or name.
     pub(super) fn remove_room_command(&mut self, argument: &str) {
         if argument.trim().is_empty() {
-            return self.refuse(tr("Say which room: map remove <place>."));
+            return self.refuse(tr("Say which room."));
         }
         let id = match self.room_meant(argument) {
             Ok(id) => id,
