@@ -454,14 +454,11 @@ per profile like the ones you install. Two come with it.
   move, checked by the room the game writes, so that lag does not lose it,
   and walks in Spanish. The published map names some rooms with something
   said in them as they were mapped, with their names cut short, or with
-  nothing, and the MUD renames rooms and opens exits of its own: **Put
-  right the map as you go**, a switch in the map's menu and the palette,
-  on unless switched off, has the map put that right as you go (see "The
-  map", below); what it put right stays when the map is brought up to
-  date. **Add the rooms the map has not**, a switch in the
-  map's menu and the palette, has the map add the rooms it does not have
-  where you go by the compass (see "The map", below); it is remembered in
-  the profile, and off until switched on. What it shows is in English or
+  nothing, and the MUD renames rooms, opens exits and builds rooms of its
+  own: **Keep the map up to date as you go**, a switch in the map's menu
+  and the palette, on unless switched off and remembered in the profile,
+  has the map learn as you go (see "The map", below); what it learnt stays
+  when the map is brought up to date. What it shows is in English or
   Spanish, as the interface is. It
   is off until asked for. On connecting to that MUD it is offered in a
   notice over the bottom right corner: **Enable** switches it on there and then, and **Not now**
@@ -601,28 +598,24 @@ too, when it is in your area and level.
 A room marked to avoid is never walked through, and a locked exit is never
 used. Both are kept when the server reports the room again.
 
-A plugin can have the map add the rooms it does not have where you go,
-for a MUD that does not say which room you are in. The map adds one only
-when it knows for certain where you were, and only after looking for it
-among the rooms it has: that way from where you were, with that name and
-those exits, it links to it rather than have it twice; through any other
-exit, such as a portal, which could lead anywhere, it adds nothing if any
-room it has could be the one. A room added is drawn with a dashed border,
-and said to be added; its exits are said not explored until you take
-them, and the way back is not assumed until you walk it. `/map added`
-lists them, and `/map undo` undoes the last. When the map is taken again,
-they stay; one the map taken has by then, reached from a room by the same
-exit and with the same name and exits, becomes that room, with your notes
-and names.
+For a MUD that does not say which room you are in, a plugin can have the
+map learn as you go from the room the game shows, never on one sighting
+alone, nor from a room it does not know for certain you were in. A room
+is known by where it is as much as by its name: when the exit you took
+leads to a room with just the exits the game shows, and no room next to
+where you were has the name shown with them, the map follows you there
+though it names it otherwise, as maps taken from elsewhere name some
+rooms with what was said in them as they were mapped, cut short, or not
+at all, and MUDs rename rooms. What it learns:
 
-For such a MUD, a room is known by where it is as much as by its name.
-When the exit you took leads to a room with just the exits the game
-shows, and no room next to where you were has the name shown with them,
-the map follows you there though it names it otherwise: maps taken from
-elsewhere name some rooms with what was said in them as they were
-mapped, cut short, or not at all, and MUDs rename rooms. A plugin can have
-it put right what it has wrong as you go, never on one sighting alone:
-
+- **Rooms it has not.** Gone to by the compass from a room it knew you
+  were in, where it has no exit or one leading to no room, a room the game
+  shows with a name and exits that are all directions is added, but only
+  after looking for it among the rooms it has: that way from where you
+  were, with that name and those exits, it links to it rather than have
+  it twice. A room added is drawn with a dashed border, and said to be
+  added; its exits are said not explored until you take them, and the way
+  back is not assumed until you walk it. `/map added` lists them.
 - **Names.** Once your next move is to a room as the map has it, by its
   name and with every exit it has among those shown, the rooms you went
   through between are given the names the game showed.
@@ -636,9 +629,11 @@ it put right what it has wrong as you go, never on one sighting alone:
   hidden is not shown either: `/map check` lists those the game has not
   shown the last three times you came, for you to look at.
 
-A notice says what it put right a moment after, with whatever else the
-map changed meanwhile, and `/map undo` undoes it, the last first. What it
-put right is kept when the map is taken again.
+A notice says what it learnt a moment after, with whatever else it learnt
+meanwhile, and `/map undo` undoes it, the last first. When the map is
+taken again, what it learnt stays; a room it added that the map taken has
+by then, reached from a room by the same exit and with the same name and
+exits, becomes that room, with your notes and names.
 
 Maps made by hand gather rooms left over: a copy of a room, in its very
 place and of its name, that no other room leads to, made when a room was

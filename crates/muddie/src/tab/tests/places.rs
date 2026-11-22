@@ -389,7 +389,7 @@ fn the_plugin_has_the_map_put_right_the_rooms_named_wrong_it_goes_through() {
     // Switched off from the map's menu, rooms named wrong are only
     // followed.
     app.act(
-        commands::Act::MapTool("Put right the map as you go".into()),
+        commands::Act::MapTool("Keep the map up to date as you go".into()),
         &ctx,
     );
     assert!(app.map.borrow_mut().set_current(4));
@@ -1053,19 +1053,18 @@ fn the_rooms_the_map_added_are_listed_said_apart_undone_and_checked() {
     );
 }
 
-/// Switched on from the map's tools, the plugin of Reinos has the map
-/// add the rooms it has not where the player goes by the compass, and
-/// link to those it has; never a line said with brackets; and, switched
-/// off, as it starts, none.
+/// The plugin of Reinos has the map keep itself up to date, unless
+/// switched off from the map's tools: it adds the rooms it has not where
+/// the player goes by the compass from a room it knew they were in, and
+/// links to those it has; never a line said with brackets.
 #[test]
-fn reinos_adds_the_rooms_the_map_has_not_once_switched_on() {
+fn reinos_has_the_map_add_the_rooms_it_has_not_unless_switched_off() {
     let mut harness = window(None);
-    let ctx = harness.ctx.clone();
     let app = harness.state_mut().tab_mut();
     let (events, _sent) = fake_connection(app);
     desert(app);
     reinos(app);
-    let adding = "Add the rooms the map has not";
+    let learning = "Keep the map up to date as you go";
     let switched = |app: &Tab| {
         (app.scripts.map_tools().into_iter())
             .map(|tool| (tool.label, tool.checked))
@@ -1075,17 +1074,13 @@ fn reinos_adds_the_rooms_the_map_has_not_once_switched_on() {
         switched(app),
         [
             ("Sync with the official map".into(), None),
-            ("Put right the map as you go".into(), Some(true)),
-            (adding.into(), Some(false))
+            (learning.into(), Some(true))
         ]
     );
     // The palette says whether it is on.
-    app.palette.query = "rooms the map has not".into();
-    assert_eq!(app.palette_items()[0].usage, format!("{adding} (off)"));
+    app.palette.query = "up to date".into();
+    assert_eq!(app.palette_items()[0].usage, format!("{learning} (on)"));
     app.palette.query.clear();
-    app.act(commands::Act::MapTool(adding.into()), &ctx);
-    assert_eq!(switched(app)[2], (adding.into(), Some(true)));
-    assert!(last_said(app).starts_with("Rooms the map has not will be added where you go"));
     let step = |title: &str, way: &str| {
         let line = panels::styled_lines(title).remove(0);
         events.send(Event::Line(line)).unwrap();
@@ -1095,15 +1090,19 @@ fn reinos_adds_the_rooms_the_map_has_not_once_switched_on() {
         };
         events.send(moved).unwrap();
     };
-    // Where the map has the player, but not as the game wrote it: from
-    // there nothing is added, and the move is not followed.
+    let here = |harness: &Harness<'_, App>| {
+        let map = harness.state().tab().map.borrow();
+        map.current().map(|room| (room.id, room.name.clone()))
+    };
+    // Where the map was only told the player is: nothing is added, and
+    // the player is in a room it has not.
     assert!(harness.state().tab().map.borrow_mut().set_current(4));
     step("Oasis [s,e]", "norte");
     harness.run_steps(2);
     assert!(harness.state().tab().map.borrow().added().is_empty());
-    assert_eq!(harness.state().tab().map.borrow().current().unwrap().id, 4);
-    // Looking, the game writes the well: north of it, where the map has
-    // nothing, a room is added.
+    assert_eq!(here(&harness), None);
+    // Looking, the game writes the well, as the map has it: north of it,
+    // where the map has nothing, a room is added.
     let gmcp = Event::Gmcp {
         package: "Room.Actual".into(),
         data: r#""Pozo [s]""#.into(),
@@ -1112,10 +1111,6 @@ fn reinos_adds_the_rooms_the_map_has_not_once_switched_on() {
     step("Oasis [s,e]", "norte");
     harness.run_steps(2);
     let oasis = muddie_mapper::ADDED_FROM;
-    let here = |harness: &Harness<'_, App>| {
-        let map = harness.state().tab().map.borrow();
-        map.current().map(|room| (room.id, room.name.clone()))
-    };
     assert_eq!(here(&harness), Some((oasis, "Oasis".into())));
     assert_eq!(
         harness.state().tab().map.borrow().room(4).unwrap().exits["n"].to,
@@ -1125,18 +1120,11 @@ fn reinos_adds_the_rooms_the_map_has_not_once_switched_on() {
     step("Pozo [n,s]", "sur");
     harness.run_steps(2);
     assert_eq!(here(&harness), Some((4, "Pozo".into())));
-    assert_eq!(
-        harness
-            .state()
-            .tab()
-            .map
-            .borrow()
-            .room(oasis)
-            .unwrap()
-            .exits["s"]
-            .to,
-        4
-    );
+    let back = |harness: &Harness<'_, App>| {
+        let map = harness.state().tab().map.borrow();
+        map.room(oasis).unwrap().exits["s"].to
+    };
+    assert_eq!(back(&harness), 4);
     let ctx = harness.ctx.clone();
     let app = harness.state_mut().tab_mut();
     app.tell_map_changes(&ctx, Instant::now() + Duration::from_secs(5));
@@ -1150,18 +1138,15 @@ fn reinos_adds_the_rooms_the_map_has_not_once_switched_on() {
     harness.run_steps(2);
     assert_eq!(here(&harness), Some((4, "Pozo".into())));
     assert_eq!(harness.state().tab().map.borrow().added().len(), 1);
+    assert!(last_said(harness.state().tab()).starts_with("The map has no exit este from Pozo"));
     // Switched off, a room the map has not is not added.
     let app = harness.state_mut().tab_mut();
-    app.act(commands::Act::MapTool(adding.into()), &ctx);
-    assert_eq!(last_said(app), "Rooms are no longer added to the map.");
+    app.act(commands::Act::MapTool(learning.into()), &ctx);
+    assert_eq!(switched(app)[1], (learning.into(), Some(false)));
     step("Cueva [o]", "este");
     harness.run_steps(2);
     assert_eq!(harness.state().tab().map.borrow().added().len(), 1);
-    assert!(
-        notes(harness.state_mut().tab_mut())
-            .iter()
-            .any(|said| said.contains("it has not followed you"))
-    );
+    assert_eq!(here(&harness), None);
 }
 
 /// A map with all in one area, as Reinos de Leyenda's is: tidying it would

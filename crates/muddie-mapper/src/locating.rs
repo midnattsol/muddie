@@ -110,13 +110,17 @@ impl Map {
     /// and no room around has the name shown with them, the player is
     /// followed there, though the map names it otherwise, as maps taken
     /// from elsewhere name rooms with what was said in them, cut short, or
-    /// not at all. What the map has wrong on the way is put right, with
-    /// [`Map::set_put_right`], once it is borne out (see `healing`).
+    /// not at all. With [`Map::set_learning`], what the map has wrong on
+    /// the way is put right once it is borne out, and a room it has not
+    /// is added (see `healing`).
     pub fn arrive(&mut self, seen: Sighting<'_>) -> Located {
         // The exit taken: as the server says, or else the move sent that
         // this room answers. Either way, that move is answered.
         let sent = self.next_move();
         let came = seen.came.map(|came| self.direction(came)).or(sent);
+        if let Some(added) = self.add_if_new(&seen, came.as_deref()) {
+            return added;
+        }
         let key = seen.name.map(|name| self.name_key(name));
         let exits = seen.exits.map(|exits| self.exit_set(exits));
         // A room the player was followed to though named otherwise goes by
@@ -246,7 +250,12 @@ impl Map {
         };
         found.sort_unstable();
         found.dedup();
+        // A name no room has, after a move the server says was made: the
+        // player is in a room the map has not, not in one named like it.
+        let unknown =
+            seen.came.is_some() && seen.name.is_some_and(|name| self.called(name).is_empty());
         if found.is_empty()
+            && !unknown
             && let Some(name) = seen.name
         {
             found = self.locate(name, seen.exits);

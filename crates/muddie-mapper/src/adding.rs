@@ -78,6 +78,12 @@ impl Map {
     pub fn add(&mut self, seen: Arrival<'_>) -> Result<Added, Refused> {
         // The move sent that this answers, if one was, is answered.
         let _ = self.next_move();
+        self.add_shown(seen)
+    }
+
+    /// Adds the room shown, as [`Map::add`] does, the move it answers
+    /// taken already.
+    pub(crate) fn add_shown(&mut self, seen: Arrival<'_>) -> Result<Added, Refused> {
         let name = seen.name.trim();
         let came = self.direction(seen.came);
         if name.is_empty() || came.is_empty() {

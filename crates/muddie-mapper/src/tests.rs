@@ -1302,7 +1302,7 @@ fn shown(map: &mut Map, name: &str, exits: &[&str], came: Option<&str>) -> Locat
 #[test]
 fn rooms_named_otherwise_are_followed_by_the_way_and_put_right_between_rooms_as_the_map_has_them() {
     let mut map = road();
-    map.set_put_right(true);
+    map.set_learning(true);
     assert!(map.set_current(1));
     // The way and the exits lead to rooms named otherwise: the player is
     // followed through them, and nothing is renamed yet.
@@ -1347,7 +1347,7 @@ fn rooms_named_otherwise_are_followed_by_the_way_and_put_right_between_rooms_as_
 #[test]
 fn a_room_named_otherwise_is_not_put_right_unless_the_next_move_bears_it_out() {
     let mut map = road();
-    map.set_put_right(true);
+    map.set_learning(true);
     // Lost after it: nothing is renamed.
     assert!(map.set_current(1));
     assert_eq!(
@@ -1363,7 +1363,7 @@ fn a_room_named_otherwise_is_not_put_right_unless_the_next_move_bears_it_out() {
     assert!(map.set_current(1));
     assert_ne!(shown(&mut map, "Road", &["w"], Some("e")), Located::Here(2));
     // Only followed, if names are not put right.
-    map.set_put_right(false);
+    map.set_learning(false);
     assert!(map.set_current(1));
     assert_eq!(
         shown(&mut map, "Road", &["w", "e"], Some("e")),
@@ -1384,7 +1384,7 @@ fn a_room_named_otherwise_is_not_put_right_unless_the_next_move_bears_it_out() {
 #[test]
 fn while_unsure_the_one_way_to_a_room_of_those_exits_is_followed_and_put_right() {
     let mut map = road();
-    map.set_put_right(true);
+    map.set_learning(true);
     // Another road, with no way east.
     let other = RoomInfo {
         id: 6,
@@ -1419,7 +1419,7 @@ fn while_unsure_the_one_way_to_a_room_of_those_exits_is_followed_and_put_right()
 #[test]
 fn a_room_named_otherwise_is_borne_out_by_one_showing_more_exits_and_those_are_added() {
     let mut map = road();
-    map.set_put_right(true);
+    map.set_learning(true);
     assert!(map.set_current(1));
     assert_eq!(
         shown(&mut map, "Road", &["w", "e"], Some("e")),
@@ -1450,7 +1450,7 @@ fn a_room_named_otherwise_is_borne_out_by_one_showing_more_exits_and_those_are_a
 #[test]
 fn exits_are_added_only_from_where_the_map_knew_the_player_was() {
     let mut map = road();
-    map.set_put_right(true);
+    map.set_learning(true);
     // Not known for certain: the gate is only where the map was told.
     assert!(map.set_current(4));
     assert_eq!(
@@ -1497,7 +1497,7 @@ fn an_exit_that_leads_to_a_room_beside_is_rerouted_once_borne_out() {
     ] {
         map.set_room(room).unwrap();
     }
-    map.set_put_right(true);
+    map.set_learning(true);
     assert!(map.set_current(1));
     shown(&mut map, "Crossing", &["n", "e"], None);
     // North, the field is shown, not the hill: it is the field beside.
@@ -1523,7 +1523,7 @@ fn an_exit_that_leads_to_a_room_beside_is_rerouted_once_borne_out() {
 #[test]
 fn exits_never_shown_are_counted_not_taken_away() {
     let mut map = road();
-    map.set_put_right(true);
+    map.set_learning(true);
     assert!(map.set_current(3));
     shown(&mut map, "Wall of Am", &["w", "e"], None);
     // The gate, three times, without its exit north.
@@ -1539,4 +1539,54 @@ fn exits_never_shown_are_counted_not_taken_away() {
     // Shown once, it starts again.
     shown(&mut map, "Gate", &["w", "n"], Some("e"));
     assert!(map.unshown_exits(1).is_empty());
+}
+
+#[test]
+fn a_room_the_map_has_not_is_added_as_it_learns_from_where_it_knew_the_player_was() {
+    let mut map = road();
+    map.set_learning(true);
+    // Not known for certain where the player was: not added, and the
+    // player is in no room named like it.
+    assert!(map.set_current(5));
+    assert_eq!(
+        shown(&mut map, "Fountain", &["w"], Some("e")),
+        Located::Nowhere
+    );
+    assert_eq!(map.rooms().count(), 5);
+    // Known: east of the square, where it has no exit, the room is made.
+    assert!(map.set_current(5));
+    shown(&mut map, "Square", &["s"], None);
+    let made = ADDED_FROM;
+    assert_eq!(
+        shown(&mut map, "Fountain", &["w"], Some("e")),
+        Located::Here(made)
+    );
+    assert_eq!(map.room(5).unwrap().exits["e"].to, made);
+    assert_eq!(map.take_told(), [Changed::Made(made, "Fountain".into())]);
+    // Back and there again, it is known, and the way back learnt.
+    assert_eq!(
+        shown(&mut map, "Square", &["s", "e"], Some("w")),
+        Located::Here(5)
+    );
+    assert_eq!(
+        shown(&mut map, "Fountain", &["w"], Some("e")),
+        Located::Here(made)
+    );
+    // Something said with brackets is not a room: not added.
+    assert!(map.set_current(5));
+    shown(&mut map, "Square", &["s", "e"], None);
+    assert_ne!(
+        shown(&mut map, "Moony says: ok", &["ok"], Some("n")),
+        Located::Here(made + 1)
+    );
+    assert!(map.room(made + 1).is_none());
+    // Not if the map is not learning.
+    let mut map = road();
+    assert!(map.set_current(5));
+    shown(&mut map, "Square", &["s"], None);
+    assert_eq!(
+        shown(&mut map, "Fountain", &["w"], Some("e")),
+        Located::Nowhere
+    );
+    assert_eq!(map.rooms().count(), 5);
 }

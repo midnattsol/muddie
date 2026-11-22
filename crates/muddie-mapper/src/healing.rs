@@ -50,11 +50,51 @@ pub(crate) struct Reroute {
 pub const UNSHOWN_AFTER: u32 = 3;
 
 impl Map {
-    /// Whether the map puts right what it has wrong as the player goes:
-    /// names, exits it lacks, and exits that lead elsewhere. Off unless
-    /// asked for.
-    pub fn set_put_right(&mut self, on: bool) {
-        self.put_right = on;
+    /// Whether the map learns as the player goes, from what the server
+    /// shows: it puts right names, exits it lacks and exits that lead
+    /// elsewhere, and adds the rooms it has not where the player goes by
+    /// the compass from a room it knew they were in. Off unless asked for.
+    pub fn set_learning(&mut self, on: bool) {
+        self.learning = on;
+    }
+
+    /// The room shown, gone to by the compass from a room the map knew for
+    /// certain the player was in, by an exit it has not or that leads to no
+    /// room it has: added, as [`Map::add`] does, if the map is learning and
+    /// what is shown is a room, named, and with exits all directions.
+    pub(crate) fn add_if_new(&mut self, seen: &Sighting<'_>, way: Option<&str>) -> Option<Located> {
+        let (Some(name), Some(exits), Some(way), Some(here)) =
+            (seen.name, seen.exits, way, self.current)
+        else {
+            return None;
+        };
+        let directions = |words: &[String]| {
+            !words.is_empty()
+                && (words.iter()).all(|word| known_direction(&self.direction(word)).is_some())
+        };
+        let leads = (self.rooms.get(&here))
+            .and_then(|room| room.exits.get(way))
+            .is_some_and(|exit| self.rooms.contains_key(&exit.to));
+        let new = self.learning
+            && self.sure
+            && seen.came.is_some()
+            && known_direction(way).is_some()
+            && !name.trim().is_empty()
+            && directions(exits)
+            && !leads;
+        if !new {
+            return None;
+        }
+        let added = self
+            .add_shown(Arrival {
+                name,
+                exits,
+                came: way,
+            })
+            .ok()?;
+        // Made as shown, or found so: the player is there for certain.
+        self.sure = true;
+        Some(Located::Here(added.room()))
     }
 
     /// Forgets what waited to be borne out, as the player is put somewhere
@@ -168,7 +208,7 @@ impl Map {
         let Some(room) = self.rooms.get(&id).cloned() else {
             return;
         };
-        if !self.put_right || name.is_empty() || room.name == name {
+        if !self.learning || name.is_empty() || room.name == name {
             return;
         }
         if let Some(room) = self.rooms.get_mut(&id) {
@@ -191,7 +231,7 @@ impl Map {
             return;
         };
         let still = room.exits.get(&reroute.way).map(|exit| exit.to) == Some(reroute.was);
-        if !self.put_right || !still || !self.rooms.contains_key(&reroute.to) {
+        if !self.learning || !still || !self.rooms.contains_key(&reroute.to) {
             return;
         }
         if let Some(exit) =
@@ -221,7 +261,7 @@ impl Map {
             .filter(|way| known_direction(way).is_some() && !room.exits.contains_key(*way))
             .cloned()
             .collect();
-        if !self.put_right || lacking.is_empty() {
+        if !self.learning || lacking.is_empty() {
             return;
         }
         if let Some(room) = self.rooms.get_mut(&id) {

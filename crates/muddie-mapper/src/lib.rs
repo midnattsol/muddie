@@ -241,8 +241,9 @@ pub struct Map {
     /// otherwise, each with that name: put right once a move is to a room
     /// as the map has it. The last is where the player is.
     pending: Vec<(RoomId, String)>,
-    /// Whether what the map has wrong is put right as the player goes.
-    put_right: bool,
+    /// Whether the map learns as the player goes: what it has wrong put
+    /// right, and the rooms it has not added.
+    learning: bool,
     /// Whether the map knows for certain the player is where it has them:
     /// the room as last shown, by its own name and with all its exits.
     sure: bool,

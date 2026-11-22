@@ -179,59 +179,29 @@ local function exits_of(list)
 end
 
 ---------------------------------------------------------------------------
--- Putting the map right as the player goes. The map the MUD publishes names
--- some rooms with what was said or done in them as they were mapped
+-- Keeping the map up to date as the player goes. The map the MUD publishes
+-- names some rooms with what was said or done in them as they were mapped
 -- ("Moony te dice: ..."), with their names cut short ("Erial de los
--- Condenados: Ca"), or with nothing; the MUD renames rooms and opens exits
--- the map has not. The map follows the player by the way they go and the
--- exits written, and puts right what the game shows it to have wrong once
--- it is borne out, and says so. On unless switched off, from the map's
--- menu or the palette, and remembered in the profile.
+-- Condenados: Ca"), or with nothing; and the MUD renames rooms, opens
+-- exits and builds rooms the map has not. The map learns from the room
+-- the game writes on each move: it puts right what it has wrong once it
+-- is borne out, and adds the rooms it has not, never from a room it does
+-- not know for certain the player was in. It says what it changed, and it
+-- can be undone. On unless switched off, from the map's menu or the
+-- palette, and remembered in the profile.
 
-local FIXING = "Reinos de Leyenda: corregir el mapa"
-local FIXING_ACTION = { en = "Put right the map as you go", es = "Corregir el mapa sobre la marcha" }
-local fixing = recall(FIXING) ~= false
-map.put_right(fixing)
-map.action(FIXING_ACTION, function(on)
-    fixing = on
-    remember(FIXING, on)
-    map.put_right(on)
-end, { checked = fixing })
+local LEARNING = "Reinos de Leyenda: mantener el mapa"
+local LEARNING_ACTION = { en = "Keep the map up to date as you go", es = "Mantener el mapa al día sobre la marcha" }
+local learning = recall(LEARNING) ~= false
+map.learn(learning)
+map.action(LEARNING_ACTION, function(on)
+    learning = on
+    remember(LEARNING, on)
+    map.learn(on)
+end, { checked = learning })
 
--- Whether every exit the game writes is one the room has.
-local function has_exits(room, exits)
-    if #exits == 0 then
-        return false
-    end
-    for _, exit in exits do
-        if not map.exit(room.id, exit) then
-            return false
-        end
-    end
-    return true
-end
-
----------------------------------------------------------------------------
--- Adding the rooms the map has not. Off unless the user switches it on,
--- from the map's menu or the palette, and remembered in the profile. A
--- room is added only by a move of the compass made, as Room.Movimiento
--- says, by an exit the map has leading nowhere, with the room written
--- just before it: with a name that is a room's, and exits that are all
--- directions, so that a line said with brackets is not taken for one.
--- The map adds it only if it knows for certain where the player was,
--- and links to the room if it has it already that way. Other moves, as
--- by a command or a portal, are not added.
-
-local ADDING = "Reinos de Leyenda: añadir salas"
-local ADDING_ACTION = { en = "Add the rooms the map has not", es = "Añadir al mapa las salas que no tiene" }
-local adding = recall(ADDING) == true
-
--- Whether the room the map has the player in is the one the game wrote
--- last, by its name and exits: a room is only added after one that is,
--- so that none hangs from a room the map has the player in wrongly.
-local confirmed = false
-
--- Whether every exit written is a direction.
+-- Whether every exit written is a direction: else the line was something
+-- said with brackets, not a room.
 local function all_directions(exits)
     if #exits == 0 then
         return false
@@ -244,73 +214,29 @@ local function all_directions(exits)
     return true
 end
 
--- Adds the room written, if the move leads nowhere the map has; returns
--- whether the map now has the player there.
-local function add_room(seen)
-    if not (adding and confirmed and seen.written and seen.came and seen.name) then
-        return false
-    end
-    if not map.direction(seen.came) or not all_directions(seen.exits or {}) then
-        return false
-    end
-    local here = map.room()
-    local exit = here and map.exit(here.id, seen.came)
-    if not here or (exit and map.room(exit.to)) then
-        return false
-    end
-    local id, how = map.add(seen)
-    log(`Reinos: añadir {seen.name} por {seen.came} -> {id} {how}`)
-    return id ~= nil
-end
-
--- A switch: the map's menu shows it ticked while on, and the palette says
--- whether it is.
-map.action(ADDING_ACTION, function(on)
-    adding = on
-    remember(ADDING, on)
-    notify(if on
-        then tr({
-            en = "Rooms the map has not will be added where you go. They are drawn with a dashed edge; /map added lists them and /map undo undoes the last.",
-            es = "Las salas que no estén en el mapa se añadirán donde vayas. Se ven con el borde discontinuo; /map added las muestra y /map undo deshace la última.",
-        })
-        else tr({ en = "Rooms are no longer added to the map.", es = "Ya no se añaden salas al mapa." }))
-end, { checked = adding })
-
 local function step(seen)
-    -- What the game wrote in its text, rather than told over GMCP: it
-    -- may be a room the map has not. A line whose brackets hold anything
-    -- but directions was said, not a room. A name the map has no room of
-    -- is kept only where the way taken leads to a room, which may be the
-    -- one, named otherwise; elsewhere, the move alone is followed.
-    if seen.written then
-        if add_room(seen) then
-            confirmed = true
-            return
-        end
-        local here = map.room()
-        local exit = here and seen.came and map.exit(here.id, seen.came)
-        local leads = exit ~= nil and map.room(exit.to) ~= nil
-        if not all_directions(seen.exits or {}) or (#map.named(seen.name) == 0 and not leads) then
-            seen.name, seen.exits = nil, nil
-        end
+    -- A line the game wrote whose brackets hold anything but directions
+    -- was not a room: the move alone is followed.
+    if seen.written and not all_directions(seen.exits or {}) then
+        seen.name, seen.exits = nil, nil
     end
-    -- A move by an exit the map does not have, or that leads nowhere it
-    -- knows, with no room written to check it by: it is said, and the map
-    -- stays where it was.
+    -- A move with no room written to check it by, by an exit the map has
+    -- not or that leads to no room it has: it is said, and the map stays
+    -- where it was.
     local here = map.room()
     local exit = here and seen.came and map.exit(here.id, seen.came)
     if seen.came and not seen.name and here and not (exit and map.room(exit.to)) then
-        notify(tr({
-            en = `The map has no exit {seen.came} from {here.name}: it has not followed you.`,
-            es = `El mapa no tiene la salida {seen.came} desde {here.name}: no te ha seguido.`,
-        }))
+        notify(if exit
+            then tr({
+                en = `The map does not know where {seen.came} from {here.name} leads: it has not followed you.`,
+                es = `El mapa no sabe adónde lleva {seen.came} desde {here.name}: no te ha seguido.`,
+            })
+            else tr({
+                en = `The map has no exit {seen.came} from {here.name}: it has not followed you.`,
+                es = `El mapa no tiene la salida {seen.came} desde {here.name}: no te ha seguido.`,
+            }))
     end
     local now = map.arrive(seen)
-    local there = now and map.room(now)
-    confirmed = there ~= nil
-        and seen.name ~= nil
-        and table.find(map.named(seen.name), now) ~= nil
-        and has_exits(there, seen.exits or {})
     -- Shown when Muddie is started with --debug.
     log(`Reinos: name={seen.name} exits={table.concat(seen.exits or {}, ",")} came={seen.came} -> {now}`)
 end
