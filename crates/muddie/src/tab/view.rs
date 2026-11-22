@@ -146,19 +146,12 @@ impl Tab {
                 self.cursor_to_end = true;
             }
             Some(MapAction::Command(command)) => {
-                self.do_client_command(command);
+                self.run_command(command);
             }
-            Some(MapAction::Avoid(room, avoid)) => {
-                let saved = self.map.borrow_mut().set_avoid(room, avoid);
-                if let Err(error) = saved {
-                    self.note(&trf("Could not save the map: {0}", &[&error.to_string()]));
-                }
-            }
+            Some(MapAction::Avoid(room, avoid)) => self.avoid_room(room, avoid),
             Some(MapAction::Move(room, pos)) => {
                 let saved = self.map.borrow_mut().move_room(room, pos);
-                if let Err(error) = saved {
-                    self.note(&trf("Could not save the map: {0}", &[&error.to_string()]));
-                }
+                self.map_saved(saved);
             }
             None => {}
         }

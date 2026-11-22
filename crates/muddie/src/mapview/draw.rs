@@ -451,7 +451,7 @@ pub(super) fn draw_names(painter: &Painter, visible: &[&Room], grid: &Grid, colo
 }
 
 /// Over empty space the map says how it is used; over a room, which.
-pub(super) fn room_tip(response: Response, pointed: Option<&Room>) {
+pub(super) fn room_tip(response: Response, map: &Map, pointed: Option<&Room>) {
     let Some(room) = pointed else {
         if response.hovered() && !response.dragged() {
             let hint = tr(
@@ -461,7 +461,7 @@ pub(super) fn room_tip(response: Response, pointed: Option<&Room>) {
         }
         return;
     };
-    let mut text = format!("{} (#{})", room.name, room.id);
+    let mut text = numbered(map, room);
     if room.avoid {
         text.push_str(&format!(", {}", tr("avoided")));
     }

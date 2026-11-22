@@ -56,16 +56,6 @@ const COMMANDS: [egui::Key; 5] = [
     egui::Key::N,
 ];
 
-/// A room as it is said: its name, without the exits some MUDs write
-/// after it, and its region when that is not its name already.
-pub fn place_words(map: &Map, room: &Room) -> String {
-    let name = map.bare_name(&room.name);
-    match map.region(room) {
-        Some(region) if region != name && !name.starts_with(region) => format!("{name}, {region}"),
-        _ => name.to_owned(),
-    }
-}
-
 /// A place found, as it is listed and said: what it was found by, and
 /// where it is, how far from `here` and which way, and, found by a name
 /// many rooms have, that it is the nearest of them.
@@ -91,15 +81,8 @@ pub fn found_words(map: &Map, here: Option<RoomId>, found: &Found) -> (String, S
             name.to_owned()
         }
     };
-    if let Some(moves) = found.moves.filter(|moves| *moves > 0) {
-        let said = trn("{0} move", "{0} moves", moves as u64);
-        let way = here.and_then(|here| toward(map, here, room.id));
-        detail.push(match way {
-            Some(way) => format!("{said} {way}"),
-            None => said,
-        });
-    } else if found.moves == Some(0) {
-        detail.push(tr("you are here").to_owned());
+    if let (Some(moves), Some(here)) = (found.moves, here) {
+        detail.push(moves_toward(map, here, room.id, moves));
     }
     if found.alike > 1 {
         detail.push(trn("nearest of {0}", "nearest of {0}", found.alike as u64));
@@ -320,11 +303,7 @@ impl MapView {
         self.trail.clear();
         self.prompt = None;
         self.said_region = map.region(from).map(str::to_owned);
-        let name = map.short_name(from);
-        let here = match map.region(from) {
-            Some(region) if region != name => format!("{name}, {region}"),
-            _ => name.to_owned(),
-        };
+        let here = place_words(map, from);
         trf(
             "Exploring the map from {0}. {1}. {2}",
             &[&here, &exits_words(map, from), tr(EXPLORING_KEYS)],
@@ -339,7 +318,7 @@ impl MapView {
     pub fn said_of(&mut self, map: &Map, room: &Room, came: Option<RoomId>) -> String {
         let name = map.short_name(room);
         let region = map.region(room).map(str::to_owned);
-        let mut said = match &region {
+        let said = match &region {
             Some(region) if self.said_region.as_ref() != Some(region) && region != name => {
                 trf("Into {0}: {1}", &[region, name])
             }
@@ -347,33 +326,14 @@ impl MapView {
         };
         self.said_region = region;
         let here = map.current().map(|here| here.id);
-        let mut parts = vec![how_far(map, here, room), exits_words(map, room)];
+        let mut parts = vec![said, how_far(map, here, room), exits_words(map, room)];
         if let Some(came) = came.filter(|came| *came != room.id)
             && !room.exits.values().any(|exit| exit.to == came)
         {
-            parts.push(tr("no way straight back").to_owned());
+            parts.push(tr("No way straight back").to_owned());
         }
-        let closed: Vec<String> = (room.exits.iter())
-            .filter(|(_, exit)| exit.locked)
-            .map(|(way, _)| direction_words(map, way))
-            .collect();
-        if !closed.is_empty() {
-            parts.push(trf("closed: {0}", &[&closed.join(", ")]));
-        }
-        if room.avoid {
-            parts.push(tr("routes avoid it").to_owned());
-        }
-        let marks = map.marks_of(room.id);
-        if !marks.is_empty() {
-            parts.push(trf("called {0}", &[&marks.join(", ")]));
-        }
-        if !room.note.is_empty() {
-            parts.push(trf("note: {0}", &[&room.note]));
-        }
-        for part in parts {
-            said = format!("{said}. {part}");
-        }
-        said
+        parts.extend(room_facts(map, room));
+        sentences(parts)
     }
 
     /// The line over the map while it asks for some words: what to look
@@ -534,11 +494,7 @@ fn near_words(map: &Map, from: RoomId) -> String {
         } else {
             continue;
         };
-        let moves = trn("{0} move", "{0} moves", steps.len() as u64);
-        let way = match toward(map, from, id) {
-            Some(way) => format!("{moves} {way}"),
-            None => moves,
-        };
+        let way = moves_toward(map, from, id, steps.len());
         near.push(format!("{what}, {way}"));
     }
     match near.is_empty() {

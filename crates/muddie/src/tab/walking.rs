@@ -30,16 +30,17 @@ impl Tab {
         };
         let room = info.id;
         let saved = self.map.borrow_mut().visit(info);
-        if let Err(error) = saved {
-            self.note(&trf("Could not save the map: {0}", &[&error.to_string()]));
-        }
+        self.map_saved(saved);
         self.arrived_in(room);
     }
 
     /// The map now has the player in `room`: continue a walk, if any.
     pub(super) fn arrived_in(&mut self, room: RoomId) {
         if std::mem::take(&mut self.map_source.lost) {
-            let name = self.map.borrow().room(room).map(|room| room.name.clone());
+            let name = {
+                let map = self.map.borrow();
+                map.room(room).map(|room| places::place_words(&map, room))
+            };
             let name = name.unwrap_or_else(|| format!("#{room}"));
             self.note(&trf("The map knows where you are again: {0}.", &[&name]));
         }
@@ -180,12 +181,11 @@ impl Tab {
 
     pub(super) fn tidy(&mut self, area: &str) {
         let moved = self.map.borrow_mut().relayout(area);
-        match moved {
-            Ok(moved) => self.note(&trf(
+        if let Some(moved) = self.map_saved(moved) {
+            self.note(&trf(
                 "Tidied the map: {0} rooms moved.",
                 &[&moved.to_string()],
-            )),
-            Err(error) => self.refuse(&trf("Could not save the map: {0}", &[&error.to_string()])),
+            ));
         }
     }
 
@@ -193,16 +193,15 @@ impl Tab {
     /// Lists the rooms whose name contains `query`, each to be walked to
     /// by choosing it. Returns whether there were any.
     pub(super) fn offer_rooms(&mut self, query: &str) -> bool {
-        let rooms: Vec<(RoomId, String, String)> = (self.map.borrow().find(query).iter())
-            .take(MAX_LISTED_ROOMS)
-            .map(|room| (room.id, room.name.to_string(), room.area.to_string()))
-            .collect();
+        let rooms: Vec<(RoomId, String, String)> = {
+            let map = self.map.borrow();
+            (map.find(query).into_iter())
+                .take(MAX_LISTED_ROOMS)
+                .map(|room| (room.id, places::numbered(&map, room), room.area.clone()))
+                .collect()
+        };
         for (id, name, area) in &rooms {
-            self.offer(
-                &format!("#{id}: {name}"),
-                area,
-                &format!("/map travel {id}"),
-            );
+            self.offer(name, area, &format!("/map travel {id}"));
         }
         !rooms.is_empty()
     }
@@ -250,11 +249,8 @@ impl Tab {
     fn where_now(&self) -> Option<String> {
         let map = self.map.borrow();
         let place = map.current().map(|room| {
-            let exits: Vec<&str> = (room.exits.keys())
-                .map(|way| map.command_for(way))
-                .collect();
-            let place = places::place_words(&map, room);
-            trf("{0}. Exits: {1}.", &[&place, &exits.join(", ")])
+            let exits = crate::mapview::exits_words(&map, room);
+            places::sentences([places::place_words(&map, room), exits])
         });
         // On the way somewhere, where to and how far.
         let going = self.walk.as_ref().and_then(|(walk, _)| {
@@ -295,24 +291,17 @@ impl Tab {
     /// Lets routes pass through a room, or keeps them out of it: the one
     /// given by number, or the one the player is in.
     pub(super) fn toggle_avoid(&mut self, room: &str) {
-        let toggled = {
-            let mut map = self.map.borrow_mut();
+        let target = {
+            let map = self.map.borrow();
             let found = match room.parse::<RoomId>() {
                 Ok(id) => map.room(id),
                 Err(_) if room.is_empty() => map.current(),
                 Err(_) => None,
             };
-            let target = found.map(|room| (room.id, !room.avoid, room.name.clone()));
-            target.map(|(id, avoid, name)| (map.set_avoid(id, avoid), avoid, name))
+            found.map(|room| (room.id, !room.avoid))
         };
-        match toggled {
-            Some((Ok(_), true, name)) => self.note(&trf("Routes will avoid {0}.", &[&name])),
-            Some((Ok(_), false, name)) => {
-                self.note(&trf("Routes may pass through {0} again.", &[&name]))
-            }
-            Some((Err(error), ..)) => {
-                self.refuse(&trf("Could not save the map: {0}", &[&error.to_string()]))
-            }
+        match target {
+            Some((id, avoid)) => self.avoid_room(id, avoid),
             None => self.refuse(tr("No such room; use /map avoid with a room number.")),
         }
     }
@@ -333,13 +322,13 @@ impl Tab {
                 )
             })
         };
-        match toggled {
-            Some((Ok(_), true)) => self.note(tr("Routes will not use that exit.")),
-            Some((Ok(_), false)) => self.note(tr("Routes may use that exit again.")),
-            Some((Err(error), _)) => {
-                self.refuse(&trf("Could not save the map: {0}", &[&error.to_string()]))
-            }
-            None => self.refuse(tr("This room has no such exit.")),
+        let Some((saved, locked)) = toggled else {
+            return self.refuse(tr("This room has no such exit."));
+        };
+        match self.map_saved(saved) {
+            Some(_) if locked => self.note(tr("Routes will not use that exit.")),
+            Some(_) => self.note(tr("Routes may use that exit again.")),
+            None => {}
         }
     }
 

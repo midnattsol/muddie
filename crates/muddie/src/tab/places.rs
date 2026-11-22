@@ -36,7 +36,7 @@ impl Tab {
                 .filter_map(|id| map.room(*id))
                 .map(|room| {
                     (
-                        format!("#{}: {}", room.id, room.name),
+                        numbered(&map, room),
                         describe(&map, room),
                         format!("/map here {}", room.id),
                     )
@@ -104,20 +104,18 @@ impl Tab {
         let exits: Option<Vec<(String, String, String)>> = {
             let map = self.map.borrow();
             map.current().map(|room| {
-                (room.exits.iter())
-                    .map(|(way, exit)| {
+                (ordered_exits(room).into_iter())
+                    .map(|way| {
+                        let exit = &room.exits[way];
                         let mut leads = match map.room(exit.to) {
-                            Some(to) => to.name.clone(),
+                            Some(to) => place_words(&map, to),
                             None => tr("somewhere not yet mapped").to_owned(),
                         };
                         if exit.locked {
                             leads = trf("{0} (routes do not use it)", &[&leads]);
                         }
-                        let word = exit
-                            .command
-                            .as_deref()
-                            .unwrap_or_else(|| map.command_for(way));
-                        (word.to_owned(), leads, format!("/map travel {}", exit.to))
+                        let word = direction_words(&map, way);
+                        (word, leads, format!("/map travel {}", exit.to))
                     })
                     .collect()
             })
@@ -143,14 +141,15 @@ impl Tab {
         let found: Option<Vec<(String, String, String)>> = {
             let map = self.map.borrow();
             map.current().map(|here| {
-                let mut named = HashSet::from([here.name.to_lowercase()]);
+                let mut named = HashSet::from([place_words(&map, here).to_lowercase()]);
                 (map.around(here.id, moves).into_iter())
                     .filter_map(|(id, steps)| {
                         let room = map.room(id)?;
-                        named.insert(room.name.to_lowercase()).then(|| {
+                        let place = place_words(&map, room);
+                        named.insert(place.to_lowercase()).then(|| {
                             let moves = trn("{0} move", "{0} moves", steps.len() as u64);
                             let way = format!("{moves}: {}", in_runs(&steps));
-                            (room.name.clone(), way, format!("/map travel {id}"))
+                            (place, way, format!("/map travel {id}"))
                         })
                     })
                     .take(MAX_LISTED_ROOMS)
@@ -221,14 +220,11 @@ impl Tab {
     /// say of it, or None if it could not be saved, which is said.
     pub(super) fn write_note(&mut self, room: RoomId, note: &str) -> Option<String> {
         let saved = self.map.borrow_mut().set_note(room, note);
-        match saved {
-            Ok(_) if note.trim().is_empty() => Some(tr("The note was taken off.").to_owned()),
-            Ok(_) => Some(trf("Noted: {0}", &[note.trim()])),
-            Err(error) => {
-                self.refuse(&trf("Could not save the map: {0}", &[&error.to_string()]));
-                None
-            }
-        }
+        self.map_saved(saved)?;
+        Some(match note.trim() {
+            "" => tr("The note was taken off.").to_owned(),
+            note => trf("Noted: {0}", &[note]),
+        })
     }
 
     /// Names the room the player is in; with no name, lists the names
@@ -239,9 +235,8 @@ impl Tab {
                 let map = self.map.borrow();
                 (map.marks().iter())
                     .map(|(name, id)| {
-                        let room = map
-                            .room(*id)
-                            .map_or_else(|| format!("#{id}"), |room| room.name.clone());
+                        let room = (map.room(*id))
+                            .map_or_else(|| format!("#{id}"), |room| place_words(&map, room));
                         (name.clone(), room)
                     })
                     .collect()
@@ -272,19 +267,46 @@ impl Tab {
     /// Names a room. Returns whether it was saved; if not, says so.
     pub(super) fn mark_room(&mut self, room: RoomId, name: &str) -> bool {
         let saved = self.map.borrow_mut().mark(name, room);
-        if let Err(error) = &saved {
-            self.refuse(&trf("Could not save the map: {0}", &[&error.to_string()]));
+        self.map_saved(saved).is_some()
+    }
+
+    /// What a change of the map gave, if it was saved; if it could not
+    /// be, that is said, the one way it is for every change.
+    pub(super) fn map_saved<T>(&mut self, result: Result<T, muddie_mapper::Error>) -> Option<T> {
+        match result {
+            Ok(done) => Some(done),
+            Err(error) => {
+                self.refuse(&trf("Could not save the map: {0}", &[&error.to_string()]));
+                None
+            }
         }
-        saved.is_ok()
+    }
+
+    /// Keeps routes out of a room, or lets them through it again, and
+    /// says so.
+    pub(super) fn avoid_room(&mut self, room: RoomId, avoid: bool) {
+        let saved = self.map.borrow_mut().set_avoid(room, avoid);
+        if self.map_saved(saved).is_none() {
+            return;
+        }
+        let name = {
+            let map = self.map.borrow();
+            map.room(room).map(|room| place_words(&map, room))
+        };
+        let name = name.unwrap_or_else(|| format!("#{room}"));
+        match avoid {
+            true => self.note(&trf("Routes will avoid {0}.", &[&name])),
+            false => self.note(&trf("Routes may pass through {0} again.", &[&name])),
+        }
     }
 
     /// Forgets a name given to a room.
     pub(super) fn unmark(&mut self, name: &str) {
         let forgotten = self.map.borrow_mut().unmark(name);
-        match forgotten {
-            Ok(true) => self.note(&trf("No room is called {0} now.", &[name])),
-            Ok(false) => self.refuse(&trf("No room is called {0}.", &[name])),
-            Err(error) => self.refuse(&trf("Could not save the map: {0}", &[&error.to_string()])),
+        match self.map_saved(forgotten) {
+            Some(true) => self.note(&trf("No room is called {0} now.", &[name])),
+            Some(false) => self.refuse(&trf("No room is called {0}.", &[name])),
+            None => {}
         }
     }
 
@@ -396,16 +418,13 @@ impl Tab {
                         .and_then(|()| map.set_source_reader(reader))
                 };
                 let rooms = trn("{0} room", "{0} rooms", rooms as u64);
-                match saved {
-                    Err(error) => self.say(
-                        &trf("Could not save the map: {0}", &[&error.to_string()]),
-                        true,
-                    ),
-                    Ok(()) if why == Taking::Update => self.say(
+                match self.map_saved(saved) {
+                    None => {}
+                    Some(()) if why == Taking::Update => self.say(
                         &trf("The server's map was brought up to date: {0}.", &[&rooms]),
                         false,
                     ),
-                    Ok(()) => {
+                    Some(()) => {
                         self.say(&trf("The map was taken: {0}.", &[&rooms]), false);
                         self.set_map_shown(true);
                     }
@@ -470,7 +489,9 @@ impl Tab {
     }
 }
 
-pub(super) use crate::mapview::place_words;
+pub(super) use crate::mapview::{
+    direction_words, numbered, ordered_exits, place_words, room_facts, sentences,
+};
 
 /// The regions a route goes through, said.
 pub(super) fn through(regions: &[String]) -> String {
@@ -478,55 +499,35 @@ pub(super) fn through(regions: &[String]) -> String {
 }
 
 /// All the map knows of a room: its name and number, where it is and its
-/// exits, how far it is and which way, its names, its note, and whether
-/// it is left over, avoided or costs more to enter.
+/// exits, how far it is and which way, what is so of it, and whether it
+/// is left over or costs more to enter.
 fn info_of(map: &muddie_mapper::Map, room: &muddie_mapper::Room) -> String {
-    let mut said = format!("{} (#{}). {}", room.name, room.id, describe(map, room));
+    let mut said = vec![numbered(map, room), describe(map, room)];
     // Another room than the player's: how far, and which way.
     let here = map.current().map(|here| here.id);
     if here.is_some_and(|here| here != room.id) {
-        said.push(' ');
-        said.push_str(&crate::mapview::how_far(map, here, room));
-        said.push('.');
+        said.push(crate::mapview::how_far(map, here, room));
     }
-    let marks = map.marks_of(room.id);
-    if !marks.is_empty() {
-        said.push(' ');
-        said.push_str(&trf("Called {0}.", &[&marks.join(", ")]));
-    }
-    if !room.note.is_empty() {
-        said.push(' ');
-        said.push_str(&trf("Note: {0}", &[&room.note]));
-    }
+    said.extend(room_facts(map, room));
     if let Some(copied) = map.ghost_of(room.id) {
-        said.push(' ');
-        said.push_str(&trf(
+        said.push(trf(
             "It is left over: a copy of #{0}, in its place, that no other room leads to. It is not drawn, nor found.",
             &[&copied.to_string()],
         ));
     }
-    if room.avoid {
-        said.push(' ');
-        said.push_str(tr("Routes avoid it."));
-    }
     if room.weight > 1 {
-        said.push(' ');
-        said.push_str(&trf("Costs {0} to enter.", &[&room.weight.to_string()]));
+        said.push(trf("Costs {0} to enter.", &[&room.weight.to_string()]));
     }
-    said
+    sentences(said)
 }
 
 /// What tells a room from others of its name: where it is and its exits.
 fn describe(map: &muddie_mapper::Map, room: &muddie_mapper::Room) -> String {
-    let exits: Vec<&str> = room.exits.keys().map(|way| map.command_for(way)).collect();
     let place = format!("{}, {}, {}", room.pos.x, room.pos.y, room.pos.z);
-    let mut said = trf("In {0}, at {1}.", &[&room.area, &place]);
-    said.push(' ');
-    said.push_str(&match exits.is_empty() {
-        true => tr("No exits.").to_owned(),
-        false => trf("Exits: {0}.", &[&exits.join(", ")]),
-    });
-    said
+    sentences([
+        trf("In {0}, at {1}.", &[&room.area, &place]),
+        crate::mapview::exits_words(map, room),
+    ])
 }
 
 /// A route as it is said: each command, and one repeated as many times

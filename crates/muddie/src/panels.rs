@@ -89,22 +89,12 @@ impl Gauges {
     /// to say when it falls under one of its warnings, as when it turns
     /// to a warning colour: what is seen at a glance is heard.
     pub fn set(&mut self, name: &str, level: Option<(f64, f64)>) -> Option<String> {
-        self.set_with(name, level, None)
+        self.set_by(name, level, None, None)
     }
 
-    /// The same, also saying how the gauge is drawn. With no look given a
-    /// gauge keeps the one it has.
-    pub fn set_with(
-        &mut self,
-        name: &str,
-        level: Option<(f64, f64)>,
-        look: Option<GaugeLook>,
-    ) -> Option<String> {
-        self.set_by(name, level, look, None)
-    }
-
-    /// The same, set by `owner`, a script or the rules: with none given
-    /// it keeps the owner it has.
+    /// The same, also saying how the gauge is drawn, and set by `owner`, a
+    /// script or the rules. With no look given a gauge keeps the one it
+    /// has, and with no owner the owner it has.
     pub fn set_by(
         &mut self,
         name: &str,
@@ -618,7 +608,7 @@ mod tests {
             ..GaugeLook::default()
         };
         let mut set =
-            |value: f64| gauges.set_with("Health", Some((value, 100.0)), Some(look.clone()));
+            |value: f64| gauges.set_by("Health", Some((value, 100.0)), Some(look.clone()), None);
         // As it starts is not news; above every warning, nothing either.
         assert_eq!(set(50.0), None);
         assert_eq!(set(80.0), None);

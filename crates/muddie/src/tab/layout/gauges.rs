@@ -105,8 +105,7 @@ impl Tab {
             },
         );
         if delete {
-            let gone = self.editor.draft.gauges.remove(index);
-            self.gauges.set(gone.shown_name(), None);
+            self.delete_gauge(index);
             open = false;
         }
         if editor {
@@ -121,6 +120,12 @@ impl Tab {
             self.open_automation(automation::GAUGES);
             self.select_rule(automation::GAUGES, index);
         }
+    }
+
+    /// Deletes a gauge made in the editor: it is no longer shown either.
+    pub(in crate::tab) fn delete_gauge(&mut self, index: usize) {
+        let gone = self.editor.draft.gauges.remove(index);
+        self.gauges.set(gone.shown_name(), None);
     }
 
     /// Goes to the gauges in the editor, on the first of this panel's.

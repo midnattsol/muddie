@@ -16,7 +16,7 @@ mod explore;
 
 use draw::*;
 use explore::Prompt;
-pub use explore::{found_words, place_words};
+pub use explore::found_words;
 
 /// Distance between neighbouring rooms, in points, at the default zoom.
 const DEFAULT_CELL: f32 = 36.0;
@@ -158,13 +158,22 @@ pub fn how_far(map: &Map, from: Option<RoomId>, room: &Room) -> String {
     if from == room.id {
         return tr("you are here").to_owned();
     }
-    let Some(moves) = map.moves_between(from, room.id) else {
-        return tr("no known way").to_owned();
-    };
-    let moves = crate::i18n::trn("{0} move", "{0} moves", moves as u64);
-    match toward(map, from, room.id) {
-        Some(way) => format!("{moves} {way}"),
-        None => moves,
+    match map.moves_between(from, room.id) {
+        Some(moves) => moves_toward(map, from, room.id, moves),
+        None => tr("no known way").to_owned(),
+    }
+}
+
+/// How many moves away a room is from `from`, and which way, said: "3
+/// moves to the north", or that it is where the player is.
+pub fn moves_toward(map: &Map, from: RoomId, to: RoomId, moves: usize) -> String {
+    if moves == 0 {
+        return tr("you are here").to_owned();
+    }
+    let said = crate::i18n::trn("{0} move", "{0} moves", moves as u64);
+    match toward(map, from, to) {
+        Some(way) => format!("{said} {way}"),
+        None => said,
     }
 }
 
@@ -176,9 +185,62 @@ pub fn exits_words(map: &Map, room: &Room) -> String {
         .map(|way| direction_words(map, way))
         .collect();
     match exits.is_empty() {
-        true => tr("no exits").to_owned(),
-        false => crate::i18n::trf("exits: {0}", &[&exits.join(", ")]),
+        true => tr("No exits").to_owned(),
+        false => crate::i18n::trf("Exits: {0}", &[&exits.join(", ")]),
     }
+}
+
+/// Parts said one after another as sentences, each ending in one full
+/// stop, whether it came with one or not: "Plaza. Exits: north."
+pub fn sentences(parts: impl IntoIterator<Item = String>) -> String {
+    let parts: Vec<String> = (parts.into_iter())
+        .map(|part| part.trim().trim_end_matches('.').to_owned())
+        .filter(|part| !part.is_empty())
+        .collect();
+    match parts.is_empty() {
+        true => String::new(),
+        false => format!("{}.", parts.join(". ")),
+    }
+}
+
+/// A room as it is said: its name, without its region or the exits some
+/// MUDs write after it, and its region when it has one of its own.
+pub fn place_words(map: &Map, room: &Room) -> String {
+    let name = map.short_name(room);
+    match map.region(room) {
+        Some(region) if region != name => format!("{name}, {region}"),
+        _ => name.to_owned(),
+    }
+}
+
+/// A room as it is listed where its number tells it from others of its
+/// name: "Plaza, Anduar (#12)".
+pub fn numbered(map: &Map, room: &Room) -> String {
+    format!("{} (#{})", place_words(map, room), room.id)
+}
+
+/// What is so of a room, said only when it is: exits closed to routes,
+/// that routes avoid it, its names and its note.
+pub fn room_facts(map: &Map, room: &Room) -> Vec<String> {
+    let mut facts = Vec::new();
+    let closed: Vec<String> = (ordered_exits(room).into_iter())
+        .filter(|way| room.exits[*way].locked)
+        .map(|way| direction_words(map, way))
+        .collect();
+    if !closed.is_empty() {
+        facts.push(crate::i18n::trf("Closed: {0}", &[&closed.join(", ")]));
+    }
+    if room.avoid {
+        facts.push(tr("Routes avoid it.").to_owned());
+    }
+    let marks = map.marks_of(room.id);
+    if !marks.is_empty() {
+        facts.push(crate::i18n::trf("Called {0}.", &[&marks.join(", ")]));
+    }
+    if !room.note.is_empty() {
+        facts.push(crate::i18n::trf("Note: {0}", &[&room.note]));
+    }
+    facts
 }
 
 /// What the map's tools asked for.
@@ -486,7 +548,7 @@ impl MapView {
             chosen = chosen.or(Some(keyed));
         }
         self.bring_into_sight(ui, &response, map, &grid, (&area, level));
-        room_tip(response, pointed);
+        room_tip(response, map, pointed);
         if let Some(galley) = told_text {
             ui.add(egui::Label::new(galley));
         }
@@ -747,7 +809,7 @@ impl MapView {
             widgets::menu_width(ui);
             let room = self.menu_room.and_then(|id| map.room(id));
             if let Some(room) = room {
-                widgets::menu_heading(ui, &format!("{} (#{})", room.name, room.id));
+                widgets::menu_heading(ui, &numbered(map, room));
                 if widgets::menu_item(ui, tr("Walk here"), "").clicked() {
                     chosen = Some(MapAction::Walk(room.id));
                     ui.close();

@@ -179,9 +179,6 @@ msgstr "Zona"
 msgid "Down"
 msgstr "Bajar"
 
-msgid "Up"
-msgstr "Subir"
-
 msgid "Back to my position"
 msgstr "Volver a mi posición"
 
@@ -1245,10 +1242,6 @@ msgstr "Los perfiles necesitan una carpeta de configuración, y no se ha encontr
 msgid "No profiles yet. A profile keeps a MUD's connection, scripts, map and layout."
 msgstr "Todavía no hay perfiles. Un perfil guarda la conexión, los scripts, el mapa y la disposición de cada MUD."
 
-#, python-brace-format
-msgid "{0} is now a script of profile {1}."
-msgstr "{0} es ahora un script del perfil {1}."
-
 msgid "This session has no profile, so its variables last until it is closed. Save it as a profile, from its tab's menu, to keep them."
 msgstr "Esta sesión no tiene perfil: sus variables se pierden al cerrarla. Para conservarlas, guárdala como perfil desde el menú de su pestaña."
 
@@ -2108,13 +2101,6 @@ msgstr "No se pudo actualizar el mapa del servidor: {0}"
 msgid "In {0}, at {1}."
 msgstr "En {0}, en {1}."
 
-msgid "No exits."
-msgstr "Sin salidas."
-
-#, python-brace-format
-msgid "Exits: {0}."
-msgstr "Salidas: {0}."
-
 msgid "Walk stopped: the server said the move failed."
 msgstr "Camino detenido: el servidor dice que el movimiento falló."
 
@@ -2294,10 +2280,6 @@ msgstr "Vas a {0}: {1}."
 msgid "Escape stops it."
 msgstr "Escape lo para."
 
-#, python-brace-format
-msgid "{0}. Exits: {1}."
-msgstr "{0}. Salidas: {1}."
-
 msgid "Places"
 msgstr "Lugares"
 
@@ -2363,12 +2345,6 @@ msgstr "el mapa no sabe dónde estás"
 msgid "no exits"
 msgstr "sin salidas"
 
-msgid "exits: {0}"
-msgstr "salidas: {0}"
-
-msgid "No exit that way."
-msgstr "No hay salida por ahí."
-
 msgid "north"
 msgstr "norte"
 
@@ -2417,15 +2393,6 @@ msgstr "Explorando el mapa desde {0}. {1}. {2}"
 msgid "Into {0}: {1}"
 msgstr "Entras en {0}: {1}"
 
-msgid "no way straight back"
-msgstr "sin vuelta directa"
-
-msgid "closed: {0}"
-msgstr "cerrada: {0}"
-
-msgid "routes avoid it"
-msgstr "el mapa la evita"
-
 msgid "No exit {0}."
 msgstr "No hay salida al {0}."
 
@@ -2445,14 +2412,6 @@ msgstr "Aquí empezaste a explorar."
 #, python-brace-format
 msgid "note, {0}"
 msgstr "nota, {0}"
-
-#, python-brace-format
-msgid "called {0}"
-msgstr "se llama {0}"
-
-#, python-brace-format
-msgid "note: {0}"
-msgstr "nota: {0}"
 
 #, python-brace-format
 msgid "Note: {0}"
@@ -2574,3 +2533,17 @@ msgstr "Bajar un nivel"
 
 msgid "Up a level"
 msgstr "Subir un nivel"
+
+#, python-brace-format
+msgid "Exits: {0}"
+msgstr "Salidas: {0}"
+
+msgid "No exits"
+msgstr "Sin salidas"
+
+#, python-brace-format
+msgid "Closed: {0}"
+msgstr "Cerrada: {0}"
+
+msgid "No way straight back"
+msgstr "Sin vuelta directa"

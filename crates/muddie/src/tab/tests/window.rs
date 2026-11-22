@@ -207,7 +207,10 @@ fn alt_m_says_where_you_are_and_how_far_a_walk_has_left() {
     harness.key_press_modifiers(crate::shortcuts::WITH_KEY, Key::M);
     harness.run_steps(2);
     let said = harness.state().tab().voice.said.clone();
-    assert_eq!(said, ["Plaza Mayor, ciudad. Exits: e, n, s, w."]);
+    assert_eq!(
+        said,
+        ["Plaza Mayor, ciudad. Exits: north, east, south, west."]
+    );
     // Said only: the output is left as it was.
     assert_eq!(harness.state().tab().lines(), lines);
     let app = harness.state_mut().tab_mut();

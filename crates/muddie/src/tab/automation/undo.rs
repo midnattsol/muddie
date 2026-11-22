@@ -202,10 +202,7 @@ impl Tab {
             return list.remove(index);
         }
         match section {
-            GAUGES => {
-                let gone = draft.gauges.remove(index);
-                self.gauges.set(gone.shown_name(), None);
-            }
+            GAUGES => self.delete_gauge(index),
             VARIABLES => self.forget_variable(index),
             _ => self.delete_script(index),
         }

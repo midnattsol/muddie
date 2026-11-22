@@ -195,7 +195,7 @@ fn the_map_is_said_in_words() {
     assert_eq!(said(app, "/map note  Cactus seco "), ["Noted: Cactus seco"]);
     assert_eq!(
         said(app, "/map info"),
-        ["Dunas (#3). In Desierto, at 6, 0, 0. Exits: norte, oeste. Note: Cactus seco"]
+        ["Dunas (#3). In Desierto, at 6, 0, 0. Exits: norte, oeste. Note: Cactus seco."]
     );
     let found = app.palette_places("cactus");
     assert_eq!(
@@ -572,7 +572,7 @@ fn a_room_is_chosen_on_the_map_to_see_it_and_moved_with_the_keys() {
             .unwrap_or_default()
     };
     assert!(
-        label(&harness).contains("Dunas · #1 · you are here · exits: este"),
+        label(&harness).contains("Dunas · #1 · you are here · Exits: este"),
         "{}",
         label(&harness)
     );
@@ -630,7 +630,7 @@ fn the_map_is_explored_with_the_keys_alone() {
     harness.run_steps(3);
     assert_eq!(
         said(&mut harness),
-        "Exploring the map from Dunas. exits: este. Arrows follow the exits, Enter goes, Escape goes back. F1 says all the keys."
+        "Exploring the map from Dunas. Exits: este. Arrows follow the exits, Enter goes, Escape goes back. F1 says all the keys."
     );
     let focused = |harness: &Harness<'_, App>, label: &str| {
         harness
@@ -643,14 +643,14 @@ fn the_map_is_explored_with_the_keys_alone() {
     harness.run_steps(2);
     assert_eq!(
         said(&mut harness),
-        "Dunas. 1 move to the este. exits: este, oeste"
+        "Dunas. 1 move to the este. Exits: este, oeste."
     );
     harness.key_press(Key::ArrowRight);
     harness.key_press(Key::ArrowUp);
     harness.run_steps(2);
     assert_eq!(
         said(&mut harness),
-        "Dunas. 2 moves to the este. exits: norte, oeste | Pozo. 3 moves to the este. exits: sur"
+        "Dunas. 2 moves to the este. Exits: norte, oeste. | Pozo. 3 moves to the este. Exits: sur."
     );
     // No way on: said, and it stays.
     harness.key_press(Key::ArrowUp);
@@ -659,7 +659,7 @@ fn the_map_is_explored_with_the_keys_alone() {
     // Home: back to the player.
     harness.key_press(Key::Home);
     harness.run_steps(2);
-    assert_eq!(said(&mut harness), "Dunas. you are here. exits: este");
+    assert_eq!(said(&mut harness), "Dunas. you are here. Exits: este.");
     // The room chosen is kept in the middle, as the player's is.
     harness.key_press(Key::ArrowRight);
     harness.key_press(Key::ArrowRight);
@@ -742,7 +742,7 @@ fn the_map_explored_is_searched_named_noted_and_gone_back_along() {
     harness.run_steps(2);
     assert_eq!(
         said(&mut harness),
-        "Dunas. 1 move to the este. exits: este, oeste"
+        "Dunas. 1 move to the este. Exits: este, oeste."
     );
     // Keypad 7 with Num Lock off is north-west, not the Home egui makes
     // of it, which would go back to the player.
@@ -766,7 +766,7 @@ fn the_map_explored_is_searched_named_noted_and_gone_back_along() {
     }
     assert_eq!(
         said(&mut harness),
-        "Dunas. 1 move to the este. exits: este, oeste | Dunas. you are here. exits: este | This is where you began exploring."
+        "Dunas. 1 move to the este. Exits: este, oeste. | Dunas. you are here. Exits: este. | This is where you began exploring."
     );
     // A search: what is found is said, Enter goes to it on the map.
     command(&mut harness, Key::F);
@@ -778,7 +778,7 @@ fn the_map_explored_is_searched_named_noted_and_gone_back_along() {
     );
     harness.key_press(Key::Enter);
     harness.run_steps(3);
-    assert_eq!(said(&mut harness), "Pozo. 3 moves to the este. exits: sur");
+    assert_eq!(said(&mut harness), "Pozo. 3 moves to the este. Exits: sur.");
     assert!(focused(&harness, "Map view"));
     // A note and a name, said with the room from then on.
     command(&mut harness, Key::N);
@@ -793,7 +793,7 @@ fn the_map_explored_is_searched_named_noted_and_gone_back_along() {
     harness.run_steps(2);
     assert_eq!(
         said(&mut harness),
-        "Pozo. 3 moves to the este. exits: sur. called agua. note: Agua fresca"
+        "Pozo. 3 moves to the este. Exits: sur. Called agua. Note: Agua fresca."
     );
     command(&mut harness, Key::I);
     let info = said(&mut harness);
