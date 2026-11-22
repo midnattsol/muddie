@@ -1,7 +1,18 @@
-//! Changing rooms and exits by hand: moving, weighing, avoiding, linking and
-//! removing them.
+//! Changing rooms and exits by hand: moving, weighing, avoiding, naming,
+//! linking and removing them.
 
 use super::*;
+
+/// What taking a map in place of the one there was came to.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Replaced {
+    /// How many rooms the map has now.
+    pub rooms: usize,
+    /// How many of them it did not have; none if it had no rooms at all.
+    pub new: usize,
+    /// How many kept the name the user gave them.
+    pub renamed: usize,
+}
 
 impl Map {
     /// Takes `rooms` in place of every room there is, all at once and kept
@@ -9,12 +20,26 @@ impl Map {
     /// was in, if it is among them.
     ///
     /// What the user set on rooms that are in both, the rooms to avoid,
-    /// the exits of their own, and a colour and a note where the new rooms
-    /// have none, carries over, and so do the marks: the same map brought again,
-    /// newer, keeps them.
-    pub fn replace_all(&mut self, rooms: Vec<Room>, current: Option<RoomId>) -> Result<(), Error> {
+    /// the names they gave, the exits of their own, and a colour and a
+    /// note where the new rooms have none, carries over, and so do the
+    /// marks: the same map brought again, newer, keeps them.
+    pub fn replace_all(
+        &mut self,
+        rooms: Vec<Room>,
+        current: Option<RoomId>,
+    ) -> Result<Replaced, Error> {
         let mut rooms: HashMap<RoomId, Room> =
             rooms.into_iter().map(|room| (room.id, room)).collect();
+        let mut replaced = Replaced {
+            rooms: rooms.len(),
+            ..Replaced::default()
+        };
+        replaced.new = match self.rooms.is_empty() {
+            true => 0,
+            false => (rooms.keys())
+                .filter(|id| !self.rooms.contains_key(id))
+                .count(),
+        };
         for (id, old) in &self.rooms {
             let Some(room) = rooms.get_mut(id) else {
                 continue;
@@ -23,6 +48,11 @@ impl Map {
             room.colour = room.colour.or(old.colour);
             if room.note.is_empty() {
                 room.note.clone_from(&old.note);
+            }
+            if old.renamed {
+                room.name.clone_from(&old.name);
+                room.renamed = true;
+                replaced.renamed += 1;
             }
             for (direction, exit) in old.exits.iter().filter(|(_, exit)| exit.custom) {
                 room.exits
@@ -39,9 +69,19 @@ impl Map {
         let mut ordered: Vec<&Room> = self.rooms.values().collect();
         ordered.sort_unstable_by_key(|room| room.id);
         match &mut self.store {
-            Some(store) => store.replace(ordered),
-            None => Ok(()),
+            Some(store) => store.replace(ordered).map(|()| replaced),
+            None => Ok(replaced),
         }
+    }
+
+    /// Gives a room a name of the user's in place of the one it has, which
+    /// the server reporting the room, or the map taken again, then leaves
+    /// as it is. Returns false if there is no such room.
+    pub fn rename(&mut self, id: RoomId, name: &str) -> Result<bool, Error> {
+        self.edit_room(id, |room| {
+            room.name = name.trim().to_owned();
+            room.renamed = true;
+        })
     }
 
     /// Moves a room on the map grid. Returns false if there is no such room.

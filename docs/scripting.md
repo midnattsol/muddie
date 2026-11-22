@@ -182,7 +182,7 @@ server identifies the room with.
 | `map.native(false)` | Turns the built-in loader off. |
 | `map.persist(false)` | Keeps the map in memory only, for servers that send it themselves. |
 | `map.clear()` | Forgets every room. |
-| `map.room(id)` | A room as a table, the current one if `id` is omitted. Also has `weight`, `avoid`, `colour` (`"#rrggbb"`, or `nil`) and `note`, what the user wrote of it (`""` for none). |
+| `map.room(id)` | A room as a table, the current one if `id` is omitted. Also has `weight`, `avoid`, `colour` (`"#rrggbb"`, or `nil`), `note`, what the user wrote of it (`""` for none), and `renamed`, whether its name is one given in place of the map's. |
 | `map.find(text)` | Rooms whose name contains `text`. |
 | `map.named(name)` | The numbers of the rooms called just `name`, as the MUD names them. |
 | `map.path(to, from)` | The commands to walk, or `nil`. |
@@ -192,7 +192,11 @@ server identifies the room with.
 | `map.language("es")` | The language the MUD is played in, by its code or name: the map takes its words for directions. A profile's own choice comes first. |
 | `map.directions{n = {"nte"}, ...}` | Words of the MUD's own for directions, over those of its language; the first of each is what walks send from then on. |
 | `map.names{region = ":", exits = "[]"}` | How the MUD names its rooms: the region first, up to `region`, and the exits after, between the characters of `exits`. Unless taught, the region is the area and names are compared whole; `map.names()` goes back to that. |
-| `map.import(address)` | Takes the map made with Mudlet at `address` (a `.dat`, or a zip with one; web or disk) in place of this one; one taken from there before, only if it changed, or if this version of Muddie reads more of Mudlet's maps than the one that took it. |
+| `map.import(address)` | Takes the map made with Mudlet at `address` (a `.dat`, or a zip with one; web or disk) in place of this one; one taken from there before, only if it changed, or if this version of Muddie reads more of Mudlet's maps than the one that took it. What the user set stays: names given to rooms, notes, marks, rooms to avoid and exits of their own. |
+| `map.newer(address, fn)` | Finds out, without taking it, whether the map at `address` changed since the map was taken from there, and calls `fn()` if it did: to tell the user, rather than change the map unasked. |
+| `map.action(name, fn)` | Offers to do `fn()` with the map, chosen by `name` in the map's menu and the palette, while the script is loaded. `map.action(name)` takes it away. |
+| `map.rename(id, name)` | Names a room in place of the name it has, such as one taken wrong; the server reporting the room, or the map taken again, leaves the name given. The room's table says `renamed`. |
+| `map.count()` | How many rooms the map has. |
 | `map.set_exit(from, direction, to, options)` | Adds an exit of your own or changes where one leads. |
 | `map.edit_exit(from, direction, options)` | Changes an exit's `cost`, `locked` or `command` (`"open door;n"`). |
 | `map.exit(from, direction)` | An exit as a table. |

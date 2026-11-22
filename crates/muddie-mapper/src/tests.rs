@@ -440,6 +440,7 @@ fn desert() -> Map {
         avoid: false,
         colour: None,
         note: String::new(),
+        renamed: false,
     };
     let rooms = vec![
         room(10, "Dune", &[("e", 11)]),
@@ -585,16 +586,46 @@ fn a_map_taken_again_keeps_what_the_user_set_and_where_it_came_from() {
         map.set_colour(10, Some([7, 7, 7])).unwrap();
         map.set_colour(12, Some([5, 5, 5])).unwrap();
         map.set_note(13, "  Fresh water  ").unwrap();
-        // The newer map has the same rooms, and no exit of the user's; it
-        // colours one room, where the colour set before gives way.
+        // A room the map had named with something said there.
+        assert!(map.rename(11, " Dune crest ").unwrap());
+        assert!(!map.rename(99, "Nowhere").unwrap());
+        // The newer map has the same rooms and one more, and no exit of the
+        // user's; it colours one room, where the colour set before gives
+        // way, and names the room the user named as it named it before.
         let mut newer: Vec<Room> = desert().rooms().cloned().collect();
         for room in newer.iter_mut().filter(|room| room.id == 10) {
             room.colour = Some([1, 1, 1]);
         }
-        map.replace_all(newer, Some(12)).unwrap();
+        let mut more = newer[0].clone();
+        more.id = 20;
+        newer.push(more);
+        let replaced = map.replace_all(newer, Some(12)).unwrap();
+        assert_eq!(
+            replaced,
+            Replaced {
+                rooms: desert().rooms().count() + 1,
+                new: 1,
+                renamed: 1,
+            }
+        );
         assert_eq!(map.current().unwrap().id, 12);
     }
-    let map = Map::open(&path).unwrap();
+    let mut map = Map::open(&path).unwrap();
+    assert_eq!(map.room(11).unwrap().name, "Dune crest");
+    // The server reporting the room does not name it otherwise either.
+    let room = map.room(11).unwrap();
+    let seen = RoomInfo {
+        id: 11,
+        name: "Ted says: hello".into(),
+        area: room.area.clone(),
+        exits: (room.exits.iter())
+            .map(|(way, exit)| (way.clone(), exit.to))
+            .collect(),
+        pos: Some(room.pos),
+        colour: None,
+    };
+    map.visit(seen).unwrap();
+    assert_eq!(map.room(11).unwrap().name, "Dune crest");
     assert!(map.room(11).unwrap().avoid);
     assert_eq!(map.room(13).unwrap().exits["climb"].to, 10);
     let colour = |id| map.room(id).unwrap().colour;
@@ -783,6 +814,7 @@ fn copies_of_rooms_no_room_leads_to_are_left_over() {
         avoid: false,
         colour: None,
         note: String::new(),
+        renamed: false,
     };
     map.replace_all(
         vec![

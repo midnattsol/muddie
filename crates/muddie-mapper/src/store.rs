@@ -11,8 +11,9 @@ use crate::{Colour, Exit, Pos, Room};
 /// Version 1 lacked the rooms' `weight` and `avoid` columns, versions 1
 /// and 2 the exits' `cost`, `locked`, `command` and `custom`, and versions
 /// up to 3 the marks and what is known about the map, versions up to 4
-/// the rooms' `colour`, and versions up to 5 their `note`.
-const VERSION: i64 = 6;
+/// the rooms' `colour`, versions up to 5 their `note`, and versions up to
+/// 6 whether their name is the user's (`renamed`).
+const VERSION: i64 = 7;
 
 const SCHEMA: &str = "
     CREATE TABLE IF NOT EXISTS rooms (
@@ -25,7 +26,8 @@ const SCHEMA: &str = "
         weight INTEGER NOT NULL DEFAULT 1,
         avoid INTEGER NOT NULL DEFAULT 0,
         colour INTEGER,
-        note TEXT NOT NULL DEFAULT ''
+        note TEXT NOT NULL DEFAULT '',
+        renamed INTEGER NOT NULL DEFAULT 0
     );
     CREATE TABLE IF NOT EXISTS exits (
         room_id INTEGER NOT NULL,
@@ -50,7 +52,7 @@ const SCHEMA: &str = "
 /// The columns added since the first format, each with how it is made: a
 /// map of an older format is given those it lacks, whatever its version
 /// says.
-const ADDED: [(&str, &str, &str); 8] = [
+const ADDED: [(&str, &str, &str); 9] = [
     ("rooms", "weight", "INTEGER NOT NULL DEFAULT 1"),
     ("rooms", "avoid", "INTEGER NOT NULL DEFAULT 0"),
     ("exits", "cost", "INTEGER NOT NULL DEFAULT 0"),
@@ -59,6 +61,7 @@ const ADDED: [(&str, &str, &str); 8] = [
     ("exits", "custom", "INTEGER NOT NULL DEFAULT 0"),
     ("rooms", "colour", "INTEGER"),
     ("rooms", "note", "TEXT NOT NULL DEFAULT ''"),
+    ("rooms", "renamed", "INTEGER NOT NULL DEFAULT 0"),
 ];
 
 pub struct Store {
@@ -128,8 +131,9 @@ impl Store {
         }
         drop(statement);
 
-        let mut statement = connection
-            .prepare("SELECT id, name, area, x, y, z, weight, avoid, colour, note FROM rooms")?;
+        let mut statement = connection.prepare(
+            "SELECT id, name, area, x, y, z, weight, avoid, colour, note, renamed FROM rooms",
+        )?;
         let rooms = statement
             .query_map([], |row| {
                 let id = row.get(0)?;
@@ -147,6 +151,7 @@ impl Store {
                     avoid: row.get(7)?,
                     colour: row.get::<_, Option<u32>>(8)?.map(unpacked),
                     note: row.get(9)?,
+                    renamed: row.get(10)?,
                 })
             })?
             .collect::<Result<Vec<Room>>>()?;
@@ -242,13 +247,14 @@ impl Store {
 fn save_room(transaction: &Transaction, room: &Room, known: bool) -> Result<()> {
     transaction
         .prepare_cached(
-            "INSERT INTO rooms (id, name, area, x, y, z, weight, avoid, colour, note)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
+            "INSERT INTO rooms (id, name, area, x, y, z, weight, avoid, colour, note, renamed)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
          ON CONFLICT(id) DO UPDATE SET
              name = excluded.name, area = excluded.area,
              x = excluded.x, y = excluded.y, z = excluded.z,
              weight = excluded.weight, avoid = excluded.avoid,
-             colour = excluded.colour, note = excluded.note",
+             colour = excluded.colour, note = excluded.note,
+             renamed = excluded.renamed",
         )?
         .execute(params![
             room.id,
@@ -260,7 +266,8 @@ fn save_room(transaction: &Transaction, room: &Room, known: bool) -> Result<()> 
             room.weight,
             room.avoid,
             room.colour.map(packed),
-            room.note
+            room.note,
+            room.renamed
         ])?;
     if known {
         (transaction.prepare_cached("DELETE FROM exits WHERE room_id = ?1")?).execute([room.id])?;
@@ -330,12 +337,14 @@ mod tests {
         rooms[0].avoid = true;
         rooms[0].colour = Some([200, 16, 0]);
         rooms[0].note = "A guard".to_owned();
+        rooms[0].renamed = true;
         store.save(&rooms).unwrap();
         drop(store);
         let (store, Stored { rooms, .. }) = Store::open(&path).unwrap();
         assert_eq!((rooms[0].weight, rooms[0].avoid), (5, true));
         assert_eq!(rooms[0].colour, Some([200, 16, 0]));
         assert_eq!(rooms[0].note, "A guard");
+        assert!(rooms[0].renamed);
         // Said to be older than it is, with a column it is said to lack: it
         // opens, and keeps what it has.
         store

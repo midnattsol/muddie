@@ -23,6 +23,7 @@ mod walk;
 pub use directions::{
     DIRECTIONS, Direction, canonical_direction, direction_offset, direction_rank, known_direction,
 };
+pub use editing::Replaced;
 pub use info::RoomInfo;
 pub use locating::{Located, Sighting};
 pub use mudlet::{MUDLET_READER, MudletMap, read_mudlet_map};
@@ -106,6 +107,10 @@ pub struct Room {
     /// What the user wrote of the room, to be told with it; empty for
     /// none. Kept, as what the user sets, when the server reports it.
     pub note: String,
+    /// The name is one the user gave it, or a script on their behalf, in
+    /// place of the one it had: kept when the server reports the room, or
+    /// a map taken again names it otherwise.
+    pub renamed: bool,
 }
 
 /// A colour: red, green and blue.

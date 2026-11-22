@@ -376,8 +376,9 @@ impl Tab {
             }
             return;
         }
-        if why != Taking::Update {
-            self.say(&trf("Taking the map from {0}…", &[&source]), false);
+        match why {
+            Taking::Update => self.say(&trf("Looking for a newer map at {0}…", &[&source]), false),
+            _ => self.say(&trf("Taking the map from {0}…", &[&source]), false),
         }
         let result = mapfetch::take(source.clone(), known);
         self.map_source.taking = Some((result, source, why));
@@ -399,33 +400,33 @@ impl Tab {
             return;
         };
         match taken {
-            Ok(Taken::Unchanged) => {}
+            Ok(Taken::Unchanged) => self.say(tr("The map is up to date already."), false),
             Ok(Taken::Map {
                 map: taken,
                 version,
             }) => {
-                let rooms = taken.rooms.len();
                 let saved = {
                     let mut map = self.map.borrow_mut();
                     // Where the player is stays, if the room is still there.
                     let here = map.current().map(|room| room.id);
                     let from_web = mapfetch::on_the_web(&source).then_some(source.as_str());
                     let reader = from_web.map(|_| muddie_mapper::MUDLET_READER);
-                    (map.replace_all(taken.rooms, here))
-                        .and_then(|()| {
-                            map.set_source(from_web.map(|from| (from, version.as_deref())))
-                        })
-                        .and_then(|()| map.set_source_reader(reader))
+                    (map.replace_all(taken.rooms, here)).and_then(|replaced| {
+                        map.set_source(from_web.map(|from| (from, version.as_deref())))?;
+                        map.set_source_reader(reader)?;
+                        Ok(replaced)
+                    })
                 };
-                let rooms = trn("{0} room", "{0} rooms", rooms as u64);
                 match self.map_saved(saved) {
                     None => {}
-                    Some(()) if why == Taking::Update => self.say(
-                        &trf("The server's map was brought up to date: {0}.", &[&rooms]),
-                        false,
-                    ),
-                    Some(()) => {
-                        self.say(&trf("The map was taken: {0}.", &[&rooms]), false);
+                    Some(replaced) if why == Taking::Update => {
+                        self.say(&brought_up_to_date(replaced), false)
+                    }
+                    Some(replaced) => {
+                        let rooms = trn("{0} room", "{0} rooms", replaced.rooms as u64);
+                        let mut said = vec![trf("The map was taken: {0}.", &[&rooms])];
+                        said.extend(names_kept(replaced));
+                        self.say(&sentences(said), false);
                         self.set_map_shown(true);
                     }
                 }
@@ -440,6 +441,91 @@ impl Tab {
             Err(error) => self.say(&trf("Could not take the map: {0}", &[&error]), true),
         }
     }
+}
+
+impl Tab {
+    /// Finds out whether the map at `address` has changed since the map
+    /// was taken from it, to answer the script that asked if it has; if
+    /// the map was not taken from there, there is nothing to answer.
+    pub(super) fn check_newer_map(&mut self, address: String, answer: u64) {
+        let known = {
+            let map = self.map.borrow();
+            let read_now = map.source_reader() >= Some(muddie_mapper::MUDLET_READER);
+            (map.source())
+                .filter(|(from, _)| *from == address)
+                .map(|(_, version)| (version.map(str::to_owned), read_now))
+        };
+        match known {
+            None => {}
+            // Muddie reads more of it now than when it was taken.
+            Some((_, false)) => self.answer_script(answer),
+            Some((version, true)) => {
+                (self.map_source.checking).push((mapfetch::changed(address, version), answer))
+            }
+        }
+    }
+
+    /// Answers the scripts whose maps were found to have changed, as the
+    /// answers come.
+    pub(super) fn check_newer_maps(&mut self, ctx: &egui::Context) {
+        let mut changed = Vec::new();
+        self.map_source
+            .checking
+            .retain(|(result, answer)| match result.try_recv() {
+                Err(TryRecvError::Empty) => true,
+                Ok(Ok(true)) => {
+                    changed.push(*answer);
+                    false
+                }
+                Ok(Err(error)) => {
+                    crate::debug::show("map", "CHECK", &error);
+                    false
+                }
+                _ => false,
+            });
+        if !self.map_source.checking.is_empty() {
+            ctx.request_repaint_after(Duration::from_millis(250));
+        }
+        for answer in changed {
+            self.answer_script(answer);
+        }
+    }
+
+    fn answer_script(&mut self, answer: u64) {
+        self.scripts.answer(answer);
+        self.run_actions();
+    }
+
+    /// Does what a script offered to do with the map.
+    pub(super) fn use_map_tool(&mut self, label: &str) {
+        if self.scripts.use_map_tool(label) {
+            self.run_actions();
+        }
+    }
+}
+
+/// What bringing the map up to date came to, said: how many rooms it has,
+/// how many are new, and the names the user gave that were kept.
+fn brought_up_to_date(replaced: muddie_mapper::Replaced) -> String {
+    let rooms = trn("{0} room", "{0} rooms", replaced.rooms as u64);
+    let new = trn("{0} new", "{0} new", replaced.new as u64);
+    let mut said = vec![trf(
+        "The map was brought up to date: {0}, {1}.",
+        &[&rooms, &new],
+    )];
+    said.extend(names_kept(replaced));
+    sentences(said)
+}
+
+/// That the names the user gave rooms were kept, if any were.
+fn names_kept(replaced: muddie_mapper::Replaced) -> Option<String> {
+    (replaced.renamed > 0).then(|| {
+        trn(
+            "The name you gave {0} room was kept.",
+            "The names you gave {0} rooms were kept.",
+            replaced.renamed as u64,
+        )
+    })
 }
 
 /// Why a map is being taken: the user or a script asked for it, or one

@@ -31,6 +31,7 @@ fn desert(app: &mut Tab) {
         avoid: false,
         colour: None,
         note: String::new(),
+        renamed: false,
     };
     let rooms = vec![
         room(1, "Dunas [e]", &[("e", 2)]),
@@ -228,13 +229,20 @@ fn a_map_of_mudlet_is_imported_from_a_file() {
     assert!(said.starts_with("Could not take the map"), "{said}");
 }
 
+/// The session is connected, as the scripts are told.
+fn connected_now(app: &mut Tab) {
+    app.scripts.on_event("connect", "");
+    app.run_actions();
+}
+
 #[test]
-fn the_plugin_takes_the_servers_map_at_once_and_it_is_said_aside() {
+fn the_plugin_takes_the_servers_map_when_there_is_none_and_it_is_said_aside() {
     let mut harness = window(None);
     let app = harness.state_mut().tab_mut();
     let (_events, _sent) = fake_connection(app);
     app.set_map_shown(false);
     reinos(app);
+    connected_now(app);
     harness.run_steps(2);
     let said = harness.state().tab().notices().0.to_vec();
     let taking = (said.iter())
@@ -264,6 +272,117 @@ fn the_plugin_takes_the_servers_map_at_once_and_it_is_said_aside() {
         !output_lines(harness.state().tab())
             .iter()
             .any(|line| line.contains("map from"))
+    );
+}
+
+/// With a map, connecting leaves it as it is: it is brought up to date
+/// only when the user asks, with what the plugin offers on the map.
+#[test]
+fn the_plugin_leaves_a_map_there_is_and_brings_it_up_to_date_when_asked() {
+    let mut harness = window(None);
+    let ctx = harness.ctx.clone();
+    let app = harness.state_mut().tab_mut();
+    let (_events, _sent) = fake_connection(app);
+    desert(app);
+    reinos(app);
+    connected_now(app);
+    harness.run_steps(2);
+    let app = harness.state_mut().tab_mut();
+    assert!(app.map_source.taking.is_none());
+    assert!(!notes(app).iter().any(|said| said.contains("map from")));
+    // Offered in the palette, under the map, and in the map's menu.
+    let sync = "Sincronizar con el mapa oficial";
+    assert_eq!(app.scripts.map_tools(), [sync]);
+    app.palette.query = "sincronizar".into();
+    let offered = app.palette_items();
+    assert_eq!(
+        (offered[0].usage.as_str(), offered[0].group.as_str()),
+        (sync, "Map")
+    );
+    app.act(commands::Act::MapTool(sync.into()), &ctx);
+    assert!(app.map_source.taking.is_some());
+    assert!(last_said(app).starts_with("Taking the map from https://"));
+    // Taken away with the plugin.
+    app.scripts.unload("Reinos de Leyenda.luau");
+    app.run_actions();
+    assert!(app.scripts.map_tools().is_empty());
+}
+
+/// The map the MUD publishes names some rooms with what was said in them:
+/// coming to one, the plugin gives it the name the game writes, if the
+/// exits written are the room's, and says so a moment after.
+#[test]
+fn the_plugin_puts_right_a_room_named_wrong_by_the_room_written() {
+    let mut harness = window(None);
+    let app = harness.state_mut().tab_mut();
+    let (events, _sent) = fake_connection(app);
+    desert(app);
+    let said_there = |id: RoomId, name: &str, exits: &[(&str, RoomId)]| {
+        let mut map = app.map.borrow_mut();
+        let room = map.room(id).unwrap().clone();
+        let info = RoomInfo {
+            id,
+            name: name.into(),
+            area: room.area,
+            exits: (exits.iter())
+                .map(|(way, to)| ((*way).to_owned(), *to))
+                .collect(),
+            pos: Some(room.pos),
+            colour: None,
+        };
+        map.set_room(info).unwrap();
+    };
+    said_there(4, "Moony te dice: hola", &[("s", 3)]);
+    said_there(2, "", &[("w", 1), ("e", 3)]);
+    reinos(app);
+    let step = |title: &str, way: &str| {
+        let line = panels::styled_lines(title).remove(0);
+        events.send(Event::Line(line)).unwrap();
+        let moved = Event::Gmcp {
+            package: "Room.Movimiento".into(),
+            data: format!("{way:?}"),
+        };
+        events.send(moved).unwrap();
+    };
+    let name = |harness: &Harness<'_, App>, id| {
+        let map = harness.state().tab().map.borrow();
+        map.room(id).map(|room| (room.name.clone(), room.renamed))
+    };
+    // Exits written that are not the room's: it is left as it is, and
+    // followed by the move.
+    assert!(harness.state().tab().map.borrow_mut().set_current(3));
+    step("Pozo [s,e]", "norte");
+    harness.run_steps(2);
+    assert_eq!(
+        name(&harness, 4),
+        Some(("Moony te dice: hola".into(), false))
+    );
+    assert_eq!(harness.state().tab().map.borrow().current().unwrap().id, 4);
+    // The exits are the room's: it is named as written.
+    step("Dunas [o,n]", "sur");
+    step("Pozo [s]", "norte");
+    harness.run_steps(2);
+    assert_eq!(name(&harness, 4), Some(("Pozo".into(), true)));
+    assert_eq!(harness.state().tab().map.borrow().current().unwrap().id, 4);
+    // A room with a good name is not touched, though the game wrote
+    // another name.
+    step("Oasis [n,o]", "sur");
+    // One with none is named too, and both are said together.
+    step("Dunas [o,e]", "oeste");
+    harness.run_steps(2);
+    assert_eq!(name(&harness, 3), Some(("Dunas".into(), false)));
+    assert_eq!(name(&harness, 2), Some(("Dunas".into(), true)));
+    let app = harness.state_mut().tab_mut();
+    assert!(
+        !notes(app)
+            .iter()
+            .any(|said| said.starts_with("Mapa corregido"))
+    );
+    app.scripts.tick(Instant::now() + Duration::from_secs(5));
+    app.run_actions();
+    assert_eq!(
+        last_said(app),
+        "Mapa corregido: 2 salas tienen ahora su nombre."
     );
 }
 

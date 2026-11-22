@@ -73,6 +73,8 @@ pub enum Act {
     /// Goes to the nearest room of this name, or mark; or, asked for the
     /// way, says it.
     Place(String),
+    /// Does what a script offered to do with the map, chosen by this.
+    MapTool(String),
 }
 
 /// What a session asks the window to do.

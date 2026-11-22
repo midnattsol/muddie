@@ -439,10 +439,17 @@ per profile like the ones you install. Two come with it.
   nothing of them by itself, and scripts still get them.
 - **Reinos de Leyenda** gives that MUD its gauges (life, energy, and faith
   and the shield for a character who has them), shows its channels, each in
-  its tab, and gives it its map: the one the MUD publishes, taken as soon as
-  the plugin is on and brought up to date when it changes. It follows you on
-  it by each move, checked by the room the game writes, so that lag does
-  not lose it, and walks in Spanish. It
+  its tab, and gives it its map: the one the MUD publishes, taken when the
+  session has none. After that the map only changes when you ask: when the
+  MUD publishes a newer one, a notice says so on connecting, and
+  **Sincronizar con el mapa oficial**, in the map's menu and the palette,
+  brings it, keeping what you set on the map. It follows you on it by each
+  move, checked by the room the game writes, so that lag does not lose it,
+  and walks in Spanish. The published map names some rooms with something
+  said in them as they were mapped, or with nothing: coming to one, the
+  plugin gives it the name the game writes, if the exits written are the
+  room's, and says so in a notice; those names stay when the map is
+  brought up to date. It
   is off until asked for. On connecting to that MUD it is offered in a
   notice over the bottom right corner: **Enable** switches it on there and then, and **Not now**
   puts the offer away for that profile. The MUD sends nothing over GMCP until

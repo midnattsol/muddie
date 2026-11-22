@@ -2086,8 +2086,27 @@ msgid "The map was taken: {0}."
 msgstr "Mapa importado: {0}."
 
 #, python-brace-format
-msgid "The server's map was brought up to date: {0}."
-msgstr "El mapa del servidor se ha actualizado: {0}."
+msgid "Looking for a newer map at {0}…"
+msgstr "Buscando un mapa más nuevo en {0}…"
+
+msgid "The map is up to date already."
+msgstr "El mapa ya está al día."
+
+#, python-brace-format
+msgid "The map was brought up to date: {0}, {1}."
+msgstr "El mapa se ha actualizado: {0}, {1}."
+
+#, python-brace-format
+msgid "{0} new"
+msgid_plural "{0} new"
+msgstr[0] "{0} nueva"
+msgstr[1] "{0} nuevas"
+
+#, python-brace-format
+msgid "The name you gave {0} room was kept."
+msgid_plural "The names you gave {0} rooms were kept."
+msgstr[0] "Se ha mantenido el nombre que le diste a {0} sala."
+msgstr[1] "Se han mantenido los nombres que les diste a {0} salas."
 
 #, python-brace-format
 msgid "Could not take the map: {0}"

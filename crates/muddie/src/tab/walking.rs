@@ -20,6 +20,9 @@ pub(super) struct MapSource {
     /// A map a script asked for before the session's map was open, to be
     /// taken once it is.
     pub waiting: Option<String>,
+    /// Whether maps the map was taken from have changed: where each answer
+    /// comes, and the script's to tell if one has.
+    pub checking: Vec<(crate::mapfetch::Checking, u64)>,
 }
 
 impl Tab {

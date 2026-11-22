@@ -96,6 +96,15 @@ pub enum Action {
     /// Take the map made with Mudlet at this address in place of the one
     /// there is; if it was taken from there, only if it has changed.
     ImportMap(String),
+    /// Find out whether the map at this address is newer than the one the
+    /// map was taken from it, and answer `answer` (see
+    /// [`crate::Engine::answer`]) if it is.
+    MapNewer {
+        address: String,
+        answer: u64,
+    },
+    /// What the scripts offer to do with the map has changed.
+    MapTools,
     /// Send an MSDP message such as `REPORT` with variable names.
     Msdp {
         variable: String,

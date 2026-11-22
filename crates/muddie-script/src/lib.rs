@@ -128,8 +128,19 @@
 //!   `.dat` file or a zip holding one, on the web or on disk, in place of
 //!   the map there is. A map taken from there already is taken again only
 //!   if the file has changed, or if Muddie now reads more of Mudlet's maps
-//!   than when it was taken, so a plugin may call it on every connection
-//!   to keep it up to date. The user is told how it goes.
+//!   than when it was taken. What the user set on its rooms stays: the
+//!   names they gave, notes, marks, rooms to avoid and exits of their own.
+//!   The user is told how it goes.
+//! - `map.newer(address, fn)`: find out, away from the screen, whether the
+//!   map at `address` has changed since the map was taken from it, and
+//!   call `fn()` if it has, as to tell the user so.
+//! - `map.action(name, fn)`: offer to do `fn()` with the map, chosen by
+//!   `name` from the map's menu or the palette, while the script is
+//!   loaded; `map.action(name)` takes it away.
+//! - `map.rename(id, name)`: give a room a name in place of the one it
+//!   has, such as one the map took wrong; the server reporting the room,
+//!   or the map taken again, then leaves it. False if there is no room.
+//! - `map.count()`: how many rooms the map has.
 //! - `map.native(false)`: turn the built-in loader (GMCP `Room.Info`, MSDP
 //!   `ROOM`) off, leaving the map to the script.
 //! - `map.persist(false)`: keep the map in memory only instead of saving
@@ -477,6 +488,12 @@ impl Engine {
         state.aliases.retain(|matcher| matcher.owner != owner);
         state.timers.retain(|timer| timer.owner != owner);
         state.data_handlers.retain(|handler| handler.owner != owner);
+        state.awaited.retain(|awaited| awaited.owner != owner);
+        let tools = state.map_tools.len();
+        state.map_tools.retain(|tool| tool.owner != owner);
+        if state.map_tools.len() != tools {
+            state.actions.push(Action::MapTools);
+        }
         let asked = state.supports.len();
         state.supports.retain(|(by, _)| by != owner);
         state.changed |= state.supports.len() != asked;
@@ -524,6 +541,40 @@ impl Engine {
             }
         }
         modules
+    }
+
+    /// What the scripts offer to do with the map, by what each is chosen
+    /// by, in the order offered.
+    pub fn map_tools(&self) -> Vec<String> {
+        (self.state.borrow().map_tools.iter())
+            .map(|tool| tool.label.clone())
+            .collect()
+    }
+
+    /// Does what a script offered to do with the map, chosen by `label`.
+    /// Returns false if none offers it.
+    pub fn use_map_tool(&mut self, label: &str) -> bool {
+        let tool = (self.state.borrow().map_tools.iter())
+            .find(|tool| tool.label == label)
+            .map(|tool| (tool.owner.clone(), tool.callback.clone()));
+        let Some((owner, callback)) = tool else {
+            return false;
+        };
+        self.as_owner(&owner, || callback.call::<()>(()));
+        true
+    }
+
+    /// Calls, once, the function a script gave to be told what the client
+    /// went to find out, asked for by an action with this id.
+    pub fn answer(&mut self, id: u64) {
+        let awaited = {
+            let mut state = self.state.borrow_mut();
+            let at = state.awaited.iter().position(|awaited| awaited.id == id);
+            at.map(|at| state.awaited.remove(at))
+        };
+        if let Some(awaited) = awaited {
+            self.as_owner(&awaited.owner, || awaited.callback.call::<()>(()));
+        }
     }
 
     /// Takes the actions requested since the last call, in order.

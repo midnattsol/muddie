@@ -34,7 +34,16 @@ impl Tab {
                         ui.close();
                     }
                 }
-                Kind::Map => self.map_view.menu_items(ui),
+                Kind::Map => {
+                    self.map_view.menu_items(ui);
+                    // What the scripts offer to do with the map.
+                    for label in self.scripts.map_tools() {
+                        if widgets::menu_item(ui, &label, "").clicked() {
+                            asked = Some(PanelAsk::MapTool(label));
+                            ui.close();
+                        }
+                    }
+                }
             }
             if widgets::menu_item(ui, tr("Arrange the panels…"), "").clicked() {
                 asked = Some(PanelAsk::Arrange);
@@ -48,6 +57,7 @@ impl Tab {
             Some(PanelAsk::Arrange) => self.open_arrange(Some(spec.id)),
             Some(PanelAsk::Hide) => self.layout.panels[index].visible = false,
             Some(PanelAsk::Remove) => self.panels.removed = Some(index),
+            Some(PanelAsk::MapTool(label)) => self.use_map_tool(&label),
             None => {}
         }
     }
@@ -117,6 +127,8 @@ enum PanelAsk {
     Arrange,
     Hide,
     Remove,
+    /// What a script offered to do with the map, by what it is chosen by.
+    MapTool(String),
 }
 
 /// The panel's name, to change.

@@ -91,6 +91,7 @@ pub(super) fn room_table(lua: &Lua, room: &Room) -> mlua::Result<Table> {
     table.set("avoid", room.avoid)?;
     table.set("colour", room.colour.map(colour_text))?;
     table.set("note", room.note.as_str())?;
+    table.set("renamed", room.renamed)?;
     let exits = lua.create_table()?;
     for (direction, exit) in &room.exits {
         exits.set(direction.as_str(), exit.to)?;
@@ -112,6 +113,7 @@ pub(super) fn install_map_api(
     install_keeping(lua, state, map, &api)?;
     install_routes(lua, state, map, &api)?;
     install_exits(lua, map, &api)?;
+    install_tools(lua, state, map, &api)?;
     lua.globals().set("map", api)
 }
 
@@ -449,6 +451,87 @@ fn install_routes(
         "import",
         lua.create_function(move |_, address: String| {
             shared.borrow_mut().actions.push(Action::ImportMap(address));
+            Ok(())
+        })?,
+    )?;
+    Ok(())
+}
+
+/// Naming rooms anew, how many there are, what the scripts offer to do
+/// with the map, and whether the map taken from somewhere has changed.
+fn install_tools(
+    lua: &Lua,
+    state: &Rc<RefCell<State>>,
+    map: &Rc<RefCell<Map>>,
+    api: &Table,
+) -> mlua::Result<()> {
+    let world = Rc::clone(map);
+    api.set(
+        "rename",
+        lua.create_function(move |_, (id, name): (Value, String)| {
+            let result = world.borrow_mut().rename(id_of(&id)?, &name);
+            let found = *result.as_ref().unwrap_or(&true);
+            saved(result.map(drop))?;
+            Ok(found)
+        })?,
+    )?;
+
+    let world = Rc::clone(map);
+    api.set(
+        "count",
+        lua.create_function(move |_, ()| Ok(world.borrow().rooms().count()))?,
+    )?;
+
+    let shared = Rc::clone(state);
+    api.set(
+        "action",
+        lua.create_function(move |_, (label, callback): (String, Option<Function>)| {
+            let label = label.trim().to_owned();
+            if label.is_empty() {
+                return Err(mlua::Error::runtime(
+                    "an action needs a name to be chosen by",
+                ));
+            }
+            let mut state = shared.borrow_mut();
+            let owner = state.owner.clone();
+            let at = state.map_tools.iter().position(|tool| tool.label == label);
+            match (at, callback) {
+                (Some(at), Some(callback)) => {
+                    state.map_tools[at] = MapTool {
+                        owner,
+                        label,
+                        callback,
+                    }
+                }
+                (None, Some(callback)) => state.map_tools.push(MapTool {
+                    owner,
+                    label,
+                    callback,
+                }),
+                (Some(at), None) => drop(state.map_tools.remove(at)),
+                (None, None) => return Ok(()),
+            }
+            state.actions.push(Action::MapTools);
+            Ok(())
+        })?,
+    )?;
+
+    let shared = Rc::clone(state);
+    api.set(
+        "newer",
+        lua.create_function(move |_, (address, callback): (String, Function)| {
+            let mut state = shared.borrow_mut();
+            let id = state.next_id();
+            let owner = state.owner.clone();
+            state.awaited.push(Awaited {
+                id,
+                owner,
+                callback,
+            });
+            state.actions.push(Action::MapNewer {
+                address,
+                answer: id,
+            });
             Ok(())
         })?,
     )?;

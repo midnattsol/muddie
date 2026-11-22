@@ -27,6 +27,64 @@ pub enum Taken {
 /// Where what taking a map came to arrives.
 pub type Taking = Receiver<Result<Taken, String>>;
 
+/// Where whether a map has changed arrives.
+pub type Checking = Receiver<Result<bool, String>>;
+
+/// Finds out, away from the thread that asked, whether the map at
+/// `source` on the web is another than the version `known`, without
+/// taking it: asked only for what tells its version. A file, or a web
+/// that gives no version, is not said to have changed.
+pub fn changed(source: String, known: Option<String>) -> Checking {
+    let (done, result) = channel();
+    std::thread::spawn(move || {
+        let _ = done.send(version_of(&source).map(|version| match (version, known) {
+            (Some(version), Some(known)) => version != known,
+            (Some(_), None) => true,
+            (None, _) => false,
+        }));
+    });
+    result
+}
+
+/// The version the web gives of what is at `source`, without taking it;
+/// none for a file, or if the web gives none.
+fn version_of(source: &str) -> Result<Option<String>, String> {
+    if !on_the_web(source) {
+        return Ok(None);
+    }
+    let said = |error: &dyn std::fmt::Display| format!("{source}: {error}");
+    // Tests never reach a server: plugins they load offer real maps.
+    if cfg!(test) {
+        return Err(said(&"the web is not reached while testing"));
+    }
+    let response = agent()
+        .head(source.trim())
+        .call()
+        .map_err(|error| said(&error))?;
+    Ok(version_header(&response))
+}
+
+/// What tells this version of a file on the web from the next: its tag,
+/// or failing that when it last changed.
+fn version_header<B>(response: &ureq::http::Response<B>) -> Option<String> {
+    let header = |name: &str| {
+        (response.headers().get(name))
+            .and_then(|value| value.to_str().ok())
+            .map(str::to_owned)
+    };
+    header("etag").or_else(|| header("last-modified"))
+}
+
+/// How the web is asked for maps.
+fn agent() -> ureq::Agent {
+    ureq::Agent::config_builder()
+        .timeout_global(Some(Duration::from_secs(120)))
+        .max_redirects(3)
+        .user_agent("muddie")
+        .build()
+        .into()
+}
+
 /// Bytes fetched, with the version the web gave of them; none when the
 /// web had nothing newer.
 type Fetched = Option<(Vec<u8>, Option<String>)>;
@@ -70,13 +128,7 @@ fn fetch(source: &str, known: Option<&str>) -> Result<Fetched, String> {
     if cfg!(test) {
         return Err(said(&"the web is not reached while testing"));
     }
-    let agent: ureq::Agent = ureq::Agent::config_builder()
-        .timeout_global(Some(Duration::from_secs(120)))
-        .max_redirects(3)
-        .user_agent("muddie")
-        .build()
-        .into();
-    let mut request = agent.get(source.trim());
+    let mut request = agent().get(source.trim());
     if let Some(known) = known {
         request = request.header("If-None-Match", known);
     }
@@ -87,14 +139,7 @@ fn fetch(source: &str, known: Option<&str>) -> Result<Fetched, String> {
     if response.status().as_u16() == 304 {
         return Ok(None);
     }
-    // What tells this version of the file from the next: its tag, or
-    // failing that when it last changed.
-    let header = |name: &str| {
-        (response.headers().get(name))
-            .and_then(|value| value.to_str().ok())
-            .map(str::to_owned)
-    };
-    let version = header("etag").or_else(|| header("last-modified"));
+    let version = version_header(&response);
     let bytes = (response
         .body_mut()
         .with_config()

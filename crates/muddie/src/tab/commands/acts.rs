@@ -12,6 +12,11 @@ impl Tab {
         acts.extend(self.session_acts());
         acts.extend(self.panel_acts());
         acts.extend(self.channel_acts());
+        let map = tr("Map");
+        acts.extend(
+            (self.scripts.map_tools().into_iter())
+                .map(|label| item(&label, map, Act::MapTool(label.clone()))),
+        );
         // In the editor, what is changed in it is undone and redone.
         if self.editor.open {
             acts.push(item(tr("Undo"), tr("Editor"), Act::Undo(false)));
@@ -194,6 +199,7 @@ impl Tab {
                 }
             },
             Act::Undo(again) => self.undo_step(again),
+            Act::MapTool(label) => self.use_map_tool(&label),
             Act::CopyOutput => {
                 ctx.copy_text(self.output.all_text());
                 self.say(tr("Output copied."), false);

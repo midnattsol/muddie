@@ -156,9 +156,15 @@ impl Map {
                 exits.insert(direction.clone(), exit.clone());
             }
         }
+        // A name the user gave stays, whatever the server calls the room.
+        let renamed = existing.is_some_and(|room| room.renamed);
+        let name = match existing {
+            Some(room) if renamed => room.name.clone(),
+            _ => info.name,
+        };
         let room = Room {
             id: info.id,
-            name: info.name,
+            name,
             area: info.area,
             pos,
             exits,
@@ -166,6 +172,7 @@ impl Map {
             avoid: existing.is_some_and(|room| room.avoid),
             colour: info.colour.or(existing.and_then(|room| room.colour)),
             note: existing.map_or_else(String::new, |room| room.note.clone()),
+            renamed,
         };
         if self.rooms.get(&room.id) == Some(&room) {
             return Ok(());

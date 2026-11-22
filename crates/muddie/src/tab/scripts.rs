@@ -262,6 +262,9 @@ impl Tab {
                     }
                 }
                 Action::ImportMap(address) => self.import_for_script(address),
+                Action::MapNewer { address, answer } => self.check_newer_map(address, answer),
+                // The palette lists them: worked out again.
+                Action::MapTools => self.palette.cache = None,
                 Action::Panel { name, text } => self.show_in_panel(&name, text.as_deref()),
                 Action::PanelAdd { name, text } => {
                     for line in panels::styled_lines(&text) {

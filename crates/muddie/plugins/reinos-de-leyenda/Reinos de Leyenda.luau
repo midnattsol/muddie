@@ -126,12 +126,19 @@ on_gmcp("Comm.ApagaCanal", function(data)
 end)
 
 ---------------------------------------------------------------------------
--- The map. The MUD publishes it for Mudlet: it is taken as soon as there is
--- a session to take it into, and shown, and on each connection brought up
--- to date if it has changed.
+-- The map. The MUD publishes it for Mudlet: it is taken when the session
+-- has no map yet, and after that only when the user asks for it, from the
+-- map's menu or the palette, so that the map never changes unasked. On
+-- connecting it is looked whether the MUD's has changed, to say so. Taken
+-- again, what the user set on the map stays: the names given to rooms,
+-- notes, marks, rooms to avoid and exits of their own.
 
 local MAP = "https://mudlet.reinosdeleyenda.es/Mapa_Mudlet.zip"
-map.import(MAP)
+local SYNC = "Sincronizar con el mapa oficial"
+
+map.action(SYNC, function()
+    map.import(MAP)
+end)
 
 -- How its rooms are named: the region first, as in "Anduar: Plaza Mayor",
 -- and some with their exits after, as in "Desierto de Sharframna [n,s]".
@@ -166,7 +173,93 @@ local function exits_of(list)
     return exits
 end
 
+---------------------------------------------------------------------------
+-- Putting the map's names right. The map the MUD publishes has rooms with
+-- no name, and rooms named with what was said or done in them as they were
+-- mapped: "Moony te dice: ...", "Abres la puerta sur.", "Estás siendo
+-- atacado por Lobo.". On coming to one, it is given the name the game
+-- writes, if the exits the game writes are the room's, so that no other
+-- room is named should the map have lost the player.
+
+-- What a room's name is not: nothing, a sentence, or something said.
+local NOT_NAMES = { " dice", "Dices ", " grita", " susurra", " exclama", "Abres ", "Estás ", "Empiezas " }
+
+local function wrong_name(name)
+    if name == "" or name:find("[%.!%?]%s*$") then
+        return true
+    end
+    for _, said in NOT_NAMES do
+        if name:find(said, 1, true) then
+            return true
+        end
+    end
+    return false
+end
+
+-- Whether every exit the game writes is one the room has.
+local function has_exits(room, exits)
+    if #exits == 0 then
+        return false
+    end
+    for _, exit in exits do
+        if not map.exit(room.id, exit) then
+            return false
+        end
+    end
+    return true
+end
+
+-- The rooms put right lately, told together: a few seconds after the first.
+local renamed = {}
+
+local function tell_renamed()
+    if #renamed == 1 then
+        local room = renamed[1]
+        if room.was == "" then
+            notify(`Mapa corregido: una sala sin nombre se llama ahora «{room.now}».`)
+        else
+            notify(`Mapa corregido: «{room.was}» se llama ahora «{room.now}».`)
+        end
+    elseif #renamed > 1 then
+        notify(`Mapa corregido: {#renamed} salas tienen ahora su nombre.`)
+    end
+    renamed = {}
+end
+
+-- The room the game wrote is the one the move leads to, or, with no move,
+-- the one the player is in: if the map has it named wrong, it is given
+-- the name written.
+local function put_right(seen)
+    if not seen.name or wrong_name(seen.name) then
+        return
+    end
+    local here = map.room()
+    local there = here
+    if here and seen.came then
+        local exit = map.exit(here.id, seen.came)
+        there = exit and map.room(exit.to)
+    end
+    if not there or not wrong_name(there.name) or not has_exits(there, seen.exits or {}) then
+        return
+    end
+    if map.rename(there.id, seen.name) then
+        table.insert(renamed, { was = there.name, now = seen.name })
+        if #renamed == 1 then
+            after(3, tell_renamed)
+        end
+    end
+end
+
 local function step(seen)
+    -- What the game wrote in its text, rather than told over GMCP: it
+    -- may be a room the map has named wrong. If it is not a room the map
+    -- has, the line was not a room, and the move alone is followed.
+    if seen.written then
+        put_right(seen)
+        if #map.named(seen.name) == 0 then
+            seen.name, seen.exits = nil, nil
+        end
+    end
     -- A move by an exit the map does not have, with no room written to
     -- check it by: it is said, and the map stays where it was.
     local here = map.room()
@@ -178,19 +271,20 @@ local function step(seen)
     log(`Reinos: name={seen.name} exits={table.concat(seen.exits or {}, ",")} came={seen.came} -> {now}`)
 end
 
--- The room as the game writes it: only a name the map has a room of, so
--- that no other line that ends in brackets is taken for one. The prompt
--- ends in no new line, so with lag the room comes after it on its line,
--- as "] Anduar: Arco Este [s,e,n,o]": what is before the name is let go.
+-- The room as the game writes it. The prompt ends in no new line, so with
+-- lag the room comes after it on its line, as "] Anduar: Arco Este
+-- [s,e,n,o]": what is before the name is let go, up to a name the map has
+-- a room of, or else up to the last prompt.
 trigger([[^(.*?) \[([A-Za-z|,\-]+)\]\s*$]], function(m)
     local name = m[1]
     while #map.named(name) == 0 do
-        name = name:match("^.-[%]>]%s+(.+)$")
-        if not name then
-            return
+        local rest = name:match("^.-[%]>]%s+(.+)$")
+        if not rest then
+            break
         end
+        name = rest
     end
-    local this = { name = name, exits = exits_of(m[2]) }
+    local this = { name = name, exits = exits_of(m[2]), written = true }
     shown = this
     after(0.2, function()
         if shown == this then
@@ -224,11 +318,17 @@ on_gmcp("Room.Actual", function(room)
     step({ name = name or room, exits = list and exits_of(list) })
 end)
 
--- Long enough to have logged in; once per connection.
+-- Once per connection: the map, and whether GMCP comes.
 on_event("connect", function()
     heard = false
     shown = nil
-    map.import(MAP)
+    if map.count() == 0 then
+        map.import(MAP)
+    else
+        map.newer(MAP, function()
+            notify(`Hay una versión nueva del mapa oficial. Para traerla: «{SYNC}», en el menú del mapa o en la paleta. Lo que hayas corregido en el mapa se mantiene.`)
+        end)
+    end
     after(90, function()
         if not heard then
             notify("Reinos de Leyenda no manda la vida, los canales ni dónde estás hasta que escribas en el juego: consentir gmcp on")

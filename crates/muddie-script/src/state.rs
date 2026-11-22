@@ -92,6 +92,23 @@ pub(super) struct DataHandler {
     pub(crate) callback: Function,
 }
 
+/// Something a script offers to do with the map, which the user chooses
+/// from the map's menu or the palette.
+pub(super) struct MapTool {
+    pub(crate) owner: String,
+    /// What the user chooses it by.
+    pub(crate) label: String,
+    pub(crate) callback: Function,
+}
+
+/// A function a script gave to be called once the client knows something
+/// it went to find out.
+pub(super) struct Awaited {
+    pub(crate) id: u64,
+    pub(crate) owner: String,
+    pub(crate) callback: Function,
+}
+
 /// Store key of a client event; like [`msdp_key`], it cannot collide with
 /// a GMCP package.
 pub(super) fn event_key(name: &str) -> String {
@@ -121,6 +138,10 @@ pub(super) struct State {
     pub(crate) aliases: Vec<Matcher>,
     pub(crate) timers: Vec<Timer>,
     pub(crate) data_handlers: Vec<DataHandler>,
+    /// What the scripts offer to do with the map, in the order offered.
+    pub(crate) map_tools: Vec<MapTool>,
+    /// What the scripts wait to be told, by the id the client answers.
+    pub(crate) awaited: Vec<Awaited>,
     /// The GMCP modules each script asked for, as `(owner, "Name version")`.
     pub(crate) supports: Vec<(String, String)>,
     /// Data last received per GMCP package or MSDP variable.

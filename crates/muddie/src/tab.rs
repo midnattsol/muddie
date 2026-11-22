@@ -426,6 +426,7 @@ impl Tab {
         self.run_actions();
         self.check_walk(ctx);
         self.check_map_taken(ctx);
+        self.check_newer_maps(ctx);
         self.check_partial(ctx);
         self.check_timers(ctx);
         self.check_packages(ctx);

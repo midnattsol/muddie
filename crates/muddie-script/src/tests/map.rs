@@ -257,3 +257,55 @@ fn script_can_colour_rooms() {
         Some([160, 192, 32])
     );
 }
+
+#[test]
+fn script_offers_to_do_things_with_the_map_and_is_told_when_its_map_changed() {
+    let mut engine = engine(
+        r#"for _, room in {{1, "Abres la puerta sur.", {s = 2}}, {2, "Plaza", {n = 1}}} do
+            map.set_room({id = room[1], name = room[2], area = "town", exits = room[3]})
+        end"#,
+    );
+    engine.exec(
+        "plugin",
+        r#"map.action("Sync", function() map.import("https://mud.example.org/map.zip") end)
+        map.action("Gone", function() end)
+        map.action("Gone")
+        map.newer("https://mud.example.org/map.zip", function() notify(`newer, of {map.count()} rooms`) end)"#,
+    );
+    let actions = engine.take_actions();
+    assert_eq!(
+        actions.iter().filter(|a| **a == Action::MapTools).count(),
+        3
+    );
+    let Some(Action::MapNewer { address, answer }) = actions.last().cloned() else {
+        panic!("{actions:?}");
+    };
+    assert_eq!(address, "https://mud.example.org/map.zip");
+    assert_eq!(engine.map_tools(), ["Sync"]);
+    assert!(engine.use_map_tool("Sync") && !engine.use_map_tool("Gone"));
+    assert_eq!(
+        engine.take_actions(),
+        [Action::ImportMap("https://mud.example.org/map.zip".into())]
+    );
+    // Told once.
+    engine.answer(answer);
+    engine.answer(answer);
+    assert_eq!(
+        engine.take_actions(),
+        [Action::Notify("newer, of 2 rooms".into())]
+    );
+    // A room named again keeps it, and says so.
+    engine.exec(
+        "test",
+        r#"assert(map.rename(1, "Puerta"))
+        assert(not map.rename(9, "Nada"))
+        local room = map.room(1)
+        assert(room.name == "Puerta" and room.renamed)
+        assert(not map.room(2).renamed)"#,
+    );
+    assert_eq!(engine.take_actions(), []);
+    // What a script offered goes with it.
+    engine.unload("plugin");
+    assert_eq!(engine.take_actions(), [Action::MapTools]);
+    assert!(engine.map_tools().is_empty());
+}

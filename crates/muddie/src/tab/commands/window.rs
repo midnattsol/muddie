@@ -583,7 +583,7 @@ fn look_of(item: &Item) -> (widgets::Glyph, &'static str) {
         Act::Speech | Act::ReadChannel(..) => (Glyph::Say, ""),
         Act::AddPanel(_) | Act::Panel(_) | Act::FullHeight | Act::Side(_) => (Glyph::Panel, ""),
         Act::Connect(_) => (Glyph::Profile, ""),
-        Act::Place(_) => (Glyph::Map, ""),
+        Act::Place(_) | Act::MapTool(_) => (Glyph::Map, ""),
     }
 }
 
