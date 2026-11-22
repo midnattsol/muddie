@@ -33,8 +33,10 @@ impl Tab {
         for file in &files {
             let off = (own.iter())
                 .any(|(known, belongs)| known == file && !switches.active(Kind::Script, belongs));
-            if !off {
-                self.scripts.load_file(file);
+            match off {
+                // What it showed while it ran goes with it.
+                true => (self.gauges).drop_owned_by(&muddie_script::owner_of(file)),
+                false => self.scripts.load_file(file),
             }
         }
         self.scripts_synced = Some(switches);
@@ -162,13 +164,17 @@ impl Tab {
     }
 
     /// Runs the rules made in the interface, in place of those that were
-    /// running.
+    /// running. Their gauges are shown at once, as they are now; those no
+    /// rule shows now, renamed, deleted or switched off, go.
     pub(super) fn run_rules(&mut self) {
         self.scripts.unload(RULES);
+        self.gauges.running_again(RULES);
         // Each on its own, so a mistake in one says which and spares the rest.
         for (name, code) in self.rules.chunks() {
             self.scripts.exec_owned(RULES, &name, &code);
         }
+        self.run_actions();
+        self.gauges.drop_unset();
     }
 
     /// Puts the rules as they are now saved to work, without running the
@@ -220,10 +226,16 @@ impl Tab {
                         let _ = connection.commands.send(Command::Msdp { variable, values });
                     }
                 }
-                Action::Gauge { name, level, look } => {
+                Action::Gauge {
+                    name,
+                    level,
+                    look,
+                    owner,
+                } => {
                     let look = (look != Default::default()).then_some(look);
-                    self.set_gauge(&name, level, look);
+                    self.set_gauge(&name, level, look, Some(&owner));
                 }
+                Action::Unloaded(owner) => self.gauges.drop_owned_by(&owner),
                 Action::Walk(room) => self.walk_to(room),
                 Action::Entered(room) => {
                     self.record_whereabouts();

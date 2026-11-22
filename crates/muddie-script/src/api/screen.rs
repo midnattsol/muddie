@@ -54,7 +54,14 @@ fn install_gauge(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
                         }
                     }
                 }
-                (shared.borrow_mut().actions).push(Action::Gauge { name, level, look });
+                let mut state = shared.borrow_mut();
+                let owner = state.owner.clone();
+                (state.actions).push(Action::Gauge {
+                    name,
+                    level,
+                    look,
+                    owner,
+                });
                 Ok(())
             },
         )?,

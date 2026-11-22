@@ -501,9 +501,12 @@ impl Engine {
         self.files.iter().any(|loaded| loaded == path)
     }
 
-    /// Forgets a script file, taking away what it made.
+    /// Forgets a script file, taking away what it made, what it shows
+    /// too.
     pub fn unload_file(&mut self, path: &Path) {
-        self.unload(&owner_of(path));
+        let owner = owner_of(path);
+        self.unload(&owner);
+        (self.state.borrow_mut().actions).push(Action::Unloaded(owner));
         self.files.retain(|loaded| loaded != path);
     }
 
@@ -595,6 +598,7 @@ mod tests;
 /// separators of the system throughout, so that the same file reached as
 /// `scripts\New folder/hunt.luau` and as `scripts\New folder\hunt.luau`, as
 /// Windows takes both, is one owner.
-fn owner_of(path: &Path) -> String {
+/// What a script file is known as, as the owner of what it makes.
+pub fn owner_of(path: &Path) -> String {
     path.components().collect::<PathBuf>().display().to_string()
 }

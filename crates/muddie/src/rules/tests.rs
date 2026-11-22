@@ -203,6 +203,7 @@ fn gauges_follow_values_the_server_reports() {
             name: "Salud".into(),
             level: Some((25.0, 100.0)),
             look: look.clone(),
+            owner: "rules".into(),
         }]
     );
     // A maximum can be a plain number; a value not there yet shows nothing.
@@ -215,6 +216,7 @@ fn gauges_follow_values_the_server_reports() {
             name: "Oro".into(),
             level: Some((40.0, 1000.0)),
             look,
+            owner: "rules".into(),
         }]
     );
 }
@@ -462,7 +464,9 @@ fn gauges_come_in_kinds_and_change_colour_by_level() {
     type Seen<'a> = (&'a str, Option<(f64, f64)>, &'a str, &'a str);
     let seen: Vec<Seen> = (actions.iter())
         .map(|action| match action {
-            Action::Gauge { name, level, look } => (
+            Action::Gauge {
+                name, level, look, ..
+            } => (
                 name.as_str(),
                 *level,
                 look.kind.as_str(),

@@ -36,12 +36,16 @@ pub enum Action {
         package: String,
         data: String,
     },
-    /// Set the named gauge to `(value, max)`, or remove it.
+    /// Set the named gauge to `(value, max)`, or remove it. `owner` is
+    /// the script that set it, or `rules` for the rules.
     Gauge {
         name: String,
         level: Option<(f64, f64)>,
         look: GaugeLook,
+        owner: String,
     },
+    /// A script was stopped: what it showed, as its gauges, goes.
+    Unloaded(String),
     /// Add a line to the chat panel.
     Chat(String),
     /// A channel of the MUD's is no longer heard: its tab goes.

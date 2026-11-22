@@ -145,7 +145,8 @@ impl Luau for OnTime {
 
 impl Gauge {
     /// A gauge: shown again whenever what it follows is reported, over
-    /// GMCP or MSDP.
+    /// GMCP or MSDP, and at once, from what was reported last: as it is
+    /// saved, not when the MUD next says something.
     pub(super) fn chunk(&self) -> (String, String) {
         let name = if self.name.trim().is_empty() {
             self.value.trim()
@@ -156,7 +157,8 @@ impl Gauge {
         let code = format!(
             "{PRELUDE}local function update()\n{shown}end\n\
              on_gmcp({root}, update)\n\
-             on_msdp({variable}, update)\n",
+             on_msdp({variable}, update)\n\
+             update()\n",
             shown = self.shown(name),
             root = quoted(root),
             variable = quoted(self.value.trim()),
@@ -170,7 +172,12 @@ impl Gauge {
         let (name, value, look) = (quoted(name), quoted(self.value.trim()), self.look());
         match self.kind {
             GaugeKind::Light => {
-                format!("\tgauge({name}, lit(raw({value})) and 1 or 0, 1, {{{look}}})\n")
+                format!(
+                    "\tlocal said = raw({value})\n\
+                     \tif said ~= nil then\n\
+                     \t\tgauge({name}, lit(said) and 1 or 0, 1, {{{look}}})\n\
+                     \tend\n"
+                )
             }
             GaugeKind::Text => format!(
                 "\tlocal said = raw({value})\n\

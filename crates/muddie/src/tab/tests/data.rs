@@ -208,3 +208,44 @@ fn what_mxp_asks_for_reaches_the_panels_the_gauges_and_the_command_line() {
     app.link_clicked(crate::output::Clicked::Prompt("tell guard".into()));
     assert_eq!(app.input, "tell guard ");
 }
+
+#[test]
+fn a_gauge_saved_is_shown_at_once_and_one_renamed_or_off_goes() {
+    let mut harness = window(None);
+    let (events, _sent) = fake_connection(harness.state_mut().tab_mut());
+    let status = Event::Gmcp {
+        package: "Char.Status".into(),
+        data: r#"{"pvs": {"min": 40, "max": 100}}"#.into(),
+    };
+    let app = harness.state_mut().tab_mut();
+    let mut rules = app.rules.clone();
+    rules.gauges.push(crate::rules::Gauge {
+        name: "Vida".into(),
+        enabled: true,
+        value: "Char.Status.pvs.min".into(),
+        max: "Char.Status.pvs.max".into(),
+        ..Default::default()
+    });
+    app.reload_rules(Some(rules.clone()));
+    // Nothing reported yet: nothing to show.
+    assert_eq!(app.gauges.summary(), "");
+    // A script's own gauge, which the rules leave alone.
+    app.scripts.exec("mine", r#"gauge("Oro", 3, 10)"#);
+    app.run_actions();
+    events.send(status).unwrap();
+    harness.run_steps(3);
+    let app = harness.state_mut().tab_mut();
+    // Those made in the editor first, in its order.
+    assert_eq!(app.gauges.summary(), "Vida 40 of 100, Oro 3 of 10");
+    // Renamed and saved: at once, by what was reported last, in place of
+    // the old name.
+    rules.gauges[0].name = "Salud".into();
+    app.reload_rules(Some(rules.clone()));
+    harness.run_steps(2);
+    let app = harness.state_mut().tab_mut();
+    assert_eq!(app.gauges.summary(), "Salud 40 of 100, Oro 3 of 10");
+    // Switched off, it goes.
+    rules.gauges[0].enabled = false;
+    app.reload_rules(Some(rules));
+    assert_eq!(app.gauges.summary(), "Oro 3 of 10");
+}

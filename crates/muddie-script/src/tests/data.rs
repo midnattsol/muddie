@@ -18,6 +18,7 @@ fn gmcp_data_reaches_handlers_and_is_remembered() {
                 name: "HP".into(),
                 level: Some((80.0, 100.0)),
                 look: GaugeLook::default(),
+                owner: "test".into(),
             },
         ]
     );
@@ -63,6 +64,7 @@ fn scripts_can_send_gmcp_and_drive_panels() {
                 name: "HP".into(),
                 level: None,
                 look: GaugeLook::default(),
+                owner: "test".into(),
             },
             Action::Chat("Ana: hola".into()),
             Action::Walk(42),

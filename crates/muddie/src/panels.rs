@@ -40,6 +40,12 @@ struct Gauge {
     look: GaugeLook,
     /// The lowest of its warnings it is under, as a percentage.
     under: Option<f64>,
+    /// The script that set it last, or the rules; none for those the
+    /// client makes of the MUD's vitals.
+    owner: Option<String>,
+    /// Whether its owner is being run again and has not set it since:
+    /// it goes if it does not (see [`Gauges::drop_unset`]).
+    unset: bool,
 }
 
 impl Gauge {
@@ -94,6 +100,18 @@ impl Gauges {
         level: Option<(f64, f64)>,
         look: Option<GaugeLook>,
     ) -> Option<String> {
+        self.set_by(name, level, look, None)
+    }
+
+    /// The same, set by `owner`, a script or the rules: with none given
+    /// it keeps the owner it has.
+    pub fn set_by(
+        &mut self,
+        name: &str,
+        level: Option<(f64, f64)>,
+        look: Option<GaugeLook>,
+        owner: Option<&str>,
+    ) -> Option<String> {
         let index = self.0.iter().position(|gauge| gauge.name == name);
         let index = match (index, level) {
             (Some(index), Some((value, max))) => {
@@ -102,6 +120,10 @@ impl Gauges {
                 if let Some(look) = look {
                     gauge.look = look;
                 }
+                if let Some(owner) = owner {
+                    gauge.owner = Some(owner.to_owned());
+                }
+                gauge.unset = false;
                 index
             }
             (None, Some((value, max))) => {
@@ -111,6 +133,8 @@ impl Gauges {
                     max,
                     look: look.unwrap_or_default(),
                     under: None,
+                    owner: owner.map(str::to_owned),
+                    unset: false,
                 };
                 // As it starts is not news.
                 gauge.under = gauge.under();
@@ -136,6 +160,26 @@ impl Gauges {
 
     pub fn clear(&mut self) {
         self.0.clear();
+    }
+
+    /// Notes that `owner` is run again: what it set and does not set
+    /// again by [`Gauges::drop_unset`] goes, as a gauge renamed, deleted or
+    /// switched off.
+    pub fn running_again(&mut self, owner: &str) {
+        for gauge in &mut self.0 {
+            gauge.unset |= gauge.owner.as_deref() == Some(owner);
+        }
+    }
+
+    /// Takes away the gauges whose owner was run again and did not set
+    /// them.
+    pub fn drop_unset(&mut self) {
+        self.0.retain(|gauge| !gauge.unset);
+    }
+
+    /// Takes away what `owner` set: a script stopped.
+    pub fn drop_owned_by(&mut self, owner: &str) {
+        self.0.retain(|gauge| gauge.owner.as_deref() != Some(owner));
     }
 
     /// Puts the gauges in the order `place` gives each by its name,
