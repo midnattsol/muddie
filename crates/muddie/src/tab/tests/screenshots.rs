@@ -704,6 +704,18 @@ fn shows_map() {
     save(&mut harness, "map-search");
     harness.key_press(egui::Key::Escape);
     harness.run_steps(3);
+    // An area of more than one level shows which, and the way between.
+    let belfry = muddie_mapper::RoomInfo {
+        id: 5,
+        name: "Campanario".into(),
+        area: "ciudad".into(),
+        exits: [("d".to_owned(), 3)].into(),
+        pos: None,
+        colour: None,
+    };
+    (harness.state().tab().map.borrow_mut().set_room(belfry)).unwrap();
+    harness.run_steps(3);
+    save(&mut harness, "map-levels");
     // The map placed the rooms as walked: the patio is north-east of
     // the alley, one cell east of the square.
     let map = harness.state().tab().map.borrow();

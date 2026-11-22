@@ -2564,3 +2564,13 @@ msgstr "Escape"
 
 msgid "Back to the command line"
 msgstr "Volver a la línea de comandos"
+
+#, python-brace-format
+msgid "Level {0}"
+msgstr "Nivel {0}"
+
+msgid "Down a level"
+msgstr "Bajar un nivel"
+
+msgid "Up a level"
+msgstr "Subir un nivel"

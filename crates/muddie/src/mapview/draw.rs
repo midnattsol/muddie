@@ -47,35 +47,133 @@ pub(super) struct Marks<'a> {
     pub(super) area: &'a str,
 }
 
-/// Where the player is, as text: for screen readers, and at a glance.
+/// Where the player is, as text: the room's name and its region, then
+/// its exits; for a screen reader, all in one line.
 pub(super) fn heading(ui: &mut Ui, map: &Map, current: &Room) {
     let palette = theme::current();
-    ui.label(
-        RichText::new(&current.name)
-            .font(theme::font(Weight::Medium, 14.0))
-            .color(palette.text),
-    );
-    // The exits, each a chip: read as the word and the exits after it.
-    ui.horizontal_wrapped(|ui| {
-        ui.spacing_mut().item_spacing = vec2(4.0, 4.0);
-        let word = RichText::new(tr("exits"))
-            .font(theme::font(Weight::Regular, 12.0))
-            .color(palette.text_faint);
-        ui.add(eframe::egui::Label::new(word).selectable(false));
-        for exit in current.exits.keys() {
-            eframe::egui::Frame::new()
-                .fill(palette.raised)
-                .corner_radius(eframe::egui::CornerRadius::same(5))
-                .inner_margin(eframe::egui::Margin::symmetric(6, 1))
-                .show(ui, |ui| {
-                    let text = RichText::new(map.command_for(exit))
-                        .font(FontId::monospace(11.5))
-                        .color(palette.text_dim);
-                    ui.add(eframe::egui::Label::new(text).selectable(false));
-                });
+    let name = map.short_name(current);
+    let mut text = RichText::new(name)
+        .font(theme::font(Weight::Medium, 14.0))
+        .color(palette.text);
+    let region = map.region(current).filter(|region| *region != name);
+    let shown = ui.horizontal_wrapped(|ui| {
+        ui.spacing_mut().item_spacing.x = 6.0;
+        let named = ui.add(eframe::egui::Label::new(std::mem::take(&mut text)).selectable(false));
+        if let Some(region) = region {
+            let region = RichText::new(region)
+                .font(theme::font(Weight::Regular, 12.5))
+                .color(palette.text_faint);
+            ui.add(eframe::egui::Label::new(region).selectable(false));
         }
+        named
     });
+    let place = match region {
+        Some(region) => format!("{name}, {region}"),
+        None => name.to_owned(),
+    };
+    let said = format!("{place}. {}", exits_words(map, current));
+    (ui.ctx()).accesskit_node_builder(shown.inner.id, |node| node.set_label(said));
+    ui.add_space(2.0);
+    let chips = exit_chips(ui, map, current, ui.available_width());
+    show_chips(ui, chips);
     ui.add_space(4.0);
+}
+
+/// A room's exits laid out as chips, each the arrow of its way, where it
+/// has one, and its word in the MUD's language: where each goes, and the
+/// room they take.
+pub(super) struct Chips {
+    chips: Vec<(
+        Rect,
+        Option<&'static str>,
+        std::sync::Arc<eframe::egui::Galley>,
+    )>,
+    pub(super) size: Vec2,
+}
+
+/// The arrow of a way, for those of the compass, up and down.
+fn way_arrow(way: &str) -> Option<&'static str> {
+    Some(match way {
+        "n" => "↑",
+        "ne" => "↗",
+        "e" => "→",
+        "se" => "↘",
+        "s" => "↓",
+        "sw" => "↙",
+        "w" => "←",
+        "nw" => "↖",
+        "u" => "▲",
+        "d" => "▼",
+        _ => return None,
+    })
+}
+
+/// Lays a room's exits out as chips, in the order of the compass, in as
+/// many rows as `width` takes; "no exits" if it has none.
+pub(super) fn exit_chips(ui: &Ui, map: &Map, room: &Room, width: f32) -> Chips {
+    const HEIGHT: f32 = 20.0;
+    const PAD: f32 = 7.0;
+    const ARROW: f32 = 13.0;
+    const GAP: f32 = 4.0;
+    let palette = theme::current();
+    let font = theme::font(Weight::Regular, 12.0);
+    let ways = ordered_exits(room);
+    let mut words: Vec<(Option<&'static str>, String)> = (ways.iter())
+        .map(|way| (way_arrow(way), direction_words(map, way)))
+        .collect();
+    if words.is_empty() {
+        words.push((None, tr("no exits").to_owned()));
+    }
+    let (mut x, mut y, mut widest) = (0.0_f32, 0.0_f32, 0.0_f32);
+    let mut chips = Vec::new();
+    for (arrow, word) in words {
+        let galley = ui
+            .painter()
+            .layout_no_wrap(word, font.clone(), palette.text_dim);
+        let wide = PAD * 2.0 + galley.size().x + if arrow.is_some() { ARROW } else { 0.0 };
+        if x > 0.0 && x + wide > width {
+            (x, y) = (0.0, y + HEIGHT + GAP);
+        }
+        chips.push((
+            Rect::from_min_size(Pos2::new(x, y), vec2(wide, HEIGHT)),
+            arrow,
+            galley,
+        ));
+        x += wide + GAP;
+        widest = widest.max(x - GAP);
+    }
+    Chips {
+        chips,
+        size: vec2(widest, y + HEIGHT),
+    }
+}
+
+/// Draws the chips laid out by [`exit_chips`]. They are drawn, not
+/// widgets: what they say is said with the room.
+pub(super) fn show_chips(ui: &mut Ui, chips: Chips) {
+    let palette = theme::current();
+    let (rect, _) = ui.allocate_exact_size(chips.size, Sense::hover());
+    if !ui.is_rect_visible(rect) {
+        return;
+    }
+    let painter = ui.painter();
+    for (place, arrow, galley) in chips.chips {
+        let place = place.translate(rect.min.to_vec2());
+        painter.rect_filled(place, eframe::egui::CornerRadius::same(6), palette.raised);
+        let mut x = place.min.x + 7.0;
+        if let Some(arrow) = arrow {
+            painter.text(
+                Pos2::new(x, place.center().y),
+                eframe::egui::Align2::LEFT_CENTER,
+                arrow,
+                theme::font(Weight::Regular, 11.0),
+                palette.text_faint,
+            );
+            x += 13.0;
+        }
+        let at = Pos2::new(x, place.center().y - galley.size().y / 2.0);
+        painter.galley(at, galley, palette.text_dim);
+    }
 }
 
 /// The area to show, among those the map has.
@@ -93,19 +191,29 @@ pub(super) fn area_choice(ui: &mut Ui, map: &Map, area: &mut String) {
         .accesskit_node_builder(chooser.id, |node| node.set_label(tr("Area")));
 }
 
-/// The level to show, a step down or up.
-pub(super) fn level_steps(ui: &mut Ui, level: &mut i32) {
-    if crate::widgets::sign_button(ui, "−", tr("Down"), false).clicked() {
-        *level -= 1;
+/// The level to show: the next one down or up that has rooms, as the
+/// area has them, and which it is.
+pub(super) fn level_steps(ui: &mut Ui, levels: &[i32], level: &mut i32) {
+    let below = levels.iter().rev().find(|known| **known < *level).copied();
+    let above = levels.iter().find(|known| **known > *level).copied();
+    let step = |ui: &mut Ui, sign, label, to: Option<i32>| {
+        let pressed = ui
+            .add_enabled_ui(to.is_some(), |ui| {
+                crate::widgets::sign_button(ui, sign, label, false).clicked()
+            })
+            .inner;
+        to.filter(|_| pressed)
+    };
+    if let Some(to) = step(ui, "▼", tr("Down a level"), below) {
+        *level = to;
     }
-    let shown = format!("{} {level}", tr("level"));
     ui.label(
-        RichText::new(shown)
+        RichText::new(crate::i18n::trf("Level {0}", &[&level.to_string()]))
             .font(theme::font(Weight::Regular, 12.5))
-            .color(theme::current().text_dim),
+            .color(theme::current().text),
     );
-    if crate::widgets::sign_button(ui, "+", tr("Up"), false).clicked() {
-        *level += 1;
+    if let Some(to) = step(ui, "▲", tr("Up a level"), above) {
+        *level = to;
     }
 }
 

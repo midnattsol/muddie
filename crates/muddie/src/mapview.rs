@@ -3,8 +3,7 @@
 
 use eframe::egui;
 use eframe::egui::{
-    Color32, FontId, Painter, Pos2, Rect, Response, RichText, Sense, Stroke, StrokeKind, Ui, Vec2,
-    vec2,
+    Color32, Painter, Pos2, Rect, Response, RichText, Sense, Stroke, StrokeKind, Ui, Vec2, vec2,
 };
 use muddie_mapper::{Map, Pos, Room, RoomId, Walk, direction_offset};
 
@@ -82,10 +81,10 @@ const MOVES: [(egui::Key, &str); 14] = [
     (egui::Key::PageDown, "d"),
 ];
 
-/// A room as it is told when chosen: its name, its region if the name
-/// does not say it, its number, how many moves away it is from `from`,
-/// and its exits.
-pub fn selection_line(map: &Map, from: Option<RoomId>, room: &Room) -> String {
+/// A room as it is shown when chosen, but for its exits, shown apart:
+/// its name, its region if the name does not say it, its number, how many
+/// moves away it is from `from`, and its note.
+fn selection_shown(map: &Map, from: Option<RoomId>, room: &Room) -> String {
     let name = map.bare_name(&room.name);
     let mut parts = vec![name.to_owned()];
     if let Some(region) = map.region(room).filter(|region| !name.starts_with(region)) {
@@ -93,11 +92,26 @@ pub fn selection_line(map: &Map, from: Option<RoomId>, room: &Room) -> String {
     }
     parts.push(format!("#{}", room.id));
     parts.push(how_far(map, from, room));
-    parts.push(exits_words(map, room));
     if !room.note.is_empty() {
         parts.push(room.note.clone());
     }
     parts.join(" · ")
+}
+
+/// A room's exits, in the order of the compass, then up and down, in and
+/// out, and the rest: the one order they are shown and said in.
+pub fn ordered_exits(room: &Room) -> Vec<&str> {
+    const ORDER: [&str; 12] = [
+        "n", "ne", "e", "se", "s", "sw", "w", "nw", "u", "d", "in", "out",
+    ];
+    let mut ways: Vec<&str> = room.exits.keys().map(String::as_str).collect();
+    ways.sort_by_key(|way| {
+        ORDER
+            .iter()
+            .position(|known| known == way)
+            .unwrap_or(ORDER.len())
+    });
+    ways
 }
 
 /// A direction in words: the MUD's, if the map was taught them, else as
@@ -156,18 +170,8 @@ pub fn how_far(map: &Map, from: Option<RoomId>, room: &Room) -> String {
 
 /// A room's exits, said in the MUD's words, in the order of the compass,
 /// then up and down, in and out, and the rest.
-fn exits_words(map: &Map, room: &Room) -> String {
-    const ORDER: [&str; 12] = [
-        "n", "ne", "e", "se", "s", "sw", "w", "nw", "u", "d", "in", "out",
-    ];
-    let mut ways: Vec<&String> = room.exits.keys().collect();
-    ways.sort_by_key(|way| {
-        ORDER
-            .iter()
-            .position(|known| known == way)
-            .unwrap_or(ORDER.len())
-    });
-    let exits: Vec<String> = ways
+pub fn exits_words(map: &Map, room: &Room) -> String {
+    let exits: Vec<String> = ordered_exits(room)
         .into_iter()
         .map(|way| direction_words(map, way))
         .collect();
@@ -213,6 +217,8 @@ pub struct MapView {
     on_level: Option<(Shown, Vec<(Pos, RoomId)>)>,
     /// How many areas the map has, at a revision of it.
     areas: Option<(u64, usize)>,
+    /// The levels of an area, at a revision of the map.
+    levels: Option<((u64, String), Vec<i32>)>,
     /// The room chosen to look at, with a click or the keys.
     selected: Option<RoomId>,
     /// What is told of it, for the room chosen, where the player is and
@@ -257,6 +263,7 @@ impl Default for MapView {
             asked: Tools::default(),
             on_level: None,
             areas: None,
+            levels: None,
             selected: None,
             told: None,
             reveal: None,
@@ -344,17 +351,21 @@ impl MapView {
             .selected
             .filter(|id| map.room(*id).is_some() && !map.is_ghost(*id));
         let told = self.told_of_selected(map);
-        // The room chosen is told under the map.
-        // As many lines as it takes at this width, room kept for them.
+        let chosen_room = self.selected.and_then(|id| map.room(id));
+        // The room chosen is told under the map, its exits under it: in as
+        // many lines as it takes at this width, room kept for them.
+        let width = ui.available_width();
         let told_text = told.as_ref().map(|told| {
             let font = egui::TextStyle::Body.resolve(ui.style());
             let colour = theme::current().text_dim;
-            ui.painter()
-                .layout(told.clone(), font, colour, ui.available_width())
+            ui.painter().layout(told.clone(), font, colour, width)
         });
+        let told_exits = chosen_room.map(|room| exit_chips(ui, map, room, width));
+        let gap = ui.spacing().item_spacing.y;
         let footer = told_text
             .as_ref()
-            .map_or(0.0, |galley| galley.size().y + ui.spacing().item_spacing.y);
+            .map_or(0.0, |galley| galley.size().y + gap)
+            + told_exits.as_ref().map_or(0.0, |chips| chips.size.y + gap);
         let size = ui.available_size() - vec2(0.0, footer);
         // An id of its own, not one counted from what is drawn before it,
         // which a line over the map changes: the keyboard stays with it.
@@ -365,9 +376,11 @@ impl MapView {
             Sense::click_and_drag(),
         );
         let painter = ui.painter_at(rect);
-        let label = match &told {
-            Some(told) => format!("{}. {}", tr("Map view"), told),
-            None => tr("Map view").to_owned(),
+        let label = match (&told, chosen_room) {
+            (Some(told), Some(room)) => {
+                format!("{}. {told} · {}", tr("Map view"), exits_words(map, room))
+            }
+            _ => tr("Map view").to_owned(),
         };
         ui.ctx()
             .accesskit_node_builder(response.id, |node| node.set_label(label));
@@ -478,16 +491,19 @@ impl MapView {
         if let Some(galley) = told_text {
             ui.add(egui::Label::new(galley));
         }
+        if let Some(chips) = told_exits {
+            show_chips(ui, chips);
+        }
         chosen
     }
 
-    /// What is told of the room chosen, worked out again only when it,
-    /// where the player is or the map changes.
+    /// What is shown of the room chosen, but for its exits, worked out
+    /// again only when it, where the player is or the map changes.
     fn told_of_selected(&mut self, map: &Map) -> Option<String> {
         let room = map.room(self.selected?)?;
         let key = (room.id, map.current().map(|here| here.id), map.revision());
         if self.told.as_ref().is_none_or(|(known, _)| *known != key) {
-            self.told = Some((key, selection_line(map, key.1, room)));
+            self.told = Some((key, selection_shown(map, key.1, room)));
         }
         self.told.as_ref().map(|(_, told)| told.clone())
     }
@@ -599,6 +615,23 @@ impl MapView {
         self.cell = cell.clamp(*CELL_RANGE.start(), *CELL_RANGE.end());
     }
 
+    /// The levels an area has rooms on, from the lowest, worked out again
+    /// only when the map or the area changes.
+    fn levels_of(&mut self, map: &Map, area: &str) -> Vec<i32> {
+        let known = (self.levels.as_ref())
+            .filter(|((revision, of), _)| *revision == map.revision() && of == area);
+        if let Some((_, levels)) = known {
+            return levels.clone();
+        }
+        let levels: std::collections::BTreeSet<i32> = (map.rooms())
+            .filter(|room| room.area == area)
+            .map(|room| room.pos.z)
+            .collect();
+        let levels: Vec<i32> = levels.into_iter().collect();
+        self.levels = Some(((map.revision(), area.to_owned()), levels.clone()));
+        levels
+    }
+
     /// How many areas the map has, counted again only when it changes.
     fn area_count(&mut self, map: &Map) -> usize {
         match self.areas {
@@ -624,20 +657,31 @@ impl MapView {
         let theme = theme::current();
         let browsing = self.browsing.is_some();
         let several_areas = self.area_count(map) > 1;
+        // Levels only where the area has more than one, or one without
+        // rooms is being looked at.
+        let levels = self.levels_of(map, &area);
+        let several_levels = levels.len() > 1 || !levels.contains(&level);
+        if !several_areas && !several_levels && !browsing {
+            return (area, level);
+        }
         ui.horizontal(|ui| {
-            eframe::egui::Frame::new()
-                .fill(theme.raised)
-                .corner_radius(eframe::egui::CornerRadius::same(8))
-                .inner_margin(eframe::egui::Margin::symmetric(4, 2))
-                .show(ui, |ui| {
-                    ui.horizontal(|ui| {
-                        ui.spacing_mut().item_spacing.x = 4.0;
-                        if several_areas {
-                            area_choice(ui, map, &mut area);
-                        }
-                        level_steps(ui, &mut level);
+            if several_areas || several_levels {
+                eframe::egui::Frame::new()
+                    .fill(theme.raised)
+                    .corner_radius(eframe::egui::CornerRadius::same(8))
+                    .inner_margin(eframe::egui::Margin::symmetric(4, 2))
+                    .show(ui, |ui| {
+                        ui.horizontal(|ui| {
+                            ui.spacing_mut().item_spacing.x = 4.0;
+                            if several_areas {
+                                area_choice(ui, map, &mut area);
+                            }
+                            if several_levels {
+                                level_steps(ui, &levels, &mut level);
+                            }
+                        });
                     });
-                });
+            }
             if browsing && crate::widgets::button(ui, tr("Back to my position")).clicked() {
                 (area, level) = home.clone();
             }
