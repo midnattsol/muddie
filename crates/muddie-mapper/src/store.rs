@@ -5,7 +5,7 @@ use std::path::Path;
 
 use rusqlite::{Connection, Result, Transaction, params};
 
-use crate::{Colour, Exit, Pos, Room};
+use crate::{Colour, Door, Exit, Pos, Room, Shape};
 
 /// Version of the schema below, kept in the database's `user_version`.
 /// Version 1 lacked the rooms' `weight` and `avoid` columns, versions 1
@@ -13,8 +13,10 @@ use crate::{Colour, Exit, Pos, Room};
 /// up to 3 the marks and what is known about the map, versions up to 4
 /// the rooms' `colour`, versions up to 5 their `note`, and versions up to
 /// 6 whether their name is the user's (`renamed`), and versions up to 7
-/// whether the map added them of itself (`added`).
-const VERSION: i64 = 8;
+/// whether the map added them of itself (`added`), and versions up to 8
+/// how rooms are drawn (`shape`, `symbol`, `styled`) and the exits'
+/// `door`.
+const VERSION: i64 = 9;
 
 const SCHEMA: &str = "
     CREATE TABLE IF NOT EXISTS rooms (
@@ -29,7 +31,10 @@ const SCHEMA: &str = "
         colour INTEGER,
         note TEXT NOT NULL DEFAULT '',
         renamed INTEGER NOT NULL DEFAULT 0,
-        added INTEGER NOT NULL DEFAULT 0
+        added INTEGER NOT NULL DEFAULT 0,
+        shape TEXT NOT NULL DEFAULT 'square',
+        symbol TEXT NOT NULL DEFAULT '',
+        styled INTEGER NOT NULL DEFAULT 0
     );
     CREATE TABLE IF NOT EXISTS exits (
         room_id INTEGER NOT NULL,
@@ -39,6 +44,7 @@ const SCHEMA: &str = "
         locked INTEGER NOT NULL DEFAULT 0,
         command TEXT,
         custom INTEGER NOT NULL DEFAULT 0,
+        door INTEGER,
         PRIMARY KEY (room_id, direction)
     );
     CREATE TABLE IF NOT EXISTS marks (
@@ -54,7 +60,7 @@ const SCHEMA: &str = "
 /// The columns added since the first format, each with how it is made: a
 /// map of an older format is given those it lacks, whatever its version
 /// says.
-const ADDED: [(&str, &str, &str); 10] = [
+const ADDED: [(&str, &str, &str); 14] = [
     ("rooms", "weight", "INTEGER NOT NULL DEFAULT 1"),
     ("rooms", "avoid", "INTEGER NOT NULL DEFAULT 0"),
     ("exits", "cost", "INTEGER NOT NULL DEFAULT 0"),
@@ -65,6 +71,10 @@ const ADDED: [(&str, &str, &str); 10] = [
     ("rooms", "note", "TEXT NOT NULL DEFAULT ''"),
     ("rooms", "renamed", "INTEGER NOT NULL DEFAULT 0"),
     ("rooms", "added", "INTEGER NOT NULL DEFAULT 0"),
+    ("rooms", "shape", "TEXT NOT NULL DEFAULT 'square'"),
+    ("rooms", "symbol", "TEXT NOT NULL DEFAULT ''"),
+    ("rooms", "styled", "INTEGER NOT NULL DEFAULT 0"),
+    ("exits", "door", "INTEGER"),
 ];
 
 pub struct Store {
@@ -116,7 +126,7 @@ impl Store {
 
         let mut exits: BTreeMap<i64, BTreeMap<String, Exit>> = BTreeMap::new();
         let mut statement = connection.prepare(
-            "SELECT room_id, direction, to_id, cost, locked, command, custom FROM exits",
+            "SELECT room_id, direction, to_id, cost, locked, command, custom, door FROM exits",
         )?;
         let rows = statement.query_map([], |row| {
             let exit = Exit {
@@ -125,6 +135,7 @@ impl Store {
                 locked: row.get(4)?,
                 command: row.get(5)?,
                 custom: row.get(6)?,
+                door: row.get::<_, Option<u8>>(7)?.and_then(door_unpacked),
             };
             Ok((row.get(0)?, row.get(1)?, exit))
         })?;
@@ -135,7 +146,8 @@ impl Store {
         drop(statement);
 
         let mut statement = connection.prepare(
-            "SELECT id, name, area, x, y, z, weight, avoid, colour, note, renamed, added FROM rooms",
+            "SELECT id, name, area, x, y, z, weight, avoid, colour, note, renamed, added, shape, symbol,
+             styled FROM rooms",
         )?;
         let rooms = statement
             .query_map([], |row| {
@@ -156,6 +168,9 @@ impl Store {
                     note: row.get(9)?,
                     renamed: row.get(10)?,
                     added: row.get(11)?,
+                    shape: Shape::from_key(&row.get::<_, String>(12)?).unwrap_or_default(),
+                    symbol: row.get(13)?,
+                    styled: row.get(14)?,
                 })
             })?
             .collect::<Result<Vec<Room>>>()?;
@@ -251,14 +266,17 @@ impl Store {
 fn save_room(transaction: &Transaction, room: &Room, known: bool) -> Result<()> {
     transaction
         .prepare_cached(
-            "INSERT INTO rooms (id, name, area, x, y, z, weight, avoid, colour, note, renamed, added)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
+            "INSERT INTO rooms
+             (id, name, area, x, y, z, weight, avoid, colour, note, renamed, added, shape, symbol,
+              styled)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)
          ON CONFLICT(id) DO UPDATE SET
              name = excluded.name, area = excluded.area,
              x = excluded.x, y = excluded.y, z = excluded.z,
              weight = excluded.weight, avoid = excluded.avoid,
              colour = excluded.colour, note = excluded.note,
-             renamed = excluded.renamed, added = excluded.added",
+             renamed = excluded.renamed, added = excluded.added,
+             shape = excluded.shape, symbol = excluded.symbol, styled = excluded.styled",
         )?
         .execute(params![
             room.id,
@@ -272,14 +290,17 @@ fn save_room(transaction: &Transaction, room: &Room, known: bool) -> Result<()> 
             room.colour.map(packed),
             room.note,
             room.renamed,
-            room.added
+            room.added,
+            room.shape.key(),
+            room.symbol,
+            room.styled
         ])?;
     if known {
         (transaction.prepare_cached("DELETE FROM exits WHERE room_id = ?1")?).execute([room.id])?;
     }
     let mut insert = transaction.prepare_cached(
-        "INSERT INTO exits (room_id, direction, to_id, cost, locked, command, custom)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        "INSERT INTO exits (room_id, direction, to_id, cost, locked, command, custom, door)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
     )?;
     for (direction, exit) in &room.exits {
         insert.execute(params![
@@ -289,10 +310,29 @@ fn save_room(transaction: &Transaction, room: &Room, known: bool) -> Result<()> 
             exit.cost,
             exit.locked,
             exit.command,
-            exit.custom
+            exit.custom,
+            exit.door.map(door_packed)
         ])?;
     }
     Ok(())
+}
+
+/// A door as the file keeps it: 1 open, 2 closed, 3 locked, as Mudlet's.
+pub(crate) fn door_packed(door: Door) -> u8 {
+    match door {
+        Door::Open => 1,
+        Door::Closed => 2,
+        Door::Locked => 3,
+    }
+}
+
+pub(crate) fn door_unpacked(door: u8) -> Option<Door> {
+    match door {
+        1 => Some(Door::Open),
+        2 => Some(Door::Closed),
+        3 => Some(Door::Locked),
+        _ => None,
+    }
 }
 
 /// A colour as the file keeps it: one number, `0xRRGGBB`.

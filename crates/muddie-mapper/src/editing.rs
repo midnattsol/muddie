@@ -62,7 +62,14 @@ impl Map {
                 continue;
             };
             room.avoid |= old.avoid;
-            room.colour = room.colour.or(old.colour);
+            if old.styled {
+                room.colour = old.colour;
+                room.shape = old.shape;
+                room.symbol.clone_from(&old.symbol);
+                room.styled = true;
+            } else {
+                room.colour = room.colour.or(old.colour);
+            }
             if room.note.is_empty() {
                 room.note.clone_from(&old.note);
             }
@@ -129,7 +136,28 @@ impl Map {
 
     /// Sets the colour a room is drawn in, or gives it back the map's own.
     pub fn set_colour(&mut self, id: RoomId, colour: Option<Colour>) -> Result<bool, Error> {
-        self.edit_room(id, |room| room.colour = colour)
+        self.style(id, |room| room.colour = colour)
+    }
+
+    /// Sets the shape a room is drawn in.
+    pub fn set_shape(&mut self, id: RoomId, shape: Shape) -> Result<bool, Error> {
+        self.style(id, |room| room.shape = shape)
+    }
+
+    /// Sets what is written in a room, a character or two; empty for none.
+    pub fn set_symbol(&mut self, id: RoomId, symbol: &str) -> Result<bool, Error> {
+        let symbol: String = symbol.trim().chars().take(2).collect();
+        self.style(id, |room| room.symbol = symbol)
+    }
+
+    /// Changes how a room is drawn, as the user's: kept from then on, unless
+    /// it is all the map's own again.
+    fn style(&mut self, id: RoomId, change: impl FnOnce(&mut Room)) -> Result<bool, Error> {
+        self.edit_room(id, |room| {
+            change(room);
+            room.styled =
+                room.colour.is_some() || room.shape != Shape::default() || !room.symbol.is_empty();
+        })
     }
 
     /// Writes a note on a room, or, empty, takes it away.

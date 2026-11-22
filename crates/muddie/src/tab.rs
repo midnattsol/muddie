@@ -44,6 +44,7 @@ mod its_profile;
 mod keys;
 mod language;
 mod layout;
+mod look;
 mod media;
 mod messages;
 mod mxp;
@@ -125,6 +126,8 @@ pub struct Tab {
     /// What the map changed of itself and is yet to be told, from when the
     /// first of it was: told together a moment later.
     map_told: (Vec<muddie_mapper::Changed>, Option<Instant>),
+    /// How a room looks, being chosen, while its dialog is open.
+    look: Option<look::Look>,
     /// The view where the panels are laid out.
     arrange: arrange::Arrange,
     /// Output arrived while the session was not on screen.
@@ -301,6 +304,7 @@ impl Tab {
             walk: None,
             map_source: Default::default(),
             map_told: Default::default(),
+            look: None,
             arrange: Default::default(),
             unread: false,
             settings: settings.clone(),

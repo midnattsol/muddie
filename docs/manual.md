@@ -578,7 +578,7 @@ is what a name begins with, as Anduar in "Anduar: Plaza Mayor".
 | Enter, Shift+Enter | Walk to the room chosen; say the way there without going |
 | Escape, or typing | Back to the command line, with what was typed |
 | Double-click a room | Walks there, one step at a time, waiting for each to succeed |
-| Right-click a room | Walk here, avoid in routes, tidy the area |
+| Right-click a room | Walk here, avoid in routes, how it looks, tidy the area |
 | Drag | Moves the view; the wheel zooms |
 | Shift+drag a room | Moves it to another cell |
 | The area list, − and + | Looks at another area or level; **Back to me** returns |
@@ -597,6 +597,14 @@ too, when it is in your area and level.
 
 A room marked to avoid is never walked through, and a locked exit is never
 used. Both are kept when the server reports the room again.
+
+**How it looks…**, in a room's menu, chooses its colour, its shape
+(square, circle, diamond or hexagon) and a character or two written in
+it, for the room or for every room called as it is. What you choose is
+kept when the server reports the room, and when the map is taken again.
+Maps taken from Mudlet bring their rooms' colours and symbols, and their
+doors, drawn as a small square on the exit: hollow while open, filled
+while shut, red while locked.
 
 For a MUD that does not say which room you are in, a plugin can have the
 map learn as you go from the room the game shows, never on one sighting

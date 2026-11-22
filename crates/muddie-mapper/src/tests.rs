@@ -42,6 +42,9 @@ fn room_at(area: &str, id: RoomId, name: &str, at: Pos, exits: &[(&str, RoomId)]
         note: String::new(),
         renamed: false,
         added: false,
+        shape: Shape::default(),
+        symbol: String::new(),
+        styled: false,
     }
 }
 
@@ -439,6 +442,7 @@ fn map_survives_reopening() {
         locked: true,
         command: Some("open door;n".into()),
         custom: false,
+        door: None,
     };
     assert_eq!(gate.exits["n"], expected);
     assert!(gate.exits["leap"].custom);
@@ -626,16 +630,22 @@ fn a_map_taken_again_keeps_what_the_user_set_and_where_it_came_from() {
         map.set_source_reader(Some(MUDLET_READER)).unwrap();
         map.set_colour(10, Some([7, 7, 7])).unwrap();
         map.set_colour(12, Some([5, 5, 5])).unwrap();
+        map.set_shape(12, Shape::Circle).unwrap();
+        map.set_symbol(12, " $$$ ").unwrap();
         map.set_note(13, "  Fresh water  ").unwrap();
         // A room the map had named with something said there.
         assert!(map.rename(11, " Dune crest ").unwrap());
         assert!(!map.rename(99, "Nowhere").unwrap());
         // The newer map has the same rooms and one more, and no exit of the
-        // user's; it colours one room, where the colour set before gives
-        // way, and names the room the user named as it named it before.
+        // user's; it colours rooms, where the look the user set stays, and
+        // names the room the user named as it named it before; it has a
+        // door, shut.
         let mut newer: Vec<Room> = desert().rooms().cloned().collect();
-        for room in newer.iter_mut().filter(|room| room.id == 10) {
+        for room in newer.iter_mut().filter(|room| room.id <= 11) {
             room.colour = Some([1, 1, 1]);
+        }
+        for room in newer.iter_mut().filter(|room| room.id == 13) {
+            room.exits.get_mut("s").unwrap().door = Some(Door::Closed);
         }
         let mut more = newer[0].clone();
         more.id = 20;
@@ -673,8 +683,14 @@ fn a_map_taken_again_keeps_what_the_user_set_and_where_it_came_from() {
     let colour = |id| map.room(id).unwrap().colour;
     assert_eq!(
         (colour(10), colour(11), colour(12)),
-        (Some([1, 1, 1]), None, Some([5, 5, 5]))
+        (Some([7, 7, 7]), Some([1, 1, 1]), Some([5, 5, 5]))
     );
+    let square = map.room(12).unwrap();
+    assert_eq!(
+        (square.shape, square.symbol.as_str()),
+        (Shape::Circle, "$$")
+    );
+    assert_eq!(map.room(13).unwrap().exits["s"].door, Some(Door::Closed));
     assert_eq!(map.marked("water"), Some(13));
     assert_eq!(map.room(13).unwrap().note, "Fresh water");
     assert_eq!(map.source_reader(), Some(MUDLET_READER));

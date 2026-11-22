@@ -226,7 +226,7 @@ fn script_can_follow_a_server_that_shows_rooms_by_name_only() {
 }
 
 #[test]
-fn script_can_colour_rooms() {
+fn script_can_choose_how_rooms_look() {
     let mut engine = engine(
         r##"map.set_room({id = 1, name = "Gate", colour = "#a0c020"})
         map.set_room({id = 2, name = "Square"})"##,
@@ -237,7 +237,9 @@ fn script_can_colour_rooms() {
         map.set_room({id = 1, name = "Gate", exits = {n = 2}})
         echo(`{map.room(1).colour} {map.set_colour(2, "bright red")} {map.room(2).colour}`)
         echo(`{map.set_colour(2, 196)} {map.room(2).colour} {map.set_colour(9, 1)}`)
-        echo(`{map.set_colour(2, nil)} {map.room(2).colour} {pcall(map.set_colour, 1, "mauve")}`)"##,
+        echo(`{map.set_colour(2, nil)} {map.room(2).colour} {pcall(map.set_colour, 1, "mauve")}`)
+        echo(`{map.room(2).shape} {map.set_shape(2, "circle")} {map.room(2).shape} {pcall(map.set_shape, 2, "star")}`)
+        echo(`[{map.room(2).symbol}] {map.set_symbol(2, "$")} [{map.room(2).symbol}] {map.set_symbol(2, nil)} [{map.room(2).symbol}]`)"##,
     );
     let echoes: Vec<String> = (engine.take_actions().into_iter())
         .filter_map(|action| match action {
@@ -252,6 +254,8 @@ fn script_can_colour_rooms() {
             "#a0c020 true #ff0000",
             "true #ff0000 false",
             "true nil false",
+            "square true circle false",
+            "[] true [$] true []",
         ]
     );
     assert_eq!(

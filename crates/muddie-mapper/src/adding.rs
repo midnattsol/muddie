@@ -164,6 +164,9 @@ impl Map {
                     note: String::new(),
                     renamed: false,
                     added: true,
+                    shape: Shape::default(),
+                    symbol: String::new(),
+                    styled: false,
                 };
                 (Added::Made(id), Some(room))
             }

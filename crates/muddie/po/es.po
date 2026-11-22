@@ -2761,3 +2761,39 @@ msgstr "Mapa corregido: {0} desde «{1}» lleva ahora a «{2}»."
 
 msgid "the game has not shown its exit {0} the last {1} times"
 msgstr "el juego no ha mostrado su salida {0} las últimas {1} veces"
+
+msgid "How it looks…"
+msgstr "Aspecto…"
+
+msgid "Square"
+msgstr "Cuadrado"
+
+msgid "Circle"
+msgstr "Círculo"
+
+msgid "Diamond"
+msgstr "Rombo"
+
+msgid "Hexagon"
+msgstr "Hexágono"
+
+msgid "How the room looks"
+msgstr "Aspecto de la sala"
+
+msgid "The map's own"
+msgstr "El del mapa"
+
+msgid "Shape"
+msgstr "Forma"
+
+msgid "Written in it"
+msgstr "Escrito dentro"
+
+msgid "A character or two"
+msgstr "Uno o dos caracteres"
+
+msgid "All {0} rooms called {1}"
+msgstr "Las {0} salas llamadas {1}"
+
+msgid "Apply"
+msgstr "Aplicar"

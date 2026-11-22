@@ -14,6 +14,7 @@ impl Tab {
             self.bound_keys(ui);
         }
         self.gauge_window(ui.ctx());
+        self.look_window(ui.ctx());
         // The palette of commands, over whichever view is shown.
         self.palette(ui.ctx());
         // The layout and the editor take the place of the game while open.
@@ -142,6 +143,7 @@ impl Tab {
                     self.voice.say_now(&trf("Called {0}.", &[&name]));
                 }
             }
+            Some(MapAction::Look(room)) => self.open_look(room),
             Some(MapAction::Note(room, note)) => {
                 if let Some(said) = self.write_note(room, &note) {
                     self.voice.say_now(&said);

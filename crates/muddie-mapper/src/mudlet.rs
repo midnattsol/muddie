@@ -4,7 +4,7 @@
 //! (big-endian, at Qt 5.12, reals as doubles), in Mudlet's format versions
 //! 14 to 18. Labels are read past, as nothing here shows them.
 
-use crate::{Colour, Exit, Pos, Room, RoomId, STANDARD_COLOURS};
+use crate::{Colour, Door, Exit, Pos, Room, RoomId, STANDARD_COLOURS, Shape};
 use std::collections::{BTreeMap, HashMap};
 
 /// Which reader of Mudlet's maps this is: raise it when the reader reads
@@ -184,8 +184,16 @@ fn read_room(
     let name = stream.string()?.unwrap_or_default();
     let avoid = stream.bool()?;
     let special = stream.map(Stream::i32, Stream::string)?;
-    stream.i8()?;
-    stream.map(Stream::string, Stream::string)?;
+    // The room's symbol: a character of old, kept also, as Mudlet does
+    // now, with what it knows of the room.
+    let character = stream.i8()?;
+    let known = stream.map(Stream::string, Stream::string)?;
+    let symbol = (known.into_iter())
+        .find(|(key, _)| key.as_deref() == Some("system.fallback_symbol"))
+        .and_then(|(_, symbol)| symbol)
+        .or_else(|| (character > b' ' as i8).then(|| char::from(character as u8).to_string()))
+        .map(|symbol| symbol.trim().to_owned())
+        .unwrap_or_default();
     let points = |stream: &mut Stream<'_>| stream.list(Stream::point);
     stream.map(Stream::string, points)?;
     stream.map(Stream::string, Stream::bool)?;
@@ -209,6 +217,12 @@ fn read_room(
             .collect(),
         _ => HashMap::new(),
     };
+    let door = |key: &str| match doors.get(key) {
+        Some(1) => Some(Door::Open),
+        Some(2) => Some(Door::Closed),
+        Some(3) => Some(Door::Locked),
+        _ => None,
+    };
     let locked_number = |direction: &str| {
         let number = NUMBERED.iter().position(|known| *known == direction);
         number.is_some_and(|at| locks.contains(&(at as i32 + 1)))
@@ -224,7 +238,8 @@ fn read_room(
             Exit {
                 to: RoomId::from(to),
                 cost: costs.get(key).map_or(0, |cost| (*cost).max(0) as u32),
-                locked: locked_number(direction) || doors.get(key) == Some(&3),
+                locked: locked_number(direction) || door(key) == Some(Door::Locked),
+                door: door(key),
                 ..Exit::default()
             },
         );
@@ -246,7 +261,8 @@ fn read_room(
             Exit {
                 to: RoomId::from(to),
                 cost: costs.get(command).map_or(0, |cost| (*cost).max(0) as u32),
-                locked: locked || doors.get(command) == Some(&3),
+                locked: locked || door(command) == Some(Door::Locked),
+                door: door(command),
                 ..Exit::default()
             },
         );
@@ -263,6 +279,9 @@ fn read_room(
         note: String::new(),
         renamed: false,
         added: false,
+        shape: Shape::default(),
+        symbol,
+        styled: false,
     })
 }
 
@@ -499,8 +518,15 @@ mod tests {
             } else {
                 map.count(0);
             }
-            map.0.push(0);
-            map.count(0).count(0).count(0).count(0).count(0);
+            // Its symbol: a character of old, or kept with what is known
+            // of the room, as Mudlet keeps it now.
+            map.0.push(if id == 1 { b'B' } else { 0 });
+            if id == 2 {
+                map.count(1).string("system.fallback_symbol").string("⌂");
+            } else {
+                map.count(0);
+            }
+            map.count(0).count(0).count(0).count(0);
             // Locked by number: 1 is north.
             if id == 1 {
                 map.count(1).i32(1);
@@ -513,7 +539,12 @@ mod tests {
             } else {
                 map.count(0);
             }
-            map.count(0);
+            // A door, shut, to the east.
+            if id == 1 {
+                map.count(1).string("e").i32(2);
+            } else {
+                map.count(0);
+            }
         }
         map.0
     }
@@ -532,6 +563,10 @@ mod tests {
         let north = &first.exits["n"];
         assert!(north.locked && north.to == 2);
         assert_eq!(first.exits["e"].cost, 4);
+        assert_eq!(first.exits["e"].door, Some(Door::Closed));
+        assert_eq!(north.door, None);
+        let symbols: Vec<&str> = read.rooms.iter().map(|room| room.symbol.as_str()).collect();
+        assert_eq!(symbols, ["B", "⌂", ""]);
         let portal = &first.exits["entrar portal"];
         assert!(portal.locked && portal.to == 2);
         assert!(read.rooms[1].avoid);

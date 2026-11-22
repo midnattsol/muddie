@@ -183,7 +183,7 @@ server identifies the room with.
 | `map.native(false)` | Turns the built-in loader off. |
 | `map.persist(false)` | Keeps the map in memory only, for servers that send it themselves. |
 | `map.clear()` | Forgets every room. |
-| `map.room(id)` | A room as a table, the current one if `id` is omitted. Also has `weight`, `avoid`, `colour` (`"#rrggbb"`, or `nil`), `note`, what the user wrote of it (`""` for none), `renamed`, whether its name is one given in place of the map's, and `added`, whether the map added it of itself (see `map.add`). |
+| `map.room(id)` | A room as a table, the current one if `id` is omitted. Also has `weight`, `avoid`, `colour` (`"#rrggbb"`, or `nil`), `note`, what the user wrote of it (`""` for none), `renamed`, whether its name is one given in place of the map's, `added`, whether the map added it of itself (see `map.add`), and `shape` and `symbol`, how it is drawn. |
 | `map.find(text)` | Rooms whose name contains `text`. |
 | `map.named(name)` | The numbers of the rooms called just `name`, as the MUD names them. |
 | `map.path(to, from)` | The commands to walk, or `nil`. |
@@ -209,5 +209,7 @@ server identifies the room with.
 | `map.move(id, x, y, z)` | Moves a room on the grid. |
 | `map.set_weight(id, weight)`, `map.avoid(id, true)` | How routes treat a room. |
 | `map.set_colour(id, colour)` | The colour a room is drawn in; `nil` gives it back the map's own. Maps taken from Mudlet bring theirs. |
+| `map.set_shape(id, shape)` | The shape a room is drawn in: `"square"`, `"circle"`, `"diamond"` or `"hexagon"`. |
+| `map.set_symbol(id, text)` | A character or two written in the room; `nil` or `""` for none. Maps taken from Mudlet bring theirs. A room's colour, shape and symbol set so are kept when the server reports it, and when the map is taken again. |
 | `map.relayout(area)` | Draws an area again from scratch. |
 | `map.areas()`, `map.id(text)` | Area names; the number used for a text id. |

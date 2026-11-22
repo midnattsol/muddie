@@ -170,10 +170,16 @@ impl Map {
             exits,
             weight: existing.map_or(1, |room| room.weight),
             avoid: existing.is_some_and(|room| room.avoid),
-            colour: info.colour.or(existing.and_then(|room| room.colour)),
+            colour: match existing {
+                Some(room) if room.styled => room.colour,
+                _ => info.colour.or(existing.and_then(|room| room.colour)),
+            },
             note: existing.map_or_else(String::new, |room| room.note.clone()),
             renamed,
             added: existing.is_some_and(|room| room.added),
+            shape: existing.map_or_else(Shape::default, |room| room.shape),
+            symbol: existing.map_or_else(String::new, |room| room.symbol.clone()),
+            styled: existing.is_some_and(|room| room.styled),
         };
         if self.rooms.get(&room.id) == Some(&room) {
             return Ok(());

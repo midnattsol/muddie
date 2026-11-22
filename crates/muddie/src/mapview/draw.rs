@@ -2,9 +2,10 @@
 //! and the controls over it.
 
 use super::*;
-use eframe::egui::Shape;
 use eframe::egui::epaint::RectShape;
 use eframe::egui::text::{LayoutJob, TextWrapping};
+use eframe::egui::{Align2, Shape};
+use muddie_mapper::{Door, Shape as RoomShape};
 
 /// The cell size from which the rooms' names are written under them.
 const NAMES_FROM: f32 = 60.0;
@@ -267,7 +268,7 @@ pub(super) fn draw_exits(
             };
             let line = Stroke::new(width, colour);
             let target = (map.room(exit.to)).filter(|to| on_level(to) && to.id != room.id);
-            match (target, step) {
+            let end = match (target, step) {
                 (Some(target), _) => {
                     let to = grid.on_screen(target.pos);
                     if step.is_some() || !detailed {
@@ -279,14 +280,41 @@ pub(super) fn draw_exits(
                     if detailed && !target.exits.values().any(|back| back.to == room.id) {
                         arrow(painter, from, to, grid, colour);
                     }
+                    Some(to)
                 }
                 (None, Some((dx, dy, _))) => {
                     let stub = vec2(dx as f32, -dy as f32) * grid.cell * 0.5;
                     painter.line_segment([from, from + stub], line);
+                    Some(from + stub)
                 }
-                (None, None) => {}
+                (None, None) => None,
+            };
+            if let (Some(door), Some(end), true) = (exit.door, end, detailed) {
+                draw_door(painter, door, from, end, grid, colours);
             }
         }
+    }
+}
+
+/// A door on an exit, between its room and where it leads, as a small
+/// square on the line: hollow while open, filled while shut, in the colour
+/// of exits routes do not use while locked.
+fn draw_door(painter: &Painter, door: Door, from: Pos2, to: Pos2, grid: &Grid, colours: &Colours) {
+    let along = (to - from).normalized();
+    let at = from + along * (grid.half() + (grid.cell - grid.half() * 2.0) * 0.5);
+    let square = Rect::from_center_size(at, Vec2::splat((grid.half() * 0.55).max(4.0)));
+    match door {
+        Door::Open => {
+            painter.rect_filled(square, 1.0, colours.behind);
+            painter.rect_stroke(
+                square,
+                1.0,
+                Stroke::new(1.5, colours.exit),
+                StrokeKind::Inside,
+            );
+        }
+        Door::Closed => drop(painter.rect_filled(square, 1.0, colours.exit)),
+        Door::Locked => drop(painter.rect_filled(square, 1.0, colours.locked)),
     }
 }
 
@@ -373,20 +401,15 @@ pub(super) fn draw_rooms(
         if room.added && !room.avoid {
             // A room the map added of itself, which no map taken has:
             // dashed round, in the colour of exits, to tell it apart.
-            painter.rect_filled(rect, corner, fill);
+            fill_shape(painter, room.shape, rect, corner, fill);
             let line = Stroke::new(1.5, colours.exit);
             let dash = (half * 0.35).max(2.0);
-            let ring = rect.expand(1.5);
-            let points = [
-                ring.left_top(),
-                ring.right_top(),
-                ring.right_bottom(),
-                ring.left_bottom(),
-                ring.left_top(),
-            ];
+            let mut points = outline(room.shape, rect.expand(1.5));
+            points.push(points[0]);
             painter.extend(Shape::dashed_line(&points, line, dash, dash));
         } else {
-            painter.rect(rect, corner, fill, border, StrokeKind::Inside);
+            fill_shape(painter, room.shape, rect, corner, fill);
+            ring_shape(painter, room.shape, rect, corner, border);
         }
         if room.avoid {
             let inset = rect.shrink(half * 0.3);
@@ -401,18 +424,72 @@ pub(super) fn draw_rooms(
         };
         if let Some(ring) = ring {
             let stroke = Stroke::new(2.0, ring);
-            painter.rect_stroke(rect.expand(2.5), corner + 2.5, stroke, StrokeKind::Outside);
+            ring_shape(painter, room.shape, rect.expand(3.5), corner + 3.5, stroke);
         }
         // The room chosen to look at, round whatever ring it has.
         if marks.selected == Some(room.id) {
             let stroke = Stroke::new(2.5, colours.selected);
-            painter.rect_stroke(rect.expand(5.5), corner + 5.5, stroke, StrokeKind::Outside);
+            ring_shape(
+                painter,
+                room.shape,
+                rect.expand(6.75),
+                corner + 6.75,
+                stroke,
+            );
         }
     }
 }
 
-/// Marks inside a room for its exits that no line shows: a triangle up,
-/// one down, and a dot for those off the compass, in black or white,
+/// The points round a room of a shape, in `rect`, clockwise from the top;
+/// a circle as a polygon fine enough to look round.
+fn outline(shape: RoomShape, rect: Rect) -> Vec<Pos2> {
+    let (centre, half) = (rect.center(), rect.width() / 2.0);
+    let round = |count: usize, from: f32| -> Vec<Pos2> {
+        (0..count)
+            .map(|at| {
+                let angle = from + at as f32 * std::f32::consts::TAU / count as f32;
+                centre + vec2(angle.cos(), angle.sin()) * half
+            })
+            .collect()
+    };
+    match shape {
+        RoomShape::Square => vec![
+            rect.left_top(),
+            rect.right_top(),
+            rect.right_bottom(),
+            rect.left_bottom(),
+        ],
+        RoomShape::Circle => round(32, 0.0),
+        RoomShape::Diamond => round(4, -std::f32::consts::FRAC_PI_2),
+        RoomShape::Hexagon => round(6, 0.0),
+    }
+}
+
+/// A room's shape filled.
+fn fill_shape(painter: &Painter, shape: RoomShape, rect: Rect, corner: f32, fill: Color32) {
+    match shape {
+        RoomShape::Square => drop(painter.rect_filled(rect, corner, fill)),
+        RoomShape::Circle => drop(painter.circle_filled(rect.center(), rect.width() / 2.0, fill)),
+        _ => drop(painter.add(Shape::convex_polygon(
+            outline(shape, rect),
+            fill,
+            Stroke::NONE,
+        ))),
+    }
+}
+
+/// A line round a room's shape.
+fn ring_shape(painter: &Painter, shape: RoomShape, rect: Rect, corner: f32, stroke: Stroke) {
+    match shape {
+        RoomShape::Square => drop(painter.rect_stroke(rect, corner, stroke, StrokeKind::Inside)),
+        RoomShape::Circle => drop(painter.circle_stroke(rect.center(), rect.width() / 2.0, stroke)),
+        _ => drop(painter.add(Shape::closed_line(outline(shape, rect), stroke))),
+    }
+}
+
+/// Marks inside a room: what is written in it, if anything, and for its
+/// exits that no line shows a triangle up, one down, and a dot for those
+/// off the compass (none where something is written), in black or white,
 /// whichever stands out from the room. Too small a room has none.
 fn draw_exit_marks(painter: &Painter, room: &Room, rect: Rect, fill: Color32) {
     let half = rect.width() / 2.0;
@@ -443,7 +520,10 @@ fn draw_exit_marks(painter: &Painter, room: &Room, rect: Rect, fill: Color32) {
             painter.add(Shape::convex_polygon(points, ink, Stroke::NONE));
         }
     }
-    if other {
+    if !room.symbol.is_empty() && half >= 6.0 {
+        let font = theme::font(Weight::Semibold, half * 1.05);
+        painter.text(centre, Align2::CENTER_CENTER, &room.symbol, font, ink);
+    } else if other {
         painter.circle_filled(centre, half * 0.18, ink);
     }
 }

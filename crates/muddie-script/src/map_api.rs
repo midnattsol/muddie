@@ -93,6 +93,8 @@ pub(super) fn room_table(lua: &Lua, room: &Room) -> mlua::Result<Table> {
     table.set("note", room.note.as_str())?;
     table.set("renamed", room.renamed)?;
     table.set("added", room.added)?;
+    table.set("shape", room.shape.key())?;
+    table.set("symbol", room.symbol.as_str())?;
     let exits = lua.create_table()?;
     for (direction, exit) in &room.exits {
         exits.set(direction.as_str(), exit.to)?;
@@ -391,6 +393,35 @@ fn install_changing(lua: &Lua, map: &Rc<RefCell<Map>>, api: &Table) -> mlua::Res
         lua.create_function(move |_, (id, colour): (Value, Value)| {
             let colour = room_colour(&colour)?;
             let result = world.borrow_mut().set_colour(id_of(&id)?, colour);
+            let found = *result.as_ref().unwrap_or(&true);
+            saved(result.map(drop))?;
+            Ok(found)
+        })?,
+    )?;
+
+    let world = Rc::clone(map);
+    api.set(
+        "set_shape",
+        lua.create_function(move |_, (id, shape): (Value, String)| {
+            let Some(shape) = muddie_mapper::Shape::from_key(shape.trim()) else {
+                return Err(mlua::Error::runtime(format!(
+                    "a room's shape is square, circle, diamond or hexagon, not {shape}"
+                )));
+            };
+            let result = world.borrow_mut().set_shape(id_of(&id)?, shape);
+            let found = *result.as_ref().unwrap_or(&true);
+            saved(result.map(drop))?;
+            Ok(found)
+        })?,
+    )?;
+
+    let world = Rc::clone(map);
+    api.set(
+        "set_symbol",
+        lua.create_function(move |_, (id, symbol): (Value, Option<String>)| {
+            let result = world
+                .borrow_mut()
+                .set_symbol(id_of(&id)?, &symbol.unwrap_or_default());
             let found = *result.as_ref().unwrap_or(&true);
             saved(result.map(drop))?;
             Ok(found)

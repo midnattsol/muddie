@@ -723,6 +723,29 @@ fn shows_map() {
         });
         assert!(added.is_some());
         map.set_current(here);
+        // Rooms drawn in shapes of their own, one with a symbol, and doors.
+        let others: Vec<RoomId> = (map.rooms())
+            .map(|room| room.id)
+            .filter(|id| *id != here && *id < muddie_mapper::ADDED_FROM)
+            .collect();
+        let shapes = [
+            (muddie_mapper::Shape::Circle, "$"),
+            (muddie_mapper::Shape::Diamond, ""),
+            (muddie_mapper::Shape::Hexagon, "+"),
+        ];
+        for (id, (shape, symbol)) in others.iter().zip(shapes) {
+            map.set_shape(*id, shape).unwrap();
+            map.set_symbol(*id, symbol).unwrap();
+        }
+        map.set_colour(others[0], Some([224, 192, 64])).unwrap();
+        let ways: Vec<String> = map.room(here).unwrap().exits.keys().cloned().collect();
+        for (way, door) in ways
+            .iter()
+            .zip([muddie_mapper::Door::Closed, muddie_mapper::Door::Locked])
+        {
+            map.edit_exit(here, way, |exit| exit.door = Some(door))
+                .unwrap();
+        }
     }
     let route = app.map.borrow().route(2, 6).unwrap();
     app.walk = Some((
@@ -733,6 +756,13 @@ fn shows_map() {
     harness.run_steps(3);
     save(&mut harness, "map-walk");
     harness.state_mut().tab_mut().walk = None;
+    // How a room looks, chosen from its menu.
+    let here = harness.state().tab().map.borrow().current().unwrap().id;
+    harness.state_mut().tab_mut().open_look(here);
+    harness.run_steps(3);
+    save(&mut harness, "map-look");
+    harness.key_press(egui::Key::Escape);
+    harness.run_steps(2);
     // A room chosen with the keys, east of the player's, told under it.
     let view = harness.get_by_label_contains("Map view").rect().center();
     harness.hover_at(view);

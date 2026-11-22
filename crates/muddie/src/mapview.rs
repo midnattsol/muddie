@@ -59,6 +59,8 @@ pub enum MapAction {
     Mark(RoomId, String),
     /// Write this note on this room; an empty one takes it away.
     Note(RoomId, String),
+    /// Choose how this room looks.
+    Look(RoomId),
 }
 
 /// The keys that move the room chosen along its exits while the map has
@@ -793,8 +795,8 @@ impl MapView {
         None
     }
 
-    /// The menu of the room right-clicked: walk there, avoid it, tidy its
-    /// area, show all areas. Returns what was chosen.
+    /// The menu of the room right-clicked: walk there, avoid it, choose how
+    /// it looks, tidy its area, show all areas. Returns what was chosen.
     fn room_menu(&mut self, response: &Response, map: &Map, area: &str) -> Option<MapAction> {
         let mut chosen = None;
         crate::widgets::context_menu_of(response, |ui| {
@@ -813,6 +815,10 @@ impl MapView {
                 };
                 if widgets::menu_item(ui, toggle, "").clicked() {
                     chosen = Some(MapAction::Avoid(room.id, !room.avoid));
+                    ui.close();
+                }
+                if widgets::menu_item(ui, tr("How it looks…"), "").clicked() {
+                    chosen = Some(MapAction::Look(room.id));
                     ui.close();
                 }
                 widgets::menu_separator(ui);

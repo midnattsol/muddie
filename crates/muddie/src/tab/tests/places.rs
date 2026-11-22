@@ -33,6 +33,9 @@ fn desert(app: &mut Tab) {
         note: String::new(),
         renamed: false,
         added: false,
+        shape: Default::default(),
+        symbol: String::new(),
+        styled: false,
     };
     let rooms = vec![
         room(1, "Dunas [e]", &[("e", 2)]),
@@ -1091,6 +1094,9 @@ fn a_very_large_area_is_tidied_only_when_told_all() {
             note: String::new(),
             renamed: false,
             added: false,
+            shape: Default::default(),
+            symbol: String::new(),
+            styled: false,
         })
         .collect();
     app.map.borrow_mut().replace_all(rooms, None).unwrap();
@@ -1105,4 +1111,50 @@ fn a_very_large_area_is_tidied_only_when_told_all() {
     assert_eq!(x_of_2(app), 6);
     answer(app, "/map tidy all");
     assert_eq!(x_of_2(app), 4);
+}
+
+/// How a room looks is chosen in a dialog from its menu: for it, or for
+/// every room called as it is.
+#[test]
+fn how_rooms_look_is_chosen_for_one_or_all_called_so() {
+    let mut harness = window(None);
+    let app = harness.state_mut().tab_mut();
+    app.started = true;
+    let (_events, _sent) = fake_connection(app);
+    desert(app);
+    let called = app.map.borrow().called("Dunas");
+    assert!(called.len() > 1);
+    let shape =
+        |harness: &Harness<'_, App>, id| harness.state().tab().map.borrow().room(id).unwrap().shape;
+    // For the room alone.
+    harness.state_mut().tab_mut().open_look(called[0]);
+    harness.run_steps(2);
+    harness.get_by_label("Circle").click();
+    harness.run_steps(1);
+    harness.get_by_label("Apply").click();
+    harness.run_steps(2);
+    assert_eq!(shape(&harness, called[0]), muddie_mapper::Shape::Circle);
+    assert_eq!(shape(&harness, called[1]), muddie_mapper::Shape::Square);
+    // For all called so, with a symbol.
+    harness.state_mut().tab_mut().open_look(called[1]);
+    harness.run_steps(2);
+    harness.get_by_label("Diamond").click();
+    harness.get_by_label("A character or two").click();
+    harness.run_steps(1);
+    harness.get_by_label("A character or two").type_text("~");
+    harness
+        .get_by_label(&format!("All {} rooms called Dunas", called.len()))
+        .click();
+    harness.run_steps(1);
+    harness.get_by_label("Apply").click();
+    harness.run_steps(2);
+    let map = harness.state().tab().map.borrow();
+    for id in &called {
+        let room = map.room(*id).unwrap();
+        assert_eq!(
+            (room.shape, room.symbol.as_str(), room.styled),
+            (muddie_mapper::Shape::Diamond, "~", true)
+        );
+    }
+    assert!(harness.state().tab().look.is_none());
 }

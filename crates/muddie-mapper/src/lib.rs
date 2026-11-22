@@ -127,6 +127,49 @@ pub struct Room {
     /// elsewhere: numbered from [`ADDED_FROM`], kept when a map is taken
     /// again, and joined with the room it has if it has it by then.
     pub added: bool,
+    /// How it is drawn, and a character or two drawn in it, if any.
+    pub shape: Shape,
+    pub symbol: String,
+    /// Its colour, shape and symbol are the user's, or a script's on their
+    /// behalf: kept when the server reports the room or a map is taken
+    /// again.
+    pub styled: bool,
+}
+
+/// The shape a room is drawn in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Shape {
+    #[default]
+    Square,
+    Circle,
+    Diamond,
+    Hexagon,
+}
+
+impl Shape {
+    pub const ALL: [Shape; 4] = [Shape::Square, Shape::Circle, Shape::Diamond, Shape::Hexagon];
+
+    /// Its name, as kept and as scripts say it.
+    pub fn key(self) -> &'static str {
+        match self {
+            Shape::Square => "square",
+            Shape::Circle => "circle",
+            Shape::Diamond => "diamond",
+            Shape::Hexagon => "hexagon",
+        }
+    }
+
+    pub fn from_key(key: &str) -> Option<Shape> {
+        Shape::ALL.into_iter().find(|shape| shape.key() == key)
+    }
+}
+
+/// A door on an exit, as a map taken from elsewhere marks it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Door {
+    Open,
+    Closed,
+    Locked,
 }
 
 /// The first number of the rooms the map adds of itself: far above any
@@ -176,6 +219,8 @@ pub struct Exit {
     /// Added by the user rather than reported by the server, so it stays
     /// when the server lists the room's exits without it.
     pub custom: bool,
+    /// The door on it, if it has one.
+    pub door: Option<Door>,
 }
 
 /// One move of a route: what to send and the room it leads to.
