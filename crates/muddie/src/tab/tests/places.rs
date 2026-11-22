@@ -293,7 +293,7 @@ fn the_plugin_leaves_a_map_there_is_and_brings_it_up_to_date_when_asked() {
     assert!(!notes(app).iter().any(|said| said.contains("map from")));
     // Offered in the palette, under the map, and in the map's menu.
     let sync = "Sincronizar con el mapa oficial";
-    assert_eq!(app.scripts.map_tools(), [sync]);
+    assert_eq!(app.scripts.map_tools()[0], sync);
     app.palette.query = "sincronizar".into();
     let offered = app.palette_items();
     assert_eq!(
@@ -1037,5 +1037,95 @@ fn the_rooms_the_map_added_are_listed_said_apart_undone_and_checked() {
     assert_eq!(
         answer(app, "/map check"),
         ["Nothing on the map looks wrong."]
+    );
+}
+
+/// Switched on from the map's tools, the plugin of Reinos has the map
+/// add the rooms it has not where the player goes by the compass, and
+/// link to those it has; never a line said with brackets; and, switched
+/// off, as it starts, none.
+#[test]
+fn reinos_adds_the_rooms_the_map_has_not_once_switched_on() {
+    let mut harness = window(None);
+    let ctx = harness.ctx.clone();
+    let app = harness.state_mut().tab_mut();
+    let (events, _sent) = fake_connection(app);
+    desert(app);
+    reinos(app);
+    let start = "Añadir al mapa las salas que no tiene";
+    let stop = "Dejar de añadir salas al mapa";
+    assert_eq!(
+        app.scripts.map_tools(),
+        ["Sincronizar con el mapa oficial", start]
+    );
+    app.act(commands::Act::MapTool(start.into()), &ctx);
+    assert_eq!(
+        app.scripts.map_tools(),
+        ["Sincronizar con el mapa oficial", stop]
+    );
+    assert!(last_said(app).starts_with("Las salas que no estén en el mapa se añadirán"));
+    let step = |title: &str, way: &str| {
+        let line = panels::styled_lines(title).remove(0);
+        events.send(Event::Line(line)).unwrap();
+        let moved = Event::Gmcp {
+            package: "Room.Movimiento".into(),
+            data: format!("{way:?}"),
+        };
+        events.send(moved).unwrap();
+    };
+    assert!(harness.state().tab().map.borrow_mut().set_current(4));
+    // North of the well, where the map has nothing: added.
+    step("Oasis [s,e]", "norte");
+    harness.run_steps(2);
+    let oasis = muddie_mapper::ADDED_FROM;
+    let here = |harness: &Harness<'_, App>| {
+        let map = harness.state().tab().map.borrow();
+        map.current().map(|room| (room.id, room.name.clone()))
+    };
+    assert_eq!(here(&harness), Some((oasis, "Oasis".into())));
+    assert_eq!(
+        harness.state().tab().map.borrow().room(4).unwrap().exits["n"].to,
+        oasis
+    );
+    // Back south, the well is found, and the way back is known now.
+    step("Pozo [n,s]", "sur");
+    harness.run_steps(2);
+    assert_eq!(here(&harness), Some((4, "Pozo".into())));
+    assert_eq!(
+        harness
+            .state()
+            .tab()
+            .map
+            .borrow()
+            .room(oasis)
+            .unwrap()
+            .exits["s"]
+            .to,
+        4
+    );
+    let app = harness.state_mut().tab_mut();
+    app.scripts.tick(Instant::now() + Duration::from_secs(5));
+    app.run_actions();
+    assert_eq!(
+        last_said(app),
+        "Mapa: se han añadido 1 sala y 1 camino. Para deshacer la última: /map undo."
+    );
+    // Something said with brackets, then a move the map has not: not a
+    // room, nothing is added, and the map stays where it was.
+    step("Moony dice: vale [ok]", "este");
+    harness.run_steps(2);
+    assert_eq!(here(&harness), Some((4, "Pozo".into())));
+    assert_eq!(harness.state().tab().map.borrow().added().len(), 1);
+    // Switched off, a room the map has not is not added.
+    let app = harness.state_mut().tab_mut();
+    app.act(commands::Act::MapTool(stop.into()), &ctx);
+    assert_eq!(last_said(app), "Ya no se añaden salas al mapa.");
+    step("Cueva [o]", "este");
+    harness.run_steps(2);
+    assert_eq!(harness.state().tab().map.borrow().added().len(), 1);
+    assert!(
+        notes(harness.state_mut().tab_mut())
+            .iter()
+            .any(|said| said.contains("no te ha seguido"))
     );
 }

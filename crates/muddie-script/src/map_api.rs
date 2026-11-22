@@ -627,6 +627,16 @@ fn install_exits(lua: &Lua, map: &Rc<RefCell<Map>>, api: &Table) -> mlua::Result
 
     let world = Rc::clone(map);
     api.set(
+        "direction",
+        lua.create_function(move |_, word: String| {
+            let direction = world.borrow().direction(&word);
+            let known = muddie_mapper::known_direction(&direction).is_some();
+            Ok(known.then_some(direction))
+        })?,
+    )?;
+
+    let world = Rc::clone(map);
+    api.set(
         "relayout",
         lua.create_function(move |_, area: Option<String>| {
             let mut world = world.borrow_mut();

@@ -340,7 +340,8 @@ fn script_adds_the_room_the_map_has_not_where_the_player_went() {
     );
     engine.exec(
         "test",
-        "local room = map.room() echo(tostring(room.added) .. ' ' .. room.name)",
+        "local room = map.room() echo(tostring(room.added) .. ' ' .. room.name)
+        echo(map.direction('Norte') .. ' ' .. map.direction('north') .. ' ' .. tostring(map.direction('ok')))",
     );
     assert_eq!(
         engine.take_actions(),
@@ -353,6 +354,7 @@ fn script_adds_the_room_the_map_has_not_where_the_player_went() {
             Action::Echo("1 found".into()),
             Action::Echo("nil known".into()),
             Action::Echo("false Gate".into()),
+            Action::Echo("n n nil".into()),
         ]
     );
 }

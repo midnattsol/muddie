@@ -131,7 +131,8 @@ end)
 -- map's menu or the palette, so that the map never changes unasked. On
 -- connecting it is looked whether the MUD's has changed, to say so. Taken
 -- again, what the user set on the map stays: the names given to rooms,
--- notes, marks, rooms to avoid and exits of their own.
+-- notes, marks, rooms to avoid and exits of their own, and the rooms the
+-- map added where the player went, if the user switched that on (below).
 
 local MAP = "https://mudlet.reinosdeleyenda.es/Mapa_Mudlet.zip"
 local SYNC = "Sincronizar con el mapa oficial"
@@ -250,12 +251,115 @@ local function put_right(seen)
     end
 end
 
+---------------------------------------------------------------------------
+-- Adding the rooms the map has not. Off unless the user switches it on,
+-- from the map's menu or the palette, and remembered in the profile. A
+-- room is added only by a move of the compass made, as Room.Movimiento
+-- says, by an exit the map has leading nowhere, with the room written
+-- just before it: with a name that is a room's, and exits that are all
+-- directions, so that a line said with brackets is not taken for one.
+-- The map adds it only if it knows for certain where the player was,
+-- and links to the room if it has it already that way. Other moves, as
+-- by a command or a portal, are not added.
+
+local ADDING = "Reinos de Leyenda: añadir salas"
+local START_ADDING = "Añadir al mapa las salas que no tiene"
+local STOP_ADDING = "Dejar de añadir salas al mapa"
+local adding = recall(ADDING) == true
+
+-- The rooms added lately, told together: a few seconds after the first.
+local added = { rooms = {}, ways = {} }
+
+local function tell_added()
+    local rooms, ways = added.rooms, added.ways
+    local function counted(count, one, many)
+        return `{count} {if count == 1 then one else many}`
+    end
+    local said
+    if #rooms == 1 and #ways == 0 then
+        said = `Mapa: añadida la sala «{rooms[1]}».`
+    elseif #rooms == 0 and #ways == 1 then
+        said = `Mapa: añadido el camino a «{ways[1]}».`
+    else
+        local parts = {}
+        if #rooms > 0 then
+            table.insert(parts, counted(#rooms, "sala", "salas"))
+        end
+        if #ways > 0 then
+            table.insert(parts, counted(#ways, "camino", "caminos"))
+        end
+        said = `Mapa: se han añadido {table.concat(parts, " y ")}.`
+    end
+    notify(`{said} Para deshacer la última: /map undo.`)
+    added = { rooms = {}, ways = {} }
+end
+
+-- Whether every exit written is a direction.
+local function all_directions(exits)
+    if #exits == 0 then
+        return false
+    end
+    for _, exit in exits do
+        if not map.direction(exit) then
+            return false
+        end
+    end
+    return true
+end
+
+-- Adds the room written, if the move leads nowhere the map has; returns
+-- whether the map now has the player there.
+local function add_room(seen)
+    if not (adding and seen.written and seen.came and seen.name) then
+        return false
+    end
+    if wrong_name(seen.name) or not map.direction(seen.came) or not all_directions(seen.exits or {}) then
+        return false
+    end
+    local here = map.room()
+    local exit = here and map.exit(here.id, seen.came)
+    if not here or (exit and map.room(exit.to)) then
+        return false
+    end
+    local id, how = map.add(seen)
+    log(`Reinos: añadir {seen.name} por {seen.came} -> {id} {how}`)
+    if not id then
+        return false
+    end
+    table.insert(if how == "made" then added.rooms else added.ways, seen.name)
+    if #added.rooms + #added.ways == 1 then
+        after(3, tell_added)
+    end
+    return true
+end
+
+local function offer_adding()
+    map.action(START_ADDING, if adding then nil else function()
+        adding = true
+        remember(ADDING, true)
+        offer_adding()
+        notify("Las salas que no estén en el mapa se añadirán donde vayas. Se ven con el borde discontinuo; /map added las muestra y /map undo deshace la última.")
+    end)
+    map.action(STOP_ADDING, if adding then function()
+        adding = false
+        remember(ADDING, false)
+        offer_adding()
+        notify("Ya no se añaden salas al mapa.")
+    end else nil)
+end
+
+offer_adding()
+
 local function step(seen)
     -- What the game wrote in its text, rather than told over GMCP: it
-    -- may be a room the map has named wrong. If it is not a room the map
-    -- has, the line was not a room, and the move alone is followed.
+    -- may be a room the map has named wrong, or one it has not. If it is
+    -- not a room the map has, the line was not a room, and the move alone
+    -- is followed.
     if seen.written then
         put_right(seen)
+        if add_room(seen) then
+            return
+        end
         if #map.named(seen.name) == 0 then
             seen.name, seen.exits = nil, nil
         end

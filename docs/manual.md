@@ -453,7 +453,11 @@ per profile like the ones you install. Two come with it.
   said in them as they were mapped, or with nothing: coming to one, the
   plugin gives it the name the game writes, if the exits written are the
   room's, and says so in a notice; those names stay when the map is
-  brought up to date. It
+  brought up to date. **Añadir al mapa las salas que no tiene**, in the
+  map's menu and the palette, has the map add the rooms it does not have
+  where you go by the compass (see "The map", below), until **Dejar de
+  añadir salas al mapa**; it is remembered in the profile, and off until
+  then. It
   is off until asked for. On connecting to that MUD it is offered in a
   notice over the bottom right corner: **Enable** switches it on there and then, and **Not now**
   puts the offer away for that profile. The MUD sends nothing over GMCP until

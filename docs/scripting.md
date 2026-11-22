@@ -201,6 +201,7 @@ server identifies the room with.
 | `map.set_exit(from, direction, to, options)` | Adds an exit of your own or changes where one leads. |
 | `map.edit_exit(from, direction, options)` | Changes an exit's `cost`, `locked` or `command` (`"open door;n"`). |
 | `map.exit(from, direction)` | An exit as a table. |
+| `map.direction(word)` | The direction a word says, as the map keeps it (`"n"`, `"ne"`... `"u"`, `"d"`, `"in"`, `"out"`), in the MUD's words or in English; `nil` if it says none. |
 | `map.remove_exit(from, direction)`, `map.remove_room(id)` | Remove. |
 | `map.move(id, x, y, z)` | Moves a room on the grid. |
 | `map.set_weight(id, weight)`, `map.avoid(id, true)` | How routes treat a room. |
