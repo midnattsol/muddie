@@ -65,7 +65,7 @@ impl Tab {
                 script: &mut rule.script,
                 matched: false,
                 commands_hint: "north",
-                script_hint: "map.walk(map.find(\"Temple\")[1].id)",
+                script_hint: "map.go(map.find(\"Temple\")[1])",
                 about_commands: tr("One command per line, sent as if you had typed them."),
                 about_script: tr("Run when the key is pressed."),
                 sizes: &mut self.editor.code,

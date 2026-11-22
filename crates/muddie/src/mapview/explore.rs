@@ -372,7 +372,7 @@ impl MapView {
             .map_or_else(String::new, |room| map.short_name(room).to_owned());
         let label = match prompt.asked {
             Asked::Search => tr("Search the map").to_owned(),
-            Asked::Mark => trf("Name for {0}", &[&room]),
+            Asked::Mark => trf("Mark for {0}", &[&room]),
             Asked::Note => trf("Note on {0}", &[&room]),
         };
         let field = ui

@@ -233,7 +233,7 @@ pub fn room_facts(map: &Map, room: &Room) -> Vec<String> {
     }
     let marks = map.marks_of(room.id);
     if !marks.is_empty() {
-        facts.push(crate::i18n::trf("Called {0}.", &[&marks.join(", ")]));
+        facts.push(crate::i18n::trf("Marked {0}.", &[&marks.join(", ")]));
     }
     if !room.note.is_empty() {
         facts.push(crate::i18n::trf("Note: {0}", &[&room.note]));
@@ -360,7 +360,7 @@ impl MapView {
             widgets::icon_button(ui, widgets::Icon::Tidy, tr("Tidy this area"), false).clicked();
         if walking {
             self.asked.stop |=
-                widgets::icon_button(ui, widgets::Icon::Stop, tr("Stop walking"), true).clicked();
+                widgets::icon_button(ui, widgets::Icon::Stop, tr("Stop going"), true).clicked();
         }
     }
 
@@ -811,7 +811,7 @@ impl MapView {
             let room = self.menu_room.and_then(|id| map.room(id));
             if let Some(room) = room {
                 widgets::menu_heading(ui, &numbered(map, room));
-                if widgets::menu_item(ui, tr("Walk here"), "").clicked() {
+                if widgets::menu_item(ui, tr("Go here"), "").clicked() {
                     chosen = Some(MapAction::Walk(room.id));
                     ui.close();
                 }

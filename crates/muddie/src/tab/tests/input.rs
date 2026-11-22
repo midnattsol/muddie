@@ -96,7 +96,7 @@ fn unmarked_prompt_fires_triggers_once_it_settles() {
 fn client_commands_are_grouped() {
     let read = |line| client_command(line).map(|(command, rest)| format!("{command} {rest}"));
     assert_eq!(
-        read("/map travel Temple of Mota").unwrap(),
+        read("/map go Temple of Mota").unwrap(),
         "/go Temple of Mota"
     );
     // Its name before.

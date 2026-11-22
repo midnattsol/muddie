@@ -48,7 +48,7 @@ fn scripts_can_send_gmcp_and_drive_panels() {
         send_gmcp("Char.Login", {name = "ana"})
         gauge("HP")
         chat("Ana: hola")
-        map.walk(42)"#,
+        map.go(42)"#,
     );
     let gmcp = |package: &str, data: &str| Action::Gmcp {
         package: package.into(),

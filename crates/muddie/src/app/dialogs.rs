@@ -57,7 +57,7 @@ impl App {
                             (crate::shortcuts::command!("I"), tr("All about the room")),
                             (crate::shortcuts::command!("L"), tr("What is noted near")),
                             (crate::shortcuts::command!("F"), tr("Search the map")),
-                            (crate::shortcuts::command!("B"), tr("Give the room a name")),
+                            (crate::shortcuts::command!("B"), tr("Mark the room")),
                             (
                                 crate::shortcuts::command!("N"),
                                 tr("Write a note on the room"),

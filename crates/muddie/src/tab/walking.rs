@@ -61,7 +61,7 @@ impl Tab {
     /// and the user is told once, until it knows again.
     pub(super) fn lost_track(&mut self) {
         if self.walk.take().is_some() {
-            self.note(tr("Walk stopped: the map lost track of where you are."));
+            self.note(tr("Stopped: the map lost track of where you are."));
         }
         if !std::mem::replace(&mut self.map_source.lost, true) {
             let said = self.unknown_whereabouts();
@@ -167,7 +167,7 @@ impl Tab {
             }
             Progress::Lost => {
                 self.walk = None;
-                self.note(tr("Walk stopped: this is not the room the route expected."));
+                self.note(tr("Stopped: this is not the room the way expected."));
             }
         }
     }
@@ -180,7 +180,7 @@ impl Tab {
         let waited = moved_at.elapsed();
         if waited >= WALK_TIMEOUT {
             self.walk = None;
-            self.note(tr("Walk stopped: the last move had no effect."));
+            self.note(tr("Stopped: the last move had no effect."));
         } else {
             ctx.request_repaint_after(WALK_TIMEOUT - waited);
         }
@@ -218,7 +218,7 @@ impl Tab {
                 .collect()
         };
         for (id, name, area) in &rooms {
-            self.offer(name, area, &format!("/map travel {id}"));
+            self.offer(name, area, &format!("/map go {id}"));
         }
         !rooms.is_empty()
     }
@@ -366,9 +366,9 @@ impl Tab {
     pub(super) fn stop_walking(&mut self) {
         let stopped = self.walk.take().is_some();
         self.note(if stopped {
-            tr("Walk stopped.")
+            tr("Stopped.")
         } else {
-            tr("Not walking.")
+            tr("Not going anywhere.")
         });
     }
 }

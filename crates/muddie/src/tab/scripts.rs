@@ -258,7 +258,7 @@ impl Tab {
                 Action::StopWalk => {
                     self.map.borrow_mut().moves_failed();
                     if self.walk.take().is_some() {
-                        self.note(tr("Walk stopped: the server said the move failed."));
+                        self.note(tr("Stopped: the server said the move failed."));
                     }
                 }
                 Action::ImportMap(address) => self.import_for_script(address),

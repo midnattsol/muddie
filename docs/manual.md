@@ -188,20 +188,20 @@ it.
 | `/map where` | Says where the map has you, and the exits |
 | `/map here [number]` | Tells the map which room you are in; alone, lists the rooms it is unsure between |
 | `/map find <text>` | Lists rooms whose name contains the text |
-| `/map travel <place>` | Goes to a room by number, mark, name, or area and name: of several, the nearest |
+| `/map go <place>` | Goes to a room by number, mark, name, or area and name: of several, the nearest (`/map travel` and `/map walk` too) |
 | `/map route <place>` | Says the way to a place, without going |
 | `/map exits` | Says where each exit of this room leads, to go through one by choosing it |
 | `/map near [moves]` | Lists what is up to three moves away (or as many as given), with the way |
 | `/map info [place]` | Says all the map knows of a room: the current one if none is given |
-| `/map mark [name]`, `/map unmark <name>` | Names this room, to travel to it by that name; alone, lists the names |
+| `/map mark [name]`, `/map unmark <name>` | Marks this room, to go to it by its mark; alone, lists the marks |
 | `/map note <text>`, `/map unnote` | Writes a note on this room, said with it and found by its words; takes it off |
 | `/map areas` | Lists the areas, with how many rooms each has |
 | `/map import <file or address>` | Takes a map made with Mudlet in place of this one |
-| `/map stop` | Stops walking |
+| `/map stop` | Stops going |
 | `/map avoid [number]` | Keeps routes out of a room (the current one), or allows them again |
 | `/map lock <direction>` | Keeps routes off an exit of this room, or allows it again |
 | `/map tidy [all]` | Draws the current area again from scratch. An area of more than 2000 rooms, as a map with all in one area, only with `all` |
-| `/map added` | Lists the rooms the map added of itself where you went, to travel to each |
+| `/map added` | Lists the rooms the map added of itself where you went, to go to each |
 | `/map undo` | Undoes the last change the map made of itself, a room added or a name put right; also **Undo the map's last change**, in the map's menu and the palette |
 | `/map check` | Lists the rooms that look wrong: with no name, that no exit leads to or from, or with an exit the game has not shown the last times you came |
 | `/map remove <number>` | Takes a room off the map |
@@ -549,7 +549,7 @@ taken again the next time the plugin asks for it.
 
 Everything the map shows can be said: the `/map` commands above tell where
 you are, what is around, where each exit leads and the way to anywhere, and
-`/map travel` goes there. Typed in the palette, the name of a place lists
+`/map go` goes there. Typed in the palette, the name of a place lists
 the places of the map that have it, under **Places**, each once with where
 it is and how many moves away, the nearest first, the names given to
 rooms with `/map mark` and the rooms whose note has it: Enter goes there, and Shift with Enter says the way
@@ -575,14 +575,14 @@ is what a name begins with, as Anduar in "Anduar: Plaza Mayor".
 | Ctrl+F | Searches the map: type, Enter says how many were found and the first; the arrows go through them; Enter again goes to the one said, on the map. Escape goes back to the map |
 | Ctrl+B, Ctrl+N | Gives the room chosen a name, or writes a note on it (an empty one takes it off) |
 | F1 | Says all these keys |
-| Enter, Shift+Enter | Walk to the room chosen; say the way there without going |
+| Enter, Shift+Enter | Go to the room chosen; say the way there without going |
 | Escape, or typing | Back to the command line, with what was typed |
-| Double-click a room | Walks there, one step at a time, waiting for each to succeed |
-| Right-click a room | Walk here, avoid in routes, its appearance, tidy the area |
+| Double-click a room | Goes there, one step at a time, waiting for each to succeed |
+| Right-click a room | Go here, avoid in routes, its appearance, tidy the area |
 | Drag | Moves the view; the wheel zooms |
 | Shift+drag a room | Moves it to another cell |
 | The area list, − and + | Looks at another area or level; **Back to me** returns |
-| The buttons beside the map's title | Find where you are, tidy the area, stop walking; the dots hold the rest: show every area, avoid this room, hide the map |
+| The buttons beside the map's title | Find where you are, tidy the area, stop going; the dots hold the rest: show every area, avoid this room, hide the map |
 
 Exploring, each room is said short, as one who does not see it wants it:
 its name, and its region on coming to another; how many moves away and

@@ -115,7 +115,7 @@ impl Tab {
                             leads = trf("{0} (routes do not use it)", &[&leads]);
                         }
                         let word = direction_words(&map, way);
-                        (word, leads, format!("/map travel {}", exit.to))
+                        (word, leads, format!("/map go {}", exit.to))
                     })
                     .collect()
             })
@@ -149,7 +149,7 @@ impl Tab {
                         named.insert(place.to_lowercase()).then(|| {
                             let moves = trn("{0} move", "{0} moves", steps.len() as u64);
                             let way = format!("{moves}: {}", in_runs(&steps));
-                            (place, way, format!("/map travel {id}"))
+                            (place, way, format!("/map go {id}"))
                         })
                     })
                     .take(MAX_LISTED_ROOMS)
@@ -243,11 +243,11 @@ impl Tab {
             };
             if marks.is_empty() {
                 return self.refuse(tr(
-                    "No room has a name yet: /map mark <name> names this one.",
+                    "No room is marked yet: /map mark <name> marks this one.",
                 ));
             }
             for (name, room) in marks {
-                self.offer(&name, &room, &format!("/map travel {name}"));
+                self.offer(&name, &room, &format!("/map go {name}"));
             }
             return;
         }
@@ -258,7 +258,7 @@ impl Tab {
         };
         if self.mark_room(here, name) {
             self.note(&trf(
-                "This room is now called {0}: /map travel {0} goes to it.",
+                "This room is now marked {0}: /map go {0} goes to it.",
                 &[name],
             ));
         }
@@ -304,8 +304,8 @@ impl Tab {
     pub(super) fn unmark(&mut self, name: &str) {
         let forgotten = self.map.borrow_mut().unmark(name);
         match self.map_saved(forgotten) {
-            Some(true) => self.note(&trf("No room is called {0} now.", &[name])),
-            Some(false) => self.refuse(&trf("No room is called {0}.", &[name])),
+            Some(true) => self.note(&trf("No room is marked {0} now.", &[name])),
+            Some(false) => self.refuse(&trf("No room is marked {0}.", &[name])),
             None => {}
         }
     }
@@ -328,7 +328,7 @@ impl Tab {
         }
         for (area, count) in areas {
             let rooms = trn("{0} room", "{0} rooms", count as u64);
-            self.offer(&area, &rooms, &format!("/map travel {area}"));
+            self.offer(&area, &rooms, &format!("/map go {area}"));
         }
     }
 

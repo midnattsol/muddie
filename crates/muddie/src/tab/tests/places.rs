@@ -145,7 +145,7 @@ fn reinos_de_leyenda_is_followed_by_the_rooms_it_shows_and_walked_in_its_words()
     assert_eq!(app.map.borrow().current().unwrap().id, 3);
     // To the well and back by the nearest of the dunes: sent as the MUD says.
     assert_eq!(
-        answer(app, "/map travel pozo"),
+        answer(app, "/map go pozo"),
         ["Going to Pozo: 1 move. Escape stops it."]
     );
     assert_eq!(sent_lines(&mut sent), ["norte"]);
@@ -154,12 +154,12 @@ fn reinos_de_leyenda_is_followed_by_the_rooms_it_shows_and_walked_in_its_words()
     let app = harness.state_mut().tab_mut();
     assert!(app.walk.is_none());
     assert_eq!(
-        answer(app, "/map travel dunas"),
+        answer(app, "/map go dunas"),
         ["Going to Dunas: 1 move. The nearest of 3 rooms of that name. Escape stops it."]
     );
     assert_eq!(sent_lines(&mut sent), ["sur"]);
     // A move that fails stops the walk.
-    app.run_command("/map travel 1");
+    app.run_command("/map go 1");
     assert_eq!(sent_lines(&mut sent), ["sur"]);
     events.send(gmcp("Room.MovimientoErroneo", "{}")).unwrap();
     settle(&mut harness);
@@ -192,10 +192,10 @@ fn the_map_is_said_in_words() {
     assert_eq!(said(app, "/map mark"), ["casa: Dunas"]);
     assert_eq!(
         said(app, "/map info casa"),
-        ["Dunas (#3). In Desierto, at 6, 0, 0. Exits: norte, oeste. Called casa."]
+        ["Dunas (#3). In Desierto, at 6, 0, 0. Exits: norte, oeste. Marked casa."]
     );
     assert_eq!(said(app, "/map areas"), ["Desierto: 4 rooms"]);
-    assert!(said(app, "/map unmark casa")[0].contains("No room is called casa now"));
+    assert!(said(app, "/map unmark casa")[0].contains("No room is marked casa now"));
     // A note, said with the room and found by its words.
     assert_eq!(said(app, "/map note  Cactus seco "), ["Noted: Cactus seco"]);
     assert_eq!(
@@ -591,7 +591,7 @@ fn places_are_found_in_the_palette_and_a_walk_stops_with_escape() {
     harness.run_steps(2);
     let app = harness.state().tab();
     assert!(app.walk.is_none());
-    assert!(notes(app).iter().any(|said| said == "Walk stopped."));
+    assert!(notes(app).iter().any(|said| said == "Stopped."));
 }
 
 /// A room of the map is chosen with a click, to be told under it and to
@@ -842,18 +842,18 @@ fn the_map_explored_is_searched_named_noted_and_gone_back_along() {
     assert_eq!(said(&mut harness), "Noted: Agua fresca");
     command(&mut harness, Key::B);
     typed(&mut harness, "agua");
-    assert_eq!(said(&mut harness), "Called agua.");
+    assert_eq!(said(&mut harness), "Marked agua.");
     assert!(focused(&harness, "Map view"));
     harness.key_press(Key::Space);
     harness.run_steps(2);
     assert_eq!(
         said(&mut harness),
-        "Pozo. 3 moves to the este. Exits: sur. Called agua. Note: Agua fresca."
+        "Pozo. 3 moves to the este. Exits: sur. Marked agua. Note: Agua fresca."
     );
     command(&mut harness, Key::I);
     let info = said(&mut harness);
     assert!(info.starts_with("Pozo (#4)."), "{info}");
-    assert!(info.contains("Called agua. Note: Agua fresca"), "{info}");
+    assert!(info.contains("Marked agua. Note: Agua fresca"), "{info}");
     // From where the player is, what is noted near.
     harness.key_press(Key::Home);
     harness.run_steps(2);

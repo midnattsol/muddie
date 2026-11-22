@@ -188,9 +188,6 @@ msgstr "Vista del mapa"
 msgid "Tidy this area"
 msgstr "Ordenar esta zona"
 
-msgid "Walk here"
-msgstr "Caminar hasta aquí"
-
 msgid "Allow in routes"
 msgstr "Permitir en rutas"
 
@@ -228,12 +225,6 @@ msgstr "No se pudo guardar el mapa: {0}"
 msgid "Arrived."
 msgstr "Has llegado a tu destino."
 
-msgid "Walk stopped: this is not the room the route expected."
-msgstr "Recorrido detenido: la sala actual no coincide con la ruta."
-
-msgid "Walk stopped: the last move had no effect."
-msgstr "Recorrido detenido: el último movimiento no tuvo efecto."
-
 msgid "No room matches."
 msgstr "Ninguna sala coincide."
 
@@ -260,12 +251,6 @@ msgstr "{0} tiene {1} salas: ordenarla volvería a dibujarlas todas, y se perder
 
 msgid "Tidied the map: {0} rooms moved."
 msgstr "Mapa ordenado: {0} salas movidas."
-
-msgid "Walk stopped."
-msgstr "Recorrido detenido."
-
-msgid "Not walking."
-msgstr "No hay ningún recorrido en curso."
 
 msgid "exits"
 msgstr "salidas"
@@ -349,18 +334,12 @@ msgstr "Sin conexión"
 msgid "Logging"
 msgstr "Registrando"
 
-msgid "Walking"
-msgstr "Caminando"
-
 msgid "Log this session"
 msgstr "Registrar esta sesión"
 
 msgid "Show my position"
 msgstr "Mostrar mi ubicación"
 
-
-msgid "Stop walking"
-msgstr "Dejar de caminar"
 
 msgid "Server"
 msgstr "Servidor"
@@ -665,9 +644,6 @@ msgstr "Indica un nombre para el complemento después de la dirección (letras, 
 
 msgid "Says where you are"
 msgstr "Indica tu ubicación actual"
-
-msgid "Stops walking"
-msgstr "Detiene el recorrido"
 
 msgid "Keeps routes out of a room, or lets them in again"
 msgstr "Excluye una sala de las rutas o la vuelve a incluir"
@@ -1978,9 +1954,6 @@ msgstr "Cmd+clic  Mayús+clic"
 msgid "The map knows where you are again: {0}."
 msgstr "El mapa vuelve a saber dónde estás: {0}."
 
-msgid "Walk stopped: the map lost track of where you are."
-msgstr "Camino detenido: el mapa ha perdido la pista de dónde estás."
-
 msgid "The map does not know where you are. /map here <number> tells it."
 msgstr "El mapa no sabe dónde estás. Díselo con /map here <número>."
 
@@ -2035,9 +2008,6 @@ msgid "Nothing else is that near on the map."
 msgstr "No hay nada más tan cerca en el mapa."
 
 #, python-brace-format
-msgid "Called {0}."
-msgstr "Se llama {0}."
-
 msgid "Routes avoid it."
 msgstr "Las rutas la evitan."
 
@@ -2045,21 +2015,9 @@ msgstr "Las rutas la evitan."
 msgid "Costs {0} to enter."
 msgstr "Entrar cuesta {0}."
 
-msgid "No room has a name yet: /map mark <name> names this one."
-msgstr "Ninguna sala tiene nombre aún: /map mark <nombre> le pone uno a esta."
-
 #, python-brace-format
-msgid "This room is now called {0}: /map travel {0} goes to it."
-msgstr "Esta sala se llama ahora {0}: /map travel {0} te lleva a ella."
-
 #, python-brace-format
-msgid "No room is called {0} now."
-msgstr "Ya ninguna sala se llama {0}."
-
 #, python-brace-format
-msgid "No room is called {0}."
-msgstr "Ninguna sala se llama {0}."
-
 msgid "The map has no areas yet."
 msgstr "El mapa aún no tiene zonas."
 
@@ -2121,9 +2079,6 @@ msgstr "No se pudo actualizar el mapa del servidor: {0}"
 msgid "In {0}, at {1}."
 msgstr "En {0}, en {1}."
 
-msgid "Walk stopped: the server said the move failed."
-msgstr "Camino detenido: el servidor dice que el movimiento falló."
-
 msgid "Tells the map which room you are in; alone, lists those it is unsure between"
 msgstr "Le dice al mapa en qué sala estás; sin número, lista entre cuáles duda"
 
@@ -2141,15 +2096,6 @@ msgstr "Lista lo que hay a pocos pasos"
 
 msgid "Says all the map knows of a room"
 msgstr "Dice todo lo que el mapa sabe de una sala"
-
-msgid "Names this room, to travel to it by name; alone, lists the names"
-msgstr "Pone nombre a esta sala, para ir a ella por ese nombre; sin nombre, lista los nombres"
-
-msgid "Forgets a name given to a room"
-msgstr "Olvida el nombre que le diste a una sala"
-
-msgid "Lists the areas, to travel to one"
-msgstr "Lista las zonas, para ir a una"
 
 msgid "Takes a map made with Mudlet in place of this one"
 msgstr "Importa un mapa hecho con Mudlet en lugar de este"
@@ -2439,9 +2385,6 @@ msgid "Search the map"
 msgstr "Buscar en el mapa"
 
 #, python-brace-format
-msgid "Name for {0}"
-msgstr "Nombre para {0}"
-
 #, python-brace-format
 msgid "Note on {0}"
 msgstr "Nota de {0}"
@@ -2520,9 +2463,6 @@ msgstr "Todo sobre la sala"
 
 msgid "What is noted near"
 msgstr "Lo anotado cerca"
-
-msgid "Give the room a name"
-msgstr "Dar un nombre a la sala"
 
 msgid "Write a note on the room"
 msgstr "Escribir una nota en la sala"
@@ -2809,3 +2749,63 @@ msgstr "El color del tema"
 
 msgid "The map's"
 msgstr "La del mapa"
+
+msgid "Stop going"
+msgstr "Dejar de ir"
+
+msgid "Go here"
+msgstr "Ir aquí"
+
+msgid "On the way"
+msgstr "De camino"
+
+msgid "Stopped: the map lost track of where you are."
+msgstr "Parado: el mapa ha perdido dónde estás."
+
+msgid "Stopped: this is not the room the way expected."
+msgstr "Parado: esta no es la sala que esperaba el camino."
+
+msgid "Stopped: the last move had no effect."
+msgstr "Parado: el último movimiento no ha tenido efecto."
+
+msgid "Stopped."
+msgstr "Parado."
+
+msgid "Not going anywhere."
+msgstr "No vas a ningún sitio."
+
+msgid "This room is now marked {0}: /map go {0} goes to it."
+msgstr "Esta sala tiene ahora la marca {0}: /map go {0} lleva a ella."
+
+msgid "Stopped: the server said the move failed."
+msgstr "Parado: el servidor dice que el movimiento ha fallado."
+
+msgid "Marks this room, to go to it by its mark; alone, lists the marks"
+msgstr "Marca esta sala, para ir a ella por su marca; solo, lista las marcas"
+
+msgid "Forgets a mark"
+msgstr "Olvida una marca"
+
+msgid "Lists the areas, to go to one"
+msgstr "Lista las áreas, para ir a una"
+
+msgid "Stops going"
+msgstr "Deja de ir"
+
+msgid "Marked {0}."
+msgstr "Marcada {0}."
+
+msgid "Mark for {0}"
+msgstr "Marca para {0}"
+
+msgid "Mark the room"
+msgstr "Marcar la sala"
+
+msgid "No room is marked yet: /map mark <name> marks this one."
+msgstr "Ninguna sala tiene marca todavía: /map mark <nombre> marca esta."
+
+msgid "No room is marked {0} now."
+msgstr "Ya ninguna sala tiene la marca {0}."
+
+msgid "No room is marked {0}."
+msgstr "Ninguna sala tiene la marca {0}."

@@ -140,7 +140,7 @@ impl Tab {
             Some(MapAction::Info(room)) => self.say_info_aloud(room),
             Some(MapAction::Mark(room, name)) => {
                 if self.mark_room(room, &name) {
-                    self.voice.say_now(&trf("Called {0}.", &[&name]));
+                    self.voice.say_now(&trf("Marked {0}.", &[&name]));
                 }
             }
             Some(MapAction::Look(room)) => self.open_look(room),
@@ -260,7 +260,7 @@ impl Tab {
             ui.label(small(tr("Logging"), theme.text_faint));
         }
         if self.walk.is_some() {
-            ui.label(small(tr("Walking"), theme.accent));
+            ui.label(small(tr("On the way"), theme.accent));
         }
     }
 }

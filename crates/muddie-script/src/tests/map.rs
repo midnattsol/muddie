@@ -42,7 +42,7 @@ fn script_can_load_the_map_from_text() {
         r#"local here = map.room()
         echo(`{here.name} {here.exits.s == map.id("Gate")} {map.room("Tower")}`)
         echo(table.concat(map.path("Gate"), ","))
-        map.walk("Gate")"#,
+        map.go("Gate")"#,
     );
     assert_eq!(
         engine.take_actions(),

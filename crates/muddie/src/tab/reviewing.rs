@@ -171,7 +171,7 @@ impl Tab {
         }
         let more = added.len().saturating_sub(MAX_LISTED_ROOMS);
         for (name, area, id) in added.into_iter().take(MAX_LISTED_ROOMS) {
-            self.offer(&name, &area, &format!("/map travel {id}"));
+            self.offer(&name, &area, &format!("/map go {id}"));
         }
         self.say_more(more);
     }

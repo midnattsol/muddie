@@ -16,7 +16,7 @@ pub(super) const COMMANDS: [(&str, &str); 37] = [
         "Lists the rooms whose name contains the text",
     ),
     (
-        "/map travel <place>",
+        "/map go <place>",
         "Goes to a room by number, mark, name or area: of several, the nearest",
     ),
     (
@@ -32,16 +32,16 @@ pub(super) const COMMANDS: [(&str, &str); 37] = [
     ("/map info [place]", "Says all the map knows of a room"),
     (
         "/map mark [name]",
-        "Names this room, to travel to it by name; alone, lists the names",
+        "Marks this room, to go to it by its mark; alone, lists the marks",
     ),
-    ("/map unmark <name>", "Forgets a name given to a room"),
+    ("/map unmark <name>", "Forgets a mark"),
     (
         "/map note <text>",
         "Writes a note on this room, said with it",
     ),
     ("/map unnote", "Takes the note off this room"),
-    ("/map areas", "Lists the areas, to travel to one"),
-    ("/map stop", "Stops walking"),
+    ("/map areas", "Lists the areas, to go to one"),
+    ("/map stop", "Stops going"),
     (
         "/map avoid [number]",
         "Keeps routes out of a room, or lets them in again",
@@ -220,8 +220,8 @@ pub(super) fn client_command(line: &str) -> Option<(&'static str, String)> {
     let command = match (group, what) {
         ("/map", "where") => "/where",
         ("/map", "find") => "/find",
-        // Walking was its name before; it is kept for those used to it.
-        ("/map", "travel" | "walk") => "/go",
+        // Travel and walk were its names before; kept for those used to them.
+        ("/map", "go" | "travel" | "walk") => "/go",
         ("/map", "here") => "/here",
         ("/map", "route") => "/route",
         ("/map", "exits") => "/exits",

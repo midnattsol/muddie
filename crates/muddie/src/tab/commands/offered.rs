@@ -147,8 +147,8 @@ mod tests {
         assert_eq!(usages("/").len(), COMMANDS.len());
         assert!(usages("/ma").iter().all(|usage| usage.starts_with("/map")));
         assert_eq!(usages("/map w"), ["/map where"]);
-        assert_eq!(usages("/map tr"), ["/map travel <place>"]);
-        assert_eq!(usages("/map travel Temple of"), ["/map travel <place>"]);
+        assert_eq!(usages("/map g"), ["/map go <place>"]);
+        assert_eq!(usages("/map go Temple of"), ["/map go <place>"]);
         assert_eq!(usages("/re"), ["/reload"]);
         assert!(usages("/dance").is_empty());
         // One that takes nothing is not offered once more follows it.
@@ -159,11 +159,8 @@ mod tests {
         assert_eq!(usages("/plugin enable "), ["/plugin enable mapper"]);
         // What choosing one puts in the line leaves room for what it
         // cannot do without, and only then is it not run as it is.
-        let travel = offered("/map tra", &[], &[]).remove(0);
-        assert_eq!(
-            (travel.insert.as_str(), travel.more),
-            ("/map travel ", true)
-        );
+        let go = offered("/map g", &[], &[]).remove(0);
+        assert_eq!((go.insert.as_str(), go.more), ("/map go ", true));
         let stop = offered("/map st", &[], &[]).remove(0);
         assert_eq!((stop.insert.as_str(), stop.more), ("/map stop", false));
         let avoid = offered("/map av", &[], &[]).remove(0);

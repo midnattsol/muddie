@@ -541,7 +541,7 @@ fn install_routes(
 
     let shared = Rc::clone(state);
     api.set(
-        "walk",
+        "go",
         lua.create_function(move |_, to: Value| {
             (shared.borrow_mut().actions).push(Action::Walk(id_of(&to)?));
             Ok(())
