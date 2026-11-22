@@ -508,7 +508,7 @@ fn palette_row(ui: &mut egui::Ui, item: &Item, chosen: bool) -> egui::Response {
     let start = inside.left() + 28.0;
     let mut job = egui::text::LayoutJob::default();
     let typed = theme::font(Weight::Medium, 14.0);
-    for (index, word) in item.usage.split(' ').enumerate() {
+    for (index, word) in shown_usage(&item.usage).split(' ').enumerate() {
         let given = word.starts_with(['<', '[']);
         let colour = match given {
             true => theme.text_faint,
@@ -577,15 +577,13 @@ fn look_of(item: &Item) -> (widgets::Glyph, &'static str) {
         Act::Disconnect => (Glyph::Close, ""),
         Act::Find => (Glyph::Search, crate::shortcuts::command!("F")),
         Act::CopyOutput => (Glyph::Copy, ""),
-        Act::Undo(false) => (Glyph::Restart, crate::shortcuts::command!("Z")),
-        Act::Undo(true) => (Glyph::Restart, crate::shortcuts::command!("Y")),
         Act::Log => (Glyph::Text, ""),
         Act::Speech | Act::ReadChannel(..) => (Glyph::Say, ""),
-        Act::AddPanel(_) | Act::Panel(_) | Act::RenamePanel(_) | Act::FullHeight | Act::Side(_) => {
-            (Glyph::Panel, "")
-        }
+        Act::Panel(_) => (Glyph::Panel, ""),
         Act::Connect(_) => (Glyph::Profile, ""),
         Act::Place(_) | Act::MapTool(_) | Act::UndoChange => (Glyph::Map, ""),
+        Act::Run(command) if command.starts_with("/map") => (Glyph::Map, ""),
+        Act::Run(_) => (Glyph::Check, ""),
     }
 }
 

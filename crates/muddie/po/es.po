@@ -926,9 +926,6 @@ msgstr "Con un color para cada estado, se distingue de un vistazo: por ejemplo, 
 msgid "There is no panel of gauges to show it in."
 msgstr "No hay ningún panel de indicadores donde mostrarlo."
 
-msgid "Add a panel of gauges"
-msgstr "Añadir un panel de indicadores"
-
 msgid "Shown in"
 msgstr "Se muestra en"
 
@@ -1099,9 +1096,6 @@ msgstr "Mensajes, {0} nuevos"
 msgid "No messages."
 msgstr "No hay mensajes."
 
-msgid "Undo"
-msgstr "Deshacer"
-
 
 msgid "Contains"
 msgstr "Contiene"
@@ -1119,12 +1113,6 @@ msgstr "Con la línea oculta, solo aparece en el panel."
 #, python-brace-format
 msgid "{0} options"
 msgstr "Opciones de {0}"
-
-msgid "Add a text panel"
-msgstr "Añadir un panel de texto"
-
-msgid "Add the map"
-msgstr "Añadir el mapa"
 
 msgid "Disabled"
 msgstr "Desactivado"
@@ -1218,9 +1206,6 @@ msgstr "Dirección de su repositorio git"
 
 msgid "Only install what you trust: a plugin can send commands as you."
 msgstr "Instala solo complementos de confianza: pueden enviar comandos en tu nombre."
-
-msgid "Side panels at full height"
-msgstr "Paneles laterales a toda la altura"
 
 msgid "Connection"
 msgstr "Conexión"
@@ -1863,9 +1848,6 @@ msgstr "Rehecho."
 
 msgid "Collapse or expand a folder"
 msgstr "Contraer o expandir una carpeta"
-
-msgid "Redo"
-msgstr "Rehacer"
 
 msgid "Moved to the top level."
 msgstr "Movido al nivel superior."
@@ -2553,9 +2535,6 @@ msgstr "Muestra las salas que parecen estar mal: sin nombre, o sin ninguna salid
 msgid "Takes a room off the map"
 msgstr "Quita una sala del mapa"
 
-msgid "Rename {0}"
-msgstr "Renombrar {0}"
-
 msgid "Name of the panel"
 msgstr "Nombre del panel"
 
@@ -2830,3 +2809,51 @@ msgstr "Nota…"
 
 msgid "Panel"
 msgstr "Panel"
+
+msgid "Where am I"
+msgstr "Dónde estoy"
+
+msgid "Exits of this room"
+msgstr "Salidas de esta sala"
+
+msgid "What is near"
+msgstr "Qué hay cerca"
+
+msgid "Explore the map"
+msgstr "Explorar el mapa"
+
+msgid "Areas of the map"
+msgstr "Áreas del mapa"
+
+msgid "Check the map"
+msgstr "Revisar el mapa"
+
+msgid "Rooms the map added"
+msgstr "Salas añadidas por el mapa"
+
+msgid "Installed plugins"
+msgstr "Plugins instalados"
+
+msgid "All commands"
+msgstr "Todos los comandos"
+
+msgid "Add a text panel"
+msgstr "Añadir un panel de texto"
+
+msgid "Add a panel of gauges"
+msgstr "Añadir un panel de indicadores"
+
+msgid "Add the map"
+msgstr "Añadir el mapa"
+
+msgid "Side panels at full height"
+msgstr "Paneles laterales a toda la altura"
+
+msgid "Rename {0}"
+msgstr "Renombrar {0}"
+
+msgid "Undo"
+msgstr "Deshacer"
+
+msgid "Redo"
+msgstr "Rehacer"

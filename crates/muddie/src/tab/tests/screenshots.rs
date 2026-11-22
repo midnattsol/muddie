@@ -819,7 +819,6 @@ fn shows_map_menu() {
     harness.run_steps(4);
     save(&mut harness, "map-panel-menu");
     harness.key_press(egui::Key::Escape);
-    let ctx = harness.ctx.clone();
     let app = harness.state_mut().tab_mut();
     let map = app
         .layout
@@ -827,7 +826,7 @@ fn shows_map_menu() {
         .iter()
         .find(|panel| panel.kind == layout::Kind::Map);
     let id = map.unwrap().id;
-    app.act(commands::Act::RenamePanel(id), &ctx);
+    app.rename_panel(id);
     harness.run_steps(4);
     save(&mut harness, "map-panel-rename");
 }

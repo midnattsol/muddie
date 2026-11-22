@@ -52,24 +52,14 @@ pub enum Act {
     /// Copies all the output, for those who do not choose it with the
     /// pointer.
     CopyOutput,
-    /// Undoes the editor's last change, or redoes it.
-    Undo(bool),
     /// Starts or stops writing the session to a file.
     Log,
     /// Switches the voice on or off.
     Speech,
     /// Reads the channel of this name aloud, or keeps it quiet.
     ReadChannel(String, bool),
-    /// Adds a panel of this kind.
-    AddPanel(super::layout::Kind),
     /// Shows or hides the panel with this number.
     Panel(u32),
-    /// Names again the panel with this number, in its header.
-    RenamePanel(u32),
-    /// Lets the side panels reach the top and the bottom, or not.
-    FullHeight,
-    /// Puts a side away with its panels, or brings it back.
-    Side(super::layout::Side),
     /// Switches to the saved profile of this name and connects.
     Connect(String),
     /// Goes to the nearest room of this name, or mark; or, asked for the
@@ -79,11 +69,44 @@ pub enum Act {
     MapTool(String),
     /// Undoes the last change the map made of itself.
     UndoChange,
+    /// Runs one of Muddie's commands that takes nothing, offered under a
+    /// name of its own.
+    Run(&'static str),
+}
+
+impl Act {
+    /// Whether it is among the few the palette offers before anything is
+    /// typed: what is done most, in the game.
+    fn is_front(&self) -> bool {
+        match self {
+            Act::Run(command) => {
+                ["/map where", "/map near", "/map stop", "/map explore"].contains(command)
+            }
+            Act::Reconnect | Act::Speech | Act::MapTool(_) | Act::UndoChange => true,
+            _ => false,
+        }
+    }
 }
 
 /// The commands the palette offers as something to do, under a name of
-/// their own.
-const DONE_AS_ACTS: [&str; 4] = ["/map undo", "/log", "/map show", "/map hide"];
+/// their own: as commands, only when typed as one.
+const DONE_AS_ACTS: [&str; 15] = [
+    "/map undo",
+    "/log",
+    "/map show",
+    "/map hide",
+    "/map where",
+    "/map exits",
+    "/map near",
+    "/map explore",
+    "/map areas",
+    "/map stop",
+    "/map added",
+    "/map check",
+    "/plugin list",
+    "/reload",
+    "/help",
+];
 
 /// What a session asks the window to do.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -197,23 +220,36 @@ impl Tab {
             let words = format!("{} {} {}", item.usage, item.about, item.group).to_lowercase();
             query.split_whitespace().all(|word| words.contains(word))
         };
-        let mut items: Vec<Item> = acts.iter().filter(named).cloned().collect();
+        // With nothing typed, the few most used; the rest, as typed.
+        let front = |item: &&Item| query.is_empty() && item.act.as_ref().is_some_and(Act::is_front);
+        let mut items: Vec<Item> = (acts.iter())
+            .filter(|item| front(item) || (!query.is_empty() && named(item)))
+            .cloned()
+            .collect();
         // The places of the map whose name has what is typed.
         if !self.palette.query.starts_with('/') {
             items.extend(self.palette_places(&query));
         }
-        let mut commands = offered(&typed, &tags, &plugins);
+        // The commands, once something is typed: they are for those who type
+        // them.
+        let mut commands = match query.is_empty() {
+            true => Vec::new(),
+            false => offered(&typed, &tags, &plugins),
+        };
         // What is typed is a command once its first word is one of theirs.
         let first = query.trim_start_matches('/').split_whitespace().next();
-        let as_command = first.is_some_and(|first| {
-            COMMANDS
-                .iter()
-                .any(|(usage, _)| fixed(usage).first() == Some(&format!("/{first}").as_str()))
-        });
+        let as_command = self.palette.query.starts_with('/')
+            || first.is_some_and(|first| {
+                COMMANDS
+                    .iter()
+                    .any(|(usage, _)| fixed(usage).first() == Some(&format!("/{first}").as_str()))
+            });
         // A command the palette has as something to do is listed so, once:
         // as a command only when typed as one.
         if !as_command {
-            commands.retain(|command| !DONE_AS_ACTS.contains(&command.usage.as_str()));
+            commands.retain(|command| {
+                !DONE_AS_ACTS.contains(&fixed(&command.usage).join(" ").as_str())
+            });
         }
         // One being typed as a command goes first, to run with Enter.
         if as_command || items.is_empty() {

@@ -23,11 +23,7 @@ impl Tab {
         if self.map.borrow().last_change().is_some() {
             acts.push(item(tr("Undo the map's last change"), map, Act::UndoChange));
         }
-        // In the editor, what is changed in it is undone and redone.
-        if self.editor.open {
-            acts.push(item(tr("Undo"), tr("Editor"), Act::Undo(false)));
-            acts.push(item(tr("Redo"), tr("Editor"), Act::Undo(true)));
-        }
+        acts.extend(self.map_acts());
         let settings = tr("Settings");
         acts.extend(crate::app::Section::ALL.map(|section| {
             item(
@@ -107,11 +103,11 @@ impl Tab {
             .collect()
     }
 
-    /// Showing or hiding each panel, and adding one.
+    /// Showing or hiding each panel. How they are laid out, and adding
+    /// one, is done in Layout.
     fn panel_acts(&self) -> Vec<Item> {
-        use super::layout::Kind;
         let panels = tr("Panels");
-        let mut acts: Vec<Item> = (self.layout.panels.iter())
+        (self.layout.panels.iter())
             .map(|panel| {
                 let label = match panel.visible {
                     true => trf("Hide {0}", &[&panel.shown_name()]),
@@ -119,32 +115,35 @@ impl Tab {
                 };
                 item(&label, panels, Act::Panel(panel.id))
             })
-            .collect();
-        acts.extend((self.layout.panels.iter()).map(|panel| {
-            item(
-                &trf("Rename {0}", &[&panel.shown_name()]),
-                panels,
-                Act::RenamePanel(panel.id),
-            )
-        }));
-        acts.push(item(
-            tr("Add a text panel"),
-            panels,
-            Act::AddPanel(Kind::Text),
-        ));
-        acts.push(item(
-            tr("Add a panel of gauges"),
-            panels,
-            Act::AddPanel(Kind::Gauges),
-        ));
-        if !self.layout.has(Kind::Map) {
-            acts.push(item(tr("Add the map"), panels, Act::AddPanel(Kind::Map)));
+            .collect()
+    }
+
+    /// What is asked of the map, and of the scripts and plugins, that
+    /// takes nothing: Muddie's commands, by what they do.
+    fn map_acts(&self) -> Vec<Item> {
+        let map = tr("Map");
+        let mut acts = vec![
+            item(tr("Where am I"), map, Act::Run("/map where")),
+            item(tr("Exits of this room"), map, Act::Run("/map exits")),
+            item(tr("What is near"), map, Act::Run("/map near")),
+            item(tr("Explore the map"), map, Act::Run("/map explore")),
+            item(tr("Areas of the map"), map, Act::Run("/map areas")),
+            item(tr("Check the map"), map, Act::Run("/map check")),
+        ];
+        if self.walk.is_some() {
+            acts.push(item(tr("Stop going"), map, Act::Run("/map stop")));
         }
-        let height = switched(tr("Side panels at full height"), self.layout.columns_full);
-        acts.push(item(&height, panels, Act::FullHeight));
-        for (side, out) in self.layout.sides() {
-            acts.push(item(side.toggle_label(out), panels, Act::Side(side)));
+        if !self.map.borrow().added().is_empty() {
+            acts.push(item(tr("Rooms the map added"), map, Act::Run("/map added")));
         }
+        let scripts = tr("Scripts");
+        acts.push(item(tr("Restart scripts"), scripts, Act::Run("/reload")));
+        acts.push(item(
+            tr("Installed plugins"),
+            scripts,
+            Act::Run("/plugin list"),
+        ));
+        acts.push(item(tr("All commands"), tr("Help"), Act::Run("/help")));
         acts
     }
 
@@ -190,7 +189,6 @@ impl Tab {
                     }
                 }
             },
-            Act::Undo(again) => self.undo_step(again),
             Act::MapTool(label) => self.use_map_tool(&label),
             Act::UndoChange => self.undo_change(),
             Act::CopyOutput => {
@@ -201,13 +199,6 @@ impl Tab {
                 self.find.open = true;
                 self.find.wants_focus = true;
             }
-            Act::AddPanel(kind) => {
-                self.set_view(0);
-                self.started = true;
-                self.add_panel(kind);
-            }
-            Act::FullHeight => self.layout.columns_full = !self.layout.columns_full,
-            Act::Side(side) => self.toggle_side(side),
             Act::Panel(id) => {
                 if let Some(panel) = self.layout.panel_mut(id) {
                     panel.visible = !panel.visible;
@@ -217,7 +208,7 @@ impl Tab {
                     }
                 }
             }
-            Act::RenamePanel(id) => self.rename_panel(id),
+            Act::Run(command) => drop(self.run_command(command)),
             Act::Place(name) => self.go_to(&name),
             Act::Connect(name) => {
                 if self.select_profile(Some(name)) {

@@ -149,7 +149,7 @@ fn commands_are_chosen_from_a_palette_and_answer_at_the_line() {
     // what it is.
     harness.state_mut().tab_mut().toggle_palette();
     harness.run_steps(3);
-    harness.get_by_label("Incoming data");
+    harness.get_by_label("Where am I");
     harness.state_mut().tab_mut().palette.query = "map".into();
     harness.run_steps(3);
     harness.get_by_label_contains("map where");
@@ -311,7 +311,7 @@ fn the_palette_opens_from_its_field_and_stays_open() {
             "closed again at frame {frame}"
         );
     }
-    harness.get_by_label("Incoming data");
+    harness.get_by_label("Where am I");
     // A press anywhere else does close it.
     harness.get_by_label("Menu").click();
     harness.run_steps(3);
@@ -399,9 +399,11 @@ fn the_palette_is_a_list_to_page_through_that_says_how_long_it_is() {
     let mut harness = window(None);
     harness.set_size(egui::vec2(1300.0, 800.0));
     harness.state_mut().tab_mut().toggle_palette();
+    // Opened empty, it has but the few most used; the map's are many.
+    harness.state_mut().tab_mut().palette.query = "map".into();
     harness.run_steps(3);
     let count = harness.state_mut().tab_mut().palette_items().len();
-    assert!(count > 8, "too few to page through: {count}");
+    assert!(count > 12, "too few to page through: {count}");
     harness.get_by_label_contains(&format!("{count} results"));
     let chosen = |harness: &Harness<'_, App>| harness.state().tab().palette.chosen;
     // A page down, then to the end, then round to the first.

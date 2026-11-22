@@ -336,14 +336,6 @@ fn a_panel_is_hidden_from_its_own_menu_with_no_mode_to_enter() {
             .unwrap()
             .visible
     );
-    // A panel is added without a mode, from the palette.
-    let before = app.layout.panels.len();
-    app.toggle_palette();
-    app.palette.query = "add a text panel".into();
-    harness.run_steps(2);
-    harness.key_press(Key::Enter);
-    harness.run_steps(3);
-    assert_eq!(harness.state().tab().layout.panels.len(), before + 1);
 }
 
 #[test]
@@ -760,7 +752,6 @@ fn a_panel_is_renamed_in_its_header() {
     let mut harness = window(None);
     harness.state_mut().tab_mut().started = true;
     harness.run_steps(2);
-    let ctx = harness.ctx.clone();
     let app = harness.state_mut().tab_mut();
     let map = (app.layout.panels.iter()).find(|panel| panel.kind == layout::Kind::Map);
     let id = map.unwrap().id;
@@ -774,7 +765,7 @@ fn a_panel_is_renamed_in_its_header() {
             .name
             .clone()
     };
-    app.act(commands::Act::RenamePanel(id), &ctx);
+    app.rename_panel(id);
     harness.run_steps(3);
     harness.key_press_modifiers(egui::Modifiers::COMMAND, Key::A);
     harness.get_by_label("Name of the panel").type_text("Mundo");
@@ -784,7 +775,7 @@ fn a_panel_is_renamed_in_its_header() {
     assert!(harness.state().tab().panels.renaming.is_none());
     // Escape leaves it as it was.
     let app = harness.state_mut().tab_mut();
-    app.act(commands::Act::RenamePanel(id), &ctx);
+    app.rename_panel(id);
     harness.run_steps(3);
     harness.get_by_label("Name of the panel").type_text("Otro");
     harness.key_press(Key::Escape);
