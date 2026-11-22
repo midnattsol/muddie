@@ -48,8 +48,8 @@ egui_kittest = { version = "0.37.0", features = ["wgpu", "snapshot", "eframe"] }
 # The Debian package: `cargo deb -p muddie`, as the CI does for a release.
 [package.metadata.deb]
 name = "muddie"
-maintainer = "Muddie developers"
-copyright = "Muddie developers"
+maintainer = "midnattsol"
+copyright = "2026 midnattsol"
 section = "games"
 priority = "optional"
 extended-description = """\
