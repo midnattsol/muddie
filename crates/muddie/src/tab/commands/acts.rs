@@ -16,12 +16,13 @@ impl Tab {
         acts.extend(self.scripts.map_tools().into_iter().map(|tool| {
             let label = match tool.checked {
                 None => tool.label.clone(),
-                Some(true) => trf("{0} (on)", &[&tool.label]),
-                Some(false) => trf("{0} (off)", &[&tool.label]),
+                Some(on) => switched(&tool.label, on),
             };
             item(&label, map, Act::MapTool(tool.label))
         }));
-        acts.push(item(tr("Undo the map's last change"), map, Act::UndoChange));
+        if self.map.borrow().last_change().is_some() {
+            acts.push(item(tr("Undo the map's last change"), map, Act::UndoChange));
+        }
         // In the editor, what is changed in it is undone and redone.
         if self.editor.open {
             acts.push(item(tr("Undo"), tr("Editor"), Act::Undo(false)));
@@ -55,7 +56,11 @@ impl Tab {
     /// speech and its profile.
     fn session_acts(&self) -> Vec<Item> {
         let session = tr("Session");
-        let mut acts = vec![item(tr("Reconnect"), session, Act::Reconnect)];
+        let connect = match self.connection.is_some() {
+            true => tr("Reconnect"),
+            false => tr("Connect"),
+        };
+        let mut acts = vec![item(connect, session, Act::Reconnect)];
         if self.connection.is_some() {
             acts.push(item(tr("Disconnect"), session, Act::Disconnect));
         }
@@ -71,18 +76,10 @@ impl Tab {
         ));
         acts.push(item(tr("Find"), session, Act::Find));
         acts.push(item(tr("Copy all output"), session, Act::CopyOutput));
-        let log = if self.log.is_some() {
-            tr("Stop logging this session")
-        } else {
-            tr("Log this session")
-        };
-        acts.push(item(log, session, Act::Log));
-        let speech = if self.voice.enabled() {
-            tr("Switch speech off")
-        } else {
-            tr("Switch speech on")
-        };
-        acts.push(item(speech, session, Act::Speech));
+        let log = switched(tr("Log this session"), self.log.is_some());
+        acts.push(item(&log, session, Act::Log));
+        let speech = switched(tr("Speech"), self.voice.enabled());
+        acts.push(item(&speech, session, Act::Speech));
         acts.push(match &self.profile {
             Some(name) => {
                 let edit = AppRequest::Profile(crate::app::ProfileAction::Edit, name.clone());
@@ -103,18 +100,9 @@ impl Tab {
         (self.panels.channels.iter())
             .map(|channel| {
                 let name = &channel.name;
-                match self.channel_quiet(name) {
-                    true => item(
-                        &trf("Read the {0} channel aloud", &[name]),
-                        speech,
-                        Act::ReadChannel(name.clone(), true),
-                    ),
-                    false => item(
-                        &trf("Mute the {0} channel", &[name]),
-                        speech,
-                        Act::ReadChannel(name.clone(), false),
-                    ),
-                }
+                let aloud = !self.channel_quiet(name);
+                let label = switched(&trf("Read the {0} channel aloud", &[name]), aloud);
+                item(&label, speech, Act::ReadChannel(name.clone(), !aloud))
             })
             .collect()
     }
@@ -152,11 +140,8 @@ impl Tab {
         if !self.layout.has(Kind::Map) {
             acts.push(item(tr("Add the map"), panels, Act::AddPanel(Kind::Map)));
         }
-        let height = match self.layout.columns_full {
-            true => tr("Side panels between the top and bottom ones"),
-            false => tr("Side panels at full height"),
-        };
-        acts.push(item(height, panels, Act::FullHeight));
+        let height = switched(tr("Side panels at full height"), self.layout.columns_full);
+        acts.push(item(&height, panels, Act::FullHeight));
         for (side, out) in self.layout.sides() {
             acts.push(item(side.toggle_label(out), panels, Act::Side(side)));
         }
@@ -196,7 +181,7 @@ impl Tab {
                 self.set_channel_quiet(&name, !read);
                 self.note(&match read {
                     true => trf("The {0} channel is read aloud.", &[&name]),
-                    false => trf("Channel {0} muted.", &[&name]),
+                    false => trf("The {0} channel is no longer read aloud.", &[&name]),
                 });
             }
             Act::Speech => match self.voice.enabled() {
@@ -282,4 +267,13 @@ fn places() -> Vec<Item> {
         )
     }));
     acts
+}
+
+/// A switch, as the palette shows one: what it switches, and whether it
+/// is on.
+fn switched(label: &str, on: bool) -> String {
+    match on {
+        true => trf("{0} (on)", &[label]),
+        false => trf("{0} (off)", &[label]),
+    }
 }

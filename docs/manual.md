@@ -390,12 +390,12 @@ another side, saying where it is now. Escape goes back to the game.
   click on the name, or **Rename** and the panel's name in the palette, turn
   the name in the header into a field: Enter keeps what is written, Escape
   the name it had.
-- **A whole side** can be put away, with all its panels, from the arrow
+- **A whole side** can be collapsed, with all its panels, from the arrow
   to the edge in the header of its first panel. It leaves a thin strip
-  with the arrow that brings the side back as it was, where the other one
-  was, and the names of its panels: any of them brings it back too, with
-  that panel on show. A panel shown or added on a side put away
-  brings the side back too; **Ctrl+M** shows or hides the map alone.
+  with the arrow that expands the side as it was, where the other one
+  was, and the names of its panels: any of them expands it too, with
+  that panel on show. A panel shown or added on a collapsed side
+  expands it too; **Ctrl+M** shows or hides the map alone.
 - **Side panels at full height**, in the palette, decides who gets the
   corners: with it, the panels beside the output reach the top and the
   bottom of the window.
@@ -668,8 +668,8 @@ settings, **Speak with** chooses what reads it:
   speed and in the language set below it.
 - **Nothing**.
 
-**Switch speech off** in the palette silences it for the session, and
-**Switch speech on** brings it back, with the system's voice if there is no
+**Speech** in the palette silences it for the session, and
+**Speech**, in the palette, brings it back, with the system's voice if there is no
 screen reader. What is said on the MUD's channels is read too, after the
 channel's name; **Read the channels** in the settings turns that off, and
 **Read aloud** in the menu of a channel's tab, for that channel alone, in

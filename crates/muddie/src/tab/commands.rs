@@ -81,6 +81,10 @@ pub enum Act {
     UndoChange,
 }
 
+/// The commands the palette offers as something to do, under a name of
+/// their own.
+const DONE_AS_ACTS: [&str; 4] = ["/map undo", "/log", "/map show", "/map hide"];
+
 /// What a session asks the window to do.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AppRequest {
@@ -198,7 +202,12 @@ impl Tab {
         if !self.palette.query.starts_with('/') {
             items.extend(self.palette_places(&query));
         }
-        let commands = offered(&typed, &tags, &plugins);
+        let mut commands = offered(&typed, &tags, &plugins);
+        // A command the palette has as something to do is listed so, once:
+        // as a command only when typed as one.
+        if !self.palette.query.starts_with('/') {
+            commands.retain(|command| !DONE_AS_ACTS.contains(&command.usage.as_str()));
+        }
         // One being typed as a command goes first, to run with Enter.
         if self.palette.query.starts_with('/') || items.is_empty() {
             items.splice(0..0, commands);

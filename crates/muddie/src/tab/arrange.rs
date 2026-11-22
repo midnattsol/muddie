@@ -224,7 +224,7 @@ impl Tab {
                         }
                         let mut caption = side_name(side).to_owned();
                         if self.layout.hidden.contains(&side) {
-                            caption = trf("{0}, put away", &[&caption]);
+                            caption = trf("{0}, collapsed", &[&caption]);
                         }
                         widgets::section_caption(ui, &caption);
                         for panel in &members {
@@ -476,9 +476,9 @@ impl Tab {
             widgets::switch_setting(
                 ui,
                 &mut away,
-                tr("Its side put away"),
+                tr("Its side collapsed"),
                 Some(tr(
-                    "The whole side is kept as a thin strip, to bring back as it was.",
+                    "The whole side is kept as a thin strip, to expand as it was.",
                 )),
             );
             let sides: Vec<(Side, String)> = SIDES

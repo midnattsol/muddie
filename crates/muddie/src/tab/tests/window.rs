@@ -131,7 +131,7 @@ fn what_is_said_aloud_is_the_game_the_channels_and_the_client() {
     let ctx = harness.ctx.clone();
     let app = harness.state_mut().tab_mut();
     let quiet = (app.palette_acts().into_iter())
-        .find(|item| item.usage == "Mute the ooc channel")
+        .find(|item| item.usage == "Read the ooc channel aloud (on)")
         .expect("the palette keeps a channel quiet");
     let act = quiet.act.expect("it does something");
     app.act(act, &ctx);

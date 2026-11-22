@@ -1169,15 +1169,6 @@ msgstr "Automática"
 msgid "Same, for the panel of channels"
 msgstr "Igual, en el panel de canales"
 
-msgid "Stop logging this session"
-msgstr "Dejar de registrar esta sesión"
-
-msgid "Switch speech off"
-msgstr "Apagar la voz"
-
-msgid "Switch speech on"
-msgstr "Encender la voz"
-
 msgid "Edit profile"
 msgstr "Editar perfil"
 
@@ -1233,9 +1224,6 @@ msgstr "Dirección de su repositorio git"
 
 msgid "Only install what you trust: a plugin can send commands as you."
 msgstr "Instala solo complementos de confianza: pueden enviar comandos en tu nombre."
-
-msgid "Side panels between the top and bottom ones"
-msgstr "Paneles laterales entre los de arriba y abajo"
 
 msgid "Side panels at full height"
 msgstr "Paneles laterales a toda la altura"
@@ -1357,30 +1345,6 @@ msgstr "Sin cifrar"
 
 msgid "Font"
 msgstr "Fuente"
-
-msgid "Hide the panels at the left"
-msgstr "Ocultar los paneles de la izquierda"
-
-msgid "Show the panels at the left"
-msgstr "Mostrar los paneles de la izquierda"
-
-msgid "Hide the panels at the right"
-msgstr "Ocultar los paneles de la derecha"
-
-msgid "Show the panels at the right"
-msgstr "Mostrar los paneles de la derecha"
-
-msgid "Hide the panels at the top"
-msgstr "Ocultar los paneles de arriba"
-
-msgid "Show the panels at the top"
-msgstr "Mostrar los paneles de arriba"
-
-msgid "Hide the panels at the bottom"
-msgstr "Ocultar los paneles de abajo"
-
-msgid "Show the panels at the bottom"
-msgstr "Mostrar los paneles de abajo"
 
 msgid "Show or hide the map"
 msgstr "Mostrar u ocultar el mapa"
@@ -1721,17 +1685,11 @@ msgid "Read the {0} channel aloud"
 msgstr "Leer en voz alta el canal {0}"
 
 #, python-brace-format
-msgid "Mute the {0} channel"
-msgstr "Silenciar el canal {0}"
-
 #, python-brace-format
 msgid "The {0} channel is read aloud."
 msgstr "El canal {0} se leerá en voz alta."
 
 #, python-brace-format
-msgid "Channel {0} muted."
-msgstr "Canal {0} silenciado."
-
 msgid "Walking to {1}: {0} step left."
 msgid_plural "Walking to {1}: {0} steps left."
 msgstr[0] "Caminando hacia {1}: queda {0} paso."
@@ -2145,9 +2103,6 @@ msgid "There are no panels: + adds one."
 msgstr "No hay paneles: + añade uno."
 
 #, python-brace-format
-msgid "{0}, put away"
-msgstr "{0}, recogido"
-
 msgid "the MUD's channels"
 msgstr "los canales del MUD"
 
@@ -2212,12 +2167,6 @@ msgstr "{0} quitado."
 msgid "Picture of the window's panels"
 msgstr "Dibujo de los paneles de la ventana"
 
-
-msgid "Its side put away"
-msgstr "Su lado recogido"
-
-msgid "The whole side is kept as a thin strip, to bring back as it was."
-msgstr "Todo el lado queda como una tira fina, para sacarlo tal como estaba."
 
 msgid "Copied"
 msgstr "Copiado"
@@ -2809,3 +2758,39 @@ msgstr "Ya ninguna sala tiene la marca {0}."
 
 msgid "No room is marked {0}."
 msgstr "Ninguna sala tiene la marca {0}."
+
+msgid "Collapse the left side"
+msgstr "Plegar el lado izquierdo"
+
+msgid "Expand the left side"
+msgstr "Desplegar el lado izquierdo"
+
+msgid "Collapse the right side"
+msgstr "Plegar el lado derecho"
+
+msgid "Expand the right side"
+msgstr "Desplegar el lado derecho"
+
+msgid "Collapse the top side"
+msgstr "Plegar el lado de arriba"
+
+msgid "Expand the top side"
+msgstr "Desplegar el lado de arriba"
+
+msgid "Collapse the bottom side"
+msgstr "Plegar el lado de abajo"
+
+msgid "Expand the bottom side"
+msgstr "Desplegar el lado de abajo"
+
+msgid "{0}, collapsed"
+msgstr "{0}, plegado"
+
+msgid "Its side collapsed"
+msgstr "Su lado plegado"
+
+msgid "The whole side is kept as a thin strip, to expand as it was."
+msgstr "Todo el lado queda como una tira fina, para desplegarlo como estaba."
+
+msgid "The {0} channel is no longer read aloud."
+msgstr "El canal {0} ya no se lee en voz alta."

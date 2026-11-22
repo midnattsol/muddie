@@ -67,14 +67,14 @@ impl Side {
     /// What putting the side away, or bringing it back, is called.
     pub fn toggle_label(self, out: bool) -> &'static str {
         match (self, out) {
-            (Self::Left, true) => tr("Hide the panels at the left"),
-            (Self::Left, false) => tr("Show the panels at the left"),
-            (Self::Right, true) => tr("Hide the panels at the right"),
-            (Self::Right, false) => tr("Show the panels at the right"),
-            (Self::Top, true) => tr("Hide the panels at the top"),
-            (Self::Top, false) => tr("Show the panels at the top"),
-            (Self::Bottom, true) => tr("Hide the panels at the bottom"),
-            (Self::Bottom, false) => tr("Show the panels at the bottom"),
+            (Self::Left, true) => tr("Collapse the left side"),
+            (Self::Left, false) => tr("Expand the left side"),
+            (Self::Right, true) => tr("Collapse the right side"),
+            (Self::Right, false) => tr("Expand the right side"),
+            (Self::Top, true) => tr("Collapse the top side"),
+            (Self::Top, false) => tr("Expand the top side"),
+            (Self::Bottom, true) => tr("Collapse the bottom side"),
+            (Self::Bottom, false) => tr("Expand the bottom side"),
         }
     }
 
