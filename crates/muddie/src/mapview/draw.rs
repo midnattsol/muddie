@@ -114,7 +114,7 @@ fn way_arrow(way: &str) -> Option<&'static str> {
 /// many rows as `width` takes; "no exits" if it has none.
 pub(super) fn exit_chips(ui: &Ui, map: &Map, room: &Room, width: f32) -> Chips {
     const HEIGHT: f32 = 20.0;
-    const PAD: f32 = 7.0;
+    const PAD: f32 = 9.0;
     const ARROW: f32 = 13.0;
     const GAP: f32 = 4.0;
     let palette = theme::current();
@@ -161,8 +161,12 @@ pub(super) fn show_chips(ui: &mut Ui, chips: Chips) {
     let painter = ui.painter();
     for (place, arrow, galley) in chips.chips {
         let place = place.translate(rect.min.to_vec2());
-        painter.rect_filled(place, eframe::egui::CornerRadius::same(6), palette.raised);
-        let mut x = place.min.x + 7.0;
+        painter.rect_filled(
+            place,
+            eframe::egui::CornerRadius::same(u8::MAX),
+            palette.raised,
+        );
+        let mut x = place.min.x + 9.0;
         if let Some(arrow) = arrow {
             painter.text(
                 Pos2::new(x, place.center().y),
