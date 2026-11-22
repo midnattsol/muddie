@@ -734,7 +734,7 @@ fn shows_map() {
             (muddie_mapper::Shape::Hexagon, "+"),
         ];
         for (id, (shape, symbol)) in others.iter().zip(shapes) {
-            map.set_shape(*id, shape).unwrap();
+            map.set_shape(*id, Some(shape)).unwrap();
             map.set_symbol(*id, symbol).unwrap();
         }
         map.set_colour(others[0], Some([224, 192, 64])).unwrap();
@@ -756,11 +756,16 @@ fn shows_map() {
     harness.run_steps(3);
     save(&mut harness, "map-walk");
     harness.state_mut().tab_mut().walk = None;
-    // How a room looks, chosen from its menu.
+    // The appearance of a room, from its menu, and of the map, from its.
     let here = harness.state().tab().map.borrow().current().unwrap().id;
     harness.state_mut().tab_mut().open_look(here);
     harness.run_steps(3);
-    save(&mut harness, "map-look");
+    save(&mut harness, "room-appearance");
+    harness.key_press(egui::Key::Escape);
+    harness.run_steps(2);
+    harness.state_mut().tab_mut().open_map_appearance();
+    harness.run_steps(3);
+    save(&mut harness, "map-appearance");
     harness.key_press(egui::Key::Escape);
     harness.run_steps(2);
     // A room chosen with the keys, east of the player's, told under it.

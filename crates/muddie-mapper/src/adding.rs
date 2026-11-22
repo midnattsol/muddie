@@ -164,7 +164,7 @@ impl Map {
                     note: String::new(),
                     renamed: false,
                     added: true,
-                    shape: Shape::default(),
+                    shape: None,
                     symbol: String::new(),
                     styled: false,
                 };

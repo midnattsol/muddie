@@ -1113,10 +1113,11 @@ fn a_very_large_area_is_tidied_only_when_told_all() {
     assert_eq!(x_of_2(app), 4);
 }
 
-/// How a room looks is chosen in a dialog from its menu: for it, or for
-/// every room called as it is.
+/// The appearance of the map, from its menu, and of a room, from the
+/// room's: for it, or for every room called as it is; a room of no colour
+/// or shape of its own takes the map's.
 #[test]
-fn how_rooms_look_is_chosen_for_one_or_all_called_so() {
+fn the_appearance_of_the_map_and_of_rooms_is_chosen() {
     let mut harness = window(None);
     let app = harness.state_mut().tab_mut();
     app.started = true;
@@ -1133,8 +1134,11 @@ fn how_rooms_look_is_chosen_for_one_or_all_called_so() {
     harness.run_steps(1);
     harness.get_by_label("Apply").click();
     harness.run_steps(2);
-    assert_eq!(shape(&harness, called[0]), muddie_mapper::Shape::Circle);
-    assert_eq!(shape(&harness, called[1]), muddie_mapper::Shape::Square);
+    assert_eq!(
+        shape(&harness, called[0]),
+        Some(muddie_mapper::Shape::Circle)
+    );
+    assert_eq!(shape(&harness, called[1]), None);
     // For all called so, with a symbol.
     harness.state_mut().tab_mut().open_look(called[1]);
     harness.run_steps(2);
@@ -1153,8 +1157,28 @@ fn how_rooms_look_is_chosen_for_one_or_all_called_so() {
         let room = map.room(*id).unwrap();
         assert_eq!(
             (room.shape, room.symbol.as_str(), room.styled),
-            (muddie_mapper::Shape::Diamond, "~", true)
+            (Some(muddie_mapper::Shape::Diamond), "~", true)
         );
     }
+    drop(map);
     assert!(harness.state().tab().look.is_none());
+    // The map's own, for rooms of none of their own; one given back the
+    // map's shape draws in it.
+    harness.state_mut().tab_mut().open_map_appearance();
+    harness.run_steps(2);
+    harness.get_by_label("Hexagon").click();
+    harness.get_by_label("blue").click();
+    harness.run_steps(1);
+    harness.get_by_label("Apply").click();
+    harness.run_steps(2);
+    let appearance = harness.state().tab().map.borrow().appearance();
+    assert_eq!(appearance.shape, muddie_mapper::Shape::Hexagon);
+    assert!(appearance.colour.is_some());
+    harness.state_mut().tab_mut().open_look(called[0]);
+    harness.run_steps(2);
+    harness.get_by_label("The map's").click();
+    harness.run_steps(1);
+    harness.get_by_label("Apply").click();
+    harness.run_steps(2);
+    assert_eq!(shape(&harness, called[0]), None);
 }

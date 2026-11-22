@@ -5,7 +5,7 @@ use super::*;
 use eframe::egui::epaint::RectShape;
 use eframe::egui::text::{LayoutJob, TextWrapping};
 use eframe::egui::{Align2, Shape};
-use muddie_mapper::{Door, Shape as RoomShape};
+use muddie_mapper::{Appearance, Door, Shape as RoomShape};
 
 /// The cell size from which the rooms' names are written under them.
 const NAMES_FROM: f32 = 60.0;
@@ -377,8 +377,11 @@ pub(super) fn draw_rooms(
     grid: &Grid,
     colours: &Colours,
     marks: &Marks<'_>,
+    appearance: Appearance,
 ) {
     let (half, corner) = (grid.half(), grid.corner());
+    let rgb = |[red, green, blue]: muddie_mapper::Colour| Color32::from_rgb(red, green, blue);
+    let usual = appearance.colour.map_or(colours.room, rgb);
     let is_here = |room: &&&Room| marks.here.contains(&room.id);
     let elsewhere = visible.iter().filter(|room| !is_here(room));
     for room in elsewhere.chain(visible.iter().filter(is_here)) {
@@ -388,9 +391,8 @@ pub(super) fn draw_rooms(
             let glow = RectShape::filled(rect.expand(half * 0.3), corner * 2.0, colours.glow);
             painter.add(glow.with_blur_width(half * 1.4));
         }
-        let mut fill = (room.colour).map_or(colours.room, |[red, green, blue]| {
-            Color32::from_rgb(red, green, blue)
-        });
+        let mut fill = room.colour.map_or(usual, rgb);
+        let shape = room.shape.unwrap_or(appearance.shape);
         if room.area != marks.area {
             fill = theme::mix(fill, colours.behind, 0.55);
         }
@@ -401,15 +403,15 @@ pub(super) fn draw_rooms(
         if room.added && !room.avoid {
             // A room the map added of itself, which no map taken has:
             // dashed round, in the colour of exits, to tell it apart.
-            fill_shape(painter, room.shape, rect, corner, fill);
+            fill_shape(painter, shape, rect, corner, fill);
             let line = Stroke::new(1.5, colours.exit);
             let dash = (half * 0.35).max(2.0);
-            let mut points = outline(room.shape, rect.expand(1.5));
+            let mut points = outline(shape, rect.expand(1.5));
             points.push(points[0]);
             painter.extend(Shape::dashed_line(&points, line, dash, dash));
         } else {
-            fill_shape(painter, room.shape, rect, corner, fill);
-            ring_shape(painter, room.shape, rect, corner, border);
+            fill_shape(painter, shape, rect, corner, fill);
+            ring_shape(painter, shape, rect, corner, border);
         }
         if room.avoid {
             let inset = rect.shrink(half * 0.3);
@@ -424,18 +426,12 @@ pub(super) fn draw_rooms(
         };
         if let Some(ring) = ring {
             let stroke = Stroke::new(2.0, ring);
-            ring_shape(painter, room.shape, rect.expand(3.5), corner + 3.5, stroke);
+            ring_shape(painter, shape, rect.expand(3.5), corner + 3.5, stroke);
         }
         // The room chosen to look at, round whatever ring it has.
         if marks.selected == Some(room.id) {
             let stroke = Stroke::new(2.5, colours.selected);
-            ring_shape(
-                painter,
-                room.shape,
-                rect.expand(6.75),
-                corner + 6.75,
-                stroke,
-            );
+            ring_shape(painter, shape, rect.expand(6.75), corner + 6.75, stroke);
         }
     }
 }

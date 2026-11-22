@@ -177,7 +177,7 @@ impl Map {
             note: existing.map_or_else(String::new, |room| room.note.clone()),
             renamed,
             added: existing.is_some_and(|room| room.added),
-            shape: existing.map_or_else(Shape::default, |room| room.shape),
+            shape: existing.and_then(|room| room.shape),
             symbol: existing.map_or_else(String::new, |room| room.symbol.clone()),
             styled: existing.is_some_and(|room| room.styled),
         };

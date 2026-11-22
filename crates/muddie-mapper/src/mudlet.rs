@@ -4,7 +4,7 @@
 //! (big-endian, at Qt 5.12, reals as doubles), in Mudlet's format versions
 //! 14 to 18. Labels are read past, as nothing here shows them.
 
-use crate::{Colour, Door, Exit, Pos, Room, RoomId, STANDARD_COLOURS, Shape};
+use crate::{Colour, Door, Exit, Pos, Room, RoomId, STANDARD_COLOURS};
 use std::collections::{BTreeMap, HashMap};
 
 /// Which reader of Mudlet's maps this is: raise it when the reader reads
@@ -279,7 +279,7 @@ fn read_room(
         note: String::new(),
         renamed: false,
         added: false,
-        shape: Shape::default(),
+        shape: None,
         symbol,
         styled: false,
     })

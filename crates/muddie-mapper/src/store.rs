@@ -15,8 +15,9 @@ use crate::{Colour, Door, Exit, Pos, Room, Shape};
 /// 6 whether their name is the user's (`renamed`), and versions up to 7
 /// whether the map added them of itself (`added`), and versions up to 8
 /// how rooms are drawn (`shape`, `symbol`, `styled`) and the exits'
-/// `door`.
-const VERSION: i64 = 9;
+/// `door`; in version 9 a room of no shape of its own was a square, where
+/// it now has none, and is drawn in the map's.
+const VERSION: i64 = 10;
 
 const SCHEMA: &str = "
     CREATE TABLE IF NOT EXISTS rooms (
@@ -32,7 +33,7 @@ const SCHEMA: &str = "
         note TEXT NOT NULL DEFAULT '',
         renamed INTEGER NOT NULL DEFAULT 0,
         added INTEGER NOT NULL DEFAULT 0,
-        shape TEXT NOT NULL DEFAULT 'square',
+        shape TEXT NOT NULL DEFAULT '',
         symbol TEXT NOT NULL DEFAULT '',
         styled INTEGER NOT NULL DEFAULT 0
     );
@@ -71,7 +72,7 @@ const ADDED: [(&str, &str, &str); 14] = [
     ("rooms", "note", "TEXT NOT NULL DEFAULT ''"),
     ("rooms", "renamed", "INTEGER NOT NULL DEFAULT 0"),
     ("rooms", "added", "INTEGER NOT NULL DEFAULT 0"),
-    ("rooms", "shape", "TEXT NOT NULL DEFAULT 'square'"),
+    ("rooms", "shape", "TEXT NOT NULL DEFAULT ''"),
     ("rooms", "symbol", "TEXT NOT NULL DEFAULT ''"),
     ("rooms", "styled", "INTEGER NOT NULL DEFAULT 0"),
     ("exits", "door", "INTEGER"),
@@ -122,6 +123,9 @@ impl Store {
                 }
             }
         }
+        if version == 9 {
+            connection.execute_batch("UPDATE rooms SET shape = '' WHERE styled = 0;")?;
+        }
         connection.pragma_update(None, "user_version", VERSION)?;
 
         let mut exits: BTreeMap<i64, BTreeMap<String, Exit>> = BTreeMap::new();
@@ -168,7 +172,7 @@ impl Store {
                     note: row.get(9)?,
                     renamed: row.get(10)?,
                     added: row.get(11)?,
-                    shape: Shape::from_key(&row.get::<_, String>(12)?).unwrap_or_default(),
+                    shape: Shape::from_key(&row.get::<_, String>(12)?),
                     symbol: row.get(13)?,
                     styled: row.get(14)?,
                 })
@@ -291,7 +295,7 @@ fn save_room(transaction: &Transaction, room: &Room, known: bool) -> Result<()> 
             room.note,
             room.renamed,
             room.added,
-            room.shape.key(),
+            room.shape.map_or("", Shape::key),
             room.symbol,
             room.styled
         ])?;
@@ -348,6 +352,30 @@ fn unpacked(number: u32) -> Colour {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Version 9 kept a room of no shape of its own as a square; it has
+    /// none now, and is drawn in the map's.
+    #[test]
+    fn a_room_kept_square_in_version_9_has_no_shape_of_its_own() {
+        let path =
+            std::env::temp_dir().join(format!("muddie-store-9-{}.sqlite", std::process::id()));
+        let _ = std::fs::remove_file(&path);
+        {
+            let (_, _) = Store::open(&path).unwrap();
+            let old = Connection::open(&path).unwrap();
+            old.execute_batch(
+                "INSERT INTO rooms (id, name, area, x, y, z, shape, styled)
+                     VALUES (1, 'Gate', 'town', 0, 0, 0, 'square', 0),
+                            (2, 'Bank', 'town', 1, 0, 0, 'square', 1);
+                 PRAGMA user_version = 9;",
+            )
+            .unwrap();
+        }
+        let (_, Stored { rooms, .. }) = Store::open(&path).unwrap();
+        let shapes: Vec<Option<Shape>> = rooms.iter().map(|room| room.shape).collect();
+        assert_eq!(shapes, [None, Some(Shape::Square)]);
+        std::fs::remove_file(&path).unwrap();
+    }
 
     #[test]
     fn version_1_file_is_upgraded_and_a_newer_one_refused() {

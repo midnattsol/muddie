@@ -238,7 +238,7 @@ fn script_can_choose_how_rooms_look() {
         echo(`{map.room(1).colour} {map.set_colour(2, "bright red")} {map.room(2).colour}`)
         echo(`{map.set_colour(2, 196)} {map.room(2).colour} {map.set_colour(9, 1)}`)
         echo(`{map.set_colour(2, nil)} {map.room(2).colour} {pcall(map.set_colour, 1, "mauve")}`)
-        echo(`{map.room(2).shape} {map.set_shape(2, "circle")} {map.room(2).shape} {pcall(map.set_shape, 2, "star")}`)
+        echo(`{map.room(2).shape} {map.set_shape(2, "circle")} {map.room(2).shape} {pcall(map.set_shape, 2, "star")} {map.set_shape(2, nil)} {map.room(2).shape}`)
         echo(`[{map.room(2).symbol}] {map.set_symbol(2, "$")} [{map.room(2).symbol}] {map.set_symbol(2, nil)} [{map.room(2).symbol}]`)"##,
     );
     let echoes: Vec<String> = (engine.take_actions().into_iter())
@@ -254,7 +254,7 @@ fn script_can_choose_how_rooms_look() {
             "#a0c020 true #ff0000",
             "true #ff0000 false",
             "true nil false",
-            "square true circle false",
+            "nil true circle false true nil",
             "[] true [$] true []",
         ]
     );

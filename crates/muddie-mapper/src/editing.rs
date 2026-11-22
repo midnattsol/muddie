@@ -139,8 +139,8 @@ impl Map {
         self.style(id, |room| room.colour = colour)
     }
 
-    /// Sets the shape a room is drawn in.
-    pub fn set_shape(&mut self, id: RoomId, shape: Shape) -> Result<bool, Error> {
+    /// Sets the shape a room is drawn in, or gives it back the map's.
+    pub fn set_shape(&mut self, id: RoomId, shape: Option<Shape>) -> Result<bool, Error> {
         self.style(id, |room| room.shape = shape)
     }
 
@@ -150,13 +150,35 @@ impl Map {
         self.style(id, |room| room.symbol = symbol)
     }
 
+    /// How the map draws rooms with no colour or shape of their own.
+    pub fn appearance(&self) -> Appearance {
+        let about = |key: &str| self.about.get(key).map(String::as_str);
+        Appearance {
+            colour: about(APPEARANCE_COLOUR).and_then(hex_colour),
+            shape: about(APPEARANCE_SHAPE)
+                .and_then(Shape::from_key)
+                .unwrap_or_default(),
+        }
+    }
+
+    /// Sets how the map draws rooms with no colour or shape of their own.
+    pub fn set_appearance(&mut self, appearance: Appearance) -> Result<(), Error> {
+        let colour = appearance
+            .colour
+            .map(|[red, green, blue]| format!("#{red:02x}{green:02x}{blue:02x}"));
+        self.set_about(APPEARANCE_COLOUR, colour.as_deref())?;
+        let shape = (appearance.shape != Shape::default()).then(|| appearance.shape.key());
+        self.set_about(APPEARANCE_SHAPE, shape)?;
+        self.revision += 1;
+        Ok(())
+    }
+
     /// Changes how a room is drawn, as the user's: kept from then on, unless
     /// it is all the map's own again.
     fn style(&mut self, id: RoomId, change: impl FnOnce(&mut Room)) -> Result<bool, Error> {
         self.edit_room(id, |room| {
             change(room);
-            room.styled =
-                room.colour.is_some() || room.shape != Shape::default() || !room.symbol.is_empty();
+            room.styled = room.colour.is_some() || room.shape.is_some() || !room.symbol.is_empty();
         })
     }
 
@@ -240,4 +262,15 @@ impl Map {
             None => Ok(true),
         }
     }
+}
+
+/// Where the map keeps how it draws rooms of no look of their own.
+const APPEARANCE_COLOUR: &str = "appearance colour";
+const APPEARANCE_SHAPE: &str = "appearance shape";
+
+/// A colour written `#rrggbb`.
+fn hex_colour(text: &str) -> Option<Colour> {
+    let value = u32::from_str_radix(text.strip_prefix('#')?, 16).ok()?;
+    let [_, red, green, blue] = value.to_be_bytes();
+    Some([red, green, blue])
 }

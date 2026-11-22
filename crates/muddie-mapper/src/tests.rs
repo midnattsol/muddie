@@ -42,7 +42,7 @@ fn room_at(area: &str, id: RoomId, name: &str, at: Pos, exits: &[(&str, RoomId)]
         note: String::new(),
         renamed: false,
         added: false,
-        shape: Shape::default(),
+        shape: None,
         symbol: String::new(),
         styled: false,
     }
@@ -630,7 +630,12 @@ fn a_map_taken_again_keeps_what_the_user_set_and_where_it_came_from() {
         map.set_source_reader(Some(MUDLET_READER)).unwrap();
         map.set_colour(10, Some([7, 7, 7])).unwrap();
         map.set_colour(12, Some([5, 5, 5])).unwrap();
-        map.set_shape(12, Shape::Circle).unwrap();
+        map.set_shape(12, Some(Shape::Circle)).unwrap();
+        let look = Appearance {
+            colour: Some([30, 60, 90]),
+            shape: Shape::Hexagon,
+        };
+        map.set_appearance(look).unwrap();
         map.set_symbol(12, " $$$ ").unwrap();
         map.set_note(13, "  Fresh water  ").unwrap();
         // A room the map had named with something said there.
@@ -688,9 +693,17 @@ fn a_map_taken_again_keeps_what_the_user_set_and_where_it_came_from() {
     let square = map.room(12).unwrap();
     assert_eq!(
         (square.shape, square.symbol.as_str()),
-        (Shape::Circle, "$$")
+        (Some(Shape::Circle), "$$")
     );
     assert_eq!(map.room(13).unwrap().exits["s"].door, Some(Door::Closed));
+    assert_eq!(
+        map.appearance(),
+        Appearance {
+            colour: Some([30, 60, 90]),
+            shape: Shape::Hexagon
+        }
+    );
+    assert_eq!(map.room(10).unwrap().shape, None);
     assert_eq!(map.marked("water"), Some(13));
     assert_eq!(map.room(13).unwrap().note, "Fresh water");
     assert_eq!(map.source_reader(), Some(MUDLET_READER));

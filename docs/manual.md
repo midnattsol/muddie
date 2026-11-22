@@ -384,7 +384,7 @@ another side, saying where it is now. Escape goes back to the game.
   tab. Drag the edge between two panels, or between a panel and the output,
   to size them.
 - Its **menu** has **Rename…**, what goes with its kind (the channels for
-  one of text, editing the gauges; for the map, showing every area, undoing
+  one of text, editing the gauges; for the map, its appearance, showing every area, undoing
   the last room it added, and under the name of each plugin what it offers
   to do with the map), hiding it and removing it. **Rename…**, a double
   click on the name, or **Rename** and the panel's name in the palette, turn
@@ -578,7 +578,7 @@ is what a name begins with, as Anduar in "Anduar: Plaza Mayor".
 | Enter, Shift+Enter | Walk to the room chosen; say the way there without going |
 | Escape, or typing | Back to the command line, with what was typed |
 | Double-click a room | Walks there, one step at a time, waiting for each to succeed |
-| Right-click a room | Walk here, avoid in routes, how it looks, tidy the area |
+| Right-click a room | Walk here, avoid in routes, its appearance, tidy the area |
 | Drag | Moves the view; the wheel zooms |
 | Shift+drag a room | Moves it to another cell |
 | The area list, − and + | Looks at another area or level; **Back to me** returns |
@@ -598,10 +598,13 @@ too, when it is in your area and level.
 A room marked to avoid is never walked through, and a locked exit is never
 used. Both are kept when the server reports the room again.
 
-**How it looks…**, in a room's menu, chooses its colour, its shape
-(square, circle, diamond or hexagon) and a character or two written in
-it, for the room or for every room called as it is. What you choose is
-kept when the server reports the room, and when the map is taken again.
+**Appearance…**, in the map's menu, chooses the colour and shape (square,
+circle, diamond or hexagon) rooms are drawn in, and in a room's menu, its
+own colour and shape and a character or two written in it, for the room
+or for every room called as it is. A room takes the map's colour and
+shape unless it has its own: one set for it, or, for its colour, one the
+map taken brought. What you choose is kept with the map: when the server
+reports the room, and when the map is taken again.
 Maps taken from Mudlet bring their rooms' colours and symbols, and their
 doors, drawn as a small square on the exit: hollow while open, filled
 while shut, red while locked.

@@ -127,8 +127,9 @@ pub struct Room {
     /// elsewhere: numbered from [`ADDED_FROM`], kept when a map is taken
     /// again, and joined with the room it has if it has it by then.
     pub added: bool,
-    /// How it is drawn, and a character or two drawn in it, if any.
-    pub shape: Shape,
+    /// The shape it is drawn in, if not the map's (see [`Appearance`]),
+    /// and a character or two drawn in it, if any.
+    pub shape: Option<Shape>,
     pub symbol: String,
     /// Its colour, shape and symbol are the user's, or a script's on their
     /// behalf: kept when the server reports the room or a map is taken
@@ -162,6 +163,15 @@ impl Shape {
     pub fn from_key(key: &str) -> Option<Shape> {
         Shape::ALL.into_iter().find(|shape| shape.key() == key)
     }
+}
+
+/// How the map draws a room with no colour or shape of its own: the
+/// user's choice for the whole map, kept with it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct Appearance {
+    /// `None` for the colour of the interface's theme.
+    pub colour: Option<Colour>,
+    pub shape: Shape,
 }
 
 /// A door on an exit, as a map taken from elsewhere marks it.

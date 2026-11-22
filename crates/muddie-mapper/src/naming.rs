@@ -313,7 +313,7 @@ impl Map {
     }
 
     /// Keeps something known about the map under `key`, or forgets it.
-    fn set_about(&mut self, key: &str, value: Option<&str>) -> Result<(), Error> {
+    pub(crate) fn set_about(&mut self, key: &str, value: Option<&str>) -> Result<(), Error> {
         match value {
             Some(value) => self.about.insert(key.to_owned(), value.to_owned()),
             None => self.about.remove(key),

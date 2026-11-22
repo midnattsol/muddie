@@ -39,6 +39,10 @@ impl Tab {
                 }
                 Kind::Map => {
                     self.map_view.menu_items(ui);
+                    if widgets::menu_item(ui, tr("Appearance…"), "").clicked() {
+                        asked = Some(PanelAsk::Appearance);
+                        ui.close();
+                    }
                     // The last room the map added, while there is one.
                     if self.map.borrow().last_change().is_some()
                         && widgets::menu_item(ui, tr("Undo the map's last change"), "").clicked()
@@ -77,6 +81,7 @@ impl Tab {
             Some(PanelAsk::Remove) => self.panels.removed = Some(index),
             Some(PanelAsk::MapTool(label)) => self.use_map_tool(&label),
             Some(PanelAsk::UndoChange) => self.undo_change(),
+            Some(PanelAsk::Appearance) => self.open_map_appearance(),
             None => {}
         }
     }
@@ -164,6 +169,7 @@ enum PanelAsk {
     /// What a script offered to do with the map, by what it is chosen by.
     MapTool(String),
     UndoChange,
+    Appearance,
 }
 
 /// Hiding the panel, and removing it.
