@@ -389,7 +389,7 @@ fn the_plugin_has_the_map_put_right_the_rooms_named_wrong_it_goes_through() {
     // Switched off from the map's menu, rooms named wrong are only
     // followed.
     app.act(
-        commands::Act::MapTool("Put right the names of rooms".into()),
+        commands::Act::MapTool("Put right the map as you go".into()),
         &ctx,
     );
     assert!(app.map.borrow_mut().set_current(4));
@@ -1075,7 +1075,7 @@ fn reinos_adds_the_rooms_the_map_has_not_once_switched_on() {
         switched(app),
         [
             ("Sync with the official map".into(), None),
-            ("Put right the names of rooms".into(), Some(true)),
+            ("Put right the map as you go".into(), Some(true)),
             (adding.into(), Some(false))
         ]
     );

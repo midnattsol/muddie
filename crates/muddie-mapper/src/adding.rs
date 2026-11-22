@@ -184,7 +184,7 @@ impl Map {
         self.current = Some(to);
         self.candidates.clear();
         self.keep_whereabouts();
-        self.pending.clear();
+        self.forget_healing();
         let changed = match added {
             Added::Made(id) => Changed::Made(id, name.to_owned()),
             Added::Found(id) => Changed::Found(id, name.to_owned()),

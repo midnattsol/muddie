@@ -179,22 +179,23 @@ local function exits_of(list)
 end
 
 ---------------------------------------------------------------------------
--- Putting the map's names right. The map the MUD publishes names some rooms
--- with what was said or done in them as they were mapped ("Moony te dice:
--- ..."), with their names cut short ("Erial de los Condenados: Ca"), or
--- with nothing. The map follows the player through them by the way they go
--- and their exits, and once the next room is as it has it, gives them the
--- names the game writes, and says so. On unless switched off, from the
--- map's menu or the palette, and remembered in the profile.
+-- Putting the map right as the player goes. The map the MUD publishes names
+-- some rooms with what was said or done in them as they were mapped
+-- ("Moony te dice: ..."), with their names cut short ("Erial de los
+-- Condenados: Ca"), or with nothing; the MUD renames rooms and opens exits
+-- the map has not. The map follows the player by the way they go and the
+-- exits written, and puts right what the game shows it to have wrong once
+-- it is borne out, and says so. On unless switched off, from the map's
+-- menu or the palette, and remembered in the profile.
 
-local FIXING = "Reinos de Leyenda: corregir nombres"
-local FIXING_ACTION = { en = "Put right the names of rooms", es = "Corregir los nombres de las salas" }
+local FIXING = "Reinos de Leyenda: corregir el mapa"
+local FIXING_ACTION = { en = "Put right the map as you go", es = "Corregir el mapa sobre la marcha" }
 local fixing = recall(FIXING) ~= false
-map.fix_names(fixing)
+map.put_right(fixing)
 map.action(FIXING_ACTION, function(on)
     fixing = on
     remember(FIXING, on)
-    map.fix_names(on)
+    map.put_right(on)
 end, { checked = fixing })
 
 -- Whether every exit the game writes is one the room has.

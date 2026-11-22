@@ -1,6 +1,6 @@
 //! What the map changed of itself, as the player went: rooms added, and
-//! names put right. Each is kept as the rooms were before it, to be
-//! undone, the last first.
+//! what it had wrong put right (see healing). Each is kept as the rooms
+//! were before it, to be undone, the last first.
 
 use super::*;
 
@@ -18,6 +18,17 @@ pub enum Changed {
         was: String,
         now: String,
     },
+    /// It gave a room exits the server shows that it lacked, leading to
+    /// rooms not explored.
+    ExitsAdded { room: RoomId, exits: Vec<String> },
+    /// It had an exit lead to the room the player was found in by taking
+    /// it, rather than the one it had.
+    Rerouted {
+        room: RoomId,
+        way: String,
+        was: RoomId,
+        now: RoomId,
+    },
 }
 
 impl Changed {
@@ -25,7 +36,9 @@ impl Changed {
     pub fn room(&self) -> RoomId {
         match self {
             Changed::Made(id, _) | Changed::Found(id, _) => *id,
-            Changed::Renamed { room, .. } => *room,
+            Changed::Renamed { room, .. }
+            | Changed::ExitsAdded { room, .. }
+            | Changed::Rerouted { room, .. } => *room,
         }
     }
 }

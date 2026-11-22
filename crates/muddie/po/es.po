@@ -2732,3 +2732,32 @@ msgstr "Mapa: {0}."
 
 msgid "{0} To undo the last: /map undo."
 msgstr "{0} Para deshacer el último: /map undo."
+
+msgid "{0} exit added"
+msgid_plural "{0} exits added"
+msgstr[0] "{0} salida añadida"
+msgstr[1] "{0} salidas añadidas"
+
+msgid "{0} way put right"
+msgid_plural "{0} ways put right"
+msgstr[0] "{0} camino corregido"
+msgstr[1] "{0} caminos corregidos"
+
+msgid "Undone: “{1}” no longer has the exit {2}."
+msgid_plural "Undone: “{1}” no longer has the exits {2}."
+msgstr[0] "Deshecho: «{1}» ya no tiene la salida {2}."
+msgstr[1] "Deshecho: «{1}» ya no tiene las salidas {2}."
+
+msgid "Map put right: “{1}” has the exit {2} now."
+msgid_plural "Map put right: “{1}” has the exits {2} now."
+msgstr[0] "Mapa corregido: «{1}» tiene ahora la salida {2}."
+msgstr[1] "Mapa corregido: «{1}» tiene ahora las salidas {2}."
+
+msgid "Undone: {0} from “{1}” leads to “{2}” again."
+msgstr "Deshecho: {0} desde «{1}» vuelve a llevar a «{2}»."
+
+msgid "Map put right: {0} from “{1}” leads to “{2}” now."
+msgstr "Mapa corregido: {0} desde «{1}» lleva ahora a «{2}»."
+
+msgid "the game has not shown its exit {0} the last {1} times"
+msgstr "el juego no ha mostrado su salida {0} las últimas {1} veces"

@@ -4,35 +4,101 @@
 //! All is said, and chosen from a list.
 
 use super::*;
-use muddie_mapper::Changed;
+use crate::mapview::{direction_words, place_words};
+use muddie_mapper::{Changed, Map, UNSHOWN_AFTER};
 use std::collections::HashSet;
 use std::time::Duration;
+
+use walking::MAX_LISTED_ROOMS;
 
 /// How long after the map changes something of itself it is told, with
 /// whatever else it changed meanwhile.
 const TELL_CHANGES_AFTER: Duration = Duration::from_secs(3);
-use walking::MAX_LISTED_ROOMS;
+
+/// A room the map changed, said by its name; by its number if gone.
+fn room_said(map: &Map, id: RoomId) -> String {
+    map.room(id)
+        .map_or_else(|| format!("#{id}"), |room| place_words(map, room))
+}
+
+/// Exits, in the words they are walked by.
+fn ways_said(map: &Map, ways: &[String]) -> String {
+    let said: Vec<String> = ways.iter().map(|way| direction_words(map, way)).collect();
+    said.join(", ")
+}
+
+/// Several changes of the map's own, counted by kind.
+fn counted(changes: &[Changed]) -> String {
+    let count = |kind: fn(&Changed) -> u64| changes.iter().map(kind).sum::<u64>();
+    let made = count(|change| u64::from(matches!(change, Changed::Made(..))));
+    let found = count(|change| u64::from(matches!(change, Changed::Found(..))));
+    let renamed = count(|change| u64::from(matches!(change, Changed::Renamed { .. })));
+    let exits = count(|change| match change {
+        Changed::ExitsAdded { exits, .. } => exits.len() as u64,
+        _ => 0,
+    });
+    let rerouted = count(|change| u64::from(matches!(change, Changed::Rerouted { .. })));
+    let parts: Vec<String> = [
+        (made, trn("{0} room added", "{0} rooms added", made)),
+        (found, trn("{0} way added", "{0} ways added", found)),
+        (
+            renamed,
+            trn("{0} name put right", "{0} names put right", renamed),
+        ),
+        (exits, trn("{0} exit added", "{0} exits added", exits)),
+        (
+            rerouted,
+            trn("{0} way put right", "{0} ways put right", rerouted),
+        ),
+    ]
+    .into_iter()
+    .filter(|(number, _)| *number > 0)
+    .map(|(_, part)| part)
+    .collect();
+    parts.join(", ")
+}
 
 impl Tab {
     /// Undoes the last change the map made of itself, and says what was
     /// undone.
     pub(super) fn undo_change(&mut self) {
         let undone = self.map.borrow_mut().undo_change();
-        match self.map_saved(undone) {
-            None => {}
-            Some(None) => self.refuse(tr("The map has changed nothing of itself to undo.")),
-            Some(Some(Changed::Made(_, name))) => {
-                self.note(&trf("Undone: {0} is no longer on the map.", &[&name]))
+        let Some(undone) = self.map_saved(undone) else {
+            return;
+        };
+        let Some(undone) = undone else {
+            return self.refuse(tr("The map has changed nothing of itself to undo."));
+        };
+        let said = {
+            let map = self.map.borrow();
+            let room = |id| room_said(&map, id);
+            match undone {
+                Changed::Made(_, name) => trf("Undone: {0} is no longer on the map.", &[&name]),
+                Changed::Found(_, name) => {
+                    trf("Undone: the way to {0} is no longer on the map.", &[&name])
+                }
+                Changed::Renamed { was, now, .. } if was.is_empty() => {
+                    trf("Undone: “{0}” has no name again.", &[&now])
+                }
+                Changed::Renamed { was, now, .. } => {
+                    trf("Undone: “{0}” is called “{1}” again.", &[&now, &was])
+                }
+                Changed::ExitsAdded { room: id, exits } => trn(
+                    "Undone: “{1}” no longer has the exit {2}.",
+                    "Undone: “{1}” no longer has the exits {2}.",
+                    exits.len() as u64,
+                )
+                .replace("{1}", &room(id))
+                .replace("{2}", &ways_said(&map, &exits)),
+                Changed::Rerouted {
+                    room: id, way, was, ..
+                } => trf(
+                    "Undone: {0} from “{1}” leads to “{2}” again.",
+                    &[&direction_words(&map, &way), &room(id), &room(was)],
+                ),
             }
-            Some(Some(Changed::Found(_, name))) => self.note(&trf(
-                "Undone: the way to {0} is no longer on the map.",
-                &[&name],
-            )),
-            Some(Some(Changed::Renamed { was, now, .. })) => self.note(&match was.is_empty() {
-                true => trf("Undone: “{0}” has no name again.", &[&now]),
-                false => trf("Undone: “{0}” is called “{1}” again.", &[&now, &was]),
-            }),
-        }
+        };
+        self.note(&said);
     }
 
     /// Tells what the map changed of itself, a moment after the first of
@@ -52,35 +118,35 @@ impl Tab {
             return;
         }
         let changes = std::mem::take(&mut self.map_told).0;
-        let said = match changes.as_slice() {
-            [Changed::Made(_, name)] => trf("Map: added the room “{0}”.", &[name]),
-            [Changed::Found(_, name)] => trf("Map: added the way to “{0}”.", &[name]),
-            [Changed::Renamed { was, now, .. }] if was.is_empty() => trf(
-                "Map put right: a room with no name is now called “{0}”.",
-                &[now],
-            ),
-            [Changed::Renamed { was, now, .. }] => {
-                trf("Map put right: “{0}” is now called “{1}”.", &[was, now])
-            }
-            _ => {
-                let count =
-                    |kind: fn(&Changed) -> bool| changes.iter().filter(|c| kind(c)).count() as u64;
-                let made = count(|change| matches!(change, Changed::Made(..)));
-                let found = count(|change| matches!(change, Changed::Found(..)));
-                let renamed = count(|change| matches!(change, Changed::Renamed { .. }));
-                let parts: Vec<String> = [
-                    (made, trn("{0} room added", "{0} rooms added", made)),
-                    (found, trn("{0} way added", "{0} ways added", found)),
-                    (
-                        renamed,
-                        trn("{0} name put right", "{0} names put right", renamed),
-                    ),
-                ]
-                .into_iter()
-                .filter(|(number, _)| *number > 0)
-                .map(|(_, part)| part)
-                .collect();
-                trf("Map: {0}.", &[&parts.join(", ")])
+        let said = {
+            let map = self.map.borrow();
+            let room = |id| room_said(&map, id);
+            match changes.as_slice() {
+                [Changed::Made(_, name)] => trf("Map: added the room “{0}”.", &[name]),
+                [Changed::Found(_, name)] => trf("Map: added the way to “{0}”.", &[name]),
+                [Changed::Renamed { was, now, .. }] if was.is_empty() => trf(
+                    "Map put right: a room with no name is now called “{0}”.",
+                    &[now],
+                ),
+                [Changed::Renamed { was, now, .. }] => {
+                    trf("Map put right: “{0}” is now called “{1}”.", &[was, now])
+                }
+                [Changed::ExitsAdded { room: id, exits }] => trn(
+                    "Map put right: “{1}” has the exit {2} now.",
+                    "Map put right: “{1}” has the exits {2} now.",
+                    exits.len() as u64,
+                )
+                .replace("{1}", &room(*id))
+                .replace("{2}", &ways_said(&map, exits)),
+                [
+                    Changed::Rerouted {
+                        room: id, way, now, ..
+                    },
+                ] => trf(
+                    "Map put right: {0} from “{1}” leads to “{2}” now.",
+                    &[&direction_words(&map, way), &room(*id), &room(*now)],
+                ),
+                _ => trf("Map: {0}.", &[&counted(&changes)]),
             }
         };
         self.note(&trf("{0} To undo the last: /map undo.", &[&said]));
@@ -110,8 +176,9 @@ impl Tab {
         self.say_more(more);
     }
 
-    /// Lists the rooms that look wrong: those with no name, and those no
-    /// exit leads to or from, which nothing can reach. Each is chosen to
+    /// Lists the rooms that look wrong: those with no name, those no exit
+    /// leads to or from, which nothing can reach, and those with an exit
+    /// the game has not shown the last times the player came. Each is chosen to
     /// hear all the map knows of it.
     pub(super) fn check_map(&mut self) {
         let found: Vec<(String, String, RoomId)> = {
@@ -132,6 +199,19 @@ impl Tab {
                     Some((said, why.to_owned(), room.id))
                 })
                 .collect();
+            // Exits the game has not shown, time after time: a door shut,
+            // an exit hidden, or one the map has wrong; for the user to say.
+            for (id, way, times) in map.unshown_exits(UNSHOWN_AFTER) {
+                let Some(room) = map.room(id) else {
+                    continue;
+                };
+                let said = format!("{}, {}", crate::mapview::numbered(&map, room), room.area);
+                let why = trf(
+                    "the game has not shown its exit {0} the last {1} times",
+                    &[&direction_words(&map, &way), &times.to_string()],
+                );
+                found.push((said, why, id));
+            }
             found.sort_by(|a, b| (&a.1, &a.0).cmp(&(&b.1, &b.0)));
             found
         };

@@ -203,7 +203,7 @@ it.
 | `/map tidy [all]` | Draws the current area again from scratch. An area of more than 2000 rooms, as a map with all in one area, only with `all` |
 | `/map added` | Lists the rooms the map added of itself where you went, to travel to each |
 | `/map undo` | Undoes the last change the map made of itself, a room added or a name put right; also **Undo the map's last change**, in the map's menu and the palette |
-| `/map check` | Lists the rooms that look wrong: with no name, or that no exit leads to or from |
+| `/map check` | Lists the rooms that look wrong: with no name, that no exit leads to or from, or with an exit the game has not shown the last times you came |
 | `/map remove <number>` | Takes a room off the map |
 | `/map show`, `/map hide` | Shows or hides the map panel |
 | `/plugin list` | Lists the installed plugins |
@@ -454,10 +454,11 @@ per profile like the ones you install. Two come with it.
   move, checked by the room the game writes, so that lag does not lose it,
   and walks in Spanish. The published map names some rooms with something
   said in them as they were mapped, with their names cut short, or with
-  nothing, and the MUD renames rooms of its own: **Put right the names of
-  rooms**, a switch in the map's menu and the palette, on unless switched
-  off, has the map put them right as you go (see "The map", below); those
-  names stay when the map is brought up to date. **Add the rooms the map has not**, a switch in the
+  nothing, and the MUD renames rooms and opens exits of its own: **Put
+  right the map as you go**, a switch in the map's menu and the palette,
+  on unless switched off, has the map put that right as you go (see "The
+  map", below); what it put right stays when the map is brought up to
+  date. **Add the rooms the map has not**, a switch in the
   map's menu and the palette, has the map add the rooms it does not have
   where you go by the compass (see "The map", below); it is remembered in
   the profile, and off until switched on. What it shows is in English or
@@ -620,11 +621,24 @@ shows, and no room next to where you were has the name shown with them,
 the map follows you there though it names it otherwise: maps taken from
 elsewhere name some rooms with what was said in them as they were
 mapped, cut short, or not at all, and MUDs rename rooms. A plugin can have
-it put such names right: once your next move is to a room as the map has
-it, name and exits, the rooms you went through between are given the
-names the game showed. A notice says so a moment after, with whatever
-else the map changed meanwhile, and `/map undo` undoes them, the last
-first. They are kept when the map is taken again.
+it put right what it has wrong as you go, never on one sighting alone:
+
+- **Names.** Once your next move is to a room as the map has it, by its
+  name and with every exit it has among those shown, the rooms you went
+  through between are given the names the game showed.
+- **Exits it lacks.** Coming from a room it knew you were in to one by
+  its own name that shows more exits than it has, it adds them, leading
+  to rooms not explored until you take them.
+- **Exits that lead elsewhere.** When an exit took you to a room beside
+  the one the map has it lead to, and your next move bears that out, the
+  exit leads there from then on.
+- **Exits never shown** are not taken away, as a door shut or an exit
+  hidden is not shown either: `/map check` lists those the game has not
+  shown the last three times you came, for you to look at.
+
+A notice says what it put right a moment after, with whatever else the
+map changed meanwhile, and `/map undo` undoes it, the last first. What it
+put right is kept when the map is taken again.
 
 Maps made by hand gather rooms left over: a copy of a room, in its very
 place and of its name, that no other room leads to, made when a room was

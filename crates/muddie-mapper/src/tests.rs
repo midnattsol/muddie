@@ -1302,7 +1302,7 @@ fn shown(map: &mut Map, name: &str, exits: &[&str], came: Option<&str>) -> Locat
 #[test]
 fn rooms_named_otherwise_are_followed_by_the_way_and_put_right_between_rooms_as_the_map_has_them() {
     let mut map = road();
-    map.set_fix_names(true);
+    map.set_put_right(true);
     assert!(map.set_current(1));
     // The way and the exits lead to rooms named otherwise: the player is
     // followed through them, and nothing is renamed yet.
@@ -1347,7 +1347,7 @@ fn rooms_named_otherwise_are_followed_by_the_way_and_put_right_between_rooms_as_
 #[test]
 fn a_room_named_otherwise_is_not_put_right_unless_the_next_move_bears_it_out() {
     let mut map = road();
-    map.set_fix_names(true);
+    map.set_put_right(true);
     // Lost after it: nothing is renamed.
     assert!(map.set_current(1));
     assert_eq!(
@@ -1363,7 +1363,7 @@ fn a_room_named_otherwise_is_not_put_right_unless_the_next_move_bears_it_out() {
     assert!(map.set_current(1));
     assert_ne!(shown(&mut map, "Road", &["w"], Some("e")), Located::Here(2));
     // Only followed, if names are not put right.
-    map.set_fix_names(false);
+    map.set_put_right(false);
     assert!(map.set_current(1));
     assert_eq!(
         shown(&mut map, "Road", &["w", "e"], Some("e")),
@@ -1384,7 +1384,7 @@ fn a_room_named_otherwise_is_not_put_right_unless_the_next_move_bears_it_out() {
 #[test]
 fn while_unsure_the_one_way_to_a_room_of_those_exits_is_followed_and_put_right() {
     let mut map = road();
-    map.set_fix_names(true);
+    map.set_put_right(true);
     // Another road, with no way east.
     let other = RoomInfo {
         id: 6,
@@ -1414,4 +1414,129 @@ fn while_unsure_the_one_way_to_a_room_of_those_exits_is_followed_and_put_right()
         Located::Here(4)
     );
     assert_eq!(map.room(2).unwrap().name, "Road");
+}
+
+#[test]
+fn a_room_named_otherwise_is_borne_out_by_one_showing_more_exits_and_those_are_added() {
+    let mut map = road();
+    map.set_put_right(true);
+    assert!(map.set_current(1));
+    assert_eq!(
+        shown(&mut map, "Road", &["w", "e"], Some("e")),
+        Located::Here(2)
+    );
+    assert_eq!(
+        shown(&mut map, "Wall of Amün", &["w", "e"], Some("e")),
+        Located::Here(3)
+    );
+    // The gate shows an exit south the map does not have: it is the gate
+    // all the same, and bears out the rooms before it; it is given the
+    // exit, not explored.
+    assert_eq!(
+        shown(&mut map, "Gate", &["w", "n", "s"], Some("e")),
+        Located::Here(4)
+    );
+    assert_eq!(map.room(3).unwrap().name, "Wall of Amün");
+    assert_eq!(map.room(4).unwrap().exits["s"].to, UNEXPLORED);
+    let added = Changed::ExitsAdded {
+        room: 4,
+        exits: vec!["s".into()],
+    };
+    assert_eq!(map.take_told().last(), Some(&added));
+    assert_eq!(map.undo_change().unwrap(), Some(added));
+    assert!(!map.room(4).unwrap().exits.contains_key("s"));
+}
+
+#[test]
+fn exits_are_added_only_from_where_the_map_knew_the_player_was() {
+    let mut map = road();
+    map.set_put_right(true);
+    // Not known for certain: the gate is only where the map was told.
+    assert!(map.set_current(4));
+    assert_eq!(
+        shown(&mut map, "Square", &["s", "e"], Some("n")),
+        Located::Here(5)
+    );
+    assert!(!map.room(5).unwrap().exits.contains_key("e"));
+    // Looked at as it is, the gate is known: on from it, the square gets
+    // the exit it lacks.
+    assert!(map.set_current(4));
+    assert_eq!(shown(&mut map, "Gate", &["w", "n"], None), Located::Here(4));
+    assert_eq!(
+        shown(&mut map, "Square", &["s", "e"], Some("n")),
+        Located::Here(5)
+    );
+    assert_eq!(map.room(5).unwrap().exits["e"].to, UNEXPLORED);
+    // Not if the map is not to put right what it has wrong.
+    let mut map = road();
+    assert!(map.set_current(4));
+    shown(&mut map, "Gate", &["w", "n"], None);
+    shown(&mut map, "Square", &["s", "e"], Some("n"));
+    assert!(!map.room(5).unwrap().exits.contains_key("e"));
+}
+
+#[test]
+fn an_exit_that_leads_to_a_room_beside_is_rerouted_once_borne_out() {
+    let mut map = Map::in_memory();
+    let info = |id: RoomId, name: &str, exits: &[(&str, RoomId)]| RoomInfo {
+        id,
+        name: name.into(),
+        area: "fields".into(),
+        exits: exits
+            .iter()
+            .map(|(way, to)| ((*way).to_owned(), *to))
+            .collect(),
+        pos: Some(pos(id as i32 * 2, 0, 0)),
+        colour: None,
+    };
+    for room in [
+        info(1, "Crossing", &[("n", 2), ("e", 3)]),
+        info(2, "Hill", &[("s", 1)]),
+        info(3, "Field", &[("w", 1), ("n", 4)]),
+        info(4, "Pond", &[("s", 3)]),
+    ] {
+        map.set_room(room).unwrap();
+    }
+    map.set_put_right(true);
+    assert!(map.set_current(1));
+    shown(&mut map, "Crossing", &["n", "e"], None);
+    // North, the field is shown, not the hill: it is the field beside.
+    assert_eq!(
+        shown(&mut map, "Field", &["w", "n"], Some("n")),
+        Located::Here(3)
+    );
+    assert_eq!(map.room(1).unwrap().exits["n"].to, 2);
+    // On north to the pond, as the map has it: the way north leads there.
+    assert_eq!(shown(&mut map, "Pond", &["s"], Some("n")), Located::Here(4));
+    let rerouted = Changed::Rerouted {
+        room: 1,
+        way: "n".into(),
+        was: 2,
+        now: 3,
+    };
+    assert_eq!(map.take_told(), std::slice::from_ref(&rerouted));
+    assert_eq!(map.room(1).unwrap().exits["n"].to, 3);
+    assert_eq!(map.undo_change().unwrap(), Some(rerouted));
+    assert_eq!(map.room(1).unwrap().exits["n"].to, 2);
+}
+
+#[test]
+fn exits_never_shown_are_counted_not_taken_away() {
+    let mut map = road();
+    map.set_put_right(true);
+    assert!(map.set_current(3));
+    shown(&mut map, "Wall of Am", &["w", "e"], None);
+    // The gate, three times, without its exit north.
+    for _ in 0..3 {
+        assert_eq!(shown(&mut map, "Gate", &["w"], Some("e")), Located::Here(4));
+        assert_eq!(
+            shown(&mut map, "Wall of Am", &["w", "e"], Some("w")),
+            Located::Here(3)
+        );
+    }
+    assert_eq!(map.unshown_exits(UNSHOWN_AFTER), [(4, "n".to_owned(), 3)]);
+    assert_eq!(map.room(4).unwrap().exits["n"].to, 5);
+    // Shown once, it starts again.
+    shown(&mut map, "Gate", &["w", "n"], Some("e"));
+    assert!(map.unshown_exits(1).is_empty());
 }

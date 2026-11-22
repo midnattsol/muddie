@@ -9,6 +9,7 @@ mod adding;
 mod directions;
 mod editing;
 mod ghosts;
+mod healing;
 mod info;
 mod journal;
 mod locating;
@@ -27,6 +28,7 @@ pub use directions::{
     DIRECTIONS, Direction, canonical_direction, direction_offset, direction_rank, known_direction,
 };
 pub use editing::Replaced;
+pub use healing::UNSHOWN_AFTER;
 pub use info::RoomInfo;
 pub use journal::Changed;
 pub use locating::{Located, Sighting};
@@ -239,8 +241,16 @@ pub struct Map {
     /// otherwise, each with that name: put right once a move is to a room
     /// as the map has it. The last is where the player is.
     pending: Vec<(RoomId, String)>,
-    /// Whether names are put right so.
-    fix_names: bool,
+    /// Whether what the map has wrong is put right as the player goes.
+    put_right: bool,
+    /// Whether the map knows for certain the player is where it has them:
+    /// the room as last shown, by its own name and with all its exits.
+    sure: bool,
+    /// An exit that led to a room beside, to be put right if borne out.
+    reroute: Option<healing::Reroute>,
+    /// For each exit of a room the player came to without the server
+    /// showing it, how many times in a row.
+    unshown: HashMap<(RoomId, String), u32>,
 }
 
 impl Drop for Map {
@@ -322,7 +332,7 @@ impl Map {
         self.candidates.clear();
         self.unsaved.clear();
         self.changes.clear();
-        self.pending.clear();
+        self.forget_healing();
         self.revision += 1;
         match &mut self.store {
             Some(store) => store.clear(),

@@ -203,9 +203,9 @@ fn install_visiting(
 
     let world = Rc::clone(map);
     api.set(
-        "fix_names",
+        "put_right",
         lua.create_function(move |_, on: bool| {
-            world.borrow_mut().set_fix_names(on);
+            world.borrow_mut().set_put_right(on);
             Ok(())
         })?,
     )?;
