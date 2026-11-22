@@ -43,6 +43,13 @@ impl Tab {
                             ui.close();
                         }
                     }
+                    // The last room the map added, while there is one.
+                    if self.map.borrow().last_added().is_some()
+                        && widgets::menu_item(ui, tr("Undo the last room added"), "").clicked()
+                    {
+                        asked = Some(PanelAsk::UndoAdded);
+                        ui.close();
+                    }
                 }
             }
             if widgets::menu_item(ui, tr("Arrange the panels…"), "").clicked() {
@@ -58,6 +65,7 @@ impl Tab {
             Some(PanelAsk::Hide) => self.layout.panels[index].visible = false,
             Some(PanelAsk::Remove) => self.panels.removed = Some(index),
             Some(PanelAsk::MapTool(label)) => self.use_map_tool(&label),
+            Some(PanelAsk::UndoAdded) => self.undo_added(),
             None => {}
         }
     }
@@ -129,6 +137,7 @@ enum PanelAsk {
     Remove,
     /// What a script offered to do with the map, by what it is chosen by.
     MapTool(String),
+    UndoAdded,
 }
 
 /// The panel's name, to change.

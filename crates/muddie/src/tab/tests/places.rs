@@ -972,3 +972,70 @@ fn the_game_is_played_in_the_language_its_profile_plugin_or_mud_says() {
     app.speak_the_language();
     assert_eq!(spoken(app).1, "noroeste");
 }
+
+/// The rooms the map added of itself are listed, to go to, said apart,
+/// and undone; and the rooms that look wrong are found.
+#[test]
+fn the_rooms_the_map_added_are_listed_said_apart_undone_and_checked() {
+    let mut harness = window(None);
+    let app = harness.state_mut().tab_mut();
+    desert(app);
+    assert_eq!(answer(app, "/map added"), ["The map has added no room."]);
+    assert_eq!(
+        answer(app, "/map check"),
+        ["Nothing on the map looks wrong."]
+    );
+    let exits = ["s".to_owned(), "e".to_owned()];
+    {
+        let mut map = app.map.borrow_mut();
+        map.set_current(4);
+        let seen = muddie_mapper::Arrival {
+            name: "Oasis",
+            exits: &exits,
+            came: "n",
+        };
+        map.add(seen).unwrap();
+    }
+    let id = muddie_mapper::ADDED_FROM;
+    assert_eq!(
+        answer(app, "/map added"),
+        [format!("Oasis (#{id}): Desierto")]
+    );
+    let info = answer(app, "/map info");
+    assert!(
+        info[0].contains("Not explored: east, south. The map added it where you went"),
+        "{info:?}"
+    );
+    // A room with no name, which nothing leads to.
+    app.map
+        .borrow_mut()
+        .set_room(RoomInfo {
+            id: 9,
+            name: String::new(),
+            area: "Desierto".into(),
+            exits: Default::default(),
+            pos: None,
+            colour: None,
+        })
+        .unwrap();
+    let checked = answer(app, "/map check");
+    assert_eq!(checked.len(), 1);
+    assert!(checked[0].ends_with(": no name"), "{checked:?}");
+    assert_eq!(
+        answer(app, "/map undo"),
+        ["Undone: Oasis is no longer on the map."]
+    );
+    assert!(app.map.borrow().room(id).is_none());
+    assert_eq!(
+        answer(app, "/map undo"),
+        ["The map has added no room to undo."]
+    );
+    assert_eq!(
+        answer(app, "/map remove 9"),
+        ["(#9) is no longer on the map."]
+    );
+    assert_eq!(
+        answer(app, "/map check"),
+        ["Nothing on the map looks wrong."]
+    );
+}

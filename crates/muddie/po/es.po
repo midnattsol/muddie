@@ -2606,3 +2606,76 @@ msgstr "Elegir un perfil"
 
 msgid "These are of sessions without a profile: choosing a profile puts them aside."
 msgstr "Son los de las sesiones sin perfil: al elegir un perfil se dejan a un lado."
+
+#, python-brace-format
+msgid "Not explored: {0}"
+msgstr "Sin explorar: {0}"
+
+msgid "The map added it where you went: the map taken from elsewhere does not have it."
+msgstr "La añadió el mapa donde fuiste: el mapa traído de fuera no la tiene."
+
+msgid "added by the map"
+msgstr "añadida por el mapa"
+
+msgid "Undo the last room added"
+msgstr "Deshacer la última sala añadida"
+
+msgid "The map has added no room to undo."
+msgstr "El mapa no ha añadido ninguna sala que deshacer."
+
+#, python-brace-format
+msgid "Undone: {0} is no longer on the map."
+msgstr "Deshecho: «{0}» ya no está en el mapa."
+
+#, python-brace-format
+msgid "Undone: the way to {0} is no longer on the map."
+msgstr "Deshecho: el camino a «{0}» ya no está en el mapa."
+
+msgid "The map has added no room."
+msgstr "El mapa no ha añadido ninguna sala."
+
+msgid "no name"
+msgstr "sin nombre"
+
+msgid "no exit leads to it or from it"
+msgstr "ninguna salida lleva a ella ni sale de ella"
+
+msgid "Nothing on the map looks wrong."
+msgstr "Nada del mapa parece estar mal."
+
+msgid "Give the number of the room: /map remove <number>."
+msgstr "Di el número de la sala: /map remove <número>."
+
+#, python-brace-format
+msgid "{0} is no longer on the map."
+msgstr "«{0}» ya no está en el mapa."
+
+#, python-brace-format
+msgid "And {0} more."
+msgid_plural "And {0} more."
+msgstr[0] "Y {0} más."
+msgstr[1] "Y {0} más."
+
+#, python-brace-format
+msgid "{0} room the map had added is the map's now."
+msgid_plural "{0} rooms the map had added are the map's now."
+msgstr[0] "{0} sala que había añadido el mapa es ya del mapa oficial."
+msgstr[1] "{0} salas que había añadido el mapa son ya del mapa oficial."
+
+#, python-brace-format
+msgid "{0} room the map added, which the map taken does not have, was kept."
+msgid_plural "{0} rooms the map added, which the map taken does not have, were kept."
+msgstr[0] "Se ha mantenido {0} sala que añadió el mapa y que el mapa traído no tiene."
+msgstr[1] "Se han mantenido {0} salas que añadió el mapa y que el mapa traído no tiene."
+
+msgid "Lists the rooms the map added of itself where you went"
+msgstr "Muestra las salas que el mapa añadió por su cuenta donde fuiste"
+
+msgid "Undoes the last room the map added"
+msgstr "Deshace la última sala que añadió el mapa"
+
+msgid "Lists the rooms that look wrong: with no name, or that no exit leads to or from"
+msgstr "Muestra las salas que parecen estar mal: sin nombre, o sin ninguna salida que lleve a ellas ni salga de ellas"
+
+msgid "Takes a room off the map"
+msgstr "Quita una sala del mapa"

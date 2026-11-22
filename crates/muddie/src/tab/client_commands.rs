@@ -5,7 +5,7 @@ use super::*;
 /// The client's own commands, as they are typed, and what each is for.
 /// They are in English whatever the language of the interface, like the
 /// words of a programming language.
-pub(super) const COMMANDS: [(&str, &str); 33] = [
+pub(super) const COMMANDS: [(&str, &str); 37] = [
     ("/map where", "Says where you are"),
     (
         "/map here [number]",
@@ -51,6 +51,16 @@ pub(super) const COMMANDS: [(&str, &str); 33] = [
         "Keeps routes from an exit of this room, or lets them use it again",
     ),
     ("/map tidy", "Draws this area again from scratch"),
+    (
+        "/map added",
+        "Lists the rooms the map added of itself where you went",
+    ),
+    ("/map undo", "Undoes the last room the map added"),
+    (
+        "/map check",
+        "Lists the rooms that look wrong: with no name, or that no exit leads to or from",
+    ),
+    ("/map remove <number>", "Takes a room off the map"),
     (
         "/map import [file or address]",
         "Takes a map made with Mudlet in place of this one",
@@ -111,6 +121,10 @@ impl Tab {
             "/avoid" => self.toggle_avoid(argument),
             "/lock" if given => self.toggle_lock(argument),
             "/tidy" => self.tidy_here(),
+            "/added" => self.list_added(),
+            "/undo" => self.undo_added(),
+            "/check" => self.check_map(),
+            "/remove-room" => self.remove_room_command(argument),
             "/packages" => self.list_plugins(),
             "/install" if given => self.install_plugin(argument),
             "/update" if given => self.update_plugin(argument),
@@ -221,6 +235,10 @@ pub(super) fn client_command(line: &str) -> Option<(&'static str, String)> {
         ("/map", "avoid") => "/avoid",
         ("/map", "lock") => "/lock",
         ("/map", "tidy") => "/tidy",
+        ("/map", "added") => "/added",
+        ("/map", "undo") => "/undo",
+        ("/map", "check") => "/check",
+        ("/map", "remove") => "/remove-room",
         ("/map", "show") => "/map-show",
         ("/map", "hide") => "/map-hide",
         ("/map", _) => "/map",

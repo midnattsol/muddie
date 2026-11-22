@@ -210,6 +210,22 @@ pub fn room_facts(map: &Map, room: &Room) -> Vec<String> {
     if !closed.is_empty() {
         facts.push(crate::i18n::trf("Closed: {0}", &[&closed.join(", ")]));
     }
+    let unexplored: Vec<String> = (ordered_exits(room).into_iter())
+        .filter(|way| map.room(room.exits[*way].to).is_none())
+        .map(|way| direction_words(map, way))
+        .collect();
+    if !unexplored.is_empty() {
+        facts.push(crate::i18n::trf(
+            "Not explored: {0}",
+            &[&unexplored.join(", ")],
+        ));
+    }
+    if room.added {
+        facts.push(
+            tr("The map added it where you went: the map taken from elsewhere does not have it.")
+                .to_owned(),
+        );
+    }
     if room.avoid {
         facts.push(tr("Routes avoid it.").to_owned());
     }

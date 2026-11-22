@@ -75,6 +75,8 @@ pub enum Act {
     Place(String),
     /// Does what a script offered to do with the map, chosen by this.
     MapTool(String),
+    /// Undoes the last room the map added.
+    UndoAdded,
 }
 
 /// What a session asks the window to do.

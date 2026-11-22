@@ -201,6 +201,10 @@ it.
 | `/map avoid [number]` | Keeps routes out of a room (the current one), or allows them again |
 | `/map lock <direction>` | Keeps routes off an exit of this room, or allows it again |
 | `/map tidy` | Draws the current area again from scratch |
+| `/map added` | Lists the rooms the map added of itself where you went, to travel to each |
+| `/map undo` | Undoes the last room the map added; also **Undo the last room added**, in the map's menu and the palette |
+| `/map check` | Lists the rooms that look wrong: with no name, or that no exit leads to or from |
+| `/map remove <number>` | Takes a room off the map |
 | `/map show`, `/map hide` | Shows or hides the map panel |
 | `/plugin list` | Lists the installed plugins |
 | `/plugin install <git address> [name]` | Installs a plugin and enables it in this profile |
@@ -587,6 +591,20 @@ too, when it is in your area and level.
 
 A room marked to avoid is never walked through, and a locked exit is never
 used. Both are kept when the server reports the room again.
+
+A plugin can have the map add the rooms it does not have where you go,
+for a MUD that does not say which room you are in. The map adds one only
+when it knows for certain where you were, and only after looking for it
+among the rooms it has: that way from where you were, with that name and
+those exits, it links to it rather than have it twice; through any other
+exit, such as a portal, which could lead anywhere, it adds nothing if any
+room it has could be the one. A room added is drawn with a dashed border,
+and said to be added; its exits are said not explored until you take
+them, and the way back is not assumed until you walk it. `/map added`
+lists them, and `/map undo` undoes the last. When the map is taken again,
+they stay; one the map taken has by then, reached from a room by the same
+exit and with the same name and exits, becomes that room, with your notes
+and names.
 
 Maps made by hand gather rooms left over: a copy of a room, in its very
 place and of its name, that no other room leads to, made when a room was

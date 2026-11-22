@@ -50,6 +50,7 @@ mod mxp;
 mod panel_sizes;
 mod places;
 mod plugins;
+mod reviewing;
 mod scripts;
 mod switching;
 #[cfg(test)]

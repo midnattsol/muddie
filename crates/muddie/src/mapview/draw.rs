@@ -338,7 +338,8 @@ fn draw_stretch(painter: &Painter, stretch: &mut Vec<Pos2>, stroke: Stroke) {
 
 /// The rooms shown, each in its colour: the player's glowing and ringed
 /// (each they may be in, only ringed, while the map is unsure), the end
-/// of a walk ringed, avoided ones struck through, their exits up, down
+/// of a walk ringed, avoided ones struck through, those the map added
+/// of itself dashed round, their exits up, down
 /// and off the compass marked inside, and those of other areas, with
 /// every area on show, faint. The player's are drawn last, over any room
 /// in the same place.
@@ -369,7 +370,24 @@ pub(super) fn draw_rooms(
             true => Stroke::new(1.5, colours.avoided),
             false => Stroke::new(1.0, theme::mix(fill, Color32::BLACK, 0.45)),
         };
-        painter.rect(rect, corner, fill, border, StrokeKind::Inside);
+        if room.added && !room.avoid {
+            // A room the map added of itself, which no map taken has:
+            // dashed round, in the colour of exits, to tell it apart.
+            painter.rect_filled(rect, corner, fill);
+            let line = Stroke::new(1.5, colours.exit);
+            let dash = (half * 0.35).max(2.0);
+            let ring = rect.expand(1.5);
+            let points = [
+                ring.left_top(),
+                ring.right_top(),
+                ring.right_bottom(),
+                ring.left_bottom(),
+                ring.left_top(),
+            ];
+            painter.extend(Shape::dashed_line(&points, line, dash, dash));
+        } else {
+            painter.rect(rect, corner, fill, border, StrokeKind::Inside);
+        }
         if room.avoid {
             let inset = rect.shrink(half * 0.3);
             let strike = Stroke::new(grid.line_width() + 0.5, colours.avoided);
@@ -466,6 +484,9 @@ pub(super) fn room_tip(response: Response, map: &Map, pointed: Option<&Room>) {
         return;
     };
     let mut text = numbered(map, room);
+    if room.added {
+        text.push_str(&format!(", {}", tr("added by the map")));
+    }
     if room.avoid {
         text.push_str(&format!(", {}", tr("avoided")));
     }

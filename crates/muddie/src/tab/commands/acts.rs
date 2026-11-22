@@ -17,6 +17,7 @@ impl Tab {
             (self.scripts.map_tools().into_iter())
                 .map(|label| item(&label, map, Act::MapTool(label.clone()))),
         );
+        acts.push(item(tr("Undo the last room added"), map, Act::UndoAdded));
         // In the editor, what is changed in it is undone and redone.
         if self.editor.open {
             acts.push(item(tr("Undo"), tr("Editor"), Act::Undo(false)));
@@ -200,6 +201,7 @@ impl Tab {
             },
             Act::Undo(again) => self.undo_step(again),
             Act::MapTool(label) => self.use_map_tool(&label),
+            Act::UndoAdded => self.undo_added(),
             Act::CopyOutput => {
                 ctx.copy_text(self.output.all_text());
                 self.say(tr("Output copied."), false);

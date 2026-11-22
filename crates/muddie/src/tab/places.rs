@@ -517,15 +517,32 @@ fn brought_up_to_date(replaced: muddie_mapper::Replaced) -> String {
     sentences(said)
 }
 
-/// That the names the user gave rooms were kept, if any were.
-fn names_kept(replaced: muddie_mapper::Replaced) -> Option<String> {
-    (replaced.renamed > 0).then(|| {
-        trn(
+/// That the names the user gave rooms were kept, if any were, and what
+/// became of the rooms the map had added.
+fn names_kept(replaced: muddie_mapper::Replaced) -> Vec<String> {
+    let mut said = Vec::new();
+    if replaced.renamed > 0 {
+        said.push(trn(
             "The name you gave {0} room was kept.",
             "The names you gave {0} rooms were kept.",
             replaced.renamed as u64,
-        )
-    })
+        ));
+    }
+    if replaced.joined > 0 {
+        said.push(trn(
+            "{0} room the map had added is the map's now.",
+            "{0} rooms the map had added are the map's now.",
+            replaced.joined as u64,
+        ));
+    }
+    if replaced.added > 0 {
+        said.push(trn(
+            "{0} room the map added, which the map taken does not have, was kept.",
+            "{0} rooms the map added, which the map taken does not have, were kept.",
+            replaced.added as u64,
+        ));
+    }
+    said
 }
 
 /// Why a map is being taken: the user or a script asked for it, or one
