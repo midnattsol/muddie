@@ -174,21 +174,32 @@ impl Tab {
 
     /// Says all the map knows of a room: the one given, or the player's.
     pub(super) fn say_info(&mut self, argument: &str) {
-        let said = {
+        let said = self.room_meant(argument).map(|id| {
             let map = self.map.borrow();
-            let room = match argument {
-                "" => map.current(),
-                place => map.rooms_meant(place).first().and_then(|id| map.room(*id)),
-            };
-            room.map(|room| info_of(&map, room))
-        };
+            map.room(id)
+                .map(|room| info_of(&map, room))
+                .unwrap_or_default()
+        });
         match said {
-            Some(said) => self.note(&said),
-            None if argument.is_empty() => {
-                let said = self.unknown_whereabouts();
-                self.refuse(&said);
-            }
-            None => self.refuse(tr("No room matches.")),
+            Ok(said) => self.note(&said),
+            Err(why) => self.refuse(&why),
+        }
+    }
+
+    /// The room a command means: by number, mark, name, or area and name,
+    /// the nearest of several; with nothing given, the player's. Else why
+    /// there is none.
+    pub(super) fn room_meant(&self, argument: &str) -> Result<RoomId, String> {
+        let map = self.map.borrow();
+        let found = match argument.trim() {
+            "" => map.current().map(|room| room.id),
+            place => map.rooms_meant(place).first().copied(),
+        };
+        drop(map);
+        match found {
+            Some(id) => Ok(id),
+            None if argument.trim().is_empty() => Err(self.unknown_whereabouts()),
+            None => Err(tr("No room matches.").to_owned()),
         }
     }
 

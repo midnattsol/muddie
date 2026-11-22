@@ -15,6 +15,7 @@ impl Tab {
         }
         self.gauge_window(ui.ctx());
         self.look_window(ui.ctx());
+        self.tidy_window(ui.ctx());
         // The palette of commands, over whichever view is shown.
         self.palette(ui.ctx());
         // The layout and the editor take the place of the game while open.
@@ -119,7 +120,7 @@ impl Tab {
     fn map_asked(&mut self, asked: Option<MapAction>) {
         match asked {
             Some(MapAction::Walk(room)) => self.walk_to(room),
-            Some(MapAction::Tidy(area)) => self.tidy(&area, false),
+            Some(MapAction::Tidy(area)) => self.tidy_chosen(&area),
             Some(MapAction::Scripts) => self.open_automation(automation::SCRIPTS),
             Some(MapAction::Selected(room, came)) => {
                 let told = {

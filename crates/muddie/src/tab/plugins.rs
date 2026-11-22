@@ -170,7 +170,7 @@ impl Tab {
         if let Some(profiles) = &self.profiles
             && let Err(error) = rules.save(&profiles.rules_path(self.profile.as_deref()))
         {
-            self.note(&trf("Could not save the rules: {0}", &[&error]));
+            self.refuse(&trf("Could not save the rules: {0}", &[&error]));
         }
         self.reload_rules(Some(rules));
     }
@@ -270,7 +270,7 @@ impl Tab {
     /// profile and runs the scripts again.
     pub(super) fn set_package(&mut self, name: &str, enable: bool) {
         let Some(profile) = self.profile.clone() else {
-            return self.note(tr(
+            return self.refuse(tr(
                 "Plugins are enabled per profile: save or choose a profile first.",
             ));
         };
@@ -297,7 +297,7 @@ impl Tab {
             .map(Profiles::packages)
             .unwrap_or_default();
         let Some(folder) = folder.filter(|_| installed.iter().any(|plugin| plugin == name)) else {
-            return self.note(tr("No such plugin is installed; see /plugin list."));
+            return self.refuse(tr("No such plugin is installed; see /plugin list."));
         };
         // Its name came from the list of folders there, so this is one.
         match std::fs::remove_dir_all(folder.join(name)) {
@@ -307,7 +307,7 @@ impl Tab {
                     self.set_package(name, false);
                 }
             }
-            Err(error) => self.note(&trf(
+            Err(error) => self.refuse(&trf(
                 "The plugin could not be removed: {0}",
                 &[&error.to_string()],
             )),
@@ -387,10 +387,10 @@ impl Tab {
                 self.package_jobs
                     .push((packages::install(&folder, &name, address), true));
             }
-            (None, _) => self.note(tr(
+            (None, _) => self.refuse(tr(
                 "Plugins need a configuration folder, and none was found.",
             )),
-            (_, None) => self.note(tr(
+            (_, None) => self.refuse(tr(
                 "Give the plugin a name after the address: letters, digits, - and _.",
             )),
         }
@@ -404,7 +404,7 @@ impl Tab {
                 self.package_jobs
                     .push((packages::update(&folder, name), false));
             }
-            None => self.note(tr(
+            None => self.refuse(tr(
                 "Plugins need a configuration folder, and none was found.",
             )),
         }
@@ -418,7 +418,7 @@ impl Tab {
             .map(Profiles::packages)
             .unwrap_or_default();
         if enable && !installed.iter().any(|package| package == name) {
-            return self.note(tr("No such plugin is installed; see /plugin list."));
+            return self.refuse(tr("No such plugin is installed; see /plugin list."));
         }
         self.set_package(name, enable);
     }

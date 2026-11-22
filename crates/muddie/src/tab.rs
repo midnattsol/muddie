@@ -128,6 +128,8 @@ pub struct Tab {
     map_told: (Vec<muddie_mapper::Changed>, Option<Instant>),
     /// How a room looks, being chosen, while its dialog is open.
     look: Option<look::Look>,
+    /// The area asked to be tidied, while the dialog asks whether to.
+    tidy_asked: Option<String>,
     /// The view where the panels are laid out.
     arrange: arrange::Arrange,
     /// Output arrived while the session was not on screen.
@@ -305,6 +307,7 @@ impl Tab {
             map_source: Default::default(),
             map_told: Default::default(),
             look: None,
+            tidy_asked: None,
             arrange: Default::default(),
             unread: false,
             settings: settings.clone(),

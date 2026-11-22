@@ -1,6 +1,7 @@
 //! Where the player is on the map, and walking to a room.
 
 use super::*;
+use crate::widgets;
 
 /// How long a walk waits for a move to take effect before giving up, as
 /// happens at a closed door.
@@ -186,12 +187,53 @@ impl Tab {
         }
     }
 
-    /// Draws an area again from scratch; a large one only if `all`.
-    pub(super) fn tidy(&mut self, area: &str, all: bool) {
+    /// How many rooms an area has, if more than are tidied unasked.
+    fn too_many_to_tidy(&self, area: &str) -> Option<usize> {
         let rooms = (self.map.borrow().rooms())
             .filter(|room| room.area == area)
             .count();
-        if rooms > MAX_TIDIED && !all {
+        (rooms > MAX_TIDIED).then_some(rooms)
+    }
+
+    /// Tidies an area chosen on the map: a large one once the user says so,
+    /// in a dialog.
+    pub(super) fn tidy_chosen(&mut self, area: &str) {
+        match self.too_many_to_tidy(area) {
+            Some(_) => self.tidy_asked = Some(area.to_owned()),
+            None => self.tidy(area, false),
+        }
+    }
+
+    /// The dialog that asks whether to tidy a large area, while open.
+    pub(super) fn tidy_window(&mut self, ctx: &egui::Context) {
+        let Some(area) = self.tidy_asked.clone() else {
+            return;
+        };
+        let rooms = self.too_many_to_tidy(&area).unwrap_or_default();
+        let (mut open, mut tidy, mut cancel) = (true, false, false);
+        let size = crate::theme::size::DIALOG_S;
+        widgets::dialog(ctx, "tidy", tr("Tidy the area"), &mut open, size, |ui| {
+            ui.label(trf(
+                "{0} has {1} rooms: they are all drawn again, and what was placed by hand is lost.",
+                &[&area, &rooms.to_string()],
+            ));
+            ui.add_space(10.0);
+            ui.horizontal(|ui| {
+                tidy = widgets::primary_button(ui, tr("Tidy")).clicked();
+                cancel = widgets::quiet_button(ui, tr("Cancel")).clicked();
+            });
+        });
+        if tidy {
+            self.tidy(&area, true);
+        }
+        if !open || tidy || cancel {
+            self.tidy_asked = None;
+        }
+    }
+
+    /// Draws an area again from scratch; a large one only if `all`.
+    pub(super) fn tidy(&mut self, area: &str, all: bool) {
+        if let (Some(rooms), false) = (self.too_many_to_tidy(area), all) {
             return self.refuse(&trf(
                 "{0} has {1} rooms: tidying it would draw them all again, and what was drawn by hand would be lost. To tidy it anyway: /map tidy all.",
                 &[area, &rooms.to_string()],
@@ -308,18 +350,12 @@ impl Tab {
     /// Lets routes pass through a room, or keeps them out of it: the one
     /// given by number, or the one the player is in.
     pub(super) fn toggle_avoid(&mut self, room: &str) {
-        let target = {
-            let map = self.map.borrow();
-            let found = match room.parse::<RoomId>() {
-                Ok(id) => map.room(id),
-                Err(_) if room.is_empty() => map.current(),
-                Err(_) => None,
-            };
-            found.map(|room| (room.id, !room.avoid))
-        };
-        match target {
-            Some((id, avoid)) => self.avoid_room(id, avoid),
-            None => self.refuse(tr("No such room; use /map avoid with a room number.")),
+        match self.room_meant(room) {
+            Ok(id) => {
+                let avoid = self.map.borrow().room(id).is_some_and(|room| !room.avoid);
+                self.avoid_room(id, avoid);
+            }
+            Err(why) => self.refuse(&why),
         }
     }
 

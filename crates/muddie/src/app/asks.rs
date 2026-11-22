@@ -1,6 +1,6 @@
 //! What is asked before something is done: the name for a new profile, a
-//! copy or another name, whether to delete one, and where to install a
-//! plugin from.
+//! copy or another name, whether to delete one, where to install a plugin
+//! from, and whether to remove one.
 
 use super::*;
 use crate::profile::{Profile, SessionPrefs};
@@ -27,6 +27,8 @@ pub(super) enum Ask {
     Delete(String),
     /// The address of the git repository of a plugin to install.
     Install(String),
+    /// Whether to remove an installed plugin, from every profile.
+    RemovePlugin(String),
 }
 
 impl Ask {
@@ -38,6 +40,7 @@ impl Ask {
             Ask::Duplicate { .. } => tr("Duplicate profile"),
             Ask::Delete(_) => tr("Delete profile"),
             Ask::Install(_) => tr("Install a plugin"),
+            Ask::RemovePlugin(_) => tr("Remove plugin"),
         }
     }
 
@@ -50,6 +53,7 @@ impl Ask {
             Ask::Duplicate { .. } => tr("Duplicate"),
             Ask::Delete(_) => tr("Delete"),
             Ask::Install(_) => tr("Install"),
+            Ask::RemovePlugin(_) => tr("Remove"),
         }
     }
 
@@ -64,7 +68,7 @@ impl Ask {
                 tr("Address of its git repository"),
                 "https://github.com/…/….git",
             )),
-            Ask::Delete(_) => None,
+            Ask::Delete(_) | Ask::RemovePlugin(_) => None,
         }
     }
 }
@@ -171,6 +175,10 @@ impl App {
             Ask::Install(address) => {
                 let command = format!("/plugin install {}", address.trim());
                 self.tabs[self.active].plugin_command(&command);
+                Ok(None)
+            }
+            Ask::RemovePlugin(name) => {
+                self.tabs[self.active].plugin_command(&format!("/plugin remove {name}"));
                 Ok(None)
             }
         };
@@ -354,6 +362,12 @@ fn ask_body(
         Ask::Delete(name) => {
             ui.label(trf(
                 "Delete {0}? Its scripts, rules, map and layout go with it.",
+                &[name],
+            ));
+        }
+        Ask::RemovePlugin(name) => {
+            ui.label(trf(
+                "Remove {0}? Its files are deleted, and it goes from every profile.",
                 &[name],
             ));
         }

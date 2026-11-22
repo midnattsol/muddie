@@ -523,6 +523,15 @@ impl MapView {
         if crate::widgets::menu_pressed(&response) {
             self.menu_room = pointed.map(|room| room.id);
         }
+        // Opened with the keys, the menu is of the room being explored.
+        let by_keys = response.has_focus()
+            && ui.input(|input| {
+                (input.modifiers.shift && input.key_pressed(egui::Key::F10))
+                    || input.key_pressed(egui::Key::Menu)
+            });
+        if by_keys {
+            self.menu_room = Some(self.selected.unwrap_or(current.id));
+        }
         let mut chosen = tools.action(&area).or(prompted);
         if let Some(asked) = self.room_menu(&response, map, &area) {
             chosen = Some(asked);
@@ -802,8 +811,9 @@ impl MapView {
         None
     }
 
-    /// The menu of the room right-clicked: walk there, avoid it, its
-    /// appearance, tidy its area, show all areas. Returns what was chosen.
+    /// The menu of a room, right-clicked or, while exploring, opened with
+    /// Shift+F10 or the menu key: all that is done with a room, the same
+    /// either way, then its area. Returns what was chosen.
     fn room_menu(&mut self, response: &Response, map: &Map, area: &str) -> Option<MapAction> {
         let mut chosen = None;
         crate::widgets::context_menu_of(response, |ui| {
@@ -811,20 +821,45 @@ impl MapView {
             let room = self.menu_room.and_then(|id| map.room(id));
             if let Some(room) = room {
                 widgets::menu_heading(ui, &numbered(map, room));
-                if widgets::menu_item(ui, tr("Go here"), "").clicked() {
-                    chosen = Some(MapAction::Walk(room.id));
-                    ui.close();
-                }
-                let toggle = if room.avoid {
-                    tr("Allow in routes")
-                } else {
-                    tr("Avoid in routes")
+                let mut item = |ui: &mut Ui, label: &str, keys: &str, action: MapAction| {
+                    if widgets::menu_item(ui, label, keys).clicked() {
+                        chosen = Some(action);
+                        ui.close();
+                    }
                 };
-                if widgets::menu_item(ui, toggle, "").clicked() {
-                    chosen = Some(MapAction::Avoid(room.id, !room.avoid));
+                item(ui, tr("Go here"), "Enter", MapAction::Walk(room.id));
+                item(
+                    ui,
+                    tr("The way there"),
+                    "Shift+Enter",
+                    MapAction::Way(room.id),
+                );
+                let info = crate::shortcuts::command!("I");
+                item(
+                    ui,
+                    tr("What the map knows of it"),
+                    info,
+                    MapAction::Info(room.id),
+                );
+                let mut asked = None;
+                if widgets::menu_item(ui, tr("Mark…"), crate::shortcuts::command!("B")).clicked()
+                {
+                    asked = Some(explore::Asked::Mark);
+                }
+                if widgets::menu_item(ui, tr("Note…"), crate::shortcuts::command!("N")).clicked()
+                {
+                    asked = Some(explore::Asked::Note);
+                }
+                if let Some(asked) = asked {
+                    self.ask(map, asked, room.id);
                     ui.close();
                 }
-                if widgets::menu_item(ui, tr("Appearance…"), "").clicked() {
+                let mut avoid = room.avoid;
+                if widgets::menu_check(ui, &mut avoid, tr("Avoid in routes")).clicked() {
+                    chosen = Some(MapAction::Avoid(room.id, avoid));
+                    ui.close();
+                }
+                if widgets::menu_item(ui, tr("Room appearance…"), "").clicked() {
                     chosen = Some(MapAction::Look(room.id));
                     ui.close();
                 }

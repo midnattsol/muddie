@@ -180,12 +180,12 @@ it.
 
 | Command | What it does |
 |---|---|
-| `/help` | Opens the palette of these commands |
+| `/help` | Lists these commands, in the palette |
 | `/lua <code>` | Runs a line of Luau |
 | `/reload` | Restarts the scripts and rules, as **Restart scripts** does in the editor |
 | `/log` | Starts or stops logging the session to a file |
 | `/tag`, `/tag <name> [on\|off]` | Lists the tags; switches one on or off for this session |
-| `/map where` | Says where the map has you, and the exits |
+| `/map where` | Says where you are |
 | `/map here [number]` | Tells the map which room you are in; alone, lists the rooms it is unsure between |
 | `/map find <text>` | Lists rooms whose name contains the text |
 | `/map go <place>` | Goes to a room by number, mark, name, or area and name: of several, the nearest (`/map travel` and `/map walk` too) |
@@ -196,15 +196,15 @@ it.
 | `/map mark [name]`, `/map unmark <name>` | Marks this room, to go to it by its mark; alone, lists the marks |
 | `/map note <text>`, `/map unnote` | Writes a note on this room, said with it and found by its words; takes it off |
 | `/map areas` | Lists the areas, with how many rooms each has |
-| `/map import <file or address>` | Takes a map made with Mudlet in place of this one |
+| `/map import [file or address]` | Takes a map made with Mudlet in place of this one |
 | `/map stop` | Stops going |
-| `/map avoid [number]` | Keeps routes out of a room (the current one), or allows them again |
+| `/map avoid [place]` | Keeps routes out of a room (the current one), or lets them in again |
 | `/map lock <direction>` | Keeps routes off an exit of this room, or allows it again |
-| `/map tidy [all]` | Draws the current area again from scratch. An area of more than 2000 rooms, as a map with all in one area, only with `all` |
+| `/map tidy [all]` | Draws the current area again from scratch. An area of more than 2000 rooms, as a map with all in one area, only with `all`; from the map, it is asked first |
 | `/map added` | Lists the rooms the map added of itself where you went, to go to each |
 | `/map undo` | Undoes the last change the map made of itself, a room added or a name put right; also **Undo the map's last change**, in the map's menu and the palette |
 | `/map check` | Lists the rooms that look wrong: with no name, that no exit leads to or from, or with an exit the game has not shown the last times you came |
-| `/map remove <number>` | Takes a room off the map |
+| `/map remove <place>` | Takes a room off the map |
 | `/map show`, `/map hide` | Shows or hides the map panel |
 | `/plugin list` | Lists the installed plugins |
 | `/plugin install <git address> [name]` | Installs a plugin and enables it in this profile |

@@ -28,9 +28,9 @@ pub enum ProfileAction {
 pub fn profile_menu(ui: &mut Ui) -> Option<ProfileAction> {
     widgets::menu_width(ui);
     let items = [
-        (ProfileAction::Duplicate, tr("Duplicate")),
-        (ProfileAction::Rename, tr("Rename")),
-        (ProfileAction::Delete, tr("Delete")),
+        (ProfileAction::Duplicate, tr("Duplicate…")),
+        (ProfileAction::Rename, tr("Rename…")),
+        (ProfileAction::Delete, tr("Delete…")),
     ];
     let mut chosen = None;
     for (action, label) in items {

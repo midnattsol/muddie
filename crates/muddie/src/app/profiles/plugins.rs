@@ -23,7 +23,7 @@ pub(in crate::app) fn installed_row(
                 asked = Some(format!("/plugin update {name}"));
                 ui.close();
             }
-            if widgets::menu_item(ui, tr("Remove"), "").clicked() {
+            if widgets::menu_item(ui, tr("Remove…"), "").clicked() {
                 asked = Some(format!("/plugin remove {name}"));
                 ui.close();
             }
@@ -128,7 +128,14 @@ impl App {
             self.ask_error = None;
         }
         for command in commands {
-            self.tabs[self.active].plugin_command(&command);
+            // Removing one, which cannot be undone, is asked first.
+            match command.strip_prefix("/plugin remove ") {
+                Some(name) => {
+                    self.asking = Some(Ask::RemovePlugin(name.to_owned()));
+                    self.ask_error = None;
+                }
+                None => self.tabs[self.active].plugin_command(&command),
+            }
         }
         self.plugin_answers(ui);
     }

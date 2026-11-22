@@ -124,10 +124,20 @@ impl PanelSpec {
     /// Its name as shown: the ones the program gives are in the language
     /// of the interface; what it is kept as stays, as scripts name it so.
     pub fn shown_name(&self) -> String {
-        match self.name.as_str() {
-            "Map" => tr("Map").to_owned(),
-            "Gauges" => tr("Gauges").to_owned(),
-            name => name.to_owned(),
+        // "Panel 2" as much as "Map": the name given, with its number.
+        let (base, number) = match self.name.rsplit_once(' ') {
+            Some((base, number)) if number.parse::<u32>().is_ok() => (base, Some(number)),
+            _ => (self.name.as_str(), None),
+        };
+        let base = match base {
+            "Map" => tr("Map"),
+            "Gauges" => tr("Gauges"),
+            "Panel" => tr("Panel"),
+            _ => return self.name.clone(),
+        };
+        match number {
+            Some(number) => format!("{base} {number}"),
+            None => base.to_owned(),
         }
     }
 }

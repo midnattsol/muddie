@@ -12,7 +12,7 @@ const EXPLORING_KEYS: &str =
     "Arrows follow the exits, Enter goes, Escape goes back. F1 says all the keys.";
 
 /// Every key while exploring, said with F1.
-const ALL_KEYS: &str = "Arrows, or the keypad, follow the exits; Page Up and Page Down go up and down, as minus and plus on the keypad, and slash and star go in and out. Home comes back to you, Backspace to the room before. Space says the room again, {0} all about it, {1} what is noted near. {2} searches the map. {3} gives the room a name, {4} writes a note on it. Enter goes there, Shift+Enter says the way. Escape, or typing, goes back to the command line.";
+const ALL_KEYS: &str = "Arrows, or the keypad, follow the exits; Page Up and Page Down go up and down, as minus and plus on the keypad, and slash and star go in and out. Home comes back to you, Backspace to the room before. Space says the room again, {0} all about it, {1} what is noted near. {2} searches the map. {3} marks the room, {4} writes a note on it. Enter goes there, Shift+Enter says the way. Shift+F10 opens the room's menu, with all that is done with it. Escape, or typing, goes back to the command line.";
 
 /// How many moves away from the room chosen what is noted is looked for.
 const NEAR: usize = 10;
@@ -21,10 +21,10 @@ const NEAR_SAID: usize = 6;
 
 /// What the line over the map asks for while exploring.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Asked {
+pub(super) enum Asked {
     /// What to look for on the map.
     Search,
-    /// A name for the room chosen.
+    /// A mark for the room chosen.
     Mark,
     /// A note on the room chosen.
     Note,
@@ -174,16 +174,7 @@ impl MapView {
             (egui::Key::N, Asked::Note),
         ];
         if let Some((_, asked)) = asked.into_iter().find(|(key, _)| command(*key)) {
-            let note = map.room(chosen).map(|room| room.note.clone());
-            self.prompt = Some(Prompt {
-                asked,
-                room: chosen,
-                text: note.filter(|_| asked == Asked::Note).unwrap_or_default(),
-                searched: None,
-                found: Vec::new(),
-                at: 0,
-                focus: true,
-            });
+            self.ask(map, asked, chosen);
             return None;
         }
         if pressed(egui::Modifiers::NONE, egui::Key::Space) {
@@ -219,6 +210,21 @@ impl MapView {
     }
 
     /// Moves the room chosen along its exit `way`, or says there is none.
+    /// Asks, in a line under the map, what is to be searched, or a room's
+    /// mark or note: from the keys, or the room's menu.
+    pub(super) fn ask(&mut self, map: &Map, asked: Asked, room: RoomId) {
+        let note = map.room(room).map(|room| room.note.clone());
+        self.prompt = Some(Prompt {
+            asked,
+            room,
+            text: note.filter(|_| asked == Asked::Note).unwrap_or_default(),
+            searched: None,
+            found: Vec::new(),
+            at: 0,
+            focus: true,
+        });
+    }
+
     fn step(&mut self, map: &Map, from: RoomId, way: &'static str) -> MapAction {
         let to = (map.room(from))
             .and_then(|room| room.exits.get(way))

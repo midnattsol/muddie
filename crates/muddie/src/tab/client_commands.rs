@@ -28,7 +28,10 @@ pub(super) const COMMANDS: [(&str, &str); 37] = [
         "/map explore",
         "Explores the map with the keys, from where you are, without moving",
     ),
-    ("/map near [moves]", "Lists what is a few moves away"),
+    (
+        "/map near [moves]",
+        "Lists what is up to three moves away, or as many as given",
+    ),
     ("/map info [place]", "Says all the map knows of a room"),
     (
         "/map mark [name]",
@@ -43,7 +46,7 @@ pub(super) const COMMANDS: [(&str, &str); 37] = [
     ("/map areas", "Lists the areas, to go to one"),
     ("/map stop", "Stops going"),
     (
-        "/map avoid [number]",
+        "/map avoid [place]",
         "Keeps routes out of a room, or lets them in again",
     ),
     (
@@ -63,7 +66,7 @@ pub(super) const COMMANDS: [(&str, &str); 37] = [
         "/map check",
         "Lists the rooms that look wrong: with no name, or that no exit leads to or from",
     ),
-    ("/map remove <number>", "Takes a room off the map"),
+    ("/map remove <place>", "Takes a room off the map"),
     (
         "/map import [file or address]",
         "Takes a map made with Mudlet in place of this one",
@@ -90,7 +93,7 @@ pub(super) const COMMANDS: [(&str, &str); 37] = [
     ("/log", "Starts or stops logging the session"),
     ("/reload", "Restarts the scripts and rules"),
     ("/lua <code>", "Runs a line of Luau"),
-    ("/help", "Lists these commands"),
+    ("/help", "Lists these commands, in the palette"),
 ];
 
 impl Tab {

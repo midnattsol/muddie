@@ -36,11 +36,6 @@ impl Tab {
                 Act::App(AppRequest::Settings(section)),
             )
         }));
-        acts.push(item(
-            tr("Profiles"),
-            settings,
-            Act::App(AppRequest::Profiles),
-        ));
         acts.extend(self.profile_acts());
         let help = tr("Help");
         acts.push(item(
@@ -73,6 +68,11 @@ impl Tab {
             tr("Close session"),
             session,
             Act::App(AppRequest::CloseSession),
+        ));
+        acts.push(item(
+            tr("Profiles"),
+            session,
+            Act::App(AppRequest::Profiles),
         ));
         acts.push(item(tr("Find"), session, Act::Find));
         acts.push(item(tr("Copy all output"), session, Act::CopyOutput));
@@ -148,7 +148,8 @@ impl Tab {
         acts
     }
 
-    /// Connecting to each saved profile, and editing it.
+    /// Connecting to each saved profile; they are edited from Profiles,
+    /// with the session's.
     fn profile_acts(&self) -> Vec<Item> {
         let profiles = self
             .profiles
@@ -156,13 +157,7 @@ impl Tab {
             .map(Profiles::names)
             .unwrap_or_default();
         (profiles.into_iter())
-            .flat_map(|name| {
-                let edit = AppRequest::Profile(crate::app::ProfileAction::Edit, name.clone());
-                [
-                    item(&name, tr("Connect to profile"), Act::Connect(name.clone())),
-                    item(&name, tr("Edit profile"), Act::App(edit)),
-                ]
-            })
+            .map(|name| item(&name, tr("Connect to profile"), Act::Connect(name.clone())))
             .collect()
     }
 

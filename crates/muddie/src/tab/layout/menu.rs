@@ -19,7 +19,7 @@ impl Tab {
         let mut asked = None;
         crate::widgets::menu_of(&more).show(|ui| {
             widgets::menu_width(ui);
-            if widgets::menu_item(ui, tr("Rename…"), "").clicked() {
+            if widgets::menu_item(ui, tr("Rename"), "").clicked() {
                 asked = Some(PanelAsk::Rename);
                 ui.close();
             }
@@ -39,7 +39,7 @@ impl Tab {
                 }
                 Kind::Map => {
                     self.map_view.menu_items(ui);
-                    if widgets::menu_item(ui, tr("Appearance…"), "").clicked() {
+                    if widgets::menu_item(ui, tr("Map appearance…"), "").clicked() {
                         asked = Some(PanelAsk::Appearance);
                         ui.close();
                     }

@@ -188,9 +188,6 @@ msgstr "Vista del mapa"
 msgid "Tidy this area"
 msgstr "Ordenar esta zona"
 
-msgid "Allow in routes"
-msgstr "Permitir en rutas"
-
 msgid "Avoid in routes"
 msgstr "Evitar en rutas"
 
@@ -626,9 +623,6 @@ msgstr "Complemento {0} actualizado."
 #, python-brace-format
 msgid "The plugin could not be installed or updated: {0}"
 msgstr "No se pudo instalar o actualizar el complemento: {0}"
-
-msgid "No such room; use /map avoid with a room number."
-msgstr "No existe esa sala; usa /map avoid con un número de sala."
 
 msgid "No plugins are installed. Use /plugin install with a git address."
 msgstr "No hay complementos instalados. Usa /plugin install con una dirección git."
@@ -1524,9 +1518,6 @@ msgstr "Muestra las salas cuyo nombre contiene el texto"
 msgid "Lists the installed plugins"
 msgstr "Muestra los complementos instalados"
 
-msgid "Lists these commands"
-msgstr "Muestra estos comandos"
-
 msgid "Click a room to see it, double-click to walk there, right-click for more, Shift+drag to move it."
 msgstr "Haz clic en una sala para verla, doble clic para ir hasta ella, clic derecho para ver más opciones y Mayús+arrastrar para moverla."
 
@@ -2049,9 +2040,6 @@ msgstr "Dice el camino hasta un sitio, sin ir"
 msgid "Says where each exit of this room leads"
 msgstr "Dice adónde lleva cada salida de esta sala"
 
-msgid "Lists what is a few moves away"
-msgstr "Lista lo que hay a pocos pasos"
-
 msgid "Says all the map knows of a room"
 msgstr "Dice todo lo que el mapa sabe de una sala"
 
@@ -2531,9 +2519,6 @@ msgstr "ninguna salida lleva a ella ni sale de ella"
 msgid "Nothing on the map looks wrong."
 msgstr "Nada del mapa parece estar mal."
 
-msgid "Give the number of the room: /map remove <number>."
-msgstr "Di el número de la sala: /map remove <número>."
-
 #, python-brace-format
 msgid "{0} is no longer on the map."
 msgstr "«{0}» ya no está en el mapa."
@@ -2567,9 +2552,6 @@ msgstr "Muestra las salas que parecen estar mal: sin nombre, o sin ninguna salid
 
 msgid "Takes a room off the map"
 msgstr "Quita una sala del mapa"
-
-msgid "Rename…"
-msgstr "Renombrar…"
 
 msgid "Rename {0}"
 msgstr "Renombrar {0}"
@@ -2681,9 +2663,6 @@ msgstr "Las {0} salas llamadas {1}"
 msgid "Apply"
 msgstr "Aplicar"
 
-msgid "Appearance…"
-msgstr "Apariencia…"
-
 msgid "Room appearance"
 msgstr "Apariencia de la sala"
 
@@ -2794,3 +2773,60 @@ msgstr "Todo el lado queda como una tira fina, para desplegarlo como estaba."
 
 msgid "The {0} channel is no longer read aloud."
 msgstr "El canal {0} ya no se lee en voz alta."
+
+msgid "Lists these commands, in the palette"
+msgstr "Lista estos comandos, en la paleta"
+
+msgid "Lists what is up to three moves away, or as many as given"
+msgstr "Lista lo que hay a tres movimientos o menos, o a los que se digan"
+
+msgid "Say which room: /map remove <place>."
+msgstr "Di qué sala: /map remove <lugar>."
+
+msgid "Room appearance…"
+msgstr "Apariencia de la sala…"
+
+msgid "Map appearance…"
+msgstr "Apariencia del mapa…"
+
+msgid "Duplicate…"
+msgstr "Duplicar…"
+
+msgid "Rename…"
+msgstr "Renombrar…"
+
+msgid "Delete…"
+msgstr "Eliminar…"
+
+msgid "Remove…"
+msgstr "Quitar…"
+
+msgid "Remove plugin"
+msgstr "Quitar plugin"
+
+msgid "Remove {0}? Its files are deleted, and it goes from every profile."
+msgstr "¿Quitar {0}? Se borran sus ficheros y desaparece de todos los perfiles."
+
+msgid "Tidy the area"
+msgstr "Ordenar el área"
+
+msgid "Tidy"
+msgstr "Ordenar"
+
+msgid "{0} has {1} rooms: they are all drawn again, and what was placed by hand is lost."
+msgstr "{0} tiene {1} salas: se vuelven a dibujar todas y se pierde lo colocado a mano."
+
+msgid "The way there"
+msgstr "El camino hasta allí"
+
+msgid "What the map knows of it"
+msgstr "Lo que sabe el mapa de ella"
+
+msgid "Mark…"
+msgstr "Marcar…"
+
+msgid "Note…"
+msgstr "Nota…"
+
+msgid "Panel"
+msgstr "Panel"
