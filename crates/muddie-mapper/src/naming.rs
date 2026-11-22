@@ -128,6 +128,7 @@ impl Map {
         self.language.clone_from(&other.language);
         self.taught.clone_from(&other.taught);
         self.set_naming(other.naming.clone());
+        self.respell_exits();
     }
 
     /// Teaches the map how the MUD names its rooms, or, with the default,

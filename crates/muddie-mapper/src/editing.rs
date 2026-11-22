@@ -28,8 +28,16 @@ impl Map {
         rooms: Vec<Room>,
         current: Option<RoomId>,
     ) -> Result<Replaced, Error> {
-        let mut rooms: HashMap<RoomId, Room> =
-            rooms.into_iter().map(|room| (room.id, room)).collect();
+        // Their exits in the map's words, which a map brought from
+        // elsewhere may keep in the MUD's.
+        let mut rooms: HashMap<RoomId, Room> = (rooms.into_iter())
+            .map(|mut room| {
+                if let Some(exits) = self.respelled(&room.exits) {
+                    room.exits = exits;
+                }
+                (room.id, room)
+            })
+            .collect();
         let mut replaced = Replaced {
             rooms: rooms.len(),
             ..Replaced::default()

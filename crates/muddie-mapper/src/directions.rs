@@ -105,6 +105,7 @@ impl Map {
     pub fn set_language(&mut self, words: &[(String, Vec<String>)]) {
         self.language = Words::default();
         self.language.add(words);
+        self.respell_exits();
     }
 
     /// Teaches the map words of the MUD's for directions, over those of
@@ -112,6 +113,49 @@ impl Map {
     /// on. A MUD's own abbreviations, as its plugin knows them.
     pub fn teach_directions(&mut self, words: &[(String, Vec<String>)]) {
         self.taught.add(words);
+        self.respell_exits();
+    }
+
+    /// Keys every room's exits by direction as the map keeps them: a map
+    /// taken from elsewhere may have exits kept in the MUD's words, as
+    /// "fu" for out, which mean a direction only once the map knows them.
+    pub(crate) fn respell_exits(&mut self) {
+        let respelled: Vec<(RoomId, BTreeMap<String, Exit>)> = (self.rooms.values())
+            .filter_map(|room| Some((room.id, self.respelled(&room.exits)?)))
+            .collect();
+        let ids: Vec<RoomId> = respelled.iter().map(|(id, _)| *id).collect();
+        for (id, exits) in respelled {
+            if let Some(room) = self.rooms.get_mut(&id) {
+                room.exits = exits;
+            }
+        }
+        self.keep(ids);
+    }
+
+    /// Exits keyed by direction as the map keeps them, if any is not: one
+    /// whose direction another exit of the room already has stays as it
+    /// was, not to lose either.
+    pub(crate) fn respelled(
+        &self,
+        exits: &BTreeMap<String, Exit>,
+    ) -> Option<BTreeMap<String, Exit>> {
+        let wrong = |key: &String| self.direction(key) != *key;
+        if !exits.keys().any(wrong) {
+            return None;
+        }
+        let mut kept: BTreeMap<String, Exit> = (exits.iter())
+            .filter(|(key, _)| !wrong(key))
+            .map(|(key, exit)| (key.clone(), exit.clone()))
+            .collect();
+        for (key, exit) in exits.iter().filter(|(key, _)| wrong(key)) {
+            let direction = self.direction(key);
+            let key = match kept.contains_key(&direction) {
+                true => key.clone(),
+                false => direction,
+            };
+            kept.insert(key, exit.clone());
+        }
+        (kept != *exits).then_some(kept)
     }
 
     /// Forgets what scripts taught of directions, as they are run again:

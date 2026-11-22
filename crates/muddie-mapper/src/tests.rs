@@ -981,3 +981,57 @@ fn a_languages_words_are_under_those_taught_and_stay_when_these_go() {
     );
     assert_eq!((direction_rank("w"), direction_rank("portal")), (6, 12));
 }
+
+#[test]
+fn exits_kept_in_the_muds_words_are_the_maps_once_it_knows_them() {
+    let words = |pairs: &[(&str, &[&str])]| -> Vec<(String, Vec<String>)> {
+        (pairs.iter())
+            .map(|(key, said)| {
+                (
+                    (*key).to_owned(),
+                    said.iter().map(|w| (*w).to_owned()).collect(),
+                )
+            })
+            .collect()
+    };
+    let spanish = words(&[("out", &["fuera", "fu"]), ("in", &["dentro", "de"])]);
+    let exit = |to| Exit {
+        to,
+        ..Exit::default()
+    };
+    // As a map taken from elsewhere keeps them: "fu" for out, and in one
+    // room both "fu" and "out", to different rooms.
+    let mut rooms: Vec<Room> = desert().rooms().cloned().collect();
+    for room in rooms.iter_mut() {
+        match room.id {
+            10 => drop(room.exits.insert("fu".into(), exit(13))),
+            12 => {
+                room.exits.insert("fu".into(), exit(10));
+                room.exits.insert("out".into(), exit(13));
+            }
+            _ => {}
+        }
+    }
+    // Taken by a map that knows the words: in its own.
+    let mut map = Map::in_memory();
+    map.set_language(&spanish);
+    map.replace_all(rooms.clone(), None).unwrap();
+    assert_eq!(map.room(10).unwrap().exits["out"].to, 13);
+    assert!(!map.room(10).unwrap().exits.contains_key("fu"));
+    // Neither is lost where the room has both.
+    let twelve = &map.room(12).unwrap().exits;
+    assert_eq!((twelve["out"].to, twelve["fu"].to), (13, 10));
+    // Taken before the map knew them: as soon as it does.
+    let mut map = Map::in_memory();
+    map.replace_all(rooms, None).unwrap();
+    assert!(map.room(10).unwrap().exits.contains_key("fu"));
+    let revision = map.revision();
+    map.set_language(&spanish);
+    assert_eq!(map.room(10).unwrap().exits["out"].to, 13);
+    assert!(map.revision() > revision);
+    // And then nothing is left to change.
+    let revision = map.revision();
+    map.set_language(&spanish);
+    assert_eq!(map.revision(), revision);
+    assert_eq!(map.route(10, 13).unwrap()[0].command, "fuera");
+}
