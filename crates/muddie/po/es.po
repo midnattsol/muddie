@@ -2560,3 +2560,30 @@ msgstr "No se pudo leer un idioma: {0}"
 
 msgid "Automatic, as the game says"
 msgstr "Automático, según el juego"
+
+msgid "Not moved."
+msgstr "No se ha movido."
+
+msgid "No layout yet"
+msgstr "Aún no hay disposición"
+
+msgid "Each profile has its own panels and where they go. Choose a profile, or connect, to lay its panels out."
+msgstr "Cada perfil tiene sus propios paneles y su sitio. Elige un perfil, o conéctate, para colocar sus paneles."
+
+msgid "Edit the layout of sessions without a profile"
+msgstr "Editar la disposición de las sesiones sin perfil"
+
+msgid "No rules yet"
+msgstr "Aún no hay reglas"
+
+msgid "Each profile has its own scripts, triggers and gauges. Choose a profile, or connect, to edit them."
+msgstr "Cada perfil tiene sus propios scripts, triggers e indicadores. Elige un perfil, o conéctate, para editarlos."
+
+msgid "Edit the rules of sessions without a profile"
+msgstr "Editar las reglas de las sesiones sin perfil"
+
+msgid "Choose a profile"
+msgstr "Elegir un perfil"
+
+msgid "These are of sessions without a profile: choosing a profile puts them aside."
+msgstr "Son los de las sesiones sin perfil: al elegir un perfil se dejan a un lado."

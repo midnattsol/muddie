@@ -141,6 +141,17 @@ impl App {
         &self.settings
     }
 
+    /// Whether the Profiles window is open, and closing it.
+    #[cfg(test)]
+    pub fn profiles_shown(&self) -> bool {
+        self.show_profiles
+    }
+
+    #[cfg(test)]
+    pub fn close_profiles_for_tests(&mut self) {
+        self.show_profiles = false;
+    }
+
     #[cfg(test)]
     pub fn tab_mut(&mut self) -> &mut Tab {
         &mut self.tabs[self.active]

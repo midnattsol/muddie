@@ -16,7 +16,7 @@ mod menu;
 mod strips;
 mod text;
 
-pub(super) use dragging::{Drop, nearest_side};
+pub(super) use dragging::{Drop, DropTarget, nearest_side, side_band};
 pub(super) use text::well;
 
 /// What a panel shows.

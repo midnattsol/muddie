@@ -18,9 +18,15 @@ impl Tab {
         self.palette(ui.ctx());
         // The layout and the editor take the place of the game while open.
         if self.arrange.open {
+            if self.unprofiled_page(ui, unprofiled::Unprofiled::Layout) {
+                return;
+            }
             return self.arrange_page(ui);
         }
         if self.editor.open {
+            if self.unprofiled_page(ui, unprofiled::Unprofiled::Editor) {
+                return;
+            }
             return self.automation_page(ui);
         }
         // Alt+M (Ctrl+M on a Mac) says where the player is, by the map;

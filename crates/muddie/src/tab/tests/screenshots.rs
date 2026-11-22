@@ -56,6 +56,12 @@ fn shows_welcome() {
     welcome.state_mut().tab_mut().started = false;
     welcome.run_steps(3);
     save(&mut welcome, "welcome");
+    // The layout of a session not yet anyone's.
+    welcome.state_mut().tab_mut().set_view(3);
+    welcome.run_steps(3);
+    save(&mut welcome, "welcome-layout");
+    welcome.state_mut().tab_mut().set_view(0);
+    welcome.run_steps(2);
     welcome.state_mut().open_profiles(Some("Discworld"));
     welcome.run_steps(4);
     save(&mut welcome, "profiles");
@@ -483,6 +489,33 @@ fn shows_arrange() {
     harness.get_by_label("Layout").click();
     harness.run_steps(4);
     save(&mut harness, "arrange");
+    // A panel taken in the picture, on its way to the left.
+    let picture = harness
+        .get_by_label("Picture of the window's panels")
+        .rect();
+    let taken = egui::pos2(picture.right() - 20.0, picture.top() + 30.0);
+    let over = egui::pos2(picture.left() + 60.0, picture.center().y);
+    harness.event(egui::Event::PointerMoved(taken));
+    harness.event(egui::Event::PointerButton {
+        pos: taken,
+        button: egui::PointerButton::Primary,
+        pressed: true,
+        modifiers: egui::Modifiers::NONE,
+    });
+    harness.run_steps(2);
+    harness.event(egui::Event::PointerMoved(taken + egui::vec2(-30.0, 10.0)));
+    harness.run_steps(2);
+    harness.event(egui::Event::PointerMoved(over));
+    harness.run_steps(12);
+    save(&mut harness, "arrange-drag");
+    harness.key_press(egui::Key::Escape);
+    harness.event(egui::Event::PointerButton {
+        pos: over,
+        button: egui::PointerButton::Primary,
+        pressed: false,
+        modifiers: egui::Modifiers::NONE,
+    });
+    harness.run_steps(3);
     harness.get_by_label("New panel").click();
     harness.run_steps(3);
     save(&mut harness, "arrange-new");

@@ -54,6 +54,7 @@ mod scripts;
 mod switching;
 #[cfg(test)]
 mod tests;
+mod unprofiled;
 mod view;
 mod walking;
 mod welcome;
@@ -173,6 +174,9 @@ pub struct Tab {
     reconnect_wanted: bool,
     /// What the session asked the window to do, for it to take.
     app_request: Option<commands::AppRequest>,
+    /// The layout and the rules of sessions without a profile were asked
+    /// for, knowing whose they are.
+    unprofiled_seen: bool,
     /// Whether the command line's cursor is to go to the end of what was
     /// put in it.
     cursor_to_end: bool,
@@ -315,6 +319,7 @@ impl Tab {
             connected_with: None,
             notices: messages::Notices::default(),
             app_request: None,
+            unprofiled_seen: false,
             cursor_to_end: false,
             data_view: data::DataView::default(),
             variables_passing: false,

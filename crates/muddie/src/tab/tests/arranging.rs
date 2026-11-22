@@ -699,4 +699,62 @@ fn panels_are_dragged_in_the_picture_of_the_window_seeing_how_it_would_be() {
     let app = harness.state().tab();
     assert_eq!(side_of_map(app), Some(Left));
     assert!(app.arrange.dragged.is_none());
+    // Taken again and Escape: back where it was, and the view stays.
+    let picture = harness
+        .get_by_label("Picture of the window's panels")
+        .rect();
+    let map_at = egui::pos2(picture.left() + 20.0, picture.top() + 20.0);
+    let right_edge = egui::pos2(picture.right() - 6.0, picture.center().y);
+    pointer(&mut harness, map_at, Some(true));
+    pointer(&mut harness, map_at + egui::vec2(30.0, 10.0), None);
+    pointer(&mut harness, right_edge, None);
+    assert!(harness.state().tab().arrange.dragged.is_some());
+    harness.key_press(Key::Escape);
+    harness.run_steps(2);
+    pointer(&mut harness, right_edge, Some(false));
+    let app = harness.state().tab();
+    assert_eq!(side_of_map(app), Some(Left));
+    assert!(app.arrange.dragged.is_none() && app.arrange.open);
+}
+
+#[test]
+fn before_a_session_is_anyones_its_layout_and_rules_say_whose_they_would_be() {
+    // On the welcome screen, with no profile chosen.
+    let mut harness = window(None);
+    harness.state_mut().tab_mut().started = false;
+    harness.state_mut().tab_mut().set_view(3);
+    harness.run_steps(3);
+    // Not the panels of a session that may never have them: why, and the
+    // ways on.
+    assert!(
+        harness
+            .query_by_label("Picture of the window's panels")
+            .is_none()
+    );
+    harness.get_by_label("No layout yet");
+    harness.get_by_label("Choose a profile").click();
+    harness.run_steps(2);
+    assert!(harness.state().profiles_shown());
+    harness.state_mut().close_profiles_for_tests();
+    harness.run_steps(2);
+    // Asked for, those of sessions without a profile, saying so.
+    harness
+        .get_by_label("Edit the layout of sessions without a profile")
+        .click();
+    harness.run_steps(3);
+    harness.get_by_label("Picture of the window's panels");
+    harness.get_by_label_contains("of sessions without a profile");
+    // The editor goes the same way, once asked for.
+    harness.state_mut().tab_mut().set_view(1);
+    harness.run_steps(3);
+    assert!(harness.query_by_label("No rules yet").is_none());
+    // Escape on it goes back to the game.
+    let mut fresh = window(None);
+    fresh.state_mut().tab_mut().started = false;
+    fresh.state_mut().tab_mut().set_view(1);
+    fresh.run_steps(3);
+    fresh.get_by_label("No rules yet");
+    fresh.key_press(Key::Escape);
+    fresh.run_steps(3);
+    assert_eq!(fresh.state().tab().view(), 0);
 }

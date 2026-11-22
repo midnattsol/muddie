@@ -81,6 +81,7 @@ impl Tab {
             // have, no wider than reads well.
             let inner = columns.detail.shrink2(egui::vec2(14.0, 6.0));
             self.pane(ui, "detail", inner, false, |tab, ui| {
+                tab.unprofiled_banner(ui);
                 tab.undo_bar(ui);
                 tab.editor.detail_height = inner.height();
                 egui::ScrollArea::vertical()

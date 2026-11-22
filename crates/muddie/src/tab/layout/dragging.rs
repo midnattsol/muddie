@@ -68,6 +68,18 @@ fn show_drop(ui: &egui::Ui, band: egui::Rect) {
     ui.ctx().set_cursor_icon(egui::CursorIcon::Grabbing);
 }
 
+impl DropTarget {
+    /// The part of the panel over which it would go so.
+    pub(in crate::tab) fn band(&self) -> egui::Rect {
+        self.band
+    }
+
+    /// Whether it would go to the same place as `other`.
+    pub(in crate::tab) fn same_place(&self, other: &Self) -> bool {
+        (self.other, self.drop) == (other.other, other.drop)
+    }
+}
+
 impl Tab {
     /// While a panel is dragged by its handle, shows where it would go;
     /// once it is let go, puts it there: before or after the panel it is
