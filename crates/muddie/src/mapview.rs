@@ -231,6 +231,8 @@ pub struct MapView {
     trail: Vec<RoomId>,
     /// The words asked for over the map while exploring it.
     prompt: Option<Prompt>,
+    /// Keys of the keypad pressed while the map has the keyboard, by name.
+    keypad: Vec<&'static str>,
 }
 
 /// What is told of the room chosen depends on: it, where the player is,
@@ -263,6 +265,7 @@ impl Default for MapView {
             said_region: None,
             trail: Vec::new(),
             prompt: None,
+            keypad: Vec::new(),
         }
     }
 }

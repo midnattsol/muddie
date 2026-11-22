@@ -12,7 +12,7 @@ const EXPLORING_KEYS: &str =
     "Arrows follow the exits, Enter goes, Escape goes back. F1 says all the keys.";
 
 /// Every key while exploring, said with F1.
-const ALL_KEYS: &str = "Arrows, or the keypad, follow the exits; Page Up and Page Down go up and down. Home comes back to you, Backspace to the room before. Space says the room again, {0} all about it, {1} what is noted near. {2} searches the map. {3} gives the room a name, {4} writes a note on it. Enter goes there, Shift+Enter says the way. Escape, or typing, goes back to the command line.";
+const ALL_KEYS: &str = "Arrows, or the keypad, follow the exits; Page Up and Page Down go up and down, as minus and plus on the keypad, and slash and star go in and out. Home comes back to you, Backspace to the room before. Space says the room again, {0} all about it, {1} what is noted near. {2} searches the map. {3} gives the room a name, {4} writes a note on it. Enter goes there, Shift+Enter says the way. Escape, or typing, goes back to the command line.";
 
 /// How many moves away from the room chosen what is noted is looked for.
 const NEAR: usize = 10;
@@ -169,6 +169,13 @@ impl MapView {
         let pressed = |modifiers, key| ui.input_mut(|input| input.consume_key(modifiers, key));
         let command = |key| pressed(egui::Modifiers::COMMAND, key);
         let chosen = self.selected.unwrap_or(current.id);
+        // The keypad first, by where its keys are: what egui made of them,
+        // Home for 7 with Num Lock off, was taken away.
+        for name in std::mem::take(&mut self.keypad) {
+            if let Some(action) = self.keypad_key(map, chosen, name) {
+                return Some(action);
+            }
+        }
         if pressed(egui::Modifiers::NONE, egui::Key::F1) {
             return Some(MapAction::Say(all_keys()));
         }
@@ -225,17 +232,57 @@ impl MapView {
         let (_, way) = MOVES
             .iter()
             .find(|(key, _)| pressed(egui::Modifiers::NONE, *key))?;
-        let to = (map.room(chosen))
-            .and_then(|room| room.exits.get(*way))
+        Some(self.step(map, chosen, way))
+    }
+
+    /// Moves the room chosen along its exit `way`, or says there is none.
+    fn step(&mut self, map: &Map, from: RoomId, way: &'static str) -> MapAction {
+        let to = (map.room(from))
+            .and_then(|room| room.exits.get(way))
             .map(|exit| exit.to)
             .filter(|to| map.room(*to).is_some());
         match to {
             Some(to) => {
                 self.choose(to);
-                Some(MapAction::Selected(to, Some(chosen)))
+                MapAction::Selected(to, Some(from))
             }
-            None => Some(MapAction::NoExit(way)),
+            None => MapAction::NoExit(way),
         }
+    }
+
+    /// Whether the map has the keyboard, to be given the keypad's keys.
+    pub fn has_keyboard(&self) -> bool {
+        self.had_focus
+    }
+
+    /// Keys of the keypad pressed, by name, taken from what egui makes of
+    /// them, for the map to take when next drawn.
+    pub fn keypad_pressed(&mut self, names: impl IntoIterator<Item = &'static str>) {
+        self.keypad.extend(names);
+    }
+
+    /// A key of the keypad, whether Num Lock is on or off: by where it is,
+    /// the digits are the compass, minus and plus up and down, slash and
+    /// star in and out; 5 says the room again, and Enter goes there.
+    fn keypad_key(&mut self, map: &Map, chosen: RoomId, name: &str) -> Option<MapAction> {
+        let way = match name {
+            "numpad8" | "numpadup" => "n",
+            "numpad2" | "numpaddown" => "s",
+            "numpad4" | "numpadleft" => "w",
+            "numpad6" | "numpadright" => "e",
+            "numpad7" | "numpadhome" => "nw",
+            "numpad9" | "numpadpageup" => "ne",
+            "numpad1" | "numpadend" => "sw",
+            "numpad3" | "numpadpagedown" => "se",
+            "numpadsubtract" => "u",
+            "numpadadd" => "d",
+            "numpaddivide" => "in",
+            "numpadmultiply" => "out",
+            "numpad5" | "numpadclear" => return Some(MapAction::Selected(chosen, None)),
+            "numpadenter" => return self.selected.map(MapAction::Walk),
+            _ => return None,
+        };
+        Some(self.step(map, chosen, way))
     }
 
     /// Chooses a room with the keys, the one chosen before kept to go

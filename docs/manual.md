@@ -528,6 +528,7 @@ is what a name begins with, as Anduar in "Anduar: Plaza Mayor".
 | Click a room | Chooses it: ringed, and told under the map: its name, number, how many moves away and which way, and its exits. A click on nothing chooses none |
 | Alt+E (Ctrl+E on a Mac), or `/map explore` | Explores the map with the keys, from where you are, without moving: the map takes the keyboard and says so |
 | Arrows, the digits as on a keypad, Page Up and Down | Move the room chosen along its exits, from yours if none is; the view follows it |
+| The keypad | By where its keys are, Num Lock on or off: the digits are the compass, minus and plus up and down, slash and star in and out, 5 says the room again, Enter goes there |
 | Home | Back to your room |
 | Backspace | Back to the room chosen before, and the one before it, to where you began |
 | Space | Says the room chosen again |

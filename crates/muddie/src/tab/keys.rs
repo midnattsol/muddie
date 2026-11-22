@@ -31,8 +31,20 @@ impl Tab {
         let held = ui.input(|input| input.modifiers);
         // While the map is explored, the keypad moves on it: nothing bound
         // to it is sent to the MUD.
-        let keypad = std::mem::take(&mut self.keypad_pressed);
+        let mut keypad = std::mem::take(&mut self.keypad_pressed);
         let exploring = self.map_view.exploring();
+        if self.map_view.has_keyboard() {
+            // On the map, by where the keys are: 7 is north-west, not the
+            // Home egui makes of it with Num Lock off.
+            for name in &keypad {
+                ui.input_mut(|input| {
+                    input
+                        .events
+                        .retain(|event| !keypad::is_event_of(name, event))
+                });
+            }
+            self.map_view.keypad_pressed(std::mem::take(&mut keypad));
+        }
         for name in keypad.into_iter().filter(|_| !exploring) {
             let mut full = String::new();
             for (down, modifier) in [

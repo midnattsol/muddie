@@ -2436,8 +2436,8 @@ msgid "Explore the map with the keys"
 msgstr "Explorar el mapa con el teclado"
 
 #, python-brace-format
-msgid "Arrows, or the keypad, follow the exits; Page Up and Page Down go up and down. Home comes back to you, Backspace to the room before. Space says the room again, {0} all about it, {1} what is noted near. {2} searches the map. {3} gives the room a name, {4} writes a note on it. Enter goes there, Shift+Enter says the way. Escape, or typing, goes back to the command line."
-msgstr "Las flechas, o el teclado numérico, siguen las salidas; Re Pág y Av Pág suben y bajan. Inicio vuelve a ti, Retroceso a la sala anterior. Espacio repite la sala, {0} dice todo de ella, {1} lo anotado cerca. {2} busca en el mapa. {3} le da un nombre a la sala, {4} le escribe una nota. Intro va allí, Mayús+Intro dice el camino. Escape, o escribir, vuelve a la línea de comandos."
+msgid "Arrows, or the keypad, follow the exits; Page Up and Page Down go up and down, as minus and plus on the keypad, and slash and star go in and out. Home comes back to you, Backspace to the room before. Space says the room again, {0} all about it, {1} what is noted near. {2} searches the map. {3} gives the room a name, {4} writes a note on it. Enter goes there, Shift+Enter says the way. Escape, or typing, goes back to the command line."
+msgstr "Las flechas, o el teclado numérico, siguen las salidas; Re Pág y Av Pág suben y bajan, como menos y más en el teclado numérico, y la barra y el asterisco entran y salen. Inicio vuelve a ti, Retroceso a la sala anterior. Espacio repite la sala, {0} dice todo de ella, {1} lo anotado cerca. {2} busca en el mapa. {3} le da un nombre a la sala, {4} le escribe una nota. Intro va allí, Mayús+Intro dice el camino. Escape, o escribir, vuelve a la línea de comandos."
 
 msgid "This is where you began exploring."
 msgstr "Aquí empezaste a explorar."

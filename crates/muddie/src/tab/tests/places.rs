@@ -692,7 +692,7 @@ fn the_map_explored_is_searched_named_noted_and_gone_back_along() {
     desert(app);
     app.scripts.exec(
         "t",
-        r#"map.directions({e = {"este"}, w = {"oeste"}, n = {"norte"}, s = {"sur"}}) map.names({exits = "[]"}) bind("numpad6", "este")"#,
+        r#"map.directions({e = {"este"}, w = {"oeste"}, n = {"norte"}, s = {"sur"}}) map.names({exits = "[]"}) bind("numpad6", "este") bind("numpadhome", "noroeste")"#,
     );
     app.run_actions();
     assert!(app.map.borrow_mut().set_current(1));
@@ -730,6 +730,18 @@ fn the_map_explored_is_searched_named_noted_and_gone_back_along() {
         said(&mut harness),
         "Dunas. 1 move to the este. exits: este, oeste"
     );
+    // Keypad 7 with Num Lock off is north-west, not the Home egui makes
+    // of it, which would go back to the player.
+    harness.state_mut().tab_mut().keypad_pressed = vec!["numpadhome"];
+    harness.event(egui::Event::Key {
+        key: Key::Home,
+        physical_key: Some(Key::Num7),
+        pressed: true,
+        repeat: false,
+        modifiers: Modifiers::NONE,
+    });
+    harness.run_steps(2);
+    assert_eq!(said(&mut harness), "No exit northwest.");
     // Backspace goes back along the rooms chosen, to where it began.
     harness.key_press(Key::ArrowRight);
     harness.run_steps(2);
