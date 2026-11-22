@@ -255,6 +255,9 @@ msgid "This room has no such exit."
 msgstr "Esta sala no tiene esa salida."
 
 #, python-brace-format
+msgid "{0} has {1} rooms: tidying it would draw them all again, and what was drawn by hand would be lost. To tidy it anyway: /map tidy all."
+msgstr "{0} tiene {1} salas: ordenarla volvería a dibujarlas todas, y se perdería lo colocado a mano. Para ordenarla de todos modos: /map tidy all."
+
 msgid "Tidied the map: {0} rooms moved."
 msgstr "Mapa ordenado: {0} salas movidas."
 
@@ -674,8 +677,8 @@ msgstr "Excluye una sala de las rutas o la vuelve a incluir"
 msgid "Keeps routes from an exit of this room, or lets them use it again"
 msgstr "Excluye una salida de esta sala de las rutas o la vuelve a incluir"
 
-msgid "Draws this area again from scratch"
-msgstr "Recalcula la disposición de esta zona"
+msgid "Draws this area again from scratch; all, even if it is very large"
+msgstr "Recalcula la disposición de esta zona; all, aunque sea muy grande"
 
 msgid "Shows the map panel"
 msgstr "Muestra el panel del mapa"

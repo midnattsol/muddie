@@ -50,7 +50,10 @@ pub(super) const COMMANDS: [(&str, &str); 37] = [
         "/map lock <direction>",
         "Keeps routes from an exit of this room, or lets them use it again",
     ),
-    ("/map tidy", "Draws this area again from scratch"),
+    (
+        "/map tidy [all]",
+        "Draws this area again from scratch; all, even if it is very large",
+    ),
     (
         "/map added",
         "Lists the rooms the map added of itself where you went",
@@ -120,7 +123,7 @@ impl Tab {
             "/import" => self.import_map(argument),
             "/avoid" => self.toggle_avoid(argument),
             "/lock" if given => self.toggle_lock(argument),
-            "/tidy" => self.tidy_here(),
+            "/tidy" => self.tidy_here(argument),
             "/added" => self.list_added(),
             "/undo" => self.undo_added(),
             "/check" => self.check_map(),

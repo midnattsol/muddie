@@ -1185,3 +1185,49 @@ fn reinos_adds_the_rooms_the_map_has_not_once_switched_on() {
             .any(|said| said.contains("no te ha seguido"))
     );
 }
+
+/// A map with all in one area, as Reinos de Leyenda's is: tidying it would
+/// draw every room again, so it is done only when told "all".
+#[test]
+fn a_very_large_area_is_tidied_only_when_told_all() {
+    let mut harness = window(None);
+    let app = harness.state_mut().tab_mut();
+    let rooms: Vec<Room> = (1..=2001)
+        .map(|id: RoomId| Room {
+            id,
+            name: "Camino".into(),
+            area: "Mapa Completo".into(),
+            pos: Pos {
+                x: id as i32 * 3,
+                y: 0,
+                z: 0,
+            },
+            exits: [(
+                "e".to_owned(),
+                Exit {
+                    to: id % 2001 + 1,
+                    ..Exit::default()
+                },
+            )]
+            .into(),
+            weight: 1,
+            avoid: false,
+            colour: None,
+            note: String::new(),
+            renamed: false,
+            added: false,
+        })
+        .collect();
+    app.map.borrow_mut().replace_all(rooms, None).unwrap();
+    assert!(app.map.borrow_mut().set_current(1));
+    let x_of_2 = |app: &Tab| app.map.borrow().room(2).unwrap().pos.x;
+    assert_eq!(
+        answer(app, "/map tidy"),
+        [
+            "Mapa Completo has 2001 rooms: tidying it would draw them all again, and what was drawn by hand would be lost. To tidy it anyway: /map tidy all."
+        ]
+    );
+    assert_eq!(x_of_2(app), 6);
+    answer(app, "/map tidy all");
+    assert_eq!(x_of_2(app), 4);
+}

@@ -118,7 +118,7 @@ impl Tab {
     fn map_asked(&mut self, asked: Option<MapAction>) {
         match asked {
             Some(MapAction::Walk(room)) => self.walk_to(room),
-            Some(MapAction::Tidy(area)) => self.tidy(&area),
+            Some(MapAction::Tidy(area)) => self.tidy(&area, false),
             Some(MapAction::Scripts) => self.open_automation(automation::SCRIPTS),
             Some(MapAction::Selected(room, came)) => {
                 let told = {

@@ -200,7 +200,7 @@ it.
 | `/map stop` | Stops walking |
 | `/map avoid [number]` | Keeps routes out of a room (the current one), or allows them again |
 | `/map lock <direction>` | Keeps routes off an exit of this room, or allows it again |
-| `/map tidy` | Draws the current area again from scratch |
+| `/map tidy [all]` | Draws the current area again from scratch. An area of more than 2000 rooms, as a map with all in one area, only with `all` |
 | `/map added` | Lists the rooms the map added of itself where you went, to travel to each |
 | `/map undo` | Undoes the last room the map added; also **Undo the last room added**, in the map's menu and the palette |
 | `/map check` | Lists the rooms that look wrong: with no name, or that no exit leads to or from |

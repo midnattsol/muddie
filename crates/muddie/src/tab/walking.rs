@@ -9,6 +9,10 @@ pub(super) const WALK_TIMEOUT: Duration = Duration::from_secs(6);
 /// Most rooms listed when a search matches several.
 pub(super) const MAX_LISTED_ROOMS: usize = 10;
 
+/// The most rooms an area is tidied with, unless the user says to: a map
+/// with all in one area, as some MUDs' are, would be drawn all again.
+const MAX_TIDIED: usize = 2000;
+
 /// A map being taken from elsewhere, and whether the user knows the map
 /// lost track of where they are.
 #[derive(Default)]
@@ -182,7 +186,17 @@ impl Tab {
         }
     }
 
-    pub(super) fn tidy(&mut self, area: &str) {
+    /// Draws an area again from scratch; a large one only if `all`.
+    pub(super) fn tidy(&mut self, area: &str, all: bool) {
+        let rooms = (self.map.borrow().rooms())
+            .filter(|room| room.area == area)
+            .count();
+        if rooms > MAX_TIDIED && !all {
+            return self.refuse(&trf(
+                "{0} has {1} rooms: tidying it would draw them all again, and what was drawn by hand would be lost. To tidy it anyway: /map tidy all.",
+                &[area, &rooms.to_string()],
+            ));
+        }
         let moved = self.map.borrow_mut().relayout(area);
         if let Some(moved) = self.map_saved(moved) {
             self.note(&trf(
@@ -335,11 +349,12 @@ impl Tab {
         }
     }
 
-    /// Draws the area the player is in again from scratch.
-    pub(super) fn tidy_here(&mut self) {
+    /// Draws the area the player is in again from scratch; a large one
+    /// only if told "all".
+    pub(super) fn tidy_here(&mut self, argument: &str) {
         let area = self.map.borrow().current().map(|room| room.area.clone());
         match area {
-            Some(area) => self.tidy(&area),
+            Some(area) => self.tidy(&area, argument.trim().eq_ignore_ascii_case("all")),
             None => {
                 let said = self.unknown_whereabouts();
                 self.refuse(&said);
