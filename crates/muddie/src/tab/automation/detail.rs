@@ -333,13 +333,13 @@ pub(in crate::tab) fn pattern_field(
         node.set_label(label);
         if let Some(reason) = invalid {
             node.set_invalid(egui::accesskit::Invalid::True);
-            node.set_description(trf("The pattern is not valid: {0}", &[&reason]));
+            node.set_description(trf("The pattern is not valid: {0}", &[reason]));
         }
     });
     if let Some(reason) = invalid {
         ui.horizontal(|ui| {
             widgets::glyph(ui, widgets::Glyph::Warning, 11.0, theme.danger);
-            let text = trf("The pattern is not valid: {0}", &[&reason]);
+            let text = trf("The pattern is not valid: {0}", &[reason]);
             ui.label(
                 RichText::new(text)
                     .font(theme::font(Weight::Regular, 12.0))
