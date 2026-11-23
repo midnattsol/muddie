@@ -305,7 +305,7 @@ fn tidying_redraws_a_tangled_area_on_its_levels() {
     ] {
         map.move_room(id, at).unwrap();
     }
-    assert!(matches!(map.relayout("town").unwrap(), Tidied::Moved(5)));
+    assert!(matches!(map.tidy("town").unwrap(), Tidied::Moved(5)));
     let at = |id| map.room(id).unwrap().pos;
     // The player is on the tower top, which keeps its place; the rest is
     // drawn the way the exits say, east of it, on its own level: up and
@@ -317,8 +317,8 @@ fn tidying_redraws_a_tangled_area_on_its_levels() {
     );
     // The dock and pier connect to nothing else: a separate island.
     assert_eq!([at(30), at(31)], [pos(6, 0, 0), pos(7, 0, 0)]);
-    assert_eq!(map.relayout("town").unwrap(), Tidied::Moved(0));
-    assert_eq!(map.relayout("nowhere").unwrap(), Tidied::Moved(0));
+    assert_eq!(map.tidy("town").unwrap(), Tidied::Moved(0));
+    assert_eq!(map.tidy("nowhere").unwrap(), Tidied::Moved(0));
 }
 
 #[test]
@@ -338,7 +338,7 @@ fn tidying_leaves_a_drawing_it_would_make_worse() {
     }
     // Drawn again from scratch, the road would be a step long, and the
     // hill's exits would point the wrong way: it is left as it is.
-    let kept = map.relayout("town").unwrap();
+    let kept = map.tidy("town").unwrap();
     assert_eq!(
         kept,
         Tidied::Kept {

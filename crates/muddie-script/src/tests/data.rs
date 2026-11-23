@@ -111,7 +111,7 @@ fn a_gauge_of_effects_takes_them_as_lists_or_tables() {
     assert_eq!(
         items(
             &mut engine,
-            r#"{prisa = true, lento = false, bendito = {desc = "+2"}}"#
+            r#"{prisa = true, lento = false, bendito = {about = "+2"}}"#
         ),
         [it("bendito", "+2", ""), it("prisa", "", "")]
     );

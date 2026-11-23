@@ -25,8 +25,8 @@ impl Tab {
         self.say(text, true);
     }
 
-    /// Carries out a command of the client typed in the command line, and
-    /// shows what it answers. Returns whether it was one.
+    /// Carries out a command of the client asked from the map, and shows
+    /// what it answers. Returns whether it was one.
     pub(in crate::tab) fn run_command(&mut self, line: &str) -> bool {
         self.run_command_from(line, false)
     }
@@ -51,7 +51,7 @@ impl Tab {
         let list = said.len() > 1 || said.iter().any(|said| said.run.is_some());
         match (said.first(), list, from_palette) {
             (None, ..) => {}
-            // A line typed in the command line: over the corner.
+            // A line asked from elsewhere, as the map: over the corner.
             (Some(_), false, false) => {
                 if let Some(notice) = self.notices.list.last_mut() {
                     notice.corner = true;
@@ -69,7 +69,6 @@ impl Tab {
                     usage: said.text,
                     group: String::new(),
                     about: said.about,
-                    more: false,
                     act: None,
                 });
                 self.palette.results = Some(items.collect());

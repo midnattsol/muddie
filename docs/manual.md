@@ -175,8 +175,8 @@ plugins, it is offered as you type, and Tab puts the one chosen in the
 field. Enter does it; Escape goes back to the search.
 
 What is done answers in the palette, which stays open to read it. A list,
-of the rooms found, the tags or the plugins, is shown under it, to choose
-from: Enter on a room goes to it, and on a tag or a plugin switches it.
+of the rooms found, those near or the areas, is shown under it, to choose
+from: Enter on one goes there.
 
 What it does, by group:
 
@@ -187,8 +187,9 @@ What it does, by group:
   go to…, the way to…, find rooms…, what the map knows of…, I am in…,
   which room am I in (while it is unsure), mark…, note on…, take the note
   off, avoid in routes, keep routes off an exit…, forget a mark…, areas,
-  check the map, rooms the map added, tidy this area, remove a room…,
-  import a Mudlet map…, stop going, and undo the map's last change.
+  show an area…, check the map, rooms the map added, tidy this area,
+  remove a room…, import a Mudlet map…, stop going, and undo the map's
+  last change.
 - **Speech**: each channel read aloud or not.
 - **Panels**: each shown or hidden.
 - **Scripts**: run Lua…, restart scripts, and each tag on or off for the
@@ -542,7 +543,7 @@ the new room. Where the area has rooms on more than one level, the levels
 are over the map's top right corner, one above another: ▲ goes up, ▼ down.
 **Show an area…**, in the map's menu or the palette, looks at another area
 without going there, if the map has more than one.
-**Tidy the area** draws it again from scratch, from where you are, each room
+**Tidy this area** draws it again from scratch, from where you are, each room
 the way its exits say, on its own level. It is done only if that draws it
 better: if more exits would point the wrong way, or more rooms would lie on
 another, the area is left as it is and the map says why, so a map drawn by
@@ -576,16 +577,16 @@ is what a name begins with, as Anduar in "Anduar: Plaza Mayor".
 | Ctrl+I | Says all the map knows of it |
 | Ctrl+L | Says what is noted up to ten moves around it: rooms with a name or a note, and the way into each other region, the nearest first |
 | Ctrl+F | Searches the map: type, Enter says how many were found and the first; the arrows go through them; Enter again goes to the one said, on the map. Escape goes back to the map |
-| Ctrl+B, Ctrl+N | Gives the room chosen a name, or writes a note on it (an empty one takes it off) |
+| Ctrl+B, Ctrl+N | Marks the room chosen, or writes a note on it (an empty one takes it off) |
 | F1 | Says all these keys |
 | Enter, Shift+Enter | Go to the room chosen; say the way there without going |
 | Escape, or typing | Back to the command line, with what was typed |
 | Double-click a room | Goes there, one step at a time, waiting for each to succeed |
-| Right-click a room | Go here, avoid in routes, its appearance, tidy the area |
+| Right-click a room | Go here, the way there, what the map knows of it, Mark…, Note…, avoid in routes, Room appearance…, Tidy this area, Show all areas |
 | Drag | Moves the view; the wheel zooms |
 | Shift+drag a room | Moves it to another cell |
 | ▲ and ▼, over the map's top right corner | Look at the level above or below; **Back to my position**, at the top left, returns |
-| The buttons beside the map's title | Find where you are, tidy the area, stop going; the dots hold the rest: show every area, show an area, avoid this room, hide the map |
+| The buttons beside the map's title | Find where you are, Tidy this area, stop going; the dots hold the rest: Show all areas, Show an area…, Map appearance…, undoing the map's last change, and hiding or removing the panel |
 
 Exploring, each room is said short, as one who does not see it wants it:
 its name, and its region on coming to another; how many moves away and
@@ -601,9 +602,9 @@ too, when it is in your area and level.
 A room marked to avoid is never walked through, and an exit kept off routes
 is never used. Both are kept when the server reports the room again.
 
-**Appearance…**, in the map's menu, chooses the colour and shape (square,
-circle, diamond or hexagon) rooms are drawn in, and in a room's menu, its
-own colour and shape and a character or two written in it, for the room
+**Map appearance…**, in the map's menu, chooses the colour and shape (square,
+circle, diamond or hexagon) rooms are drawn in, and **Room appearance…**, in
+a room's menu, its own colour and shape and a character or two written in it, for the room
 or for every room called as it is. A room takes the map's colour and
 shape unless it has its own: one set for it, or, for its colour, one the
 map taken brought. What you choose is kept with the map: when the server

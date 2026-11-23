@@ -120,7 +120,7 @@ fn script_can_edit_and_query_the_map() {
         local gate = map.exit(1, "gate")
         echo(`{map.path(2, 1)[1]} {gate.custom} {gate.blocked} {map.exit(1, "n").blocked} {map.exit(1, "x")}`)
         echo(`{map.set_exit(1, "gate", nil, {command = ""})} {map.exit(1, "gate").command} {map.set_exit(1, "x", nil, {})}`)
-        echo(`{map.relayout("nowhere")} {map.relayout()}`)
+        echo(`{map.tidy("nowhere")} {map.tidy()}`)
         panel("Minimap", "+-+\n| |")
         panel("Minimap")
         map.visit({name = "No id"})"#,

@@ -144,11 +144,7 @@ impl Tab {
             return;
         }
         let id = self.layout.next_id();
-        let taken = |name: &str| self.layout.panels.iter().any(|panel| panel.name == name);
-        let name = ["Channels", "Channels 2", "Channels 3"]
-            .into_iter()
-            .find(|name| !taken(name))
-            .unwrap_or("Channels");
+        let name = self.layout.free_name("Channels", true);
         let side = (self.layout.panels.iter())
             .find(|panel| panel.kind == Kind::Map)
             .map_or(Side::Right, |map| map.side);
@@ -157,7 +153,7 @@ impl Tab {
             .map_or(BESIDE, |panel| panel.size);
         self.layout.panels.push(PanelSpec {
             id,
-            name: name.to_owned(),
+            name,
             kind: Kind::Text,
             side,
             size,

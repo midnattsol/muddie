@@ -286,7 +286,7 @@ impl Tab {
         }
     }
 
-    /// Forgets a name given to a room.
+    /// Forgets a mark given to a room.
     pub(super) fn unmark(&mut self, name: &str) {
         let forgotten = self.map.borrow_mut().unmark(name);
         match self.map_saved(forgotten) {
@@ -570,7 +570,6 @@ impl Tab {
                     usage: title,
                     group: tr("Places").to_owned(),
                     about,
-                    more: false,
                     act: Some(commands::Act::Place(place)),
                 }
             })

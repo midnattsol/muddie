@@ -36,7 +36,7 @@ impl Map {
     /// compass direction of the exits that reach it, on its own level. A
     /// drawing that would have more exits pointing wrong, or more rooms on
     /// one cell, is not kept: a map drawn by hand stays as it is.
-    pub fn relayout(&mut self, area: &str) -> Result<Tidied, Error> {
+    pub fn tidy(&mut self, area: &str) -> Result<Tidied, Error> {
         let mut members: Vec<RoomId> = (self.rooms.values())
             .filter(|room| room.area == area)
             .map(|room| room.id)

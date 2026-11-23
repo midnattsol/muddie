@@ -213,7 +213,7 @@ impl Tab {
         let rooms = self.too_many_to_tidy(&area).unwrap_or_default();
         let (mut open, mut tidy, mut cancel) = (true, false, false);
         let size = crate::theme::size::DIALOG_S;
-        widgets::dialog(ctx, "tidy", tr("Tidy the area"), &mut open, size, |ui| {
+        widgets::dialog(ctx, "tidy", tr("Tidy this area"), &mut open, size, |ui| {
             ui.label(trf(
                 "{0} has {1} rooms: they are all drawn again, and what was placed by hand is lost.",
                 &[&area, &rooms.to_string()],
@@ -234,7 +234,7 @@ impl Tab {
 
     /// Draws an area again from scratch, if that draws it better.
     pub(super) fn tidy(&mut self, area: &str) {
-        let tidied = self.map.borrow_mut().relayout(area);
+        let tidied = self.map.borrow_mut().tidy(area);
         match self.map_saved(tidied) {
             Some(Tidied::Moved(0)) => self.note(tr("The map is as tidy as it gets.")),
             Some(Tidied::Moved(moved)) => self.note(&trf(

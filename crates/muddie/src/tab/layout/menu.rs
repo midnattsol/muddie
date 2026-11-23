@@ -111,21 +111,10 @@ impl Tab {
     /// Adds a panel of a kind, under a name not taken, where that kind
     /// usually goes.
     pub(in crate::tab) fn add_panel(&mut self, kind: Kind) {
-        // A name not taken: the plain one, then numbered.
-        let free = |base: &str, first: bool| -> String {
-            let taken = |name: &String| self.layout.panels.iter().any(|panel| panel.name == *name);
-            let plain = first.then(|| base.to_owned()).into_iter();
-            let numbered = (if first { 2 } else { 1 }..).map(|number| format!("{base} {number}"));
-            plain
-                .chain(numbered)
-                .take(300)
-                .find(|name| !taken(name))
-                .unwrap_or_default()
-        };
         let name = match kind {
-            Kind::Text => free("Panel", false),
+            Kind::Text => self.layout.free_name("Panel", false),
             Kind::Map => "Map".to_owned(),
-            Kind::Gauges => free("Gauges", true),
+            Kind::Gauges => self.layout.free_name("Gauges", true),
         };
         self.layout.add(&name, kind);
     }

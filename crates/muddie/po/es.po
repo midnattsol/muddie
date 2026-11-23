@@ -149,9 +149,6 @@ msgstr "Al escribir"
 msgid "Unknown text encoding {0}; using the automatic one."
 msgstr "Codificación de texto {0} desconocida; se usa la automática."
 
-msgid "enabled in this profile"
-msgstr "activo en este perfil"
-
 msgid "Disconnect"
 msgstr "Desconectar"
 
@@ -620,39 +617,6 @@ msgstr "Los complementos necesitan una carpeta de configuración, y no se encont
 
 msgid "Give the plugin a name after the address: letters, digits, - and _."
 msgstr "Indica un nombre para el complemento después de la dirección (letras, cifras, - y _)."
-
-msgid "Says where you are"
-msgstr "Indica tu ubicación actual"
-
-msgid "Keeps routes out of a room, or lets them in again"
-msgstr "Excluye una sala de las rutas o la vuelve a incluir"
-
-msgid "Keeps routes from an exit of this room, or lets them use it again"
-msgstr "Excluye una salida de esta sala de las rutas o la vuelve a incluir"
-
-msgid "Draws this area again from scratch; all, even if it is very large"
-msgstr "Recalcula la disposición de esta zona; all, aunque sea muy grande"
-
-msgid "Shows the map panel"
-msgstr "Muestra el panel del mapa"
-
-msgid "Hides the map panel"
-msgstr "Oculta el panel del mapa"
-
-msgid "Installs a plugin and enables it"
-msgstr "Instala un complemento y lo activa"
-
-msgid "Brings a plugin up to date"
-msgstr "Actualiza un complemento"
-
-msgid "Enables a plugin in this profile"
-msgstr "Activa un complemento en este perfil"
-
-msgid "Disables a plugin in this profile"
-msgstr "Desactiva un complemento en este perfil"
-
-msgid "Deletes a plugin"
-msgstr "Elimina un complemento"
 
 msgid "Starts or stops logging the session"
 msgstr "Inicia o detiene el registro de la sesión"
@@ -1315,10 +1279,6 @@ msgstr "Añadir la etiqueta {0}"
 msgid "Remove the tag {0}"
 msgstr "Quitar la etiqueta {0}"
 
-#, python-brace-format
-msgid "There are no tags. Give a rule a tag in the editor."
-msgstr "No hay etiquetas. Puedes asignarlas a las reglas desde el editor."
-
 msgid "New folder"
 msgstr "Carpeta nueva"
 
@@ -1367,9 +1327,6 @@ msgstr "Etiquetas"
 
 msgid "Folder"
 msgstr "Carpeta"
-
-msgid "Lists the tags and whether they are on"
-msgstr "Muestra las etiquetas y si están activadas"
 
 msgid "Switches a tag on or off for this session"
 msgstr "Activa o desactiva una etiqueta en esta sesión"
@@ -1470,12 +1427,6 @@ msgstr "Activado"
 msgid "Trigger name"
 msgstr "Nombre del disparador"
 
-msgid "Lists the rooms whose name contains the text"
-msgstr "Muestra las salas cuyo nombre contiene el texto"
-
-msgid "Lists the installed plugins"
-msgstr "Muestra los complementos instalados"
-
 msgid "Click a room to see it, double-click to walk there, right-click for more, Shift+drag to move it."
 msgstr "Haz clic en una sala para verla, doble clic para ir hasta ella, clic derecho para ver más opciones y Mayús+arrastrar para moverla."
 
@@ -1541,9 +1492,6 @@ msgstr[1] "Scripts reiniciados; {0} han fallado."
 #, python-brace-format
 msgid "Restarted at {0}"
 msgstr "Reiniciados a las {0}"
-
-msgid "Restarts the scripts and rules"
-msgstr "Reinicia los scripts y las reglas"
 
 #, python-brace-format
 msgid "{0} of {1}"
@@ -1974,17 +1922,8 @@ msgstr "No se pudo actualizar el mapa del servidor: {0}"
 msgid "In {0}, at {1}."
 msgstr "En {0}, en {1}."
 
-msgid "Tells the map which room you are in; alone, lists those it is unsure between"
-msgstr "Le dice al mapa en qué sala estás; sin número, lista entre cuáles duda"
-
-msgid "Goes to a room by number, mark, name or area: of several, the nearest"
-msgstr "Va a una sala por número, marca, nombre o zona: de varias, a la más cercana"
-
 msgid "Says the way to a place, without going"
 msgstr "Dice el camino hasta un sitio, sin ir"
-
-msgid "Says where each exit of this room leads"
-msgstr "Dice adónde lleva cada salida de esta sala"
 
 msgid "Says all the map knows of a room"
 msgstr "Dice todo lo que el mapa sabe de una sala"
@@ -2243,16 +2182,10 @@ msgstr "Entras en {0}: {1}"
 msgid "No exit {0}."
 msgstr "No hay salida al {0}."
 
-msgid "Explores the map with the keys, from where you are, without moving"
-msgstr "Explora el mapa con el teclado desde donde estás, sin moverte"
-
 msgid "Explore the map with the keys"
 msgstr "Explorar el mapa con el teclado"
 
 #, python-brace-format
-msgid "Arrows, or the keypad, follow the exits; Page Up and Page Down go up and down, as minus and plus on the keypad, and slash and star go in and out. Home comes back to you, Backspace to the room before. Space says the room again, {0} all about it, {1} what is noted near. {2} searches the map. {3} gives the room a name, {4} writes a note on it. Enter goes there, Shift+Enter says the way. Escape, or typing, goes back to the command line."
-msgstr "Las flechas, o el teclado numérico, siguen las salidas; Re Pág y Av Pág suben y bajan, como menos y más en el teclado numérico, y la barra y el asterisco entran y salen. Inicio vuelve a ti, Retroceso a la sala anterior. Espacio repite la sala, {0} dice todo de ella, {1} lo anotado cerca. {2} busca en el mapa. {3} le da un nombre a la sala, {4} le escribe una nota. Intro va allí, Mayús+Intro dice el camino. Escape, o escribir, vuelve a la línea de comandos."
-
 msgid "This is where you began exploring."
 msgstr "Aquí empezaste a explorar."
 
@@ -2310,12 +2243,6 @@ msgstr "Se quitó la nota."
 #, python-brace-format
 msgid "Noted: {0}"
 msgstr "Anotado: {0}"
-
-msgid "Writes a note on this room, said with it"
-msgstr "Escribe una nota en esta sala, que se dice con ella"
-
-msgid "Takes the note off this room"
-msgstr "Quita la nota de esta sala"
 
 msgid "Exploring the map"
 msgstr "Explorando el mapa"
@@ -2484,14 +2411,8 @@ msgid_plural "{0} rooms the map added, which the map taken does not have, were k
 msgstr[0] "Se ha mantenido {0} sala que añadió el mapa y que el mapa traído no tiene."
 msgstr[1] "Se han mantenido {0} salas que añadió el mapa y que el mapa traído no tiene."
 
-msgid "Lists the rooms the map added of itself where you went"
-msgstr "Muestra las salas que el mapa añadió por su cuenta donde fuiste"
-
 msgid "Undoes the last change the map made of itself"
 msgstr "Deshace el último cambio que hizo el mapa por sí solo"
-
-msgid "Lists the rooms that look wrong: with no name, or that no exit leads to or from"
-msgstr "Muestra las salas que parecen estar mal: sin nombre, o sin ninguna salida que lleve a ellas ni salga de ellas"
 
 msgid "Takes a room off the map"
 msgstr "Quita una sala del mapa"
@@ -2642,18 +2563,6 @@ msgstr "No vas a ningún sitio."
 msgid "Stopped: the server said the move failed."
 msgstr "Parado: el servidor dice que el movimiento ha fallado."
 
-msgid "Marks this room, to go to it by its mark; alone, lists the marks"
-msgstr "Marca esta sala, para ir a ella por su marca; solo, lista las marcas"
-
-msgid "Forgets a mark"
-msgstr "Olvida una marca"
-
-msgid "Lists the areas, to go to one"
-msgstr "Lista las áreas, para ir a una"
-
-msgid "Stops going"
-msgstr "Deja de ir"
-
 msgid "Marked {0}."
 msgstr "Marcada {0}."
 
@@ -2705,12 +2614,6 @@ msgstr "Todo el lado queda como una tira fina, para desplegarlo como estaba."
 msgid "The {0} channel is no longer read aloud."
 msgstr "El canal {0} ya no se lee en voz alta."
 
-msgid "Lists these commands, in the palette"
-msgstr "Lista estos comandos, en la paleta"
-
-msgid "Lists what is up to three moves away, or as many as given"
-msgstr "Lista lo que hay a tres movimientos o menos, o a los que se digan"
-
 msgid "Room appearance…"
 msgstr "Apariencia de la sala…"
 
@@ -2734,9 +2637,6 @@ msgstr "Quitar plugin"
 
 msgid "Remove {0}? Its files are deleted, and it goes from every profile."
 msgstr "¿Quitar {0}? Se borran sus ficheros y desaparece de todos los perfiles."
-
-msgid "Tidy the area"
-msgstr "Ordenar el área"
 
 msgid "Tidy"
 msgstr "Ordenar"
@@ -2780,23 +2680,11 @@ msgstr "Revisar el mapa"
 msgid "Rooms the map added"
 msgstr "Salas añadidas por el mapa"
 
-msgid "Installed plugins"
-msgstr "Plugins instalados"
-
-msgid "Add a text panel"
-msgstr "Añadir un panel de texto"
-
 msgid "Add a panel of gauges"
 msgstr "Añadir un panel de indicadores"
 
-msgid "Add the map"
-msgstr "Añadir el mapa"
-
 msgid "Side panels at full height"
 msgstr "Paneles laterales a toda la altura"
-
-msgid "Rename {0}"
-msgstr "Renombrar {0}"
 
 msgid "Undo"
 msgstr "Deshacer"
@@ -2918,26 +2806,14 @@ msgstr "{0} Para deshacer el último: Deshacer el último cambio del mapa, en la
 msgid "Say which room."
 msgstr "Di qué sala."
 
-msgid "No room is marked yet: Mark…, in the palette, marks the room you are in."
-msgstr "Ninguna sala tiene marca todavía: Marcar…, en la paleta, marca la sala en que estás."
-
 msgid "This room is now marked {0}: typed in the palette, {0} goes to it."
 msgstr "Esta sala tiene ahora la marca {0}: escribir {0} en la paleta lleva a ella."
 
 msgid "Say which map made with Mudlet to take: a file or an address."
 msgstr "Di qué mapa de Mudlet tomar: un fichero o una dirección."
 
-msgid "{0} has {1} rooms: tidying it would draw them all again, and what was drawn by hand would be lost."
-msgstr "{0} tiene {1} salas: ordenarla volvería a dibujarlas todas, y se perdería lo colocado a mano."
-
 msgid "No such plugin is installed."
 msgstr "No hay ningún plugin instalado con ese nombre."
-
-msgid "No plugins are installed: Install a plugin…, in the palette, installs one from its git address."
-msgstr "No hay plugins instalados: Instalar un plugin…, en la paleta, instala uno desde su dirección git."
-
-msgid "not enabled; choose it to enable it"
-msgstr "no activado; elígelo para activarlo"
 
 msgid "I am in…"
 msgstr "En esta sala estoy…"
@@ -2989,3 +2865,9 @@ msgstr "Bendecido"
 
 msgid "Kept off routes: {0}"
 msgstr "Fuera de las rutas: {0}"
+
+msgid "Arrows, or the keypad, follow the exits; Page Up and Page Down go up and down, as minus and plus on the keypad, and slash and star go in and out. Home comes back to you, Backspace to the room before. Space says the room again, {0} all about it, {1} what is noted near. {2} searches the map. {3} marks the room, {4} writes a note on it. Enter goes there, Shift+Enter says the way. Shift+F10 opens the room's menu, with all that is done with it. Escape, or typing, goes back to the command line."
+msgstr "Las flechas, o el teclado numérico, siguen las salidas; Re Pág y Av Pág suben y bajan, como menos y más en el teclado numérico, y la barra y el asterisco entran y salen. Inicio vuelve a ti, Retroceso a la sala anterior. Espacio repite la sala, {0} dice todo de ella, {1} lo anotado cerca. {2} busca en el mapa. {3} marca la sala, {4} le escribe una nota. Intro va allí, Mayús+Intro dice el camino. Mayús+F10 abre el menú de la sala, con todo lo que se hace con ella. Escape, o escribir, vuelve a la línea de comandos."
+
+msgid "Channels"
+msgstr "Canales"

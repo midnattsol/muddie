@@ -7,13 +7,6 @@ use super::*;
 use crate::i18n::{trf, trn};
 use muddie_mapper::{Found, FoundBy};
 
-/// The keys while exploring the map, said on coming to it.
-const EXPLORING_KEYS: &str =
-    "Arrows follow the exits, Enter goes, Escape goes back. F1 says all the keys.";
-
-/// Every key while exploring, said with F1.
-const ALL_KEYS: &str = "Arrows, or the keypad, follow the exits; Page Up and Page Down go up and down, as minus and plus on the keypad, and slash and star go in and out. Home comes back to you, Backspace to the room before. Space says the room again, {0} all about it, {1} what is noted near. {2} searches the map. {3} marks the room, {4} writes a note on it. Enter goes there, Shift+Enter says the way. Shift+F10 opens the room's menu, with all that is done with it. Escape, or typing, goes back to the command line.";
-
 /// How many moves away from the room chosen what is noted is looked for.
 const NEAR: usize = 10;
 /// How many of the things near are said, at most.
@@ -312,7 +305,11 @@ impl MapView {
         let here = place_words(map, from);
         trf(
             "Exploring the map from {0}. {1}. {2}",
-            &[&here, &exits_words(map, from), tr(EXPLORING_KEYS)],
+            &[
+                &here,
+                &exits_words(map, from),
+                tr("Arrows follow the exits, Enter goes, Escape goes back. F1 says all the keys."),
+            ],
         )
     }
 
@@ -516,7 +513,7 @@ fn near_words(map: &Map, from: RoomId) -> String {
 /// Every key while exploring, as said.
 fn all_keys() -> String {
     trf(
-        ALL_KEYS,
+        "Arrows, or the keypad, follow the exits; Page Up and Page Down go up and down, as minus and plus on the keypad, and slash and star go in and out. Home comes back to you, Backspace to the room before. Space says the room again, {0} all about it, {1} what is noted near. {2} searches the map. {3} marks the room, {4} writes a note on it. Enter goes there, Shift+Enter says the way. Shift+F10 opens the room's menu, with all that is done with it. Escape, or typing, goes back to the command line.",
         &[
             crate::shortcuts::command!("I"),
             crate::shortcuts::command!("L"),

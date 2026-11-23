@@ -407,7 +407,6 @@ fn item(label: &str, place: &str, act: Act) -> Item {
         usage: label.to_owned(),
         group: place.to_owned(),
         about: String::new(),
-        more: false,
         act: Some(act),
     }
 }

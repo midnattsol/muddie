@@ -259,7 +259,8 @@ impl Engine {
         })
     }
 
-    /// Runs a script file and remembers it for `/reload`.
+    /// Runs a script file and remembers it, to run it again on restarting
+    /// the scripts.
     pub fn load_file(&mut self, path: &Path) {
         if !self.files.iter().any(|loaded| loaded == path) {
             self.files.push(path.to_owned());

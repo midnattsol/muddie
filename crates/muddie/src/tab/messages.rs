@@ -48,7 +48,7 @@ impl Tab {
     }
 
     /// A line a script shows among the lines of the game, and says: what
-    /// it asks for. Run as a command (`/lua`), it is what the command
+    /// it asks for. Run from the palette (Run Lua…), it is what it
     /// answers.
     pub(super) fn echo(&mut self, text: &str) {
         if self.palette.answering {

@@ -705,14 +705,14 @@ fn install_exits(lua: &Lua, map: &Rc<RefCell<Map>>, api: &Table) -> mlua::Result
 
     let world = Rc::clone(map);
     api.set(
-        "relayout",
+        "tidy",
         lua.create_function(move |_, area: Option<String>| {
             let mut world = world.borrow_mut();
             let area = area.or_else(|| Some(world.current()?.area.clone()));
             let Some(area) = area else {
                 return Ok((0, None));
             };
-            let tidied = (world.relayout(&area))
+            let tidied = (world.tidy(&area))
                 .map_err(|error| mlua::Error::runtime(format!("could not save the map: {error}")))?;
             Ok(match tidied {
                 muddie_mapper::Tidied::Moved(moved) => (moved, None),

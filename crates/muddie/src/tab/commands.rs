@@ -1,10 +1,9 @@
-//! The commands of the client, in a palette that Ctrl+K opens over the
-//! window: type to find one, the arrows choose, Enter runs it, and Escape
-//! or a click anywhere else closes it, with the game in view all along.
-//! Typed in the command line after a `/` they are carried out the same.
-//! What a command answers is not put among the lines of the game: a line
-//! of it is said over the corner, or in the palette if it was run from
-//! there, and a list of things is shown in the palette, to choose from.
+//! The palette that Ctrl+K opens over the window: what the client does,
+//! each by its name, and the places of the map. Type to find one, the
+//! arrows choose, Enter does it, and Escape or a click anywhere else
+//! closes it, with the game in view all along. What it answers is not put
+//! among the lines of the game: a line of it is said in the palette, and a
+//! list of things is shown there, to choose from.
 
 use super::*;
 use crate::theme::Weight;
@@ -16,18 +15,16 @@ mod window;
 /// Something the palette offers.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Item {
-    /// What choosing it puts in the command line.
+    /// The command choosing it carries out, for one of a list something
+    /// answered; empty for one only to read.
     pub insert: String,
-    /// How it is shown: the command as it is typed.
+    /// How it is shown and said.
     pub usage: String,
-    /// The group it is shown under; none for what a command listed.
+    /// The group it is shown under; none for one of a list.
     pub group: String,
-    /// What it is, or for, shown after it: what a command does, or where
-    /// a place is and how far.
+    /// What it is shown with: where a place is and how far, or what one
+    /// of a list is.
     pub about: String,
-    /// Whether it takes something that has yet to be typed, so that
-    /// choosing it completes it rather than runs it.
-    pub more: bool,
     /// What choosing it does, if it is not a command to run.
     pub act: Option<Act>,
 }
@@ -258,7 +255,6 @@ impl Tab {
             usage: name.clone(),
             group: String::new(),
             about,
-            more: false,
             act: Some(Act::Answer(name)),
         };
         let has = |name: &str| name.to_lowercase().contains(query);
@@ -335,7 +331,6 @@ impl Tab {
             usage: done,
             group: String::new(),
             about: String::new(),
-            more: false,
             act: Some(Act::Run(line.clone())),
         });
         self.palette.query.clear();
@@ -409,14 +404,14 @@ fn relevance(item: &Item, typed: &str) -> usize {
 fn order_by_relevance(items: &mut Vec<Item>, typed: &str) {
     let mut groups: Vec<(String, usize)> = Vec::new();
     for item in items.iter() {
-        let (group, score) = (group_of(item), relevance(item, typed));
+        let (group, score) = (item.group.clone(), relevance(item, typed));
         match groups.iter_mut().find(|(known, _)| *known == group) {
             Some((_, best)) => *best = (*best).min(score),
             None => groups.push((group, score)),
         }
     }
     let rank = |item: &Item| {
-        let group = group_of(item);
+        let group = item.group.clone();
         let at = groups
             .iter()
             .position(|(known, _)| *known == group)
@@ -426,12 +421,6 @@ fn order_by_relevance(items: &mut Vec<Item>, typed: &str) {
     let mut ranked: Vec<(usize, Item)> = items.drain(..).enumerate().collect();
     ranked.sort_by_key(|(index, item)| (rank(item), *index));
     items.extend(ranked.into_iter().map(|(_, item)| item));
-}
-
-/// The group something offered is shown under: what it does, for what
-/// the palette does; the commands, for the commands.
-pub(super) fn group_of(item: &Item) -> String {
-    item.group.clone()
 }
 
 /// What the palette's items are worked out from: what is typed, the

@@ -148,7 +148,7 @@ impl Tab {
         let Some(chosen) = items.get(self.palette.chosen) else {
             return self.voice.say_now(tr("No matches."));
         };
-        let group = super::group_of(chosen);
+        let group = chosen.group.clone();
         let mut said = String::new();
         if !group.is_empty() && self.palette.spoken_group.as_ref() != Some(&group) {
             said = format!("{group}. ");
@@ -276,7 +276,7 @@ impl Tab {
                                         ui.spacing_mut().item_spacing.y = 0.0;
                                         let mut group = None;
                                         for (index, item) in items.iter().enumerate() {
-                                            let this = super::group_of(item);
+                                            let this = item.group.clone();
                                             if grouped
                                                 && !this.is_empty()
                                                 && group.as_ref() != Some(&this)
@@ -299,7 +299,11 @@ impl Tab {
                     });
                     ui.add_space(4.0);
                     rule(ui);
-                    keys_at_the_foot(ui, items.get(self.palette.chosen));
+                    keys_at_the_foot(
+                        ui,
+                        items.get(self.palette.chosen),
+                        self.palette.asking.is_some(),
+                    );
                 });
             });
         (area.response, clicked)
@@ -444,15 +448,15 @@ fn answered(ui: &mut egui::Ui, text: &str, problem: bool) {
 }
 
 /// The keys of the palette, at its foot, each with what it does: those
-/// that do something with the one chosen.
-fn keys_at_the_foot(ui: &mut egui::Ui, chosen: Option<&Item>) {
+/// that do something with the one chosen, and Tab while it asks.
+fn keys_at_the_foot(ui: &mut egui::Ui, chosen: Option<&Item>, asking: bool) {
     let theme = theme::current();
     ui.add_space(6.0);
     ui.horizontal(|ui| {
         ui.add_space(12.0);
         ui.spacing_mut().item_spacing.x = 6.0;
         let place = chosen.is_some_and(|item| matches!(item.act, Some(Act::Place(_))));
-        let more = chosen.is_some_and(|item| item.more);
+        let more = asking && chosen.is_some();
         let keys = [
             Some(("↑ ↓", tr("choose"))),
             chosen.map(|_| ("Enter", if place { tr("go") } else { tr("run") })),

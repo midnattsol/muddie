@@ -66,9 +66,9 @@ fn install_gauge(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     Ok(())
 }
 
-/// The effects a gauge is given, as a script or a MUD writes them: a list,
-/// or a table by name; each a name, or a table of `name`, `about` (or
-/// `desc`, `description`) and `colour`. One that is false or 0 is not on.
+/// The effects a gauge is given: a list, or a table by name; each a name,
+/// or a table of `name`, `about` and `colour`. One that is false or 0 is
+/// not on.
 fn effects_of(given: Value) -> mlua::Result<Vec<Effect>> {
     let Value::Table(table) = given else {
         return Ok(Vec::new());
@@ -91,21 +91,16 @@ fn effects_of(given: Value) -> mlua::Result<Vec<Effect>> {
                 ..Effect::default()
             },
             Value::Table(entry) => {
-                let text = |keys: &[&str]| -> mlua::Result<String> {
-                    for key in keys {
-                        if let Some(text) = entry.get::<Option<String>>(*key)? {
-                            return Ok(text);
-                        }
-                    }
-                    Ok(String::new())
+                let text = |key: &str| -> mlua::Result<String> {
+                    Ok(entry.get::<Option<String>>(key)?.unwrap_or_default())
                 };
                 Effect {
-                    name: Some(text(&["name"])?)
+                    name: Some(text("name")?)
                         .filter(|name| !name.is_empty())
                         .or(named)
                         .unwrap_or_default(),
-                    about: text(&["about", "desc", "description"])?,
-                    colour: text(&["colour", "color"])?,
+                    about: text("about")?,
+                    colour: text("colour")?,
                 }
             }
             Value::Boolean(false) | Value::Integer(0) => continue,

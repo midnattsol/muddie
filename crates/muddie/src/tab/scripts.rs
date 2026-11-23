@@ -135,7 +135,7 @@ impl Tab {
     }
 
     /// Runs every script and rule again, as when a session starts, keeping
-    /// the variables: the same from the editor, the palette and `/reload`.
+    /// the variables: the same from the editor and the palette.
     /// Says how it went, and keeps when it was and which scripts failed,
     /// for the editor to show.
     pub(super) fn restart_scripts(&mut self) {

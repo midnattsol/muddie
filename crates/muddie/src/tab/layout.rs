@@ -133,6 +133,7 @@ impl PanelSpec {
             "Map" => tr("Map"),
             "Gauges" => tr("Gauges"),
             "Panel" => tr("Panel"),
+            "Channels" => tr("Channels"),
             _ => return self.name.clone(),
         };
         match number {
@@ -249,6 +250,17 @@ impl Layout {
             .max()
             .unwrap_or(0)
             + 1
+    }
+
+    /// A name for a new panel no other has: `base`, if `plain` and it is
+    /// free, else `base` with the first number free.
+    pub(super) fn free_name(&self, base: &str, plain: bool) -> String {
+        let taken = |name: &String| self.panels.iter().any(|panel| panel.name == *name);
+        let first = plain.then(|| base.to_owned()).into_iter();
+        let numbered = (if plain { 2 } else { 1 }..).map(|number| format!("{base} {number}"));
+        (first.chain(numbered).take(300))
+            .find(|name| !taken(name))
+            .unwrap_or_else(|| base.to_owned())
     }
 
     /// Adds a panel of `kind` called `name`, where one of its kind goes,
