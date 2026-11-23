@@ -596,10 +596,10 @@ fn look_of(item: &Item) -> (widgets::Glyph, &'static str) {
         return (Glyph::Script, "");
     };
     match act {
-        Act::View(0) => (Glyph::Send, ""),
-        Act::View(1) => (Glyph::Code, crate::shortcuts::command!("E")),
-        Act::View(3) => (Glyph::Panel, ""),
-        Act::View(_) => (Glyph::Data, crate::shortcuts::command!("D")),
+        Act::View(View::Game) => (Glyph::Send, ""),
+        Act::View(View::Editor) => (Glyph::Code, crate::shortcuts::command!("E")),
+        Act::View(View::Layout) => (Glyph::Panel, ""),
+        Act::View(View::Data) => (Glyph::Data, crate::shortcuts::command!("D")),
         Act::Section(_) => (Glyph::Code, ""),
         Act::App(request) => match request {
             AppRequest::NewSession => (Glyph::Plus, crate::shortcuts::command!("T")),

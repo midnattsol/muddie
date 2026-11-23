@@ -11,7 +11,7 @@ use crate::i18n::{self, tr, trf};
 use crate::keypad;
 use crate::profile::Profiles;
 use crate::settings::{MudPalette, Settings, ThemeName};
-use crate::tab::{Startup, Tab};
+use crate::tab::{Startup, Tab, View};
 use crate::theme::{self, Weight, size};
 use crate::widgets;
 
@@ -303,10 +303,18 @@ impl App {
             tab.toggle_palette();
         }
         if pressed(&SWITCH_VIEW) {
-            tab.set_view(if tab.view() == 0 { 1 } else { 0 });
+            tab.set_view(if tab.view() == View::Game {
+                View::Editor
+            } else {
+                View::Game
+            });
         }
         if pressed(&DEBUG_VIEW) {
-            tab.set_view(if tab.view() == 2 { 0 } else { 2 });
+            tab.set_view(if tab.view() == View::Data {
+                View::Game
+            } else {
+                View::Data
+            });
         }
     }
 

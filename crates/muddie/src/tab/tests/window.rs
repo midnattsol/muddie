@@ -410,7 +410,7 @@ fn frame_costs() {
             r#"{"a": 1, "b": {"c": [1, 2, 3], "d": "text"}}"#,
         );
     }
-    app.set_view(2);
+    app.set_view(View::Data);
     cost(&mut harness, "debug with 120 packages");
 }
 
@@ -452,7 +452,7 @@ fn an_idle_window_draws_nothing() {
             app.open_automation(0);
         }),
         ("incoming data", |harness| {
-            harness.state_mut().tab_mut().set_view(2)
+            harness.state_mut().tab_mut().set_view(View::Data)
         }),
     ];
     for (name, setup) in views {
@@ -502,7 +502,7 @@ fn a_long_coloured_value_leaves_its_path_room() {
         false,
         r#"{"canal": "chat", "mensaje": "[Chat] Szhysszh | \u001b[1m \u001b[30mGeneral  \u001b[37mde la  \u001b[35mSalsa \u001b[37m|: \u001b[31m pues si lo quieres para autismo y npc, y para lo que haga falta en la partida"}"#,
     );
-    app.set_view(2);
+    app.set_view(View::Data);
     harness.run_steps(3);
     let words = |name: &str| {
         harness
@@ -673,10 +673,10 @@ fn every_control_has_a_name() {
     harness.state_mut().tab_mut().choose_folder("Social");
     harness.run_steps(3);
     missing.extend(unnamed(&harness, "a folder"));
-    harness.state_mut().tab_mut().set_view(3);
+    harness.state_mut().tab_mut().set_view(View::Layout);
     harness.run_steps(3);
     missing.extend(unnamed(&harness, "layout"));
-    harness.state_mut().tab_mut().set_view(0);
+    harness.state_mut().tab_mut().set_view(View::Game);
     harness.run_steps(2);
     harness.key_press_modifiers(Modifiers::COMMAND, Key::K);
     harness.run_steps(3);

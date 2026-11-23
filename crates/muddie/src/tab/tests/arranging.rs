@@ -433,7 +433,7 @@ fn a_gauge_is_changed_where_it_is_shown() {
     harness.get_by_label("Edit Salud").click();
     harness.run_steps(3);
     let app = harness.state_mut().tab_mut();
-    assert_eq!((app.editor.gauge_here, app.view()), (Some(0), 0));
+    assert_eq!((app.editor.gauge_here, app.view()), (Some(0), View::Game));
     app.editor.draft.gauges[0].colour = "red".into();
     harness.run_steps(2);
     // Closed, what was changed is saved, as in the editor.
@@ -525,20 +525,20 @@ fn the_layout_has_a_view_of_its_own_beside_the_game_and_the_editor() {
     harness.run_steps(2);
     harness.get_by_label("Layout").click();
     harness.run_steps(3);
-    assert_eq!(harness.state().tab().view(), 3);
+    assert_eq!(harness.state().tab().view(), View::Layout);
     // The panels by side, the first chosen; a picture of them; the
     // arrangements.
     harness.get_by_label("Picture of the window's panels");
     harness.get_by_role_and_label(egui::accesskit::Role::Button, "Classic");
     // The editor takes its place, and Escape goes back to the game.
-    harness.state_mut().tab_mut().set_view(1);
+    harness.state_mut().tab_mut().set_view(View::Editor);
     harness.run_steps(2);
-    assert_eq!(harness.state().tab().view(), 1);
-    harness.state_mut().tab_mut().set_view(3);
+    assert_eq!(harness.state().tab().view(), View::Editor);
+    harness.state_mut().tab_mut().set_view(View::Layout);
     harness.run_steps(2);
     harness.key_press(Key::Escape);
     harness.run_steps(2);
-    assert_eq!(harness.state().tab().view(), 0);
+    assert_eq!(harness.state().tab().view(), View::Game);
     // A panel's menu opens it with that panel chosen.
     let map = harness
         .state()
@@ -740,7 +740,7 @@ fn before_a_session_is_anyones_its_layout_and_rules_say_whose_they_would_be() {
     // On the welcome screen, with no profile chosen.
     let mut harness = window(None);
     harness.state_mut().tab_mut().started = false;
-    harness.state_mut().tab_mut().set_view(3);
+    harness.state_mut().tab_mut().set_view(View::Layout);
     harness.run_steps(3);
     // Not the panels of a session that may never have them: why, and the
     // ways on.
@@ -763,18 +763,18 @@ fn before_a_session_is_anyones_its_layout_and_rules_say_whose_they_would_be() {
     harness.get_by_label("Picture of the window's panels");
     harness.get_by_label_contains("of sessions without a profile");
     // The editor goes the same way, once asked for.
-    harness.state_mut().tab_mut().set_view(1);
+    harness.state_mut().tab_mut().set_view(View::Editor);
     harness.run_steps(3);
     assert!(harness.query_by_label("No rules yet").is_none());
     // Escape on it goes back to the game.
     let mut fresh = window(None);
     fresh.state_mut().tab_mut().started = false;
-    fresh.state_mut().tab_mut().set_view(1);
+    fresh.state_mut().tab_mut().set_view(View::Editor);
     fresh.run_steps(3);
     fresh.get_by_label("No rules yet");
     fresh.key_press(Key::Escape);
     fresh.run_steps(3);
-    assert_eq!(fresh.state().tab().view(), 0);
+    assert_eq!(fresh.state().tab().view(), View::Game);
 }
 
 /// A panel is named again in its header, from its menu or the palette:

@@ -58,10 +58,10 @@ fn shows_welcome() {
     welcome.run_steps(3);
     save(&mut welcome, "welcome");
     // The layout of a session not yet anyone's.
-    welcome.state_mut().tab_mut().set_view(3);
+    welcome.state_mut().tab_mut().set_view(View::Layout);
     welcome.run_steps(3);
     save(&mut welcome, "welcome-layout");
-    welcome.state_mut().tab_mut().set_view(0);
+    welcome.state_mut().tab_mut().set_view(View::Game);
     welcome.run_steps(2);
     welcome.state_mut().open_profiles(Some("Discworld"));
     welcome.run_steps(4);
@@ -451,7 +451,7 @@ fn shows_editor() {
         ("MSSP".into(), true),
         ("ATCP".into(), false),
     ];
-    app.set_view(2);
+    app.set_view(View::Data);
     rules.run_steps(3);
     save(&mut rules, "data");
 }

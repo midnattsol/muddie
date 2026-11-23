@@ -266,32 +266,40 @@ impl Tab {
     }
 }
 
+/// The views of a session, each over the whole window.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum View {
+    Game,
+    /// The editor, where it was left.
+    Editor,
+    /// The editor on what the MUD sends.
+    Data,
+    Layout,
+}
+
 impl Tab {
-    /// Which of its views the session is on: the game, the editor, or
-    /// the editor on what the MUD sends.
-    pub fn view(&self) -> usize {
+    /// Which of its views the session is on.
+    pub fn view(&self) -> View {
         match (self.arrange.open, self.editor.open, self.data_open()) {
-            (true, ..) => 3,
-            (_, _, true) => 2,
-            (_, true, false) => 1,
-            (false, false, false) => 0,
+            (true, ..) => View::Layout,
+            (_, _, true) => View::Data,
+            (_, true, false) => View::Editor,
+            (false, false, false) => View::Game,
         }
     }
 
-    /// Goes to one of the session's views: the game, the editor where it
-    /// was left, or the editor on what the MUD sends.
-    pub fn set_view(&mut self, view: usize) {
+    /// Goes to one of the session's views.
+    pub fn set_view(&mut self, view: View) {
         match view {
-            0 => {
+            View::Game => {
                 self.arrange.open = false;
                 if self.editor.open {
                     self.close_automation();
                 }
             }
-            1 => self.reopen_automation(),
-            2 => self.open_automation(automation::DATA),
-            3 => self.open_arrange(None),
-            _ => {}
+            View::Editor => self.reopen_automation(),
+            View::Data => self.open_automation(automation::DATA),
+            View::Layout => self.open_arrange(None),
         }
     }
 }

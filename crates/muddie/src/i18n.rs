@@ -94,10 +94,7 @@ fn catalogue(code: &str) -> Option<&'static Catalogue> {
 /// `pt_BR`, `en` for none, or nothing to follow the system.
 pub fn set_language(code: &str) {
     let code = match code.trim() {
-        // What earlier versions wrote in the settings.
-        "" | "auto" => system_language(),
-        "english" => "en".to_owned(),
-        "spanish" => "es".to_owned(),
+        "" => system_language(),
         code => code.to_owned(),
     };
     // `pt_BR` falls back to `pt` if only that is there.

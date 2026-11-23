@@ -142,8 +142,11 @@ fn the_palette_does_what_is_chosen_and_asks_in_its_field_for_what_it_needs() {
     harness.key_press(Key::Enter);
     harness.run_steps(3);
     let app = harness.state_mut().tab_mut();
-    assert_eq!((app.view(), app.editor.section), (1, automation::TIMERS));
-    app.set_view(0);
+    assert_eq!(
+        (app.view(), app.editor.section),
+        (View::Editor, automation::TIMERS)
+    );
+    app.set_view(View::Game);
     // And what the window does is asked of it.
     app.toggle_palette();
     app.palette.query = "about".into();

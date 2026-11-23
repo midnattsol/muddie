@@ -64,6 +64,7 @@ mod welcome;
 pub use messages::Notice;
 
 pub use commands::AppRequest;
+pub use view::View;
 
 struct Connection {
     commands: UnboundedSender<Command>,

@@ -301,7 +301,7 @@ impl Tab {
             let said = self.unknown_whereabouts();
             return self.refuse(&said);
         };
-        self.set_view(0);
+        self.set_view(View::Game);
         self.set_map_shown(true);
         self.voice.say_now(&said);
     }

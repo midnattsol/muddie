@@ -33,8 +33,8 @@ pub struct Item {
 /// view or a section, open the settings, connect to a profile.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Act {
-    /// The game, the editor where it was left, or what the MUD sends.
-    View(usize),
+    /// One of the session's views.
+    View(View),
     /// A section of the editor.
     Section(usize),
     /// Something the window does rather than the session.

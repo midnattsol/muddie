@@ -35,7 +35,7 @@ fn what_the_mud_sends_is_kept_to_look_at_and_made_into_gauges() {
     );
     // The editor shows it, and a number there becomes a gauge with
     // its maximum found, in a panel of gauges.
-    app.set_view(2);
+    app.set_view(View::Data);
     harness.run_steps(3);
     assert!(
         harness
@@ -65,7 +65,11 @@ fn what_the_mud_sends_is_kept_to_look_at_and_made_into_gauges() {
             "Char.Vitals.health.max"
         )
     );
-    assert_eq!(app.view(), 1, "it is shown in the editor to be finished");
+    assert_eq!(
+        app.view(),
+        View::Editor,
+        "it is shown in the editor to be finished"
+    );
     // Saved, it follows the value, in the panel it was put in.
     app.close_automation();
     events.send(vitals(55)).unwrap();
@@ -89,7 +93,7 @@ fn what_arrives_is_kept_only_while_it_is_looked_at() {
     assert!(harness.state().tab().data_view.seen.is_empty());
     // Open, it is: by the protocol each thing came by. The connection
     // is told to say what it otherwise passes over.
-    harness.state_mut().tab_mut().set_view(2);
+    harness.state_mut().tab_mut().set_view(View::Data);
     harness.run_steps(2);
     let told: Vec<Command> = std::iter::from_fn(|| sent.try_recv().ok()).collect();
     assert!(matches!(told.last(), Some(Command::Trace(true))));
@@ -124,7 +128,7 @@ fn what_arrives_is_kept_only_while_it_is_looked_at() {
     // In the list, and laid out beside it.
     assert!(harness.query_all_by_label("send").count() >= 2);
     // Closed again, it stops, unless asked to go on.
-    harness.state_mut().tab_mut().set_view(0);
+    harness.state_mut().tab_mut().set_view(View::Game);
     harness.run_steps(2);
     events.send(vitals()).unwrap();
     harness.run_steps(3);

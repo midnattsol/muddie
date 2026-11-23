@@ -44,7 +44,7 @@ its profile (or save it as one, if it has none), and close it.
 The palette, **Ctrl+K**, reaches everything: type a few letters of what you
 want, such as `timers`, `map`, `theme` or the name of a profile, and press
 Enter. It goes to the views and the sections of the editor, opens the
-settings at the part wanted, shows and hides panels, adds them, connects to
+settings at the part wanted, shows and hides panels, connects to
 a profile, and runs the commands of the client. Everything the menu does is
 in it. It says how many it found; **↑** and **↓** go through them one by
 one, round the ends, **Page Up** and **Page Down** a page at a time, and
@@ -63,7 +63,7 @@ arrives.
 A new session opens on a welcome screen. Type an address such as
 `mud.example.org:4000` and press Enter to connect, or pick one of your saved
 profiles below it. A right click on one of them, or on it in the Profiles
-window, edits, duplicates, renames or deletes it. **More options** there
+window, duplicates, renames or deletes it; choosing it edits it. **More options** there
 keeps the address typed as a new profile, asking only its name, and opens it
 to be filled in.
 
@@ -142,7 +142,7 @@ ne = ["nord-est", "ne"]
 
 | Key | What it does |
 |---|---|
-| Enter | Sends the line. Several commands can be separated by `;`. With **Keep the command after sending it**, in the settings, the line stays, selected: Enter sends it again, and typing replaces it |
+| Enter | Sends the line. Several commands can be separated by `;`. With **Keep the sent command**, in the settings, the line stays, selected: Enter sends it again, and typing replaces it |
 | Up, Down | Earlier and later lines; with something typed, only those starting with it |
 | Ctrl+R | Searches the history for what is typed; again goes further back |
 | Tab | Completes the word being typed from recent output |
@@ -370,8 +370,8 @@ another side, saying where it is now. Escape goes back to the game.
 - Its **menu** has **Rename…**, what goes with its kind (the channels for
   one of text, editing the gauges; for the map, its appearance, showing every area or another, undoing
   the last room it added, and under the name of each plugin what it offers
-  to do with the map), hiding it and removing it. **Rename…**, a double
-  click on the name, or **Rename** and the panel's name in the palette, turn
+  to do with the map), hiding it and removing it. **Rename…**, or a double
+  click on the name, turns
   the name in the header into a field: Enter keeps what is written, Escape
   the name it had.
 - **A whole side** can be collapsed, with all its panels, from the arrow
@@ -380,10 +380,10 @@ another side, saying where it is now. Escape goes back to the game.
   was, and the names of its panels: any of them expands it too, with
   that panel on show. A panel shown or added on a collapsed side
   expands it too; **Ctrl+M** shows or hides the map alone.
-- **Side panels at full height**, in the palette, decides who gets the
+- **Side panels at full height**, in **Layout**, decides who gets the
   corners: with it, the panels beside the output reach the top and the
   bottom of the window.
-- Panels are **added** from **Layout** or the palette: of text, the map, or
+- Panels are **added** from **Layout**: of text, the map, or
   gauges. There is one map; of the others, as many as wanted. The palette
   lists them all too, each to show or hide.
 - A tab that gets something while another is on show is marked.
@@ -678,7 +678,7 @@ settings, **Speak with** chooses what reads it:
 screen reader. What is said on the MUD's channels is read too, after the
 channel's name; **Read the channels** in the settings turns that off, and
 **Read aloud** in the menu of a channel's tab, for that channel alone, in
-that profile. **Interrupt with what is new** has each new line cut short the
+that profile. **Interrupt with new lines** has each new line cut short the
 one being said, for games where what came before is soon old.
 
 | Key | What it does |
@@ -727,7 +727,7 @@ A sound you do not have is fetched from where the MUD says it is on the web,
 kept in the cache folder (`~/.cache/muddie/media`) and played; next time it is
 already there. Only sound files are fetched, only over HTTP or HTTPS, and none
 larger than 25 MB. Fetching reaches a server the MUD names, as a web page
-does; **Settings > Download the sounds a MUD asks to play** switches it off,
+does; **Download sounds**, in the profile's **Session**, switches it off,
 and then only the sounds you have are played.
 
 A sound with more priority stops those with less, and is not played over one

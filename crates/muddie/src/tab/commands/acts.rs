@@ -418,10 +418,10 @@ fn item(label: &str, place: &str, act: Act) -> Item {
 fn views() -> Vec<Item> {
     let go = tr("Go to");
     let mut acts = vec![
-        item(tr("Game"), go, Act::View(0)),
-        item(tr("Editor"), go, Act::View(1)),
-        item(tr("Layout"), go, Act::View(3)),
-        item(tr("Incoming data"), go, Act::View(2)),
+        item(tr("Game"), go, Act::View(View::Game)),
+        item(tr("Editor"), go, Act::View(View::Editor)),
+        item(tr("Layout"), go, Act::View(View::Layout)),
+        item(tr("Incoming data"), go, Act::View(View::Data)),
     ];
     acts.extend((automation::TRIGGERS..=automation::SCRIPTS).map(|section| {
         item(

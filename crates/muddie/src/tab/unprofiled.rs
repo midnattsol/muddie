@@ -29,7 +29,7 @@ impl Tab {
             return false;
         }
         if widgets::take_escape(ui) {
-            self.set_view(0);
+            self.set_view(View::Game);
             return true;
         }
         let theme = theme::current();

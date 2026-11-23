@@ -106,13 +106,7 @@ fn general_settings(ui: &mut Ui, settings: &mut Settings, languages: &[(String, 
                 ("en".to_owned(), "English".to_owned()),
             ];
             choices.extend(languages.iter().cloned());
-            let current = match settings.language.as_str() {
-                "auto" => "",
-                "english" => "en",
-                "spanish" => "es",
-                code => code,
-            }
-            .to_owned();
+            let current = settings.language.clone();
             let shown = choices.iter().find(|(code, _)| *code == current);
             let shown = shown.map_or(current.clone(), |(_, name)| name.clone());
             crate::widgets::dropdown("language")

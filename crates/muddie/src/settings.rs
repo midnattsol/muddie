@@ -165,7 +165,16 @@ impl Settings {
     pub fn load(path: &Path) -> Result<Self, String> {
         match std::fs::read_to_string(path) {
             Ok(text) => {
-                toml::from_str(&text).map_err(|error| format!("{}: {error}", path.display()))
+                let mut settings: Self = toml::from_str(&text)
+                    .map_err(|error| format!("{}: {error}", path.display()))?;
+                // What earlier versions wrote for the language.
+                settings.language = match settings.language.as_str() {
+                    "auto" => String::new(),
+                    "english" => "en".to_owned(),
+                    "spanish" => "es".to_owned(),
+                    code => code.to_owned(),
+                };
+                Ok(settings)
             }
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(Self::default()),
             Err(error) => Err(format!("cannot read {}: {error}", path.display())),

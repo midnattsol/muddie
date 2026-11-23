@@ -102,7 +102,7 @@ impl Tab {
         panel.visible = true;
         let (side, stack, name) = (panel.side, panel.stack, panel.shown_name());
         self.layout.reveal(side);
-        self.set_view(0);
+        self.set_view(View::Game);
         self.panels.shown_tabs.retain(|(known, _)| *known != stack);
         self.panels.shown_tabs.push((stack, id));
         self.panels.renaming = Some((id, name, true));
