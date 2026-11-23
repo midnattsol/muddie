@@ -176,7 +176,7 @@ impl Tab {
         let profile = match loaded {
             Ok(profile) => profile,
             Err(error) => {
-                self.note(&trf(
+                self.refuse(&trf(
                     "Could not load the profile: {0}",
                     &[&error.to_string()],
                 ));
@@ -231,12 +231,12 @@ impl Tab {
     pub(super) fn save_profile(&mut self) {
         let name = self.profile_name.trim().to_owned();
         let Some(profiles) = &self.profiles else {
-            return self.note(tr(
+            return self.refuse(tr(
                 "Profiles cannot be saved: no configuration folder was found.",
             ));
         };
         let Some(profile) = self.profile_now() else {
-            return self.note(tr("The port must be a number from 1 to 65535."));
+            return self.refuse(tr("The port must be a number from 1 to 65535."));
         };
         match profiles.save(&name, &profile) {
             Ok(()) => {
@@ -252,13 +252,13 @@ impl Tab {
                 if !password.is_empty()
                     && let Err(error) = secrets::set_password(&name, Some(&password))
                 {
-                    self.note(&trf(
+                    self.refuse(&trf(
                         "The password could not be saved in the keyring: {0}",
                         &[&error],
                     ));
                 }
             }
-            Err(error) => self.note(&trf(
+            Err(error) => self.refuse(&trf(
                 "Could not save the profile: {0}",
                 &[&error.to_string()],
             )),

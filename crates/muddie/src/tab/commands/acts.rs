@@ -78,7 +78,7 @@ impl Tab {
         acts.push(item(tr("Copy all output"), session, Act::CopyOutput));
         let log = switched(tr("Log this session"), self.log.is_some());
         acts.push(item(&log, session, Act::Log));
-        let speech = switched(tr("Speak aloud"), self.voice.enabled());
+        let speech = switched(tr("Speech in this session"), self.voice.enabled());
         acts.push(item(&speech, session, Act::Speech));
         acts.push(match &self.profile {
             Some(name) => {

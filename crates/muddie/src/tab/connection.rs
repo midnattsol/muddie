@@ -62,7 +62,7 @@ impl Tab {
     fn address_to_connect(&mut self) -> Option<(String, u16)> {
         let host = self.host.trim().to_owned();
         let Ok(port) = self.port.trim().parse::<u16>() else {
-            self.note(tr("The port must be a number from 1 to 65535."));
+            self.refuse(tr("The port must be a number from 1 to 65535."));
             return None;
         };
         if host.is_empty() {
@@ -208,7 +208,7 @@ impl Tab {
         match secrets::password(&profile) {
             Ok(Some(password)) => self.send_secret(password),
             Ok(None) => {}
-            Err(error) => self.note(&trf(
+            Err(error) => self.refuse(&trf(
                 "The password could not be read from the keyring: {0}",
                 &[&error],
             )),

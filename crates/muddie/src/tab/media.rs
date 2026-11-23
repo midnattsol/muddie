@@ -238,7 +238,7 @@ impl Tab {
                 (Ok(_), None) => {}
                 (Err(error), _) => {
                     self.fetching.missing.push(address);
-                    self.note(&trf("A sound could not be fetched: {0}", &[&error]));
+                    self.refuse(&trf("A sound could not be fetched: {0}", &[&error]));
                 }
             }
         }

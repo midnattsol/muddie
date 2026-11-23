@@ -342,7 +342,7 @@ fn speed_control(ui: &mut Ui, rate: &mut i32) -> egui::Response {
 /// language are set here; and what is said.
 fn speech_settings(ui: &mut Ui, settings: &mut Settings, through: Option<&str>) {
     use crate::settings::SpeechOutput;
-    widgets::section(ui, tr("Speaking"), |ui| {
+    widgets::section(ui, tr("What speaks"), |ui| {
         // What speaks now; a screen reader speaks as it is set up to,
         // which is said here, where the keyboard reaches it.
         let now = match (through, settings.speech) {

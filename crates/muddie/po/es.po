@@ -1444,8 +1444,6 @@ msgstr "Voz activa: {0}."
 msgid "No voice is active."
 msgstr "No hay ninguna voz activa."
 
-msgid "Speaking"
-msgstr "Lectura en voz alta"
 
 msgid "Speak with"
 msgstr "Hablar con"
@@ -2803,8 +2801,6 @@ msgstr "Colores del MUD"
 msgid "There is a plugin for {0}: {1} It can be enabled from its message, at the bottom right."
 msgstr "Hay un plugin para {0}: {1} Puedes activarlo desde su mensaje, abajo a la derecha."
 
-msgid "Speak aloud"
-msgstr "Hablar en voz alta"
 
 msgid "The rules of {0} could not be read: {1}"
 msgstr "No se pudieron leer las reglas de {0}: {1}"
@@ -2841,3 +2837,9 @@ msgstr "sin explorar"
 
 msgid "Note on {0}"
 msgstr "Nota en {0}"
+
+msgid "Speech in this session"
+msgstr "Voz en esta sesión"
+
+msgid "What speaks"
+msgstr "Qué habla"

@@ -681,7 +681,7 @@ settings, **Speak with** chooses what reads it:
   speed and in the language set below it.
 - **Nothing**.
 
-**Speak aloud** in the palette silences it for the session, and
+**Speech in this session** in the palette silences it for the session, and
 brings it back, with the system's voice if there is no
 screen reader. What is said on the MUD's channels is read too, after the
 channel's name; **Read the channels** in the settings turns that off, and
