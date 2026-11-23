@@ -36,7 +36,7 @@ jobs:
             xvfb xdotool at-spi2-core dbus dbus-x11 libglib2.0-bin python3 \
             speech-dispatcher speech-dispatcher-audio-plugins speech-dispatcher-espeak-ng libao4
           apt-get install -y -t trixie-backports orca
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo build --release -p muddie
@@ -45,7 +45,7 @@ jobs:
           ORCA_TEST_LOGS: ${{ github.workspace }}/orca-logs
         run: dbus-run-session -- tests/orca/run.sh target/release/muddie
       - if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: orca-logs
           path: orca-logs

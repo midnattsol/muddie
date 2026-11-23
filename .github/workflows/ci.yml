@@ -18,7 +18,7 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
@@ -36,7 +36,7 @@ jobs:
   dependencies:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: EmbarkStudios/cargo-deny-action@v2
 
   # Built and packaged only once the tests and the dependencies pass: what
@@ -72,7 +72,7 @@ jobs:
         run: |
           apt-get update
           apt-get install -y build-essential ca-certificates cmake curl git pkg-config libdbus-1-dev libspeechd-dev
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - id: version
@@ -117,10 +117,10 @@ jobs:
       # commit: `gh attestation verify FILE -R midnattsol/muddie`. Made for
       # every push to main, as a release publishes the files built then.
       - if: github.event_name == 'push'
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: dist/*
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: muddie-${{ matrix.name }}
           path: dist/*
@@ -136,7 +136,7 @@ jobs:
     runs-on: ubuntu-latest
     container: ${{ matrix.image }}
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: muddie-linux-x86_64
       - run: |
@@ -159,7 +159,7 @@ jobs:
             speech: VoiceOver
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: ${{ matrix.artifact }}
       - name: Windows installer
