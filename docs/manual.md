@@ -580,7 +580,7 @@ is what a name begins with, as Anduar in "Anduar: Plaza Mayor".
 | Backspace | Back to the room chosen before, and the one before it, to where you began |
 | Space | Says the room chosen again |
 | Ctrl+I | Says all the map knows of it |
-| Ctrl+L | Says what is noted up to ten moves around it: rooms with a mark or a note, and the way into each other region, the nearest first |
+| Ctrl+L | Says what is near, up to ten moves around it, as **What is near** lists it: rooms with a mark or a note and the way into each other region first, then the other places, the nearest first |
 | Ctrl+F | Searches the map: type, Enter says how many were found and the first; the arrows go through them; Enter again goes to the one said, on the map. Escape goes back to the map |
 | Ctrl+B, Ctrl+N | Marks the room chosen, or writes a note on it (an empty one takes it off) |
 | F1 | Says all these keys |

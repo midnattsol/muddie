@@ -2208,12 +2208,6 @@ msgid "into {0}"
 msgstr "entrada a {0}"
 
 #, python-brace-format
-msgid "Nothing noted within {0} move."
-msgid_plural "Nothing noted within {0} moves."
-msgstr[0] "Nada anotado a {0} paso."
-msgstr[1] "Nada anotado a menos de {0} pasos."
-
-#, python-brace-format
 msgid "Near: {0}."
 msgstr "Cerca: {0}."
 

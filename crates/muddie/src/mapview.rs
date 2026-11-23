@@ -16,7 +16,7 @@ mod explore;
 
 use draw::*;
 use explore::Prompt;
-pub use explore::found_words;
+pub use explore::{NEAR, found_words, near};
 
 /// Distance between neighbouring rooms, in points, at the default zoom.
 const DEFAULT_CELL: f32 = 36.0;

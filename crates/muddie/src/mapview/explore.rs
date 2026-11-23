@@ -7,10 +7,50 @@ use super::*;
 use crate::i18n::{trf, trn};
 use muddie_mapper::{Found, FoundBy};
 
-/// How many moves away from the room chosen what is noted is looked for.
-const NEAR: usize = 10;
-/// How many of the things near are said, at most.
+/// How many moves away what is near is looked for, unless told.
+pub const NEAR: usize = 10;
+/// How many of the things near are said while exploring, at most.
 const NEAR_SAID: usize = 6;
+
+/// What is near a room, up to `moves` moves away, the nearest first: what
+/// is noted, marks, notes and the ways into other regions, then the other
+/// places, each name once at its nearest room. Each with what it is and the
+/// way there.
+pub fn near(
+    map: &Map,
+    from: RoomId,
+    moves: usize,
+) -> Vec<(RoomId, String, Vec<muddie_mapper::Step>)> {
+    let Some(start) = map.room(from) else {
+        return Vec::new();
+    };
+    let mut regions = vec![map.region(start).map(str::to_owned)];
+    let mut named = std::collections::HashSet::from([place_words(map, start).to_lowercase()]);
+    let (mut noted, mut places) = (Vec::new(), Vec::new());
+    for (id, steps) in map.around(from, moves) {
+        let Some(room) = map.room(id) else { continue };
+        let marks = map.marks_of(id);
+        let region = map.region(room).map(str::to_owned);
+        let place = place_words(map, room);
+        if !marks.is_empty() {
+            noted.push((id, marks.join(", "), steps));
+        } else if !room.note.is_empty() {
+            noted.push((
+                id,
+                trf("{0}, note: {1}", &[map.short_name(room), &room.note]),
+                steps,
+            ));
+        } else if region.is_some() && !regions.contains(&region) {
+            let into = trf("into {0}", &[region.as_deref().unwrap_or_default()]);
+            regions.push(region);
+            noted.push((id, into, steps));
+        } else if named.insert(place.to_lowercase()) {
+            places.push((id, place, steps));
+        }
+    }
+    noted.extend(places);
+    noted
+}
 
 /// What the line over the map asks for while exploring.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -474,38 +514,11 @@ fn found_line(map: &Map, here: Option<RoomId>, prompt: &Prompt) -> String {
 /// or wrote a note on, and the way into each other region, with how far
 /// and which way each is.
 fn near_words(map: &Map, from: RoomId) -> String {
-    let Some(start) = map.room(from) else {
-        return String::new();
-    };
-    let mut regions = vec![map.region(start).map(str::to_owned)];
-    let mut near: Vec<String> = Vec::new();
-    for (id, steps) in map.around(from, NEAR) {
-        if near.len() == NEAR_SAID {
-            break;
-        }
-        let Some(room) = map.room(id) else { continue };
-        let marks = map.marks_of(id);
-        let region = map.region(room).map(str::to_owned);
-        let what = if !marks.is_empty() {
-            marks.join(", ")
-        } else if !room.note.is_empty() {
-            trf("{0}, note: {1}", &[map.short_name(room), &room.note])
-        } else if region.is_some() && !regions.contains(&region) {
-            let into = trf("into {0}", &[region.as_deref().unwrap_or_default()]);
-            regions.push(region);
-            into
-        } else {
-            continue;
-        };
-        let way = moves_toward(map, from, id, steps.len());
-        near.push(format!("{what}, {way}"));
-    }
+    let near: Vec<String> = (near(map, from, NEAR).into_iter().take(NEAR_SAID))
+        .map(|(id, what, steps)| format!("{what}, {}", moves_toward(map, from, id, steps.len())))
+        .collect();
     match near.is_empty() {
-        true => trn(
-            "Nothing noted within {0} move.",
-            "Nothing noted within {0} moves.",
-            NEAR as u64,
-        ),
+        true => tr("Nothing else is that near on the map.").to_owned(),
         false => trf("Near: {0}.", &[&near.join("; ")]),
     }
 }

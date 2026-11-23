@@ -9,9 +9,8 @@ use std::collections::HashSet;
 use std::sync::mpsc::TryRecvError;
 use walking::MAX_LISTED_ROOMS;
 
-/// How many moves away `/map near` looks when not told, and at most.
-const NEAR: usize = 3;
-const FARTHEST: usize = 10;
+/// How many moves away `/map near` looks at most.
+const FARTHEST: usize = 20;
 
 impl Tab {
     /// Puts the player in a room the user names: by number, mark or name;
@@ -135,23 +134,20 @@ impl Tab {
         }
     }
 
-    /// Lists what is a few moves away: each name once, at the nearest
-    /// room of it, with the way there.
+    /// Lists what is near, as exploring the map says it, each with the
+    /// way there.
     pub(super) fn say_near(&mut self, argument: &str) {
-        let moves = argument.parse::<usize>().unwrap_or(NEAR).clamp(1, FARTHEST);
+        let moves = (argument.parse::<usize>())
+            .unwrap_or(crate::mapview::NEAR)
+            .clamp(1, FARTHEST);
         let found: Option<Vec<(String, String, String)>> = {
             let map = self.map.borrow();
             map.current().map(|here| {
-                let mut named = HashSet::from([place_words(&map, here).to_lowercase()]);
-                (map.around(here.id, moves).into_iter())
-                    .filter_map(|(id, steps)| {
-                        let room = map.room(id)?;
-                        let place = place_words(&map, room);
-                        named.insert(place.to_lowercase()).then(|| {
-                            let moves = trn("{0} move", "{0} moves", steps.len() as u64);
-                            let way = format!("{moves}: {}", in_runs(&steps));
-                            (place, way, format!("/map go {id}"))
-                        })
+                (crate::mapview::near(&map, here.id, moves).into_iter())
+                    .map(|(id, what, steps)| {
+                        let moves = trn("{0} move", "{0} moves", steps.len() as u64);
+                        let way = format!("{moves}: {}", in_runs(&steps));
+                        (what, way, format!("/map go {id}"))
                     })
                     .collect()
             })
