@@ -63,8 +63,9 @@ mod tests {
             let generation = crate::theme::generation();
             move || crate::theme::generation() == generation
         };
+        let same = stable();
         let first = frame(&script, &mut built);
-        let (once, same) = (built, stable());
+        let once = built;
         let second = frame(&script, &mut built);
         if same() {
             assert_eq!(built, once);
