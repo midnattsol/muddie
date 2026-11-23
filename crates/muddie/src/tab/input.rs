@@ -257,19 +257,15 @@ impl Tab {
                 .inner_margin(egui::Margin::symmetric(10, 2))
                 .show(ui, |ui| {
                     ui.spacing_mut().item_spacing.x = 4.0;
-                    crate::widgets::glyph(
-                        ui,
-                        crate::widgets::Glyph::Search,
-                        12.0,
-                        theme.text_faint,
-                    );
-                    let field = ui.add(
-                        TextEdit::singleline(&mut self.find.query)
-                            .frame(egui::Frame::NONE)
-                            .hint_text(tr("Find in the output"))
-                            .desired_width(240.0),
-                    );
-                    (ui.ctx()).accesskit_node_builder(field.id, |node| node.set_label(tr("Find")));
+                    let look = crate::widgets::SearchLook {
+                        hint: tr("Find in the output"),
+                        label: tr("Find"),
+                        size: 13.0,
+                        width: 240.0,
+                        id: None,
+                        lock_focus: false,
+                    };
+                    let field = crate::widgets::search_field(ui, &mut self.find.query, look);
                     if field.changed() {
                         self.find.place = None;
                     }

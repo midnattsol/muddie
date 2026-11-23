@@ -665,3 +665,52 @@ fn named_by_hint(field: Response, hint: &str) -> Response {
     });
     field
 }
+
+/// A field to search in: the magnifier, on the line of what is typed, and
+/// the text with `hint` in it while it is empty, `size` big and `width`
+/// wide, no frame of its own (it goes in one). Named `label` for a screen
+/// reader. `lock_focus` keeps Tab in it, where Tab does something there.
+pub fn search_field(ui: &mut Ui, text: &mut String, look: SearchLook<'_>) -> Response {
+    let theme = theme::current();
+    let hint = RichText::new(look.hint)
+        .font(theme::font(Weight::Regular, look.size))
+        .color(theme.text_faint);
+    let glyph_size = (look.size - 1.0).max(12.0);
+    let (glyph, _) =
+        ui.allocate_exact_size(vec2(glyph_size + 2.0, look.size + 5.0), Sense::hover());
+    let mut edit = TextEdit::singleline(text)
+        .frame(Frame::NONE)
+        .font(theme::font(Weight::Regular, look.size))
+        .hint_text(hint)
+        .lock_focus(look.lock_focus)
+        .desired_width(look.width);
+    if let Some(id) = look.id {
+        edit = edit.id(id);
+    }
+    let edit = edit.show(ui);
+    super::paint_glyph(
+        ui.painter(),
+        egui::pos2(
+            glyph.center().x,
+            edit.galley_pos.y + edit.galley.size().y / 2.0,
+        ),
+        egui::Align2::CENTER_CENTER,
+        super::Glyph::Search,
+        glyph_size,
+        theme.text_faint,
+    );
+    let label = look.label.to_owned();
+    let response = edit.response.response;
+    (ui.ctx()).accesskit_node_builder(response.id, |node| node.set_label(label));
+    response
+}
+
+/// How a [`search_field`] looks and is named.
+pub struct SearchLook<'a> {
+    pub hint: &'a str,
+    pub label: &'a str,
+    pub size: f32,
+    pub width: f32,
+    pub id: Option<egui::Id>,
+    pub lock_focus: bool,
+}

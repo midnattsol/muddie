@@ -312,7 +312,6 @@ impl Tab {
     /// What to look for: the field, after the picture of looking, which
     /// keeps the keyboard while the palette is open.
     fn palette_field(&mut self, ui: &mut egui::Ui) {
-        let theme = theme::current();
         let field = egui::Id::unique("palette field");
         let listed = self.palette.results.is_some() && self.palette.query.is_empty();
         let asked = self
@@ -325,9 +324,7 @@ impl Tab {
             None if listed || self.palette.message.is_some() => tr("Choose one"),
             None => tr("Search for something to do, or a place"),
         };
-        let hint = RichText::new(hint)
-            .font(theme::font(Weight::Regular, 15.0))
-            .color(theme.text_faint);
+
         let edit = egui::Frame::new()
             .inner_margin(egui::Margin {
                 left: 12,
@@ -338,39 +335,22 @@ impl Tab {
             .show(ui, |ui| {
                 ui.horizontal(|ui| {
                     ui.spacing_mut().item_spacing.x = 10.0;
-                    let (glyph, _) =
-                        ui.allocate_exact_size(egui::vec2(16.0, 20.0), egui::Sense::hover());
-                    let edit = TextEdit::singleline(&mut self.palette.query)
-                        .id(field)
-                        .frame(egui::Frame::NONE)
-                        .font(theme::font(Weight::Regular, 15.0))
-                        .hint_text(hint)
-                        .lock_focus(true)
-                        .desired_width(f32::INFINITY)
-                        .show(ui);
-                    // On the line of what is typed.
-                    widgets::paint_glyph(
-                        ui.painter(),
-                        egui::pos2(
-                            glyph.center().x,
-                            edit.galley_pos.y + edit.galley.size().y / 2.0,
-                        ),
-                        egui::Align2::CENTER_CENTER,
-                        widgets::Glyph::Search,
-                        14.0,
-                        theme.text_faint,
-                    );
-                    edit
+                    // Named for a screen reader: what it asks, while it asks.
+                    let label = asked.clone().unwrap_or_else(|| tr("Palette").to_owned());
+                    let look = widgets::SearchLook {
+                        hint,
+                        label: &label,
+                        size: 15.0,
+                        width: f32::INFINITY,
+                        id: Some(field),
+                        lock_focus: true,
+                    };
+                    widgets::search_field(ui, &mut self.palette.query, look)
                 })
                 .inner
             })
             .inner;
-        // Named for a screen reader: what it asks, while it asks.
-        let label = asked.unwrap_or_else(|| tr("Palette").to_owned());
-        ui.ctx().accesskit_node_builder(edit.response.id, |node| {
-            node.set_label(label);
-        });
-        if edit.response.changed() {
+        if edit.changed() {
             self.palette.chosen = 0;
             self.palette.spoken_group = None;
             self.palette.results = None;
@@ -380,14 +360,14 @@ impl Tab {
         }
         if std::mem::take(&mut self.palette.cursor_end) {
             let end = egui::text::CCursor::new(self.palette.query.chars().count());
-            let mut state = edit.state.clone();
+            let mut state = TextEdit::load_state(ui.ctx(), field).unwrap_or_default();
             state
                 .cursor
                 .set_char_range(Some(egui::text::CCursorRange::one(end)));
             state.store(ui.ctx(), field);
         }
-        if std::mem::take(&mut self.palette.focus) || !edit.response.has_focus() {
-            edit.response.request_focus();
+        if std::mem::take(&mut self.palette.focus) || !edit.has_focus() {
+            edit.request_focus();
         }
     }
 }
