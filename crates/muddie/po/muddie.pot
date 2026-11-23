@@ -64,6 +64,9 @@ msgstr ""
 msgid "In use"
 msgstr ""
 
+msgid "Palette"
+msgstr ""
+
 msgid "Search or run a command"
 msgstr ""
 
@@ -140,7 +143,7 @@ msgstr ""
 msgid "Not explored: {0}"
 msgstr ""
 
-msgid "The map added it where you went: the map taken from elsewhere does not have it."
+msgid "The map added it where you went: the map imported does not have it."
 msgstr ""
 
 msgid "Kept off routes."
@@ -161,7 +164,7 @@ msgstr ""
 msgid "The map is not sure where you are: in one of {0} rooms alike. Moving tells them apart; Which room am I in, in the palette, lists them."
 msgstr ""
 
-msgid "Show my position"
+msgid "Where am I"
 msgstr ""
 
 msgid "Tidy this area"
@@ -171,9 +174,6 @@ msgid "Stop going"
 msgstr ""
 
 msgid "Show all areas"
-msgstr ""
-
-msgid "No map yet: the server has not reported a room."
 msgstr ""
 
 msgid "Map view"
@@ -200,7 +200,7 @@ msgstr ""
 msgid "Keep routes off"
 msgstr ""
 
-msgid "Room appearance…"
+msgid "Appearance…"
 msgstr ""
 
 #, python-brace-format
@@ -293,7 +293,7 @@ msgstr ""
 msgid "Stopped: the map lost track of where you are."
 msgstr ""
 
-msgid "No known route to that place."
+msgid "No known way to that place."
 msgstr ""
 
 #, python-brace-format
@@ -341,7 +341,11 @@ msgid "Not tidied: drawn again, {0} exits would point the wrong way and {1} room
 msgstr ""
 
 #, python-brace-format
-msgid "Walking to {1}: {0} move left."
+msgid "Going to {1}: {0} move left."
+msgstr ""
+
+#, python-brace-format
+msgid "Nothing on the map has {0}."
 msgstr ""
 
 msgid "No room matches."
@@ -622,7 +626,7 @@ msgstr ""
 msgid "You are in one of {0} rooms alike:"
 msgstr ""
 
-msgid "somewhere not yet mapped"
+msgid "not explored"
 msgstr ""
 
 #, python-brace-format
@@ -633,6 +637,9 @@ msgid "This room has no exits on the map."
 msgstr ""
 
 msgid "Nothing else is that near on the map."
+msgstr ""
+
+msgid "There is no room of that number."
 msgstr ""
 
 msgid "The note was taken off."
@@ -676,7 +683,7 @@ msgstr ""
 msgid "Say which map made with Mudlet to take: a file or an address."
 msgstr ""
 
-msgid "A map is being taken already."
+msgid "A map is being imported already."
 msgstr ""
 
 #, python-brace-format
@@ -684,7 +691,7 @@ msgid "Looking for a newer map at {0}…"
 msgstr ""
 
 #, python-brace-format
-msgid "Taking the map from {0}…"
+msgid "Importing the map from {0}…"
 msgstr ""
 
 msgid "it stopped half way"
@@ -694,7 +701,7 @@ msgid "The map is up to date already."
 msgstr ""
 
 #, python-brace-format
-msgid "The map was taken: {0}."
+msgid "The map was imported: {0}."
 msgstr ""
 
 #, python-brace-format
@@ -702,7 +709,7 @@ msgid "Could not bring the server's map up to date: {0}"
 msgstr ""
 
 #, python-brace-format
-msgid "Could not take the map: {0}"
+msgid "Could not import the map: {0}"
 msgstr ""
 
 #, python-brace-format
@@ -722,7 +729,7 @@ msgid "{0} room the map had added is the map's now."
 msgstr ""
 
 #, python-brace-format
-msgid "{0} room the map added, which the map taken does not have, was kept."
+msgid "{0} room the map added, which the map imported does not have, was kept."
 msgstr ""
 
 msgid "Places"
@@ -753,7 +760,7 @@ msgid "{0} room added"
 msgstr ""
 
 #, python-brace-format
-msgid "{0} way added"
+msgid "{0} exit connected"
 msgstr ""
 
 #, python-brace-format
@@ -765,7 +772,7 @@ msgid "{0} exit added"
 msgstr ""
 
 #, python-brace-format
-msgid "{0} way put right"
+msgid "{0} exit put right"
 msgstr ""
 
 msgid "The map has changed nothing of itself to undo."
@@ -776,7 +783,7 @@ msgid "Undone: {0} is no longer on the map."
 msgstr ""
 
 #, python-brace-format
-msgid "Undone: the way to {0} is no longer on the map."
+msgid "Undone: the exit to {0} is no longer on the map."
 msgstr ""
 
 #, python-brace-format
@@ -799,7 +806,7 @@ msgid "Map: added the room “{0}”."
 msgstr ""
 
 #, python-brace-format
-msgid "Map: added the way to “{0}”."
+msgid "Map: connected an exit to “{0}”."
 msgstr ""
 
 #, python-brace-format
@@ -841,12 +848,6 @@ msgstr ""
 msgid "Nothing on the map looks wrong."
 msgstr ""
 
-msgid "Say which room."
-msgstr ""
-
-msgid "There is no room of that number."
-msgstr ""
-
 #, python-brace-format
 msgid "{0} is no longer on the map."
 msgstr ""
@@ -875,10 +876,10 @@ msgstr ""
 msgid "Search for something to do, or a place"
 msgstr ""
 
-msgid "Command palette"
+msgid "choose"
 msgstr ""
 
-msgid "choose"
+msgid "Enter"
 msgstr ""
 
 msgid "go"
@@ -887,10 +888,16 @@ msgstr ""
 msgid "run"
 msgstr ""
 
+msgid "Shift+Enter"
+msgstr ""
+
 msgid "the way"
 msgstr ""
 
 msgid "complete"
+msgstr ""
+
+msgid "Escape"
 msgstr ""
 
 msgid "close"
@@ -935,7 +942,7 @@ msgstr ""
 msgid "Log this session"
 msgstr ""
 
-msgid "Speak aloud"
+msgid "Speech in this session"
 msgstr ""
 
 msgid "Edit profile"
@@ -952,14 +959,7 @@ msgid "Panels"
 msgstr ""
 
 #, python-brace-format
-msgid "Hide {0}"
-msgstr ""
-
-#, python-brace-format
 msgid "Show {0}"
-msgstr ""
-
-msgid "Where am I"
 msgstr ""
 
 msgid "Exits of this room"
@@ -1074,10 +1074,10 @@ msgstr ""
 msgid "Scripts"
 msgstr ""
 
-msgid "Run Lua…"
+msgid "Run Luau…"
 msgstr ""
 
-msgid "Lua to run"
+msgid "Luau to run"
 msgstr ""
 
 msgid "Restart scripts"
@@ -1094,9 +1094,6 @@ msgstr ""
 msgid "Plugin {0}"
 msgstr ""
 
-msgid "Install the plugin at"
-msgstr ""
-
 msgid "Update a plugin…"
 msgstr ""
 
@@ -1110,14 +1107,6 @@ msgid "Plugin to remove"
 msgstr ""
 
 msgid "Connect to profile"
-msgstr ""
-
-#, python-brace-format
-msgid "The {0} channel is read aloud."
-msgstr ""
-
-#, python-brace-format
-msgid "The {0} channel is no longer read aloud."
 msgstr ""
 
 msgid "Copied."
@@ -1251,6 +1240,10 @@ msgid "{0} could not be installed: {1}"
 msgstr ""
 
 #, python-brace-format
+msgid "The rules of {0} could not be read: {1}"
+msgstr ""
+
+#, python-brace-format
 msgid "{0} installed again."
 msgstr ""
 
@@ -1350,7 +1343,7 @@ msgstr ""
 msgid "Gauge name"
 msgstr ""
 
-msgid "Type"
+msgid "Kind"
 msgstr ""
 
 msgid "How full something is, of its maximum."
@@ -1461,12 +1454,6 @@ msgstr ""
 msgid "You type this word, alone or followed by more"
 msgstr ""
 
-msgid "runs the script"
-msgstr ""
-
-msgid "sends"
-msgstr ""
-
 msgid "One command per line. %1 stands for what follows the word."
 msgstr ""
 
@@ -1548,7 +1535,7 @@ msgstr ""
 msgid "Move to folder"
 msgstr ""
 
-msgid "Rename"
+msgid "Rename…"
 msgstr ""
 
 msgid "Del"
@@ -1635,13 +1622,13 @@ msgstr ""
 msgid "Choose a panel"
 msgstr ""
 
-msgid "Say"
+msgid "Speak"
 msgstr ""
 
 msgid "Play a sound"
 msgstr ""
 
-msgid "Colour the match"
+msgid "Highlight"
 msgstr ""
 
 msgid "Hide the line"
@@ -1691,6 +1678,12 @@ msgid "One command per line."
 msgstr ""
 
 msgid "Run each time the timer goes off."
+msgstr ""
+
+msgid "runs the script"
+msgstr ""
+
+msgid "sends"
 msgstr ""
 
 msgid "Do"
@@ -1772,6 +1765,9 @@ msgid "Run when the key is pressed."
 msgstr ""
 
 msgid "Folder name"
+msgstr ""
+
+msgid "A folder's name cannot have a slash."
 msgstr ""
 
 #, python-brace-format
@@ -1914,6 +1910,14 @@ msgstr ""
 msgid "Open in the editor"
 msgstr ""
 
+#, python-brace-format
+msgid "The {0} channel is read aloud."
+msgstr ""
+
+#, python-brace-format
+msgid "The {0} channel is no longer read aloud."
+msgstr ""
+
 msgid "All"
 msgstr ""
 
@@ -1932,6 +1936,10 @@ msgstr ""
 
 #, python-brace-format
 msgid "There is a panel called {0} already."
+msgstr ""
+
+#, python-brace-format
+msgid "Hide {0}"
 msgstr ""
 
 #, python-brace-format
@@ -1958,6 +1966,9 @@ msgstr ""
 
 #, python-brace-format
 msgid "Move {0}"
+msgstr ""
+
+msgid "Enter names it again."
 msgstr ""
 
 #, python-brace-format
@@ -2173,7 +2184,7 @@ msgstr ""
 msgid "Slow"
 msgstr ""
 
-msgid "Speaking"
+msgid "What speaks"
 msgstr ""
 
 #, python-brace-format
@@ -2232,6 +2243,9 @@ msgid "Create"
 msgstr ""
 
 msgid "Save"
+msgstr ""
+
+msgid "Rename"
 msgstr ""
 
 msgid "Duplicate"
@@ -2335,7 +2349,7 @@ msgstr ""
 msgid "Leave empty to keep it"
 msgstr ""
 
-msgid "Connection"
+msgid "Staying connected"
 msgstr ""
 
 msgid "Auto-reconnect"
@@ -2374,9 +2388,6 @@ msgstr ""
 msgid "Update all"
 msgstr ""
 
-msgid "Working…"
-msgstr ""
-
 msgid "Profiles need a configuration folder, and none was found."
 msgstr ""
 
@@ -2386,10 +2397,10 @@ msgstr ""
 msgid "Duplicate…"
 msgstr ""
 
-msgid "Rename…"
+msgid "Delete…"
 msgstr ""
 
-msgid "Delete…"
+msgid "Connection"
 msgstr ""
 
 msgid "Typing"
@@ -2398,7 +2409,7 @@ msgstr ""
 msgid "Earlier and later commands"
 msgstr ""
 
-msgid "Search the commands typed before"
+msgid "Find a command typed before"
 msgstr ""
 
 msgid "Complete the word being typed"
@@ -2420,9 +2431,6 @@ msgid "Same, for the panel of channels"
 msgstr ""
 
 msgid "Read the gauges"
-msgstr ""
-
-msgid "Say where you are, by the map"
 msgstr ""
 
 msgid "Explore the map with the keys"
@@ -2455,10 +2463,7 @@ msgstr ""
 msgid "All about the room"
 msgstr ""
 
-msgid "What is noted near"
-msgstr ""
-
-msgid "Search the map"
+msgid "Find on the map"
 msgstr ""
 
 msgid "Mark the room"
@@ -2474,9 +2479,6 @@ msgid "Go there, or say the way"
 msgstr ""
 
 msgid "Say all the keys"
-msgstr ""
-
-msgid "Escape"
 msgstr ""
 
 msgid "Back to the command line"
@@ -2607,10 +2609,6 @@ msgid "No way straight back"
 msgstr ""
 
 #, python-brace-format
-msgid "Nothing on the map has {0}."
-msgstr ""
-
-#, python-brace-format
 msgid "{0} found"
 msgstr ""
 
@@ -2623,7 +2621,7 @@ msgid "Near: {0}."
 msgstr ""
 
 #, python-brace-format
-msgid "Arrows, or the keypad, follow the exits; Page Up and Page Down go up and down, as minus and plus on the keypad, and slash and star go in and out. Home comes back to you, Backspace to the room before. Space says the room again, {0} all about it, {1} what is noted near. {2} searches the map. {3} marks the room, {4} writes a note on it. Enter goes there, Shift+Enter says the way. Shift+F10 opens the room's menu, with all that is done with it. Escape, or typing, goes back to the command line."
+msgid "Arrows, or the keypad, follow the exits; Page Up and Page Down go up and down, as minus and plus on the keypad, and slash and star go in and out. Home comes back to you, Backspace to the room before. Space says the room again, {0} all about it, {1} what is near. {2} finds on the map. {3} marks the room, {4} writes a note on it. Enter goes there, Shift+Enter says the way. Shift+F10 opens the room's menu, with all that is done with it. Escape, or typing, goes back to the command line."
 msgstr ""
 
 msgid "no exits"
