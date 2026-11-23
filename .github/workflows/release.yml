@@ -1,0 +1,61 @@
+name: Release
+
+# A tag publishes what CI already built and tried for its commit on main:
+# nothing is tested or built again, and what is published is what was tried.
+# To release: set the version in Cargo.toml, push it to main, then
+# `git tag v0.2.0 && git push lab v0.2.0`. Pushed together, the release
+# waits for CI to finish.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: The tag is the version in Cargo.toml
+        run: |
+          version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::The tag is $GITHUB_REF_NAME but Cargo.toml says $version"
+            exit 1
+          fi
+      - name: CI of this commit on main, passed
+        id: ci
+        run: |
+          run=""
+          # Just pushed together with the tag, CI may not have started yet.
+          for _ in $(seq 1 20); do
+            run=$(gh run list --workflow ci.yml --branch main --event push \
+              --commit "$GITHUB_SHA" --limit 1 --json databaseId -q '.[0].databaseId')
+            [ -n "$run" ] && break
+            sleep 15
+          done
+          if [ -z "$run" ]; then
+            echo "::error::No CI run on main for $GITHUB_SHA: push the commit to main first"
+            exit 1
+          fi
+          gh run watch "$run" --exit-status --interval 60 > /dev/null || {
+            echo "::error::CI did not pass for $GITHUB_SHA: https://github.com/$GH_REPO/actions/runs/$run"
+            exit 1
+          }
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+      - name: Its files
+        run: |
+          gh run download "${{ steps.ci.outputs.run }}" --pattern 'muddie-*' --dir artifacts
+          mkdir dist
+          find artifacts -type f -exec mv -t dist {} +
+          cd dist
+          # What each file should add up to, to check a download against.
+          sha256sum muddie* > SHA256SUMS
+          ls -l
+      - name: Published
+        run: gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --title "Muddie ${GITHUB_REF_NAME#v}" --generate-notes

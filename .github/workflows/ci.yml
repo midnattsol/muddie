@@ -3,7 +3,6 @@ name: CI
 on:
   push:
     branches: [main]
-    tags: ["v*"]
   pull_request:
 
 env:
@@ -114,9 +113,10 @@ jobs:
       - name: macOS disk image
         if: matrix.os == 'macos-latest'
         run: packaging/macos/make-dmg.sh "${{ steps.version.outputs.version }}" dist/muddie-${{ matrix.name }}.dmg
-      # For a release, a signed statement that these files were built here,
-      # from this commit: `gh attestation verify FILE -R midnattsol/muddie`.
-      - if: startsWith(github.ref, 'refs/tags/v')
+      # A signed statement that these files were built here, from this
+      # commit: `gh attestation verify FILE -R midnattsol/muddie`. Made for
+      # every push to main, as a release publishes the files built then.
+      - if: github.event_name == 'push'
         uses: actions/attest-build-provenance@v2
         with:
           subject-path: dist/*
@@ -185,21 +185,3 @@ jobs:
       - name: The screen readers of the system are built in
         shell: bash
         run: grep -q "${{ matrix.speech }}" version.txt
-
-  release:
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: [test, dependencies, build, debian-package, installers]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          merge-multiple: true
-      # What each file should add up to, to check a download against.
-      - run: sha256sum muddie* > SHA256SUMS
-      - uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            muddie*
-            SHA256SUMS
