@@ -6,7 +6,7 @@ use muddie_core::Line;
 use muddie_core::ansi::Assembler;
 use muddie_script::{Belongs, GaugeKind, GaugeLook};
 
-use crate::i18n::trf;
+use crate::i18n::{tr, trf};
 use crate::theme;
 
 /// A gauge shown: what a script or a rule set it to, and how it looks.
@@ -22,8 +22,12 @@ pub struct Gauge {
     value: f64,
     max: f64,
     look: GaugeLook,
-    /// The lowest of its warnings it is under, as a percentage.
+    /// The lowest of its warnings it was said to be under, as a
+    /// percentage: said again only once it has risen clear of it.
     under: Option<f64>,
+    /// Where it was when last said, while under a warning: each tenth
+    /// more it falls is said too.
+    said_at: Option<f64>,
     /// The script that set it last, or the rules; none for those the
     /// client makes of the MUD's vitals.
     owner: Option<String>,
@@ -51,6 +55,56 @@ impl Gauge {
             .min_by(f64::total_cmp)
     }
 
+    /// What to say of it now that it changed from `was`, as what is seen
+    /// at a glance is heard. A light, words or effects: what they are
+    /// now, if that changed. A level: falling under one of its warnings,
+    /// as it turns colour, said again only once it has risen clear of it,
+    /// so that one that wavers there is not said each time; and under
+    /// one, each tenth more it falls.
+    fn warning(&mut self, was: &str) -> Option<Warning> {
+        if matches!(
+            self.look.kind,
+            GaugeKind::Light | GaugeKind::Text | GaugeKind::Effects
+        ) {
+            let now = self.said();
+            return (now != was).then_some(Warning {
+                said: now,
+                urgent: false,
+            });
+        }
+        if self.max <= 0.0 {
+            return None;
+        }
+        /// How far over a warning it must rise to be clear of it.
+        const CLEAR: f64 = 5.0;
+        let percent = (self.value / self.max).clamp(0.0, 1.0) * 100.0;
+        let now = self.under();
+        // Risen clear: of the warning said, and of every other.
+        if let Some(under) = self.under
+            && percent >= under + CLEAR
+        {
+            self.under = now;
+            self.said_at = None;
+        }
+        let lower = match (self.under, now) {
+            (_, None) => false,
+            (None, Some(_)) => true,
+            (Some(before), Some(now)) => now < before,
+        };
+        let further = (self.said_at).is_some_and(|at| now.is_some() && percent <= at - 10.0);
+        if !(lower || further) {
+            return None;
+        }
+        if lower {
+            self.under = now;
+        }
+        self.said_at = Some(percent);
+        Some(Warning {
+            said: self.said(),
+            urgent: true,
+        })
+    }
+
     /// What it is, said aloud.
     fn said(&self) -> String {
         said_of(&self.name, self.value, self.max, &self.look)
@@ -63,11 +117,18 @@ fn said_of(name: &str, value: f64, max: f64, look: &GaugeLook) -> String {
     match look.kind {
         GaugeKind::Light if value != 0.0 => trf("{0} on", &[name]),
         GaugeKind::Light => trf("{0} off", &[name]),
-        GaugeKind::Text => format!("{name} {}", look.text),
+        GaugeKind::Text => trf("{0}: {1}", &[name, &look.text]),
         GaugeKind::Effects => effects_said(name, &look.items),
-        GaugeKind::Number if max <= 0.0 => format!("{name} {}", plain(value)),
+        GaugeKind::Number if max <= 0.0 => trf("{0}: {1}", &[name, &plain(value)]),
         _ => trf("{0} {1} of {2}", &[name, &plain(value), &plain(max)]),
     }
+}
+
+/// What to say of a gauge that changed: `urgent` cuts short what is said.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Warning {
+    pub said: String,
+    pub urgent: bool,
 }
 
 /// Named bars such as health and mana, in the order they were first set.
@@ -80,7 +141,8 @@ impl Gauges {
     /// to say when it falls under one of its warnings, as when it turns
     /// to a warning colour: what is seen at a glance is heard.
     pub fn set(&mut self, name: &str, level: Option<(f64, f64)>) -> Option<String> {
-        self.set_by(name, level, None, None, Belongs::default(), String::new())
+        (self.set_by(name, level, None, None, Belongs::default(), String::new()))
+            .map(|warning| warning.said)
     }
 
     /// The same, also saying how the gauge is drawn, and set by `owner`, a
@@ -95,12 +157,14 @@ impl Gauges {
         owner: Option<&str>,
         belongs: Belongs,
         panel: String,
-    ) -> Option<String> {
+    ) -> Option<Warning> {
         let key = belongs.place.clone().unwrap_or_else(|| name.to_owned());
         let index = self.0.iter().position(|gauge| gauge.key == key);
+        let was;
         let index = match (index, level) {
             (Some(index), Some((value, max))) => {
                 let gauge = &mut self.0[index];
+                was = gauge.said();
                 (gauge.value, gauge.max) = (value, max);
                 name.clone_into(&mut gauge.name);
                 (gauge.belongs, gauge.panel) = (belongs, panel);
@@ -123,11 +187,14 @@ impl Gauges {
                     max,
                     look: look.unwrap_or_default(),
                     under: None,
+                    said_at: None,
                     owner: owner.map(str::to_owned),
                     unset: false,
                 };
                 // As it starts is not news.
                 gauge.under = gauge.under();
+                gauge.said_at = (gauge.under.is_some() && gauge.max > 0.0)
+                    .then(|| (gauge.value / gauge.max).clamp(0.0, 1.0) * 100.0);
                 self.0.push(gauge);
                 return None;
             }
@@ -137,15 +204,7 @@ impl Gauges {
             }
             (None, None) => return None,
         };
-        let gauge = &mut self.0[index];
-        let (before, now) = (gauge.under, gauge.under());
-        gauge.under = now;
-        let lower = match (before, now) {
-            (_, None) => false,
-            (None, Some(_)) => true,
-            (Some(before), Some(now)) => now < before,
-        };
-        lower.then(|| gauge.said())
+        self.0[index].warning(&was)
     }
 
     #[cfg(test)]
@@ -231,9 +290,13 @@ impl Gauges {
                     continue;
                 }
                 let id = ui.make_persistent_id(("edit gauge", &gauge.key));
-                let label = crate::i18n::trf("Edit {0}", &[&gauge.name]);
+                // Named by what it is, as it is reached with Tab; what
+                // pressing it does, after.
+                let label = gauge.said();
                 let press = ui.interact(drawn.response.rect, id, Sense::click());
                 press.widget_info(|| WidgetInfo::labeled(Role::Button, true, &label));
+                let about = crate::i18n::trf("Press to edit {0}", &[&gauge.name]);
+                (ui.ctx()).accesskit_node_builder(press.id, |node| node.set_description(about));
                 if press.hovered() {
                     ui.painter().rect_stroke(
                         drawn.response.rect.expand(4.0),
@@ -280,11 +343,12 @@ fn bar_width(room: f32, count: usize) -> f32 {
 
 /// A number without the `.0` a whole one would otherwise have.
 fn plain(number: f64) -> String {
-    if number.fract() == 0.0 && number.abs() < 1e15 {
-        format!("{number:.0}")
-    } else {
-        format!("{number}")
-    }
+    let written = match number.fract() == 0.0 && number.abs() < 1e15 {
+        true => format!("{number:.0}"),
+        false => format!("{number}"),
+    };
+    // With the decimal point of the language: a comma in Spanish.
+    written.replace('.', tr("."))
 }
 
 /// Draws one gauge as its look says: a bar or a row of cells under its
@@ -360,7 +424,8 @@ fn draw_light(ui: &mut Ui, name: &str, on: bool, shade: &Shade, look: &GaugeLook
     let small = theme::font(theme::Weight::Medium, 11.5);
     let width = 18.0 + measure(ui, name, &small);
     let (rect, response) = ui.allocate_exact_size(vec2(width, 28.0), Sense::hover());
-    response.widget_info(|| WidgetInfo::selected(Role::CheckBox, true, on, heard));
+    // What it says, not a box to tick: it is only shown.
+    response.widget_info(|| WidgetInfo::labeled(Role::Label, true, heard));
     let centre = rect.left_center() + vec2(5.0, 0.0);
     let painter = ui.painter();
     let off = colour_named(&look.off_colour);
@@ -400,8 +465,14 @@ fn effects_said(name: &str, items: &[muddie_script::Effect]) -> String {
     if items.is_empty() {
         return trf("{0}: none", &[name]);
     }
-    let names: Vec<&str> = items.iter().map(|item| item.name.as_str()).collect();
-    format!("{name}: {}", names.join(", "))
+    // Each with what more it says of itself, as it is seen hovering it.
+    let names: Vec<String> = (items.iter())
+        .map(|item| match item.about.trim() {
+            "" => item.name.clone(),
+            about => trf("{0} ({1})", &[&item.name, about]),
+        })
+        .collect();
+    trf("{0}: {1}", &[name, &names.join(", ")])
 }
 
 /// The effects that are on, each a label in its colour: a dot and its
@@ -697,14 +768,15 @@ mod tests {
         };
         let mut set = |value: f64| {
             let look = Some(look.clone());
-            gauges.set_by(
+            (gauges.set_by(
                 "Health",
                 Some((value, 100.0)),
                 look,
                 None,
                 Belongs::default(),
                 String::new(),
-            )
+            ))
+            .map(|warning| warning.said)
         };
         // As it starts is not news; above every warning, nothing either.
         assert_eq!(set(50.0), None);
@@ -714,6 +786,40 @@ mod tests {
         assert_eq!(set(25.0).as_deref(), Some("Health 25 of 100"));
         assert_eq!(set(45.0), None);
         assert_eq!(set(20.0).as_deref(), Some("Health 20 of 100"));
+        // Under the lowest, each tenth more it falls is said.
+        assert_eq!(set(15.0), None);
+        assert_eq!(set(9.0).as_deref(), Some("Health 9 of 100"));
+        // Wavering about a warning, it is said once, until clear of it.
+        assert_eq!(set(31.0), None);
+        assert_eq!(set(29.0), None);
+        assert_eq!(set(31.0), None);
+        assert_eq!(set(40.0), None);
+        assert_eq!(set(29.0).as_deref(), Some("Health 29 of 100"));
+    }
+
+    /// A light, words or effects are said when what they say changes.
+    #[test]
+    fn a_light_words_and_effects_are_said_when_they_change() {
+        let mut gauges = Gauges::default();
+        let light = GaugeLook {
+            kind: GaugeKind::Light,
+            ..GaugeLook::default()
+        };
+        let mut set = |value: f64| {
+            (gauges.set_by(
+                "Poisoned",
+                Some((value, 1.0)),
+                Some(light.clone()),
+                None,
+                Belongs::default(),
+                String::new(),
+            ))
+            .map(|warning| (warning.said, warning.urgent))
+        };
+        assert_eq!(set(0.0), None);
+        assert_eq!(set(1.0), Some(("Poisoned on".to_owned(), false)));
+        assert_eq!(set(1.0), None);
+        assert_eq!(set(0.0), Some(("Poisoned off".to_owned(), false)));
     }
 
     #[test]

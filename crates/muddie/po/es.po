@@ -1011,10 +1011,6 @@ msgstr "Opciones de {0}"
 msgid "Disabled"
 msgstr "Desactivado"
 
-#, python-brace-format
-msgid "Edit {0}"
-msgstr "Editar {0}"
-
 msgid "Open in the editor"
 msgstr "Abrir en el editor"
 
@@ -2923,3 +2919,39 @@ msgstr "El patrón no es válido: {0}"
 
 msgid "There is a plugin for {0}: {1} Enable it from its message, or with Plugin {0}, in the palette."
 msgstr "Hay un plugin para {0}: {1} Actívalo desde su mensaje, o con Plugin {0}, en la paleta."
+
+msgid "Press to edit {0}"
+msgstr "Pulsa para editar {0}"
+
+msgid "."
+msgstr ","
+
+msgid "{0} ({1})"
+msgstr "{0} ({1})"
+
+msgid "Collapsed. The strip at its edge expands it again."
+msgstr "Plegado. La franja de su borde lo vuelve a desplegar."
+
+msgid "{0} shown."
+msgstr "{0} a la vista."
+
+msgid "{0} hidden. Show {0}, in the palette, brings it back."
+msgstr "{0} oculto. Mostrar {0}, en la paleta, lo vuelve a mostrar."
+
+msgid "Renamed {0}."
+msgstr "Ahora se llama {0}."
+
+msgid "The name is kept."
+msgstr "Se queda el nombre."
+
+msgid "It is the first already."
+msgstr "Ya es el primero."
+
+msgid "It is the last already."
+msgstr "Ya es el último."
+
+msgid "Move in Layout…"
+msgstr "Mover en Distribución…"
+
+msgid "Shift+F10 opens its menu."
+msgstr "Mayús+F10 abre su menú."

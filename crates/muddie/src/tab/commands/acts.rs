@@ -370,7 +370,7 @@ impl Tab {
             Act::Find => self.open_find(),
             Act::Panel(id) => {
                 let shown = self.layout.panel(id).is_some_and(|panel| panel.visible);
-                self.layout.set_shown(id, !shown);
+                self.show_panel(id, !shown);
             }
             Act::Run(line) => drop(self.run_command(&line)),
             Act::Ask(asking) => self.ask(asking),

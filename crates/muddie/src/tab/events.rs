@@ -267,8 +267,10 @@ impl Tab {
             self.gauges_panel_named(&panel);
         }
         let warning = (self.gauges).set_by(name, level, look, owner, belongs, panel);
-        if let Some(warning) = warning {
-            self.voice.say_now(&warning);
+        match warning {
+            Some(warning) if warning.urgent => self.voice.say_now(&warning.said),
+            Some(warning) => self.voice.say(&warning.said),
+            None => {}
         }
     }
 

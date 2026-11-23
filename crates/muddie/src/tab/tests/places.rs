@@ -478,7 +478,10 @@ fn reinos_gives_gauges_states_and_channels_by_themselves() {
         ))
         .unwrap();
     harness.run_steps(2);
-    assert_eq!(effects(&harness), "Efectos: Enfermedad Dañadora, Debilidad");
+    assert_eq!(
+        effects(&harness),
+        "Efectos: Enfermedad Dañadora (Mortal), Debilidad (Vieja)"
+    );
     events
         .send(gmcp(
             "Char.Status.Estados.remove",
@@ -486,7 +489,7 @@ fn reinos_gives_gauges_states_and_channels_by_themselves() {
         ))
         .unwrap();
     harness.run_steps(2);
-    assert_eq!(effects(&harness), "Efectos: Debilidad");
+    assert_eq!(effects(&harness), "Efectos: Debilidad (Vieja)");
     // Channels: each in its tab, and gone when left.
     events
         .send(gmcp("Comm.Canales", r#"{"chat":"chat","keel":"keel"}"#))

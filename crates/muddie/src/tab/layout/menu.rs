@@ -3,9 +3,10 @@
 use super::*;
 
 impl Tab {
-    /// What a panel's menu has: naming it again, what goes with its kind,
-    /// and hiding or removing it. Where it goes, its order and sharing a
-    /// place as tabs are done by dragging it by its handle, or in Layout.
+    /// What a panel's menu has: naming it again, moving it in Layout, what
+    /// goes with its kind, and hiding or removing it. Where it goes, its
+    /// order and sharing a place as tabs are done by dragging it by its
+    /// handle too.
     pub(in crate::tab) fn panel_menu(&mut self, ui: &mut egui::Ui, index: usize) {
         let Some(spec) = self.layout.panels.get(index).cloned() else {
             return;
@@ -21,6 +22,10 @@ impl Tab {
             widgets::menu_width(ui);
             if widgets::menu_item(ui, tr("Rename…"), "").clicked() {
                 asked = Some(PanelAsk::Rename);
+                ui.close();
+            }
+            if widgets::menu_item(ui, tr("Move in Layout…"), "").clicked() {
+                asked = Some(PanelAsk::Arrange);
                 ui.close();
             }
             widgets::menu_separator(ui);
@@ -91,8 +96,9 @@ impl Tab {
         });
         match asked {
             Some(PanelAsk::Rename) => self.rename_panel(spec.id),
+            Some(PanelAsk::Arrange) => self.open_layout_view(Some(spec.id)),
             Some(PanelAsk::Gauges) => self.open_gauges(spec.id),
-            Some(PanelAsk::Hide) => self.layout.set_shown(spec.id, false),
+            Some(PanelAsk::Hide) => self.show_panel(spec.id, false),
             Some(PanelAsk::Remove) => self.panels.removed = Some(index),
             Some(PanelAsk::MapAction(label)) => self.use_map_action(&label),
             Some(PanelAsk::UndoChange) => drop(self.run_command("/map undo")),
@@ -181,6 +187,8 @@ impl Tab {
 /// What a panel's menu asks to be done once it is closed.
 enum PanelAsk {
     Rename,
+    /// Moving it, in Layout, where the keyboard moves panels.
+    Arrange,
     Gauges,
     Hide,
     Remove,

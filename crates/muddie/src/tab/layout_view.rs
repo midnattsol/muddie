@@ -391,7 +391,10 @@ impl Tab {
             false => beside.get(at + 1).copied(),
         };
         let Some(next) = next else {
-            return;
+            return self.voice.say_now(match up {
+                true => tr("It is the first already."),
+                false => tr("It is the last already."),
+            });
         };
         let (stack, other) = (
             self.layout.panels[from].stack,

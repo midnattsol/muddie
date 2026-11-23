@@ -355,6 +355,21 @@ impl Channel {
 
 impl Tab {
     /// Puts a side away with its panels, or brings it back as it was.
+    /// Shows or hides a panel, and says so: hidden, what brings it back.
+    pub(super) fn show_panel(&mut self, id: u32, shown: bool) {
+        self.layout.set_shown(id, shown);
+        let Some(name) = self.layout.panel(id).map(PanelSpec::shown_name) else {
+            return;
+        };
+        self.voice.say_now(&match shown {
+            true => trf("{0} shown.", &[&name]),
+            false => trf(
+                "{0} hidden. Show {0}, in the palette, brings it back.",
+                &[&name],
+            ),
+        });
+    }
+
     pub(super) fn toggle_side(&mut self, side: Side) {
         match self.layout.collapsed.contains(&side) {
             true => self.layout.reveal(side),
@@ -414,6 +429,9 @@ pub(super) struct Panels {
     pub(super) text: Vec<(u32, layout::TextContent)>,
     /// The panel being dragged to another place.
     pub(super) dragged: Option<u32>,
+    /// The side just collapsed: the button that expands it is given the
+    /// keyboard.
+    pub(super) focus_strip: Option<Side>,
     /// Where each panel was drawn, to drop another before or after it.
     pub(super) rects: Vec<(u32, egui::Rect)>,
     /// Of the panels that share a place as tabs, by the place: which is

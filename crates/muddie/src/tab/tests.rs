@@ -67,6 +67,18 @@ fn window<'a>(profiles: Option<Profiles>) -> Harness<'a, App> {
 }
 
 /// What the client has said, over the corner and under the bell.
+/// The button that edits a gauge, named by what the gauge says.
+fn gauge_button<'h, 'a>(
+    harness: &'h Harness<'a, App>,
+    name: &str,
+) -> Option<egui_kittest::Node<'h>> {
+    (harness.query_all_by_role(egui::accesskit::Role::Button)).find(|node| {
+        node.accesskit_node()
+            .label()
+            .is_some_and(|label| label.starts_with(name))
+    })
+}
+
 fn notes(app: &Tab) -> Vec<String> {
     (app.messages().0.iter())
         .map(|message| message.text.clone())

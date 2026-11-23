@@ -313,13 +313,17 @@ impl Tab {
             .find(|(known, _)| *known == stack)
             .map(|(_, id)| *id);
         let mut shown = kept.filter(|id| ids.contains(id)).unwrap_or(ids[0]);
-        for &index in place {
-            let panel = &self.layout.panels[index];
-            let unread = self.panels.unread_tabs.contains(&panel.id);
-            if widgets::tab(ui, &panel.shown_name(), panel.id == shown, unread).clicked() {
-                shown = panel.id;
+        // A list of tabs, to a screen reader, saying how many and which.
+        let list = egui::UiBuilder::new().accessibility_role(egui::accesskit::Role::TabList);
+        ui.scope_builder(list, |ui| {
+            for &index in place {
+                let panel = &self.layout.panels[index];
+                let unread = self.panels.unread_tabs.contains(&panel.id);
+                if widgets::tab(ui, &panel.shown_name(), panel.id == shown, unread).clicked() {
+                    shown = panel.id;
+                }
             }
-        }
+        });
         self.panels.shown_tabs.retain(|(known, _)| *known != stack);
         self.panels.shown_tabs.push((stack, shown));
         self.panels.unread_tabs.retain(|id| *id != shown);
@@ -356,8 +360,18 @@ impl Tab {
         }
         if field.lost_focus() {
             let escaped = ui.input(|input| input.key_pressed(egui::Key::Escape));
+            let before = self.layout.panel(id).map(|panel| panel.name.clone());
             if !escaped {
                 self.rename_to(id, &name);
+            }
+            // Said, as the field goes with the keyboard in it.
+            let now = self.layout.panel(id).map(|panel| panel.name.clone());
+            match now {
+                Some(now) if now != before.unwrap_or_default() => {
+                    self.voice.say_now(&trf("Renamed {0}.", &[&now]));
+                }
+                _ if escaped => self.voice.say_now(tr("The name is kept.")),
+                _ => {}
             }
             return;
         }
@@ -401,8 +415,10 @@ impl Tab {
                 ui.set_min_height(24.0);
                 // Six dots: this can be taken and moved.
                 let name = this.layout.panels[**shown].shown_name();
+                // Dragged, and not a stop of the keyboard, which moves a
+                // panel from its menu, in Layout.
                 let (grip, handle) =
-                    ui.allocate_exact_size(egui::vec2(12.0, 22.0), egui::Sense::drag());
+                    ui.allocate_exact_size(egui::vec2(12.0, 22.0), egui::Sense::DRAG);
                 let handle = handle.on_hover_cursor(egui::CursorIcon::Grab);
                 // Not a button: it is only dragged. The keyboard moves a
                 // panel from its menu, or in Layout.

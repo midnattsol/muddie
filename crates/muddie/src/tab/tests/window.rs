@@ -102,7 +102,9 @@ fn what_a_click_opens_stays_open() {
     steady(&mut harness, "messages", "Clear");
     harness.get_by_label("Gauges options").click();
     steady(&mut harness, "panel menu", "Hide Gauges");
-    harness.get_by_label("Edit Salud").click();
+    gauge_button(&harness, "Salud")
+        .expect("a gauge to edit")
+        .click();
     steady(&mut harness, "gauge", "Open in the editor");
     harness.get_by_label("Menu").click();
     harness.run_steps(2);

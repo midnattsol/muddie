@@ -368,8 +368,9 @@ another side, saying where it is now. Escape goes back to the game.
   output) to go before or after it, on its middle to share its place as a
   tab. Drag the edge between two panels, or between a panel and the output,
   to size them.
-- Its **menu** has **Rename…**, what goes with its kind (the channels for
-  one of text, editing the gauges; for the map, its appearance, showing every area or another, undoing
+- Its **menu** has **Rename…**, **Move in Layout…**, where the keyboard
+  moves it, what goes with its kind (the channels for one of text, and
+  whether what is put in it is read aloud; editing the gauges; for the map, its appearance, showing every area or another, undoing
   the last room it added, and under the name of each plugin what it offers
   to do with the map), hiding it and removing it. **Rename…**, or a double
   click on the name, turns
@@ -414,8 +415,8 @@ follows something the MUD reports, or a variable, and is one of these kinds:
   while it lasts: poisoned, blessed, in combat. It follows a list, or a table
   by name; each one a name, or a table of `name`, `about` and `colour`. As
   many as fit in the panel are shown, and the rest under one more, **+3**,
-  that lists them; what each is shows on hovering it, and is read with the
-  rest.
+  that lists them; what each is shows on hovering it, and is read after
+  its name.
 
 Say where the value is, and the maximum for those that have one: a GMCP
 package and the fields inside it (`Char.Vitals.health.current`), the name
@@ -427,6 +428,12 @@ those with a maximum the colours it takes as it gets low: yellow under 60 %,
 red under 30 %, as many steps (`step` in a `rules.toml`) as wanted, kept in order. A light can have a
 colour for when it is off as well, to say which of two things is so: red for
 poisoned, green for not. Alt+0 reads the gauges aloud.
+
+A gauge is said as it is seen to change: falling under one of its steps,
+as it turns colour, and once under one, each tenth more it falls; a step
+it wavers about is said once, until it has risen clear of it. A light,
+words or effects are said when what they say changes. Reached with Tab, a
+gauge made in the editor says what it is, and pressing it opens it.
 
 ### Plugins
 

@@ -19,6 +19,11 @@ impl Tab {
         let icon = widgets::Icon::Fold(side.edge());
         if widgets::icon_button(ui, icon, side.toggle_label(true), false).clicked() {
             self.toggle_side(side);
+            // The button is gone with the side: the keyboard goes to the
+            // one that brings it back, and it is said where that is.
+            self.panels.focus_strip = Some(side);
+            self.voice
+                .say_now(tr("Collapsed. The strip at its edge expands it again."));
         }
     }
 
@@ -65,7 +70,14 @@ impl Tab {
             .show_separator_line(false)
             .resizable(false)
             .exact_size(thickness)
-            .show(ui, |ui| strip_names(ui, side, &panels));
+            .show(ui, |ui| {
+                let focus = self
+                    .panels
+                    .focus_strip
+                    .take_if(|asked| *asked == side)
+                    .is_some();
+                strip_names(ui, side, &panels, focus)
+            });
         if let Some((id, stack)) = shown.inner {
             self.layout.reveal(side);
             if stack != 0 {
@@ -82,7 +94,12 @@ impl Tab {
 /// it at the sides, read toward the output, and across it above and
 /// below. Returns the panel chosen, with its set of tabs; the arrow
 /// chooses none in particular.
-fn strip_names(ui: &mut egui::Ui, side: Side, panels: &[(u32, u32, String)]) -> Option<(u32, u32)> {
+fn strip_names(
+    ui: &mut egui::Ui,
+    side: Side,
+    panels: &[(u32, u32, String)],
+    focus: bool,
+) -> Option<(u32, u32)> {
     let theme = theme::current();
     let card = ui.max_rect();
     ui.painter()
@@ -100,6 +117,9 @@ fn strip_names(ui: &mut egui::Ui, side: Side, panels: &[(u32, u32, String)]) -> 
     let back = ui.scope_builder(builder, |ui| {
         widgets::icon_button(ui, icon, side.toggle_label(false), false)
     });
+    if focus {
+        back.inner.request_focus();
+    }
     let mut chosen = back.inner.clicked().then_some((0, 0));
     let mut at = if side.is_beside() { STRIP + 2.0 } else { 6.0 };
     for (id, stack, name) in panels {

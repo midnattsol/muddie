@@ -251,7 +251,9 @@ fn effects_are_labels_and_those_that_do_not_fit_are_under_one_more() {
         String::new(),
     );
     harness.run_steps(3);
-    harness.get_by_label_contains("Efectos: Efecto número 1, Efecto número 2,");
+    harness.get_by_label_contains(
+        "Efectos: Efecto número 1 (Lo que hace el 1), Efecto número 2 (Lo que hace el 2),",
+    );
     let more = harness.get_by_label_contains(" more: ");
     let said = more.accesskit_node().label().unwrap_or_default();
     assert!(said.ends_with("Efecto número 12"), "{said}");
@@ -434,9 +436,11 @@ fn a_gauge_is_changed_where_it_is_shown() {
     // One the MUD made by itself is shown, and not to be changed here.
     app.gauges.set("MV", Some((10.0, 20.0)));
     harness.run_steps(3);
-    assert!(harness.query_by_label("Edit MV").is_none());
+    assert!(gauge_button(&harness, "MV").is_none());
     // One made in the editor opens its details over the game.
-    harness.get_by_label("Edit Salud").click();
+    gauge_button(&harness, "Salud")
+        .expect("a gauge to edit")
+        .click();
     harness.run_steps(3);
     let app = harness.state_mut().tab_mut();
     let salud = app.rules.gauges.len() - 1;
@@ -916,4 +920,33 @@ fn gauges_are_in_their_panels_by_name() {
     app.rules = old;
     app.name_gauge_panels();
     assert_eq!(app.rules.gauges[0].panel, "Puntos");
+}
+
+/// What takes away the control the keyboard was on says what it did, and
+/// gives the keyboard to what brings it back.
+#[test]
+fn collapsing_and_hiding_are_said_and_keep_the_keyboard() {
+    let mut harness = window(None);
+    let app = harness.state_mut().tab_mut();
+    app.started = true;
+    app.voice.force_voice();
+    harness.run_steps(3);
+    harness.get_by_label("Collapse the right side").click();
+    harness.run_steps(3);
+    let app = harness.state().tab();
+    assert_eq!(
+        app.voice.said.last().map(String::as_str),
+        Some("Collapsed. The strip at its edge expands it again.")
+    );
+    assert!(harness.get_by_label("Expand the right side").is_focused());
+    let app = harness.state_mut().tab_mut();
+    let id = app.layout.panels[0].id;
+    let name = app.layout.panels[0].shown_name();
+    app.show_panel(id, false);
+    assert_eq!(
+        app.voice.said.last(),
+        Some(&format!(
+            "{name} hidden. Show {name}, in the palette, brings it back."
+        ))
+    );
 }

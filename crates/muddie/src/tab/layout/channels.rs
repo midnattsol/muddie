@@ -237,34 +237,41 @@ impl Tab {
                     .map(|channel| (channel.name.clone(), channel.unread)),
             )
             .collect();
-        ui.horizontal_wrapped(|ui| {
-            ui.spacing_mut().item_spacing = egui::vec2(2.0, 2.0);
-            for (name, unread) in &names {
-                let label = if name.is_empty() {
-                    tr("All")
-                } else {
-                    name.as_str()
-                };
-                let tab = widgets::tab(ui, label, *name == shown, *unread);
-                if tab.clicked() {
-                    shown.clone_from(name);
-                }
-                // Each channel can be kept from being read aloud.
-                if !name.is_empty() {
-                    let mut read = !self.channel_quiet(name);
-                    let mut changed = false;
-                    crate::widgets::context_menu_of(&tab, |ui| {
-                        widgets::menu_width(ui);
-                        changed = widgets::menu_check(ui, &mut read, tr("Read aloud")).clicked();
+        let list = egui::UiBuilder::new().accessibility_role(egui::accesskit::Role::TabList);
+        ui.scope_builder(list, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.spacing_mut().item_spacing = egui::vec2(2.0, 2.0);
+                for (name, unread) in &names {
+                    let label = if name.is_empty() {
+                        tr("All")
+                    } else {
+                        name.as_str()
+                    };
+                    let tab = widgets::tab(ui, label, *name == shown, *unread);
+                    if tab.clicked() {
+                        shown.clone_from(name);
+                    }
+                    // Each channel can be kept from being read aloud.
+                    if !name.is_empty() {
+                        let hint = tr("Shift+F10 opens its menu.");
+                        (ui.ctx())
+                            .accesskit_node_builder(tab.id, |node| node.set_description(hint));
+                        let mut read = !self.channel_quiet(name);
+                        let mut changed = false;
+                        crate::widgets::context_menu_of(&tab, |ui| {
+                            widgets::menu_width(ui);
+                            changed =
+                                widgets::menu_check(ui, &mut read, tr("Read aloud")).clicked();
+                            if changed {
+                                ui.close();
+                            }
+                        });
                         if changed {
-                            ui.close();
+                            self.set_channel_quiet(name, !read);
                         }
-                    });
-                    if changed {
-                        self.set_channel_quiet(name, !read);
                     }
                 }
-            }
+            })
         });
         ui.add_space(2.0);
         self.panels.channel_shown.retain(|(panel, _)| *panel != id);
