@@ -397,3 +397,21 @@ fn an_option_that_is_none_is_said() {
     let actions = engine.take_actions();
     assert!(error_text(&actions).contains("there is no option place"));
 }
+
+#[test]
+fn a_macro_sends_its_commands_as_a_rule_does() {
+    let mut engine = engine(
+        r#"alias("^k (.+)$", function(m) send("kill " .. m[1]) end)
+        vars.foe = "orc"
+        macro("f8", "k $foe;; or not; look")"#,
+    );
+    engine.take_actions();
+    assert!(engine.on_key("f8"));
+    assert_eq!(
+        engine.take_actions(),
+        [
+            Action::Send("k orc; or not".into()),
+            Action::Send("look".into())
+        ]
+    );
+}

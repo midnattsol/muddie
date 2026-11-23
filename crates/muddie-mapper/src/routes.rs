@@ -125,35 +125,58 @@ impl Map {
         self.moves_from(from).get(&to).copied()
     }
 
-    /// The rooms up to `moves` moves away, nearest first, each with the
-    /// route to it: what is around, as routes would go there.
+    /// The rooms up to `moves` moves away, the cheapest to reach first,
+    /// each with the route to it: what is around, by the routes a walk
+    /// there takes, as [`Map::route`] finds them.
     pub fn around(&self, from: RoomId, moves: usize) -> Vec<(RoomId, Vec<Step>)> {
-        let mut found: Vec<(RoomId, Vec<Step>)> = Vec::new();
-        let mut seen = HashSet::from([from]);
-        let mut frontier = vec![(from, Vec::<Step>::new())];
-        for _ in 0..moves {
-            let mut next_frontier = Vec::new();
-            for (id, steps) in &frontier {
-                let Some(room) = self.rooms.get(id) else {
+        // Dijkstra's algorithm, as for a route, no further than `moves`.
+        let mut cost_to: HashMap<RoomId, u64> = HashMap::from([(from, 0)]);
+        let mut reached_by: HashMap<RoomId, (RoomId, &str, usize)> = HashMap::new();
+        let mut queue = BinaryHeap::from([Reverse((0_u64, from))]);
+        let mut order = Vec::new();
+        while let Some(Reverse((cost, id))) = queue.pop() {
+            if cost > cost_to[&id] {
+                continue;
+            }
+            if id != from {
+                order.push(id);
+            }
+            let far = reached_by.get(&id).map_or(0, |(_, _, far)| *far);
+            let Some(room) = self.rooms.get(&id) else {
+                continue;
+            };
+            if (room.avoid && id != from) || far == moves {
+                continue;
+            }
+            for (direction, exit) in room.exits.iter().filter(|(_, exit)| !exit.blocked) {
+                let Some(next_room) = self.rooms.get(&exit.to) else {
                     continue;
                 };
-                for (direction, exit) in &room.exits {
-                    if exit.blocked || !self.rooms.contains_key(&exit.to) || !seen.insert(exit.to) {
-                        continue;
-                    }
+                let next_cost = cost + 1 + u64::from(next_room.cost) + u64::from(exit.cost);
+                if cost_to.get(&exit.to).is_none_or(|known| next_cost < *known) {
+                    cost_to.insert(exit.to, next_cost);
                     let command =
                         (exit.command.as_deref()).unwrap_or_else(|| self.command_for(direction));
-                    let mut route = steps.clone();
-                    route.push(Step {
-                        command: command.to_owned(),
-                        to: exit.to,
-                    });
-                    next_frontier.push((exit.to, route));
+                    reached_by.insert(exit.to, (id, command, far + 1));
+                    queue.push(Reverse((next_cost, exit.to)));
                 }
             }
-            found.extend(next_frontier.iter().cloned());
-            frontier = next_frontier;
         }
-        found
+        order.dedup();
+        (order.into_iter())
+            .map(|to| {
+                let mut steps = Vec::new();
+                let mut at = to;
+                while let Some(&(previous, command, _)) = reached_by.get(&at) {
+                    steps.push(Step {
+                        command: command.to_owned(),
+                        to: at,
+                    });
+                    at = previous;
+                }
+                steps.reverse();
+                (to, steps)
+            })
+            .collect()
     }
 }

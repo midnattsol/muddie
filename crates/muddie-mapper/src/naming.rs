@@ -249,7 +249,9 @@ impl Map {
     /// The room the user named `name`, whatever the case.
     pub fn marked(&self, name: &str) -> Option<RoomId> {
         let name = name.trim().to_lowercase();
-        (self.marks.iter()).find_map(|(mark, id)| (mark.to_lowercase() == name).then_some(*id))
+        (self.marks.iter())
+            .filter(|(_, id)| self.rooms.contains_key(id))
+            .find_map(|(mark, id)| (mark.to_lowercase() == name).then_some(*id))
     }
 
     /// Names a room, to go to it by that name. A name given before, in

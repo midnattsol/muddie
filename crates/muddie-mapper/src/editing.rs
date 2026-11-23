@@ -252,6 +252,14 @@ impl Map {
         if self.rooms.remove(&id).is_none() {
             return Ok(false);
         }
+        // Its marks go with it: there is nowhere for them to lead.
+        let marks: Vec<String> = (self.marks.iter())
+            .filter(|(_, room)| **room == id)
+            .map(|(mark, _)| mark.clone())
+            .collect();
+        for mark in marks {
+            self.unmark(&mark)?;
+        }
         if self.current == Some(id) {
             self.current = None;
         }

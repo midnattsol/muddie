@@ -626,8 +626,13 @@ fn the_nearest_of_several_rooms_is_gone_to() {
     let around: Vec<(RoomId, usize)> = (map.around(12, 2).into_iter())
         .map(|(id, steps)| (id, steps.len()))
         .collect();
-    // The same number of moves away, in the order of the exits.
-    assert_eq!(around, [(13, 1), (11, 1), (10, 2)]);
+    // The cheapest first, as routes go: of the same cost, by number.
+    assert_eq!(around, [(11, 1), (13, 1), (10, 2)]);
+    // A room routes keep off is reached, but not gone through.
+    let mut map = map;
+    map.set_avoid(11, true).unwrap();
+    let around: Vec<RoomId> = map.around(12, 2).into_iter().map(|(id, _)| id).collect();
+    assert_eq!(around, [11, 13]);
 }
 
 #[test]
@@ -640,6 +645,11 @@ fn places_are_meant_by_number_mark_name_or_area() {
     assert_eq!(map.rooms_meant("oas"), [13]);
     assert_eq!(map.rooms_meant("Desert oasis"), [13]);
     assert_eq!(map.rooms_meant("desert"), [10, 11, 12, 13]);
+    // A room taken off the map takes its marks with it.
+    let mut gone = desert();
+    gone.mark("Well", 12).unwrap();
+    assert!(gone.remove_room(12).unwrap());
+    assert!(gone.marks().is_empty() && gone.marked("well").is_none());
     assert!(map.rooms_meant("sea").is_empty());
     // Of several, the room meant is the nearest; with no whereabouts, the
     // first.

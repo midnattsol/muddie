@@ -28,7 +28,15 @@ impl Engine {
             let live = (bound.into_iter().flatten())
                 .find(|made| state.switches.active(Kind::Macro, &made.belongs));
             match live.map(|made| (&made.owner, &made.action)) {
-                Some((_, MacroAction::Command(command))) => Ok(state.expand(command)),
+                // Its commands, sent as a rule's are: as written, with the
+                // variables put in, not through aliases.
+                Some((_, MacroAction::Command(command))) => {
+                    Ok((split_commands(command, Some(";")))
+                        .into_iter()
+                        .filter(|command| !command.is_empty())
+                        .map(|command| state.expand(&command))
+                        .collect::<Vec<String>>())
+                }
                 // Whose it is, for what it makes when it runs.
                 Some((owner, MacroAction::Function(function))) => {
                     Err((owner.clone(), function.clone()))
@@ -37,7 +45,11 @@ impl Engine {
             }
         };
         match action {
-            Ok(command) => self.on_input(&command),
+            Ok(commands) => {
+                for command in commands {
+                    self.push(Action::Send(command));
+                }
+            }
             Err((owner, function)) => {
                 self.as_owner(&owner, || function.call::<()>(()));
             }
