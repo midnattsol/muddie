@@ -271,6 +271,7 @@ impl Tab {
                     }
                 }
                 Action::StopWalk => self.stop_walking(),
+                Action::ShowArea(area) => self.show_area(&area),
                 Action::ImportMap(address) => self.import_for_script(address),
                 Action::MapNewer { address, answer } => self.check_newer_map(address, answer),
                 // The palette lists them: worked out again.

@@ -599,6 +599,14 @@ fn install_routes(
             Ok(())
         })?,
     )?;
+    let shared = Rc::clone(state);
+    api.set(
+        "show_area",
+        lua.create_function(move |_, area: String| {
+            shared.borrow_mut().actions.push(Action::ShowArea(area));
+            Ok(())
+        })?,
+    )?;
     Ok(())
 }
 
@@ -743,24 +751,38 @@ fn install_exits(lua: &Lua, map: &Rc<RefCell<Map>>, api: &Table) -> mlua::Result
     let world = Rc::clone(map);
     api.set(
         "tidy",
-        lua.create_function(move |_, area: Option<String>| {
+        lua.create_function(move |lua, area: Option<String>| {
             let mut world = world.borrow_mut();
             let area = area.or_else(|| Some(world.current()?.area.clone()));
             let Some(area) = area else {
                 return Ok((0, None));
             };
             let tidied = saved(world.tidy(&area))?;
+            // Left as it was, how it is drawn and how it would be.
+            let drawing = |drawing: muddie_mapper::Drawing| -> mlua::Result<Table> {
+                let table = lua.create_table()?;
+                table.set("wrong_exits", drawing.wrong_exits)?;
+                table.set("stacked", drawing.stacked)?;
+                Ok(table)
+            };
             Ok(match tidied {
                 muddie_mapper::Tidied::Moved(moved) => (moved, None),
-                // Left as it was, and why.
-                muddie_mapper::Tidied::Kept { now, then } => (
-                    0,
-                    Some(format!(
-                        "drawn again, {} exits would point the wrong way and {} rooms would lie on another; now {} and {}",
-                        then.wrong_exits, then.stacked, now.wrong_exits, now.stacked
-                    )),
-                ),
+                muddie_mapper::Tidied::Kept { now, then } => {
+                    let kept = lua.create_table()?;
+                    kept.set("now", drawing(now)?)?;
+                    kept.set("then", drawing(then)?)?;
+                    (0, Some(kept))
+                }
             })
+        })?,
+    )?;
+
+    let world = Rc::clone(map);
+    api.set(
+        "undo",
+        lua.create_function(move |_, ()| {
+            let undone = saved(world.borrow_mut().undo_change())?;
+            Ok(undone.is_some())
         })?,
     )?;
 

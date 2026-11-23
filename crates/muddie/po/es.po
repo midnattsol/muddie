@@ -605,9 +605,6 @@ msgstr "Los plugins necesitan una carpeta de configuración, y no se encontró n
 msgid "Give the plugin a name after the address: letters, digits, - and _."
 msgstr "Indica un nombre para el plugin después de la dirección (letras, cifras, - y _)."
 
-msgid "Starts or stops logging the session"
-msgstr "Inicia o detiene el registro de la sesión"
-
 msgid ""
 "Scripts are Luau code that is always loaded: what no rule can do,\n"
 "such as building the map or acting on what your MUD reports."
@@ -1214,12 +1211,6 @@ msgstr "Descarga los sonidos que solicite el MUD y no estén disponibles."
 msgid "Download sounds"
 msgstr "Descargar sonidos"
 
-msgid "Included"
-msgstr "Incluidos"
-
-msgid "Installed"
-msgstr "Instalados"
-
 msgid "Host"
 msgstr "Dirección"
 
@@ -1304,9 +1295,6 @@ msgstr "Etiquetas"
 
 msgid "Folder"
 msgstr "Carpeta"
-
-msgid "Switches a tag on or off for this session"
-msgstr "Activa o desactiva una etiqueta en esta sesión"
 
 #, python-brace-format
 msgid "Tag {0} on."
@@ -1896,15 +1884,6 @@ msgstr "No se pudo actualizar el mapa del servidor: {0}"
 msgid "In {0}, at {1}."
 msgstr "En {0}, en {1}."
 
-msgid "Says the way to a place, without going"
-msgstr "Dice el camino hasta un sitio, sin ir"
-
-msgid "Says all the map knows of a room"
-msgstr "Dice todo lo que el mapa sabe de una sala"
-
-msgid "Takes a map made with Mudlet in place of this one"
-msgstr "Importa un mapa hecho con Mudlet en lugar de este"
-
 # The view of the layout
 
 msgid "Classic"
@@ -2372,12 +2351,6 @@ msgid "{0} room the map added, which the map taken does not have, was kept."
 msgid_plural "{0} rooms the map added, which the map taken does not have, were kept."
 msgstr[0] "Se ha mantenido {0} sala que añadió el mapa y que el mapa traído no tiene."
 msgstr[1] "Se han mantenido {0} salas que añadió el mapa y que el mapa traído no tiene."
-
-msgid "Undoes the last change the map made of itself"
-msgstr "Deshace el último cambio que hizo el mapa por sí solo"
-
-msgid "Takes a room off the map"
-msgstr "Quita una sala del mapa"
 
 msgid "Name of the panel"
 msgstr "Nombre del panel"
@@ -2854,3 +2827,6 @@ msgstr "Descargado de un repositorio git."
 
 msgid "Remove {0}? Its scripts and gauges go from this profile, and what was downloaded of it once no profile has it."
 msgstr "¿Quitar {0}? Sus scripts e indicadores se van de este perfil, y lo descargado de él, cuando ningún perfil lo tenga."
+
+msgid "Views"
+msgstr "Vistas"

@@ -162,6 +162,8 @@ pub enum Action {
     MoveFailed,
     /// Stop walking, as the user would.
     StopWalk,
+    /// Show this area on the map, to look at it, as the user would.
+    ShowArea(String),
     /// Take the map made with Mudlet at this address in place of the one
     /// there is; if it was taken from there, only if it has changed.
     ImportMap(String),

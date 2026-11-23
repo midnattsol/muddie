@@ -284,7 +284,7 @@ impl Tab {
         }
     }
 
-    /// Lists the areas, with how many rooms each has, to go to one.
+    /// Lists the areas, with how many rooms each has, to show one.
     pub(super) fn list_areas(&mut self) {
         let areas: Vec<(String, usize)> = {
             let map = self.map.borrow();
@@ -302,7 +302,7 @@ impl Tab {
         }
         for (area, count) in areas {
             let rooms = trn("{0} room", "{0} rooms", count as u64);
-            self.offer(&area, &rooms, &format!("/map go {area}"));
+            self.offer(&area, &rooms, &format!("/map show-area {area}"));
         }
     }
 

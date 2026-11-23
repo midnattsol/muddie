@@ -400,3 +400,19 @@ fn scripts_write_notes_and_marks_as_the_user_does() {
         ]
     );
 }
+
+#[test]
+fn scripts_undo_and_show_an_area_as_the_user_does() {
+    let mut engine = engine(r#"map.set_room({id = 1, name = "Gate", area = "town", exits = {}})"#);
+    engine.exec(
+        "test",
+        r#"echo(tostring(map.undo())) map.show_area("town")"#,
+    );
+    assert_eq!(
+        engine.take_actions(),
+        [
+            Action::Echo("false".into()),
+            Action::ShowArea("town".into())
+        ]
+    );
+}

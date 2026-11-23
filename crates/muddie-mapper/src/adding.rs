@@ -98,11 +98,12 @@ impl Map {
             return Err(Refused::Known(exit.to));
         }
         let exits = self.exit_set(seen.exits);
-        let key = self.name_key(name);
+        // Called the same, as rooms are found by name, and with the exits
+        // seen, as rooms are recognised: those off the compass are the
+        // user's, and the game does not show them.
+        let called: std::collections::HashSet<RoomId> = self.called(name).into_iter().collect();
         let alike = |room: &Room| {
-            room.id != here.id
-                && self.name_key(&room.name) == key
-                && self.has_exits(room.id, &exits)
+            room.id != here.id && called.contains(&room.id) && self.shows_exits(room.id, &exits)
         };
         let step = direction_offset(&came);
         let mut found: Vec<RoomId> = match step {

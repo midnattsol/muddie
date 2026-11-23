@@ -405,9 +405,9 @@ fn item(label: &str, place: &str, act: Act) -> Item {
     }
 }
 
-/// The views to go to, and each section of the editor.
+/// The views, and each section of the editor.
 fn views() -> Vec<Item> {
-    let go = tr("Go to");
+    let go = tr("Views");
     let mut acts = vec![
         item(tr("Game"), go, Act::View(View::Game)),
         item(tr("Editor"), go, Act::View(View::Editor)),

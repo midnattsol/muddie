@@ -388,12 +388,4 @@ impl Map {
                     .all(|exit| exits.contains(exit) || known_direction(exit).is_none())
         })
     }
-
-    /// Whether a room has just these exits.
-    pub(crate) fn has_exits(&self, id: RoomId, exits: &BTreeSet<String>) -> bool {
-        self.rooms.get(&id).is_some_and(|room| {
-            room.exits.len() == exits.len()
-                && exits.iter().all(|exit| room.exits.contains_key(exit))
-        })
-    }
 }
