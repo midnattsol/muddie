@@ -316,8 +316,9 @@ fn install_finding(lua: &Lua, map: &Rc<RefCell<Map>>, api: &Table) -> mlua::Resu
     let world = Rc::clone(map);
     api.set(
         "find",
-        // Rooms whose name has the text in it, or, exact, called just so as
-        // the MUD names them; by number.
+        // The rooms found by the text, as the client finds them: by mark,
+        // note or name, the nearest first; or, exact, those called just so
+        // as the MUD names them, by number.
         lua.create_function(move |_, (text, options): (String, Option<Table>)| {
             let exact = match options {
                 Some(options) => options.get::<Option<bool>>("exact")?.unwrap_or(false),
@@ -326,7 +327,16 @@ fn install_finding(lua: &Lua, map: &Rc<RefCell<Map>>, api: &Table) -> mlua::Resu
             let world = world.borrow();
             Ok(match exact {
                 true => world.called(&text),
-                false => world.find(&text).into_iter().map(|room| room.id).collect(),
+                false => {
+                    let here = world.current().map(|room| room.id);
+                    let mut rooms: Vec<RoomId> = Vec::new();
+                    for found in world.search(&text, here) {
+                        if !rooms.contains(&found.room) {
+                            rooms.push(found.room);
+                        }
+                    }
+                    rooms
+                }
             })
         })?,
     )?;

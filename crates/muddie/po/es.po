@@ -2109,8 +2109,6 @@ msgstr "nota, {0}"
 msgid "Note: {0}"
 msgstr "Nota: {0}"
 
-msgid "Search the map"
-msgstr "Buscar en el mapa"
 
 #, python-brace-format
 #, python-brace-format
@@ -2177,8 +2175,6 @@ msgstr "Repetir la sala"
 msgid "All about the room"
 msgstr "Todo sobre la sala"
 
-msgid "What is noted near"
-msgstr "Lo anotado cerca"
 
 msgid "Write a note on the room"
 msgstr "Escribir una nota en la sala"
@@ -2756,8 +2752,8 @@ msgstr "Bendecido"
 msgid "Kept off routes: {0}"
 msgstr "Fuera de las rutas: {0}"
 
-msgid "Arrows, or the keypad, follow the exits; Page Up and Page Down go up and down, as minus and plus on the keypad, and slash and star go in and out. Home comes back to you, Backspace to the room before. Space says the room again, {0} all about it, {1} what is noted near. {2} searches the map. {3} marks the room, {4} writes a note on it. Enter goes there, Shift+Enter says the way. Shift+F10 opens the room's menu, with all that is done with it. Escape, or typing, goes back to the command line."
-msgstr "Las flechas, o el teclado numérico, siguen las salidas; Re Pág y Av Pág suben y bajan, como menos y más en el teclado numérico, y la barra y el asterisco entran y salen. Inicio vuelve a ti, Retroceso a la sala anterior. Espacio repite la sala, {0} dice todo de ella, {1} lo anotado cerca. {2} busca en el mapa. {3} marca la sala, {4} le escribe una nota. Intro va allí, Mayús+Intro dice el camino. Mayús+F10 abre el menú de la sala, con todo lo que se hace con ella. Escape, o escribir, vuelve a la línea de comandos."
+msgid "Arrows, or the keypad, follow the exits; Page Up and Page Down go up and down, as minus and plus on the keypad, and slash and star go in and out. Home comes back to you, Backspace to the room before. Space says the room again, {0} all about it, {1} what is near. {2} finds on the map. {3} marks the room, {4} writes a note on it. Enter goes there, Shift+Enter says the way. Shift+F10 opens the room's menu, with all that is done with it. Escape, or typing, goes back to the command line."
+msgstr "Las flechas, o el teclado numérico, siguen las salidas; Re Pág y Av Pág suben y bajan, como menos y más en el teclado numérico, y la barra y el asterisco entran y salen. Inicio vuelve a ti, Retroceso a la sala anterior. Espacio repite la sala, {0} dice todo de ella, {1} qué hay cerca. {2} busca en el mapa. {3} marca la sala, {4} le escribe una nota. Intro va allí, Mayús+Intro dice el camino. Mayús+F10 abre el menú de la sala, con todo lo que se hace con ella. Escape, o escribir, vuelve a la línea de comandos."
 
 msgid "Channels"
 msgstr "Canales"
@@ -2842,3 +2838,6 @@ msgstr "Decir en voz alta"
 
 msgid "Kind"
 msgstr "Tipo"
+
+msgid "Find on the map"
+msgstr "Buscar en el mapa"

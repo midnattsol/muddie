@@ -35,11 +35,7 @@ impl Tab {
     /// The map now has the player in `room`: continue a walk, if any.
     pub(super) fn arrived_in(&mut self, room: RoomId) {
         if std::mem::take(&mut self.map_source.lost) {
-            let name = {
-                let map = self.map.borrow();
-                map.room(room).map(|room| places::place_words(&map, room))
-            };
-            let name = name.unwrap_or_else(|| format!("#{room}"));
+            let name = crate::mapview::room_words(&self.map.borrow(), room);
             self.note(&trf("The map knows where you are again: {0}.", &[&name]));
         }
         if let Some((walk, _)) = &mut self.walk {
@@ -255,7 +251,7 @@ impl Tab {
         }
     }
 
-    /// Lists the places that have `query`, as the palette finds them, the
+    /// Lists the places `query` finds, by mark, note or name, the
     /// nearest first, up to [`MAX_LISTED_ROOMS`]: each is walked to by
     /// choosing it. Returns whether there were any.
     pub(super) fn offer_rooms(&mut self, query: &str) -> bool {
@@ -344,10 +340,10 @@ impl Tab {
         }
     }
 
-    /// Lists the rooms whose name has the text, to walk to.
+    /// Lists the places the text finds, by mark, note or name, to walk to.
     pub(super) fn find_rooms(&mut self, text: &str) {
         if !self.offer_rooms(text) {
-            self.refuse(tr("No room matches."));
+            self.refuse(&trf("Nothing on the map has {0}.", &[text.trim()]));
         }
     }
 

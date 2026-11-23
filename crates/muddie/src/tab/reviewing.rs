@@ -4,7 +4,7 @@
 //! All is said, and chosen from a list.
 
 use super::*;
-use crate::mapview::{direction_words, place_words};
+use crate::mapview::{direction_words, room_words};
 use muddie_mapper::{Changed, Map, UNSHOWN_AFTER};
 use std::collections::HashSet;
 use std::time::Duration;
@@ -14,12 +14,6 @@ use walking::MAX_LISTED_ROOMS;
 /// How long after the map changes something of itself it is told, with
 /// whatever else it changed meanwhile.
 const TELL_CHANGES_AFTER: Duration = Duration::from_secs(3);
-
-/// A room the map changed, said by its name; by its number if gone.
-fn room_said(map: &Map, id: RoomId) -> String {
-    map.room(id)
-        .map_or_else(|| format!("#{id}"), |room| place_words(map, room))
-}
 
 /// Exits, in the words they are walked by.
 fn ways_said(map: &Map, ways: &[String]) -> String {
@@ -71,7 +65,7 @@ impl Tab {
         };
         let said = {
             let map = self.map.borrow();
-            let room = |id| room_said(&map, id);
+            let room = |id| room_words(&map, id);
             match undone {
                 Changed::Made(_, name) => trf("Undone: {0} is no longer on the map.", &[&name]),
                 Changed::Found(_, name) => {
@@ -120,7 +114,7 @@ impl Tab {
         let changes = std::mem::take(&mut self.map_told).0;
         let said = {
             let map = self.map.borrow();
-            let room = |id| room_said(&map, id);
+            let room = |id| room_words(&map, id);
             match changes.as_slice() {
                 [Changed::Made(_, name)] => trf("Map: added the room “{0}”.", &[name]),
                 [Changed::Found(_, name)] => trf("Map: added the way to “{0}”.", &[name]),

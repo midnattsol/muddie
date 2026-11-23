@@ -55,11 +55,10 @@ pub(super) struct Highlights<'a> {
 /// its exits; for a screen reader, all in one line.
 pub(super) fn heading(ui: &mut Ui, map: &Map, current: &Room) {
     let palette = theme::current();
-    let name = map.short_name(current);
+    let (name, region) = place_parts(map, current);
     let mut text = RichText::new(name)
         .font(theme::font(Weight::Medium, 14.0))
         .color(palette.text);
-    let region = map.region(current).filter(|region| *region != name);
     let shown = ui.horizontal_wrapped(|ui| {
         ui.spacing_mut().item_spacing.x = 6.0;
         let named = ui.add(eframe::egui::Label::new(std::mem::take(&mut text)).selectable(false));
@@ -71,11 +70,11 @@ pub(super) fn heading(ui: &mut Ui, map: &Map, current: &Room) {
         }
         named
     });
-    let place = match region {
-        Some(region) => format!("{name}, {region}"),
-        None => name.to_owned(),
-    };
-    let said = format!("{place}. {}", exits_words(map, current));
+    let said = format!(
+        "{}. {}",
+        place_words(map, current),
+        exits_words(map, current)
+    );
     (ui.ctx()).accesskit_node_builder(shown.inner.id, |node| node.set_label(said));
     ui.add_space(2.0);
     let chips = exit_chips(ui, map, current, ui.available_width());

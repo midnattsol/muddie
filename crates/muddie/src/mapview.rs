@@ -87,11 +87,12 @@ const MOVES: [(egui::Key, &str); 14] = [
 /// its name, its region if the name does not say it, its number, how many
 /// moves away it is from `from`, and its note.
 fn selection_shown(map: &Map, from: Option<RoomId>, room: &Room) -> String {
-    let name = map.bare_name(&room.name);
-    let mut parts = vec![name.to_owned()];
-    if let Some(region) = map.region(room).filter(|region| !name.starts_with(region)) {
-        parts.push(region.to_owned());
-    }
+    let (name, region) = place_parts(map, room);
+    let mut parts: Vec<String> = [Some(name), region]
+        .into_iter()
+        .flatten()
+        .map(str::to_owned)
+        .collect();
     parts.push(format!("#{}", room.id));
     parts.push(how_far(map, from, room));
     if !room.note.is_empty() {
@@ -188,11 +189,24 @@ pub fn sentences(parts: impl IntoIterator<Item = String>) -> String {
 /// A room as it is said: its name, without its region or the exits some
 /// MUDs write after it, and its region when it has one of its own.
 pub fn place_words(map: &Map, room: &Room) -> String {
-    let name = map.short_name(room);
-    match map.region(room) {
-        Some(region) if region != name => format!("{name}, {region}"),
-        _ => name.to_owned(),
+    match place_parts(map, room) {
+        (name, Some(region)) => format!("{name}, {region}"),
+        (name, None) => name.to_owned(),
     }
+}
+
+/// A room's name, short of its region, and its region when that is not
+/// what the name says: the one way a place is named, apart or together.
+pub fn place_parts<'a>(map: &'a Map, room: &'a Room) -> (&'a str, Option<&'a str>) {
+    let name = map.short_name(room);
+    (name, map.region(room).filter(|region| *region != name))
+}
+
+/// A room of the map said by its place, or by its number if the map has
+/// it no more.
+pub fn room_words(map: &Map, id: RoomId) -> String {
+    map.room(id)
+        .map_or_else(|| format!("#{id}"), |room| place_words(map, room))
 }
 
 /// A room as it is listed where its number tells it from others of its

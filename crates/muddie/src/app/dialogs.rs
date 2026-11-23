@@ -62,8 +62,8 @@ impl App {
                                 crate::shortcuts::ROOM_INFO.written,
                                 tr("All about the room"),
                             ),
-                            (crate::shortcuts::NEAR.written, tr("What is noted near")),
-                            (crate::shortcuts::FIND.written, tr("Search the map")),
+                            (crate::shortcuts::NEAR.written, tr("What is near")),
+                            (crate::shortcuts::FIND.written, tr("Find on the map")),
                             (crate::shortcuts::MARK.written, tr("Mark the room")),
                             (
                                 crate::shortcuts::NOTE.written,

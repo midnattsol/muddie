@@ -216,7 +216,7 @@ can be given as it comes: `num` or `vnum` for `id`, `zone` for `area`,
 | `map.persist(false)` | Keeps the map in memory only, for servers that send it themselves. |
 | `map.clear()` | Forgets every room. |
 | `map.room(id)` | A room as a table, the current one if `id` is omitted. Also has `exits` (direction to room number), `cost`, what entering it costs a route besides the move, as an exit's `cost`, `avoid`, `colour` (`"#rrggbb"`, or `nil`), `note`, what the user wrote of it (`""` for none), `renamed`, whether its name is one given in place of the map's, `added`, whether the map added it of itself (see `map.add`), and `shape` and `symbol`, how it is drawn. |
-| `map.find(text, {exact = true})` | The numbers of the rooms whose name contains `text`; with `exact`, of those called just `text`, as the MUD names them. |
+| `map.find(text, {exact = true})` | The numbers of the rooms that `text` finds, as **Find rooms…** finds them: by mark, note or name, the nearest first; with `exact`, of those called just `text`, as the MUD names them. |
 | `map.way(to, from)` | The commands to walk, or `nil`. A place is a room's id, or a mark or name as typed in **Go to…**, the nearest of several. |
 | `map.go(to)` | Goes there, one confirmed move at a time. `map.stop()` stops, as **Stop going** does. |
 | `map.failed()` | The server said a move failed: the moves sent did not happen, and a walk stops. |

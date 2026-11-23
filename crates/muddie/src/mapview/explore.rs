@@ -107,10 +107,8 @@ pub fn found_words(map: &Map, here: Option<RoomId>, found: &Found) -> (String, S
             room.note.clone()
         }
         FoundBy::Name => {
-            let name = map.bare_name(&room.name);
-            if let Some(region) = map.region(room).filter(|region| *region != name) {
-                detail.push(region.to_owned());
-            }
+            let (name, region) = place_parts(map, room);
+            detail.extend(region.map(str::to_owned));
             name.to_owned()
         }
     };
@@ -414,7 +412,7 @@ impl MapView {
         let room = (map.room(prompt.room))
             .map_or_else(String::new, |room| map.short_name(room).to_owned());
         let label = match prompt.asked {
-            Asked::Search => tr("Search the map").to_owned(),
+            Asked::Search => tr("Find on the map").to_owned(),
             Asked::Mark => trf("Mark for {0}", &[&room]),
             Asked::Note => trf("Note on {0}", &[&room]),
         };
@@ -510,7 +508,7 @@ fn found_line(map: &Map, here: Option<RoomId>, prompt: &Prompt) -> String {
     trf("{0} of {1}: {2}", &[&at[0], &at[1], &place])
 }
 
-/// What is noted near a room, the nearest first: the rooms the user named
+/// What is near a room, the nearest first: the rooms the user named
 /// or wrote a note on, and the way into each other region, with how far
 /// and which way each is.
 fn near_words(map: &Map, from: RoomId) -> String {
@@ -526,7 +524,7 @@ fn near_words(map: &Map, from: RoomId) -> String {
 /// Every key while exploring, as said.
 fn all_keys() -> String {
     trf(
-        "Arrows, or the keypad, follow the exits; Page Up and Page Down go up and down, as minus and plus on the keypad, and slash and star go in and out. Home comes back to you, Backspace to the room before. Space says the room again, {0} all about it, {1} what is noted near. {2} searches the map. {3} marks the room, {4} writes a note on it. Enter goes there, Shift+Enter says the way. Shift+F10 opens the room's menu, with all that is done with it. Escape, or typing, goes back to the command line.",
+        "Arrows, or the keypad, follow the exits; Page Up and Page Down go up and down, as minus and plus on the keypad, and slash and star go in and out. Home comes back to you, Backspace to the room before. Space says the room again, {0} all about it, {1} what is near. {2} finds on the map. {3} marks the room, {4} writes a note on it. Enter goes there, Shift+Enter says the way. Shift+F10 opens the room's menu, with all that is done with it. Escape, or typing, goes back to the command line.",
         &[
             crate::shortcuts::ROOM_INFO.written,
             crate::shortcuts::NEAR.written,

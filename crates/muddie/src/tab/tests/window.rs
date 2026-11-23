@@ -25,7 +25,7 @@ fn what_the_client_says_can_be_read_again() {
         [
             ("Connected.", false),
             ("Tag combat off.", false),
-            ("No room matches.", true)
+            ("Nothing on the map has nowhere.", true)
         ]
     );
     assert_eq!(unread, 3);
@@ -33,7 +33,12 @@ fn what_the_client_says_can_be_read_again() {
     harness.get_by_label("Messages, 3 new").click();
     harness.run_steps(3);
     // Over the corner for a moment, and under the bell.
-    assert!(harness.query_all_by_label("No room matches.").count() >= 2);
+    assert!(
+        harness
+            .query_all_by_label("Nothing on the map has nowhere.")
+            .count()
+            >= 2
+    );
     assert_eq!(harness.state().tab().notices().1, 0);
 }
 

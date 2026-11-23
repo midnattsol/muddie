@@ -263,11 +263,7 @@ impl Tab {
         if self.map_saved(saved).is_none() {
             return;
         }
-        let name = {
-            let map = self.map.borrow();
-            map.room(room).map(|room| place_words(&map, room))
-        };
-        let name = name.unwrap_or_else(|| format!("#{room}"));
+        let name = room_words(&self.map.borrow(), room);
         match avoid {
             true => self.note(&trf("{0} is kept off routes.", &[&name])),
             false => self.note(&trf("Routes may pass through {0} again.", &[&name])),
@@ -528,10 +524,6 @@ pub(super) enum Taking {
     Update,
 }
 
-/// How many places the palette lists for what is typed, at most, besides
-/// the rooms named.
-const PLACES: usize = 8;
-
 impl Tab {
     /// The places of the map that have `query`, for the palette: the rooms
     /// named, then those whose note or name has it, each name once, at its
@@ -545,26 +537,28 @@ impl Tab {
         let found = map.search(query, here);
         let (marks, rest): (Vec<_>, Vec<_>) = (found.into_iter())
             .partition(|found| matches!(found.by, muddie_mapper::FoundBy::Mark(_)));
-        (marks.into_iter().chain(rest.into_iter().take(PLACES)))
-            .map(|found| {
-                let (title, about) = crate::mapview::found_words(&map, here, &found);
-                // By its number, so that what is done is done to the room
-                // shown, of several of a name.
-                let place = found.room.to_string();
-                commands::Item {
-                    insert: String::new(),
-                    usage: title,
-                    group: tr("Places").to_owned(),
-                    about,
-                    act: Some(commands::Act::Place(place)),
-                }
-            })
-            .collect()
+        (marks
+            .into_iter()
+            .chain(rest.into_iter().take(MAX_LISTED_ROOMS)))
+        .map(|found| {
+            let (title, about) = crate::mapview::found_words(&map, here, &found);
+            // By its number, so that what is done is done to the room
+            // shown, of several of a name.
+            let place = found.room.to_string();
+            commands::Item {
+                insert: String::new(),
+                usage: title,
+                group: tr("Places").to_owned(),
+                about,
+                act: Some(commands::Act::Place(place)),
+            }
+        })
+        .collect()
     }
 }
 
 pub(super) use crate::mapview::{
-    direction_words, numbered, ordered_exits, place_words, room_facts, sentences,
+    direction_words, numbered, ordered_exits, place_words, room_facts, room_words, sentences,
 };
 
 /// That a room is the nearest of several that a place may mean.

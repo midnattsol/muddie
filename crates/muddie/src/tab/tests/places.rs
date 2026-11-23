@@ -843,7 +843,7 @@ fn the_map_explored_is_searched_named_noted_and_gone_back_along() {
     );
     // A search: what is found is said, Enter goes to it on the map.
     command(&mut harness, Key::F);
-    assert!(focused(&harness, "Search the map"));
+    assert!(focused(&harness, "Find on the map"));
     typed(&mut harness, "pozo");
     assert_eq!(
         said(&mut harness),
