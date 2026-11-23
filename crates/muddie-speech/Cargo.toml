@@ -1,6 +1,7 @@
 [package]
 name = "muddie-speech"
 version.workspace = true
+publish.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "Speech and braille output for the muddie MUD client."

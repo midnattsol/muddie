@@ -34,6 +34,9 @@ confidence-threshold = 0.9
 [bans]
 multiple-versions = "allow"
 wildcards = "deny"
+# The crates of the workspace require each other by path alone: they are
+# never published, and one version is set for all of them.
+allow-wildcard-paths = true
 
 [sources]
 unknown-registry = "deny"

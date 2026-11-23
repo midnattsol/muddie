@@ -1,6 +1,7 @@
 [package]
 name = "muddie"
 version.workspace = true
+publish.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "A modern, accessible MUD client."
@@ -23,11 +24,11 @@ flate2 = "1.1.11"
 fontdb = "0.24.0"
 jiff = "1.0.1"
 keyring = "4.2.0"
-muddie-core = { version = "0.1.0", path = "../muddie-core" }
-muddie-mapper = { version = "0.1.0", path = "../muddie-mapper" }
-muddie-script = { version = "0.1.0", path = "../muddie-script" }
-muddie-sound = { version = "0.1.0", path = "../muddie-sound" }
-muddie-speech = { version = "0.1.0", path = "../muddie-speech" }
+muddie-core = { path = "../muddie-core" }
+muddie-mapper = { path = "../muddie-mapper" }
+muddie-script = { path = "../muddie-script" }
+muddie-sound = { path = "../muddie-sound" }
+muddie-speech = { path = "../muddie-speech" }
 regex = "1.13.2"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"

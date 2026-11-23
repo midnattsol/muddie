@@ -1,14 +1,15 @@
 [package]
 name = "muddie-script"
 version.workspace = true
+publish.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "Triggers, aliases, timers and Luau scripting for the muddie MUD client."
 
 [dependencies]
 mlua = { version = "0.12.2", features = ["luau", "serde"] }
-muddie-core = { version = "0.1.0", path = "../muddie-core" }
-muddie-mapper = { version = "0.1.0", path = "../muddie-mapper" }
+muddie-core = { path = "../muddie-core" }
+muddie-mapper = { path = "../muddie-mapper" }
 regex = "1.13.2"
 regex-syntax = "0.8.12"
 serde = { version = "1.0.229", features = ["derive"] }
