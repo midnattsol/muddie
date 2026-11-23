@@ -489,7 +489,8 @@ fn install_keeping(
     api.set(
         "native",
         lua.create_function(move |_, enabled: bool| {
-            shared.borrow_mut().map_native_off = !enabled;
+            let mut state = shared.borrow_mut();
+            state.map_native_off = (!enabled).then(|| state.owner.clone());
             Ok(())
         })?,
     )?;

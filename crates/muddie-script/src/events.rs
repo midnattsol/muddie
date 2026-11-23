@@ -69,7 +69,7 @@ impl Engine {
     /// commands, each of them an alias or sent as it is.
     pub fn on_input(&mut self, input: &str) {
         let separator = match &self.state.borrow().separator {
-            Some(chosen) => chosen.clone(),
+            Some((_, chosen)) => chosen.clone(),
             None => Some(";".to_owned()),
         };
         for command in split_commands(input, separator.as_deref()) {
@@ -130,7 +130,9 @@ impl Engine {
             // A package that sends only what changed is merged into what
             // was kept of it; its handlers still get what came.
             let kept = match (state.data.get(&key), &data) {
-                (Some(Value::Table(old)), Value::Table(new)) if state.merged.contains(&key) => {
+                (Some(Value::Table(old)), Value::Table(new))
+                    if state.merged.iter().any(|(_, merged)| *merged == key) =>
+                {
                     match merged(&self.lua, old, new) {
                         Ok(both) => Value::Table(both),
                         Err(error) => {

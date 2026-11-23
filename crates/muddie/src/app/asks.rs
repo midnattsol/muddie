@@ -325,10 +325,7 @@ fn choose_game(
         );
     }
     for problem in problems {
-        ui.colored_label(
-            theme.danger,
-            trf("A template could not be read: {0}", &[problem]),
-        );
+        widgets::problem_note(ui, &trf("A template could not be read: {0}", &[problem]));
     }
     ui.add_space(size::GAP_S);
 }
@@ -394,7 +391,7 @@ fn ask_body(
         );
     }
     if let Some(error) = error {
-        ui.colored_label(theme::current().danger, error);
+        widgets::problem_note(ui, error);
     }
     ui.add_space(size::GAP_M);
     let mut answer = None;

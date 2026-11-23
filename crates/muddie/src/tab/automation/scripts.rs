@@ -182,7 +182,7 @@ impl Tab {
                     self.run_actions();
                 }
             }
-            Err(error) => self.note(&trf("Could not save the script: {0}", &[&error])),
+            Err(error) => self.refuse(&trf("Could not save the script: {0}", &[&error])),
         }
     }
 

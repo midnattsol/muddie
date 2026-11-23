@@ -274,6 +274,18 @@ fn row_words(ui: &mut Ui, label: &str, about: Option<&str>) -> (Vec<egui::Id>, f
     (shown, height)
 }
 
+/// Why something asked in a window cannot be done, under what it is
+/// about: marked as a problem, and told to screen readers as it appears.
+pub fn problem_note(ui: &mut Ui, text: &str) {
+    let note = RichText::new(text)
+        .font(theme::font(Weight::Regular, 12.5))
+        .color(theme::current().danger);
+    let shown = ui.add(egui::Label::new(note).wrap());
+    (ui.ctx()).accesskit_node_builder(shown.id, |node| {
+        node.set_live(egui::accesskit::Live::Assertive);
+    });
+}
+
 /// A note on a page, outside its cards: what there is not yet, or what
 /// something just done said.
 pub fn page_note(ui: &mut Ui, text: &str) {

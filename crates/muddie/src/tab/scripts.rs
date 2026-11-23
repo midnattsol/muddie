@@ -25,7 +25,7 @@ impl Tab {
         self.language.declared = None;
         crate::languages::read_again();
         for problem in crate::languages::all().1 {
-            self.note(&trf("Could not read a language: {0}", &[&problem]));
+            self.refuse(&trf("Could not read a language: {0}", &[&problem]));
         }
         self.map.borrow_mut().forget_taught_directions();
         self.speak_the_language();
@@ -102,7 +102,7 @@ impl Tab {
         if let Some(profiles) = &self.profiles {
             match Rules::load(&profiles.rules_path(self.profile.as_deref())) {
                 Ok(rules) => self.rules = rules,
-                Err(error) => self.note(&trf("Could not load the rules: {0}", &[&error])),
+                Err(error) => self.refuse(&trf("Could not load the rules: {0}", &[&error])),
             }
         }
         files
@@ -209,7 +209,7 @@ impl Tab {
         let saved = draft.save(&profiles.rules_path(self.profile.as_deref()));
         match saved {
             Ok(()) => self.reload_rules(Some(draft)),
-            Err(error) => self.note(&trf("Could not save the rules: {0}", &[&error])),
+            Err(error) => self.refuse(&trf("Could not save the rules: {0}", &[&error])),
         }
     }
 
@@ -304,7 +304,7 @@ impl Tab {
                 } => {
                     let path = self.sound_file(&file);
                     if let Err(error) = self.sound.play(&path, volume, looped) {
-                        self.note(&trf("Cannot play the sound: {0}", &[&error]));
+                        self.refuse(&trf("Cannot play the sound: {0}", &[&error]));
                     }
                 }
                 Action::StopSounds => self.sound.stop_all(),

@@ -433,7 +433,7 @@ impl Tab {
         let moved = (target.parent().map_or(Ok(()), std::fs::create_dir_all))
             .and_then(|()| std::fs::rename(&source, &target));
         if let Err(error) = moved {
-            self.note(&trf("Could not move it: {0}", &[&error.to_string()]));
+            self.refuse(&trf("Could not move it: {0}", &[&error.to_string()]));
             return false;
         }
         let now = |file: &std::path::Path| match file.strip_prefix(&source) {

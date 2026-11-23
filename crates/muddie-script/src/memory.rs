@@ -101,7 +101,7 @@ impl Engine {
     /// Whether the built-in map loader should run, which it does unless a
     /// script turned it off with `map.native(false)`.
     pub fn native_map(&self) -> bool {
-        !self.state.borrow().map_native_off
+        self.state.borrow().map_native_off.is_none()
     }
 
     /// Whether the map should be saved to a file, which it is unless a

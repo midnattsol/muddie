@@ -356,7 +356,7 @@ impl Tab {
             Ok(layout) => self.layout = layout,
             Err(error) => {
                 self.layout = Layout::default();
-                self.note(&trf("Could not load the panels: {0}", &[&error]));
+                self.refuse(&trf("Could not load the panels: {0}", &[&error]));
             }
         }
         self.panels.saved = self.layout.clone();
@@ -380,7 +380,7 @@ impl Tab {
                 .layout
                 .save(&profiles.layout_path(self.profile.as_deref()))
         {
-            self.note(&trf("Could not save the panels: {0}", &[&error]));
+            self.refuse(&trf("Could not save the panels: {0}", &[&error]));
         }
     }
 }

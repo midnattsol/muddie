@@ -28,7 +28,7 @@ impl App {
                 ui.spacing_mut().item_spacing.y = size::GAP_S;
                 self.profile_tab_page(ui);
                 if let Some(error) = &self.settings_error {
-                    ui.colored_label(theme::current().danger, error);
+                    widgets::problem_note(ui, error);
                 }
                 ui.add_space(size::GAP_M);
             });

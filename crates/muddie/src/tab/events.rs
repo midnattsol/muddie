@@ -369,7 +369,7 @@ impl Tab {
         };
         if let Err(error) = write(log) {
             self.log = None;
-            self.note(&trf("Logging stopped: {0}", &[&error.to_string()]));
+            self.refuse(&trf("Logging stopped: {0}", &[&error.to_string()]));
         }
     }
 
@@ -390,7 +390,7 @@ impl Tab {
     /// Starts writing the session to a new log file.
     pub(super) fn start_log(&mut self) {
         let Some(profiles) = &self.profiles else {
-            return self.note(tr("Cannot log: no configuration folder was found."));
+            return self.refuse(tr("Cannot log: no configuration folder was found."));
         };
         match SessionLog::start(&profiles.logs_dir(), &self.title(), self.prefs.log_format) {
             Ok(log) => {
@@ -398,7 +398,7 @@ impl Tab {
                 self.log = Some(log);
                 self.note(&trf("Logging to {0}", &[&path]));
             }
-            Err(error) => self.note(&trf("Cannot log: {0}", &[&error.to_string()])),
+            Err(error) => self.refuse(&trf("Cannot log: {0}", &[&error.to_string()])),
         }
     }
 }

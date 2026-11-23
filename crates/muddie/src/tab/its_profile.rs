@@ -239,7 +239,7 @@ impl Tab {
         });
         match saved {
             Ok(()) => self.profile_written = true,
-            Err(error) => self.note(&trf("Could not save the profile: {0}", &[&error])),
+            Err(error) => self.refuse(&trf("Could not save the profile: {0}", &[&error])),
         }
     }
 

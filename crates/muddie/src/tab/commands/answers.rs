@@ -20,7 +20,7 @@ impl Tab {
     }
 
     /// Says that what was asked could not be done.
-    pub(in crate::tab) fn refuse(&mut self, text: &str) {
+    pub fn refuse(&mut self, text: &str) {
         self.palette.answer_failed |= self.palette.answering;
         self.say(text, true);
     }

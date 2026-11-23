@@ -234,6 +234,31 @@ fn the_modules_a_script_asks_for_go_with_it() {
 }
 
 #[test]
+fn what_a_script_sets_for_all_goes_with_it() {
+    let mut engine = Engine::new(Rc::default()).unwrap();
+    engine.exec_owned(
+        "one",
+        "one",
+        r#"merge_gmcp("Char.Status") separator(false) map.native(false)"#,
+    );
+    engine.on_input("say a; b");
+    assert_eq!(engine.take_actions(), [Action::Send("say a; b".into())]);
+    assert!(!engine.native_map());
+    engine.unload("one");
+    engine.on_input("say a; b");
+    assert_eq!(
+        engine.take_actions(),
+        [Action::Send("say a".into()), Action::Send("b".into())]
+    );
+    assert!(engine.native_map());
+    // Nor is a package merged any more.
+    engine.on_gmcp("Char.Status", r#"{"pe": 5}"#);
+    engine.on_gmcp("Char.Status", r#"{"pvs": 7}"#);
+    engine.exec("lua", "echo(`{gmcp('Char.Status').pe}`)");
+    assert_eq!(engine.take_actions(), [Action::Echo("nil".into())]);
+}
+
+#[test]
 fn sounds_are_requested_with_their_options() {
     let mut engine = engine("");
     engine.exec(

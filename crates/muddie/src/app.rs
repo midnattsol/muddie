@@ -104,7 +104,7 @@ impl App {
         let extra_scripts = startup.scripts.clone();
         let mut first = Tab::new(&cc.egui_ctx, startup, &settings);
         if let Some(error) = &settings_error {
-            first.note(error);
+            first.refuse(error);
         }
         Self {
             tabs: vec![first],

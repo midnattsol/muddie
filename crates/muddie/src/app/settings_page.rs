@@ -69,7 +69,7 @@ impl App {
                         ui.spacing_mut().item_spacing.y = size::GAP_S;
                         self.settings_page(ui);
                         if let Some(error) = &self.settings_error {
-                            ui.colored_label(theme::current().danger, error);
+                            widgets::problem_note(ui, error);
                         }
                     });
             },

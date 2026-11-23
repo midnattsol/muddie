@@ -316,7 +316,8 @@ impl Engine {
     }
 
     /// Takes away what `owner` made: its triggers, aliases, timers, key
-    /// bindings and handlers. What the other scripts made and what they
+    /// bindings and handlers, and what it set for all: the packages it
+    /// merges, the separator, the built-in map loader turned off. What the other scripts made and what they
     /// keep is left as it is, so that one script can be run again without
     /// the rest starting over.
     pub fn unload(&mut self, owner: &str) {
@@ -334,6 +335,13 @@ impl Engine {
         let asked = state.supports.len();
         state.supports.retain(|(by, _)| by != owner);
         state.changed |= state.supports.len() != asked;
+        state.merged.retain(|(by, _)| by != owner);
+        if state.separator.as_ref().is_some_and(|(by, _)| by == owner) {
+            state.separator = None;
+        }
+        if state.map_native_off.as_deref() == Some(owner) {
+            state.map_native_off = None;
+        }
         state.bindings.retain(|_, bound| {
             bound.retain(|bound| bound.owner != owner);
             !bound.is_empty()

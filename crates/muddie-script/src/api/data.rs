@@ -137,10 +137,11 @@ fn install_supports(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
         "merge_gmcp",
         lua.create_function(move |_, packages: mlua::Variadic<String>| {
             let mut state = shared.borrow_mut();
+            let owner = state.owner.clone();
             for package in packages {
-                let key = package.to_lowercase();
-                if !state.merged.contains(&key) {
-                    state.merged.push(key);
+                let asked = (owner.clone(), package.to_lowercase());
+                if !state.merged.contains(&asked) {
+                    state.merged.push(asked);
                 }
             }
             Ok(())
