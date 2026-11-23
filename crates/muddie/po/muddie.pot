@@ -128,11 +128,19 @@ msgstr ""
 msgid "{0} move"
 msgstr ""
 
+#, python-brace-format
+msgid "{0} {1}"
+msgstr ""
+
 msgid "No exits"
 msgstr ""
 
 #, python-brace-format
 msgid "Exits: {0}"
+msgstr ""
+
+#, python-brace-format
+msgid "Doors: {0}"
 msgstr ""
 
 #, python-brace-format
@@ -157,6 +165,19 @@ msgstr ""
 msgid "Note: {0}"
 msgstr ""
 
+msgid "open"
+msgstr ""
+
+msgid "shut"
+msgstr ""
+
+msgid "locked"
+msgstr ""
+
+#, python-brace-format
+msgid "{0}, {1}"
+msgstr ""
+
 msgid "The map does not know where you are: moving tells it, or I am in…, in the palette."
 msgstr ""
 
@@ -176,7 +197,7 @@ msgstr ""
 msgid "Show all areas"
 msgstr ""
 
-msgid "Map view"
+msgid "Map"
 msgstr ""
 
 msgid "Back to my position"
@@ -204,6 +225,10 @@ msgid "Appearance…"
 msgstr ""
 
 #, python-brace-format
+msgid "Through {0}, to {1}"
+msgstr ""
+
+#, python-brace-format
 msgid "{0} on"
 msgstr ""
 
@@ -212,15 +237,26 @@ msgid "{0} off"
 msgstr ""
 
 #, python-brace-format
+msgid "{0}: {1}"
+msgstr ""
+
+#, python-brace-format
 msgid "{0} {1} of {2}"
 msgstr ""
 
 #, python-brace-format
-msgid "Edit {0}"
+msgid "Press to edit {0}"
+msgstr ""
+
+msgid "."
 msgstr ""
 
 #, python-brace-format
 msgid "{0}: none"
+msgstr ""
+
+#, python-brace-format
+msgid "{0} ({1})"
 msgstr ""
 
 #, python-brace-format
@@ -254,11 +290,30 @@ msgstr ""
 msgid "Hide the map"
 msgstr ""
 
+msgid "Left the map."
+msgstr ""
+
 msgid "No gauges."
+msgstr ""
+
+msgid "Copied."
+msgstr ""
+
+msgid "Opened in the browser."
+msgstr ""
+
+msgid "That line has no link."
 msgstr ""
 
 #, python-brace-format
 msgid "No exit {0}."
+msgstr ""
+
+msgid "Command line."
+msgstr ""
+
+#, python-brace-format
+msgid "{0}: write it, then Enter."
 msgstr ""
 
 #, python-brace-format
@@ -307,10 +362,15 @@ msgstr ""
 msgid "Escape stops it."
 msgstr ""
 
-msgid "Arrived."
+#, python-brace-format
+msgid "Arrived: {0}."
 msgstr ""
 
-msgid "Stopped: this is not the room the way expected."
+#, python-brace-format
+msgid "Stopped in {0}: it is not the room the way expected."
+msgstr ""
+
+msgid "a room the map does not know"
 msgstr ""
 
 msgid "Stopped: the last move had no effect."
@@ -369,7 +429,13 @@ msgstr ""
 msgid "Command"
 msgstr ""
 
+msgid "No word to complete it with."
+msgstr ""
+
 msgid "Type a command"
+msgstr ""
+
+msgid "No earlier command has it."
 msgstr ""
 
 msgid "Find in the output"
@@ -383,6 +449,10 @@ msgid "Previous"
 msgstr ""
 
 msgid "Next"
+msgstr ""
+
+#, python-brace-format
+msgid "{0} of {1}: {2}"
 msgstr ""
 
 msgid "Not found."
@@ -505,9 +575,6 @@ msgstr ""
 msgid "Size of the panels at the bottom"
 msgstr ""
 
-msgid "Map"
-msgstr ""
-
 msgid "Gauges"
 msgstr ""
 
@@ -515,6 +582,14 @@ msgid "Panel"
 msgstr ""
 
 msgid "Channels"
+msgstr ""
+
+#, python-brace-format
+msgid "{0} shown."
+msgstr ""
+
+#, python-brace-format
+msgid "{0} hidden. Show {0}, in the palette, brings it back."
 msgstr ""
 
 #, python-brace-format
@@ -534,6 +609,18 @@ msgstr ""
 
 #, python-brace-format
 msgid "There is no tag called {0}."
+msgstr ""
+
+#, python-brace-format
+msgid "{0} room"
+msgstr ""
+
+#, python-brace-format
+msgid "{0} level"
+msgstr ""
+
+#, python-brace-format
+msgid "{0}: {1}, {2}."
 msgstr ""
 
 #, python-brace-format
@@ -626,11 +713,19 @@ msgstr ""
 msgid "You are in one of {0} rooms alike:"
 msgstr ""
 
+#, python-brace-format
+msgid "{0}, {1}: {2}."
+msgstr ""
+
 msgid "not explored"
 msgstr ""
 
 #, python-brace-format
 msgid "{0} (kept off routes)"
+msgstr ""
+
+#, python-brace-format
+msgid "{0}; door: {1}"
 msgstr ""
 
 msgid "This room has no exits on the map."
@@ -674,10 +769,6 @@ msgid "No room is marked {0}."
 msgstr ""
 
 msgid "The map has no areas yet."
-msgstr ""
-
-#, python-brace-format
-msgid "{0} room"
 msgstr ""
 
 msgid "Say which map made with Mudlet to take: a file or an address."
@@ -749,6 +840,10 @@ msgstr ""
 
 #, python-brace-format
 msgid "Costs {0} more to enter."
+msgstr ""
+
+#, python-brace-format
+msgid "Its symbol: {0}"
 msgstr ""
 
 #, python-brace-format
@@ -856,10 +951,6 @@ msgstr ""
 msgid "And {0} more."
 msgstr ""
 
-#, python-brace-format
-msgid "{0}: write it, then Enter."
-msgstr ""
-
 msgid "No matches."
 msgstr ""
 
@@ -942,7 +1033,7 @@ msgstr ""
 msgid "Log this session"
 msgstr ""
 
-msgid "Speech in this session"
+msgid "Read the game aloud"
 msgstr ""
 
 msgid "Edit profile"
@@ -1109,7 +1200,10 @@ msgstr ""
 msgid "Connect to profile"
 msgstr ""
 
-msgid "Copied."
+msgid "The game is no longer read aloud."
+msgstr ""
+
+msgid "The game is read aloud."
 msgstr ""
 
 msgid "Views"
@@ -1252,7 +1346,7 @@ msgid "{0} has changed since it was installed. To have the changes, install it a
 msgstr ""
 
 #, python-brace-format
-msgid "There is a plugin for {0}: {1} It can be enabled from its message, at the bottom right."
+msgid "There is a plugin for {0}: {1} Enable it from its message, or with Plugin {0}, in the palette."
 msgstr ""
 
 #, python-brace-format
@@ -1597,7 +1691,8 @@ msgstr ""
 msgid "Paste a line from the MUD to try it"
 msgstr ""
 
-msgid "says"
+#, python-brace-format
+msgid "says “{0}”"
 msgstr ""
 
 msgid "Also"
@@ -1613,6 +1708,9 @@ msgid "%1 is here"
 msgstr ""
 
 msgid "The line is not shown."
+msgstr ""
+
+msgid "The line is shown, and read back with the review keys, but not read aloud as it comes."
 msgstr ""
 
 #, python-brace-format
@@ -1632,6 +1730,9 @@ msgid "Highlight"
 msgstr ""
 
 msgid "Hide the line"
+msgstr ""
+
+msgid "Do not read it aloud"
 msgstr ""
 
 msgid "Show it in the panel"
@@ -1683,7 +1784,8 @@ msgstr ""
 msgid "runs the script"
 msgstr ""
 
-msgid "sends"
+#, python-brace-format
+msgid "sends {0}"
 msgstr ""
 
 msgid "Do"
@@ -1695,7 +1797,8 @@ msgstr ""
 msgid "Commands"
 msgstr ""
 
-msgid "The pattern is not valid:"
+#, python-brace-format
+msgid "The pattern is not valid: {0}"
 msgstr ""
 
 msgid "Try it"
@@ -1887,6 +1990,9 @@ msgstr ""
 msgid "hides the line"
 msgstr ""
 
+msgid "does not read it aloud"
+msgstr ""
+
 #, python-brace-format
 msgid "Does not run: the folder {0} is switched off."
 msgstr ""
@@ -1921,11 +2027,17 @@ msgstr ""
 msgid "All"
 msgstr ""
 
+msgid "Shift+F10 opens its menu."
+msgstr ""
+
 msgid "Read aloud"
 msgstr ""
 
 #, python-brace-format
 msgid "{0} options"
+msgstr ""
+
+msgid "Move in Layout…"
 msgstr ""
 
 msgid "Show the MUD's channels here"
@@ -1949,6 +2061,9 @@ msgstr ""
 msgid "Nothing here yet. A trigger can show lines in this panel, and so can a script."
 msgstr ""
 
+msgid "Collapsed. The strip at its edge expands it again."
+msgstr ""
+
 #, python-brace-format
 msgid "{0} % of the window"
 msgstr ""
@@ -1962,6 +2077,13 @@ msgid "{0}: {1} %"
 msgstr ""
 
 msgid "Name of the panel"
+msgstr ""
+
+#, python-brace-format
+msgid "Renamed {0}."
+msgstr ""
+
+msgid "The name is kept."
 msgstr ""
 
 #, python-brace-format
@@ -2034,6 +2156,12 @@ msgstr ""
 
 #, python-brace-format
 msgid "Moved: {0}."
+msgstr ""
+
+msgid "It is the first already."
+msgstr ""
+
+msgid "It is the last already."
 msgstr ""
 
 msgid "Arrangements"
@@ -2216,6 +2344,12 @@ msgid "Read the channels"
 msgstr ""
 
 msgid "What is said on the MUD's channels, with the channel's name."
+msgstr ""
+
+msgid "Read the prompt"
+msgstr ""
+
+msgid "The line the MUD waits for a command with, after each one. It can still be read back."
 msgstr ""
 
 msgid "Speed"
@@ -2427,7 +2561,16 @@ msgstr ""
 msgid "Read the most recent lines"
 msgstr ""
 
-msgid "Same, for the panel of channels"
+msgid "Same, for a panel of text"
+msgstr ""
+
+msgid "Choose the panel of text to read"
+msgstr ""
+
+msgid "Copy the line read last"
+msgstr ""
+
+msgid "Follow the link of the line read last"
 msgstr ""
 
 msgid "Read the gauges"
@@ -2440,6 +2583,12 @@ msgid "Exploring the map"
 msgstr ""
 
 msgid "Follow the exits"
+msgstr ""
+
+msgid "The keypad"
+msgstr ""
+
+msgid "Follow the exits by where its keys are; slash and star, in and out"
 msgstr ""
 
 msgid "Home"
@@ -2476,6 +2625,12 @@ msgid "Enter  Shift+Enter"
 msgstr ""
 
 msgid "Go there, or say the way"
+msgstr ""
+
+msgid "Shift+F10  Menu key"
+msgstr ""
+
+msgid "The room's menu, with each exit to follow"
 msgstr ""
 
 msgid "Say all the keys"
@@ -2535,9 +2690,6 @@ msgstr ""
 msgid "Go to the next or previous control"
 msgstr ""
 
-msgid "Shift+F10  Menu key"
-msgstr ""
-
 msgid "Open the context menu of the focused item"
 msgstr ""
 
@@ -2568,7 +2720,26 @@ msgstr ""
 msgid "Speech through {0}."
 msgstr ""
 
+msgid "No text panels."
+msgstr ""
+
+#, python-brace-format
+msgid "{0} line"
+msgstr ""
+
+#, python-brace-format
+msgid "{0}, {1}."
+msgstr ""
+
 msgid "Blank."
+msgstr ""
+
+#, python-brace-format
+msgid "First line: {0}"
+msgstr ""
+
+#, python-brace-format
+msgid "Last line: {0}"
 msgstr ""
 
 #, python-brace-format
@@ -2591,14 +2762,18 @@ msgstr ""
 msgid "nearest of {0}"
 msgstr ""
 
+msgid "Arrows follow the exits, Enter goes, Escape goes back. F1 says all the keys."
+msgstr ""
+
 msgid "This is where you began exploring."
 msgstr ""
 
 #, python-brace-format
-msgid "Exploring the map from {0}. {1}. {2}"
+msgid "Exploring the map from {0}."
 msgstr ""
 
-msgid "Arrows follow the exits, Enter goes, Escape goes back. F1 says all the keys."
+#, python-brace-format
+msgid "Not sure where you are: exploring the map from one of {0} rooms alike, {1}."
 msgstr ""
 
 #, python-brace-format
@@ -2610,10 +2785,6 @@ msgstr ""
 
 #, python-brace-format
 msgid "{0} found"
-msgstr ""
-
-#, python-brace-format
-msgid "{0} of {1}: {2}"
 msgstr ""
 
 #, python-brace-format
@@ -2634,7 +2805,13 @@ msgstr ""
 msgid "Level {0}"
 msgstr ""
 
+msgid "No level above."
+msgstr ""
+
 msgid "Down a level"
+msgstr ""
+
+msgid "No level below."
 msgstr ""
 
 msgid "Click a room to see it, double-click to walk there, right-click for more, Shift+drag to move it."
@@ -2648,6 +2825,9 @@ msgstr ""
 
 #, python-brace-format
 msgid "costs {0} more to enter"
+msgstr ""
+
+msgid ", "
 msgstr ""
 
 msgid "Downloaded from a git repository."
