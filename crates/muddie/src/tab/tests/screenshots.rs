@@ -724,14 +724,14 @@ fn shows_map() {
     // centred on the player's room, so that is the room it opens on.
     harness.get_by_label("Map view").click_secondary();
     harness.run_steps(3);
-    assert!(harness.query_by_label("Avoid in routes").is_some());
+    assert!(harness.query_by_label("Keep routes off").is_some());
     let image = harness.render().expect("rendering failed");
     if let Some(path) = &path {
         let path = path.with_extension("map-menu.png");
         image.save(path).expect("could not write the screenshot");
     }
     // Choosing to avoid the room marks it on the map.
-    harness.get_by_label("Avoid in routes").click();
+    harness.get_by_label("Keep routes off").click();
     harness.run_steps(3);
     assert!(harness.state().tab().map.borrow().room(2).unwrap().avoid);
     // Close up, with the rooms' names, while a walk is under way, the

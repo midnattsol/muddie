@@ -232,7 +232,7 @@ pub fn room_facts(map: &Map, room: &Room) -> Vec<String> {
         );
     }
     if room.avoid {
-        facts.push(tr("Routes avoid it.").to_owned());
+        facts.push(tr("Kept off routes.").to_owned());
     }
     let marks = map.marks_of(room.id);
     if !marks.is_empty() {
@@ -875,7 +875,7 @@ impl MapView {
                     ui.close();
                 }
                 let mut avoid = room.avoid;
-                if widgets::menu_check(ui, &mut avoid, tr("Avoid in routes")).clicked() {
+                if widgets::menu_check(ui, &mut avoid, tr("Keep routes off")).clicked() {
                     chosen = Some(MapAction::Avoid(room.id, avoid));
                     ui.close();
                 }

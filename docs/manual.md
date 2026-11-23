@@ -186,7 +186,7 @@ What it does, by group:
 - **Map**: where am I, what is near, exits of this room, explore the map,
   go to…, the way to…, find rooms…, what the map knows of…, I am in…,
   which room am I in (while it is unsure), mark…, note on…, take the note
-  off, avoid in routes, keep routes off an exit…, forget a mark…, areas,
+  off, keep routes off a room or an exit…, forget a mark…, areas,
   show an area…, check the map, rooms the map added, tidy this area,
   remove a room…, import a Mudlet map…, stop going, and undo the map's
   last change.
@@ -537,8 +537,8 @@ still to go is drawn over the map, and the room it ends in is ringed. A line
 joins rooms that lead to each other; one with an arrow at its end goes one
 way only, a dashed one is an exit off the compass (`enter portal`), and a
 short stub leads to a room not drawn. Inside a room, a triangle up or down
-marks a way up or down, and a dot an exit off the compass. A room to avoid
-is struck through in red, and an exit kept off routes is red. Zoomed in far enough,
+marks a way up or down, and a dot an exit off the compass. A room kept off
+routes is struck through in red, and an exit kept off routes is red. Zoomed in far enough,
 each room's name is written under it. When you move, the view glides to
 the new room. Where the area has rooms on more than one level, the levels
 are over the map's top right corner, one above another: ▲ goes up, ▼ down.
@@ -583,7 +583,7 @@ is what a name begins with, as Anduar in "Anduar: Plaza Mayor".
 | Enter, Shift+Enter | Go to the room chosen; say the way there without going |
 | Escape, or typing | Back to the command line, with what was typed |
 | Double-click a room | Goes there, one move at a time, waiting for each to succeed |
-| Right-click a room | Go here, the way there, what the map knows of it, Mark…, Note…, avoid in routes, Room appearance…, Tidy this area, Show all areas |
+| Right-click a room | Go here, the way there, what the map knows of it, Mark…, Note…, keep routes off, Room appearance…, Tidy this area, Show all areas |
 | Drag | Moves the view; the wheel zooms |
 | Shift+drag a room | Moves it to another cell |
 | ▲ and ▼, over the map's top right corner | Look at the level above or below; **Back to my position**, at the top left, returns |
@@ -593,15 +593,15 @@ Exploring, each room is said short, as one who does not see it wants it:
 its name, and its region on coming to another; how many moves away and
 which way; its exits, in the MUD's words, in the order of the compass;
 and only when so, that it has no way straight back, that an exit is
-closed, that routes avoid it, its names and its note. Its number is not
+closed, that it is kept off routes, its marks and its note. Its number is not
 said, but it is under the map. While exploring, the keys are the map's:
 nothing bound to the keypad, F1 or the map's Ctrl keys is sent to the MUD,
 so a keypad that walks in the game moves on the map instead. Nothing is
 sent until you press Enter on a room or go back to the command line. Which way a place lies is said in the palette and by **What the map knows of…**
 too, when it is in your area and level.
 
-A room marked to avoid is never walked through, and an exit kept off routes
-is never used. Both are kept when the server reports the room again.
+A room kept off routes is never walked through, only into, and an exit
+kept off routes is never used. Both are kept when the server reports the room again.
 
 **Map appearance…**, in the map's menu, chooses the colour and shape (square,
 circle, diamond or hexagon) rooms are drawn in, and **Room appearance…**, in

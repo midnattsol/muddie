@@ -182,8 +182,8 @@ msgstr "Vista del mapa"
 msgid "Tidy this area"
 msgstr "Ordenar esta zona"
 
-msgid "Avoid in routes"
-msgstr "Evitar en rutas"
+msgid "Keep routes off"
+msgstr "Fuera de las rutas"
 
 #, python-brace-format
 msgid "Could not load the profile: {0}"
@@ -220,15 +220,15 @@ msgid "No room matches."
 msgstr "Ninguna sala coincide."
 
 #, python-brace-format
-msgid "Routes will avoid {0}."
-msgstr "Las rutas evitarán {0}."
+msgid "{0} is kept off routes."
+msgstr "{0} queda fuera de las rutas."
 
 #, python-brace-format
 msgid "Routes may pass through {0} again."
 msgstr "Las rutas pueden volver a pasar por {0}."
 
-msgid "Routes will not use that exit."
-msgstr "Las rutas no usarán esa salida."
+msgid "That exit is kept off routes."
+msgstr "Esa salida queda fuera de las rutas."
 
 msgid "Routes may use that exit again."
 msgstr "Las rutas pueden volver a usar esa salida."
@@ -248,8 +248,8 @@ msgstr "salidas"
 msgid "level"
 msgstr "nivel"
 
-msgid "avoided"
-msgstr "evitada"
+msgid "kept off routes"
+msgstr "fuera de las rutas"
 
 msgid "weight"
 msgstr "peso"
@@ -1843,8 +1843,8 @@ msgid "somewhere not yet mapped"
 msgstr "un sitio aún sin mapear"
 
 #, python-brace-format
-msgid "{0} (routes do not use it)"
-msgstr "{0} (las rutas no la usan)"
+msgid "{0} (kept off routes)"
+msgstr "{0} (fuera de las rutas)"
 
 msgid "This room has no exits on the map."
 msgstr "Esta sala no tiene salidas en el mapa."
@@ -1853,8 +1853,8 @@ msgid "Nothing else is that near on the map."
 msgstr "No hay nada más tan cerca en el mapa."
 
 #, python-brace-format
-msgid "Routes avoid it."
-msgstr "Las rutas la evitan."
+msgid "Kept off routes."
+msgstr "Fuera de las rutas."
 
 #, python-brace-format
 msgid "Costs {0} to enter."
@@ -2748,14 +2748,14 @@ msgstr "Nota en {0}…"
 msgid "Take the note off {0}"
 msgstr "Quitar la nota de {0}"
 
-msgid "Avoid {0} in routes"
-msgstr "Evitar {0} en las rutas"
+msgid "Keep routes off {0}"
+msgstr "Dejar {0} fuera de las rutas"
 
 msgid "Keep routes off an exit…"
-msgstr "Que las rutas no usen una salida…"
+msgstr "Dejar una salida fuera de las rutas…"
 
 msgid "Keep routes off the exit"
-msgstr "Que las rutas no usen la salida"
+msgstr "Dejar fuera de las rutas la salida"
 
 msgid "Forget a mark…"
 msgstr "Olvidar una marca…"
@@ -2870,3 +2870,6 @@ msgstr "Las flechas, o el teclado numérico, siguen las salidas; Re Pág y Av P�
 
 msgid "Channels"
 msgstr "Canales"
+
+msgid "Appearance of {0}…"
+msgstr "Apariencia de {0}…"

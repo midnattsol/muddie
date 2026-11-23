@@ -571,8 +571,10 @@ impl Tab {
         // What was changed, put in place now that nothing is borrowed.
         if let Some(panel) = self.layout.panel_mut(id) {
             panel.name = name;
-            panel.visible = visible;
             panel.channels = channels;
+        }
+        if visible != panel.visible {
+            self.layout.set_shown(id, visible);
         }
         if away != was_away {
             self.toggle_side(panel.side);
@@ -603,8 +605,6 @@ impl Tab {
         }
         if remove && let Some(index) = self.layout.panels.iter().position(|panel| panel.id == id) {
             self.remove_panel(index);
-            self.voice
-                .say_now(&trf("{0} removed.", &[&panel.shown_name()]));
             // What had the keyboard is gone: it goes back to the list.
             self.arrange.focus = true;
         }

@@ -390,7 +390,7 @@ impl Tab {
             return self.refuse(tr("This room has no such exit."));
         };
         match self.map_saved(saved) {
-            Some(_) if blocked => self.note(tr("Routes will not use that exit.")),
+            Some(_) if blocked => self.note(tr("That exit is kept off routes.")),
             Some(_) => self.note(tr("Routes may use that exit again.")),
             None => {}
         }

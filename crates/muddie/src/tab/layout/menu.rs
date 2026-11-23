@@ -83,7 +83,7 @@ impl Tab {
         match asked {
             Some(PanelAsk::Rename) => self.rename_panel(spec.id),
             Some(PanelAsk::Gauges) => self.open_gauges(spec.id),
-            Some(PanelAsk::Hide) => self.layout.panels[index].visible = false,
+            Some(PanelAsk::Hide) => self.layout.set_shown(spec.id, false),
             Some(PanelAsk::Remove) => self.panels.removed = Some(index),
             Some(PanelAsk::MapTool(label)) => self.use_map_tool(&label),
             Some(PanelAsk::UndoChange) => self.undo_change(),
@@ -127,19 +127,9 @@ impl Tab {
 
     /// Shows or hides the map's panel, making one if there is none.
     pub(in crate::tab) fn set_map_shown(&mut self, shown: bool) {
-        match self
-            .layout
-            .panels
-            .iter_mut()
-            .find(|panel| panel.kind == Kind::Map)
-        {
-            Some(panel) => {
-                panel.visible = shown;
-                let side = panel.side;
-                if shown {
-                    self.layout.reveal(side);
-                }
-            }
+        let map = (self.layout.panels.iter()).find(|panel| panel.kind == Kind::Map);
+        match map.map(|panel| panel.id) {
+            Some(id) => self.layout.set_shown(id, shown),
             None if shown => self.add_panel(Kind::Map),
             None => {}
         }

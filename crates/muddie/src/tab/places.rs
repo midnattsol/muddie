@@ -113,7 +113,7 @@ impl Tab {
                             None => tr("somewhere not yet mapped").to_owned(),
                         };
                         if exit.blocked {
-                            leads = trf("{0} (routes do not use it)", &[&leads]);
+                            leads = trf("{0} (kept off routes)", &[&leads]);
                         }
                         let word = direction_words(&map, way);
                         (word, leads, format!("/map go {}", exit.to))
@@ -286,7 +286,7 @@ impl Tab {
         };
         let name = name.unwrap_or_else(|| format!("#{room}"));
         match avoid {
-            true => self.note(&trf("Routes will avoid {0}.", &[&name])),
+            true => self.note(&trf("{0} is kept off routes.", &[&name])),
             false => self.note(&trf("Routes may pass through {0} again.", &[&name])),
         }
     }

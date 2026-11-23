@@ -178,7 +178,7 @@ fn session_name(
     let theme = theme::current();
     let colour = match (active, unread) {
         (true, _) => theme.text,
-        (false, true) => theme.accent,
+        (false, true) => widgets::fresh_colour(),
         (false, false) => theme.text_dim,
     };
     let weight = if active || unread {
@@ -199,7 +199,7 @@ fn session_name(
     ui.ctx().accesskit_node_builder(name.id, |node| {
         node.set_role(egui::accesskit::Role::Tab);
         node.set_selected(active);
-        node.set_label(format!("{title}, {state}"));
+        node.set_label(format!("{}, {state}", widgets::fresh_said(title, unread)));
     });
     name
 }

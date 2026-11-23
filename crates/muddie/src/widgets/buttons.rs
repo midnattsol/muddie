@@ -369,6 +369,20 @@ pub fn segmented(ui: &mut Ui, choices: &[&str], current: usize) -> Option<usize>
     chosen
 }
 
+/// The colour of a tab with something in it not looked at yet.
+pub fn fresh_colour() -> egui::Color32 {
+    crate::panels::colour_named("yellow").unwrap_or(theme::current().accent)
+}
+
+/// A tab's name as a screen reader says it: and that it has something
+/// new, if it has.
+pub fn fresh_said(text: &str, fresh: bool) -> String {
+    match fresh {
+        true => format!("{text}, {}", crate::i18n::tr("new")),
+        false => text.to_owned(),
+    }
+}
+
 /// A tab of a row of them: the one shown is filled, and one with
 /// something in it that has not been looked at stands out, with a dot,
 /// and says so to a screen reader.
@@ -379,7 +393,7 @@ pub fn tab(ui: &mut Ui, text: &str, on: bool, fresh: bool) -> Response {
     } else {
         Weight::Regular
     };
-    let marked = crate::panels::colour_named("yellow").unwrap_or(theme.accent);
+    let marked = fresh_colour();
     let colour = match (on, fresh) {
         (true, _) => theme.text,
         (false, true) => marked,
@@ -393,11 +407,7 @@ pub fn tab(ui: &mut Ui, text: &str, on: bool, fresh: bool) -> Response {
     let size = vec2(galley.size().x + 18.0 + dot, 24.0);
     let (rect, response) = ui.allocate_exact_size(size, Sense::click());
     response.widget_info(|| {
-        let said = match fresh {
-            true => format!("{text}, {}", crate::i18n::tr("new")),
-            false => text.to_owned(),
-        };
-        WidgetInfo::selected(Role::Tab, ui.is_enabled(), on, said)
+        WidgetInfo::selected(Role::Tab, ui.is_enabled(), on, fresh_said(text, fresh))
     });
     if ui.is_rect_visible(rect) {
         let painter = ui.painter();

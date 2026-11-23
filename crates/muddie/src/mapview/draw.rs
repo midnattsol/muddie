@@ -558,7 +558,7 @@ pub(super) fn room_tip(response: Response, map: &Map, pointed: Option<&Room>) {
         text.push_str(&format!(", {}", tr("added by the map")));
     }
     if room.avoid {
-        text.push_str(&format!(", {}", tr("avoided")));
+        text.push_str(&format!(", {}", tr("kept off routes")));
     }
     if room.weight > 1 {
         text.push_str(&format!(", {} {}", tr("weight"), room.weight));

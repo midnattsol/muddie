@@ -304,6 +304,18 @@ impl Layout {
     pub(super) fn reveal(&mut self, side: Side) {
         self.hidden.retain(|hidden| *hidden != side);
     }
+
+    /// Shows or hides a panel: one shown on a collapsed side expands it.
+    pub(super) fn set_shown(&mut self, id: u32, shown: bool) {
+        let Some(panel) = self.panel_mut(id) else {
+            return;
+        };
+        panel.visible = shown;
+        let side = panel.side;
+        if shown {
+            self.reveal(side);
+        }
+    }
 }
 
 /// What a panel has been given to show.
@@ -363,9 +375,12 @@ impl Tab {
     }
 
     /// Removes a panel, and what it was given to show.
+    /// Removes a panel, and says so.
     pub(super) fn remove_panel(&mut self, index: usize) {
         let gone = self.layout.panels.remove(index);
         self.panels.text.retain(|(id, _)| *id != gone.id);
+        self.voice
+            .say_now(&trf("{0} removed.", &[&gone.shown_name()]));
     }
 
     /// Saves the panels once they have changed and nothing is being

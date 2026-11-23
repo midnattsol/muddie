@@ -8,7 +8,7 @@ impl Tab {
     /// places to go, the session's own, the panels, the settings, the
     /// profiles, and help.
     pub(in crate::tab) fn palette_acts(&self) -> Vec<Item> {
-        let mut acts = places();
+        let mut acts = views();
         acts.extend(self.session_acts());
         acts.extend(self.panel_acts());
         acts.extend(self.channel_acts());
@@ -197,6 +197,9 @@ impl Tab {
         if !state.candidates().is_empty() {
             acts.push(item(tr("Which room am I in"), map, run("/map here")));
         }
+        acts.push(item(tr("Map appearance…"), map, Act::Look(None)));
+        let all = switched(tr("Show all areas"), self.map_view.all_areas);
+        acts.push(item(&all, map, Act::AllAreas));
         if let Some(room) = state.current() {
             let name = state.short_name(room).to_owned();
             acts.push(item(
@@ -216,7 +219,12 @@ impl Tab {
                     run("/map unnote"),
                 ));
             }
-            let avoid = switched(&trf("Avoid {0} in routes", &[&name]), room.avoid);
+            acts.push(item(
+                &trf("Appearance of {0}…", &[&name]),
+                map,
+                Act::Look(Some(room.id)),
+            ));
+            let avoid = switched(&trf("Keep routes off {0}", &[&name]), room.avoid);
             acts.push(item(&avoid, map, run("/map avoid")));
             if !room.exits.is_empty() {
                 acts.push(item(
@@ -366,17 +374,15 @@ impl Tab {
                 self.find.wants_focus = true;
             }
             Act::Panel(id) => {
-                if let Some(panel) = self.layout.panel_mut(id) {
-                    panel.visible = !panel.visible;
-                    let (side, shown) = (panel.side, panel.visible);
-                    if shown {
-                        self.layout.reveal(side);
-                    }
-                }
+                let shown = self.layout.panel(id).is_some_and(|panel| panel.visible);
+                self.layout.set_shown(id, !shown);
             }
             Act::Run(line) => drop(self.run_command(&line)),
             Act::Ask(asking) => self.ask(asking),
             Act::Answer(answer) => self.answer(&answer),
+            Act::Look(Some(room)) => self.open_look(room),
+            Act::Look(None) => self.open_map_appearance(),
+            Act::AllAreas => self.map_view.all_areas = !self.map_view.all_areas,
             Act::TidyHere => {
                 let area = self.map.borrow().current().map(|room| room.area.clone());
                 match area {
@@ -408,8 +414,8 @@ fn item(label: &str, place: &str, act: Act) -> Item {
     }
 }
 
-/// The places to go: the views, and each section of the editor.
-fn places() -> Vec<Item> {
+/// The views to go to, and each section of the editor.
+fn views() -> Vec<Item> {
     let go = tr("Go to");
     let mut acts = vec![
         item(tr("Game"), go, Act::View(0)),

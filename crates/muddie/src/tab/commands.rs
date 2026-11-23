@@ -68,6 +68,10 @@ pub enum Act {
     Answer(String),
     /// Tidies the area the player is in, asking first if it is large.
     TidyHere,
+    /// Opens the appearance of this room, or of the whole map.
+    Look(Option<muddie_mapper::RoomId>),
+    /// Shows the rooms of every area on the map, or only the one shown.
+    AllAreas,
 }
 
 /// Something to do that needs a word more, asked in the palette's field:
