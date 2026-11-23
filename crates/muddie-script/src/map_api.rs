@@ -129,7 +129,7 @@ pub(super) fn install_map_api(
     install_keeping(lua, state, map, &api)?;
     install_routes(lua, state, map, &api)?;
     install_exits(lua, map, &api)?;
-    install_tools(lua, state, map, &api)?;
+    install_actions(lua, state, map, &api)?;
     lua.globals().set("map", api)
 }
 
@@ -617,7 +617,7 @@ fn install_routes(
 
 /// Naming rooms anew, how many there are, what the scripts offer to do
 /// with the map, and whether the map taken from somewhere has changed.
-fn install_tools(
+fn install_actions(
     lua: &Lua,
     state: &Rc<RefCell<State>>,
     map: &Rc<RefCell<Map>>,
@@ -646,20 +646,23 @@ fn install_tools(
                 };
                 let mut state = shared.borrow_mut();
                 let owner = state.owner.clone();
-                let at = state.map_tools.iter().position(|tool| tool.label == label);
-                let tool = |callback| MapTool {
+                let at = state
+                    .map_actions
+                    .iter()
+                    .position(|tool| tool.label == label);
+                let tool = |callback| MapAction {
                     owner,
                     label,
                     checked,
                     callback,
                 };
                 match (at, callback) {
-                    (Some(at), Some(callback)) => state.map_tools[at] = tool(callback),
-                    (None, Some(callback)) => state.map_tools.push(tool(callback)),
-                    (Some(at), None) => drop(state.map_tools.remove(at)),
+                    (Some(at), Some(callback)) => state.map_actions[at] = tool(callback),
+                    (None, Some(callback)) => state.map_actions.push(tool(callback)),
+                    (Some(at), None) => drop(state.map_actions.remove(at)),
                     (None, None) => return Ok(()),
                 }
-                state.actions.push(Action::MapTools);
+                state.actions.push(Action::MapActions);
                 Ok(())
             },
         )?,

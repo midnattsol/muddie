@@ -110,7 +110,7 @@ impl MapView {
         response: &Response,
         map: &Map,
         current: &Room,
-    ) -> Option<MapAction> {
+    ) -> Option<MapAsk> {
         let had_focus = std::mem::replace(&mut self.had_focus, response.has_focus());
         // Escape, or anything typed but the digits that move: back to the
         // command line, with what was typed.
@@ -153,13 +153,13 @@ impl MapView {
             }
         }
         if pressed(egui::Modifiers::NONE, egui::Key::F1) {
-            return Some(MapAction::Say(all_keys()));
+            return Some(MapAsk::Say(all_keys()));
         }
         if command(egui::Key::I) {
-            return Some(MapAction::Info(chosen));
+            return Some(MapAsk::Info(chosen));
         }
         if command(egui::Key::L) {
-            return Some(MapAction::Say(near_words(map, chosen)));
+            return Some(MapAsk::Say(near_words(map, chosen)));
         }
         let asked = [
             (egui::Key::F, Asked::Search),
@@ -171,30 +171,30 @@ impl MapView {
             return None;
         }
         if pressed(egui::Modifiers::NONE, egui::Key::Space) {
-            return Some(MapAction::Selected(chosen, None));
+            return Some(MapAsk::Selected(chosen, None));
         }
         if pressed(egui::Modifiers::NONE, egui::Key::Backspace) {
             let Some(back) = self.trail.pop() else {
-                return Some(MapAction::Say(
+                return Some(MapAsk::Say(
                     tr("This is where you began exploring.").to_owned(),
                 ));
             };
             self.selected = Some(back);
             self.reveal = Some(back);
-            return Some(MapAction::Selected(back, None));
+            return Some(MapAsk::Selected(back, None));
         }
         if let Some(id) = self.selected {
             if pressed(egui::Modifiers::SHIFT, egui::Key::Enter) {
-                return Some(MapAction::Way(id));
+                return Some(MapAsk::Way(id));
             }
             if pressed(egui::Modifiers::NONE, egui::Key::Enter) {
-                return Some(MapAction::Walk(id));
+                return Some(MapAsk::Walk(id));
             }
         }
         if pressed(egui::Modifiers::NONE, egui::Key::Home) {
             // A jump, not a move: nothing is said of the way back.
             self.choose(current.id);
-            return Some(MapAction::Selected(current.id, None));
+            return Some(MapAsk::Selected(current.id, None));
         }
         let (_, way) = MOVES
             .iter()
@@ -218,7 +218,7 @@ impl MapView {
         });
     }
 
-    fn step(&mut self, map: &Map, from: RoomId, way: &'static str) -> MapAction {
+    fn step(&mut self, map: &Map, from: RoomId, way: &'static str) -> MapAsk {
         let to = (map.room(from))
             .and_then(|room| room.exits.get(way))
             .map(|exit| exit.to)
@@ -226,9 +226,9 @@ impl MapView {
         match to {
             Some(to) => {
                 self.choose(to);
-                MapAction::Selected(to, Some(from))
+                MapAsk::Selected(to, Some(from))
             }
-            None => MapAction::NoExit(way),
+            None => MapAsk::NoExit(way),
         }
     }
 
@@ -246,7 +246,7 @@ impl MapView {
     /// A key of the keypad, whether Num Lock is on or off: by where it is,
     /// the digits are the compass, minus and plus up and down, slash and
     /// star in and out; 5 says the room again, and Enter goes there.
-    fn keypad_key(&mut self, map: &Map, chosen: RoomId, name: &str) -> Option<MapAction> {
+    fn keypad_key(&mut self, map: &Map, chosen: RoomId, name: &str) -> Option<MapAsk> {
         let way = match name {
             "numpad8" | "numpadup" => "n",
             "numpad2" | "numpaddown" => "s",
@@ -260,8 +260,8 @@ impl MapView {
             "numpadadd" => "d",
             "numpaddivide" => "in",
             "numpadmultiply" => "out",
-            "numpad5" | "numpadclear" => return Some(MapAction::Selected(chosen, None)),
-            "numpadenter" => return self.selected.map(MapAction::Walk),
+            "numpad5" | "numpadclear" => return Some(MapAsk::Selected(chosen, None)),
+            "numpadenter" => return self.selected.map(MapAsk::Walk),
             _ => return None,
         };
         Some(self.step(map, chosen, way))
@@ -279,7 +279,7 @@ impl MapView {
 
     /// Leaves the map for the command line, choosing no room; the view
     /// goes back to following the player.
-    fn leave(&mut self, ui: &Ui, response: &Response, typed: String) -> MapAction {
+    fn leave(&mut self, ui: &Ui, response: &Response, typed: String) -> MapAsk {
         match self.browsing.take() {
             Some(_) => (self.pan, self.glide) = (Vec2::ZERO, None),
             None => self.shift(ui, -self.pan),
@@ -289,7 +289,7 @@ impl MapView {
         self.trail.clear();
         self.prompt = None;
         ui.memory_mut(|memory| memory.surrender_focus(response.id));
-        MapAction::Leave(typed)
+        MapAsk::Leave(typed)
     }
 
     /// Starts exploring the map from `from`: it is chosen, and the map
@@ -349,7 +349,7 @@ impl MapView {
         ui: &mut Ui,
         map: &Map,
         here: Option<RoomId>,
-    ) -> Option<MapAction> {
+    ) -> Option<MapAsk> {
         let prompt = self.prompt.as_mut()?;
         let id = ui.make_persistent_id("map prompt");
         let focused = ui.memory(|memory| memory.has_focus(id));
@@ -368,7 +368,7 @@ impl MapView {
                     true => (prompt.at + 1).min(last),
                     false => prompt.at.saturating_sub(1),
                 };
-                said = Some(MapAction::Say(found_line(map, here, prompt)));
+                said = Some(MapAsk::Say(found_line(map, here, prompt)));
             }
         }
         let room = (map.room(prompt.room))
@@ -430,7 +430,7 @@ impl MapView {
                 self.prompt = None;
                 self.focus_wanted = true;
                 self.choose(to);
-                Some(MapAction::Selected(to, None))
+                Some(MapAsk::Selected(to, None))
             }
             Asked::Search => {
                 prompt.found = map.search(&text, here);
@@ -438,7 +438,7 @@ impl MapView {
                 prompt.searched = Some(text.clone());
                 // The keyboard stays, for the arrows and Enter.
                 field.request_focus();
-                Some(MapAction::Say(match prompt.found.is_empty() {
+                Some(MapAsk::Say(match prompt.found.is_empty() {
                     true => trf("Nothing on the map has {0}.", &[&text]),
                     false => {
                         let count = trn("{0} found", "{0} found", prompt.found.len() as u64);
@@ -450,8 +450,8 @@ impl MapView {
                 self.prompt = None;
                 self.focus_wanted = true;
                 Some(match asked {
-                    Asked::Mark => MapAction::Mark(room, text),
-                    _ => MapAction::Note(room, text),
+                    Asked::Mark => MapAsk::Mark(room, text),
+                    _ => MapAsk::Note(room, text),
                 })
             }
         }

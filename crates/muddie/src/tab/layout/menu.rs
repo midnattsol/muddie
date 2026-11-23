@@ -58,9 +58,9 @@ impl Tab {
                     }
                     // What the scripts offer to do with the map, under the
                     // name of each that offers something.
-                    let tools = self.scripts.map_tools();
+                    let offered = self.scripts.map_actions();
                     let mut by = None;
-                    for tool in tools {
+                    for tool in offered {
                         if by.as_ref() != Some(&tool.by) {
                             widgets::menu_separator(ui);
                             widgets::menu_heading(ui, &tool.by);
@@ -71,7 +71,7 @@ impl Tab {
                             None => widgets::menu_item(ui, &tool.label, ""),
                         };
                         if chosen.clicked() {
-                            asked = Some(PanelAsk::MapTool(tool.label));
+                            asked = Some(PanelAsk::MapAction(tool.label));
                             ui.close();
                         }
                     }
@@ -85,7 +85,7 @@ impl Tab {
             Some(PanelAsk::Gauges) => self.open_gauges(spec.id),
             Some(PanelAsk::Hide) => self.layout.set_shown(spec.id, false),
             Some(PanelAsk::Remove) => self.panels.removed = Some(index),
-            Some(PanelAsk::MapTool(label)) => self.use_map_tool(&label),
+            Some(PanelAsk::MapAction(label)) => self.use_map_action(&label),
             Some(PanelAsk::UndoChange) => self.undo_change(),
             Some(PanelAsk::Appearance) => self.open_map_appearance(),
             Some(PanelAsk::ShowArea) => self.ask(crate::tab::commands::Asking::area_to_show()),
@@ -143,7 +143,7 @@ enum PanelAsk {
     Hide,
     Remove,
     /// What a script offered to do with the map, by what it is chosen by.
-    MapTool(String),
+    MapAction(String),
     UndoChange,
     Appearance,
     ShowArea,

@@ -295,21 +295,21 @@ fn the_plugin_leaves_a_map_there_is_and_brings_it_up_to_date_when_asked() {
     assert!(!notes(app).iter().any(|said| said.contains("map from")));
     // Offered in the palette, under the map, and in the map's menu.
     let sync = "Sync with the official map";
-    assert_eq!(app.scripts.map_tools()[0].label, sync);
-    assert_eq!(app.scripts.map_tools()[0].by, "Reinos de Leyenda");
+    assert_eq!(app.scripts.map_actions()[0].label, sync);
+    assert_eq!(app.scripts.map_actions()[0].by, "Reinos de Leyenda");
     app.palette.query = "official map".into();
     let offered = app.palette_items();
     assert_eq!(
         (offered[0].usage.as_str(), offered[0].group.as_str()),
         (sync, "Map")
     );
-    app.act(commands::Act::MapTool(sync.into()), &ctx);
+    app.act(commands::Act::MapAction(sync.into()), &ctx);
     assert!(app.map_source.taking.is_some());
     assert!(last_said(app).starts_with("Taking the map from https://"));
     // Taken away with the plugin.
     app.scripts.unload("Reinos de Leyenda.luau");
     app.run_actions();
-    assert!(app.scripts.map_tools().is_empty());
+    assert!(app.scripts.map_actions().is_empty());
 }
 
 /// As a session with Reinos de Leyenda showed: with lag, steps come in
@@ -1013,7 +1013,7 @@ fn reinos_has_the_map_keep_itself_up_to_date_unless_switched_off() {
     reinos(app);
     let learning = "Keep the map up to date as you go";
     let switched = |app: &Tab| {
-        (app.scripts.map_tools().into_iter())
+        (app.scripts.map_actions().into_iter())
             .map(|tool| (tool.label, tool.checked))
             .collect::<Vec<_>>()
     };
@@ -1062,7 +1062,7 @@ fn reinos_has_the_map_keep_itself_up_to_date_unless_switched_off() {
     app.undo_change();
     assert_eq!(last_said(app), "Undone: “Dunas” has no name again.");
     // Switched off, nothing is learnt.
-    app.act(commands::Act::MapTool(learning.into()), &ctx);
+    app.act(commands::Act::MapAction(learning.into()), &ctx);
     assert_eq!(switched(app)[1], (learning.into(), Some(false)));
     assert!(app.map.borrow_mut().set_current(4));
     step("Pozo [s]", "norte");

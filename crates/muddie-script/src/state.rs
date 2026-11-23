@@ -96,7 +96,7 @@ pub(super) struct DataHandler {
 
 /// Something a script offers to do with the map, which the user chooses
 /// from the map's menu or the palette.
-pub(super) struct MapTool {
+pub(super) struct MapAction {
     pub(crate) owner: String,
     /// What the user chooses it by, by language code (see `tr`).
     pub(crate) label: Vec<(String, String)>,
@@ -149,7 +149,7 @@ pub(super) struct State {
     pub(crate) timers: Vec<Timer>,
     pub(crate) data_handlers: Vec<DataHandler>,
     /// What the scripts offer to do with the map, in the order offered.
-    pub(crate) map_tools: Vec<MapTool>,
+    pub(crate) map_actions: Vec<MapAction>,
     /// What the scripts wait to be told, by the id the client answers.
     pub(crate) awaited: Vec<Awaited>,
     /// The GMCP modules each script asked for, as `(owner, "Name version")`.

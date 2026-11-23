@@ -117,12 +117,12 @@ impl Tab {
     }
 
     /// Does what was asked of the map in its panel.
-    fn map_asked(&mut self, asked: Option<MapAction>) {
+    fn map_asked(&mut self, asked: Option<MapAsk>) {
         match asked {
-            Some(MapAction::Walk(room)) => self.walk_to(room),
-            Some(MapAction::Tidy(area)) => self.tidy_chosen(&area),
-            Some(MapAction::Scripts) => self.open_automation(automation::SCRIPTS),
-            Some(MapAction::Selected(room, came)) => {
+            Some(MapAsk::Walk(room)) => self.walk_to(room),
+            Some(MapAsk::Tidy(area)) => self.tidy_chosen(&area),
+            Some(MapAsk::Scripts) => self.open_automation(automation::SCRIPTS),
+            Some(MapAsk::Selected(room, came)) => {
                 let told = {
                     let map = self.map.borrow();
                     let room = map.room(room);
@@ -132,33 +132,33 @@ impl Tab {
                     self.voice.say_now(&told);
                 }
             }
-            Some(MapAction::Way(room)) => self.say_route(&room.to_string()),
-            Some(MapAction::NoExit(way)) => {
+            Some(MapAsk::Way(room)) => self.say_route(&room.to_string()),
+            Some(MapAsk::NoExit(way)) => {
                 let way = crate::mapview::direction_words(&self.map.borrow(), way);
                 self.voice.say_now(&trf("No exit {0}.", &[&way]));
             }
-            Some(MapAction::Say(said)) => self.voice.say_now(&said),
-            Some(MapAction::Info(room)) => self.say_info_aloud(room),
-            Some(MapAction::Mark(room, name)) => {
+            Some(MapAsk::Say(said)) => self.voice.say_now(&said),
+            Some(MapAsk::Info(room)) => self.say_info_aloud(room),
+            Some(MapAsk::Mark(room, name)) => {
                 if self.mark_room(room, &name) {
                     self.voice.say_now(&trf("Marked {0}.", &[&name]));
                 }
             }
-            Some(MapAction::Look(room)) => self.open_look(room),
-            Some(MapAction::Note(room, note)) => {
+            Some(MapAsk::Look(room)) => self.open_look(room),
+            Some(MapAsk::Note(room, note)) => {
                 if let Some(said) = self.write_note(room, &note) {
                     self.voice.say_now(&said);
                 }
             }
-            Some(MapAction::Leave(typed)) => {
+            Some(MapAsk::Leave(typed)) => {
                 self.input.push_str(&typed);
                 self.cursor_to_end = true;
             }
-            Some(MapAction::Command(command)) => {
+            Some(MapAsk::Command(command)) => {
                 self.run_command(command);
             }
-            Some(MapAction::Avoid(room, avoid)) => self.avoid_room(room, avoid),
-            Some(MapAction::Move(room, pos)) => {
+            Some(MapAsk::Avoid(room, avoid)) => self.avoid_room(room, avoid),
+            Some(MapAsk::Move(room, pos)) => {
                 let saved = self.map.borrow_mut().move_room(room, pos);
                 self.map_saved(saved);
             }

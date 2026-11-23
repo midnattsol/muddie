@@ -620,7 +620,7 @@ fn look_of(item: &Item) -> (widgets::Glyph, &'static str) {
         Act::Speech | Act::ReadChannel(..) => (Glyph::Say, ""),
         Act::Panel(_) => (Glyph::Panel, ""),
         Act::Place(_)
-        | Act::MapTool(_)
+        | Act::MapAction(_)
         | Act::UndoChange
         | Act::TidyHere
         | Act::Look(_)

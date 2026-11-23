@@ -488,8 +488,8 @@ impl Tab {
     }
 
     /// Does what a script offered to do with the map.
-    pub(super) fn use_map_tool(&mut self, label: &str) {
-        if self.scripts.use_map_tool(label) {
+    pub(super) fn use_map_action(&mut self, label: &str) {
+        if self.scripts.use_map_action(label) {
             self.run_actions();
         }
     }

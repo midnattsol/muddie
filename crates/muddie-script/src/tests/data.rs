@@ -362,11 +362,11 @@ fn scripts_show_their_text_in_the_language_of_the_interface() {
         r#"map.action({en = "Sync", es = "Sincronizar"}, function() echo("synced") end)"#,
     );
     engine.take_actions();
-    let named = |engine: &Engine| engine.map_tools()[0].label.clone();
+    let named = |engine: &Engine| engine.map_actions()[0].label.clone();
     assert_eq!(named(&engine), "Sync");
     crate::set_interface_language("es");
     assert_eq!(named(&engine), "Sincronizar");
-    assert!(engine.use_map_tool("Sincronizar"));
+    assert!(engine.use_map_action("Sincronizar"));
     assert_eq!(engine.take_actions(), [Action::Echo("synced".into())]);
     crate::set_interface_language("");
 }

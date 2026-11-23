@@ -13,12 +13,12 @@ impl Tab {
         acts.extend(self.panel_acts());
         acts.extend(self.channel_acts());
         let map = tr("Map");
-        acts.extend(self.scripts.map_tools().into_iter().map(|tool| {
+        acts.extend(self.scripts.map_actions().into_iter().map(|tool| {
             let label = match tool.checked {
                 None => tool.label.clone(),
                 Some(on) => switched(&tool.label, on),
             };
-            item(&label, map, Act::MapTool(tool.label))
+            item(&label, map, Act::MapAction(tool.label))
         }));
         if self.map.borrow().last_change().is_some() {
             acts.push(item(tr("Undo the map's last change"), map, Act::UndoChange));
@@ -363,7 +363,7 @@ impl Tab {
                     }
                 }
             },
-            Act::MapTool(label) => self.use_map_tool(&label),
+            Act::MapAction(label) => self.use_map_action(&label),
             Act::UndoChange => self.undo_change(),
             Act::CopyOutput => {
                 ctx.copy_text(self.output.all_text());

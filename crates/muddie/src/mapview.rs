@@ -29,7 +29,7 @@ const GLIDE_REACH: i32 = 12;
 
 /// Something the user did on the map that the caller must carry out.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum MapAction {
+pub enum MapAsk {
     /// Walk to this room.
     Walk(RoomId),
     /// Put this room at this grid position.
@@ -381,7 +381,7 @@ impl MapView {
     /// the keys move it along the exits. Double-clicking a room asks to walk there, right-clicking
     /// opens its menu, dragging pans, the scroll wheel zooms, and
     /// Shift+drag moves a room to another cell.
-    pub fn show(&mut self, ui: &mut Ui, map: &Map, walk: Option<&Walk>) -> Option<MapAction> {
+    pub fn show(&mut self, ui: &mut Ui, map: &Map, walk: Option<&Walk>) -> Option<MapAsk> {
         // Where the player is, or, while the map is unsure, the first of
         // the rooms they may be in: the map is drawn there all the same.
         let unsure = map.current().is_none();
@@ -548,7 +548,7 @@ impl MapView {
             let there = response.hover_pos().map(rooms_at).unwrap_or_default();
             let reached = |room: &&&Room| map.moves_between(current.id, room.id).is_some();
             let walked = there.iter().find(reached).or(there.first());
-            chosen = walked.map(|room| MapAction::Walk(room.id));
+            chosen = walked.map(|room| MapAsk::Walk(room.id));
         }
         // A click chooses the room to look at, or none; not Enter, which
         // egui takes for a click of what has the keyboard.
@@ -557,7 +557,7 @@ impl MapView {
             let before = self.selected;
             self.selected = pointed.map(|room| room.id);
             if let Some(id) = self.selected.filter(|id| before != Some(*id)) {
-                chosen = chosen.or(Some(MapAction::Selected(id, None)));
+                chosen = chosen.or(Some(MapAsk::Selected(id, None)));
             }
         }
         if let Some(keyed) = self.keys(ui, &response, map, current) {
@@ -809,7 +809,7 @@ impl MapView {
         grid: &Grid,
         room_at: &dyn Fn(Pos2) -> Option<&'a Room>,
         colours: &Colours,
-    ) -> Option<MapAction> {
+    ) -> Option<MapAsk> {
         let pointer = response.interact_pointer_pos();
         if response.drag_started() && ui.input(|input| input.modifiers.shift) {
             let pressed_at = ui.input(|input| input.pointer.press_origin());
@@ -826,7 +826,7 @@ impl MapView {
         if response.drag_stopped()
             && let Some(room) = self.moving.take()
         {
-            return pointer.map(|point| MapAction::Move(room, grid.cell_under(point)));
+            return pointer.map(|point| MapAsk::Move(room, grid.cell_under(point)));
         }
         None
     }
@@ -834,32 +834,27 @@ impl MapView {
     /// The menu of a room, right-clicked or, while exploring, opened with
     /// Shift+F10 or the menu key: all that is done with a room, the same
     /// either way, then its area. Returns what was chosen.
-    fn room_menu(&mut self, response: &Response, map: &Map, area: &str) -> Option<MapAction> {
+    fn room_menu(&mut self, response: &Response, map: &Map, area: &str) -> Option<MapAsk> {
         let mut chosen = None;
         crate::widgets::context_menu_of(response, |ui| {
             widgets::menu_width(ui);
             let room = self.menu_room.and_then(|id| map.room(id));
             if let Some(room) = room {
                 widgets::menu_heading(ui, &numbered(map, room));
-                let mut item = |ui: &mut Ui, label: &str, keys: &str, action: MapAction| {
+                let mut item = |ui: &mut Ui, label: &str, keys: &str, action: MapAsk| {
                     if widgets::menu_item(ui, label, keys).clicked() {
                         chosen = Some(action);
                         ui.close();
                     }
                 };
-                item(ui, tr("Go here"), "Enter", MapAction::Walk(room.id));
-                item(
-                    ui,
-                    tr("The way there"),
-                    "Shift+Enter",
-                    MapAction::Way(room.id),
-                );
+                item(ui, tr("Go here"), "Enter", MapAsk::Walk(room.id));
+                item(ui, tr("The way there"), "Shift+Enter", MapAsk::Way(room.id));
                 let info = crate::shortcuts::command!("I");
                 item(
                     ui,
                     tr("What the map knows of it"),
                     info,
-                    MapAction::Info(room.id),
+                    MapAsk::Info(room.id),
                 );
                 let mut asked = None;
                 if widgets::menu_item(ui, tr("Mark…"), crate::shortcuts::command!("B")).clicked()
@@ -876,18 +871,18 @@ impl MapView {
                 }
                 let mut avoid = room.avoid;
                 if widgets::menu_check(ui, &mut avoid, tr("Keep routes off")).clicked() {
-                    chosen = Some(MapAction::Avoid(room.id, avoid));
+                    chosen = Some(MapAsk::Avoid(room.id, avoid));
                     ui.close();
                 }
                 if widgets::menu_item(ui, tr("Room appearance…"), "").clicked() {
-                    chosen = Some(MapAction::Look(room.id));
+                    chosen = Some(MapAsk::Look(room.id));
                     ui.close();
                 }
                 widgets::menu_separator(ui);
             }
             let tidied = room.map_or_else(|| area.to_owned(), |room| room.area.clone());
             if widgets::menu_item(ui, tr("Tidy this area"), "").clicked() {
-                chosen = Some(MapAction::Tidy(tidied));
+                chosen = Some(MapAsk::Tidy(tidied));
                 ui.close();
             }
             widgets::menu_check(ui, &mut self.all_areas, tr("Show all areas"));
@@ -898,13 +893,13 @@ impl MapView {
 
 impl Tools {
     /// What the tools on the panel's header asked of the map.
-    fn action(self, area: &str) -> Option<MapAction> {
+    fn action(self, area: &str) -> Option<MapAsk> {
         if self.stop {
-            Some(MapAction::Command("/map stop"))
+            Some(MapAsk::Command("/map stop"))
         } else if self.tidy {
-            Some(MapAction::Tidy(area.to_owned()))
+            Some(MapAsk::Tidy(area.to_owned()))
         } else if self.locate {
-            Some(MapAction::Command("/map where"))
+            Some(MapAsk::Command("/map where"))
         } else {
             None
         }

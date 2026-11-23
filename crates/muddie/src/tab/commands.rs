@@ -56,7 +56,7 @@ pub enum Act {
     /// Goes to the room of this number; or, asked for the way, says it.
     Place(String),
     /// Does what a script offered to do with the map, chosen by this.
-    MapTool(String),
+    MapAction(String),
     /// Undoes the last change the map made of itself.
     UndoChange,
     /// Carries out one of Muddie's commands, offered under a name of its
@@ -125,7 +125,7 @@ impl Act {
             Act::Run(command) => {
                 ["/map where", "/map near", "/map stop", "/map explore"].contains(&command.as_str())
             }
-            Act::Reconnect | Act::Speech | Act::MapTool(_) | Act::UndoChange => true,
+            Act::Reconnect | Act::Speech | Act::MapAction(_) | Act::UndoChange => true,
             _ => false,
         }
     }

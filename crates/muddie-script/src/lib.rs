@@ -327,10 +327,10 @@ impl Engine {
         state.timers.retain(|timer| timer.owner != owner);
         state.data_handlers.retain(|handler| handler.owner != owner);
         state.awaited.retain(|awaited| awaited.owner != owner);
-        let tools = state.map_tools.len();
-        state.map_tools.retain(|tool| tool.owner != owner);
-        if state.map_tools.len() != tools {
-            state.actions.push(Action::MapTools);
+        let offered = state.map_actions.len();
+        state.map_actions.retain(|tool| tool.owner != owner);
+        if state.map_actions.len() != offered {
+            state.actions.push(Action::MapActions);
         }
         let asked = state.supports.len();
         state.supports.retain(|(by, _)| by != owner);
@@ -389,8 +389,8 @@ impl Engine {
     }
 
     /// What the scripts offer to do with the map, in the order offered.
-    pub fn map_tools(&self) -> Vec<OfferedTool> {
-        (self.state.borrow().map_tools.iter())
+    pub fn map_actions(&self) -> Vec<OfferedTool> {
+        (self.state.borrow().map_actions.iter())
             .map(|tool| OfferedTool {
                 label: in_interface_language(&tool.label).unwrap_or_default(),
                 by: (Path::new(&tool.owner).file_stem()).map_or_else(
@@ -405,10 +405,10 @@ impl Engine {
     /// Does what a script offered to do with the map, chosen by `label`:
     /// one that switches something is switched, and told to what. Returns
     /// false if none offers it.
-    pub fn use_map_tool(&mut self, label: &str) -> bool {
+    pub fn use_map_action(&mut self, label: &str) -> bool {
         let tool = {
             let mut state = self.state.borrow_mut();
-            let tool = (state.map_tools.iter_mut())
+            let tool = (state.map_actions.iter_mut())
                 .find(|tool| in_interface_language(&tool.label).as_deref() == Some(label));
             tool.map(|tool| {
                 tool.checked = tool.checked.map(|on| !on);

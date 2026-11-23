@@ -281,7 +281,7 @@ fn script_offers_to_do_things_with_the_map_and_is_told_when_its_map_changed() {
     );
     let actions = engine.take_actions();
     assert_eq!(
-        actions.iter().filter(|a| **a == Action::MapTools).count(),
+        actions.iter().filter(|a| **a == Action::MapActions).count(),
         4
     );
     let Some(Action::MapNewer { address, answer }) = actions.last().cloned() else {
@@ -295,18 +295,18 @@ fn script_offers_to_do_things_with_the_map_and_is_told_when_its_map_changed() {
         checked,
     };
     assert_eq!(
-        engine.map_tools(),
+        engine.map_actions(),
         [offered("Sync", None), offered("Adding", Some(false))]
     );
-    assert!(engine.use_map_tool("Sync") && !engine.use_map_tool("Gone"));
+    assert!(engine.use_map_action("Sync") && !engine.use_map_action("Gone"));
     assert_eq!(
         engine.take_actions(),
         [Action::ImportMap("https://mud.example.org/map.zip".into())]
     );
     // Chosen, a switch is switched, and the script told to what.
-    assert!(engine.use_map_tool("Adding"));
+    assert!(engine.use_map_action("Adding"));
     assert_eq!(engine.take_actions(), [Action::Echo("adding true".into())]);
-    assert_eq!(engine.map_tools()[1].checked, Some(true));
+    assert_eq!(engine.map_actions()[1].checked, Some(true));
     // Told once.
     engine.answer(answer);
     engine.answer(answer);
@@ -326,8 +326,8 @@ fn script_offers_to_do_things_with_the_map_and_is_told_when_its_map_changed() {
     assert_eq!(engine.take_actions(), []);
     // What a script offered goes with it.
     engine.unload("plugin");
-    assert_eq!(engine.take_actions(), [Action::MapTools]);
-    assert!(engine.map_tools().is_empty());
+    assert_eq!(engine.take_actions(), [Action::MapActions]);
+    assert!(engine.map_actions().is_empty());
 }
 
 #[test]

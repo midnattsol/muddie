@@ -156,7 +156,7 @@ impl Tab {
     /// What the map's panel shows: the map; failing that, what a script
     /// put there, such as a map the MUD draws itself; failing that, why
     /// there is nothing yet.
-    pub(super) fn map_body(&mut self, ui: &mut egui::Ui, id: u32) -> Option<MapAction> {
+    pub(super) fn map_body(&mut self, ui: &mut egui::Ui, id: u32) -> Option<MapAsk> {
         // What a drawing sent by the server has to fit in: the panel, less
         // its title.
         let room = ui.available_size() - egui::vec2(0.0, 22.0);
@@ -189,7 +189,7 @@ impl Tab {
                 self.set_map_shown(false);
             }
         });
-        scripts.then_some(MapAction::Scripts)
+        scripts.then_some(MapAsk::Scripts)
     }
 }
 

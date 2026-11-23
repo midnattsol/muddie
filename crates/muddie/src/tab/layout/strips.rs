@@ -56,7 +56,7 @@ impl Tab {
         &mut self,
         ui: &mut egui::Ui,
         central: impl FnOnce(&mut Self, &mut egui::Ui),
-    ) -> Option<MapAction> {
+    ) -> Option<MapAsk> {
         let mut asked = None;
         self.panels.rects.clear();
         // Whichever goes first spans the window; the others fit between:
@@ -105,11 +105,7 @@ impl Tab {
     /// Draws one side: its panels in one strip, or the strip of their names
     /// while it is put away. Returns what was asked of the map, and where
     /// it was drawn, if it was.
-    fn show_side(
-        &mut self,
-        ui: &mut egui::Ui,
-        side: Side,
-    ) -> (Option<MapAction>, Option<egui::Rect>) {
+    fn show_side(&mut self, ui: &mut egui::Ui, side: Side) -> (Option<MapAsk>, Option<egui::Rect>) {
         let members: Vec<usize> = (0..self.layout.panels.len())
             .filter(|&index| {
                 let panel = &self.layout.panels[index];
@@ -195,7 +191,7 @@ impl Tab {
         ui: &mut egui::Ui,
         side: Side,
         members: &[usize],
-    ) -> Option<MapAction> {
+    ) -> Option<MapAsk> {
         let full = ui.max_rect();
         let along = Along {
             stacked: side.is_beside(),
@@ -236,7 +232,7 @@ impl Tab {
     }
 
     /// One place on its card: its header, and the panel on show in it.
-    fn place(&mut self, ui: &mut egui::Ui, place: &[usize], rect: egui::Rect) -> Option<MapAction> {
+    fn place(&mut self, ui: &mut egui::Ui, place: &[usize], rect: egui::Rect) -> Option<MapAsk> {
         for &index in place {
             self.panels.rects.push((self.layout.panels[index].id, rect));
         }
@@ -375,7 +371,7 @@ impl Tab {
         &mut self,
         ui: &mut egui::Ui,
         spec: &PanelSpec,
-    ) -> Option<MapAction> {
+    ) -> Option<MapAsk> {
         match spec.kind {
             Kind::Map => self.map_body(ui, spec.id),
             Kind::Gauges => {

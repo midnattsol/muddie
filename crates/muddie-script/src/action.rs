@@ -115,7 +115,7 @@ pub enum Action {
         answer: u64,
     },
     /// What the scripts offer to do with the map has changed.
-    MapTools,
+    MapActions,
     /// Send an MSDP message such as `REPORT` with variable names.
     Msdp {
         variable: String,
