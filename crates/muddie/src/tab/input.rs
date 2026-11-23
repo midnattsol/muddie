@@ -111,6 +111,7 @@ impl Tab {
         if !completing {
             return false;
         }
+        let scripted = self.scripts.completions();
         let rows = (0..self.output.len()).rev().take(200);
         let seen: Vec<&str> = rows
             .flat_map(|row| complete::words(self.output.text(row)))
@@ -121,8 +122,7 @@ impl Tab {
             .iter()
             .rev()
             .flat_map(|entry| complete::words(entry));
-        let given =
-            (self.completions.iter()).flat_map(|(_, words)| words.iter().map(String::as_str));
+        let given = scripted.iter().map(String::as_str);
         self.completion
             .complete(&mut self.input, seen.into_iter().chain(typed).chain(given));
         true

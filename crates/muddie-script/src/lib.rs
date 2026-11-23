@@ -345,6 +345,7 @@ impl Engine {
         state.changed |= state.supports.len() != asked;
         state.merged.retain(|(by, _)| by != owner);
         state.reports.retain(|(by, _)| by != owner);
+        state.completions.retain(|(by, _, _)| by != owner);
         if state.separator.as_ref().is_some_and(|(by, _)| by == owner) {
             state.separator = None;
         }
@@ -395,6 +396,14 @@ impl Engine {
             }
         }
         modules
+    }
+
+    /// The words the scripts loaded give to complete, list after list.
+    pub fn completions(&self) -> Vec<String> {
+        let state = self.state.borrow();
+        (state.completions.iter())
+            .flat_map(|(_, _, words)| words.iter().cloned())
+            .collect()
     }
 
     /// The MSDP variables the scripts loaded ask to be told of.

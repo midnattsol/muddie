@@ -328,7 +328,7 @@ impl Tab {
 
     /// The field a panel is named again in, in its header, where its name
     /// was: Enter or leaving it keeps the name, Escape keeps the old one.
-    fn rename_field(&mut self, ui: &mut egui::Ui, index: usize) {
+    fn rename_field(&mut self, ui: &mut egui::Ui) {
         let Some((id, mut name, focus)) = self.panels.renaming.take() else {
             return;
         };
@@ -355,11 +355,9 @@ impl Tab {
             field.request_focus();
         }
         if field.lost_focus() {
-            let kept = name.trim();
-            let panel = &mut self.layout.panels[index];
             let escaped = ui.input(|input| input.key_pressed(egui::Key::Escape));
-            if !escaped && !kept.is_empty() && kept != panel.shown_name() {
-                panel.name = kept.to_owned();
+            if !escaped {
+                self.rename_to(id, &name);
             }
             return;
         }
@@ -425,7 +423,7 @@ impl Tab {
                     .find(|&index| Some(this.layout.panels[index].id) == renaming);
                 if let Some(index) = renamed {
                     **shown = index;
-                    this.rename_field(ui, index);
+                    this.rename_field(ui);
                 } else if place.len() > 1 {
                     **shown = this.tab_bar(ui, place);
                 } else {

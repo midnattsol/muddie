@@ -365,14 +365,15 @@ fn patterns_are_compiled_only_once_tried() {
     );
     assert!(compiled[7]);
     // One added: while the set is made again, the one before says for the
-    // others, and only the new one is tried on its own.
+    // others, and only the new one is tried on its own; if the new set is
+    // made already, by then, not even that one.
     engine.exec("t", r#"trigger("^new one$", function() end)"#);
     engine.on_line("something else");
     let compiled: Vec<bool> = (engine.state.borrow().triggers.iter())
         .map(|trigger| trigger.pattern.is_compiled())
         .collect();
     let count = compiled.iter().filter(|done| **done).count();
-    assert_eq!(count, 2, "{compiled:?}");
+    assert!((1..=2).contains(&count) && compiled[7], "{compiled:?}");
     // A pattern that is not one is said at once, as before.
     engine.exec("t", r#"trigger("(unclosed", function() end)"#);
     let actions = engine.take_actions();

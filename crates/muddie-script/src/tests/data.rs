@@ -204,30 +204,24 @@ fn client_events_modules_and_completions() {
         on_event("panel", function(size) echo(size.columns .. "x" .. size.rows) end)
         on_event("connect", function() echo("in") end)
         completions("cmds", {"north", "look"})
-        completions("cmds")
+        completions("more", {"west"})
+        completions("more")
         "#,
     );
+    assert_eq!(engine.completions(), ["north", "look"]);
     engine.on_event("panel", r#"{"columns": 40, "rows": 30}"#);
     engine.on_event("connect", "");
     assert_eq!(
         engine.take_actions(),
-        [
-            Action::Completions {
-                name: "cmds".into(),
-                words: vec!["north".into(), "look".into()]
-            },
-            Action::Completions {
-                name: "cmds".into(),
-                words: Vec::new()
-            },
-            Action::Echo("40x30".into()),
-            Action::Echo("in".into()),
-        ]
+        [Action::Echo("40x30".into()), Action::Echo("in".into()),]
     );
     // A package of the same name from the server is not the event.
     engine.on_gmcp("panel", r#"{"columns": 1, "rows": 1}"#);
     assert_eq!(engine.take_actions(), []);
     assert_eq!(engine.supports(), ["Map.Render 1", "Dev 1"]);
+    // What a script gave to complete goes with it.
+    engine.unload("test");
+    assert!(engine.completions().is_empty());
 }
 
 #[test]

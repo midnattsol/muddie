@@ -206,7 +206,19 @@ fn install_completions(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()
         "completions",
         lua.create_function(move |_, (name, words): (String, Option<Vec<String>>)| {
             let words = words.unwrap_or_default();
-            (shared.borrow_mut().actions).push(Action::Completions { name, words });
+            let mut state = shared.borrow_mut();
+            let owner = state.owner.clone();
+            // A list keeps its place when a newer one replaces it.
+            let known = state
+                .completions
+                .iter()
+                .position(|(_, list, _)| *list == name);
+            match (known, words.is_empty()) {
+                (Some(index), true) => drop(state.completions.remove(index)),
+                (Some(index), false) => state.completions[index] = (owner, name, words),
+                (None, false) => state.completions.push((owner, name, words)),
+                (None, true) => {}
+            }
             Ok(())
         })?,
     )?;

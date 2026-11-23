@@ -195,6 +195,9 @@ pub(super) struct State {
     pub(crate) current_line: Option<Line>,
     /// Byte range of the text the running trigger matched.
     pub(crate) current_match: Option<(usize, usize)>,
+    /// Words to offer when completing, as `(owner, name, words)`, in the
+    /// order the names were first given.
+    pub(crate) completions: Vec<(String, String, Vec<String>)>,
     /// The gauges the scripts show, by what they are switched by.
     pub(crate) gauges: Vec<Shown>,
     /// What each key does, by its normalised name.

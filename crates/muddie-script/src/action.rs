@@ -145,11 +145,6 @@ pub enum Action {
     },
     /// Add the line a trigger is looking at to a panel, colours and all.
     ToPanel(String),
-    /// Words to offer when completing, under a name; none removes them.
-    Completions {
-        name: String,
-        words: Vec<String>,
-    },
     /// Set the text of the named panel, or remove the panel.
     Panel {
         name: String,

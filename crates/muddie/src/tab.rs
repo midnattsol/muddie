@@ -205,8 +205,6 @@ pub struct Tab {
     scripts_synced: Option<Switches>,
     /// The errors the scripts gave since they were last restarted.
     script_errors: Vec<String>,
-    /// Words scripts gave to complete with, under the name of each list.
-    completions: Vec<(String, Vec<String>)>,
     /// How big the panels and the window are, in characters, and what was told
     /// of it.
     sizes: panel_sizes::Sizes,
@@ -339,7 +337,6 @@ impl Tab {
             supports: Vec::new(),
             scripts_synced: None,
             script_errors: Vec::new(),
-            completions: Vec::new(),
             sizes: panel_sizes::Sizes::default(),
             address: String::new(),
             encoding: "auto".into(),

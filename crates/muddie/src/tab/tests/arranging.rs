@@ -824,3 +824,28 @@ fn a_panel_is_renamed_in_its_header() {
     harness.run_steps(2);
     assert_eq!(name(&harness), "Mundo");
 }
+
+/// A panel is named again as typed, in its header or in Layout alike: a
+/// name of nothing is none, and one another panel has is said and not
+/// given, as scripts tell panels apart by their names.
+#[test]
+fn a_panel_is_named_again_one_way() {
+    let mut harness = window(None);
+    harness.run_steps(2);
+    let app = harness.state_mut().tab_mut();
+    let ids: Vec<u32> = app.layout.panels.iter().map(|panel| panel.id).collect();
+    let (first, second) = (ids[0], ids[1]);
+    let name_of = |app: &Tab, id: u32| app.layout.panel(id).unwrap().shown_name();
+    let other = name_of(app, second);
+    let before = name_of(app, first);
+    app.rename_to(first, "   ");
+    assert_eq!(name_of(app, first), before);
+    app.rename_to(first, &other.to_uppercase());
+    assert_eq!(name_of(app, first), before);
+    assert_eq!(
+        notes(app).last().unwrap(),
+        &format!("There is a panel called {} already.", other.to_uppercase())
+    );
+    app.rename_to(first, " Mapa grande ");
+    assert_eq!(name_of(app, first), "Mapa grande");
+}

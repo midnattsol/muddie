@@ -29,6 +29,8 @@ pub(super) struct Arrange {
     pub dragged: Option<u32>,
     pub grab: egui::Vec2,
     pub aim: Option<(Option<layout::DropTarget>, Side)>,
+    /// The name being typed for a panel, given it once typed.
+    pub naming: Option<(u32, String)>,
 }
 
 /// An arrangement to start from.
@@ -451,7 +453,12 @@ impl Tab {
             .cloned()
             .collect();
         let place = beside.iter().position(|other| other.id == id).unwrap_or(0);
-        let (mut name, mut visible, mut side) = (panel.name.clone(), panel.visible, panel.side);
+        let mut name = match &self.arrange.naming {
+            Some((naming, typed)) if *naming == id => typed.clone(),
+            _ => panel.name.clone(),
+        };
+        let (mut visible, mut side) = (panel.visible, panel.side);
+        let mut named = false;
         let was_away = self.layout.collapsed.contains(&panel.side);
         let mut away = was_away;
         let mut size = panel.size;
@@ -467,7 +474,9 @@ impl Tab {
         };
         widgets::section(ui, &title, |ui| {
             widgets::setting_row(ui, tr("Name"), None, &mut |ui| {
-                widgets::row_field(ui, &mut name, tr("Name"), 220.0)
+                let field = widgets::row_field(ui, &mut name, tr("Name"), 220.0);
+                named = field.lost_focus();
+                field
             });
             widgets::switch_setting(ui, &mut visible, tr("Shown"), None);
             widgets::switch_setting(
@@ -566,8 +575,14 @@ impl Tab {
             remove = gone.clicked();
         });
         // What was changed, put in place now that nothing is borrowed.
+        // Given once typed, as in the panel's header.
+        if named {
+            self.arrange.naming = None;
+            self.rename_to(id, &name);
+        } else if name != panel.name {
+            self.arrange.naming = Some((id, name));
+        }
         if let Some(panel) = self.layout.panel_mut(id) {
-            panel.name = name;
             panel.channels = channels;
         }
         if visible != panel.visible {

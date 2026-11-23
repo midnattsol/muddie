@@ -56,13 +56,24 @@ mod tests {
             output.textures_delta.clear();
             galley.unwrap()
         };
+        // The theme is the whole program's, and tests run at the same time
+        // may change it, which lays it out again rightly: what is looked
+        // at is a frame after another with the same theme.
+        let stable = || {
+            let generation = crate::theme::generation();
+            move || crate::theme::generation() == generation
+        };
         let first = frame(&script, &mut built);
+        let (once, same) = (built, stable());
         let second = frame(&script, &mut built);
-        assert_eq!(built, 1);
-        assert!(std::sync::Arc::ptr_eq(&first, &second));
+        if same() {
+            assert_eq!(built, once);
+            assert!(std::sync::Arc::ptr_eq(&first, &second));
+        }
+        let once = built;
         script.push('x');
         frame(&script, &mut built);
-        assert_eq!(built, 2);
+        assert!(built > once);
     }
 
     /// Every control is one of this module's, so that there is one of

@@ -17,7 +17,6 @@ impl Tab {
         // what is saved for it is what changed.
         let (session, before) = (self.scripts.switches(), self.rules.switched_off());
         // The scripts are told again how big the panel is.
-        self.completions.clear();
         self.panels_untold();
         self.fresh_runtime();
         // The scripts teach their words for directions again, over those
@@ -288,16 +287,6 @@ impl Tab {
                     if let Some(line) = self.dispatched.take() {
                         self.add_to_panel(&name, &line);
                         self.dispatched = Some(line);
-                    }
-                }
-                Action::Completions { name, words } => {
-                    // A list keeps its place when a newer one replaces it.
-                    let known = self.completions.iter().position(|(list, _)| *list == name);
-                    match (known, words.is_empty()) {
-                        (Some(index), true) => drop(self.completions.remove(index)),
-                        (Some(index), false) => self.completions[index].1 = words,
-                        (None, false) => self.completions.push((name, words)),
-                        (None, true) => {}
                     }
                 }
                 Action::Channel { name, text, panel } => {

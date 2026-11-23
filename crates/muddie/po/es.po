@@ -2854,3 +2854,6 @@ msgstr "Instalar el plugin de"
 
 msgid "Read the first and last line"
 msgstr "Leer la primera y la última línea"
+
+msgid "There is a panel called {0} already."
+msgstr "Ya hay un panel llamado {0}."

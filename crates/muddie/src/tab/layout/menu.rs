@@ -108,6 +108,27 @@ impl Tab {
         self.panels.renaming = Some((id, name, true));
     }
 
+    /// Names a panel again, as typed: a name with nothing in it is not one,
+    /// and one another panel has is said, as scripts tell panels apart by
+    /// their names.
+    pub(in crate::tab) fn rename_to(&mut self, id: u32, typed: &str) {
+        let typed = typed.trim();
+        let Some(panel) = self.layout.panel(id) else {
+            return;
+        };
+        if typed.is_empty() || typed == panel.shown_name() {
+            return;
+        }
+        let taken = (self.layout.panels.iter())
+            .any(|other| other.id != id && other.shown_name().eq_ignore_ascii_case(typed));
+        if taken {
+            return self.refuse(&trf("There is a panel called {0} already.", &[typed]));
+        }
+        if let Some(panel) = self.layout.panel_mut(id) {
+            typed.clone_into(&mut panel.name);
+        }
+    }
+
     /// Adds a panel of a kind, under a name not taken, where that kind
     /// usually goes.
     pub(in crate::tab) fn add_panel(&mut self, kind: Kind) {
