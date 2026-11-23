@@ -57,7 +57,8 @@ impl Tab {
                 let heading = RichText::new(title)
                     .font(theme::font(Weight::Semibold, 17.0))
                     .color(theme.text);
-                ui.add(egui::Label::new(heading).selectable(false));
+                let shown = ui.add(egui::Label::new(heading).selectable(false));
+                widgets::heading_role(ui, &shown, title);
                 ui.add_space(8.0);
                 let said = RichText::new(text)
                     .font(theme::font(Weight::Regular, 13.0))

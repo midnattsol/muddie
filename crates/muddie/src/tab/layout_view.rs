@@ -191,7 +191,8 @@ impl Tab {
                 .font(theme::font(Weight::Semibold, 17.0))
                 .color(theme::current().text);
             ui.add_space(6.0);
-            ui.add(Label::new(heading).selectable(false));
+            let shown = ui.add(Label::new(heading).selectable(false));
+            widgets::heading_role(ui, &shown, tr("Layout"));
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 let add = widgets::sign_button(ui, "+", tr("New panel"), true);
                 crate::widgets::menu_of(&add).show(|ui| {

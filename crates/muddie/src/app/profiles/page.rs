@@ -85,7 +85,8 @@ impl App {
             let title = RichText::new(name)
                 .font(theme::font(Weight::Semibold, 20.0))
                 .color(theme.text);
-            ui.add(egui::Label::new(title).selectable(false));
+            let shown = ui.add(egui::Label::new(title).selectable(false));
+            widgets::heading_role(ui, &shown, name);
             if in_use {
                 widgets::badge(ui, tr("In use"), true);
             }

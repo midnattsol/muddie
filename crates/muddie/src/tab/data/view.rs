@@ -82,7 +82,8 @@ pub(in crate::tab) fn seen_heading(ui: &mut egui::Ui, seen: &Seen) {
         let title = RichText::new(&seen.name)
             .font(theme::font(Weight::Semibold, 20.0))
             .color(theme.text);
-        ui.add(Label::new(title).selectable(true));
+        let shown = ui.add(Label::new(title).selectable(true));
+        widgets::heading_role(ui, &shown, &seen.name);
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             let times = crate::i18n::trn(
                 "received {0} time",

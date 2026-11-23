@@ -219,7 +219,8 @@ impl Tab {
             .color(theme::current().text);
         ui.horizontal(|ui| {
             ui.add_space(10.0);
-            ui.add(Label::new(heading).selectable(false));
+            let shown = ui.add(Label::new(heading).selectable(false));
+            widgets::heading_role(ui, &shown, tr("Editor"));
         });
         ui.add_space(16.0);
         let counts = [

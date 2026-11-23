@@ -2,13 +2,25 @@
 
 use super::*;
 
-/// A small heading in capitals over a group of controls.
+/// A small heading over a group of controls: drawn in capitals, and to a
+/// screen reader a heading, in the case it is written in, to be jumped to
+/// and not spelt out.
 pub fn caption(ui: &mut Ui, text: &str) {
     let label = RichText::new(text.to_uppercase())
         .font(theme::font(Weight::Medium, 11.0))
         .color(theme::current().text_faint)
         .extra_letter_spacing(0.6);
-    ui.label(label);
+    let shown = ui.label(label);
+    heading_role(ui, &shown, text);
+}
+
+/// Makes what is shown a heading, called `text`, to a screen reader.
+pub fn heading_role(ui: &Ui, shown: &Response, text: &str) {
+    let text = text.to_owned();
+    (ui.ctx()).accesskit_node_builder(shown.id, |node| {
+        node.set_role(egui::accesskit::Role::Heading);
+        node.set_label(text);
+    });
 }
 
 /// A section of a page: its caption, and the card of rows under it.
@@ -102,7 +114,8 @@ pub fn card<R>(
                         let heading = RichText::new(title)
                             .font(theme::font(Weight::Semibold, 13.5))
                             .color(theme.text);
-                        ui.add(egui::Label::new(heading).selectable(false));
+                        let shown = ui.add(egui::Label::new(heading).selectable(false));
+                        heading_role(ui, &shown, title);
                     },
                     |_, ui| right(ui),
                 );

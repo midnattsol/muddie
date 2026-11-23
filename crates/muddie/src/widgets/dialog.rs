@@ -41,7 +41,8 @@ pub fn dialog<R>(
                 let heading = RichText::new(title)
                     .font(theme::font(Weight::Semibold, 17.0))
                     .color(theme.text);
-                ui.add(egui::Label::new(heading).selectable(false));
+                let shown = ui.add(egui::Label::new(heading).selectable(false));
+                super::heading_role(ui, &shown, title);
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                     let close = close_button(ui, crate::i18n::tr("Close"), 24.0);
                     closed = close.clicked();

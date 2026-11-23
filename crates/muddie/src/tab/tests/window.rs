@@ -707,3 +707,16 @@ fn every_control_has_a_name() {
         missing.join("\n")
     );
 }
+
+/// Titles and captions are headings to a screen reader, in the case they
+/// are written in, though captions are drawn in capitals.
+#[test]
+fn titles_and_captions_are_headings() {
+    let mut harness = window(None);
+    let app = harness.state_mut().tab_mut();
+    app.open_automation(automation::TRIGGERS);
+    app.editor.draft.triggers.push(Default::default());
+    harness.run_steps(3);
+    harness.get_by_role_and_label(egui::accesskit::Role::Heading, "Editor");
+    harness.get_by_role_and_label(egui::accesskit::Role::Heading, "When");
+}
