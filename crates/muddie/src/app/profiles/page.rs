@@ -124,10 +124,7 @@ impl App {
             return;
         }
         self.keep_profile(ctx, false);
-        if self.tabs[self.active].is_connected() {
-            self.new_tab(ctx);
-        }
-        self.tabs[self.active].play(name, ctx);
+        self.play(name, ctx);
         self.show_profiles = false;
     }
 

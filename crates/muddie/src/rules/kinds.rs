@@ -199,7 +199,7 @@ impl<T: When> Rule<T> {
         if self.lua {
             return Some((Part::Script, "Luau".to_owned()));
         }
-        let sent: Vec<&str> = commands(&self.send).collect();
+        let sent = commands(&self.send);
         (!sent.is_empty()).then(|| (Part::Send, sent.join("; ")))
     }
 }

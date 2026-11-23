@@ -190,7 +190,7 @@ impl Tab {
         let map = self.map.borrow();
         let found = match argument.trim() {
             "" => map.current().map(|room| room.id),
-            place => map.rooms_meant(place).first().copied(),
+            place => map.room_meant(place),
         };
         drop(map);
         match found {
@@ -560,11 +560,9 @@ impl Tab {
         (marks.into_iter().chain(rest.into_iter().take(PLACES)))
             .map(|found| {
                 let (title, about) = crate::mapview::found_words(&map, here, &found);
-                // A note says little of how to go there: the room's number does.
-                let place = match found.by {
-                    muddie_mapper::FoundBy::Note => found.room.to_string(),
-                    _ => title.clone(),
-                };
+                // By its number, so that what is done is done to the room
+                // shown, of several of a name.
+                let place = found.room.to_string();
                 commands::Item {
                     insert: String::new(),
                     usage: title,

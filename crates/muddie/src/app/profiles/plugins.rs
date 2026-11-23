@@ -128,14 +128,7 @@ impl App {
             self.ask_error = None;
         }
         for command in commands {
-            // Removing one, which cannot be undone, is asked first.
-            match command.strip_prefix("/plugin remove ") {
-                Some(name) => {
-                    self.asking = Some(Ask::RemovePlugin(name.to_owned()));
-                    self.ask_error = None;
-                }
-                None => self.tabs[self.active].plugin_command(&command),
-            }
+            self.tabs[self.active].plugin_command(&command);
         }
         self.plugin_answers(ui);
     }

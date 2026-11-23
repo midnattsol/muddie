@@ -49,7 +49,11 @@ impl Tab {
             ("/plugin", "enable" | "disable") if given => {
                 self.enable_plugin(argument, what == "enable");
             }
-            ("/plugin", "remove") if given => self.remove_plugin(argument),
+            // Taking a plugin away, files and all, is asked once more.
+            ("/plugin", "remove") if given => {
+                let name = argument.to_owned();
+                self.app_request = Some(commands::AppRequest::RemovePlugin(name));
+            }
             _ => return false,
         }
         true

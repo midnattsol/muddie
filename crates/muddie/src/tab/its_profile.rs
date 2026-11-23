@@ -155,6 +155,13 @@ impl Tab {
         self.plugin_said = before;
     }
 
+    /// Removes a plugin, once the user said so, as a command about plugins.
+    pub fn plugin_removed(&mut self, name: &str) {
+        let before = self.output.len();
+        self.remove_plugin(name);
+        self.plugin_said = before;
+    }
+
     /// What the plugin commands asked for last have said, and whether
     /// one is still at work.
     pub fn plugin_answers(&self) -> (Vec<String>, bool) {

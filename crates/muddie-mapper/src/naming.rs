@@ -402,6 +402,19 @@ impl Map {
         }
     }
 
+    /// The room `query` means, as [`Map::rooms_meant`] finds them: of
+    /// several, the nearest to the player that a route reaches, else the
+    /// first.
+    pub fn room_meant(&self, query: &str) -> Option<RoomId> {
+        let rooms = self.rooms_meant(query);
+        let from = self.current().map(|room| room.id);
+        let nearest = from.filter(|_| rooms.len() > 1).and_then(|from| {
+            let targets = rooms.iter().copied().collect();
+            self.route_to_nearest(from, &targets).map(|(to, _)| to)
+        });
+        nearest.or_else(|| rooms.first().copied())
+    }
+
     /// The area `query` begins with, the longest if several do, and what
     /// follows it.
     fn area_and_name<'a>(&'a self, query: &'a str) -> Option<(&'a str, &'a str)> {

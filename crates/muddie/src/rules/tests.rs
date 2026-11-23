@@ -119,6 +119,8 @@ fn aliases_and_keys() {
         ],
         macros: vec![
             key("F5", |rule| rule.send = "look".into()),
+            // Sent as the other rules send, whatever separates typed ones.
+            key("F7", |rule| rule.send = "say a;;b; look".into()),
             key("f6", |rule| {
                 rule.enabled = false;
                 rule.send = "never".into();
@@ -144,6 +146,14 @@ fn aliases_and_keys() {
     assert!(engine.on_key("f5"));
     assert!(!engine.on_key("f6"));
     assert_eq!(engine.take_actions(), [send("look")]);
+    engine.exec("t", "separator(false)");
+    assert!(engine.on_key("f7"));
+    assert_eq!(engine.take_actions(), [send("say a;b"), send("look")]);
+    // Switched to Luau, a rule starts from what it ran.
+    assert_eq!(
+        crate::rules::commands_as_lua("kill %1 $target", true),
+        "send(expand(\"kill \" .. (m[1] or \"\") .. \" $target\"))\n"
+    );
 }
 
 #[test]

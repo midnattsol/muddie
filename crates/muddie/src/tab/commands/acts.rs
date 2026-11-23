@@ -320,7 +320,13 @@ impl Tab {
             .map(Profiles::names)
             .unwrap_or_default();
         (profiles.into_iter())
-            .map(|name| item(&name, tr("Connect to profile"), Act::Connect(name.clone())))
+            .map(|name| {
+                item(
+                    &name,
+                    tr("Connect to profile"),
+                    Act::App(AppRequest::Play(name.clone())),
+                )
+            })
             .collect()
     }
 
@@ -386,11 +392,6 @@ impl Tab {
                 }
             }
             Act::Place(name) => self.go_to(&name),
-            Act::Connect(name) => {
-                if self.select_profile(Some(name)) {
-                    self.connect(ctx);
-                }
-            }
         }
     }
 

@@ -641,6 +641,11 @@ fn places_are_meant_by_number_mark_name_or_area() {
     assert_eq!(map.rooms_meant("Desert oasis"), [13]);
     assert_eq!(map.rooms_meant("desert"), [10, 11, 12, 13]);
     assert!(map.rooms_meant("sea").is_empty());
+    // Of several, the room meant is the nearest; with no whereabouts, the
+    // first.
+    assert_eq!(map.room_meant("dune"), Some(10));
+    assert!(map.set_current(13));
+    assert_eq!(map.room_meant("dune"), Some(12));
     // A name given again, in any case, names the room it is given to.
     map.mark("WATER", 12).unwrap();
     assert_eq!(map.marks().len(), 1);

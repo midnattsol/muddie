@@ -53,10 +53,7 @@ pub enum Act {
     ReadChannel(String, bool),
     /// Shows or hides the panel with this number.
     Panel(u32),
-    /// Switches to the saved profile of this name and connects.
-    Connect(String),
-    /// Goes to the nearest room of this name, or mark; or, asked for the
-    /// way, says it.
+    /// Goes to the room of this number; or, asked for the way, says it.
     Place(String),
     /// Does what a script offered to do with the map, chosen by this.
     MapTool(String),
@@ -147,6 +144,9 @@ pub enum AppRequest {
     SaveAsProfile,
     /// Asks whether to remove this plugin, then does.
     RemovePlugin(String),
+    /// Plays with the saved profile of this name: in this session if it
+    /// is not connected, else in a new one.
+    Play(String),
 }
 
 /// What a command said: a line of text, and for a thing that can be
@@ -263,7 +263,11 @@ impl Tab {
             Offers::Places if query.is_empty() => Vec::new(),
             Offers::Places => (self.palette_places(query).into_iter())
                 .filter_map(|item| match item.act {
-                    Some(Act::Place(name)) => Some(answer(name, item.about)),
+                    // Shown by its name, answered by its number.
+                    Some(Act::Place(number)) => Some(Item {
+                        act: Some(Act::Answer(number)),
+                        ..answer(item.usage, item.about)
+                    }),
                     _ => None,
                 })
                 .collect(),
@@ -335,12 +339,6 @@ impl Tab {
         });
         self.palette.query.clear();
         self.palette.doing = Some(asking.title.clone());
-        // Taking a plugin away, files and all, is asked once more.
-        if let Some(name) = line.strip_prefix("/plugin remove ") {
-            self.close_palette();
-            self.app_request = Some(AppRequest::RemovePlugin(name.to_owned()));
-            return;
-        }
         self.run_command_from(&line, true);
         // What it answered stays in sight; what answers nothing is done.
         if self.palette.message.is_none() && self.palette.results.is_none() {

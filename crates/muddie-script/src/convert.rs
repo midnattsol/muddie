@@ -5,7 +5,7 @@ use super::*;
 /// Splits typed input into commands at `separator`; a doubled separator
 /// stands for the separator itself. Without a separator the input is one
 /// command.
-pub(super) fn split_commands(input: &str, separator: Option<&str>) -> Vec<String> {
+pub fn split_commands(input: &str, separator: Option<&str>) -> Vec<String> {
     let Some(separator) = separator.filter(|separator| !separator.is_empty()) else {
         return vec![input.to_owned()];
     };

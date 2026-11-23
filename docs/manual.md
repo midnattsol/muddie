@@ -209,7 +209,8 @@ to trade their widths. Changes are saved by themselves.
 A trigger, an alias, a macro and a timer differ in what sets them off; what
 they then do is the same choice for all four:
 
-- **Commands**: what to send, one command per line.
+- **Commands**: what to send, one command per line or separated by `;`
+  (`;;` is a `;`). They go to the MUD as written, not through aliases.
 - **Luau**: a few lines of Luau instead, in an editor that numbers the
   lines, colours the code and marks the line of a mistake with what is wrong.
 

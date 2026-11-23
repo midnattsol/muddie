@@ -101,6 +101,12 @@ fn client_commands_are_carried_out_and_the_rest_is_the_mud_s() {
         assert!(!app.do_client_command(line), "{line}");
     }
     assert!(app.do_client_command("/map hide") && !app.map_shown());
+    // Removing a plugin is asked once more, however it is asked for.
+    assert!(app.do_client_command("/plugin remove extra"));
+    assert_eq!(
+        app.take_app_request(),
+        Some(AppRequest::RemovePlugin("extra".to_owned()))
+    );
     // Tags, switched for the session by name.
     app.scripts
         .exec("t", r#"bind("f9", "kick", {tags = {"Combat"}})"#);

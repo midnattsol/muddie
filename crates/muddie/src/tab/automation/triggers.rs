@@ -113,7 +113,7 @@ fn when(
 /// What a trigger would do with a match, said in a line.
 fn effects(rule: &crate::rules::Trigger, captures: &regex::Captures) -> String {
     let mut effects = Vec::new();
-    let sent: Vec<String> = crate::rules::commands(&rule.send)
+    let sent: Vec<String> = (crate::rules::commands(&rule.send).iter())
         .map(|command| fill(command, captures))
         .collect();
     if rule.lua {

@@ -606,9 +606,10 @@ fn look_of(item: &Item) -> (widgets::Glyph, &'static str) {
             AppRequest::CloseSession => (Glyph::Close, crate::shortcuts::command!("W")),
             AppRequest::Settings(_) => (Glyph::Settings, ""),
             AppRequest::Shortcuts => (Glyph::Key, ""),
-            AppRequest::Profiles | AppRequest::Profile(..) | AppRequest::SaveAsProfile => {
-                (Glyph::Profile, "")
-            }
+            AppRequest::Profiles
+            | AppRequest::Profile(..)
+            | AppRequest::SaveAsProfile
+            | AppRequest::Play(_) => (Glyph::Profile, ""),
             _ => (Glyph::Check, ""),
         },
         Act::Reconnect => (Glyph::Restart, crate::shortcuts::RECONNECT_KEYS),
@@ -618,7 +619,6 @@ fn look_of(item: &Item) -> (widgets::Glyph, &'static str) {
         Act::Log => (Glyph::Text, ""),
         Act::Speech | Act::ReadChannel(..) => (Glyph::Say, ""),
         Act::Panel(_) => (Glyph::Panel, ""),
-        Act::Connect(_) => (Glyph::Profile, ""),
         Act::Place(_) | Act::MapTool(_) | Act::UndoChange | Act::TidyHere => (Glyph::Map, ""),
         Act::Ask(_) | Act::Answer(_) => (Glyph::Search, ""),
         Act::Run(command) if command.starts_with("/map") => (Glyph::Map, ""),

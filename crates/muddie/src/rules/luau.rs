@@ -2,10 +2,11 @@
 
 use super::*;
 
-/// Its commands, each sent with the groups of the match put in.
-fn sends(send: &str) -> String {
-    commands(send)
-        .map(|command| format!("\tsend(fill({}, m))\n", quoted(command)))
+/// Its commands, each sent with the groups of the match put in if it
+/// has one, as [`commands_as_lua`] makes them.
+fn sends(send: &str, matched: bool) -> String {
+    (commands_as_lua(send, matched).lines())
+        .map(|line| format!("\t{line}\n"))
         .collect()
 }
 
@@ -32,6 +33,8 @@ fn titled(kind: &str, name: &str, fallback: &str) -> String {
 pub trait Luau: When {
     /// What it is called in errors.
     const WORD: &'static str;
+    /// Whether it goes off on a match, whose groups its commands use.
+    const MATCHED: bool;
     /// The code of a rule of this kind, given its `options` table.
     fn code(rule: &Rule<Self>, options: &str) -> String;
 }
@@ -57,13 +60,14 @@ impl<T: Luau> Rule<T> {
     fn action(&self) -> String {
         match self.lua {
             true => script(&self.script),
-            false => sends(&self.send),
+            false => sends(&self.send, T::MATCHED),
         }
     }
 }
 
 impl Luau for OnLine {
     const WORD: &'static str = "trigger";
+    const MATCHED: bool = true;
     /// What it does with the line it matches, in order.
     fn code(rule: &Rule<Self>, options: &str) -> String {
         let when = &rule.when;
@@ -98,6 +102,7 @@ impl Luau for OnLine {
 
 impl Luau for OnTyped {
     const WORD: &'static str = "alias";
+    const MATCHED: bool = true;
     /// What it sends, or its script, in place of what was typed.
     fn code(rule: &Rule<Self>, options: &str) -> String {
         format!(
@@ -110,33 +115,20 @@ impl Luau for OnTyped {
 
 impl Luau for OnKey {
     const WORD: &'static str = "macro";
-    /// Its key bound to its script, or to what it sends, which goes
-    /// through aliases as if typed.
+    const MATCHED: bool = false;
+    /// Its key bound to what it does.
     fn code(rule: &Rule<Self>, options: &str) -> String {
         let key = quoted(rule.when.key.trim());
-        if rule.lua {
-            format!(
-                "bind({key}, function()\n{}end, {options})\n",
-                script(&rule.script)
-            )
-        } else {
-            let typed = commands(&rule.send).collect::<Vec<_>>().join(";");
-            format!("bind({key}, {}, {options})\n", quoted(&typed))
-        }
+        format!("bind({key}, function()\n{}end, {options})\n", rule.action())
     }
 }
 
 impl Luau for OnTime {
     const WORD: &'static str = "timer";
+    const MATCHED: bool = false;
     /// Once after a while, or again and again.
     fn code(rule: &Rule<Self>, options: &str) -> String {
-        let action = if rule.lua {
-            script(&rule.script)
-        } else {
-            commands(&rule.send)
-                .map(|command| format!("\tsend(expand({}))\n", quoted(command)))
-                .collect()
-        };
+        let action = rule.action();
         let how = if rule.when.repeat { "every" } else { "after" };
         let seconds = f64::from(rule.when.tenths) / 10.0;
         format!("{how}({seconds}, function()\n{action}end, {options})\n")

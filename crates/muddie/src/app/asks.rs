@@ -178,7 +178,7 @@ impl App {
                 Ok(None)
             }
             Ask::RemovePlugin(name) => {
-                self.tabs[self.active].plugin_command(&format!("/plugin remove {name}"));
+                self.tabs[self.active].plugin_removed(name);
                 Ok(None)
             }
         };

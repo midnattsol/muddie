@@ -39,7 +39,7 @@ impl Tab {
                         if rule.lua {
                             return tr("runs the script").to_owned();
                         }
-                        let sent: Vec<String> = crate::rules::commands(&rule.send)
+                        let sent: Vec<String> = (crate::rules::commands(&rule.send).iter())
                             .map(|command| fill(command, captures))
                             .collect();
                         format!("{} {}", tr("sends"), sent.join("; "))

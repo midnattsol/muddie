@@ -217,11 +217,21 @@ impl App {
                 self.asking = Some(asks::Ask::RemovePlugin(name));
                 self.ask_error = None;
             }
+            AppRequest::Play(name) => self.play(&name, ctx),
             AppRequest::Shortcuts => self.show_shortcuts = true,
             AppRequest::About => self.show_about = true,
             AppRequest::Profile(action, name) => self.profile_action(action, &name),
             AppRequest::SaveAsProfile => self.ask_save_session(),
         }
+    }
+
+    /// Plays with the saved profile of this name: in the session on
+    /// screen if it is not connected, else in a new one.
+    pub(super) fn play(&mut self, name: &str, ctx: &egui::Context) {
+        if self.tabs[self.active].is_connected() {
+            self.new_tab(ctx);
+        }
+        self.tabs[self.active].play(name, ctx);
     }
 
     /// Puts changed settings into effect and saves them.

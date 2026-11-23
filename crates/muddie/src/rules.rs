@@ -54,15 +54,19 @@ pub struct Rules {
     pub scripts: Vec<ScriptEntry>,
 }
 
-/// The commands of a rule's `send`: one per line, or separated by `;`.
-pub fn commands(send: &str) -> impl Iterator<Item = &str> {
-    send.split([';', '\n'])
-        .map(str::trim)
+/// The commands of a rule's `send`: one per line, or separated by `;`,
+/// as typed ones are: `;;` stands for a `;`.
+pub fn commands(send: &str) -> Vec<String> {
+    (send.lines())
+        .flat_map(|line| muddie_script::split_commands(line, Some(";")))
         .filter(|command| !command.is_empty())
+        .collect()
 }
 
-/// The commands of a rule's `send` as the Luau that sends them: `%1`...
-/// become the match's groups if the rule has a match.
+/// The commands of a rule's `send` as the Luau that sends them, which is
+/// what the rule runs and what switching it to Luau starts from: `%1`...
+/// become the match's groups if the rule has a match, and `$name` the
+/// variable's value.
 pub fn commands_as_lua(send: &str, matched: bool) -> String {
     let mut code = String::new();
     for command in commands(send) {
@@ -84,7 +88,7 @@ pub fn commands_as_lua(send: &str, matched: bool) -> String {
         if !text.is_empty() || pieces.is_empty() {
             pieces.push(quoted(&text));
         }
-        code.push_str(&format!("send({})\n", pieces.join(" .. ")));
+        code.push_str(&format!("send(expand({}))\n", pieces.join(" .. ")));
     }
     code
 }
