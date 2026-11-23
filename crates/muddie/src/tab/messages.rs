@@ -37,6 +37,10 @@ impl Tab {
         let problem = problem || (self.palette.answering && self.palette.answer_failed);
         let answering = self.palette.answering;
         self.keep_message(text, problem, !answering);
+        // A problem is said at once, not after the game queued before it.
+        if problem && !answering {
+            return self.voice.say_now(text);
+        }
         if answering {
             self.palette.answer.push(commands::Said {
                 text: text.to_owned(),

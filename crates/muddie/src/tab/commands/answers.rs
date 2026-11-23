@@ -8,7 +8,7 @@ impl Tab {
     /// is a line like any other.
     pub(in crate::tab) fn offer(&mut self, text: &str, about: &str, command: &str) {
         if self.palette.answering {
-            self.voice.say(&format!("{text}: {about}"));
+            self.voice.say(&trf("{0}: {1}", &[text, about]));
             self.palette.answer.push(Said {
                 text: text.to_owned(),
                 about: about.to_owned(),

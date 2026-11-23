@@ -149,23 +149,25 @@ impl Tab {
             return self.voice.say_now(tr("No matches."));
         };
         let group = chosen.group.clone();
-        let mut said = String::new();
+        // Each part a sentence of its own: the group, when it changes,
+        // what it does, what more it says of it, and where it is.
+        let mut parts = Vec::new();
         if !group.is_empty() && self.palette.spoken_group.as_ref() != Some(&group) {
-            said = format!("{group}. ");
+            parts.push(group.clone());
         }
         self.palette.spoken_group = Some(group);
-        said.push_str(&chosen.usage);
+        parts.push(chosen.usage.clone());
         if !chosen.about.is_empty() {
-            said = format!("{said}. {}", chosen.about);
+            parts.push(chosen.about.clone());
         }
-        let place = trf(
+        parts.push(trf(
             "{0} of {1}",
             &[
                 &(self.palette.chosen + 1).to_string(),
                 &items.len().to_string(),
             ],
-        );
-        self.voice.say_now(&format!("{said}. {place}"));
+        ));
+        self.voice.say_now(&crate::mapview::sentences(parts));
     }
 
     /// Once what is typed has been left as it is for a moment, says what it

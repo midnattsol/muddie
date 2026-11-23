@@ -32,8 +32,12 @@ impl Tab {
     /// the MUD sends besides text is kept to be looked at.
     fn handle_event(&mut self, event: Event, recording: bool) {
         self.record(&event);
-        if let Event::Line(line) | Event::Prompt(line) | Event::Partial(line) = &event {
-            self.asks_password = asks_for_password(&line.text());
+        // Asked for a password, what is typed is hidden until it is sent,
+        // whatever comes meanwhile.
+        if let Event::Line(line) | Event::Prompt(line) | Event::Partial(line) = &event
+            && asks_for_password(&line.text())
+        {
+            self.asks_password = true;
         }
         match event {
             Event::Connected => self.on_connected(),

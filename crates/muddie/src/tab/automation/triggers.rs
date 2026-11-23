@@ -124,7 +124,7 @@ fn effects(
         .collect();
     if !rule.when.speak.trim().is_empty() {
         let said = scripts.expand(&fill(rule.when.speak.trim(), captures));
-        effects.push(format!("{} “{}”", tr("says"), said));
+        effects.push(trf("says “{0}”", &[&said]));
     }
     effects.join(" · ")
 }

@@ -267,10 +267,14 @@ impl Tab {
         if self.plugin_on(&plugin) || declined || self.plugin_offer.as_ref() == Some(&plugin) {
             return;
         }
-        self.voice.say(&trf(
-            "There is a plugin for {0}: {1} It can be enabled from its message, at the bottom right.",
+        // Said, and kept under the bell, with a way to it from the
+        // keyboard: the palette has it as it has every plugin.
+        let said = trf(
+            "There is a plugin for {0}: {1} Enable it from its message, or with Plugin {0}, in the palette.",
             &[&plugin.shown_name(), &plugin.about()],
-        ));
+        );
+        self.keep_message(&said, false, false);
+        self.voice.say(&said);
         self.plugin_offer = Some(plugin);
     }
 

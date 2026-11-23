@@ -33,7 +33,7 @@ pub(in crate::tab) fn sends_said(
     let sent: Vec<String> = (crate::rules::commands(send).iter())
         .map(|command| scripts.expand(&crate::rules::fill(command, captures)))
         .collect();
-    (!sent.is_empty()).then(|| format!("{} {}", tr("sends"), sent.join("; ")))
+    (!sent.is_empty()).then(|| trf("sends {0}", &[&sent.join("; ")]))
 }
 
 /// What a rule does: either the commands it sends or the script it runs.
@@ -333,13 +333,13 @@ pub(in crate::tab) fn pattern_field(
         node.set_label(label);
         if let Some(reason) = invalid {
             node.set_invalid(egui::accesskit::Invalid::True);
-            node.set_description(format!("{} {reason}", tr("The pattern is not valid:")));
+            node.set_description(trf("The pattern is not valid: {0}", &[&reason]));
         }
     });
     if let Some(reason) = invalid {
         ui.horizontal(|ui| {
             widgets::glyph(ui, widgets::Glyph::Warning, 11.0, theme.danger);
-            let text = format!("{} {reason}", tr("The pattern is not valid:"));
+            let text = trf("The pattern is not valid: {0}", &[&reason]);
             ui.label(
                 RichText::new(text)
                     .font(theme::font(Weight::Regular, 12.0))

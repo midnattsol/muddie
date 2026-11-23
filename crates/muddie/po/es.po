@@ -352,11 +352,7 @@ msgstr "Reproducir un sonido"
 msgid "Try it"
 msgstr "Probar"
 
-msgid "sends"
-msgstr "envía"
 
-msgid "says"
-msgstr "dice"
 
 msgid "Alias name"
 msgstr "Nombre del alias"
@@ -388,8 +384,6 @@ msgstr "Admite teclas de función, combinaciones con Ctrl o Alt y el teclado num
 msgid "Name"
 msgstr "Nombre"
 
-msgid "The pattern is not valid:"
-msgstr "El patrón no es válido:"
 
 msgid "Does not match."
 msgstr "No coincide."
@@ -2792,8 +2786,6 @@ msgstr "No se pudo eliminar el perfil: {0}"
 msgid "MUD colours"
 msgstr "Colores del MUD"
 
-msgid "There is a plugin for {0}: {1} It can be enabled from its message, at the bottom right."
-msgstr "Hay un plugin para {0}: {1} Puedes activarlo desde su mensaje, abajo a la derecha."
 
 
 msgid "The rules of {0} could not be read: {1}"
@@ -2919,3 +2911,15 @@ msgstr "Copiar la última línea leída"
 
 msgid "Follow the link of the line read last"
 msgstr "Seguir el enlace de la última línea leída"
+
+msgid "sends {0}"
+msgstr "envía {0}"
+
+msgid "says “{0}”"
+msgstr "dice «{0}»"
+
+msgid "The pattern is not valid: {0}"
+msgstr "El patrón no es válido: {0}"
+
+msgid "There is a plugin for {0}: {1} Enable it from its message, or with Plugin {0}, in the palette."
+msgstr "Hay un plugin para {0}: {1} Actívalo desde su mensaje, o con Plugin {0}, en la paleta."

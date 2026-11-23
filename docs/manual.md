@@ -714,7 +714,10 @@ On a Mac, Option types characters (@ on a Spanish keyboard is Option+2),
 so the shortcuts held with Alt and a letter or a figure are held with Ctrl
 there (Ctrl+1 … Ctrl+9, Ctrl+0, Ctrl+M), those held with Alt and an arrow
 with Option, Reconnect is Cmd+R, and those written here with Ctrl, Cmd. The
-window of keyboard shortcuts shows them as they are on each system.
+window of keyboard shortcuts shows them as they are on each system. If
+Ctrl+1 … Ctrl+9 switch desktops on a Mac (Mission Control's shortcuts,
+off unless turned on in the system's Keyboard settings), turn those off to
+read the latest lines.
 
 Everything can be done from the keyboard. Tab goes through the window as
 it is read, top to bottom; Shift+F10 or the menu key opens what a right
