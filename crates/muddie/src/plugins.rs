@@ -10,101 +10,145 @@
 //! is not installed again unless asked, and then what it installed is put
 //! back as it came. One for a MUD is offered when that MUD is connected to.
 
+use std::collections::BTreeMap;
 use std::path::Path;
+
+use serde::Deserialize;
 
 use crate::profile::Profiles;
 
 pub mod git;
 
-/// A plugin that comes with the program, as it is written in it.
-#[derive(Debug, PartialEq, Eq)]
-pub struct Included {
-    /// What it is known by in a profile.
-    pub id: &'static str,
-    /// What it is called and what it does, in English: both are given to
-    /// `tr` to be shown.
-    pub name: &'static str,
-    pub about: &'static str,
-    /// Its scripts, each by the name of its file.
-    pub scripts: &'static [(&'static str, &'static str)],
-    /// Its rules, as in a profile's `rules.toml`: so far, its gauges.
-    pub rules: &'static str,
+/// A text a plugin gives, as one alone or by language code, as
+/// `{ en = "Map", es = "Mapa" }`.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(untagged)]
+pub enum Texts {
+    One(String),
+    ByLanguage(BTreeMap<String, String>),
+}
+
+impl Default for Texts {
+    fn default() -> Self {
+        Texts::One(String::new())
+    }
+}
+
+impl Texts {
+    /// In the language of the interface, as scripts' texts are chosen.
+    pub fn shown(&self) -> String {
+        match self {
+            Texts::One(text) => text.clone(),
+            Texts::ByLanguage(texts) => {
+                let texts: Vec<(String, String)> = texts.clone().into_iter().collect();
+                muddie_script::in_interface_language(&texts).unwrap_or_default()
+            }
+        }
+    }
+
+    /// In English, or the one there is: what never changes with the
+    /// language of the interface.
+    fn english(&self) -> String {
+        match self {
+            Texts::One(text) => text.clone(),
+            Texts::ByLanguage(texts) => (texts.get("en").or_else(|| texts.values().next()))
+                .cloned()
+                .unwrap_or_default(),
+        }
+    }
+}
+
+/// What a plugin says of itself, in its `plugin.toml`.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct Manifest {
+    /// What it is called; in English, the folder it is installed in.
+    pub name: Texts,
+    /// What it does.
+    pub about: Texts,
     /// On in a profile until switched off, rather than off until
     /// switched on.
     pub default_on: bool,
     /// The MUDs it is for: part of the address of one, or the name one
-    /// gives itself. None for a plugin that is for no MUD in particular.
-    pub hosts: &'static [&'static str],
-    pub names: &'static [&'static str],
+    /// gives itself, to be offered when they are connected to.
+    pub hosts: Vec<String>,
+    pub names: Vec<String>,
+}
+
+/// A plugin that comes with the program: its folder, and its files as
+/// they are written in it.
+pub struct Included {
+    pub id: &'static str,
+    pub manifest: &'static str,
+    pub scripts: &'static [(&'static str, &'static str)],
+    pub rules: &'static str,
 }
 
 /// What many MUDs send the same way, after those that did it first.
-pub const COMMON: &str = "common";
+pub const STANDARD: &str = "standard";
 
 pub const INCLUDED: [Included; 2] = [
     Included {
-        id: COMMON,
-        name: "Standard GMCP and MSDP",
-        about: "Gauges from Char.Vitals, the map from Room.Info, channels from Comm.Channel.Text.",
+        id: STANDARD,
+        manifest: include_str!("../plugins/standard/plugin.toml"),
         scripts: &[(
             "Standard GMCP and MSDP.luau",
             include_str!("../plugins/standard/Standard GMCP and MSDP.luau"),
         )],
         rules: include_str!("../plugins/standard/rules.toml"),
-        default_on: true,
-        hosts: &[],
-        names: &[],
     },
     Included {
         id: "reinos-de-leyenda",
-        name: "Reinos de Leyenda",
-        about: "Its gauges, channels and map. Needs consentir gmcp on, typed in the game.",
+        manifest: include_str!("../plugins/reinos-de-leyenda/plugin.toml"),
         scripts: &[(
             "Reinos de Leyenda.luau",
             include_str!("../plugins/reinos-de-leyenda/Reinos de Leyenda.luau"),
         )],
         rules: include_str!("../plugins/reinos-de-leyenda/rules.toml"),
-        default_on: false,
-        hosts: &["rlmud.org", "reinosdeleyenda"],
-        names: &["reinos de leyenda"],
     },
 ];
 
-/// A plugin, whether it comes with Muddie or was downloaded.
+/// A plugin, whether it comes with Muddie or was downloaded: what it is
+/// known by, which is the folder it comes in; what it says of itself; and
+/// its scripts and rules.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Plugin {
-    /// What it is known by in a profile.
     pub id: String,
-    /// What it is called, which is the folder it is installed in.
+    /// The folder it is installed in, in a profile: its name in English.
     pub name: String,
+    pub manifest: Manifest,
     /// Its scripts, each by the name of its file.
     pub scripts: Vec<(String, String)>,
     /// Its rules, as in a profile's `rules.toml`.
     pub rules: String,
-    /// The one that comes with Muddie it is; none for one downloaded,
-    /// which can be updated and removed.
-    pub included: Option<&'static Included>,
-}
-
-impl From<&'static Included> for Plugin {
-    fn from(included: &'static Included) -> Self {
-        Self {
-            id: included.id.to_owned(),
-            name: included.name.to_owned(),
-            scripts: (included.scripts.iter())
-                .map(|(name, code)| ((*name).to_owned(), (*code).to_owned()))
-                .collect(),
-            rules: included.rules.to_owned(),
-            included: Some(included),
-        }
-    }
+    /// Downloaded, to be updated and removed; else it comes with Muddie.
+    pub downloaded: bool,
 }
 
 impl Plugin {
-    /// One downloaded into `folder`: its `.luau` files, and its
-    /// `rules.toml` if it has one. `None` if it has no script.
+    /// One made of its files: what it says of itself, if it says it, its
+    /// scripts and its rules. A manifest that cannot be read is taken as
+    /// none, and said by the tests of those that come.
+    fn made(id: &str, manifest: &str, scripts: Vec<(String, String)>, rules: String) -> Self {
+        let manifest: Manifest = toml::from_str(manifest).unwrap_or_default();
+        let name = match manifest.name.english() {
+            name if name.trim().is_empty() => id.to_owned(),
+            name => name,
+        };
+        Self {
+            id: id.to_owned(),
+            name,
+            manifest,
+            scripts,
+            rules,
+            downloaded: false,
+        }
+    }
+
+    /// One downloaded into `folder`: its `.luau` files, its `plugin.toml`
+    /// and its `rules.toml`, if it has them. `None` if it has no script.
     pub fn downloaded(folder: &Path) -> Option<Self> {
-        let name = folder.file_name()?.to_str()?.to_owned();
+        let id = folder.file_name()?.to_str()?.to_owned();
         let mut scripts: Vec<(String, String)> = (std::fs::read_dir(folder).ok()?.flatten())
             .map(|entry| entry.path())
             .filter(|path| {
@@ -120,29 +164,28 @@ impl Plugin {
             return None;
         }
         scripts.sort();
-        let rules = std::fs::read_to_string(folder.join("rules.toml")).unwrap_or_default();
-        Some(Self {
-            id: name.clone(),
-            name,
-            scripts,
-            rules,
-            included: None,
-        })
+        let read = |file: &str| std::fs::read_to_string(folder.join(file)).unwrap_or_default();
+        let mut plugin = Self::made(&id, &read("plugin.toml"), scripts, read("rules.toml"));
+        plugin.downloaded = true;
+        Some(plugin)
     }
 
     /// What it is called, as shown.
     pub fn shown_name(&self) -> String {
-        match self.included {
-            Some(included) => crate::i18n::tr(included.name).to_owned(),
-            None => self.name.clone(),
+        match self.manifest.name.shown() {
+            shown if shown.trim().is_empty() => self.name.clone(),
+            shown => shown,
         }
     }
 
-    /// What it does, as shown; for one downloaded, where it came from.
+    /// What it does, as shown; for one downloaded that says nothing,
+    /// where it came from.
     pub fn about(&self) -> String {
-        match self.included {
-            Some(included) => crate::i18n::tr(included.about).to_owned(),
-            None => crate::i18n::tr("Downloaded from a git repository.").to_owned(),
+        match self.manifest.about.shown() {
+            about if about.trim().is_empty() && self.downloaded => {
+                crate::i18n::tr("Downloaded from a git repository.").to_owned()
+            }
+            about => about,
         }
     }
 
@@ -159,7 +202,7 @@ impl Plugin {
 
     /// Whether it is on until switched off.
     pub fn default_on(&self) -> bool {
-        self.included.is_some_and(|included| included.default_on)
+        self.manifest.default_on
     }
 
     /// A mark of what it is made of, to tell when the one there is is not
@@ -204,12 +247,12 @@ impl Plugin {
     /// Whether it is made for a MUD, by its address or by the name it
     /// gives itself; either may be empty if it is not known.
     fn is_for(&self, host: &str, name: &str) -> bool {
-        let Some(included) = self.included else {
-            return false;
-        };
         let (host, name) = (host.trim().to_lowercase(), name.trim().to_lowercase());
-        let by_host = !host.is_empty() && included.hosts.iter().any(|part| host.contains(part));
-        let by_name = !name.is_empty() && included.names.iter().any(|known| name == *known);
+        let hosts = &self.manifest.hosts;
+        let by_host =
+            !host.is_empty() && hosts.iter().any(|part| host.contains(&part.to_lowercase()));
+        let by_name = !name.is_empty()
+            && (self.manifest.names.iter()).any(|known| name == known.to_lowercase());
         by_host || by_name
     }
 }
@@ -237,6 +280,20 @@ pub fn included(id: &str) -> Option<Plugin> {
         .iter()
         .find(|plugin| plugin.id == id)
         .map(Plugin::from)
+}
+
+impl From<&Included> for Plugin {
+    fn from(included: &Included) -> Self {
+        let scripts = (included.scripts.iter())
+            .map(|(name, code)| ((*name).to_owned(), (*code).to_owned()))
+            .collect();
+        Self::made(
+            included.id,
+            included.manifest,
+            scripts,
+            included.rules.to_owned(),
+        )
+    }
 }
 
 /// The plugin made for a MUD, among `plugins`.
@@ -271,13 +328,15 @@ mod tests {
                 assert_eq!(engine.check(code), None, "{} {name}", plugin.id);
             }
             let rules: crate::rules::Rules = toml::from_str(plugin.rules).unwrap();
+            let manifest: Manifest = toml::from_str(plugin.manifest).unwrap();
+            assert!(!manifest.name.shown().is_empty(), "{}", plugin.id);
             assert!(plugin.rules.is_empty() || !rules.gauges.is_empty());
         }
         // What they are made of marks each.
         let reinos = included("reinos-de-leyenda").unwrap();
         assert_ne!(
             reinos.fingerprint(),
-            included(COMMON).unwrap().fingerprint()
+            included(STANDARD).unwrap().fingerprint()
         );
         assert_eq!(reinos.fingerprint(), reinos.fingerprint());
     }

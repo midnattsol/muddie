@@ -36,7 +36,7 @@ pub struct Template {
     /// the MUD says if not given.
     #[serde(default)]
     pub language: Option<String>,
-    /// The plugins that come with Muddie switched on, by their ids.
+    /// The plugins switched on, by their ids.
     #[serde(default)]
     pub plugins: Vec<String>,
 }
@@ -59,12 +59,16 @@ impl Template {
         if let Some(language) = &self.language {
             profile.language.clone_from(language);
         }
-        for plugin in self
-            .plugins
-            .iter()
-            .filter_map(|id| crate::plugins::included(id))
-        {
-            plugin.switch(&mut profile.plugins_on, &mut profile.plugins_off, true);
+        // Any plugin, by its id: one that comes with Muddie as it says,
+        // one downloaded switched on, to be installed once there.
+        for id in &self.plugins {
+            match crate::plugins::included(id) {
+                Some(plugin) => {
+                    plugin.switch(&mut profile.plugins_on, &mut profile.plugins_off, true)
+                }
+                None if !profile.plugins_on.contains(id) => profile.plugins_on.push(id.clone()),
+                None => {}
+            }
         }
     }
 }

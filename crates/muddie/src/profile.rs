@@ -227,6 +227,19 @@ impl Profiles {
             .map_err(|error| format!("cannot read {}: {error}", path.display()))?;
         let mut profile: Profile =
             toml::from_str(&text).map_err(|error| format!("{}: {error}", path.display()))?;
+        // The standard plugin was known as "common".
+        for list in [
+            &mut profile.plugins_on,
+            &mut profile.plugins_off,
+            &mut profile.plugins_declined,
+        ] {
+            for id in list.iter_mut().filter(|id| *id == "common") {
+                *id = crate::plugins::STANDARD.to_owned();
+            }
+        }
+        if let Some(mark) = profile.plugins_installed.remove("common") {
+            (profile.plugins_installed).insert(crate::plugins::STANDARD.to_owned(), mark);
+        }
         for package in std::mem::take(&mut profile.old_packages) {
             if !profile.plugins_on.contains(&package) {
                 profile.plugins_on.push(package);
@@ -497,7 +510,7 @@ mod tests {
             encoding: "koi8-r".into(),
             language: "es".into(),
             plugins_on: vec!["reinos-de-leyenda".into()],
-            plugins_off: vec!["common".into()],
+            plugins_off: vec!["standard".into()],
             plugins_declined: Vec::new(),
             plugins_installed: Default::default(),
             session: Some(SessionPrefs {
@@ -573,8 +586,16 @@ mod tests {
         // they were: they are switched on, to be installed in it, and the
         // folder they were downloaded to is the plugins' now.
         let file = profiles.dir.join("profiles/Main/profile.toml");
-        std::fs::write(&file, "packages = [\"combat\"]\n").unwrap();
-        assert_eq!(profiles.load("Main").unwrap().plugins_on, ["combat"]);
+        std::fs::write(
+            &file,
+            "packages = [\"combat\"]\nincluded_off = [\"common\"]\n",
+        )
+        .unwrap();
+        let loaded = profiles.load("Main").unwrap();
+        assert_eq!(
+            (loaded.plugins_on, loaded.plugins_off),
+            (vec!["combat".to_owned()], vec!["standard".to_owned()])
+        );
         std::fs::create_dir_all(profiles.dir.join("packages/combat")).unwrap();
         assert!(profiles.plugins_dir().join("combat").is_dir());
         assert_eq!(profiles.init_script(), None);

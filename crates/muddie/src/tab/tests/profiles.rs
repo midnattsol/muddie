@@ -52,7 +52,7 @@ fn a_plugin_for_the_mud_is_offered_and_switched_on_without_the_rest_starting_ove
     assert!(app.select_profile(Some("Reinos".into())));
     app.host = "rlmud.org".into();
     let reinos = &crate::plugins::included("reinos-de-leyenda").unwrap();
-    let common = &crate::plugins::included(crate::plugins::COMMON).unwrap();
+    let common = &crate::plugins::included(crate::plugins::STANDARD).unwrap();
     // What many MUDs send the same way is on to begin with; the plugin
     // of one MUD is not.
     assert!(app.plugin_on(common) && !app.plugin_on(reinos));
@@ -120,7 +120,7 @@ fn a_plugin_for_the_mud_is_offered_and_switched_on_without_the_rest_starting_ove
 fn what_many_muds_send_alike_is_a_plugin_that_can_be_switched_off() {
     let mut harness = window(None);
     let app = harness.state_mut().tab_mut();
-    let common = &crate::plugins::included(crate::plugins::COMMON).unwrap();
+    let common = &crate::plugins::included(crate::plugins::STANDARD).unwrap();
     let (events, _sent) = fake_connection(app);
     let vitals = || Event::Gmcp {
         package: "Char.Vitals".into(),
@@ -164,7 +164,7 @@ fn what_the_mud_is_asked_for_follows_the_plugins_on_and_off() {
     let app = harness.state_mut().tab_mut();
     assert!(app.select_profile(Some("Reinos".into())));
     let reinos = &crate::plugins::included("reinos-de-leyenda").unwrap();
-    let common = &crate::plugins::included(crate::plugins::COMMON).unwrap();
+    let common = &crate::plugins::included(crate::plugins::STANDARD).unwrap();
     let (_events, mut sent) = fake_connection(app);
     let mut told = || -> Vec<Vec<String>> {
         std::iter::from_fn(|| sent.try_recv().ok())
@@ -310,7 +310,7 @@ fn a_plugin_that_comes_with_muddie_is_installed_in_sight_and_the_profiles() {
     let profiles = Profiles::at(dir.clone());
     // A profile for that MUD, which makes nothing of the standard GMCP.
     let reinos_only = Profile {
-        plugins_off: vec![crate::plugins::COMMON.into()],
+        plugins_off: vec![crate::plugins::STANDARD.into()],
         ..Profile::default()
     };
     profiles.save("Reinos", &reinos_only).unwrap();
@@ -518,6 +518,11 @@ fn a_plugin_downloaded_is_installed_and_removed_as_any_other() {
     std::fs::create_dir_all(&source).unwrap();
     std::fs::write(source.join("main.luau"), "support_gmcp(\"Combat 1\")").unwrap();
     std::fs::write(
+        source.join("plugin.toml"),
+        "about = { en = \"Fights.\", es = \"Peleas.\" }\nhosts = [\"combat.example.org\"]\n",
+    )
+    .unwrap();
+    std::fs::write(
         source.join("rules.toml"),
         "[[gauge]]\nname = \"Rage\"\nvalue = \"Char.Rage\"\nmax = \"100\"\n\
          [[trigger]]\nname = \"Flee\"\npattern = \"hurts\"\nsend = \"flee\"\n",
@@ -564,6 +569,10 @@ fn a_plugin_downloaded_is_installed_and_removed_as_any_other() {
         .join("main.luau");
     assert!(app.scripts.is_loaded(&script));
     assert!(app.scripts.supports().contains(&"Combat 1".to_owned()));
+    // What it says of itself, as one that comes with Muddie does.
+    let plugin = app.plugin("combat").unwrap();
+    assert_eq!((plugin.shown_name(), plugin.about()), ("combat".into(), "Fights.".into()));
+    assert!(crate::plugins::for_mud(app.plugins(), "combat.example.org", "").is_some());
     let rage = app.rules.gauges.iter().find(|gauge| gauge.name == "Rage");
     assert_eq!(rage.map(|gauge| gauge.folder.as_str()), Some("combat"));
     // Every kind of rule it brings, as gauges are.

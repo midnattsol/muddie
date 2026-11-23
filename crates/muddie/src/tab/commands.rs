@@ -310,7 +310,7 @@ impl Tab {
                 .map(|name| answer(name.to_owned(), String::new()))
                 .collect(),
             Offers::Plugins => (self.plugins.iter())
-                .filter(|plugin| plugin.included.is_none() && has(&plugin.name))
+                .filter(|plugin| plugin.downloaded && has(&plugin.name))
                 .map(|plugin| answer(plugin.name.clone(), String::new()))
                 .collect(),
         }

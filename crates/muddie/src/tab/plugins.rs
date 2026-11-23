@@ -336,7 +336,7 @@ impl Tab {
     /// scripts and its gauges, and one downloaded is deleted too once no
     /// profile has it installed.
     pub(super) fn remove_plugin(&mut self, name: &str) {
-        let Some(plugin) = self.plugin(name).filter(|plugin| plugin.included.is_none()) else {
+        let Some(plugin) = self.plugin(name).filter(|plugin| plugin.downloaded) else {
             return self.refuse(tr("No such plugin is installed."));
         };
         plugin.switch(&mut self.plugins_on, &mut self.plugins_off, false);
@@ -439,7 +439,7 @@ impl Tab {
     /// Brings a plugin downloaded up to date, and installs it again where
     /// it is installed.
     pub(super) fn update_plugin(&mut self, name: &str) {
-        let Some(plugin) = self.plugin(name).filter(|plugin| plugin.included.is_none()) else {
+        let Some(plugin) = self.plugin(name).filter(|plugin| plugin.downloaded) else {
             return self.refuse(tr("No such plugin is installed."));
         };
         match self.profiles.as_ref().map(Profiles::plugins_dir) {

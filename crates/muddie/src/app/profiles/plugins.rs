@@ -21,7 +21,7 @@ fn plugin_row(ui: &mut Ui, plugin: &Plugin, draft: &mut Profile) -> Option<Plugi
     let mut on = plugin.is_on(&draft.plugins_on, &draft.plugins_off);
     let (name, about) = (plugin.shown_name(), plugin.about());
     let installed = draft.plugins_installed.contains_key(&plugin.id);
-    let downloaded = plugin.included.is_none();
+    let downloaded = plugin.downloaded;
     let mut asked = None;
     let switch = widgets::setting_row(ui, &name, Some(&about), &mut |ui| {
         let switch = widgets::switch(ui, &mut on, &name);
@@ -67,7 +67,7 @@ impl App {
         };
         let plugins = self.session_of(Some(&name)).plugins().to_vec();
         let downloaded: Vec<&Plugin> = (plugins.iter())
-            .filter(|plugin| plugin.included.is_none())
+            .filter(|plugin| plugin.downloaded)
             .collect();
         let (mut commands, mut install) = (Vec::new(), false);
         widgets::section_caption_with(ui, tr("Plugins"), |ui| {

@@ -43,8 +43,8 @@ pub struct OfferedTool {
     /// For one that switches something on or off, whether it is on.
     pub checked: Option<bool>,
 }
-pub use api::set_interface_language;
-use api::{in_interface_language, install_api, texts_of};
+pub use api::{in_interface_language, set_interface_language};
+use api::{install_api, texts_of};
 use convert::*;
 use map_api::*;
 use state::*;

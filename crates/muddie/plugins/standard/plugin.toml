@@ -1,0 +1,4 @@
+# What many MUDs send the same way, after those that did it first.
+name = { en = "Standard GMCP and MSDP", es = "GMCP y MSDP estándar" }
+about = { en = "Gauges from Char.Vitals and the MSDP vitals, the map from Room.Info and ROOM, channels from Comm.Channel.Text.", es = "Indicadores desde Char.Vitals y los valores vitales de MSDP, el mapa desde Room.Info y ROOM, y los canales desde Comm.Channel.Text." }
+default_on = true

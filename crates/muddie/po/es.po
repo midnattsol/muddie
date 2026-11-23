@@ -1199,15 +1199,6 @@ msgstr "Descargar sonidos"
 msgid "Host"
 msgstr "Dirección"
 
-msgid "Standard GMCP and MSDP"
-msgstr "GMCP y MSDP estándar"
-
-msgid "Gauges from Char.Vitals, the map from Room.Info, channels from Comm.Channel.Text."
-msgstr "Indicadores desde Char.Vitals, el mapa desde Room.Info y los canales desde Comm.Channel.Text."
-
-msgid "Its gauges, channels and map. Needs consentir gmcp on, typed in the game."
-msgstr "Sus indicadores, canales y mapa. Requiere activar el GMCP en el juego con «consentir gmcp on»."
-
 msgid "Leave empty to keep it"
 msgstr "Déjala vacía para conservarla"
 

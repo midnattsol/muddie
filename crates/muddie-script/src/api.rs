@@ -2,8 +2,8 @@
 
 use super::*;
 
-pub use language::set_interface_language;
-pub(crate) use language::{in_interface_language, texts_of};
+pub(crate) use language::texts_of;
+pub use language::{in_interface_language, set_interface_language};
 
 mod data;
 mod language;

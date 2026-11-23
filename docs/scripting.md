@@ -24,9 +24,22 @@ A script can be split into modules: `require("name")` loads `name.luau` or
 `name/init.luau` from the folder of any loaded script, once, and returns what
 the module returns.
 
-A plugin is a git repository with its `.luau` scripts at the top, and, if
-it brings gauges, a `rules.toml` written as a profile's, each gauge with
-`shown_in`, the name of the panel it goes in. Installed in a profile, its
+A plugin is a git repository with its `.luau` scripts at the top; a
+`rules.toml`, written as a profile's, with the rules it brings, of any kind,
+each gauge with `shown_in`, the name of the panel it goes in; and a
+`plugin.toml` that says what it is:
+
+```toml
+name = "My MUD"
+about = { en = "Its gauges and its map.", es = "Sus indicadores y su mapa." }
+default_on = false              # on in every profile until switched off
+hosts = ["mymud.example.org"]   # offered when connecting to these…
+names = ["my mud"]              # …or to a MUD that says it is called so
+```
+
+`name` and `about` are a text, or one by language as for `tr`; with no
+`plugin.toml`, the plugin is called as its folder. Those that come with
+Muddie are written the same way, in `crates/muddie/plugins`. Installed in a profile, its
 scripts go in a folder of its name among the profile's, and its gauges in a
 folder of that name among the profile's gauges.
 

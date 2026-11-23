@@ -17,7 +17,7 @@ pub fn set_interface_language(code: &str) {
 /// Of the texts given by language code, the one in the language of the
 /// interface, or the one of its language without the country, or the
 /// English one, or else the first by code.
-pub(crate) fn in_interface_language(texts: &[(String, String)]) -> Option<String> {
+pub fn in_interface_language(texts: &[(String, String)]) -> Option<String> {
     let code = INTERFACE.read().expect("language lock").clone();
     let base = code.split(['_', '-']).next().unwrap_or_default();
     let found = |wanted: &str| {

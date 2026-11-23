@@ -291,7 +291,7 @@ impl Tab {
             plugins,
             run("/plugin install"),
         ));
-        if self.plugins.iter().any(|plugin| plugin.included.is_none()) {
+        if self.plugins.iter().any(|plugin| plugin.downloaded) {
             acts.push(item(
                 tr("Update a plugin…"),
                 plugins,
