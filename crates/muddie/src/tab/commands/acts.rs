@@ -21,7 +21,11 @@ impl Tab {
             item(&label, map, Act::MapAction(tool.label))
         }));
         if self.map.borrow().last_change().is_some() {
-            acts.push(item(tr("Undo the map's last change"), map, Act::UndoChange));
+            acts.push(item(
+                tr("Undo the map's last change"),
+                map,
+                Act::Run("/map undo".into()),
+            ));
         }
         acts.extend(self.map_acts());
         let settings = tr("Settings");
@@ -161,7 +165,7 @@ impl Tab {
             ),
             item(tr("Areas of the map"), map, run("/map areas")),
             item(tr("Check the map"), map, run("/map check")),
-            item(tr("Tidy this area"), map, Act::TidyHere),
+            item(tr("Tidy this area"), map, run("/map tidy")),
             item(
                 tr("Remove a room…"),
                 map,
@@ -364,7 +368,6 @@ impl Tab {
                 }
             },
             Act::MapAction(label) => self.use_map_action(&label),
-            Act::UndoChange => self.undo_change(),
             Act::CopyOutput => {
                 ctx.copy_text(self.output.all_text());
                 self.say(tr("Copied."), false);
@@ -383,16 +386,6 @@ impl Tab {
             Act::Look(Some(room)) => self.open_look(room),
             Act::Look(None) => self.open_map_appearance(),
             Act::AllAreas => self.map_view.all_areas = !self.map_view.all_areas,
-            Act::TidyHere => {
-                let area = self.map.borrow().current().map(|room| room.area.clone());
-                match area {
-                    Some(area) => self.tidy_chosen(&area),
-                    None => {
-                        let said = self.unknown_whereabouts();
-                        self.refuse(&said);
-                    }
-                }
-            }
             Act::Place(name) => self.go_to(&name),
         }
     }

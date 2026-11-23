@@ -43,6 +43,8 @@ impl Tab {
             ("/map", "check") => self.check_map(),
             ("/map", "remove") if given => self.remove_room_command(argument),
             ("/map", "stop") => self.stop_walking(),
+            ("/map", "tidy") => self.tidy_command(argument),
+            ("/map", "undo") => self.undo_change(),
             ("/plugin", "install") if given => self.install_plugin(argument),
             ("/plugin", "update") if given => self.update_plugin(argument),
             ("/plugin", "enable" | "disable") if given => {

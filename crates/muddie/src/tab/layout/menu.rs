@@ -86,7 +86,7 @@ impl Tab {
             Some(PanelAsk::Hide) => self.layout.set_shown(spec.id, false),
             Some(PanelAsk::Remove) => self.panels.removed = Some(index),
             Some(PanelAsk::MapAction(label)) => self.use_map_action(&label),
-            Some(PanelAsk::UndoChange) => self.undo_change(),
+            Some(PanelAsk::UndoChange) => drop(self.run_command("/map undo")),
             Some(PanelAsk::Appearance) => self.open_map_appearance(),
             Some(PanelAsk::ShowArea) => self.ask(crate::tab::commands::Asking::area_to_show()),
             None => {}

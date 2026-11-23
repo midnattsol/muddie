@@ -120,7 +120,7 @@ impl Tab {
     fn map_asked(&mut self, asked: Option<MapAsk>) {
         match asked {
             Some(MapAsk::Walk(room)) => self.walk_to(room),
-            Some(MapAsk::Tidy(area)) => self.tidy_chosen(&area),
+            Some(MapAsk::Tidy(area)) => drop(self.run_command(&format!("/map tidy {area}"))),
             Some(MapAsk::Scripts) => self.open_automation(automation::SCRIPTS),
             Some(MapAsk::Selected(room, came)) => {
                 let told = {
@@ -138,18 +138,10 @@ impl Tab {
                 self.voice.say_now(&trf("No exit {0}.", &[&way]));
             }
             Some(MapAsk::Say(said)) => self.voice.say_now(&said),
-            Some(MapAsk::Info(room)) => self.say_info_aloud(room),
-            Some(MapAsk::Mark(room, name)) => {
-                if self.mark_room(room, &name) {
-                    self.voice.say_now(&trf("Marked {0}.", &[&name]));
-                }
-            }
+            Some(MapAsk::Info(room)) => drop(self.run_command(&format!("/map info {room}"))),
+            Some(MapAsk::Mark(room, name)) => self.mark_room(room, &name),
             Some(MapAsk::Look(room)) => self.open_look(room),
-            Some(MapAsk::Note(room, note)) => {
-                if let Some(said) = self.write_note(room, &note) {
-                    self.voice.say_now(&said);
-                }
-            }
+            Some(MapAsk::Note(room, note)) => self.write_note(room, &note),
             Some(MapAsk::Leave(typed)) => {
                 self.input.push_str(&typed);
                 self.cursor_to_end = true;

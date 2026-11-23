@@ -205,17 +205,6 @@ impl Tab {
         }
     }
 
-    /// Says aloud all the map knows of a room, as it is explored.
-    pub(super) fn say_info_aloud(&mut self, room: RoomId) {
-        let said = {
-            let map = self.map.borrow();
-            map.room(room).map(|room| info_of(&map, room))
-        };
-        if let Some(said) = said {
-            self.voice.say_now(&said);
-        }
-    }
-
     /// Writes a note on the room the player is in, or, with none, takes
     /// it off.
     pub(super) fn note_here(&mut self, note: &str) {
@@ -224,20 +213,18 @@ impl Tab {
             let said = self.unknown_whereabouts();
             return self.refuse(&said);
         };
-        if let Some(said) = self.write_note(here, note) {
-            self.note(&said);
-        }
+        self.write_note(here, note);
     }
 
-    /// Writes a note on a room, or, empty, takes it off. Returns what to
-    /// say of it, or None if it could not be saved, which is said.
-    pub(super) fn write_note(&mut self, room: RoomId, note: &str) -> Option<String> {
+    /// Writes a note on a room, or, empty, takes it off, and says so.
+    pub(super) fn write_note(&mut self, room: RoomId, note: &str) {
         let saved = self.map.borrow_mut().set_note(room, note);
-        self.map_saved(saved)?;
-        Some(match note.trim() {
-            "" => tr("The note was taken off.").to_owned(),
-            note => trf("Noted: {0}", &[note]),
-        })
+        if self.map_saved(saved).is_some() {
+            self.note(&match note.trim() {
+                "" => tr("The note was taken off.").to_owned(),
+                note => trf("Noted: {0}", &[note]),
+            });
+        }
     }
 
     /// Marks the room the player is in, to go to it by its mark.
@@ -247,18 +234,18 @@ impl Tab {
             let said = self.unknown_whereabouts();
             return self.refuse(&said);
         };
-        if self.mark_room(here, name) {
+        self.mark_room(here, name);
+    }
+
+    /// Marks a room, and says so.
+    pub(super) fn mark_room(&mut self, room: RoomId, name: &str) {
+        let saved = self.map.borrow_mut().mark(name, room);
+        if self.map_saved(saved).is_some() {
             self.note(&trf(
                 "This room is now marked {0}: typed in the palette, {0} goes to it.",
                 &[name],
             ));
         }
-    }
-
-    /// Marks a room. Returns whether it was saved; if not, says so.
-    pub(super) fn mark_room(&mut self, room: RoomId, name: &str) -> bool {
-        let saved = self.map.borrow_mut().mark(name, room);
-        self.map_saved(saved).is_some()
     }
 
     /// What a change of the map gave, if it was saved; if it could not

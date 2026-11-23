@@ -709,7 +709,15 @@ impl MapView {
         levels
     }
 
-    /// How many areas the map has, counted again only when it changes.
+    /// The area on show: the one looked at, or else the player's.
+    pub fn area_shown(&self, map: &Map) -> Option<String> {
+        match &self.browsing {
+            Some((area, _)) => Some(area.clone()),
+            None => map.current().map(|room| room.area.clone()),
+        }
+    }
+
+    /// How many areas the map has.
     pub fn area_count(&mut self, map: &Map) -> usize {
         match self.areas {
             Some((revision, count)) if revision == map.revision() => count,

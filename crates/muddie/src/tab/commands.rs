@@ -57,8 +57,6 @@ pub enum Act {
     Place(String),
     /// Does what a script offered to do with the map, chosen by this.
     MapAction(String),
-    /// Undoes the last change the map made of itself.
-    UndoChange,
     /// Carries out one of Muddie's commands, offered under a name of its
     /// own.
     Run(String),
@@ -66,8 +64,6 @@ pub enum Act {
     Ask(Asking),
     /// What was asked, given: the answer chosen or typed.
     Answer(String),
-    /// Tidies the area the player is in, asking first if it is large.
-    TidyHere,
     /// Opens the appearance of this room, or of the whole map.
     Look(Option<muddie_mapper::RoomId>),
     /// Shows the rooms of every area on the map, or only the one shown.
@@ -122,10 +118,15 @@ impl Act {
     /// typed: what is done most, in the game.
     fn is_front(&self) -> bool {
         match self {
-            Act::Run(command) => {
-                ["/map where", "/map near", "/map stop", "/map explore"].contains(&command.as_str())
-            }
-            Act::Reconnect | Act::Speech | Act::MapAction(_) | Act::UndoChange => true,
+            Act::Run(command) => [
+                "/map where",
+                "/map near",
+                "/map stop",
+                "/map explore",
+                "/map undo",
+            ]
+            .contains(&command.as_str()),
+            Act::Reconnect | Act::Speech | Act::MapAction(_) => true,
             _ => false,
         }
     }

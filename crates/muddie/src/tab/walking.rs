@@ -181,9 +181,23 @@ impl Tab {
         (rooms > MAX_TIDIED).then_some(rooms)
     }
 
-    /// Tidies an area chosen on the map: a large one once the user says so,
-    /// in a dialog.
-    pub(super) fn tidy_chosen(&mut self, area: &str) {
+    /// Tidies the area named, or the one on show on the map: a large one
+    /// once the user says so, in a dialog.
+    pub(super) fn tidy_command(&mut self, area: &str) {
+        let area = match area.trim() {
+            "" => self.map_view.area_shown(&self.map.borrow()),
+            area => (self.map.borrow().areas().into_iter())
+                .find(|known| known.to_lowercase() == area.to_lowercase())
+                .map(str::to_owned),
+        };
+        match area {
+            Some(area) => self.tidy_chosen(&area),
+            None => self.refuse(tr("The map has no area of that name.")),
+        }
+    }
+
+    /// Tidies an area, asking first if it is large.
+    fn tidy_chosen(&mut self, area: &str) {
         match self.too_many_to_tidy(area) {
             Some(_) => self.tidy_asked = Some(area.to_owned()),
             None => self.tidy(area),

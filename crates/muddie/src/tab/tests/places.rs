@@ -849,7 +849,10 @@ fn the_map_explored_is_searched_named_noted_and_gone_back_along() {
     assert_eq!(said(&mut harness), "Noted: Agua fresca");
     command(&mut harness, Key::B);
     typed(&mut harness, "agua");
-    assert_eq!(said(&mut harness), "Marked agua.");
+    assert_eq!(
+        said(&mut harness),
+        "This room is now marked agua: typed in the palette, agua goes to it."
+    );
     assert!(focused(&harness, "Map view"));
     harness.key_press(Key::Space);
     harness.run_steps(2);
@@ -1110,7 +1113,7 @@ fn a_very_large_area_is_tidied_only_once_the_user_says_so() {
     assert!(app.map.borrow_mut().set_current(1));
     let x_of_2 = |app: &Tab| app.map.borrow().room(2).unwrap().pos.x;
     // Chosen, it is asked first, in a dialog: nothing is drawn yet.
-    app.tidy_chosen("Mapa Completo");
+    assert!(app.do_client_command("/map tidy mapa completo"));
     assert_eq!(app.tidy_asked.as_deref(), Some("Mapa Completo"));
     assert_eq!(x_of_2(app), 6);
     // Told to, it is drawn again.
