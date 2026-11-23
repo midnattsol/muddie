@@ -316,6 +316,9 @@ msgstr ""
 msgid "Stopped: the last move had no effect."
 msgstr ""
 
+msgid "The map has no area of that name."
+msgstr ""
+
 #, python-brace-format
 msgid "{0} has {1} rooms: they are all drawn again, and what was placed by hand is lost."
 msgstr ""
@@ -668,9 +671,6 @@ msgstr ""
 msgid "There is no tag called {0}."
 msgstr ""
 
-msgid "The map has no area of that name."
-msgstr ""
-
 #, python-brace-format
 msgid "Logging stopped; the log is {0}"
 msgstr ""
@@ -880,7 +880,7 @@ msgid "It is left over: a copy of #{0}, in its place, that no other room leads t
 msgstr ""
 
 #, python-brace-format
-msgid "Costs {0} to enter."
+msgid "Costs {0} more to enter."
 msgstr ""
 
 #, python-brace-format
@@ -1373,9 +1373,6 @@ msgstr ""
 msgid "Apply"
 msgstr ""
 
-msgid "This plugin is installed in a profile: save this session as a profile, then switch it on."
-msgstr ""
-
 #, python-brace-format
 msgid "{0} could not be installed: {1}"
 msgstr ""
@@ -1385,7 +1382,7 @@ msgid "{0} installed again."
 msgstr ""
 
 #, python-brace-format
-msgid "{0} has changed in this version of Muddie. To have the changes, install it again, from its menu in the profile's plugins: what it installed is put back as it comes, and what you added is kept."
+msgid "{0} has changed since it was installed. To have the changes, install it again, from its menu in the profile's plugins: what it installed is put back as it comes, and what you added is kept."
 msgstr ""
 
 #, python-brace-format
@@ -1396,26 +1393,15 @@ msgstr ""
 msgid "There is a plugin for {0}."
 msgstr ""
 
-msgid "Plugins are enabled per profile: save or choose a profile first."
-msgstr ""
-
-#, python-brace-format
-msgid "Plugin {0} enabled."
-msgstr ""
-
-#, python-brace-format
-msgid "Plugin {0} disabled."
-msgstr ""
-
 msgid "No such plugin is installed."
 msgstr ""
 
 #, python-brace-format
-msgid "Plugin {0} removed."
+msgid "The plugin could not be removed: {0}"
 msgstr ""
 
 #, python-brace-format
-msgid "The plugin could not be removed: {0}"
+msgid "Plugin {0} removed."
 msgstr ""
 
 #, python-brace-format
@@ -1442,6 +1428,14 @@ msgstr ""
 
 #, python-brace-format
 msgid "Updating {0}…"
+msgstr ""
+
+#, python-brace-format
+msgid "Plugin {0} enabled."
+msgstr ""
+
+#, python-brace-format
+msgid "Plugin {0} disabled."
 msgstr ""
 
 msgid "Triggers"
@@ -2049,6 +2043,10 @@ msgid "{0} options"
 msgstr ""
 
 #, python-brace-format
+msgid "There is a panel called {0} already."
+msgstr ""
+
+#, python-brace-format
 msgid "Remove {0}"
 msgstr ""
 
@@ -2259,7 +2257,7 @@ msgid "Delete {0}? Its scripts, rules, map and layout go with it."
 msgstr ""
 
 #, python-brace-format
-msgid "Remove {0}? Its files are deleted, and it goes from every profile."
+msgid "Remove {0}? Its scripts and gauges go from this profile, and what was downloaded of it once no profile has it."
 msgstr ""
 
 msgid "Only install what you trust: a plugin can send commands as you."
@@ -2358,25 +2356,16 @@ msgstr ""
 msgid "Download sounds"
 msgstr ""
 
+msgid "Install again"
+msgstr ""
+
 msgid "Update"
 msgstr ""
 
 msgid "Remove…"
 msgstr ""
 
-msgid "Install again"
-msgstr ""
-
-msgid "Included"
-msgstr ""
-
-msgid "Installed"
-msgstr ""
-
 msgid "Update all"
-msgstr ""
-
-msgid "None installed."
 msgstr ""
 
 msgid "Working…"
@@ -2575,6 +2564,14 @@ msgid "Blank."
 msgstr ""
 
 #, python-brace-format
+msgid "{0}, note: {1}"
+msgstr ""
+
+#, python-brace-format
+msgid "into {0}"
+msgstr ""
+
+#, python-brace-format
 msgid "mark, {0}"
 msgstr ""
 
@@ -2616,18 +2613,6 @@ msgid "{0} of {1}: {2}"
 msgstr ""
 
 #, python-brace-format
-msgid "{0}, note: {1}"
-msgstr ""
-
-#, python-brace-format
-msgid "into {0}"
-msgstr ""
-
-#, python-brace-format
-msgid "Nothing noted within {0} move."
-msgstr ""
-
-#, python-brace-format
 msgid "Near: {0}."
 msgstr ""
 
@@ -2657,7 +2642,11 @@ msgstr ""
 msgid "kept off routes"
 msgstr ""
 
-msgid "weight"
+#, python-brace-format
+msgid "costs {0} more to enter"
+msgstr ""
+
+msgid "Downloaded from a git repository."
 msgstr ""
 
 msgid "A profile name may only have letters, digits, spaces, - and _."

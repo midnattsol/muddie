@@ -28,6 +28,7 @@ impl Tab {
         }
         self.map.borrow_mut().forget_taught_directions();
         self.speak_the_language();
+        self.find_plugins();
         let mut files = self.script_files_to_run();
         // The plugins that come with Muddie are among the player's own once
         // installed; one switched on and not installed yet is installed now.
@@ -51,10 +52,11 @@ impl Tab {
         // With no profile to install them in, the plugins that come with
         // Muddie are run as they come.
         if self.own_scripts_dir().is_none() {
-            let on: Vec<_> = (crate::bundled::ALL.iter())
-                .filter(|plugin| self.included(plugin))
+            let on: Vec<_> = (self.plugins.iter())
+                .filter(|plugin| self.plugin_on(plugin))
+                .cloned()
                 .collect();
-            for plugin in on {
+            for plugin in &on {
                 self.run_as_it_comes(plugin);
             }
         }
@@ -92,7 +94,7 @@ impl Tab {
     }
 
     /// The script files to run, in order: the general one, the profile's
-    /// packages and scripts, those given on the command line; and the
+    /// scripts, its plugins' among them, those given on the command line; and the
     /// rules are read, as they say which of the player's own are switched
     /// off.
     fn script_files_to_run(&mut self) -> Vec<PathBuf> {
@@ -100,11 +102,7 @@ impl Tab {
         if let Some(profiles) = &self.profiles {
             files.extend(profiles.init_script());
             if let Some(name) = &self.profile {
-                let profile = Profile {
-                    packages: self.packages.clone(),
-                    ..Profile::default()
-                };
-                files.extend(profiles.scripts(name, &profile));
+                files.extend(profiles.own_scripts(name));
             }
         }
         files.extend(self.extra_scripts.iter().cloned());

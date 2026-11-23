@@ -1,41 +1,60 @@
-//! The plugins of a session: those that come with Muddie, offered for the
-//! MUD connected to, and those installed.
+//! The plugins of a session: switched on and off, installed in its
+//! profile, offered for the MUD connected to, downloaded and removed.
 
 use super::*;
+use crate::plugins::{self, Plugin};
 
 impl Tab {
-    /// Whether a plugin that comes with Muddie is on in this session.
-    pub(super) fn included(&self, plugin: &crate::bundled::Bundled) -> bool {
-        plugin.is_on(&self.included_on, &self.included_off)
+    /// The plugins there are, as last looked for.
+    pub fn plugins(&self) -> &[Plugin] {
+        &self.plugins
     }
 
-    /// Switches a plugin that comes with Muddie on or off, at once and
-    /// without running the other scripts again, and keeps that with the
-    /// profile if there is one; without one, it is run as it comes, for the
-    /// session.
-    pub(super) fn set_included(&mut self, plugin: &'static crate::bundled::Bundled, on: bool) {
-        plugin.switch(&mut self.included_on, &mut self.included_off, on);
-        self.run_included(plugin, on);
-        self.keep_included();
+    /// Looks again for the plugins there are: those downloaded may have
+    /// changed.
+    pub(super) fn find_plugins(&mut self) {
+        self.plugins = plugins::all(self.profiles.as_ref());
     }
 
-    /// Starts or stops a plugin that comes with Muddie in this session:
-    /// one installed in the profile is installed the first time, and then
-    /// its folder of scripts and its gauges are switched on or off.
-    pub(super) fn run_included(&mut self, plugin: &'static crate::bundled::Bundled, on: bool) {
-        if self.plugin_offer == Some(plugin) {
+    /// The plugin of this id or name, if there is one.
+    pub(super) fn plugin(&self, id: &str) -> Option<Plugin> {
+        let id = id.trim();
+        (self.plugins.iter())
+            .find(|plugin| plugin.id == id || plugin.name.eq_ignore_ascii_case(id))
+            .cloned()
+    }
+
+    /// Whether a plugin is on in this session.
+    pub(super) fn plugin_on(&self, plugin: &Plugin) -> bool {
+        plugin.is_on(&self.plugins_on, &self.plugins_off)
+    }
+
+    /// Switches a plugin on or off, at once and without running the other
+    /// scripts again, and keeps that with the profile if there is one;
+    /// without one, it is run as it comes, for the session.
+    pub(super) fn set_plugin(&mut self, plugin: &Plugin, on: bool) {
+        plugin.switch(&mut self.plugins_on, &mut self.plugins_off, on);
+        self.run_plugin(plugin, on);
+        self.keep_plugins();
+    }
+
+    /// Starts or stops a plugin in this session: installed in the profile
+    /// the first time, and then its folders of scripts and of gauges are
+    /// switched on or off.
+    pub(super) fn run_plugin(&mut self, plugin: &Plugin, on: bool) {
+        if self.plugin_offer.as_ref() == Some(plugin) {
             self.plugin_offer = None;
         }
         if self.own_scripts_dir().is_some() {
-            if on && !self.included_installed.contains_key(plugin.id) {
-                self.install_included(plugin, false);
+            if on && !self.plugins_installed.contains_key(&plugin.id) {
+                self.install_plugin_files(plugin, false);
             }
             self.switch_installed(plugin, on);
         } else if on {
             self.run_as_it_comes(plugin);
             self.run_rules();
         } else {
-            for (name, _) in plugin.scripts {
+            for (name, _) in &plugin.scripts {
                 self.scripts.unload(&as_it_comes(plugin, name));
             }
             self.rules.gauges.retain(|gauge| !brought_by(gauge, plugin));
@@ -45,17 +64,17 @@ impl Tab {
         self.sync_modules();
     }
 
-    /// Installs a plugin that comes with Muddie in the profile: its
-    /// scripts in a folder named after it, its gauges among the profile's.
-    /// What there is of it already is kept; installed `again`, what it
-    /// installed is put back as it came. What was added is kept either way.
-    /// Returns whether it was.
-    fn install_included(&mut self, plugin: &'static crate::bundled::Bundled, again: bool) -> bool {
+    /// Installs a plugin in the profile: its scripts in a folder named
+    /// after it, its gauges among the profile's. What there is of it
+    /// already is kept; installed `again`, what it installed is put back
+    /// as it came. What was added is kept either way. Returns whether it
+    /// was.
+    fn install_plugin_files(&mut self, plugin: &Plugin, again: bool) -> bool {
         let Some(folder) = self.own_scripts_dir().map(|dir| dir.join(plugin.folder())) else {
             return false;
         };
         let written = std::fs::create_dir_all(&folder).and_then(|()| {
-            for (name, code) in plugin.scripts {
+            for (name, code) in &plugin.scripts {
                 let path = folder.join(name);
                 if again || !path.exists() {
                     std::fs::write(&path, code)?;
@@ -66,7 +85,7 @@ impl Tab {
         if let Err(error) = written {
             self.refuse(&trf(
                 "{0} could not be installed: {1}",
-                &[tr(plugin.name), &error.to_string()],
+                &[&plugin.shown_name(), &error.to_string()],
             ));
             return false;
         }
@@ -86,19 +105,19 @@ impl Tab {
                 }
             }
         });
-        (self.included_installed).insert(plugin.id.to_owned(), plugin.fingerprint());
-        self.keep_included();
+        (self.plugins_installed).insert(plugin.id.clone(), plugin.fingerprint());
+        self.keep_plugins();
         true
     }
 
-    /// Installs a plugin that comes with Muddie again, putting back what it
-    /// installed as it came, and runs its scripts again.
-    pub fn install_included_again(&mut self, plugin: &'static crate::bundled::Bundled) {
-        if !self.install_included(plugin, true) {
+    /// Installs a plugin again, putting back what it installed as it came,
+    /// and runs its scripts again.
+    pub fn install_plugin_again(&mut self, plugin: &Plugin) {
+        if !self.install_plugin_files(plugin, true) {
             return;
         }
         if let Some(folder) = self.own_scripts_dir().map(|dir| dir.join(plugin.folder())) {
-            for (name, _) in plugin.scripts {
+            for (name, _) in &plugin.scripts {
                 let path = folder.join(name);
                 if self.scripts.is_loaded(&path) {
                     self.scripts.reload_file(&path);
@@ -106,14 +125,14 @@ impl Tab {
             }
         }
         self.run_actions();
-        self.note(&trf("{0} installed again.", &[tr(plugin.name)]));
+        self.note(&trf("{0} installed again.", &[&plugin.shown_name()]));
     }
 
-    /// Runs a plugin that comes with Muddie as it comes, in a session with
-    /// no profile to install it in: its scripts from the program, its
-    /// gauges among the session's rules, unsaved.
-    pub(super) fn run_as_it_comes(&mut self, plugin: &'static crate::bundled::Bundled) {
-        for (name, code) in plugin.scripts {
+    /// Runs a plugin as it comes, in a session with no profile to install
+    /// it in: its scripts as they are, its gauges among the session's
+    /// rules, unsaved.
+    pub(super) fn run_as_it_comes(&mut self, plugin: &Plugin) {
+        for (name, code) in &plugin.scripts {
             let owner = as_it_comes(plugin, name);
             self.scripts.unload(&owner);
             self.scripts.exec_owned(&owner, &owner, code);
@@ -148,7 +167,7 @@ impl Tab {
         // Another plugin's, as the standard one's, which most MUDs leave
         // unseen, take no panel from it.
         let of_a_plugin = |gauge: &crate::rules::Gauge| {
-            (crate::bundled::ALL.iter()).any(|plugin| brought_by(gauge, plugin))
+            (self.plugins.iter()).any(|plugin| brought_by(gauge, plugin))
         };
         let mut used: std::collections::HashSet<u32> = (self.rules.gauges.iter())
             .filter(|gauge| !theirs(gauge) && !of_a_plugin(gauge))
@@ -170,7 +189,7 @@ impl Tab {
     /// Switches the folders of the scripts and the gauges a plugin
     /// installed on or off, as saved: what is switched off in them stays
     /// so.
-    fn switch_installed(&mut self, plugin: &'static crate::bundled::Bundled, on: bool) {
+    fn switch_installed(&mut self, plugin: &Plugin, on: bool) {
         self.change_rules(|rules| {
             rules.set_folder_on(Kind::Script, plugin.folder(), on);
             rules.set_folder_on(Kind::Gauge, plugin.folder(), on);
@@ -179,28 +198,30 @@ impl Tab {
         self.sync_scripts();
     }
 
-    /// Installs the plugins that come with Muddie that are switched on and
-    /// not installed yet, as those switched on in the profile's settings,
-    /// and says, once, of those installed that are not as they come now.
-    /// Returns whether one was installed.
+    /// Installs the plugins that are switched on and not installed yet, as
+    /// those switched on in the profile's settings, and says, once, of
+    /// those installed that are not as they are now. Returns whether one
+    /// was installed.
     pub(super) fn install_switched_on(&mut self) -> bool {
         if self.own_scripts_dir().is_none() {
             return false;
         }
-        let on = (crate::bundled::ALL.iter())
-            .filter(|plugin| plugin.installs() && self.included(plugin));
+        let on: Vec<Plugin> = (self.plugins.iter())
+            .filter(|plugin| self.plugin_on(plugin))
+            .cloned()
+            .collect();
         let (mut installed, mut changed) = (false, Vec::new());
-        for plugin in on.collect::<Vec<_>>() {
-            match self.included_installed.get(plugin.id) {
-                None => installed |= self.install_included(plugin, false),
-                Some(mark) if *mark != plugin.fingerprint() => changed.push(tr(plugin.name)),
+        for plugin in on {
+            match self.plugins_installed.get(&plugin.id) {
+                None => installed |= self.install_plugin_files(&plugin, false),
+                Some(mark) if *mark != plugin.fingerprint() => changed.push(plugin.shown_name()),
                 Some(_) => {}
             }
         }
-        if !changed.is_empty() && !self.included_changes_told {
-            self.included_changes_told = true;
+        if !changed.is_empty() && !self.plugin_changes_told {
+            self.plugin_changes_told = true;
             self.note(&trf(
-                "{0} has changed in this version of Muddie. To have the changes, install it again, from its menu in the profile's plugins: what it installed is put back as it comes, and what you added is kept.",
+                "{0} has changed since it was installed. To have the changes, install it again, from its menu in the profile's plugins: what it installed is put back as it comes, and what you added is kept.",
                 &[&changed.join(", ")],
             ));
         }
@@ -226,60 +247,60 @@ impl Tab {
 
     /// Saves which plugins are on with the profile, if there is one;
     /// without one they are as set for as long as the session lasts.
-    pub(super) fn keep_included(&mut self) {
+    pub(super) fn keep_plugins(&mut self) {
         let (on, off, declined, installed) = (
-            self.included_on.clone(),
-            self.included_off.clone(),
-            self.included_declined.clone(),
-            self.included_installed.clone(),
+            self.plugins_on.clone(),
+            self.plugins_off.clone(),
+            self.plugins_declined.clone(),
+            self.plugins_installed.clone(),
         );
         self.keep_in_profile(move |profile| {
-            profile.included_on = on;
-            profile.included_off = off;
-            profile.included_declined = declined;
-            profile.included_installed = installed;
+            profile.plugins_on = on;
+            profile.plugins_off = off;
+            profile.plugins_declined = declined;
+            profile.plugins_installed = installed;
         });
     }
 
     /// Offers the plugin made for the MUD at `host`, or that gives itself
     /// `name`, unless it is on already or was declined for this profile.
     pub(super) fn offer_plugin_for(&mut self, host: &str, name: &str) {
-        let Some(plugin) = crate::bundled::for_mud(host, name) else {
+        let Some(plugin) = plugins::for_mud(&self.plugins, host, name).cloned() else {
             return;
         };
-        let declined = self.included_declined.iter().any(|id| id == plugin.id);
-        if self.included(plugin) || declined || self.plugin_offer == Some(plugin) {
+        let declined = self.plugins_declined.contains(&plugin.id);
+        if self.plugin_on(&plugin) || declined || self.plugin_offer.as_ref() == Some(&plugin) {
             return;
         }
-        self.plugin_offer = Some(plugin);
         self.voice.say(&trf(
             "There is a plugin for {0}: {1} It can be enabled from the notice at the bottom right.",
-            &[tr(plugin.name), tr(plugin.about)],
+            &[&plugin.shown_name(), &plugin.about()],
         ));
+        self.plugin_offer = Some(plugin);
     }
 
     /// The plugin offered for this MUD was declined: it is not offered
     /// again in this profile, and stays in the settings.
     pub(super) fn decline_plugin(&mut self) {
         if let Some(plugin) = self.plugin_offer.take() {
-            self.included_declined.push(plugin.id.to_owned());
-            self.keep_included();
+            self.plugins_declined.push(plugin.id);
+            self.keep_plugins();
         }
     }
 
     /// What the plugin offered for this MUD is and does, if one is.
     pub fn plugin_offered(&self) -> Option<(String, String)> {
-        let plugin = self.plugin_offer?;
+        let plugin = self.plugin_offer.as_ref()?;
         Some((
-            trf("There is a plugin for {0}.", &[tr(plugin.name)]),
-            tr(plugin.about).to_owned(),
+            trf("There is a plugin for {0}.", &[&plugin.shown_name()]),
+            plugin.about(),
         ))
     }
 
     /// Answers the offer of a plugin: switched on, or not offered again.
     pub fn answer_plugin_offer(&mut self, enable: bool) {
-        match (self.plugin_offer, enable) {
-            (Some(plugin), true) => self.set_included(plugin, true),
+        match (self.plugin_offer.clone(), enable) {
+            (Some(plugin), true) => self.set_plugin(&plugin, true),
             (Some(_), false) => self.decline_plugin(),
             (None, _) => {}
         }
@@ -310,58 +331,54 @@ impl Tab {
         self.supports = wanted;
     }
 
-    /// Adds a package to the profile's list, or takes it off, saves the
-    /// profile and runs the scripts again.
-    pub(super) fn set_package(&mut self, name: &str, enable: bool) {
-        let Some(profile) = self.profile.clone() else {
-            return self.refuse(tr(
-                "Plugins are enabled per profile: save or choose a profile first.",
-            ));
-        };
-        self.packages.retain(|package| package != name);
-        if enable {
-            self.packages.push(name.to_owned());
-        }
-        self.profile_name = profile;
-        self.save_profile();
-        self.load_scripts();
-        self.note(&if enable {
-            trf("Plugin {0} enabled.", &[name])
-        } else {
-            trf("Plugin {0} disabled.", &[name])
-        });
-    }
-
-    /// Deletes an installed plugin, in every profile's eyes.
+    /// Removes a plugin from this profile: what it installed goes, its
+    /// scripts and its gauges, and one downloaded is deleted too once no
+    /// profile has it installed.
     pub(super) fn remove_plugin(&mut self, name: &str) {
-        let folder = self.profiles.as_ref().map(Profiles::packages_dir);
-        let installed = self
-            .profiles
-            .as_ref()
-            .map(Profiles::packages)
-            .unwrap_or_default();
-        let Some(folder) = folder.filter(|_| installed.iter().any(|plugin| plugin == name)) else {
+        let Some(plugin) = self.plugin(name).filter(|plugin| plugin.included.is_none()) else {
             return self.refuse(tr("No such plugin is installed."));
         };
-        // Its name came from the list of folders there, so this is one.
-        match std::fs::remove_dir_all(folder.join(name)) {
-            Ok(()) => {
-                self.note(&trf("Plugin {0} removed.", &[name]));
-                if self.packages.iter().any(|plugin| plugin == name) {
-                    self.set_package(name, false);
-                }
-            }
-            Err(error) => self.refuse(&trf(
-                "The plugin could not be removed: {0}",
-                &[&error.to_string()],
-            )),
+        plugin.switch(&mut self.plugins_on, &mut self.plugins_off, false);
+        self.plugins_installed.remove(&plugin.id);
+        self.keep_plugins();
+        if let Some(folder) = self.own_scripts_dir().map(|dir| dir.join(plugin.folder())) {
+            let _ = std::fs::remove_dir_all(folder);
         }
+        self.change_rules(|rules| {
+            rules.gauges.retain(|gauge| !brought_by(gauge, &plugin));
+            rules
+                .folders
+                .retain(|folder| folder.path.split('/').next() != Some(plugin.folder()));
+        });
+        let elsewhere = self.profiles.as_ref().is_some_and(|profiles| {
+            (profiles.names().iter())
+                .filter(|other| Some(other.as_str()) != self.profile.as_deref())
+                .filter_map(|other| profiles.load(other).ok())
+                .any(|other| other.plugins_installed.contains_key(&plugin.id))
+        });
+        let download = self
+            .profiles
+            .as_ref()
+            .map(|profiles| profiles.plugins_dir());
+        if let (false, Some(download)) = (elsewhere, download) {
+            // Its name came from the list of folders there, so this is one.
+            if let Err(error) = std::fs::remove_dir_all(download.join(plugin.folder())) {
+                return self.refuse(&trf(
+                    "The plugin could not be removed: {0}",
+                    &[&error.to_string()],
+                ));
+            }
+        }
+        self.find_plugins();
+        self.load_scripts();
+        self.note(&trf("Plugin {0} removed.", &[&plugin.shown_name()]));
     }
 
-    /// Reports package installs and updates that have ended.
-    pub(super) fn check_packages(&mut self, ctx: &egui::Context) {
+    /// Reports downloads and updates of plugins that have ended: one
+    /// downloaded is switched on, one updated installed again where it is.
+    pub(super) fn check_plugin_jobs(&mut self, ctx: &egui::Context) {
         let mut ended = Vec::new();
-        self.package_jobs
+        self.plugin_jobs
             .retain(|(job, enable)| match job.try_recv() {
                 Ok(outcome) => {
                     ended.push((outcome, *enable));
@@ -370,44 +387,49 @@ impl Tab {
                 Err(std::sync::mpsc::TryRecvError::Empty) => true,
                 Err(std::sync::mpsc::TryRecvError::Disconnected) => false,
             });
-        if !self.package_jobs.is_empty() {
+        if !self.plugin_jobs.is_empty() {
             ctx.request_repaint_after(Duration::from_millis(200));
         }
-        for (outcome, enable) in ended {
-            match outcome {
-                Ok(name) if enable => {
-                    self.note(&trf("Plugin {0} installed.", &[&name]));
-                    self.set_package(&name, true);
+        for (outcome, downloaded) in ended {
+            self.find_plugins();
+            let found = outcome.map(|name| (self.plugin(&name), name));
+            match found {
+                Ok((Some(plugin), _)) if downloaded => {
+                    self.note(&trf("Plugin {0} installed.", &[&plugin.shown_name()]));
+                    self.set_plugin(&plugin, true);
                 }
-                Ok(name) => {
-                    self.note(&trf("Plugin {0} updated.", &[&name]));
-                    self.load_scripts();
+                Ok((Some(plugin), _)) => {
+                    self.note(&trf("Plugin {0} updated.", &[&plugin.shown_name()]));
+                    if self.plugins_installed.contains_key(&plugin.id) {
+                        self.install_plugin_again(&plugin);
+                    }
                 }
-                Err(error) => self.say(
-                    &trf(
-                        "The plugin could not be installed or updated: {0}",
-                        &[&error],
-                    ),
-                    true,
-                ),
+                Ok((None, name)) => self.refuse(&trf(
+                    "The plugin could not be installed or updated: {0}",
+                    &[&name],
+                )),
+                Err(error) => self.refuse(&trf(
+                    "The plugin could not be installed or updated: {0}",
+                    &[&error],
+                )),
             }
         }
     }
 
-    /// Downloads a plugin from a git repository and enables it: the
+    /// Downloads a plugin from a git repository and switches it on: the
     /// address, then a name for it if the address does not give one.
     pub(super) fn install_plugin(&mut self, argument: &str) {
         let (address, given) = argument.split_once(' ').unwrap_or((argument, ""));
         let name = match given.trim() {
-            "" => packages::name_from_address(address),
+            "" => plugins::git::name_from_address(address),
             given => crate::profile::valid_name(given).then(|| given.to_owned()),
         };
-        let folder = self.profiles.as_ref().map(Profiles::packages_dir);
+        let folder = self.profiles.as_ref().map(Profiles::plugins_dir);
         match (folder, name) {
             (Some(folder), Some(name)) => {
                 self.note(&trf("Installing {0}…", &[&name]));
-                self.package_jobs
-                    .push((packages::install(&folder, &name, address), true));
+                self.plugin_jobs
+                    .push((plugins::git::download(&folder, &name, address), true));
             }
             (None, _) => self.refuse(tr(
                 "Plugins need a configuration folder, and none was found.",
@@ -418,13 +440,17 @@ impl Tab {
         }
     }
 
-    /// Brings an installed plugin up to date.
+    /// Brings a plugin downloaded up to date, and installs it again where
+    /// it is installed.
     pub(super) fn update_plugin(&mut self, name: &str) {
-        match self.profiles.as_ref().map(Profiles::packages_dir) {
+        let Some(plugin) = self.plugin(name).filter(|plugin| plugin.included.is_none()) else {
+            return self.refuse(tr("No such plugin is installed."));
+        };
+        match self.profiles.as_ref().map(Profiles::plugins_dir) {
             Some(folder) => {
-                self.note(&trf("Updating {0}…", &[name]));
-                self.package_jobs
-                    .push((packages::update(&folder, name), false));
+                self.note(&trf("Updating {0}…", &[&plugin.name]));
+                self.plugin_jobs
+                    .push((plugins::git::update(&folder, &plugin.name), false));
             }
             None => self.refuse(tr(
                 "Plugins need a configuration folder, and none was found.",
@@ -432,17 +458,17 @@ impl Tab {
         }
     }
 
-    /// Enables an installed plugin in this profile, or disables one.
+    /// Switches a plugin on in this profile, or off.
     pub(super) fn enable_plugin(&mut self, name: &str, enable: bool) {
-        let installed = self
-            .profiles
-            .as_ref()
-            .map(Profiles::packages)
-            .unwrap_or_default();
-        if enable && !installed.iter().any(|package| package == name) {
+        let Some(plugin) = self.plugin(name) else {
             return self.refuse(tr("No such plugin is installed."));
-        }
-        self.set_package(name, enable);
+        };
+        self.set_plugin(&plugin, enable);
+        self.note(&if enable {
+            trf("Plugin {0} enabled.", &[&plugin.shown_name()])
+        } else {
+            trf("Plugin {0} disabled.", &[&plugin.shown_name()])
+        });
     }
 }
 
@@ -455,9 +481,9 @@ fn same_gauge(known: &crate::rules::Gauge, theirs: &crate::rules::Gauge) -> bool
         && (folder.is_empty() || folder == theirs.folder.trim())
 }
 
-/// What a plugin that comes with Muddie brings to the rules: its gauges in
-/// a folder of its name, as its scripts are, to be switched with them.
-fn plugin_rules(plugin: &crate::bundled::Bundled) -> crate::rules::Rules {
+/// What a plugin brings to the rules: its gauges in a folder of its name,
+/// as its scripts are, to be switched with them.
+fn plugin_rules(plugin: &Plugin) -> crate::rules::Rules {
     let mut theirs = plugin.read_rules();
     for gauge in &mut theirs.gauges {
         gauge.folder = match gauge.folder.trim() {
@@ -469,12 +495,11 @@ fn plugin_rules(plugin: &crate::bundled::Bundled) -> crate::rules::Rules {
 }
 
 /// What a script of a plugin run as it comes is known by.
-fn as_it_comes(plugin: &crate::bundled::Bundled, script: &str) -> String {
+fn as_it_comes(plugin: &Plugin, script: &str) -> String {
     format!("{}/{script}", plugin.folder())
 }
 
-/// Whether a gauge is in the folder of a plugin that comes with Muddie,
-/// or in one inside it.
-fn brought_by(gauge: &crate::rules::Gauge, plugin: &crate::bundled::Bundled) -> bool {
+/// Whether a gauge is in the folder of a plugin, or in one inside it.
+fn brought_by(gauge: &crate::rules::Gauge, plugin: &Plugin) -> bool {
     gauge.folder.split('/').next() == Some(plugin.folder())
 }

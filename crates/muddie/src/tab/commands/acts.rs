@@ -275,14 +275,12 @@ impl Tab {
             ));
         }
         let plugins = tr("Plugins");
-        let installed = (self.profiles.as_ref())
-            .map(Profiles::packages)
-            .unwrap_or_default();
-        for name in &installed {
-            let on = self.packages.contains(name);
-            let line = format!("/plugin {} {name}", if on { "disable" } else { "enable" });
+        for plugin in &self.plugins {
+            let on = self.plugin_on(plugin);
+            let what = if on { "disable" } else { "enable" };
+            let line = format!("/plugin {what} {}", plugin.id);
             acts.push(item(
-                &switched(&trf("Plugin {0}", &[name]), on),
+                &switched(&trf("Plugin {0}", &[&plugin.shown_name()]), on),
                 plugins,
                 Act::Run(line),
             ));
@@ -296,7 +294,7 @@ impl Tab {
                 Offers::Nothing,
             ),
         ));
-        if !installed.is_empty() {
+        if self.plugins.iter().any(|plugin| plugin.included.is_none()) {
             acts.push(item(
                 tr("Update a plugin…"),
                 plugins,

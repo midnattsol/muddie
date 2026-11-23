@@ -4,7 +4,6 @@
 mod app;
 mod autosave;
 mod brand;
-mod bundled;
 mod complete;
 mod debug;
 mod history;
@@ -17,9 +16,9 @@ mod mapfetch;
 mod mapview;
 mod media;
 mod output;
-mod packages;
 mod palette;
 mod panels;
+mod plugins;
 mod profile;
 mod rules;
 mod secrets;

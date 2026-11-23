@@ -4,7 +4,7 @@
 //! ```text
 //! muddie/
 //!   init.luau                 run for every profile
-//!   packages/<package>/init.luau
+//!   plugins/<plugin>/*.luau    downloaded, to install in profiles
 //!   profiles/<name>/profile.toml
 //!   profiles/<name>/scripts/*.luau
 //!   profiles/<name>/map.sqlite
@@ -32,17 +32,24 @@ pub struct Profile {
     /// The language its MUD is played in, by its code; empty for the one
     /// its plugin or the MUD says, else English.
     pub language: String,
-    /// Script packages to load before the profile's own scripts.
-    pub packages: Vec<String>,
-    /// The plugins that come with Muddie: those switched on that are
-    /// off unless asked for, those switched off that are on unless
-    /// asked not, and those offered for this MUD and declined.
-    pub included_on: Vec<String>,
-    pub included_off: Vec<String>,
-    pub included_declined: Vec<String>,
+    /// The plugins: those switched on that are off unless asked for,
+    /// those switched off that are on unless asked not, and those offered
+    /// for this MUD and declined.
+    #[serde(alias = "included_on")]
+    pub plugins_on: Vec<String>,
+    #[serde(alias = "included_off")]
+    pub plugins_off: Vec<String>,
+    #[serde(alias = "included_declined")]
+    pub plugins_declined: Vec<String>,
     /// Those installed in it, each with the mark of what it was made of
-    /// when it was (see [`crate::bundled::Bundled::fingerprint`]).
-    pub included_installed: std::collections::BTreeMap<String, String>,
+    /// when it was (see [`crate::plugins::Plugin::fingerprint`]).
+    #[serde(alias = "included_installed")]
+    pub plugins_installed: std::collections::BTreeMap<String, String>,
+    /// The plugins downloaded that a profile of an earlier version ran
+    /// from where they were downloaded: on loading, they are switched on,
+    /// to be installed in it as the others are.
+    #[serde(default, skip_serializing, rename = "packages")]
+    pub(crate) old_packages: Vec<String>,
     /// How its sessions go: none in a profile saved before they were
     /// kept with it, which then has those of the settings.
     pub session: Option<SessionPrefs>,
@@ -94,11 +101,11 @@ impl Default for Profile {
             character: String::new(),
             encoding: "auto".into(),
             language: String::new(),
-            packages: Vec::new(),
-            included_on: Vec::new(),
-            included_off: Vec::new(),
-            included_declined: Vec::new(),
-            included_installed: Default::default(),
+            old_packages: Vec::new(),
+            plugins_on: Vec::new(),
+            plugins_off: Vec::new(),
+            plugins_declined: Vec::new(),
+            plugins_installed: Default::default(),
             session: None,
         }
     }
@@ -186,7 +193,16 @@ impl Profiles {
 
     /// Names of the saved profiles, in alphabetical order.
     pub fn names(&self) -> Vec<String> {
-        self.folders_with("profiles", "profile.toml")
+        let Ok(entries) = std::fs::read_dir(self.dir.join("profiles")) else {
+            return Vec::new();
+        };
+        let mut names: Vec<String> = entries
+            .flatten()
+            .filter(|entry| entry.path().join("profile.toml").is_file())
+            .filter_map(|entry| entry.file_name().into_string().ok())
+            .collect();
+        names.sort();
+        names
     }
 
     /// Where templates for new profiles are read from, besides those that
@@ -195,27 +211,14 @@ impl Profiles {
         self.dir.join("templates")
     }
 
-    /// Where script packages are installed.
-    pub fn packages_dir(&self) -> PathBuf {
-        self.dir.join("packages")
-    }
-
-    /// Names of the installed script packages, in alphabetical order.
-    pub fn packages(&self) -> Vec<String> {
-        self.folders_with("packages", "init.luau")
-    }
-
-    fn folders_with(&self, parent: &str, file: &str) -> Vec<String> {
-        let Ok(entries) = std::fs::read_dir(self.dir.join(parent)) else {
-            return Vec::new();
-        };
-        let mut names: Vec<String> = entries
-            .flatten()
-            .filter(|entry| entry.path().join(file).is_file())
-            .filter_map(|entry| entry.file_name().into_string().ok())
-            .collect();
-        names.sort();
-        names
+    /// Where plugins are downloaded to: `packages`, as an earlier version
+    /// called it, is called so once it is looked for.
+    pub fn plugins_dir(&self) -> PathBuf {
+        let (folder, before) = (self.dir.join("plugins"), self.dir.join("packages"));
+        if !folder.exists() && before.is_dir() {
+            let _ = std::fs::rename(&before, &folder);
+        }
+        folder
     }
 
     fn profile_dir(&self, name: &str) -> PathBuf {
@@ -226,7 +229,14 @@ impl Profiles {
         let path = self.profile_dir(name).join("profile.toml");
         let text = std::fs::read_to_string(&path)
             .map_err(|error| format!("cannot read {}: {error}", path.display()))?;
-        toml::from_str(&text).map_err(|error| format!("{}: {error}", path.display()))
+        let mut profile: Profile =
+            toml::from_str(&text).map_err(|error| format!("{}: {error}", path.display()))?;
+        for package in std::mem::take(&mut profile.old_packages) {
+            if !profile.plugins_on.contains(&package) {
+                profile.plugins_on.push(package);
+            }
+        }
+        Ok(profile)
     }
 
     /// Writes the profile, creating its folder and an empty `scripts`
@@ -242,15 +252,6 @@ impl Profiles {
             .map_err(|error| format!("cannot save the profile in {}: {error}", dir.display()))
     }
 
-    /// The scripts a profile runs, in order: its packages, then the files
-    /// in its `scripts` folder by name. A package that is not installed is
-    /// still listed, so loading it reports the problem.
-    pub fn scripts(&self, name: &str, profile: &Profile) -> Vec<PathBuf> {
-        let packages = (profile.packages.iter())
-            .map(|package| self.dir.join("packages").join(package).join("init.luau"));
-        packages.chain(self.own_scripts(name)).collect()
-    }
-
     /// Where a profile's own scripts are kept.
     pub fn scripts_dir(&self, name: &str) -> PathBuf {
         self.profile_dir(name).join("scripts")
@@ -258,7 +259,7 @@ impl Profiles {
 
     /// A profile's own scripts, in its folder and the folders in it, in
     /// alphabetical order of where they are.
-    fn own_scripts(&self, name: &str) -> Vec<PathBuf> {
+    pub fn own_scripts(&self, name: &str) -> Vec<PathBuf> {
         let mut files = Vec::new();
         walk(&self.scripts_dir(name), &mut |path| {
             if path
@@ -491,15 +492,15 @@ mod tests {
             character: "Gandalf".into(),
             encoding: "koi8-r".into(),
             language: "es".into(),
-            packages: vec!["combat".into()],
-            included_on: vec!["reinos-de-leyenda".into()],
-            included_off: vec!["common".into()],
-            included_declined: Vec::new(),
-            included_installed: Default::default(),
+            plugins_on: vec!["reinos-de-leyenda".into()],
+            plugins_off: vec!["common".into()],
+            plugins_declined: Vec::new(),
+            plugins_installed: Default::default(),
             session: Some(SessionPrefs {
                 reconnect: false,
                 ..SessionPrefs::default()
             }),
+            old_packages: Vec::new(),
         };
         profiles.save("Reinos", &profile).unwrap();
         profiles.save("Aardwolf", &Profile::default()).unwrap();
@@ -542,23 +543,14 @@ mod tests {
     }
 
     #[test]
-    fn scripts_are_packages_then_own_files_in_order() {
+    fn own_scripts_are_in_order_and_old_packages_become_plugins() {
         let profiles = scratch("scripts");
-        let profile = Profile {
-            packages: vec!["combat".into(), "missing".into()],
-            ..Profile::default()
-        };
-        profiles.save("Main", &profile).unwrap();
+        profiles.save("Main", &Profile::default()).unwrap();
         let own = profiles.dir.join("profiles/Main/scripts");
         for file in ["20-triggers.luau", "10-setup.luau", "notes.txt"] {
             std::fs::write(own.join(file), "").unwrap();
         }
-        let package = profiles.dir.join("packages/combat");
-        std::fs::create_dir_all(&package).unwrap();
-        std::fs::write(package.join("init.luau"), "").unwrap();
-        std::fs::create_dir_all(profiles.dir.join("packages/empty")).unwrap();
-        assert_eq!(profiles.packages(), ["combat"]);
-        let relative: Vec<String> = (profiles.scripts("Main", &profile).iter())
+        let relative: Vec<String> = (profiles.own_scripts("Main").iter())
             .map(|path| {
                 // Each part, joined with / on every system.
                 let inner = path.strip_prefix(&profiles.dir).unwrap();
@@ -569,12 +561,18 @@ mod tests {
         assert_eq!(
             relative,
             [
-                "packages/combat/init.luau",
-                "packages/missing/init.luau",
                 "profiles/Main/scripts/10-setup.luau",
                 "profiles/Main/scripts/20-triggers.luau",
             ]
         );
+        // A profile of an earlier version ran plugins downloaded from where
+        // they were: they are switched on, to be installed in it, and the
+        // folder they were downloaded to is the plugins' now.
+        let file = profiles.dir.join("profiles/Main/profile.toml");
+        std::fs::write(&file, "packages = [\"combat\"]\n").unwrap();
+        assert_eq!(profiles.load("Main").unwrap().plugins_on, ["combat"]);
+        std::fs::create_dir_all(profiles.dir.join("packages/combat")).unwrap();
+        assert!(profiles.plugins_dir().join("combat").is_dir());
         assert_eq!(profiles.init_script(), None);
         std::fs::write(profiles.dir.join("init.luau"), "").unwrap();
         assert!(profiles.init_script().is_some());

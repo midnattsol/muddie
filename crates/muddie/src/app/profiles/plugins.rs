@@ -1,127 +1,99 @@
-//! A profile's plugins: those that come with Muddie, those installed, and
-//! installing one.
+//! A profile's plugins: those that come with Muddie and those downloaded,
+//! each switched on and off alike, and downloading one.
 
 use super::*;
+use crate::plugins::Plugin;
 
-/// An installed plugin: its switch in the profile, and its menu. Returns
-/// the command its menu asked for.
-pub(in crate::app) fn installed_row(
-    ui: &mut Ui,
-    packages: &mut Vec<String>,
-    name: &str,
-) -> Option<String> {
-    let mut asked = None;
-    let mut enabled = packages.iter().any(|package| package == name);
-    let switch = widgets::setting_row(ui, name, None, &mut |ui| {
-        let switch = widgets::switch(ui, &mut enabled, name);
-        ui.add_space(size::GAP_S);
-        let more =
-            widgets::icon_button(ui, widgets::Icon::More, &trf("{0} options", &[name]), false);
-        crate::widgets::menu_of(&more).show(|ui| {
-            widgets::menu_width(ui);
-            if widgets::menu_item(ui, tr("Update"), "").clicked() {
-                asked = Some(format!("/plugin update {name}"));
-                ui.close();
-            }
-            if widgets::menu_item(ui, tr("Remove…"), "").clicked() {
-                asked = Some(format!("/plugin remove {name}"));
-                ui.close();
-            }
-        });
-        switch
-    });
-    if switch.changed() {
-        packages.retain(|package| package != name);
-        if enabled {
-            packages.push(name.to_owned());
-        }
-    }
-    asked
+/// What a plugin's menu asked for.
+enum PluginAsk {
+    /// Install it again, as it comes.
+    Again,
+    /// Bring one downloaded up to date.
+    Update,
+    /// Take one downloaded out of the profile.
+    Remove,
 }
 
-/// A plugin that comes with Muddie: its switch, what it does, and for one
-/// installed in the profile, a menu to install it again. Returns whether
-/// that was asked.
-fn included_row(ui: &mut Ui, plugin: &crate::bundled::Bundled, draft: &mut Profile) -> bool {
-    let mut on = plugin.is_on(&draft.included_on, &draft.included_off);
-    let name = tr(plugin.name);
-    let mut again = false;
-    let switch = widgets::setting_row(ui, name, Some(tr(plugin.about)), &mut |ui| {
-        let switch = widgets::switch(ui, &mut on, name);
-        if plugin.installs() && draft.included_installed.contains_key(plugin.id) {
+/// A plugin: its switch in the profile, what it does, and its menu: for
+/// one installed, installing it again; for one downloaded, updating and
+/// removing it.
+fn plugin_row(ui: &mut Ui, plugin: &Plugin, draft: &mut Profile) -> Option<PluginAsk> {
+    let mut on = plugin.is_on(&draft.plugins_on, &draft.plugins_off);
+    let (name, about) = (plugin.shown_name(), plugin.about());
+    let installed = draft.plugins_installed.contains_key(&plugin.id);
+    let downloaded = plugin.included.is_none();
+    let mut asked = None;
+    let switch = widgets::setting_row(ui, &name, Some(&about), &mut |ui| {
+        let switch = widgets::switch(ui, &mut on, &name);
+        if installed || downloaded {
             ui.add_space(size::GAP_S);
-            let more =
-                widgets::icon_button(ui, widgets::Icon::More, &trf("{0} options", &[name]), false);
+            let more = widgets::icon_button(
+                ui,
+                widgets::Icon::More,
+                &trf("{0} options", &[&name]),
+                false,
+            );
             crate::widgets::menu_of(&more).show(|ui| {
                 widgets::menu_width(ui);
-                if widgets::menu_item(ui, tr("Install again"), "").clicked() {
-                    again = true;
-                    ui.close();
+                let items = [
+                    (installed, PluginAsk::Again, tr("Install again")),
+                    (downloaded, PluginAsk::Update, tr("Update")),
+                    (downloaded, PluginAsk::Remove, tr("Remove…")),
+                ];
+                for (offered, ask, label) in items {
+                    if offered && widgets::menu_item(ui, label, "").clicked() {
+                        asked = Some(ask);
+                        ui.close();
+                    }
                 }
             });
         }
         switch
     });
     if switch.changed() {
-        plugin.switch(&mut draft.included_on, &mut draft.included_off, on);
+        plugin.switch(&mut draft.plugins_on, &mut draft.plugins_off, on);
     }
-    again
+    asked
 }
 
 impl App {
-    /// The plugins: those that come with Muddie, and those installed.
-    pub(in crate::app) fn plugins_groups(&mut self, ui: &mut Ui) {
-        self.included_group(ui);
-        self.installed_group(ui);
-    }
-
-    /// The plugins that come with Muddie.
-    pub(in crate::app) fn included_group(&mut self, ui: &mut Ui) {
-        let Some(edit) = self.editing.as_mut() else {
-            return;
-        };
-        let mut again = None;
-        widgets::section(ui, tr("Included"), |ui| {
-            for plugin in crate::bundled::ALL.iter() {
-                if included_row(ui, plugin, &mut edit.draft) {
-                    again = Some(plugin);
-                }
-            }
-        });
-        if let Some(plugin) = again {
-            self.install_again(plugin);
-        }
-    }
-
-    /// The plugins installed, each with its switch in this profile and its
-    /// menu; updating them all and installing another, beside their
+    /// The plugins, each with its switch in this profile and its menu;
+    /// downloading another and updating those downloaded, beside their
     /// caption; and what the last commands about plugins said.
-    pub(in crate::app) fn installed_group(&mut self, ui: &mut Ui) {
-        let installed = (self.profiles.as_ref())
-            .map(Profiles::packages)
-            .unwrap_or_default();
+    pub(in crate::app) fn plugins_groups(&mut self, ui: &mut Ui) {
+        let plugins = self.tabs[self.active].plugins().to_vec();
+        let downloaded: Vec<&Plugin> = (plugins.iter())
+            .filter(|plugin| plugin.included.is_none())
+            .collect();
         let (mut commands, mut install) = (Vec::new(), false);
-        widgets::section_caption_with(ui, tr("Installed"), |ui| {
+        widgets::section_caption_with(ui, tr("Plugins"), |ui| {
             install = widgets::button(ui, tr("Install a plugin…")).clicked();
-            if !installed.is_empty() && widgets::button(ui, tr("Update all")).clicked() {
+            if !downloaded.is_empty() && widgets::button(ui, tr("Update all")).clicked() {
                 commands.extend(
-                    installed
-                        .iter()
-                        .map(|name| format!("/plugin update {name}")),
+                    (downloaded.iter()).map(|plugin| format!("/plugin update {}", plugin.name)),
                 );
             }
         });
         let Some(edit) = self.editing.as_mut() else {
             return;
         };
-        if installed.is_empty() {
-            widgets::page_note(ui, tr("None installed."));
-        } else {
-            widgets::group(ui, |ui| {
-                for name in &installed {
-                    commands.extend(installed_row(ui, &mut edit.draft.packages, name));
+        let mut again = None;
+        widgets::group(ui, |ui| {
+            for plugin in &plugins {
+                match plugin_row(ui, plugin, &mut edit.draft) {
+                    Some(PluginAsk::Again) => again = Some(plugin.clone()),
+                    Some(PluginAsk::Update) => {
+                        commands.push(format!("/plugin update {}", plugin.name));
+                    }
+                    Some(PluginAsk::Remove) => {
+                        commands.push(format!("/plugin remove {}", plugin.name));
+                    }
+                    None => {}
                 }
-            });
+            }
+        });
+        if let Some(plugin) = again {
+            self.install_again(&plugin);
         }
         if install {
             self.asking = Some(Ask::Install(String::new()));
@@ -152,15 +124,15 @@ impl App {
         }
     }
 
-    /// Installs a plugin that comes with Muddie again in the profile being
-    /// edited, in the sessions that use it: what it installed is put back
-    /// as it came, and what was added is kept.
-    pub(in crate::app) fn install_again(&mut self, plugin: &'static crate::bundled::Bundled) {
+    /// Installs a plugin again in the profile being edited, in the
+    /// sessions that use it: what it installed is put back as it came, and
+    /// what was added is kept.
+    pub(in crate::app) fn install_again(&mut self, plugin: &Plugin) {
         let Some(name) = self.editing.as_ref().map(|edit| edit.name.clone()) else {
             return;
         };
         for tab in self.tabs.iter_mut().filter(|tab| tab.uses_profile(&name)) {
-            tab.install_included_again(plugin);
+            tab.install_plugin_again(plugin);
         }
     }
 }

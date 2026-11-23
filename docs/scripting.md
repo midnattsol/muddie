@@ -14,8 +14,7 @@ All paths are under the configuration folder: `~/.config/muddie` on Linux,
 | File | When it runs |
 |---|---|
 | `init.luau` | In every session |
-| `packages/<name>/init.luau` | In profiles that enable that plugin |
-| `profiles/<profile>/scripts/*.luau` | In that profile, in name order |
+| `profiles/<profile>/scripts/*.luau` | In that profile, in name order: those of its plugins in the folder of each |
 | files given with `--script` | In every session, last |
 
 In the palette (Ctrl+K), **Restart scripts** starts the scripts afresh
@@ -24,6 +23,12 @@ after editing them, and **Run Lua…** runs a line of Luau on the spot.
 A script can be split into modules: `require("name")` loads `name.luau` or
 `name/init.luau` from the folder of any loaded script, once, and returns what
 the module returns.
+
+A plugin is a git repository with its `.luau` scripts at the top, and, if
+it brings gauges, a `rules.toml` written as a profile's, each gauge with
+`shown_in`, the name of the panel it goes in. Installed in a profile, its
+scripts go in a folder of its name among the profile's, and its gauges in a
+folder of that name among the profile's gauges.
 
 ## Sending and showing
 

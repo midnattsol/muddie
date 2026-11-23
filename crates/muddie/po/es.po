@@ -571,9 +571,6 @@ msgstr[1] "Reconectando en {0} segundos."
 msgid "Hide the map"
 msgstr "Ocultar el mapa"
 
-msgid "Plugins are enabled per profile: save or choose a profile first."
-msgstr "Los plugins se activan por perfil. Guarda o selecciona un perfil para continuar."
-
 #, python-brace-format
 msgid "Plugin {0} enabled."
 msgstr "Plugin {0} activado."
@@ -1222,9 +1219,6 @@ msgstr "Incluidos"
 
 msgid "Installed"
 msgstr "Instalados"
-
-msgid "None installed."
-msgstr "Ninguno instalado."
 
 msgid "Host"
 msgstr "Dirección"
@@ -2081,9 +2075,6 @@ msgstr "No se ha podido instalar {0}: {1}"
 msgid "{0} installed again."
 msgstr "{0} instalado de nuevo."
 
-msgid "{0} has changed in this version of Muddie. To have the changes, install it again, from its menu in the profile's plugins: what it installed is put back as it comes, and what you added is kept."
-msgstr "{0} ha cambiado en esta versión de Muddie. Para tener los cambios, instálalo de nuevo desde su menú en los plugins del perfil: lo que instaló vuelve a quedar como viene y lo que hayas añadido se conserva."
-
 msgid "Another, filled in by hand"
 msgstr "Otro, rellenado a mano"
 
@@ -2606,9 +2597,6 @@ msgstr "Quitar…"
 msgid "Remove plugin"
 msgstr "Quitar plugin"
 
-msgid "Remove {0}? Its files are deleted, and it goes from every profile."
-msgstr "¿Quitar {0}? Se borran sus ficheros y desaparece de todos los perfiles."
-
 msgid "Tidy"
 msgstr "Ordenar"
 
@@ -2857,3 +2845,12 @@ msgstr "Ya hay un panel llamado {0}."
 
 msgid "costs {0} more to enter"
 msgstr "entrar cuesta {0} más"
+
+msgid "{0} has changed since it was installed. To have the changes, install it again, from its menu in the profile's plugins: what it installed is put back as it comes, and what you added is kept."
+msgstr "{0} ha cambiado desde que se instaló. Para tener los cambios, instálalo de nuevo desde su menú en los plugins del perfil: lo que instaló vuelve a quedar como viene y lo que hayas añadido se conserva."
+
+msgid "Downloaded from a git repository."
+msgstr "Descargado de un repositorio git."
+
+msgid "Remove {0}? Its scripts and gauges go from this profile, and what was downloaded of it once no profile has it."
+msgstr "¿Quitar {0}? Sus scripts e indicadores se van de este perfil, y lo descargado de él, cuando ningún perfil lo tenga."

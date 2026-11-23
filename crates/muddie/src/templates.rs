@@ -62,9 +62,9 @@ impl Template {
         for plugin in self
             .plugins
             .iter()
-            .filter_map(|id| crate::bundled::find(id))
+            .filter_map(|id| crate::plugins::included(id))
         {
-            plugin.switch(&mut profile.included_on, &mut profile.included_off, true);
+            plugin.switch(&mut profile.plugins_on, &mut profile.plugins_off, true);
         }
     }
 }
@@ -114,7 +114,11 @@ mod tests {
         // Each names plugins that come with Muddie.
         for template in &included {
             for id in &template.plugins {
-                assert!(crate::bundled::find(id).is_some(), "{} {id}", template.name);
+                assert!(
+                    crate::plugins::included(id).is_some(),
+                    "{} {id}",
+                    template.name
+                );
             }
         }
         let folder = std::env::temp_dir().join(format!("muddie-templates-{}", std::process::id()));
@@ -148,7 +152,7 @@ mod tests {
             (profile.host.as_str(), profile.port),
             ("reinosdeleyenda.es", 5001)
         );
-        assert_eq!(profile.included_on, ["reinos-de-leyenda"]);
+        assert_eq!(profile.plugins_on, ["reinos-de-leyenda"]);
         std::fs::remove_dir_all(&folder).unwrap();
     }
 }

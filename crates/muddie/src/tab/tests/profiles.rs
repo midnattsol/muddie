@@ -51,11 +51,11 @@ fn a_plugin_for_the_mud_is_offered_and_switched_on_without_the_rest_starting_ove
     let app = harness.state_mut().tab_mut();
     assert!(app.select_profile(Some("Reinos".into())));
     app.host = "rlmud.org".into();
-    let reinos = crate::bundled::find("reinos-de-leyenda").unwrap();
-    let common = crate::bundled::find(crate::bundled::COMMON).unwrap();
+    let reinos = &crate::plugins::included("reinos-de-leyenda").unwrap();
+    let common = &crate::plugins::included(crate::plugins::COMMON).unwrap();
     // What many MUDs send the same way is on to begin with; the plugin
     // of one MUD is not.
-    assert!(app.included(common) && !app.included(reinos));
+    assert!(app.plugin_on(common) && !app.plugin_on(reinos));
     app.scripts.exec(
         "keeps",
         "kept = 7 alias(\"^kept$\", function() echo(\"kept \" .. kept) end)",
@@ -81,20 +81,20 @@ fn a_plugin_for_the_mud_is_offered_and_switched_on_without_the_rest_starting_ove
         .unwrap();
     harness.run_steps(3);
     let app = harness.state_mut().tab_mut();
-    assert!(app.included(reinos) && app.plugin_offer.is_none());
+    assert!(app.plugin_on(reinos) && app.plugin_offer.is_none());
     assert_eq!(app.panels.channels[0].name, "chat");
     app.scripts.on_input("kept");
     app.run_actions();
     assert_eq!(output_lines(app).last().map(String::as_str), Some("kept 7"));
     // It is kept with the profile, and not offered again.
     let saved = profiles.load("Reinos").unwrap();
-    assert_eq!(saved.included_on, ["reinos-de-leyenda"]);
+    assert_eq!(saved.plugins_on, ["reinos-de-leyenda"]);
     events.send(Event::Connected).unwrap();
     harness.run_steps(3);
     assert!(harness.state().tab().plugin_offer.is_none());
     // Switched off, what it made is gone.
     let app = harness.state_mut().tab_mut();
-    app.set_included(reinos, false);
+    app.set_plugin(reinos, false);
     let before = app.panels.channels[0].log.len();
     app.scripts.on_gmcp(
         "Comm.MensajeCanal",
@@ -109,7 +109,7 @@ fn a_plugin_for_the_mud_is_offered_and_switched_on_without_the_rest_starting_ove
     app.offer_plugin_for("", "Reinos de Leyenda");
     assert!(app.plugin_offer.is_none());
     assert_eq!(
-        profiles.load("Reinos").unwrap().included_declined,
+        profiles.load("Reinos").unwrap().plugins_declined,
         ["reinos-de-leyenda"]
     );
     std::fs::remove_dir_all(&dir).unwrap();
@@ -119,7 +119,7 @@ fn a_plugin_for_the_mud_is_offered_and_switched_on_without_the_rest_starting_ove
 fn what_many_muds_send_alike_is_a_plugin_that_can_be_switched_off() {
     let mut harness = window(None);
     let app = harness.state_mut().tab_mut();
-    let common = crate::bundled::find(crate::bundled::COMMON).unwrap();
+    let common = &crate::plugins::included(crate::plugins::COMMON).unwrap();
     let (events, _sent) = fake_connection(app);
     let vitals = || Event::Gmcp {
         package: "Char.Vitals".into(),
@@ -138,7 +138,7 @@ fn what_many_muds_send_alike_is_a_plugin_that_can_be_switched_off() {
     assert_eq!(app.panels.channels.len(), 1);
     // Off, the client makes nothing of them by itself; scripts still
     // get them.
-    app.set_included(common, false);
+    app.set_plugin(common, false);
     app.gauges.clear();
     app.panels.channels.clear();
     app.scripts.exec(
@@ -162,8 +162,8 @@ fn what_the_mud_is_asked_for_follows_the_plugins_on_and_off() {
     let mut harness = window(Some(profiles));
     let app = harness.state_mut().tab_mut();
     assert!(app.select_profile(Some("Reinos".into())));
-    let reinos = crate::bundled::find("reinos-de-leyenda").unwrap();
-    let common = crate::bundled::find(crate::bundled::COMMON).unwrap();
+    let reinos = &crate::plugins::included("reinos-de-leyenda").unwrap();
+    let common = &crate::plugins::included(crate::plugins::COMMON).unwrap();
     let (_events, mut sent) = fake_connection(app);
     let mut told = || -> Vec<Vec<String>> {
         std::iter::from_fn(|| sent.try_recv().ok())
@@ -182,17 +182,17 @@ fn what_the_mud_is_asked_for_follows_the_plugins_on_and_off() {
         .map(String::from)
         .to_vec();
     let standard = [usual.clone(), standard].concat();
-    app.set_included(reinos, true);
+    app.set_plugin(reinos, true);
     let with_comm = [standard.clone(), vec!["Comm 1".to_owned()]].concat();
     assert_eq!(told(), [with_comm]);
     // Switched off, what it asked for is no longer wanted.
-    app.set_included(reinos, false);
+    app.set_plugin(reinos, false);
     assert_eq!(told(), [standard]);
     // Nothing is said when nothing changed.
     app.run_actions();
     assert_eq!(told(), Vec::<Vec<String>>::new());
     // Without the standard plugin, only what is the client's own.
-    app.set_included(common, false);
+    app.set_plugin(common, false);
     assert_eq!(told(), [usual]);
     std::fs::remove_dir_all(&dir).unwrap();
 }
@@ -209,8 +209,8 @@ fn a_plugin_puts_its_gauges_in_the_panels_they_name() {
     let mut harness = window(Some(profiles));
     let app = harness.state_mut().tab_mut();
     assert!(app.select_profile(Some("Reinos".into())));
-    let reinos = crate::bundled::find("reinos-de-leyenda").unwrap();
-    app.set_included(reinos, true);
+    let reinos = &crate::plugins::included("reinos-de-leyenda").unwrap();
+    app.set_plugin(reinos, true);
     let panel_of = |app: &Tab, gauge: &str| -> String {
         let id = (app.rules.gauges.iter())
             .find(|rule| rule.name == gauge)
@@ -301,7 +301,7 @@ fn a_plugin_that_comes_with_muddie_is_installed_in_sight_and_the_profiles() {
     let profiles = Profiles::at(dir.clone());
     // A profile for that MUD, which makes nothing of the standard GMCP.
     let reinos_only = Profile {
-        included_off: vec![crate::bundled::COMMON.into()],
+        plugins_off: vec![crate::plugins::COMMON.into()],
         ..Profile::default()
     };
     profiles.save("Reinos", &reinos_only).unwrap();
@@ -309,8 +309,8 @@ fn a_plugin_that_comes_with_muddie_is_installed_in_sight_and_the_profiles() {
     harness.set_size(egui::vec2(1300.0, 860.0));
     let app = harness.state_mut().tab_mut();
     assert!(app.select_profile(Some("Reinos".into())));
-    let plugin = crate::bundled::find("reinos-de-leyenda").unwrap();
-    app.set_included(plugin, true);
+    let plugin = &crate::plugins::included("reinos-de-leyenda").unwrap();
+    app.set_plugin(plugin, true);
     let script = (profiles.scripts_dir("Reinos"))
         .join("Reinos de Leyenda")
         .join("Reinos de Leyenda.luau");
@@ -332,7 +332,7 @@ fn a_plugin_that_comes_with_muddie_is_installed_in_sight_and_the_profiles() {
     };
     assert_eq!(gauges(&rules()), all(true));
     let saved = profiles.load("Reinos").unwrap();
-    assert_eq!(saved.included_installed[plugin.id], plugin.fingerprint());
+    assert_eq!(saved.plugins_installed[&plugin.id], plugin.fingerprint());
     // Changed by the player: theirs.
     let mine = "-- mine\n";
     std::fs::write(&script, mine).unwrap();
@@ -354,11 +354,11 @@ fn a_plugin_that_comes_with_muddie_is_installed_in_sight_and_the_profiles() {
         all[2].1 = false;
         all
     };
-    app.set_included(plugin, false);
+    app.set_plugin(plugin, false);
     assert!(!app.scripts.is_loaded(&script));
     assert!(!rules().folder_on(Kind::Script, "Reinos de Leyenda"));
     assert!(!rules().folder_on(Kind::Gauge, "Reinos de Leyenda"));
-    app.set_included(plugin, true);
+    app.set_plugin(plugin, true);
     assert!(app.scripts.is_loaded(&script));
     assert!(rules().folder_on(Kind::Gauge, "Reinos de Leyenda"));
     assert_eq!(gauges(&rules()), mine_off(all(true)));
@@ -368,16 +368,16 @@ fn a_plugin_that_comes_with_muddie_is_installed_in_sight_and_the_profiles() {
     // Installed with another version of it: said, once.
     let mut saved = profiles.load("Reinos").unwrap();
     saved
-        .included_installed
-        .insert(plugin.id.into(), "older".into());
+        .plugins_installed
+        .insert(plugin.id.clone(), "older".into());
     profiles.save("Reinos", &saved).unwrap();
     let app = harness.state_mut().tab_mut();
-    app.included_installed
-        .insert(plugin.id.into(), "older".into());
+    app.plugins_installed
+        .insert(plugin.id.clone(), "older".into());
     app.load_scripts();
     app.load_scripts();
     let changed = (notes(app).iter())
-        .filter(|said| said.contains("has changed in this version of Muddie"))
+        .filter(|said| said.contains("has changed since it was installed"))
         .count();
     assert_eq!(changed, 1);
     // Installed again from its menu in the profile's plugins: what it
@@ -403,7 +403,7 @@ fn a_plugin_that_comes_with_muddie_is_installed_in_sight_and_the_profiles() {
     assert_eq!(after.gauges.len(), 5);
     assert_eq!(after.gauges[0].colour, "#5fb85f");
     let saved = profiles.load("Reinos").unwrap();
-    assert_eq!(saved.included_installed[plugin.id], plugin.fingerprint());
+    assert_eq!(saved.plugins_installed[&plugin.id], plugin.fingerprint());
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
@@ -413,9 +413,9 @@ fn a_plugin_that_comes_with_muddie_is_installed_in_sight_and_the_profiles() {
 fn a_plugin_that_comes_with_muddie_runs_as_it_comes_without_a_profile() {
     let mut harness = window(None);
     let app = harness.state_mut().tab_mut();
-    let plugin = crate::bundled::find("reinos-de-leyenda").unwrap();
-    app.set_included(plugin, true);
-    assert!(app.included(plugin));
+    let plugin = &crate::plugins::included("reinos-de-leyenda").unwrap();
+    app.set_plugin(plugin, true);
+    assert!(app.plugin_on(plugin));
     let theirs = |app: &Tab| {
         (app.rules.gauges.iter())
             .filter(|gauge| gauge.folder == "Reinos de Leyenda")
@@ -423,7 +423,7 @@ fn a_plugin_that_comes_with_muddie_runs_as_it_comes_without_a_profile() {
     };
     assert_eq!(theirs(app), 4);
     assert!(app.scripts.supports().contains(&"Comm 1".to_owned()));
-    app.set_included(plugin, false);
+    app.set_plugin(plugin, false);
     assert_eq!(theirs(app), 0);
     assert!(!app.scripts.supports().contains(&"Comm 1".to_owned()));
 }
@@ -493,6 +493,78 @@ fn a_new_profile_is_made_for_a_game_with_its_address_and_plugin() {
         (saved.host.as_str(), saved.port, saved.tls),
         ("reinosdeleyenda.es", 5001, false)
     );
-    assert_eq!(saved.included_on, ["reinos-de-leyenda"]);
+    assert_eq!(saved.plugins_on, ["reinos-de-leyenda"]);
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// A plugin downloaded from git is a plugin as those that come with
+/// Muddie: switched on, it is installed in the profile, its scripts and its
+/// gauges in folders of its name; removed, they go, and so does the
+/// download, which no other profile has.
+#[test]
+fn a_plugin_downloaded_is_installed_and_removed_as_any_other() {
+    let dir = std::env::temp_dir().join(format!("muddie-downloaded-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let source = dir.join("source");
+    std::fs::create_dir_all(&source).unwrap();
+    std::fs::write(source.join("main.luau"), "support_gmcp(\"Combat 1\")").unwrap();
+    std::fs::write(
+        source.join("rules.toml"),
+        "[[gauge]]\nname = \"Rage\"\nvalue = \"Char.Rage\"\nmax = \"100\"\n",
+    )
+    .unwrap();
+    let git = |arguments: &[&str]| {
+        let status = std::process::Command::new("git")
+            .arg("-C")
+            .arg(&source)
+            .args(["-c", "user.name=test", "-c", "user.email=test@example.org"])
+            .args(arguments)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .unwrap();
+        assert!(status.success(), "git {arguments:?}");
+    };
+    git(&["init", "-q"]);
+    git(&["add", "."]);
+    git(&["commit", "-q", "-m", "first"]);
+    let profiles = Profiles::at(dir.join("config"));
+    profiles.save("Main", &Profile::default()).unwrap();
+    let mut harness = window(Some(profiles.clone()));
+    let app = harness.state_mut().tab_mut();
+    assert!(app.select_profile(Some("Main".into())));
+    app.plugin_command(&format!("/plugin install {} combat", source.display()));
+    for _ in 0..300 {
+        harness.run_steps(1);
+        if harness.state().tab().plugin_jobs.is_empty() {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+    let app = harness.state_mut().tab_mut();
+    let script = profiles
+        .scripts_dir("Main")
+        .join("combat")
+        .join("main.luau");
+    assert!(app.scripts.is_loaded(&script));
+    assert!(app.scripts.supports().contains(&"Combat 1".to_owned()));
+    let rage = app.rules.gauges.iter().find(|gauge| gauge.name == "Rage");
+    assert_eq!(rage.map(|gauge| gauge.folder.as_str()), Some("combat"));
+    assert!(
+        profiles
+            .load("Main")
+            .unwrap()
+            .plugins_on
+            .contains(&"combat".to_owned())
+    );
+    // Switched off, its folders are, as any plugin's.
+    assert!(app.do_client_command("/plugin disable combat"));
+    assert!(!app.scripts.is_loaded(&script));
+    assert!(!app.rules.folder_on(Kind::Gauge, "combat"));
+    // Removed, all it installed goes, and the download with it.
+    app.remove_plugin("combat");
+    assert!(!script.exists() && !profiles.plugins_dir().join("combat").exists());
+    assert!(!app.rules.gauges.iter().any(|gauge| gauge.name == "Rage"));
+    assert!(app.plugin("combat").is_none());
     std::fs::remove_dir_all(&dir).unwrap();
 }

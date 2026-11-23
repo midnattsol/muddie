@@ -214,12 +214,12 @@ fn shows_plugins() {
     let dir = std::env::temp_dir().join(format!("muddie-shot-plugins-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     for plugin in ["aardwolf-mapper", "combat-gauges"] {
-        std::fs::create_dir_all(dir.join("packages").join(plugin)).unwrap();
-        std::fs::write(dir.join("packages").join(plugin).join("init.luau"), "").unwrap();
+        std::fs::create_dir_all(dir.join("plugins").join(plugin)).unwrap();
+        std::fs::write(dir.join("plugins").join(plugin).join("init.luau"), "").unwrap();
     }
     let profiles = Profiles::at(dir.clone());
     let profile = Profile {
-        packages: vec!["aardwolf-mapper".into()],
+        plugins_on: vec!["aardwolf-mapper".into()],
         ..Profile::default()
     };
     profiles.save("Aardwolf", &profile).unwrap();
@@ -849,8 +849,8 @@ fn shows_map_menu() {
     let mut harness = connected_drawn_demo_window();
     harness.set_size(egui::vec2(1500.0, 900.0));
     let app = harness.state_mut().tab_mut();
-    let plugin = crate::bundled::find("reinos-de-leyenda").unwrap();
-    for (name, code) in plugin.scripts {
+    let plugin = &crate::plugins::included("reinos-de-leyenda").unwrap();
+    for (name, code) in &plugin.scripts {
         app.scripts.exec(name, code);
     }
     app.run_actions();

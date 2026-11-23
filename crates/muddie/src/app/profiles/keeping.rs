@@ -74,15 +74,12 @@ impl App {
         };
         if let Ok(stored) = profiles.load(&edit.name) {
             for draft in [&mut edit.draft, &mut edit.saved, &mut edit.seen] {
-                draft.packages.clone_from(&stored.packages);
-                draft.included_on.clone_from(&stored.included_on);
-                draft.included_off.clone_from(&stored.included_off);
+                draft.plugins_on.clone_from(&stored.plugins_on);
+                draft.plugins_off.clone_from(&stored.plugins_off);
+                draft.plugins_declined.clone_from(&stored.plugins_declined);
                 draft
-                    .included_declined
-                    .clone_from(&stored.included_declined);
-                draft
-                    .included_installed
-                    .clone_from(&stored.included_installed);
+                    .plugins_installed
+                    .clone_from(&stored.plugins_installed);
             }
         }
     }

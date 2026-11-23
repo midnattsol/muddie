@@ -21,7 +21,6 @@ use crate::keypad;
 use crate::logger::SessionLog;
 use crate::mapview::{MapAsk, MapView};
 use crate::output::{Output, server_job};
-use crate::packages;
 use crate::palette;
 use crate::panels::{self, Gauges};
 use crate::profile::{Profile, Profiles};
@@ -79,8 +78,6 @@ pub struct Tab {
     profiles: Option<Profiles>,
     /// The profile in use, if any.
     profile: Option<String>,
-    /// Its packages, kept so that saving the profile does not lose them.
-    packages: Vec<String>,
     /// Name typed in the profile bar, to save the profile under.
     profile_name: String,
     /// Scripts given on the command line, run after the profile's.
@@ -217,19 +214,21 @@ pub struct Tab {
     /// The plugins that come with Muddie: those switched on, those
     /// switched off, those declined for this MUD, and the one being
     /// offered for it now.
-    included_on: Vec<String>,
-    included_off: Vec<String>,
-    included_declined: Vec<String>,
+    plugins_on: Vec<String>,
+    plugins_off: Vec<String>,
+    plugins_declined: Vec<String>,
     /// The plugins that come with Muddie installed in the profile, each
     /// with the mark of what it was made of.
-    included_installed: std::collections::BTreeMap<String, String>,
+    plugins_installed: std::collections::BTreeMap<String, String>,
     /// Whether it was said that some installed differ from those that
     /// come with this version.
-    included_changes_told: bool,
-    plugin_offer: Option<&'static crate::bundled::Bundled>,
-    /// Package installs and updates under way; the flag says to enable
-    /// the package when its job ends well.
-    package_jobs: Vec<(Receiver<packages::Outcome>, bool)>,
+    plugin_changes_told: bool,
+    plugin_offer: Option<crate::plugins::Plugin>,
+    /// The plugins there are, as last looked for.
+    plugins: Vec<crate::plugins::Plugin>,
+    /// Plugins being downloaded or updated; the flag says it is one being
+    /// downloaded, to be switched on when its job ends well.
+    plugin_jobs: Vec<(Receiver<crate::plugins::git::Outcome>, bool)>,
     /// The sounds being fetched for the MUD, where it said they are, and those
     /// that could not be had.
     fetching: media::Fetching,
@@ -279,7 +278,6 @@ impl Tab {
             verify_certificate: true,
             profiles: startup.profiles,
             profile: None,
-            packages: Vec::new(),
             profile_name: String::new(),
             extra_scripts: startup.scripts,
             pending_partial: None,
@@ -341,13 +339,14 @@ impl Tab {
             address: String::new(),
             encoding: "auto".into(),
             language: language::GameLanguage::default(),
-            included_on: Vec::new(),
-            included_off: Vec::new(),
-            included_declined: Vec::new(),
-            included_installed: Default::default(),
-            included_changes_told: false,
+            plugins_on: Vec::new(),
+            plugins_off: Vec::new(),
+            plugins_declined: Vec::new(),
+            plugins_installed: Default::default(),
+            plugin_changes_told: false,
             plugin_offer: None,
-            package_jobs: Vec::new(),
+            plugins: crate::plugins::all(None),
+            plugin_jobs: Vec::new(),
             fetching: media::Fetching::default(),
             mxp_state: mxp::MxpState::default(),
             character: String::new(),
@@ -437,7 +436,7 @@ impl Tab {
         self.tell_map_changes(ctx, now);
         self.check_partial(ctx);
         self.check_timers(ctx);
-        self.check_packages(ctx);
+        self.check_plugin_jobs(ctx);
         self.tell_screen_reader();
         if let Some(deadline) = self.scripts.next_deadline() {
             ctx.request_repaint_after(deadline.saturating_duration_since(now));

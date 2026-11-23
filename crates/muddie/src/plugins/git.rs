@@ -1,7 +1,6 @@
-//! Installing and updating script packages from git repositories.
-//!
-//! A package is a folder with an `init.luau`; installing one clones its
-//! repository into the `packages` folder with the system's `git`.
+//! Downloading plugins from git repositories, and bringing them up to
+//! date, with the system's `git`, into the folder of the plugins
+//! downloaded.
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -9,7 +8,7 @@ use std::sync::mpsc::{Receiver, channel};
 
 use crate::profile::valid_name;
 
-/// The name a package gets from the address it is installed from: the last
+/// The name a plugin gets from the address it is installed from: the last
 /// part of the address, without `.git`. `None` if that is not a usable
 /// folder name.
 pub fn name_from_address(address: &str) -> Option<String> {
@@ -22,46 +21,48 @@ pub fn name_from_address(address: &str) -> Option<String> {
     valid_name(name).then(|| name.to_owned())
 }
 
-/// How a git run ended: the package's name, or what went wrong.
+/// How a git run ended: the plugin's name, or what went wrong.
 pub type Outcome = Result<String, String>;
 
-/// Clones `address` into `packages/name` in the background.
-pub fn install(packages: &Path, name: &str, address: &str) -> Receiver<Outcome> {
-    let target = packages.join(name);
+/// Clones `address` into `folder/name` in the background.
+pub fn download(folder: &Path, name: &str, address: &str) -> Receiver<Outcome> {
+    let target = folder.join(name);
     let mut git = Command::new("git");
     git.args(["clone", "--depth", "1", "--"])
         .arg(address)
         .arg(&target);
-    let folder = packages.to_owned();
+    let folder = folder.to_owned();
     run(
         name,
         git,
         move || {
             std::fs::create_dir_all(&folder).map_err(|error| error.to_string())?;
             if target.exists() {
-                return Err("a package with that name is already installed".to_owned());
+                return Err("a plugin of that name is downloaded already".to_owned());
             }
             Ok(())
         },
-        check_package,
+        check_plugin,
     )
 }
 
-/// Brings the package `name` up to date with its repository.
-pub fn update(packages: &Path, name: &str) -> Receiver<Outcome> {
+/// Brings the plugin `name` up to date with its repository.
+pub fn update(folder: &Path, name: &str) -> Receiver<Outcome> {
     let mut git = Command::new("git");
     git.arg("-C")
-        .arg(packages.join(name))
+        .arg(folder.join(name))
         .args(["pull", "--ff-only"]);
     run(name, git, || Ok(()), |_| Ok(()))
 }
 
-/// A package without an `init.luau` would load nothing.
-fn check_package(folder: PathBuf) -> Result<(), String> {
-    if folder.join("init.luau").is_file() {
-        Ok(())
-    } else {
-        Err("it was downloaded, but has no init.luau, so it is not a Muddie plugin".to_owned())
+/// A repository with no script would install nothing: it is not one.
+fn check_plugin(folder: PathBuf) -> Result<(), String> {
+    match super::Plugin::downloaded(&folder) {
+        Some(_) => Ok(()),
+        None => {
+            let _ = std::fs::remove_dir_all(&folder);
+            Err("it has no .luau script, so it is not a Muddie plugin".to_owned())
+        }
     }
 }
 
@@ -108,7 +109,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn package_name_comes_from_the_address() {
+    fn a_plugin_is_named_after_its_address() {
         for (address, name) in [
             (
                 "https://example.org/ana/combat-pack.git",
@@ -140,7 +141,7 @@ mod tests {
     /// Installs from, and updates against, a repository made on the spot.
     #[test]
     fn installs_and_updates_from_a_local_repository() {
-        let dir = std::env::temp_dir().join(format!("muddie-packages-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("muddie-git-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let source = dir.join("source");
         std::fs::create_dir_all(&source).unwrap();
@@ -151,41 +152,42 @@ mod tests {
 
         let wait =
             |outcome: Receiver<Outcome>| outcome.recv_timeout(Duration::from_secs(30)).unwrap();
-        let packages = dir.join("packages");
+        let folder = dir.join("plugins");
         let address = source.display().to_string();
         assert_eq!(
-            wait(install(&packages, "pack", &address)),
+            wait(download(&folder, "pack", &address)),
             Ok("pack".to_owned())
         );
         assert_eq!(
-            std::fs::read_to_string(packages.join("pack/init.luau")).unwrap(),
+            std::fs::read_to_string(folder.join("pack/init.luau")).unwrap(),
             "echo('v1')"
         );
         assert!(
-            wait(install(&packages, "pack", &address))
+            wait(download(&folder, "pack", &address))
                 .unwrap_err()
-                .contains("already installed")
+                .contains("downloaded already")
         );
 
         std::fs::write(source.join("init.luau"), "echo('v2')").unwrap();
         git(&source, &["commit", "-q", "-am", "second"]);
-        assert_eq!(wait(update(&packages, "pack")), Ok("pack".to_owned()));
+        assert_eq!(wait(update(&folder, "pack")), Ok("pack".to_owned()));
         assert_eq!(
-            std::fs::read_to_string(packages.join("pack/init.luau")).unwrap(),
+            std::fs::read_to_string(folder.join("pack/init.luau")).unwrap(),
             "echo('v2')"
         );
 
-        // A repository that is not a package is reported as such.
+        // A repository that is not a plugin is said to be none, and
+        // nothing of it is kept.
         std::fs::remove_file(source.join("init.luau")).unwrap();
         std::fs::write(source.join("readme"), "x").unwrap();
         git(&source, &["add", "-A"]);
         git(&source, &["commit", "-q", "-m", "third"]);
         assert!(
-            wait(install(&packages, "other", &address))
+            wait(download(&folder, "other", &address))
                 .unwrap_err()
-                .contains("no init.luau")
+                .contains("no .luau script")
         );
-        assert!(wait(update(&packages, "missing")).is_err());
+        assert!(wait(update(&folder, "missing")).is_err());
         std::fs::remove_dir_all(&dir).unwrap();
     }
 }

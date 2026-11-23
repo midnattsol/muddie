@@ -295,12 +295,9 @@ impl Tab {
                 .filter(|name| has(name))
                 .map(|name| answer(name.to_owned(), String::new()))
                 .collect(),
-            Offers::Plugins => (self.profiles.as_ref())
-                .map(Profiles::packages)
-                .unwrap_or_default()
-                .into_iter()
-                .filter(|name| has(name))
-                .map(|name| answer(name, String::new()))
+            Offers::Plugins => (self.plugins.iter())
+                .filter(|plugin| plugin.included.is_none() && has(&plugin.name))
+                .map(|plugin| answer(plugin.name.clone(), String::new()))
                 .collect(),
         }
     }

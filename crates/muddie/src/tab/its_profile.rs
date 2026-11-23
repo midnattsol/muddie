@@ -32,12 +32,12 @@ impl Tab {
             character: self.character.trim().to_owned(),
             encoding: self.encoding.trim().to_owned(),
             language: self.language.chosen.clone(),
-            packages: self.packages.clone(),
-            included_on: self.included_on.clone(),
-            included_off: self.included_off.clone(),
-            included_declined: self.included_declined.clone(),
-            included_installed: self.included_installed.clone(),
+            plugins_on: self.plugins_on.clone(),
+            plugins_off: self.plugins_off.clone(),
+            plugins_declined: self.plugins_declined.clone(),
+            plugins_installed: self.plugins_installed.clone(),
             session: Some(self.prefs.clone()),
+            old_packages: Vec::new(),
         })
     }
 
@@ -74,27 +74,20 @@ impl Tab {
         self.speak_the_language();
         self.prefs =
             (profile.session.clone()).unwrap_or_else(|| SessionPrefs::from(&self.settings));
-        let switched: Vec<(&'static crate::bundled::Bundled, bool)> = (crate::bundled::ALL.iter())
+        let switched: Vec<(crate::plugins::Plugin, bool)> = (self.plugins.iter())
             .map(|plugin| {
-                (
-                    plugin,
-                    plugin.is_on(&profile.included_on, &profile.included_off),
-                )
+                let on = plugin.is_on(&profile.plugins_on, &profile.plugins_off);
+                (plugin.clone(), on)
             })
-            .filter(|(plugin, on)| self.included(plugin) != *on)
+            .filter(|(plugin, on)| self.plugin_on(plugin) != *on)
             .collect();
-        self.included_on.clone_from(&profile.included_on);
-        self.included_off.clone_from(&profile.included_off);
-        self.included_declined
-            .clone_from(&profile.included_declined);
-        self.included_installed
-            .clone_from(&profile.included_installed);
+        self.plugins_on.clone_from(&profile.plugins_on);
+        self.plugins_off.clone_from(&profile.plugins_off);
+        self.plugins_declined.clone_from(&profile.plugins_declined);
+        self.plugins_installed
+            .clone_from(&profile.plugins_installed);
         for (plugin, on) in switched {
-            self.run_included(plugin, on);
-        }
-        if self.packages != profile.packages {
-            self.packages.clone_from(&profile.packages);
-            self.load_scripts();
+            self.run_plugin(&plugin, on);
         }
     }
 
@@ -166,7 +159,7 @@ impl Tab {
     /// one is still at work.
     pub fn plugin_answers(&self) -> (Vec<String>, bool) {
         let from = self.plugin_said.min(self.output.len());
-        let busy = !self.package_jobs.is_empty();
+        let busy = !self.plugin_jobs.is_empty();
         if from == 0 && !busy {
             return (Vec::new(), false);
         }
@@ -201,22 +194,20 @@ impl Tab {
             self.port = profile.port.to_string();
             self.tls = profile.tls;
             self.verify_certificate = profile.verify_certificate;
-            self.packages = profile.packages;
             self.character = profile.character;
             self.encoding = profile.encoding;
             self.language.chosen = profile.language;
-            self.included_on = profile.included_on;
-            self.included_off = profile.included_off;
-            self.included_declined = profile.included_declined;
-            self.included_installed = profile.included_installed;
+            self.plugins_on = profile.plugins_on;
+            self.plugins_off = profile.plugins_off;
+            self.plugins_declined = profile.plugins_declined;
+            self.plugins_installed = profile.plugins_installed;
             self.prefs = (profile.session)
                 .unwrap_or_else(|| crate::profile::SessionPrefs::from(&self.settings));
         } else {
             self.prefs = crate::profile::SessionPrefs::from(&self.settings);
-            self.packages.clear();
-            self.included_on.clear();
-            self.included_off.clear();
-            self.included_declined.clear();
+            self.plugins_on.clear();
+            self.plugins_off.clear();
+            self.plugins_declined.clear();
         }
         self.plugin_offer = None;
         self.profile_name = name.clone().unwrap_or_default();
@@ -251,18 +242,13 @@ impl Tab {
                 "Profiles cannot be saved: no configuration folder was found.",
             ));
         };
-        let Some(mut profile) = self.profile_now() else {
+        let Some(profile) = self.profile_now() else {
             return self.note(tr("The port must be a number from 1 to 65535."));
         };
-        // A profile saved under a new name starts without packages.
-        if self.profile.as_deref() != Some(&name) {
-            profile.packages.clear();
-        }
         match profiles.save(&name, &profile) {
             Ok(()) => {
                 let renamed = self.profile.as_deref() != Some(&name);
                 self.profile_written = true;
-                self.packages = profile.packages;
                 self.profile = Some(name.clone());
                 if renamed {
                     self.load_scripts();

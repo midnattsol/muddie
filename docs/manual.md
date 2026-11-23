@@ -80,11 +80,12 @@ session plays with, and the one chosen at the right. Its page has its name,
   off or every so often, so that an idle connection is not closed; the
   **Session log**, off, as text or as HTML; and **Download sounds** the MUD
   asks for.
-- **Plugins**: those **Included** with Muddie, and those **Installed**, with
-  **Install from git** and the address of their git repository. Each has a switch
-  that enables it in that profile; its menu has the rest, and **Update all**
-  updates them all. Only install what you trust: a plugin can send commands
-  as you.
+- **Plugins**: those that come with Muddie and those downloaded with
+  **Install a plugin…** and the address of their git repository, all alike.
+  Each has a switch that enables it in that profile; its menu installs it
+  again as it comes, and for one downloaded updates it or removes it from the
+  profile; **Update all** updates those downloaded. Only install what you
+  trust: a plugin can send commands as you.
 
 What is changed there is kept as it is changed, with no button to press, and
 a session playing with that profile takes it. While the session on screen is
@@ -427,11 +428,14 @@ red under 30 %, as many levels as wanted, kept in order. A light can have a
 colour for when it is off as well, to say which of two things is so: red for
 poisoned, green for not. Alt+0 reads the gauges aloud.
 
-### Plugins that come with Muddie
+### Plugins
 
 Muddie itself knows the ways of no MUD in particular: those are plugins, in
 each profile's **Plugins** tab in the Profiles window, switched on and off
-per profile like the ones you install. What a plugin installs goes in a
+per profile, whether they come with Muddie or were downloaded. A plugin is
+scripts, and a `rules.toml` with the gauges it brings, if any; one
+downloaded is the repository it was downloaded from, kept in the `plugins`
+folder, and is installed in a profile as the others are. What a plugin installs goes in a
 folder of its name, among the scripts and among the gauges: switched off, the
 plugin switches those folders off, and what you switched off in them stays so
 when it is on again. Two come with it.

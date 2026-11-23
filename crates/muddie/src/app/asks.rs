@@ -351,7 +351,7 @@ fn ask_body(
         }
         Ask::RemovePlugin(name) => {
             ui.label(trf(
-                "Remove {0}? Its files are deleted, and it goes from every profile.",
+                "Remove {0}? Its scripts and gauges go from this profile, and what was downloaded of it once no profile has it.",
                 &[name],
             ));
         }
