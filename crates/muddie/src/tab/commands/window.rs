@@ -366,7 +366,7 @@ impl Tab {
             })
             .inner;
         // Named for a screen reader: what it asks, while it asks.
-        let label = asked.unwrap_or_else(|| tr("Command palette").to_owned());
+        let label = asked.unwrap_or_else(|| tr("Palette").to_owned());
         ui.ctx().accesskit_node_builder(edit.response.id, |node| {
             node.set_label(label);
         });

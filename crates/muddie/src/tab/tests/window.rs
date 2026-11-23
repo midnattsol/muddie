@@ -162,7 +162,7 @@ fn what_the_palette_finds_is_said_once_typing_pauses() {
     app.voice.force_voice();
     app.toggle_palette();
     harness.run_steps(3);
-    let field = "Command palette";
+    let field = "Palette";
     (harness.get_by_role_and_label(egui::accesskit::Role::TextInput, field)).type_text("zzzz");
     harness.run_steps(2);
     // Nothing yet: what is typed may still change.

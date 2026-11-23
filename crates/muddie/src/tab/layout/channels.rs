@@ -87,6 +87,10 @@ impl Tab {
             let kept = prefs.quiet_channels.clone();
             profile.session.get_or_insert(prefs).quiet_channels = kept;
         });
+        self.note(&match quiet {
+            false => trf("The {0} channel is read aloud.", &[name]),
+            true => trf("The {0} channel is no longer read aloud.", &[name]),
+        });
     }
 
     /// Where a channel goes, by the panel named: a panel that shows the

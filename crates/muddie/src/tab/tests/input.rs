@@ -262,7 +262,7 @@ fn the_palette_opens_from_its_field_and_stays_open() {
     harness.run_steps(3);
     // Pressed with the pointer, as the keys open it: it is there, and
     // stays there frame after frame.
-    harness.get_by_label("Search or run a command").click();
+    harness.get_by_label("Palette").click();
     for frame in 0..6 {
         harness.step();
         assert!(

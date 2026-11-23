@@ -113,10 +113,7 @@ impl Tab {
         let panels = tr("Panels");
         (self.layout.panels.iter())
             .map(|panel| {
-                let label = match panel.visible {
-                    true => trf("Hide {0}", &[&panel.shown_name()]),
-                    false => trf("Show {0}", &[&panel.shown_name()]),
-                };
+                let label = switched(&trf("Show {0}", &[&panel.shown_name()]), panel.visible);
                 item(&label, panels, Act::Panel(panel.id))
             })
             .collect()
@@ -346,10 +343,6 @@ impl Tab {
             }
             Act::ReadChannel(name, read) => {
                 self.set_channel_quiet(&name, !read);
-                self.note(&match read {
-                    true => trf("The {0} channel is read aloud.", &[&name]),
-                    false => trf("The {0} channel is no longer read aloud.", &[&name]),
-                });
             }
             Act::Speech => match self.voice.enabled() {
                 true => self.voice.set_muted(true),

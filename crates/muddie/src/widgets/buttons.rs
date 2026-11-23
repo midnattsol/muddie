@@ -267,8 +267,14 @@ pub fn go_button(ui: &mut Ui, label: &str, size: f32) -> Response {
 pub fn palette_button(ui: &mut Ui, width: f32, keys: &str) -> Response {
     let theme = theme::current();
     let (rect, response) = ui.allocate_exact_size(vec2(width, 26.0), Sense::click());
-    let said = crate::i18n::tr("Search or run a command");
-    response.widget_info(|| WidgetInfo::labeled(Role::Button, ui.is_enabled(), said));
+    // Named as it is everywhere; what it is for written in it, as a
+    // field's hint, and said after its name.
+    let (name, hint) = (
+        crate::i18n::tr("Palette"),
+        crate::i18n::tr("Search or run a command"),
+    );
+    response.widget_info(|| WidgetInfo::labeled(Role::Button, ui.is_enabled(), name));
+    (ui.ctx()).accesskit_node_builder(response.id, |node| node.set_description(hint));
     if ui.is_rect_visible(rect) {
         let painter = ui.painter();
         let fill = if response.hovered() {
@@ -293,7 +299,7 @@ pub fn palette_button(ui: &mut Ui, width: f32, keys: &str) -> Response {
         clip.text(
             rect.left_center() + vec2(28.0, 0.0),
             egui::Align2::LEFT_CENTER,
-            said,
+            hint,
             small.clone(),
             theme.text_faint,
         );

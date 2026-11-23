@@ -1490,8 +1490,6 @@ msgid "No matches."
 msgstr "Sin resultados."
 
 
-msgid "Command palette"
-msgstr "Paleta de comandos"
 
 #, python-brace-format
 msgid "Active voice: {0}, with its own speed and voice."
@@ -2846,3 +2844,6 @@ msgstr "Qué habla"
 
 msgid "A folder's name cannot have a slash."
 msgstr "El nombre de una carpeta no puede llevar barra."
+
+msgid "Palette"
+msgstr "Paleta"

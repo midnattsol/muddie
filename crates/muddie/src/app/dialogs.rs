@@ -80,7 +80,7 @@ impl App {
                             (crate::shortcuts::NEW_SESSION.written, tr("New session")),
                             (crate::shortcuts::CLOSE_SESSION.written, tr("Close session")),
                             (crate::shortcuts::RECONNECT.written, tr("Reconnect")),
-                            (crate::shortcuts::PALETTE.written, tr("Commands")),
+                            (crate::shortcuts::PALETTE.written, tr("Palette")),
                             (
                                 crate::shortcuts::SWITCH_VIEW.written,
                                 tr("Switch between the game and the editor"),
