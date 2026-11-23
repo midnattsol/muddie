@@ -92,8 +92,8 @@ impl Luau for OnLine {
         code.push_str(&rule.action());
         if !when.speak.trim().is_empty() {
             code.push_str(&format!(
-                "\tspeak(fill({}, m))\n",
-                quoted(when.speak.trim())
+                "\tspeak({})\n",
+                filled_luau(when.speak.trim(), true)
             ));
         }
         if !when.sound.trim().is_empty() {

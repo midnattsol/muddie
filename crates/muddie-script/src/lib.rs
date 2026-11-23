@@ -432,6 +432,12 @@ impl Engine {
             .collect()
     }
 
+    /// `text` with each `$name` that is a variable replaced by its value,
+    /// as what rules send is.
+    pub fn expand(&self, text: &str) -> String {
+        self.state.borrow().expand(text)
+    }
+
     /// The MSDP variables the scripts loaded ask to be told of.
     pub fn msdp_reports(&self) -> Vec<String> {
         let mut variables: Vec<String> = Vec::new();

@@ -24,7 +24,8 @@ impl Tab {
         }
         let delete = self.rule_head(ui, Kind::Trigger, index, tr("Trigger name"));
         let rule = &mut self.editor.draft.triggers[index];
-        when(ui, rule, &mut self.editor.sample, &mut self.editor.patterns);
+        let (sample, patterns) = (&mut self.editor.sample, &mut self.editor.patterns);
+        when(ui, rule, sample, patterns, &self.scripts);
         self.trigger_does(ui, index);
         let rule = &mut self.editor.draft.triggers[index];
         also(ui, rule, &mut self.editor.extras_added.1, &text_panels);
@@ -69,6 +70,7 @@ fn when(
     rule: &mut crate::rules::Trigger,
     sample: &mut String,
     patterns: &mut Patterns,
+    scripts: &muddie_script::Engine,
 ) {
     widgets::card(
         ui,
@@ -102,7 +104,7 @@ fn when(
                 tr("Paste a line from the MUD to try it"),
                 |sample| {
                     try_pattern(patterns, &source, sample, |captures| {
-                        effects(rule, captures)
+                        effects(rule, captures, scripts)
                     })
                 },
             );
@@ -111,22 +113,17 @@ fn when(
 }
 
 /// What a trigger would do with a match, said in a line.
-fn effects(rule: &crate::rules::Trigger, captures: &regex::Captures) -> String {
-    let mut effects = Vec::new();
-    let sent: Vec<String> = (crate::rules::commands(&rule.send).iter())
-        .map(|command| fill(command, captures))
+fn effects(
+    rule: &crate::rules::Trigger,
+    captures: &regex::Captures,
+    scripts: &muddie_script::Engine,
+) -> String {
+    let mut effects: Vec<String> = sends_said(&rule.send, rule.luau, captures, scripts)
+        .into_iter()
         .collect();
-    if rule.luau {
-        effects.push(tr("runs the script").to_owned());
-    } else if !sent.is_empty() {
-        effects.push(format!("{} {}", tr("sends"), sent.join("; ")));
-    }
     if !rule.when.speak.trim().is_empty() {
-        effects.push(format!(
-            "{} “{}”",
-            tr("says"),
-            fill(rule.when.speak.trim(), captures)
-        ));
+        let said = scripts.expand(&fill(rule.when.speak.trim(), captures));
+        effects.push(format!("{} “{}”", tr("says"), said));
     }
     effects.join(" · ")
 }

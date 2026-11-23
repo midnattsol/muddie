@@ -1,6 +1,3 @@
-local function fill(template, m)
-	return expand((template:gsub("%%(%d)", function(n) return m[tonumber(n)] or "" end)))
-end
 local function raw(path)
 	local parts = string.split(path, ".")
 	for n = #parts, 1, -1 do

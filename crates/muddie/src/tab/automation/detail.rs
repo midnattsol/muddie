@@ -19,6 +19,23 @@ pub(in crate::tab) fn off_badge(ui: &mut egui::Ui, on: bool) {
     }
 }
 
+/// What a rule would send of a match, or that it runs its Luau, in a line,
+/// as it would: the groups and the variables put in.
+pub(in crate::tab) fn sends_said(
+    send: &str,
+    luau: bool,
+    captures: &regex::Captures,
+    scripts: &muddie_script::Engine,
+) -> Option<String> {
+    if luau {
+        return Some(tr("runs the script").to_owned());
+    }
+    let sent: Vec<String> = (crate::rules::commands(send).iter())
+        .map(|command| scripts.expand(&crate::rules::fill(command, captures)))
+        .collect();
+    (!sent.is_empty()).then(|| format!("{} {}", tr("sends"), sent.join("; ")))
+}
+
 /// What a rule does: either the commands it sends or the script it runs.
 pub(in crate::tab) struct ActionEdit<'a> {
     pub(in crate::tab) luau: &'a mut bool,

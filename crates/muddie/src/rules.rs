@@ -69,29 +69,34 @@ pub fn commands(send: &str) -> Vec<String> {
 /// become the match's groups if the rule has a match, and `$name` the
 /// variable's value.
 pub fn commands_as_luau(send: &str, matched: bool) -> String {
-    let mut code = String::new();
-    for command in commands(send) {
-        let mut pieces: Vec<String> = Vec::new();
-        let mut text = String::new();
-        let mut chars = command.chars().peekable();
-        while let Some(ch) = chars.next() {
-            match (ch, chars.peek().and_then(|next| next.to_digit(10))) {
-                ('%', Some(group)) if matched => {
-                    chars.next();
-                    if !text.is_empty() {
-                        pieces.push(quoted(&std::mem::take(&mut text)));
-                    }
-                    pieces.push(format!("(m[{group}] or \"\")"));
+    (commands(send).iter())
+        .map(|command| format!("send({})\n", filled_luau(command, matched)))
+        .collect()
+}
+
+/// A template as the Luau that makes it: `%1`... the match's groups if
+/// there is a match, `$name` the variable's value. What a rule sends and
+/// what it says are made of it.
+pub fn filled_luau(template: &str, matched: bool) -> String {
+    let mut pieces: Vec<String> = Vec::new();
+    let mut text = String::new();
+    let mut chars = template.chars().peekable();
+    while let Some(ch) = chars.next() {
+        match (ch, chars.peek().and_then(|next| next.to_digit(10))) {
+            ('%', Some(group)) if matched => {
+                chars.next();
+                if !text.is_empty() {
+                    pieces.push(quoted(&std::mem::take(&mut text)));
                 }
-                _ => text.push(ch),
+                pieces.push(format!("(m[{group}] or \"\")"));
             }
+            _ => text.push(ch),
         }
-        if !text.is_empty() || pieces.is_empty() {
-            pieces.push(quoted(&text));
-        }
-        code.push_str(&format!("send(expand({}))\n", pieces.join(" .. ")));
     }
-    code
+    if !text.is_empty() || pieces.is_empty() {
+        pieces.push(quoted(&text));
+    }
+    format!("expand({})", pieces.join(" .. "))
 }
 
 /// What every chunk of [`Rules::chunks`] starts with.

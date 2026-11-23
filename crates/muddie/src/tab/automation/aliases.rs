@@ -7,6 +7,7 @@ impl Tab {
         let delete = self.rule_head(ui, Kind::Alias, index, tr("Alias name"));
         let rule = &mut self.editor.draft.aliases[index];
         let (sample, patterns) = (&mut self.editor.sample, &mut self.editor.patterns);
+        let scripts = &self.scripts;
         widgets::card(
             ui,
             Some(widgets::Glyph::When),
@@ -36,13 +37,7 @@ impl Tab {
                 let rule = &*rule;
                 try_block(ui, sample, tr("Type a command"), |sample| {
                     try_pattern(patterns, &source, sample, |captures| {
-                        if rule.luau {
-                            return tr("runs the script").to_owned();
-                        }
-                        let sent: Vec<String> = (crate::rules::commands(&rule.send).iter())
-                            .map(|command| fill(command, captures))
-                            .collect();
-                        format!("{} {}", tr("sends"), sent.join("; "))
+                        sends_said(&rule.send, rule.luau, captures, scripts).unwrap_or_default()
                     })
                 });
             },
