@@ -107,9 +107,10 @@ pub struct Room {
     pub pos: Pos,
     /// Exits by direction (see [`canonical_direction`]).
     pub exits: BTreeMap<String, Exit>,
-    /// Cost of entering the room when finding routes; 1 for a normal room.
-    /// Set by the user, so what the server reports never changes it.
-    pub weight: u32,
+    /// What entering the room costs a route besides the move itself, as an
+    /// exit's cost does; 0 for nothing more. Set by the user, so what the
+    /// server reports never changes it.
+    pub cost: u32,
     /// Routes never pass through the room, though they may end in it.
     /// Also set by the user.
     pub avoid: bool,

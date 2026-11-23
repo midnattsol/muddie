@@ -167,7 +167,8 @@ impl Store {
                         z: row.get(5)?,
                     },
                     exits: exits.remove(&id).unwrap_or_default(),
-                    weight: row.get(6)?,
+                    // Kept as the weight it was once, the cost and the move.
+                    cost: row.get::<_, u32>(6)?.saturating_sub(1),
                     avoid: row.get(7)?,
                     colour: row.get::<_, Option<u32>>(8)?.map(unpacked),
                     note: row.get(9)?,
@@ -290,7 +291,7 @@ fn save_room(transaction: &Transaction, room: &Room, known: bool) -> Result<()> 
             room.pos.x,
             room.pos.y,
             room.pos.z,
-            room.weight,
+            room.cost + 1,
             room.avoid,
             room.colour.map(packed),
             room.note,
@@ -398,7 +399,7 @@ mod tests {
         }
         let (mut store, Stored { mut rooms, .. }) = Store::open(&path).unwrap();
         assert_eq!(rooms.len(), 1);
-        assert_eq!((rooms[0].weight, rooms[0].avoid), (1, false));
+        assert_eq!((rooms[0].cost, rooms[0].avoid), (0, false));
         assert_eq!(rooms[0].colour, None);
         assert_eq!(
             rooms[0].exits["n"],
@@ -407,7 +408,7 @@ mod tests {
                 ..Exit::default()
             }
         );
-        rooms[0].weight = 5;
+        rooms[0].cost = 5;
         rooms[0].avoid = true;
         rooms[0].colour = Some([200, 16, 0]);
         rooms[0].note = "A guard".to_owned();
@@ -416,7 +417,7 @@ mod tests {
         store.save(&rooms).unwrap();
         drop(store);
         let (store, Stored { rooms, .. }) = Store::open(&path).unwrap();
-        assert_eq!((rooms[0].weight, rooms[0].avoid), (5, true));
+        assert_eq!((rooms[0].cost, rooms[0].avoid), (5, true));
         assert_eq!(rooms[0].colour, Some([200, 16, 0]));
         assert_eq!(rooms[0].note, "A guard");
         assert!(rooms[0].renamed && rooms[0].added);

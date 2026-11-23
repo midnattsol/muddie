@@ -27,7 +27,7 @@ fn desert(app: &mut Tab) {
                 )
             })
             .collect(),
-        weight: 1,
+        cost: 0,
         avoid: false,
         colour: None,
         note: String::new(),
@@ -1098,7 +1098,7 @@ fn a_very_large_area_is_tidied_only_once_the_user_says_so() {
                 },
             )]
             .into(),
-            weight: 1,
+            cost: 0,
             avoid: false,
             colour: None,
             note: String::new(),

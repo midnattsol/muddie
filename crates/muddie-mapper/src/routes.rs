@@ -4,7 +4,7 @@ use super::*;
 
 impl Map {
     /// The cheapest known route between two rooms: each move costs the
-    /// weight of the room entered plus the exit's own cost, exits blocked to routes
+    /// move, plus the cost of the room entered and of the exit, exits blocked to routes
     /// are never used, and rooms marked to avoid are only entered as the
     /// destination. Empty if both are the same room; `None` if there is no
     /// route.
@@ -44,14 +44,14 @@ impl Map {
                 }
                 let next = exit.to;
                 // An unexplored room can be walked into, but not through.
-                let (weight, avoid) = match self.rooms.get(&next) {
-                    Some(room) => (room.weight, room.avoid),
-                    None => (1, false),
+                let (room_cost, avoid) = match self.rooms.get(&next) {
+                    Some(room) => (room.cost, room.avoid),
+                    None => (0, false),
                 };
                 if avoid && !targets.contains(&next) {
                     continue;
                 }
-                let next_cost = cost + u64::from(weight) + u64::from(exit.cost);
+                let next_cost = cost + 1 + u64::from(room_cost) + u64::from(exit.cost);
                 if cost_to.get(&next).is_none_or(|known| next_cost < *known) {
                     cost_to.insert(next, next_cost);
                     let command =
@@ -106,8 +106,8 @@ impl Map {
             let far = moves[&id] + 1;
             for exit in room.exits.values().filter(|exit| !exit.blocked) {
                 let next = exit.to;
-                let weight = self.rooms.get(&next).map_or(1, |room| room.weight);
-                let next_cost = cost + u64::from(weight) + u64::from(exit.cost);
+                let room_cost = self.rooms.get(&next).map_or(0, |room| room.cost);
+                let next_cost = cost + 1 + u64::from(room_cost) + u64::from(exit.cost);
                 if cost_to.get(&next).is_none_or(|known| next_cost < *known) {
                     cost_to.insert(next, next_cost);
                     moves.insert(next, far);

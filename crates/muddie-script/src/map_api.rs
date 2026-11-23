@@ -84,7 +84,7 @@ pub(super) fn room_table(lua: &Lua, room: &Room) -> mlua::Result<Table> {
     table.set("x", room.pos.x)?;
     table.set("y", room.pos.y)?;
     table.set("z", room.pos.z)?;
-    table.set("weight", room.weight)?;
+    table.set("cost", room.cost)?;
     table.set("avoid", room.avoid)?;
     table.set("colour", room.colour.map(colour_text))?;
     table.set("note", room.note.as_str())?;
@@ -400,11 +400,11 @@ fn install_changing(lua: &Lua, map: &Rc<RefCell<Map>>, api: &Table) -> mlua::Res
 }
 
 /// What `map.edit_room` changes of a room: each only if given; `false`
-/// gives back the map's own colour, shape or weight, or no symbol.
+/// gives back the map's own colour or shape, no cost, or no symbol.
 struct RoomEdit {
     name: Option<String>,
     note: Option<String>,
-    weight: Option<u32>,
+    cost: Option<u32>,
     avoid: Option<bool>,
     colour: Option<Option<muddie_mapper::Colour>>,
     shape: Option<Option<muddie_mapper::Shape>>,
@@ -455,9 +455,9 @@ impl RoomEdit {
         Ok(Self {
             name: options.get("name")?,
             note: options.get("note")?,
-            weight: match given("weight")? {
-                Some(Value::Boolean(false)) => Some(1),
-                Some(_) => options.get("weight")?,
+            cost: match given("cost")? {
+                Some(Value::Boolean(false)) => Some(0),
+                Some(_) => options.get("cost")?,
                 None => None,
             },
             avoid: options.get("avoid")?,
@@ -477,8 +477,8 @@ impl RoomEdit {
         if let Some(note) = &self.note {
             map.set_note(id, note)?;
         }
-        if let Some(weight) = self.weight {
-            map.set_weight(id, weight)?;
+        if let Some(cost) = self.cost {
+            map.set_cost(id, cost)?;
         }
         if let Some(avoid) = self.avoid {
             map.set_avoid(id, avoid)?;

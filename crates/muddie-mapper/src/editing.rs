@@ -129,9 +129,9 @@ impl Map {
         self.edit_room(id, |room| room.pos = pos)
     }
 
-    /// Sets the cost of entering a room when finding routes (at least 1).
-    pub fn set_weight(&mut self, id: RoomId, weight: u32) -> Result<bool, Error> {
-        self.edit_room(id, |room| room.weight = weight.max(1))
+    /// Sets what entering a room costs a route besides the move itself.
+    pub fn set_cost(&mut self, id: RoomId, cost: u32) -> Result<bool, Error> {
+        self.edit_room(id, |room| room.cost = cost)
     }
 
     /// Sets the colour a room is drawn in, or gives it back the map's own.

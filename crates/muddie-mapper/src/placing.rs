@@ -168,7 +168,7 @@ impl Map {
             area: info.area,
             pos,
             exits,
-            weight: existing.map_or(1, |room| room.weight),
+            cost: existing.map_or(0, |room| room.cost),
             avoid: existing.is_some_and(|room| room.avoid),
             colour: match existing {
                 Some(room) if room.styled => room.colour,

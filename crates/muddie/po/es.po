@@ -251,9 +251,6 @@ msgstr "nivel"
 msgid "kept off routes"
 msgstr "fuera de las rutas"
 
-msgid "weight"
-msgstr "peso"
-
 #, python-brace-format
 msgid "Script error: {0}"
 msgstr "Error de script: {0}"
@@ -1841,8 +1838,8 @@ msgid "Kept off routes."
 msgstr "Fuera de las rutas."
 
 #, python-brace-format
-msgid "Costs {0} to enter."
-msgstr "Entrar cuesta {0}."
+msgid "Costs {0} more to enter."
+msgstr "Entrar cuesta {0} más."
 
 #, python-brace-format
 #, python-brace-format
@@ -2857,3 +2854,6 @@ msgstr "Leer la primera y la última línea"
 
 msgid "There is a panel called {0} already."
 msgstr "Ya hay un panel llamado {0}."
+
+msgid "costs {0} more to enter"
+msgstr "entrar cuesta {0} más"

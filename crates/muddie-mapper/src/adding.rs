@@ -158,7 +158,7 @@ impl Map {
                     exits: (exits.into_iter())
                         .map(|direction| (direction, unexplored.clone()))
                         .collect(),
-                    weight: 1,
+                    cost: 0,
                     avoid: false,
                     colour: None,
                     note: String::new(),
@@ -312,8 +312,8 @@ impl Map {
             };
             other.avoid |= room.avoid;
             other.colour = other.colour.or(room.colour);
-            if other.weight == 1 {
-                other.weight = room.weight;
+            if other.cost == 0 {
+                other.cost = room.cost;
             }
             if other.note.is_empty() {
                 other.note.clone_from(&room.note);

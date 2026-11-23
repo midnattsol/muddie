@@ -560,8 +560,9 @@ pub(super) fn room_tip(response: Response, map: &Map, pointed: Option<&Room>) {
     if room.avoid {
         text.push_str(&format!(", {}", tr("kept off routes")));
     }
-    if room.weight > 1 {
-        text.push_str(&format!(", {} {}", tr("weight"), room.weight));
+    if room.cost > 0 {
+        let costs = crate::i18n::trf("costs {0} more to enter", &[&room.cost.to_string()]);
+        text.push_str(&format!(", {costs}"));
     }
     response.on_hover_text_at_pointer(text);
 }

@@ -598,8 +598,8 @@ fn info_of(map: &muddie_mapper::Map, room: &muddie_mapper::Room) -> String {
             &[&copied.to_string()],
         ));
     }
-    if room.weight > 1 {
-        said.push(trf("Costs {0} to enter.", &[&room.weight.to_string()]));
+    if room.cost > 0 {
+        said.push(trf("Costs {0} more to enter.", &[&room.cost.to_string()]));
     }
     sentences(said)
 }

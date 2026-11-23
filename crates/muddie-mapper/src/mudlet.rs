@@ -273,7 +273,8 @@ fn read_room(
         area: areas.get(&area).cloned().unwrap_or_default(),
         pos,
         exits,
-        weight: weight as u32,
+        // Mudlet's weight is the move and the cost together.
+        cost: weight as u32 - 1,
         avoid,
         colour: colours.colour(environment),
         note: String::new(),
@@ -559,7 +560,7 @@ mod tests {
             (first.id, first.name.as_str(), first.area.as_str()),
             (1, "Sala 1", "Ciudad")
         );
-        assert_eq!(first.weight, 3);
+        assert_eq!(first.cost, 2);
         let north = &first.exits["n"];
         assert!(north.blocked && north.to == 2);
         assert_eq!(first.exits["e"].cost, 4);

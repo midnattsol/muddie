@@ -113,7 +113,7 @@ fn script_can_edit_and_query_the_map() {
         map.set_room({id = 4, name = "Detour", area = "wilds", exits = {n = 2}})
         map.set_exit(1, "e", 4)
         echo(`{map.edit_room(2, {avoid = true})} {map.room(2).avoid} {map.way(2, 1)[1]} {map.way(4, 1)[1]}`)
-        echo(`{map.edit_room(4, {weight = 9})} {map.room(4).weight} {table.concat(map.areas(), "+")}`)
+        echo(`{map.edit_room(4, {cost = 8})} {map.room(4).cost} {table.concat(map.areas(), "+")}`)
         map.edit_room(2, {avoid = false})
         map.set_exit(1, "gate", 2, {command = "open gate;n", cost = 0})
         map.set_exit(1, "n", nil, {blocked = true})
@@ -142,7 +142,7 @@ fn script_can_edit_and_query_the_map() {
             "true 7,8,0",
             "true true nil",
             "true true n e",
-            "true 9 wilds",
+            "true 8 wilds",
             "open gate;n true false true nil",
             "true nil false",
             "0 0",

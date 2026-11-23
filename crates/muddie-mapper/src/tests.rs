@@ -36,7 +36,7 @@ fn room_at(area: &str, id: RoomId, name: &str, at: Pos, exits: &[(&str, RoomId)]
                 ((*way).to_owned(), exit)
             })
             .collect(),
-        weight: 1,
+        cost: 0,
         avoid: false,
         colour: None,
         note: String::new(),
@@ -166,10 +166,10 @@ fn route_prefers_cheap_rooms_and_keeps_out_of_avoided_ones() {
         Some(map.route(1, to)?.into_iter().map(|step| step.to).collect())
     };
     assert_eq!(via(&map, 4).unwrap(), [2, 4]);
-    assert!(map.set_weight(2, 5).unwrap());
+    assert!(map.set_cost(2, 4).unwrap());
     assert_eq!(via(&map, 4).unwrap(), [5, 6, 4]);
-    assert!(map.set_weight(2, 0).unwrap());
-    assert_eq!(map.room(2).unwrap().weight, 1);
+    assert!(map.set_cost(2, 0).unwrap());
+    assert_eq!(map.room(2).unwrap().cost, 0);
     assert_eq!(via(&map, 4).unwrap(), [2, 4]);
 
     assert!(map.set_avoid(2, true).unwrap());
@@ -438,7 +438,7 @@ fn map_survives_reopening() {
         map.visit(info(3, "Doomed", &[("w", 2)])).unwrap();
         assert!(map.remove_room(3).unwrap());
         assert!(map.move_room(1, pos(4, 4, 0)).unwrap());
-        assert!(map.set_weight(1, 3).unwrap());
+        assert!(map.set_cost(1, 2).unwrap());
         assert!(map.set_avoid(2, true).unwrap());
         let door = |exit: &mut Exit| {
             *exit = Exit {
@@ -483,8 +483,8 @@ fn map_survives_reopening() {
     assert!(gate.exits["leap"].custom);
     assert_eq!(map.room(1).unwrap().pos, pos(4, 4, 0));
     assert_eq!(
-        (map.room(1).unwrap().weight, map.room(2).unwrap().avoid),
-        (3, true)
+        (map.room(1).unwrap().cost, map.room(2).unwrap().avoid),
+        (2, true)
     );
 
     let mut map = map;
