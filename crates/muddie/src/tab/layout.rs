@@ -167,10 +167,10 @@ pub struct Layout {
     /// the other way round.
     #[serde(default)]
     pub columns_full: bool,
-    /// The sides put away for now, with their panels as they were, to be
-    /// brought back as they are.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub hidden: Vec<Side>,
+    /// The sides collapsed for now, with their panels as they were, to be
+    /// expanded as they are.
+    #[serde(default, alias = "hidden", skip_serializing_if = "Vec::is_empty")]
+    pub collapsed: Vec<Side>,
     #[serde(rename = "panel", default)]
     pub panels: Vec<PanelSpec>,
 }
@@ -193,7 +193,7 @@ impl Default for Layout {
         };
         Self {
             columns_full: false,
-            hidden: Vec::new(),
+            collapsed: Vec::new(),
             panels: vec![
                 panel(1, "Map", Kind::Map, Side::Right, BESIDE, false),
                 panel(
@@ -287,7 +287,7 @@ impl Layout {
 
     /// Whether a panel is on screen: shown, on a side not put away.
     pub(super) fn on_screen(&self, panel: &PanelSpec) -> bool {
-        panel.visible && !self.hidden.contains(&panel.side)
+        panel.visible && !self.collapsed.contains(&panel.side)
     }
 
     /// The sides with panels to show, in the order of their buttons, and
@@ -296,13 +296,13 @@ impl Layout {
         [Side::Left, Side::Top, Side::Bottom, Side::Right]
             .into_iter()
             .filter(|&side| (self.panels.iter()).any(|panel| panel.visible && panel.side == side))
-            .map(|side| (side, !self.hidden.contains(&side)))
+            .map(|side| (side, !self.collapsed.contains(&side)))
             .collect()
     }
 
     /// Brings a side back, if it was put away.
     pub(super) fn reveal(&mut self, side: Side) {
-        self.hidden.retain(|hidden| *hidden != side);
+        self.collapsed.retain(|collapsed| *collapsed != side);
     }
 
     /// Shows or hides a panel: one shown on a collapsed side expands it.
@@ -352,9 +352,9 @@ impl Channel {
 impl Tab {
     /// Puts a side away with its panels, or brings it back as it was.
     pub(super) fn toggle_side(&mut self, side: Side) {
-        match self.layout.hidden.contains(&side) {
+        match self.layout.collapsed.contains(&side) {
             true => self.layout.reveal(side),
-            false => self.layout.hidden.push(side),
+            false => self.layout.collapsed.push(side),
         }
     }
 

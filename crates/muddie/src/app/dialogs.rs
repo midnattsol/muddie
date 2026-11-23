@@ -17,7 +17,7 @@ impl App {
                             ("↑  ↓", tr("Earlier and later commands")),
                             ("Ctrl+R", tr("Search the commands typed before")),
                             ("Tab", tr("Complete the word being typed")),
-                            (crate::shortcuts::command!("F"), tr("Search the output")),
+                            (crate::shortcuts::command!("F"), tr("Find in the output")),
                         ],
                     ),
                     (

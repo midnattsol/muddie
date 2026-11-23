@@ -498,11 +498,14 @@ fn a_side_is_put_away_with_its_panels_and_brought_back_as_it_was() {
     // Asked for, a panel on a side put away brings the side back.
     app.toggle_side(Side::Right);
     app.set_map_shown(true);
-    assert!(app.layout.hidden == [Side::Bottom]);
+    assert!(app.layout.collapsed == [Side::Bottom]);
     // It is kept with the rest of the panels.
     let file = std::env::temp_dir().join(format!("muddie-sides-{}.toml", std::process::id()));
     app.layout.save(&file).unwrap();
-    assert_eq!(layout::Layout::load(&file).unwrap().hidden, [Side::Bottom]);
+    assert_eq!(
+        layout::Layout::load(&file).unwrap().collapsed,
+        [Side::Bottom]
+    );
     std::fs::remove_file(&file).unwrap();
 }
 

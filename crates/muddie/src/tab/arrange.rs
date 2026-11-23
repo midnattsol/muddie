@@ -223,7 +223,7 @@ impl Tab {
                             continue;
                         }
                         let mut caption = side_name(side).to_owned();
-                        if self.layout.hidden.contains(&side) {
+                        if self.layout.collapsed.contains(&side) {
                             caption = trf("{0}, collapsed", &[&caption]);
                         }
                         widgets::section_caption(ui, &caption);
@@ -455,7 +455,7 @@ impl Tab {
             .collect();
         let place = beside.iter().position(|other| other.id == id).unwrap_or(0);
         let (mut name, mut visible, mut side) = (panel.name.clone(), panel.visible, panel.side);
-        let was_away = self.layout.hidden.contains(&panel.side);
+        let was_away = self.layout.collapsed.contains(&panel.side);
         let mut away = was_away;
         let mut size = panel.size;
         let mut sharing = (beside.iter())
@@ -635,7 +635,7 @@ impl Tab {
     /// Puts the panels as an arrangement has them. Panels are kept: those
     /// of text go together, the map and the gauges where it says.
     fn arrange_as(&mut self, how: Arrangement) {
-        self.layout.hidden.clear();
+        self.layout.collapsed.clear();
         if let Arrangement::GameOnly = how {
             self.layout
                 .panels

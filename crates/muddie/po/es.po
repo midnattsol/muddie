@@ -279,9 +279,6 @@ msgstr "Buscar en el historial de comandos"
 msgid "Complete the word being typed"
 msgstr "Autocompletar la palabra"
 
-msgid "Search the output"
-msgstr "Buscar en la salida"
-
 msgid "Silence speech"
 msgstr "Silenciar la voz"
 
@@ -958,9 +955,6 @@ msgstr "Ir al final"
 msgid "MUD text"
 msgstr "Texto del MUD"
 
-msgid "Bundled"
-msgstr "Incluidas"
-
 msgid "Loading…"
 msgstr "Cargando…"
 
@@ -1030,7 +1024,9 @@ msgstr "Mensajes"
 
 #, python-brace-format
 msgid "Messages, {0} new"
-msgstr "Mensajes, {0} nuevos"
+msgid_plural "Messages, {0} new"
+msgstr[0] "Mensajes, {0} nuevo"
+msgstr[1] "Mensajes, {0} nuevos"
 
 msgid "No messages."
 msgstr "No hay mensajes."
@@ -1071,9 +1067,6 @@ msgstr "Rápida"
 
 msgid "Slow"
 msgstr "Lenta"
-
-msgid "The system's"
-msgstr "El del sistema"
 
 msgid "Update all"
 msgstr "Actualizar todos"
@@ -1154,9 +1147,6 @@ msgstr "Complementos"
 
 msgid "TLS encryption"
 msgstr "Cifrado TLS"
-
-msgid "Install from git"
-msgstr "Instalar desde git"
 
 msgid "Palette"
 msgstr "Paleta"
@@ -1741,9 +1731,6 @@ msgstr "Copiar la línea"
 msgid "Copy all output"
 msgstr "Copiar toda la salida"
 
-
-msgid "Output copied."
-msgstr "Salida copiada."
 
 msgid "Nothing to redo."
 msgstr "No hay nada que rehacer."
@@ -2778,9 +2765,6 @@ msgstr "Plugin {0}"
 msgid "Install a plugin…"
 msgstr "Instalar un plugin…"
 
-msgid "Git address of the plugin"
-msgstr "Dirección git del plugin"
-
 msgid "Update a plugin…"
 msgstr "Actualizar un plugin…"
 
@@ -2873,3 +2857,9 @@ msgstr "Canales"
 
 msgid "Appearance of {0}…"
 msgstr "Apariencia de {0}…"
+
+msgid "Included fonts"
+msgstr "Fuentes incluidas"
+
+msgid "Install the plugin at"
+msgstr "Instalar el plugin de"

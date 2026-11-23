@@ -205,9 +205,7 @@ impl App {
         game: Option<&str>,
     ) -> Result<Option<String>, String> {
         let name = name.trim();
-        if profiles.exists(name) {
-            return Err(trf("There is a profile called {0} already.", &[name]));
-        }
+        profiles.free_name(name)?;
         let mut profile = Profile {
             session: Some(SessionPrefs::from(&self.settings)),
             ..Profile::default()
@@ -229,14 +227,7 @@ impl App {
         name: &str,
     ) -> Result<Option<String>, String> {
         let name = name.trim();
-        if !crate::profile::valid_name(name) {
-            return Err(
-                tr("A profile name may only have letters, digits, spaces, - and _.").to_owned(),
-            );
-        }
-        if profiles.exists(name) {
-            return Err(trf("There is a profile called {0} already.", &[name]));
-        }
+        profiles.free_name(name)?;
         self.tabs[self.active].save_as_profile(name);
         Ok(Some(name.to_owned()))
     }

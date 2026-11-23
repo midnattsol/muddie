@@ -261,7 +261,7 @@ fn font_heading(ui: &mut Ui, text: &str) {
 
 /// The fonts that come with Muddie.
 fn bundled_fonts(ui: &mut Ui, settings: &mut Settings) {
-    font_heading(ui, tr("Bundled"));
+    font_heading(ui, tr("Included fonts"));
     if crate::widgets::choice(ui, settings.font_family.is_empty(), theme::DEFAULT_FONT).clicked() {
         settings.font_family.clear();
         settings.font_file.clear();
@@ -458,7 +458,7 @@ fn speech_settings(ui: &mut Ui, settings: &mut Settings, through: Option<&str>) 
 /// system's.
 fn language_choice(ui: &mut Ui, language: &mut String) -> egui::Response {
     let languages = [
-        ("", tr("The system's")),
+        ("", tr("Same as the system")),
         ("es", "Español"),
         ("en", "English"),
         ("ca", "Català"),

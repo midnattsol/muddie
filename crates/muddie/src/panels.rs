@@ -71,18 +71,20 @@ impl Gauge {
 
     /// What it is, said aloud.
     fn said(&self) -> String {
-        let value = self.value.to_string();
-        match self.look.kind.as_str() {
-            "light" if self.value != 0.0 => trf("{0} on", &[&self.name]),
-            "light" => trf("{0} off", &[&self.name]),
-            "text" => format!("{} {}", self.name, self.look.text),
-            "effects" => effects_said(&self.name, &self.look.items),
-            "number" if self.max <= 0.0 => format!("{} {value}", self.name),
-            _ => trf(
-                "{0} {1} of {2}",
-                &[&self.name, &value, &self.max.to_string()],
-            ),
-        }
+        said_of(&self.name, self.value, self.max, &self.look)
+    }
+}
+
+/// What a gauge is, said aloud: when asked for, and as a screen reader
+/// reads it where it is shown.
+fn said_of(name: &str, value: f64, max: f64, look: &GaugeLook) -> String {
+    match look.kind.as_str() {
+        "light" if value != 0.0 => trf("{0} on", &[name]),
+        "light" => trf("{0} off", &[name]),
+        "text" => format!("{name} {}", look.text),
+        "effects" => effects_said(name, &look.items),
+        "number" if max <= 0.0 => format!("{name} {}", plain(value)),
+        _ => trf("{0} {1} of {2}", &[name, &plain(value), &plain(max)]),
     }
 }
 
@@ -287,19 +289,20 @@ pub fn draw_gauge(ui: &mut Ui, name: &str, value: f64, max: f64, look: &GaugeLoo
         kind => kind,
     };
     let shade = Shade::of(name, value, max, look);
+    let heard = said_of(name, value, max, look);
     match kind {
-        "light" => draw_light(ui, name, value != 0.0, &shade, look),
+        "light" => draw_light(ui, name, value != 0.0, &shade, look, &heard),
         "effects" => draw_effects(ui, name, &look.items, &shade),
-        "text" => draw_words(ui, name, look.text.clone(), &shade, false),
+        "text" => draw_words(ui, name, look.text.clone(), &shade, false, &heard),
         "number" => {
             let said = if max > 0.0 {
                 format!("{} / {}", plain(value), plain(max))
             } else {
                 plain(value)
             };
-            draw_words(ui, name, said, &shade, true);
+            draw_words(ui, name, said, &shade, true, &heard);
         }
-        _ => draw_bar(ui, name, value, max, &shade, kind == "cells", bar),
+        _ => draw_bar(ui, name, value, max, &shade, kind == "cells", bar, &heard),
     }
 }
 
@@ -325,7 +328,7 @@ impl Shade {
             .filter(|(under, _)| max > 0.0 && percent < *under)
             .min_by(|a, b| a.0.total_cmp(&b.0))
             .and_then(|(_, colour)| colour_named(colour));
-        let own = colour_named(&look.colour).unwrap_or_else(|| color(name));
+        let own = colour_named(&look.colour).unwrap_or_else(|| colour_for(name));
         let warned = level.is_some() || (look.low > 0.0 && max > 0.0 && percent < look.low);
         Self {
             fraction,
@@ -346,14 +349,12 @@ fn measure(ui: &Ui, text: &str, font: &eframe::egui::FontId) -> f32 {
 
 /// A light, on or off, with its name. Off, it is unlit, unless being off
 /// has a colour of its own: green for not poisoned, say.
-fn draw_light(ui: &mut Ui, name: &str, on: bool, shade: &Shade, look: &GaugeLook) {
+fn draw_light(ui: &mut Ui, name: &str, on: bool, shade: &Shade, look: &GaugeLook, heard: &str) {
     let theme = theme::current();
     let small = theme::font(theme::Weight::Medium, 11.5);
     let width = 18.0 + measure(ui, name, &small);
     let (rect, response) = ui.allocate_exact_size(vec2(width, 28.0), Sense::hover());
-    let state = if on { "on" } else { "off" };
-    response
-        .widget_info(|| WidgetInfo::selected(Role::CheckBox, true, on, format!("{name} {state}")));
+    response.widget_info(|| WidgetInfo::selected(Role::CheckBox, true, on, heard));
     let centre = rect.left_center() + vec2(5.0, 0.0);
     let painter = ui.painter();
     let off = colour_named(&look.off_colour);
@@ -498,7 +499,7 @@ fn draw_effects(ui: &mut Ui, name: &str, items: &[muddie_script::Effect], shade:
 
 /// Words or a number under the gauge's name; a number low enough to stand
 /// out in its colour.
-fn draw_words(ui: &mut Ui, name: &str, said: String, shade: &Shade, number: bool) {
+fn draw_words(ui: &mut Ui, name: &str, said: String, shade: &Shade, number: bool, heard: &str) {
     let theme = theme::current();
     let (small, large) = (
         theme::font(theme::Weight::Medium, 11.5),
@@ -508,7 +509,7 @@ fn draw_words(ui: &mut Ui, name: &str, said: String, shade: &Shade, number: bool
         .max(measure(ui, &said, &large))
         .clamp(40.0, 260.0);
     let (rect, response) = ui.allocate_exact_size(vec2(width, 28.0), Sense::hover());
-    response.widget_info(|| WidgetInfo::labeled(Role::Label, true, format!("{name} {said}")));
+    response.widget_info(|| WidgetInfo::labeled(Role::Label, true, heard));
     let painter = ui.painter().with_clip_rect(rect);
     painter.text(
         rect.left_top(),
@@ -532,13 +533,22 @@ fn draw_words(ui: &mut Ui, name: &str, said: String, shade: &Shade, number: bool
 }
 
 /// A bar, or a row of cells, under the gauge's name and its numbers.
-fn draw_bar(ui: &mut Ui, name: &str, value: f64, max: f64, shade: &Shade, cells: bool, width: f32) {
+#[allow(clippy::too_many_arguments)]
+fn draw_bar(
+    ui: &mut Ui,
+    name: &str,
+    value: f64,
+    max: f64,
+    shade: &Shade,
+    cells: bool,
+    width: f32,
+    heard: &str,
+) {
     let theme = theme::current();
     let small = theme::font(theme::Weight::Medium, 11.5);
     let numbers = format!("{} / {}", plain(value), plain(max));
     let (rect, response) = ui.allocate_exact_size(vec2(width, 31.0), Sense::hover());
-    let described = format!("{name} {numbers}");
-    response.widget_info(|| WidgetInfo::labeled(Role::ProgressIndicator, true, described.as_str()));
+    response.widget_info(|| WidgetInfo::labeled(Role::ProgressIndicator, true, heard));
     let painter = ui.painter();
     painter.text(
         rect.left_top(),
@@ -606,7 +616,7 @@ fn draw_cells(
 }
 
 /// The colour of a gauge's bar when it was given none, from its name.
-fn color(name: &str) -> Color32 {
+fn colour_for(name: &str) -> Color32 {
     let theme = theme::current();
     match name.to_lowercase().as_str() {
         "hp" | "health" | "salud" | "vida" | "pv" => theme.terminal[1],

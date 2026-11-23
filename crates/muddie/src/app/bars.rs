@@ -256,7 +256,7 @@ fn notices(ui: &mut Ui, tab: &mut Tab) {
     let (said, unread) = tab.notices();
     let label = match unread {
         0 => tr("Messages").to_owned(),
-        count => trf("Messages, {0} new", &[&count.to_string()]),
+        count => crate::i18n::trn("Messages, {0} new", "Messages, {0} new", count as u64),
     };
     let bell = widgets::icon_button(ui, widgets::Icon::Bell, &label, false);
     if unread > 0 {

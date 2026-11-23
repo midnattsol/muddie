@@ -102,7 +102,7 @@ impl App {
             .unwrap_or_default();
         let (mut commands, mut install) = (Vec::new(), false);
         widgets::section_caption_with(ui, tr("Installed"), |ui| {
-            install = widgets::button(ui, tr("Install from git")).clicked();
+            install = widgets::button(ui, tr("Install a plugin…")).clicked();
             if !installed.is_empty() && widgets::button(ui, tr("Update all")).clicked() {
                 commands.extend(
                     installed

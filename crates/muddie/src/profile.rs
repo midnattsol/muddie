@@ -111,6 +111,11 @@ pub fn valid_name(name: &str) -> bool {
     !name.trim().is_empty() && name == name.trim() && name.chars().all(allowed)
 }
 
+/// What a profile's name may have, said.
+fn name_rule() -> String {
+    crate::i18n::tr("A profile name may only have letters, digits, spaces, - and _.").to_owned()
+}
+
 /// The configuration folder and what is stored in it.
 #[derive(Debug, Clone)]
 pub struct Profiles {
@@ -228,7 +233,7 @@ impl Profiles {
     /// folder for the user to fill.
     pub fn save(&self, name: &str, profile: &Profile) -> Result<(), String> {
         if !valid_name(name) {
-            return Err("a profile name may only have letters, digits, spaces, - and _".into());
+            return Err(name_rule());
         }
         let dir = self.profile_dir(name);
         let text = toml::to_string_pretty(profile).map_err(|error| error.to_string())?;
@@ -370,12 +375,15 @@ impl Profiles {
     }
 
     /// A name a new profile can take: allowed, and no other's.
-    fn free_name(&self, name: &str) -> Result<(), String> {
+    pub fn free_name(&self, name: &str) -> Result<(), String> {
         if !valid_name(name) {
-            return Err("a profile name may only have letters, digits, spaces, - and _".into());
+            return Err(name_rule());
         }
         if self.profile_dir(name).exists() {
-            return Err(format!("there is a profile called {name} already"));
+            return Err(crate::i18n::trf(
+                "There is a profile called {0} already.",
+                &[name],
+            ));
         }
         Ok(())
     }

@@ -287,7 +287,7 @@ impl Tab {
             tr("Install a plugin…"),
             plugins,
             ask(
-                tr("Git address of the plugin").into(),
+                tr("Install the plugin at").into(),
                 "/plugin install ",
                 Offers::Nothing,
             ),
@@ -367,7 +367,7 @@ impl Tab {
             Act::UndoChange => self.undo_change(),
             Act::CopyOutput => {
                 ctx.copy_text(self.output.all_text());
-                self.say(tr("Output copied."), false);
+                self.say(tr("Copied."), false);
             }
             Act::Find => {
                 self.find.open = true;
