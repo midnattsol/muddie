@@ -29,6 +29,10 @@ impl App {
                                 tr("Read the previous and next line"),
                             ),
                             (
+                                crate::shortcuts::with_arrows!("Home  End"),
+                                tr("Read the first and last line"),
+                            ),
+                            (
                                 crate::shortcuts::with_key!("1 … 9"),
                                 tr("Read the most recent lines"),
                             ),
@@ -79,6 +83,7 @@ impl App {
                                 tr("Switch between the game and the editor"),
                             ),
                             (crate::shortcuts::command!("D"), tr("Show incoming data")),
+                            (crate::shortcuts::command!(","), tr("Settings")),
                         ],
                     ),
                     (

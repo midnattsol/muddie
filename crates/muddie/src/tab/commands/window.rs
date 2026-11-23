@@ -604,7 +604,7 @@ fn look_of(item: &Item) -> (widgets::Glyph, &'static str) {
         Act::App(request) => match request {
             AppRequest::NewSession => (Glyph::Plus, crate::shortcuts::command!("T")),
             AppRequest::CloseSession => (Glyph::Close, crate::shortcuts::command!("W")),
-            AppRequest::Settings(_) => (Glyph::Settings, ""),
+            AppRequest::Settings(_) => (Glyph::Settings, crate::shortcuts::command!(",")),
             AppRequest::Shortcuts => (Glyph::Key, ""),
             AppRequest::Profiles
             | AppRequest::Profile(..)

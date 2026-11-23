@@ -2863,3 +2863,6 @@ msgstr "Fuentes incluidas"
 
 msgid "Install the plugin at"
 msgstr "Instalar el plugin de"
+
+msgid "Read the first and last line"
+msgstr "Leer la primera y la última línea"

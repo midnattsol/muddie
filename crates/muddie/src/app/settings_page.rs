@@ -106,35 +106,20 @@ fn general_settings(ui: &mut Ui, settings: &mut Settings, languages: &[(String, 
                 ("en".to_owned(), "English".to_owned()),
             ];
             choices.extend(languages.iter().cloned());
-            let current = settings.language.clone();
-            let shown = choices.iter().find(|(code, _)| *code == current);
-            let shown = shown.map_or(current.clone(), |(_, name)| name.clone());
-            crate::widgets::dropdown("language")
-                .selected_text(shown)
-                .show_ui(ui, |ui| {
-                    for (code, name) in &choices {
-                        if crate::widgets::choice(ui, *code == current, name).clicked() {
-                            settings.language.clone_from(code);
-                        }
-                    }
-                })
-                .response
+            widgets::choose(ui, "language", &mut settings.language, &choices, |code| {
+                code
+            })
         });
         widgets::setting_row(ui, tr("Interface scale"), None, &mut |ui| {
-            let percent = (settings.ui_scale * 100.0).round() as u32;
+            let mut percent = (settings.ui_scale * 100.0).round() as u32;
             let steps = [75, 90, 100, 110, 125, 150, 175, 200];
-            crate::widgets::dropdown("interface scale")
-                .selected_text(format!("{percent} %"))
-                .show_ui(ui, |ui| {
-                    for step in steps {
-                        if crate::widgets::choice(ui, step == percent, &format!("{step} %"))
-                            .clicked()
-                        {
-                            settings.ui_scale = step as f32 / 100.0;
-                        }
-                    }
-                })
-                .response
+            let response = pick(ui, "interface scale", &mut percent, steps, |step| {
+                format!("{step} %")
+            });
+            if response.changed() {
+                settings.ui_scale = percent as f32 / 100.0;
+            }
+            response
         });
     });
 }
@@ -197,14 +182,7 @@ fn theme_choice(ui: &mut Ui, chosen: &mut ThemeName) -> egui::Response {
         ThemeName::Light,
         ThemeName::Contrast,
     ];
-    crate::widgets::dropdown("theme")
-        .selected_text(name(*chosen))
-        .show_ui(ui, |ui| {
-            for theme in themes {
-                crate::widgets::choice_value(ui, chosen, theme, name(theme));
-            }
-        })
-        .response
+    pick(ui, "theme", chosen, themes, |theme| name(theme).to_owned())
 }
 
 /// The colours of the MUD's text, whatever the theme.
@@ -214,14 +192,10 @@ fn palette_choice(ui: &mut Ui, chosen: &mut MudPalette) -> egui::Response {
         MudPalette::Soft => tr("Soft (follows the theme)"),
         MudPalette::Classic => tr("Classic terminal"),
     };
-    crate::widgets::dropdown("mud palette")
-        .selected_text(name(*chosen))
-        .show_ui(ui, |ui| {
-            for palette in [MudPalette::Vivid, MudPalette::Soft, MudPalette::Classic] {
-                crate::widgets::choice_value(ui, chosen, palette, name(palette));
-            }
-        })
-        .response
+    let palettes = [MudPalette::Vivid, MudPalette::Soft, MudPalette::Classic];
+    pick(ui, "mud palette", chosen, palettes, |palette| {
+        name(palette).to_owned()
+    })
 }
 
 /// The font of the MUD's text: one that comes with Muddie, or one of the
@@ -313,17 +287,8 @@ fn pick<T: Copy + PartialEq>(
     steps: impl IntoIterator<Item = T>,
     shown: impl Fn(T) -> String,
 ) -> egui::Response {
-    crate::widgets::dropdown(id)
-        .selected_text(shown(*value))
-        .height(320.0)
-        .show_ui(ui, |ui| {
-            for step in steps {
-                if crate::widgets::choice(ui, step == *value, &shown(step)).clicked() {
-                    *value = step;
-                }
-            }
-        })
-        .response
+    let choices: Vec<(T, String)> = steps.into_iter().map(|step| (step, shown(step))).collect();
+    widgets::choose(ui, id, value, &choices, shown)
 }
 
 /// A number with its thousands apart, to be read at a glance.
@@ -466,19 +431,13 @@ fn language_choice(ui: &mut Ui, language: &mut String) -> egui::Response {
         ("pl", "Polski"),
         ("ru", "Русский"),
     ];
-    let current = language.trim().to_lowercase();
-    let shown = (languages.iter())
-        .find(|(code, _)| *code == current)
-        .map_or(current.clone(), |(_, name)| (*name).to_owned());
-    crate::widgets::dropdown("speech language")
-        .selected_text(shown)
-        .height(320.0)
-        .show_ui(ui, |ui| {
-            for (code, name) in languages {
-                if crate::widgets::choice(ui, code == current, name).clicked() {
-                    *language = code.to_owned();
-                }
-            }
-        })
-        .response
+    let choices: Vec<(String, String)> = (languages.iter())
+        .map(|(code, name)| ((*code).to_owned(), (*name).to_owned()))
+        .collect();
+    let mut current = language.trim().to_lowercase();
+    let response = widgets::choose(ui, "speech language", &mut current, &choices, |code| code);
+    if response.changed() {
+        *language = current;
+    }
+    response
 }

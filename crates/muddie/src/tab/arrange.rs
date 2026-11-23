@@ -177,10 +177,7 @@ impl Tab {
             ui.add_space(6.0);
             ui.add(Label::new(heading).selectable(false));
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                let add = widgets::primary_button(ui, "+");
-                ui.ctx()
-                    .accesskit_node_builder(add.id, |node| node.set_label(tr("New panel")));
-                let add = add.on_hover_text(tr("New panel"));
+                let add = widgets::sign_button(ui, "+", tr("New panel"), true);
                 crate::widgets::menu_of(&add).show(|ui| {
                     widgets::menu_width(ui);
                     let mut kinds = vec![(PanelKind::Text, tr("Panel of text"))];

@@ -52,26 +52,13 @@ pub(in crate::app) fn server_group(ui: &mut Ui, draft: &mut Profile) {
 /// or one of them.
 fn language_choice(ui: &mut Ui, language: &mut String) -> egui::Response {
     let (languages, _) = crate::languages::all();
-    let shown = (languages.iter())
-        .find(|known| known.code == *language)
-        .map_or_else(
-            || tr("Automatic, as the game says").to_owned(),
-            |known| known.name.clone(),
-        );
-    widgets::dropdown("game language")
-        .selected_text(shown)
-        .show_ui(ui, |ui| {
-            if widgets::choice(ui, language.is_empty(), tr("Automatic, as the game says")).clicked()
-            {
-                language.clear();
-            }
-            for known in &languages {
-                if widgets::choice(ui, *language == known.code, &known.name).clicked() {
-                    language.clone_from(&known.code);
-                }
-            }
-        })
-        .response
+    let automatic = tr("Automatic, as the game says").to_owned();
+    let choices: Vec<(String, String)> = std::iter::once((String::new(), automatic.clone()))
+        .chain(languages.into_iter().map(|known| (known.code, known.name)))
+        .collect();
+    widgets::choose(ui, "game language", language, &choices, |_| {
+        automatic.clone()
+    })
 }
 
 /// Whether the connection is encrypted, and whether the server's
@@ -104,19 +91,18 @@ pub(in crate::app) fn encoding_choice(ui: &mut Ui, encoding: &mut String) -> egu
         "auto" => tr("Automatic").to_owned(),
         _ => shown.to_owned(),
     };
-    let chosen = (ENCODINGS.iter())
-        .find(|(label, _)| *label == current)
-        .map_or(encoding.clone(), |(label, shown)| name(label, shown));
-    widgets::dropdown("encoding")
-        .selected_text(chosen)
-        .show_ui(ui, |ui| {
-            for (label, shown) in ENCODINGS {
-                if widgets::choice(ui, label == current, &name(label, shown)).clicked() {
-                    *encoding = label.to_owned();
-                }
-            }
-        })
-        .response
+    let choices: Vec<(String, String)> = (ENCODINGS.iter())
+        .map(|(label, shown)| ((*label).to_owned(), name(label, shown)))
+        .collect();
+    let mut chosen = current;
+    let set_by_hand = encoding.clone();
+    let response = widgets::choose(ui, "encoding", &mut chosen, &choices, |_| {
+        set_by_hand.clone()
+    });
+    if response.changed() {
+        *encoding = chosen;
+    }
+    response
 }
 
 /// Who to log in as.

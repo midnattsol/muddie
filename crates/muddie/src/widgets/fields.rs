@@ -70,7 +70,7 @@ pub fn dropdown(id: &str) -> egui::ComboBox<'_> {
 /// One of a few values, chosen from a [`dropdown`] that names each. A
 /// value not among them is shown by `other`. The response is marked
 /// changed when another is chosen.
-pub fn choose<T: PartialEq + Copy>(
+pub fn choose<T: PartialEq + Clone>(
     ui: &mut Ui,
     id: &str,
     value: &mut T,
@@ -79,13 +79,13 @@ pub fn choose<T: PartialEq + Copy>(
 ) -> Response {
     let shown = (choices.iter())
         .find(|(choice, _)| *choice == *value)
-        .map_or_else(|| other(*value), |(_, name)| name.clone());
+        .map_or_else(|| other(value.clone()), |(_, name)| name.clone());
     let mut changed = false;
     let mut response = dropdown(id)
         .selected_text(shown)
         .show_ui(ui, |ui| {
             for (choice, name) in choices {
-                changed |= choice_value(ui, value, *choice, name).changed();
+                changed |= choice_value(ui, value, choice.clone(), name).changed();
             }
         })
         .response;
