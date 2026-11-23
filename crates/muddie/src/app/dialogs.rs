@@ -17,7 +17,7 @@ impl App {
                             ("↑  ↓", tr("Earlier and later commands")),
                             ("Ctrl+R", tr("Search the commands typed before")),
                             ("Tab", tr("Complete the word being typed")),
-                            (crate::shortcuts::command!("F"), tr("Find in the output")),
+                            (crate::shortcuts::FIND.written, tr("Find in the output")),
                         ],
                     ),
                     (
@@ -58,12 +58,15 @@ impl App {
                             (tr("Home"), tr("Back to your room")),
                             (tr("Backspace"), tr("Back to the room before")),
                             (tr("Space"), tr("Say the room again")),
-                            (crate::shortcuts::command!("I"), tr("All about the room")),
-                            (crate::shortcuts::command!("L"), tr("What is noted near")),
-                            (crate::shortcuts::command!("F"), tr("Search the map")),
-                            (crate::shortcuts::command!("B"), tr("Mark the room")),
                             (
-                                crate::shortcuts::command!("N"),
+                                crate::shortcuts::ROOM_INFO.written,
+                                tr("All about the room"),
+                            ),
+                            (crate::shortcuts::NEAR.written, tr("What is noted near")),
+                            (crate::shortcuts::FIND.written, tr("Search the map")),
+                            (crate::shortcuts::MARK.written, tr("Mark the room")),
+                            (
+                                crate::shortcuts::NOTE.written,
                                 tr("Write a note on the room"),
                             ),
                             (tr("Enter  Shift+Enter"), tr("Go there, or say the way")),
@@ -74,16 +77,19 @@ impl App {
                     (
                         tr("Sessions"),
                         &[
-                            (crate::shortcuts::command!("T"), tr("New session")),
-                            (crate::shortcuts::command!("W"), tr("Close session")),
+                            (crate::shortcuts::NEW_SESSION.written, tr("New session")),
+                            (crate::shortcuts::CLOSE_SESSION.written, tr("Close session")),
                             (crate::shortcuts::RECONNECT_KEYS, tr("Reconnect")),
-                            (crate::shortcuts::command!("K"), tr("Commands")),
+                            (crate::shortcuts::PALETTE.written, tr("Commands")),
                             (
-                                crate::shortcuts::command!("E"),
+                                crate::shortcuts::SWITCH_VIEW.written,
                                 tr("Switch between the game and the editor"),
                             ),
-                            (crate::shortcuts::command!("D"), tr("Show incoming data")),
-                            (crate::shortcuts::command!(","), tr("Settings")),
+                            (
+                                crate::shortcuts::DATA_VIEW.written,
+                                tr("Show incoming data"),
+                            ),
+                            (crate::shortcuts::SETTINGS.written, tr("Settings")),
                         ],
                     ),
                     (
@@ -100,7 +106,7 @@ impl App {
                                 tr("Select several items or a range"),
                             ),
                             (
-                                crate::shortcuts::command!("A"),
+                                crate::shortcuts::SELECT_ALL.written,
                                 tr("Select all visible items"),
                             ),
                             (
@@ -113,14 +119,14 @@ impl App {
                             ),
                             ("F2", tr("Rename")),
                             (tr("Del"), tr("Delete")),
-                            (crate::shortcuts::command!("Z"), tr("Undo")),
-                            (crate::shortcuts::command!("Y"), tr("Redo")),
+                            (crate::shortcuts::UNDO.written, tr("Undo")),
+                            (crate::shortcuts::REDO.written, tr("Redo")),
                         ],
                     ),
                     (
                         tr("Panels"),
                         &[
-                            (crate::shortcuts::command!("M"), tr("Show or hide the map")),
+                            (crate::shortcuts::MAP.written, tr("Show or hide the map")),
                             (
                                 tr("← →  ↑ ↓ on an edge"),
                                 tr("Make the panels larger or smaller"),

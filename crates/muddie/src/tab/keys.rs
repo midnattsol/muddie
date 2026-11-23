@@ -9,7 +9,7 @@ impl Tab {
         if ui.input_mut(|input| input.consume_key(crate::shortcuts::RECONNECT, Key::R)) {
             self.reconnect(&ui.ctx().clone());
         }
-        if ui.input_mut(|input| input.consume_key(Modifiers::COMMAND, Key::M)) {
+        if ui.input_mut(|input| crate::shortcuts::MAP.pressed(input)) {
             let shown = self.map_shown();
             self.set_map_shown(!shown);
         }

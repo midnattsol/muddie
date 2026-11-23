@@ -559,9 +559,9 @@ fn the_layout_has_a_view_of_its_own_beside_the_game_and_the_editor() {
         .find(|panel| panel.kind == layout::Kind::Map)
         .unwrap()
         .id;
-    harness.state_mut().tab_mut().open_arrange(Some(map));
+    harness.state_mut().tab_mut().open_layout_view(Some(map));
     harness.run_steps(2);
-    assert_eq!(harness.state().tab().arrange.chosen, Some(map));
+    assert_eq!(harness.state().tab().layout_view.chosen, Some(map));
 }
 
 #[test]
@@ -584,7 +584,7 @@ fn panels_are_laid_out_with_the_keyboard() {
     // panel chosen, the first: the map. Down goes to the next one.
     harness.key_press(Key::Tab);
     harness.run_steps(1);
-    harness.state_mut().tab_mut().open_arrange(None);
+    harness.state_mut().tab_mut().open_layout_view(None);
     harness.run_steps(2);
     // Each says the side it is on, which the arrows go past.
     let map = harness.get_by_role_and_label(egui::accesskit::Role::ListItem, "Map");
@@ -597,11 +597,11 @@ fn panels_are_laid_out_with_the_keyboard() {
         minimap.accesskit_node().description().as_deref(),
         Some("Text, At the right")
     );
-    let focused = || harness.state().tab().arrange.chosen;
+    let focused = || harness.state().tab().layout_view.chosen;
     let map = focused();
     harness.key_press(Key::ArrowDown);
     harness.run_steps(2);
-    assert_ne!(harness.state().tab().arrange.chosen, map);
+    assert_ne!(harness.state().tab().layout_view.chosen, map);
     // Alt and Up move it above the map, and it is said where it is.
     harness.key_press_modifiers(crate::shortcuts::WITH_ARROWS, Key::ArrowUp);
     harness.run_steps(2);
@@ -633,7 +633,7 @@ fn arrangements_put_the_panels_where_they_say_and_keep_them() {
     use layout::Side::{Bottom, Left, Right};
     let mut harness = connected_demo_window();
     harness.set_size(egui::vec2(1400.0, 1400.0));
-    harness.state_mut().tab_mut().open_arrange(None);
+    harness.state_mut().tab_mut().open_layout_view(None);
     harness.run_steps(2);
     harness
         .get_by_role_and_label(egui::accesskit::Role::Button, "Wide screen")
@@ -691,7 +691,7 @@ fn panels_are_dragged_in_the_picture_of_the_window_seeing_how_it_would_be() {
     use layout::Side::{Left, Right};
     let mut harness = connected_demo_window();
     harness.set_size(egui::vec2(1400.0, 1000.0));
-    harness.state_mut().tab_mut().open_arrange(None);
+    harness.state_mut().tab_mut().open_layout_view(None);
     harness.run_steps(3);
     let picture = harness
         .get_by_label("Picture of the window's panels")
@@ -722,11 +722,11 @@ fn panels_are_dragged_in_the_picture_of_the_window_seeing_how_it_would_be() {
             .map(|panel| panel.side)
     };
     assert_eq!(side_of_map(harness.state().tab()), Some(Right));
-    assert!(harness.state().tab().arrange.dragged.is_some());
+    assert!(harness.state().tab().layout_view.dragged.is_some());
     pointer(&mut harness, left_edge, Some(false));
     let app = harness.state().tab();
     assert_eq!(side_of_map(app), Some(Left));
-    assert!(app.arrange.dragged.is_none());
+    assert!(app.layout_view.dragged.is_none());
     // Taken again and Escape: back where it was, and the view stays.
     let picture = harness
         .get_by_label("Picture of the window's panels")
@@ -736,13 +736,13 @@ fn panels_are_dragged_in_the_picture_of_the_window_seeing_how_it_would_be() {
     pointer(&mut harness, map_at, Some(true));
     pointer(&mut harness, map_at + egui::vec2(30.0, 10.0), None);
     pointer(&mut harness, right_edge, None);
-    assert!(harness.state().tab().arrange.dragged.is_some());
+    assert!(harness.state().tab().layout_view.dragged.is_some());
     harness.key_press(Key::Escape);
     harness.run_steps(2);
     pointer(&mut harness, right_edge, Some(false));
     let app = harness.state().tab();
     assert_eq!(side_of_map(app), Some(Left));
-    assert!(app.arrange.dragged.is_none() && app.arrange.open);
+    assert!(app.layout_view.dragged.is_none() && app.layout_view.open);
 }
 
 #[test]

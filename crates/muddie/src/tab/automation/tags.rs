@@ -173,26 +173,23 @@ pub(in crate::tab) fn folder_row(
 ) -> bool {
     let mut picked = false;
     filing_line(ui, tr("Folder"), |ui| {
-        let shown = match (several, folder.trim()) {
-            (true, _) => tr("Several folders").to_owned(),
-            (false, "") => tr("None").to_owned(),
-            (false, path) => path.replace('/', " › "),
-        };
-        widgets::dropdown("folder")
-            .selected_text(shown)
-            .show_ui(ui, |ui| {
-                if widgets::choice(ui, !several && folder.trim().is_empty(), tr("None")).clicked() {
-                    folder.clear();
-                    picked = true;
-                }
-                for path in folders {
-                    let label = folder_label(path);
-                    if widgets::choice(ui, !several && folder == path, &label).clicked() {
-                        folder.clone_from(path);
-                        picked = true;
-                    }
-                }
+        // Of several in more than one, none of them is chosen.
+        let mut chosen = (!several).then(|| folder.trim().to_owned());
+        let choices: Vec<(Option<String>, String)> =
+            std::iter::once((Some(String::new()), tr("None").to_owned()))
+                .chain((folders.iter()).map(|path| (Some(path.clone()), folder_label(path))))
+                .collect();
+        let response =
+            widgets::choose(ui, "folder", &mut chosen, &choices, |chosen| match chosen {
+                None => tr("Several folders").to_owned(),
+                Some(path) => path.replace('/', " › "),
             });
+        if response.changed()
+            && let Some(path) = chosen
+        {
+            *folder = path;
+            picked = true;
+        }
     });
     picked
 }

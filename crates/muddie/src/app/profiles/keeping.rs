@@ -45,8 +45,9 @@ impl App {
             return;
         };
         edit.settle.clear();
+        self.profile_error = None;
         if let Err(error) = profiles.save(&edit.name, &edit.draft) {
-            self.settings_error = Some(trf("Could not save the profile: {0}", &[&error]));
+            self.profile_error = Some(trf("Could not save the profile: {0}", &[&error]));
             return;
         }
         edit.saved = edit.draft.clone();
@@ -94,7 +95,7 @@ impl App {
         }
         let password = std::mem::take(&mut edit.password);
         if let Err(error) = crate::secrets::set_password(&edit.name, Some(&password)) {
-            self.settings_error = Some(trf(
+            self.profile_error = Some(trf(
                 "The password could not be saved in the keyring: {0}",
                 &[&error],
             ));

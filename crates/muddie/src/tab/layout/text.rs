@@ -133,10 +133,7 @@ impl Tab {
             let none = tr(
                 "Nothing here yet. A trigger can show lines in this panel, and so can a script.",
             );
-            let faint = RichText::new(none)
-                .font(theme::font(Weight::Regular, 12.5))
-                .color(theme::current().text_faint);
-            ui.label(faint);
+            widgets::page_note(ui, none);
         }
         false
     }

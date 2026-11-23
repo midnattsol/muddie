@@ -191,7 +191,7 @@ What it does, by group:
   show an area…, check the map, rooms the map added, tidy this area,
   remove a room…, import a Mudlet map…, stop going, and undo the map's
   last change.
-- **Speech**: each channel read aloud or not.
+- **Channels**: each channel read aloud or not.
 - **Panels**: each shown or hidden.
 - **Scripts**: run Lua…, restart scripts, and each tag on or off for the
   session.
@@ -681,8 +681,8 @@ settings, **Speak with** chooses what reads it:
   speed and in the language set below it.
 - **Nothing**.
 
-**Speech** in the palette silences it for the session, and
-**Speech**, in the palette, brings it back, with the system's voice if there is no
+**Speak aloud** in the palette silences it for the session, and
+brings it back, with the system's voice if there is no
 screen reader. What is said on the MUD's channels is read too, after the
 channel's name; **Read the channels** in the settings turns that off, and
 **Read aloud** in the menu of a channel's tab, for that channel alone, in

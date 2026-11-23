@@ -74,7 +74,7 @@ impl App {
                     });
             },
         );
-        self.show_settings = open;
+        self.show_settings &= open;
         if self.settings != before {
             self.apply_settings(ctx);
         }
@@ -133,7 +133,7 @@ fn appearance_settings(ui: &mut Ui, settings: &mut Settings) {
         });
     });
     widgets::section(ui, tr("MUD text"), |ui| {
-        widgets::setting_row(ui, tr("Palette"), None, &mut |ui| {
+        widgets::setting_row(ui, tr("MUD colours"), None, &mut |ui| {
             palette_choice(ui, &mut settings.mud_palette)
         });
         widgets::setting_row(ui, tr("Font"), None, &mut |ui| font_choice(ui, settings));
@@ -202,64 +202,44 @@ fn palette_choice(ui: &mut Ui, chosen: &mut MudPalette) -> egui::Response {
 /// system's monospaced fonts.
 fn font_choice(ui: &mut Ui, settings: &mut Settings) -> egui::Response {
     // What the settings hold is a name of ours or a family's.
-    let shown = match settings.font_family.strip_prefix("muddie:") {
-        _ if settings.font_family.is_empty() => theme::DEFAULT_FONT,
-        Some(bundled) => bundled,
-        None => settings.font_family.as_str(),
-    }
-    .to_owned();
-    crate::widgets::dropdown("font")
-        .selected_text(shown)
-        .height(340.0)
-        .show_ui(ui, |ui| {
-            bundled_fonts(ui, settings);
-            ui.separator();
-            system_fonts(ui, settings);
-        })
-        .response
-}
-
-/// A heading among the fonts.
-fn font_heading(ui: &mut Ui, text: &str) {
-    let small = RichText::new(text)
-        .font(theme::font(Weight::Regular, 11.5))
-        .color(theme::current().text_faint);
-    ui.add(egui::Label::new(small).selectable(false));
-}
-
-/// The fonts that come with Muddie.
-fn bundled_fonts(ui: &mut Ui, settings: &mut Settings) {
-    font_heading(ui, tr("Included fonts"));
-    if crate::widgets::choice(ui, settings.font_family.is_empty(), theme::DEFAULT_FONT).clicked() {
-        settings.font_family.clear();
-        settings.font_file.clear();
-    }
-    for (name, _) in theme::BUNDLED_FONTS {
-        let key = theme::bundled_font(name);
-        if crate::widgets::choice(ui, settings.font_family == key, name).clicked() {
-            settings.font_family = key;
-            settings.font_file.clear();
-        }
-    }
-}
-
-/// The monospaced fonts the system has, once they have been looked for.
-fn system_fonts(ui: &mut Ui, settings: &mut Settings) {
-    font_heading(ui, tr("System fonts"));
-    let Some(installed) = theme::installed_fonts() else {
-        font_heading(ui, tr("Loading…"));
+    let shown = |family: String| match family.strip_prefix("muddie:") {
+        _ if family.is_empty() => theme::DEFAULT_FONT.to_owned(),
+        Some(bundled) => bundled.to_owned(),
+        None => family,
+    };
+    let included: Vec<(String, String)> = std::iter::once((String::new(), shown(String::new())))
+        .chain(
+            (theme::BUNDLED_FONTS.iter())
+                .map(|(name, _)| (theme::bundled_font(name), (*name).to_owned())),
+        )
+        .collect();
+    // The system's, once they have been looked for.
+    let installed = theme::installed_fonts();
+    if installed.is_none() {
         ui.ctx()
             .request_repaint_after(std::time::Duration::from_millis(150));
-        return;
-    };
-    for font in installed {
-        if crate::widgets::choice(ui, settings.font_family == font.family, &font.family).clicked() {
-            // Where it is goes with its name, so that it is found at once
-            // the next time.
-            settings.font_family.clone_from(&font.family);
-            (settings.font_file, settings.font_index) = font.place();
-        }
     }
+    let system: Vec<(String, String)> = (installed.unwrap_or_default().iter())
+        .map(|font| (font.family.clone(), font.family.clone()))
+        .collect();
+    let system_heading = match installed {
+        Some(_) => tr("System fonts"),
+        None => tr("Loading…"),
+    };
+    let groups = [(tr("Included fonts"), included), (system_heading, system)];
+    let mut family = settings.font_family.clone();
+    let response = widgets::choose_in(ui, "font", &mut family, &groups, shown);
+    if response.changed() {
+        // Where a system's is goes with its name, so that it is found at
+        // once the next time.
+        let font = (installed.unwrap_or_default().iter()).find(|font| font.family == family);
+        (settings.font_file, settings.font_index) = match font {
+            Some(font) => font.place(),
+            None => (String::new(), settings.font_index),
+        };
+        settings.font_family = family;
+    }
+    response
 }
 
 /// What the output will look like.

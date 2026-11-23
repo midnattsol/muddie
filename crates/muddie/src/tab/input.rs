@@ -222,7 +222,7 @@ impl Tab {
                 input.consume_key(Modifiers::NONE, Key::ArrowUp),
                 input.consume_key(Modifiers::NONE, Key::ArrowDown),
                 input.consume_key(Modifiers::CTRL, Key::R),
-                input.consume_key(Modifiers::COMMAND, Key::F),
+                crate::shortcuts::FIND.pressed(input),
             )
         });
         // A command left from before is the newest in the history: the

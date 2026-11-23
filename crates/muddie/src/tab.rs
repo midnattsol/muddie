@@ -31,7 +31,6 @@ use crate::theme;
 use crate::voice::Voice;
 use muddie_sound::{self as sound, Msp, Player};
 
-mod arrange;
 mod automation;
 mod client_commands;
 mod commands;
@@ -43,6 +42,7 @@ mod its_profile;
 mod keys;
 mod language;
 mod layout;
+mod layout_view;
 mod look;
 mod media;
 mod messages;
@@ -127,7 +127,7 @@ pub struct Tab {
     /// The area asked to be tidied, while the dialog asks whether to.
     tidy_asked: Option<String>,
     /// The view where the panels are laid out.
-    arrange: arrange::Arrange,
+    layout_view: layout_view::LayoutView,
     /// Output arrived while the session was not on screen.
     unread: bool,
     /// The settings in force, as of the last change.
@@ -302,7 +302,7 @@ impl Tab {
             map_told: Default::default(),
             look: None,
             tidy_asked: None,
-            arrange: Default::default(),
+            layout_view: Default::default(),
             unread: false,
             settings: settings.clone(),
             log: None,
@@ -399,10 +399,6 @@ impl Tab {
     /// Takes changed settings into account.
     pub fn settings_changed(&mut self, settings: &Settings) {
         self.settings = settings.clone();
-        // Without a profile, the session goes as the settings say.
-        if self.profile.is_none() {
-            self.prefs = crate::profile::SessionPrefs::from(settings);
-        }
         self.output
             .restyle(settings.scrollback_lines, settings.timestamps);
         for (_, content) in &mut self.panels.text {

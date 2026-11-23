@@ -285,7 +285,7 @@ fn a_profile_keeps_what_is_changed_in_the_settings_as_it_is_changed() {
     assert_eq!(saved.character, "Naylhena");
     // It was on, as it is to begin with: off in this profile only.
     assert_eq!(saved.session.map(|session| session.reconnect), Some(false));
-    assert!(harness.state().app_settings().reconnect);
+    assert!(crate::profile::SessionPrefs::default().reconnect);
     std::fs::remove_dir_all(&dir).unwrap();
 }
 

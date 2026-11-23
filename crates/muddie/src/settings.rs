@@ -102,18 +102,8 @@ pub struct Settings {
     /// What is said on the MUD's channels is said aloud too, with the
     /// channel's name before it.
     pub speech_channels: bool,
-    /// Fetch from the web the sounds a MUD asks to be played and the
-    /// player does not have.
-    pub media_downloads: bool,
-    /// Write everything shown in a session to a log file.
-    pub log_sessions: bool,
-    pub log_format: LogFormat,
     /// Show the time each line arrived.
     pub timestamps: bool,
-    /// Connect again when the connection drops unexpectedly.
-    pub reconnect: bool,
-    /// Seconds between keep-alive messages while idle; 0 sends none.
-    pub keepalive_seconds: u32,
     /// Leave a command in the command line after sending it, selected:
     /// Enter sends it again, and typing replaces it.
     pub keep_command: bool,
@@ -145,12 +135,7 @@ impl Default for Settings {
             speech: SpeechOutput::default(),
             speech_interrupts: false,
             speech_channels: true,
-            media_downloads: true,
-            log_sessions: false,
-            log_format: LogFormat::default(),
             timestamps: false,
-            reconnect: true,
-            keepalive_seconds: 60,
             keep_command: false,
             automation_panes: [190.0, 320.0],
             code_heights: [0.0; 2],
@@ -206,8 +191,7 @@ mod tests {
             theme: ThemeName::Contrast,
             language: "es".to_owned(),
             font_size: 18.5,
-            log_format: LogFormat::Html,
-            keepalive_seconds: 0,
+            timestamps: true,
             ..Settings::default()
         };
         settings.save(&path).unwrap();

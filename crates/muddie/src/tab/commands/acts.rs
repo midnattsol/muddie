@@ -78,7 +78,7 @@ impl Tab {
         acts.push(item(tr("Copy all output"), session, Act::CopyOutput));
         let log = switched(tr("Log this session"), self.log.is_some());
         acts.push(item(&log, session, Act::Log));
-        let speech = switched(tr("Speech"), self.voice.enabled());
+        let speech = switched(tr("Speak aloud"), self.voice.enabled());
         acts.push(item(&speech, session, Act::Speech));
         acts.push(match &self.profile {
             Some(name) => {
@@ -96,13 +96,13 @@ impl Tab {
 
     /// Reading each of the MUD's channels aloud, or keeping it quiet.
     fn channel_acts(&self) -> Vec<Item> {
-        let speech = tr("Speech");
+        let channels = tr("Channels");
         (self.panels.channels.iter())
             .map(|channel| {
                 let name = &channel.name;
                 let aloud = !self.channel_quiet(name);
                 let label = switched(&trf("Read the {0} channel aloud", &[name]), aloud);
-                item(&label, speech, Act::ReadChannel(name.clone(), !aloud))
+                item(&label, channels, Act::ReadChannel(name.clone(), !aloud))
             })
             .collect()
     }

@@ -44,10 +44,10 @@ impl App {
     fn palette_field(&mut self, ui: &mut Ui, bar: egui::Rect) {
         let width = (bar.width() - 2.0 * 260.0).clamp(180.0, 380.0);
         let place = egui::Rect::from_center_size(bar.center(), egui::vec2(width, 26.0));
-        let keys = ui.ctx().format_shortcut(&COMMANDS);
+        let keys = crate::shortcuts::PALETTE.written;
         // Where it is, without taking room from the rest of the bar.
         let mut room = ui.new_child(egui::UiBuilder::new().max_rect(place));
-        if widgets::palette_button(&mut room, width, &keys).clicked() {
+        if widgets::palette_button(&mut room, width, keys).clicked() {
             self.tabs[self.active].toggle_palette();
         }
     }
@@ -58,13 +58,13 @@ impl App {
         let button = widgets::icon_button(ui, widgets::Icon::Menu, tr("Menu"), false);
         crate::widgets::menu_of(&button).show(|ui| {
             widgets::menu_width(ui);
-            let new_session = ui.ctx().format_shortcut(&NEW_SESSION);
-            if widgets::menu_item(ui, tr("New session"), &new_session).clicked() {
+            let new_session = crate::shortcuts::NEW_SESSION.written;
+            if widgets::menu_item(ui, tr("New session"), new_session).clicked() {
                 self.new_tab(ui.ctx());
                 ui.close();
             }
-            let settings = ui.ctx().format_shortcut(&SETTINGS);
-            if widgets::menu_item(ui, tr("Settings"), &settings).clicked() {
+            let settings = crate::shortcuts::SETTINGS.written;
+            if widgets::menu_item(ui, tr("Settings"), settings).clicked() {
                 self.open_settings(Section::General);
                 ui.close();
             }
@@ -242,7 +242,7 @@ fn session_menu(ui: &mut Ui, connected: bool, profile: Option<&str>) -> Option<S
     item(
         ui,
         tr("Close session"),
-        crate::shortcuts::command!("W"),
+        crate::shortcuts::CLOSE_SESSION.written,
         SessionAction::Close,
     );
     asked

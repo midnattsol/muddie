@@ -19,11 +19,11 @@ impl Tab {
         // The palette of commands, over whichever view is shown.
         self.palette(ui.ctx());
         // The layout and the editor take the place of the game while open.
-        if self.arrange.open {
+        if self.layout_view.open {
             if self.unprofiled_page(ui, unprofiled::Unprofiled::Layout) {
                 return;
             }
-            return self.arrange_page(ui);
+            return self.layout_page(ui);
         }
         if self.editor.open {
             if self.unprofiled_page(ui, unprofiled::Unprofiled::Editor) {
@@ -272,7 +272,7 @@ pub enum View {
 impl Tab {
     /// Which of its views the session is on.
     pub fn view(&self) -> View {
-        match (self.arrange.open, self.editor.open, self.data_open()) {
+        match (self.layout_view.open, self.editor.open, self.data_open()) {
             (true, ..) => View::Layout,
             (_, _, true) => View::Data,
             (_, true, false) => View::Editor,
@@ -284,14 +284,14 @@ impl Tab {
     pub fn set_view(&mut self, view: View) {
         match view {
             View::Game => {
-                self.arrange.open = false;
+                self.layout_view.open = false;
                 if self.editor.open {
                     self.close_automation();
                 }
             }
             View::Editor => self.reopen_automation(),
             View::Data => self.open_automation(automation::DATA),
-            View::Layout => self.open_arrange(None),
+            View::Layout => self.open_layout_view(None),
         }
     }
 }

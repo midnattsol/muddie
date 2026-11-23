@@ -50,16 +50,12 @@ msgstr "Sesiones"
 msgid "Logging stopped: {0}"
 msgstr "Registro detenido: {0}"
 
-msgid "Cannot log: no configuration folder was found."
-msgstr "No se puede registrar: no hay carpeta de configuración."
 
 #, python-brace-format
 msgid "Logging to {0}"
 msgstr "Registrando en {0}"
 
 #, python-brace-format
-msgid "Cannot log: {0}"
-msgstr "No se puede registrar: {0}"
 
 #, python-brace-format
 msgid "Logging stopped; the log is {0}"
@@ -83,8 +79,6 @@ msgid "Not connected."
 msgstr "No hay conexión."
 
 #, python-brace-format
-msgid "Cannot play the sound: {0}"
-msgstr "No se puede reproducir el sonido: {0}"
 
 msgid "Find"
 msgstr "Buscar"
@@ -1132,8 +1126,6 @@ msgstr "Plugins"
 msgid "TLS encryption"
 msgstr "Cifrado TLS"
 
-msgid "Palette"
-msgstr "Paleta"
 
 msgid "Soft (follows the theme)"
 msgstr "Suaves (según el tema)"
@@ -1340,8 +1332,6 @@ msgstr "Varias carpetas"
 
 
 #, python-brace-format
-msgid "There is a plugin for {0}: {1} It can be enabled from the notice at the bottom right."
-msgstr "Hay un plugin disponible para {0}: {1} Puedes activarlo desde el aviso de la esquina inferior derecha."
 
 msgid "Changes pending"
 msgstr "Cambios pendientes"
@@ -2832,3 +2822,33 @@ msgstr "Pasos de color"
 
 msgid "Add a step"
 msgstr "Añadir un paso"
+
+msgid "Could not start the log: no configuration folder was found."
+msgstr "No se pudo empezar el registro: no se encontró la carpeta de configuración."
+
+msgid "Could not start the log: {0}"
+msgstr "No se pudo empezar el registro: {0}"
+
+msgid "Could not play the sound: {0}"
+msgstr "No se pudo reproducir el sonido: {0}"
+
+msgid "Could not save the profile in {0}: {1}"
+msgstr "No se pudo guardar el perfil en {0}: {1}"
+
+msgid "Could not rename the profile: {0}"
+msgstr "No se pudo renombrar el perfil: {0}"
+
+msgid "Could not copy the profile: {0}"
+msgstr "No se pudo copiar el perfil: {0}"
+
+msgid "Could not delete the profile: {0}"
+msgstr "No se pudo eliminar el perfil: {0}"
+
+msgid "MUD colours"
+msgstr "Colores del MUD"
+
+msgid "There is a plugin for {0}: {1} It can be enabled from its message, at the bottom right."
+msgstr "Hay un plugin para {0}: {1} Puedes activarlo desde su mensaje, abajo a la derecha."
+
+msgid "Speak aloud"
+msgstr "Hablar en voz alta"

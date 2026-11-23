@@ -57,7 +57,55 @@ macro_rules! with_arrows {
     };
 }
 
-pub(crate) use {command, with_arrows, with_key};
+pub(crate) use {with_arrows, with_key};
 
 /// How reconnecting is written.
 pub const RECONNECT_KEYS: &str = if MAC { "Cmd+R" } else { "Alt+R" };
+
+/// One of Muddie's shortcuts: the keys it is pressed with, and how they
+/// are written, everywhere it is shown.
+#[derive(Debug, Clone, Copy)]
+pub struct Shortcut {
+    pub keys: eframe::egui::KeyboardShortcut,
+    pub written: &'static str,
+}
+
+impl Shortcut {
+    /// Whether it was pressed, taking the press.
+    pub fn pressed(&self, input: &mut eframe::egui::InputState) -> bool {
+        input.consume_shortcut(&self.keys)
+    }
+}
+
+/// Command and a key: Cmd on a Mac, Ctrl elsewhere.
+macro_rules! command_shortcut {
+    ($key:ident, $written:literal) => {
+        Shortcut {
+            keys: eframe::egui::KeyboardShortcut::new(Modifiers::COMMAND, eframe::egui::Key::$key),
+            written: command!($written),
+        }
+    };
+}
+
+pub const NEW_SESSION: Shortcut = command_shortcut!(T, "T");
+pub const CLOSE_SESSION: Shortcut = command_shortcut!(W, "W");
+/// Between the game and the editor.
+pub const SWITCH_VIEW: Shortcut = command_shortcut!(E, "E");
+/// The incoming data.
+pub const DATA_VIEW: Shortcut = command_shortcut!(D, "D");
+pub const PALETTE: Shortcut = command_shortcut!(K, "K");
+pub const SETTINGS: Shortcut = command_shortcut!(Comma, ",");
+/// In the output, and on the map while exploring it.
+pub const FIND: Shortcut = command_shortcut!(F, "F");
+/// Shows or hides the map.
+pub const MAP: Shortcut = command_shortcut!(M, "M");
+pub const COPY: Shortcut = command_shortcut!(C, "C");
+pub const SELECT_ALL: Shortcut = command_shortcut!(A, "A");
+pub const UNDO: Shortcut = command_shortcut!(Z, "Z");
+pub const REDO: Shortcut = command_shortcut!(Y, "Y");
+/// While exploring the map: all about the room, what is near, marking it
+/// and writing a note on it; and searching, as [`FIND`].
+pub const ROOM_INFO: Shortcut = command_shortcut!(I, "I");
+pub const NEAR: Shortcut = command_shortcut!(L, "L");
+pub const MARK: Shortcut = command_shortcut!(B, "B");
+pub const NOTE: Shortcut = command_shortcut!(N, "N");

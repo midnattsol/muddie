@@ -29,12 +29,7 @@ use profiles::ProfileEdit;
 pub use profiles::{ProfileAction, ProfileTab, profile_menu};
 pub use settings_page::Section;
 
-const NEW_SESSION: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, egui::Key::T);
-const CLOSE_SESSION: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, egui::Key::W);
-const SWITCH_VIEW: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, egui::Key::E);
-const DEBUG_VIEW: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, egui::Key::D);
-const COMMANDS: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, egui::Key::K);
-const SETTINGS: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, egui::Key::Comma);
+use crate::shortcuts::{CLOSE_SESSION, DATA_VIEW, NEW_SESSION, PALETTE, SETTINGS, SWITCH_VIEW};
 
 pub struct App {
     tabs: Vec<Tab>,
@@ -68,6 +63,8 @@ pub struct App {
     show_about: bool,
     /// A problem with the settings to show in the settings window.
     settings_error: Option<String>,
+    /// A problem with a profile to show in the Profiles window.
+    profile_error: Option<String>,
     /// Keypad keys noted by the window layer, waiting for the next frame.
     keypad: keypad::Pressed,
 }
@@ -127,6 +124,7 @@ impl App {
             show_shortcuts: false,
             show_about: false,
             settings_error,
+            profile_error: None,
             keypad,
         }
     }
@@ -176,11 +174,6 @@ impl App {
     pub fn use_font(&mut self, ctx: &egui::Context, family: &str) {
         self.settings.font_family = family.to_owned();
         self.apply_settings(ctx);
-    }
-
-    #[cfg(test)]
-    pub fn app_settings(&self) -> &Settings {
-        &self.settings
     }
 
     fn new_tab(&mut self, ctx: &egui::Context) {
@@ -289,27 +282,27 @@ impl App {
     fn window_keys(&mut self, ui: &mut Ui) {
         let pressed =
             |shortcut: &KeyboardShortcut| ui.input_mut(|input| input.consume_shortcut(shortcut));
-        if pressed(&NEW_SESSION) {
+        if pressed(&NEW_SESSION.keys) {
             self.new_tab(ui.ctx());
         }
-        if pressed(&CLOSE_SESSION) {
+        if pressed(&CLOSE_SESSION.keys) {
             self.close_tab(self.active, ui.ctx());
         }
-        if pressed(&SETTINGS) {
+        if pressed(&SETTINGS.keys) {
             self.open_settings(Section::General);
         }
         let tab = &mut self.tabs[self.active];
-        if pressed(&COMMANDS) {
+        if pressed(&PALETTE.keys) {
             tab.toggle_palette();
         }
-        if pressed(&SWITCH_VIEW) {
+        if pressed(&SWITCH_VIEW.keys) {
             tab.set_view(if tab.view() == View::Game {
                 View::Editor
             } else {
                 View::Game
             });
         }
-        if pressed(&DEBUG_VIEW) {
+        if pressed(&DATA_VIEW.keys) {
             tab.set_view(if tab.view() == View::Data {
                 View::Game
             } else {

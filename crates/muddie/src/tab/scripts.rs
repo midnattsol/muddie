@@ -305,7 +305,7 @@ impl Tab {
                 } => {
                     let path = self.sound_file(&file);
                     if let Err(error) = self.sound.play(&path, volume, looped) {
-                        self.refuse(&trf("Cannot play the sound: {0}", &[&error]));
+                        self.refuse(&trf("Could not play the sound: {0}", &[&error]));
                     }
                 }
                 Action::StopSounds => self.sound.stop_all(),

@@ -84,15 +84,32 @@ pub fn choose<T: PartialEq + Clone>(
     choices: &[(T, String)],
     other: impl Fn(T) -> String,
 ) -> Response {
-    let shown = (choices.iter())
-        .find(|(choice, _)| *choice == *value)
+    choose_in(ui, id, value, &[("", choices.to_vec())], other)
+}
+
+/// The same, with the values in groups, each under its heading; a group
+/// with no heading has none.
+pub fn choose_in<T: PartialEq + Clone>(
+    ui: &mut Ui,
+    id: &str,
+    value: &mut T,
+    groups: &[(&str, Vec<(T, String)>)],
+    other: impl Fn(T) -> String,
+) -> Response {
+    let mut all = groups.iter().flat_map(|(_, choices)| choices.iter());
+    let shown = (all.find(|(choice, _)| *choice == *value))
         .map_or_else(|| other(value.clone()), |(_, name)| name.clone());
     let mut changed = false;
     let mut response = dropdown(id)
         .selected_text(shown)
         .show_ui(ui, |ui| {
-            for (choice, name) in choices {
-                changed |= choice_value(ui, value, choice.clone(), name).changed();
+            for (heading, choices) in groups {
+                if !heading.is_empty() {
+                    menu_heading(ui, heading);
+                }
+                for (choice, name) in choices {
+                    changed |= choice_value(ui, value, choice.clone(), name).changed();
+                }
             }
         })
         .response;

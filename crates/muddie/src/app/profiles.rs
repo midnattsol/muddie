@@ -120,9 +120,7 @@ impl App {
             Ok(profile) => {
                 let mut draft = profile.clone();
                 // One saved before it kept these has the settings'.
-                draft
-                    .session
-                    .get_or_insert_with(|| SessionPrefs::from(&self.settings));
+                draft.session.get_or_insert_with(SessionPrefs::default);
                 self.editing = Some(ProfileEdit {
                     name: name.to_owned(),
                     seen: draft.clone(),
@@ -132,7 +130,7 @@ impl App {
                     password: String::new(),
                 });
             }
-            Err(error) => self.settings_error = Some(error),
+            Err(error) => self.profile_error = Some(error),
         }
     }
 

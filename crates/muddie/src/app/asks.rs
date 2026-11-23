@@ -207,7 +207,7 @@ impl App {
         let name = name.trim();
         profiles.free_name(name)?;
         let mut profile = Profile {
-            session: Some(SessionPrefs::from(&self.settings)),
+            session: Some(SessionPrefs::default()),
             ..Profile::default()
         };
         let (templates, _) = crate::templates::all(Some(&profiles.templates_dir()));

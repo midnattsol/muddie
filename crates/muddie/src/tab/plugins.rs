@@ -273,7 +273,7 @@ impl Tab {
             return;
         }
         self.voice.say(&trf(
-            "There is a plugin for {0}: {1} It can be enabled from the notice at the bottom right.",
+            "There is a plugin for {0}: {1} It can be enabled from its message, at the bottom right.",
             &[&plugin.shown_name(), &plugin.about()],
         ));
         self.plugin_offer = Some(plugin);

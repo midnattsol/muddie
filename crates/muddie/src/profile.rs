@@ -72,20 +72,16 @@ pub struct SessionPrefs {
     pub quiet_channels: Vec<String>,
 }
 
+/// How a session goes, for a profile that says nothing of it and for a
+/// session with no profile.
 impl Default for SessionPrefs {
     fn default() -> Self {
-        Self::from(&crate::settings::Settings::default())
-    }
-}
-
-impl SessionPrefs {
-    pub fn from(settings: &crate::settings::Settings) -> Self {
         Self {
-            reconnect: settings.reconnect,
-            keepalive_seconds: settings.keepalive_seconds,
-            log_sessions: settings.log_sessions,
-            log_format: settings.log_format,
-            media_downloads: settings.media_downloads,
+            reconnect: true,
+            keepalive_seconds: 60,
+            log_sessions: false,
+            log_format: crate::settings::LogFormat::default(),
+            media_downloads: true,
             quiet_channels: Vec::new(),
         }
     }
@@ -249,7 +245,12 @@ impl Profiles {
         let text = toml::to_string_pretty(profile).map_err(|error| error.to_string())?;
         std::fs::create_dir_all(dir.join("scripts"))
             .and_then(|()| std::fs::write(dir.join("profile.toml"), text))
-            .map_err(|error| format!("cannot save the profile in {}: {error}", dir.display()))
+            .map_err(|error| {
+                crate::i18n::trf(
+                    "Could not save the profile in {0}: {1}",
+                    &[&dir.display().to_string(), &error.to_string()],
+                )
+            })
     }
 
     /// Where a profile's own scripts are kept.
@@ -352,8 +353,9 @@ impl Profiles {
     /// layout, map and remembered values. Its password goes with it.
     pub fn rename(&self, from: &str, to: &str) -> Result<(), String> {
         self.free_name(to)?;
-        std::fs::rename(self.profile_dir(from), self.profile_dir(to))
-            .map_err(|error| format!("cannot rename the profile: {error}"))?;
+        std::fs::rename(self.profile_dir(from), self.profile_dir(to)).map_err(|error| {
+            crate::i18n::trf("Could not rename the profile: {0}", &[&error.to_string()])
+        })?;
         move_password(from, to, true);
         Ok(())
     }
@@ -361,16 +363,18 @@ impl Profiles {
     /// Makes a copy of a profile under another name, with all it has.
     pub fn duplicate(&self, from: &str, to: &str) -> Result<(), String> {
         self.free_name(to)?;
-        copy_dir(&self.profile_dir(from), &self.profile_dir(to))
-            .map_err(|error| format!("cannot copy the profile: {error}"))?;
+        copy_dir(&self.profile_dir(from), &self.profile_dir(to)).map_err(|error| {
+            crate::i18n::trf("Could not copy the profile: {0}", &[&error.to_string()])
+        })?;
         move_password(from, to, false);
         Ok(())
     }
 
     /// Deletes a profile, with all it has, and forgets its password.
     pub fn delete(&self, name: &str) -> Result<(), String> {
-        std::fs::remove_dir_all(self.profile_dir(name))
-            .map_err(|error| format!("cannot delete the profile: {error}"))?;
+        std::fs::remove_dir_all(self.profile_dir(name)).map_err(|error| {
+            crate::i18n::trf("Could not delete the profile: {0}", &[&error.to_string()])
+        })?;
         let _ = crate::secrets::set_password(name, None);
         Ok(())
     }

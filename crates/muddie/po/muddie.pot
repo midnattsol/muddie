@@ -406,7 +406,7 @@ msgstr ""
 msgid "The map will not be saved: {0}"
 msgstr ""
 
-msgid "Cannot log: no configuration folder was found."
+msgid "Could not start the log: no configuration folder was found."
 msgstr ""
 
 #, python-brace-format
@@ -414,7 +414,7 @@ msgid "Logging to {0}"
 msgstr ""
 
 #, python-brace-format
-msgid "Cannot log: {0}"
+msgid "Could not start the log: {0}"
 msgstr ""
 
 #, python-brace-format
@@ -439,151 +439,6 @@ msgstr ""
 
 #, python-brace-format
 msgid "The password could not be read from the keyring: {0}"
-msgstr ""
-
-msgid "Classic"
-msgstr ""
-
-msgid "Wide screen"
-msgstr ""
-
-msgid "The game alone"
-msgstr ""
-
-msgid "The map and the panels of text at the right, the gauges below."
-msgstr ""
-
-msgid "The map at the left, the panels of text at the right, the gauges below."
-msgstr ""
-
-msgid "Every panel hidden; they are kept, to show again."
-msgstr ""
-
-msgid "At the left"
-msgstr ""
-
-msgid "At the top"
-msgstr ""
-
-msgid "At the bottom"
-msgstr ""
-
-msgid "At the right"
-msgstr ""
-
-msgid "Map"
-msgstr ""
-
-msgid "Gauges"
-msgstr ""
-
-msgid "Layout"
-msgstr ""
-
-msgid "New panel"
-msgstr ""
-
-msgid "Panel of text"
-msgstr ""
-
-msgid "There are no panels: + adds one."
-msgstr ""
-
-msgid "Panels"
-msgstr ""
-
-#, python-brace-format
-msgid "{0}, collapsed"
-msgstr ""
-
-msgid "the MUD's channels"
-msgstr ""
-
-#, python-brace-format
-msgid "a tab with {0}"
-msgstr ""
-
-msgid "hidden"
-msgstr ""
-
-#, python-brace-format
-msgid "Moved: {0}."
-msgstr ""
-
-msgid "Arrangements"
-msgstr ""
-
-msgid "Use"
-msgstr ""
-
-#, python-brace-format
-msgid "{0}: in place."
-msgstr ""
-
-msgid "Side panels at full height"
-msgstr ""
-
-msgid "The panels at the left and right reach the top and bottom of the window."
-msgstr ""
-
-msgid "Name"
-msgstr ""
-
-msgid "Shown"
-msgstr ""
-
-msgid "Its side collapsed"
-msgstr ""
-
-msgid "The whole side is kept as a thin strip, to expand as it was."
-msgstr ""
-
-msgid "Side"
-msgstr ""
-
-msgid "Place on its side"
-msgstr ""
-
-msgid "Width"
-msgstr ""
-
-msgid "Height"
-msgstr ""
-
-msgid "The same for every panel of its side."
-msgstr ""
-
-msgid "None"
-msgstr ""
-
-msgid "A tab with"
-msgstr ""
-
-msgid "Panels that share a place show their names as tabs, to choose between them."
-msgstr ""
-
-msgid "Show the MUD's channels here"
-msgstr ""
-
-msgid "Edit the gauges"
-msgstr ""
-
-msgid "Remove"
-msgstr ""
-
-msgid "What it shows is lost with it."
-msgstr ""
-
-msgid "Remove this panel"
-msgstr ""
-
-msgid "Picture of the window's panels"
-msgstr ""
-
-msgid "Not moved."
-msgstr ""
-
-msgid "Game"
 msgstr ""
 
 msgid "No layout yet"
@@ -644,6 +499,12 @@ msgid "Size of the panels at the top"
 msgstr ""
 
 msgid "Size of the panels at the bottom"
+msgstr ""
+
+msgid "Map"
+msgstr ""
+
+msgid "Gauges"
 msgstr ""
 
 msgid "Panel"
@@ -1074,7 +935,7 @@ msgstr ""
 msgid "Log this session"
 msgstr ""
 
-msgid "Speech"
+msgid "Speak aloud"
 msgstr ""
 
 msgid "Edit profile"
@@ -1085,6 +946,9 @@ msgstr ""
 
 #, python-brace-format
 msgid "Read the {0} channel aloud"
+msgstr ""
+
+msgid "Panels"
 msgstr ""
 
 #, python-brace-format
@@ -1259,7 +1123,16 @@ msgstr ""
 msgid "Copied."
 msgstr ""
 
+msgid "Views"
+msgstr ""
+
+msgid "Game"
+msgstr ""
+
 msgid "Editor"
+msgstr ""
+
+msgid "Layout"
 msgstr ""
 
 msgid "Incoming data"
@@ -1320,7 +1193,7 @@ msgid "Stopped: the server said the move failed."
 msgstr ""
 
 #, python-brace-format
-msgid "Cannot play the sound: {0}"
+msgid "Could not play the sound: {0}"
 msgstr ""
 
 #, python-brace-format
@@ -1386,7 +1259,7 @@ msgid "{0} has changed since it was installed. To have the changes, install it a
 msgstr ""
 
 #, python-brace-format
-msgid "There is a plugin for {0}: {1} It can be enabled from the notice at the bottom right."
+msgid "There is a plugin for {0}: {1} It can be enabled from its message, at the bottom right."
 msgstr ""
 
 #, python-brace-format
@@ -1464,7 +1337,7 @@ msgid "Scripts running"
 msgstr ""
 
 #, python-brace-format
-msgid "{0} script failed"
+msgid "{0} failed"
 msgstr ""
 
 #, python-brace-format
@@ -1528,7 +1401,7 @@ msgstr ""
 msgid "With a colour for each, it says which of the two it is: red for poisoned, green for not."
 msgstr ""
 
-msgid "Colour by level"
+msgid "Colour steps"
 msgstr ""
 
 msgid "It can turn another colour as it gets low: yellow under 60 %, red under 30 %."
@@ -1537,7 +1410,10 @@ msgstr ""
 msgid "Under"
 msgstr ""
 
-msgid "Add a level"
+msgid "Remove"
+msgstr ""
+
+msgid "Add a step"
 msgstr ""
 
 msgid "Shown in"
@@ -1838,6 +1714,9 @@ msgstr ""
 msgid "Matches:"
 msgstr ""
 
+msgid "Name"
+msgstr ""
+
 msgid ""
 "A trigger reacts to what the MUD sends:\n"
 "it can answer, speak, play a sound, colour or hide the line."
@@ -1878,6 +1757,9 @@ msgid "Key"
 msgstr ""
 
 msgid "Press the key…"
+msgstr ""
+
+msgid "None"
 msgstr ""
 
 msgid "Record a key"
@@ -2042,6 +1924,12 @@ msgstr ""
 msgid "{0} options"
 msgstr ""
 
+msgid "Show the MUD's channels here"
+msgstr ""
+
+msgid "Edit the gauges"
+msgstr ""
+
 #, python-brace-format
 msgid "There is a panel called {0} already."
 msgstr ""
@@ -2080,10 +1968,128 @@ msgstr ""
 msgid "A sound could not be fetched: {0}"
 msgstr ""
 
+msgid "Classic"
+msgstr ""
+
+msgid "Wide screen"
+msgstr ""
+
+msgid "The game alone"
+msgstr ""
+
+msgid "The map and the panels of text at the right, the gauges below."
+msgstr ""
+
+msgid "The map at the left, the panels of text at the right, the gauges below."
+msgstr ""
+
+msgid "Every panel hidden; they are kept, to show again."
+msgstr ""
+
+msgid "At the left"
+msgstr ""
+
+msgid "At the top"
+msgstr ""
+
+msgid "At the bottom"
+msgstr ""
+
+msgid "At the right"
+msgstr ""
+
+msgid "New panel"
+msgstr ""
+
+msgid "Panel of text"
+msgstr ""
+
+msgid "There are no panels: + adds one."
+msgstr ""
+
+#, python-brace-format
+msgid "{0}, collapsed"
+msgstr ""
+
+msgid "the MUD's channels"
+msgstr ""
+
+#, python-brace-format
+msgid "a tab with {0}"
+msgstr ""
+
+msgid "hidden"
+msgstr ""
+
+#, python-brace-format
+msgid "Moved: {0}."
+msgstr ""
+
+msgid "Arrangements"
+msgstr ""
+
+msgid "Use"
+msgstr ""
+
+#, python-brace-format
+msgid "{0}: in place."
+msgstr ""
+
+msgid "Side panels at full height"
+msgstr ""
+
+msgid "The panels at the left and right reach the top and bottom of the window."
+msgstr ""
+
+msgid "Shown"
+msgstr ""
+
+msgid "Its side collapsed"
+msgstr ""
+
+msgid "The whole side is kept as a thin strip, to expand as it was."
+msgstr ""
+
+msgid "Side"
+msgstr ""
+
+msgid "Place on its side"
+msgstr ""
+
+msgid "Width"
+msgstr ""
+
+msgid "Height"
+msgstr ""
+
+msgid "The same for every panel of its side."
+msgstr ""
+
+msgid "A tab with"
+msgstr ""
+
+msgid "Panels that share a place show their names as tabs, to choose between them."
+msgstr ""
+
+msgid "What it shows is lost with it."
+msgstr ""
+
+msgid "Remove this panel"
+msgstr ""
+
+msgid "Picture of the window's panels"
+msgstr ""
+
+msgid "Not moved."
+msgstr ""
+
 msgid "General"
 msgstr ""
 
 msgid "Appearance"
+msgstr ""
+
+msgid "Speech"
 msgstr ""
 
 msgid "Language"
@@ -2104,7 +2110,7 @@ msgstr ""
 msgid "MUD text"
 msgstr ""
 
-msgid "Palette"
+msgid "MUD colours"
 msgstr ""
 
 msgid "Font"
@@ -2137,13 +2143,13 @@ msgstr ""
 msgid "Classic terminal"
 msgstr ""
 
-msgid "Included fonts"
-msgstr ""
-
 msgid "System fonts"
 msgstr ""
 
 msgid "Loading…"
+msgstr ""
+
+msgid "Included fonts"
 msgstr ""
 
 msgid "Scrollback"
@@ -2650,6 +2656,22 @@ msgid "Downloaded from a git repository."
 msgstr ""
 
 msgid "A profile name may only have letters, digits, spaces, - and _."
+msgstr ""
+
+#, python-brace-format
+msgid "Could not save the profile in {0}: {1}"
+msgstr ""
+
+#, python-brace-format
+msgid "Could not rename the profile: {0}"
+msgstr ""
+
+#, python-brace-format
+msgid "Could not copy the profile: {0}"
+msgstr ""
+
+#, python-brace-format
+msgid "Could not delete the profile: {0}"
 msgstr ""
 
 #, python-brace-format

@@ -27,7 +27,7 @@ impl App {
                 widgets::keep_clear_of_bar(ui);
                 ui.spacing_mut().item_spacing.y = size::GAP_S;
                 self.profile_tab_page(ui);
-                if let Some(error) = &self.settings_error {
+                if let Some(error) = &self.profile_error {
                     widgets::problem_note(ui, error);
                 }
                 ui.add_space(size::GAP_M);

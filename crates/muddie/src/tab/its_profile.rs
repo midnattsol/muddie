@@ -3,7 +3,6 @@
 //! playing with it takes what changed as it is saved.
 
 use super::*;
-use crate::profile::SessionPrefs;
 
 impl Tab {
     /// The profile this session plays with, if it has one.
@@ -72,8 +71,7 @@ impl Tab {
         self.encoding.clone_from(&profile.encoding);
         self.language.chosen.clone_from(&profile.language);
         self.speak_the_language();
-        self.prefs =
-            (profile.session.clone()).unwrap_or_else(|| SessionPrefs::from(&self.settings));
+        self.prefs = profile.session.clone().unwrap_or_default();
         let switched: Vec<(crate::plugins::Plugin, bool)> = (self.plugins.iter())
             .map(|plugin| {
                 let on = plugin.is_on(&profile.plugins_on, &profile.plugins_off);
@@ -201,10 +199,9 @@ impl Tab {
             self.plugins_off = profile.plugins_off;
             self.plugins_declined = profile.plugins_declined;
             self.plugins_installed = profile.plugins_installed;
-            self.prefs = (profile.session)
-                .unwrap_or_else(|| crate::profile::SessionPrefs::from(&self.settings));
+            self.prefs = (profile.session).unwrap_or_default();
         } else {
-            self.prefs = crate::profile::SessionPrefs::from(&self.settings);
+            self.prefs = crate::profile::SessionPrefs::default();
             self.plugins_on.clear();
             self.plugins_off.clear();
             self.plugins_declined.clear();

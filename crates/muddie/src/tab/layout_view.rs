@@ -6,7 +6,7 @@
 use super::*;
 use crate::theme::Weight;
 use crate::widgets;
-use layout::{Drop, DropTarget, Kind as PanelKind, PanelSpec, Side};
+use layout::{Drop, DropTarget, PanelSpec, Side};
 
 /// The sides, in the order they are listed: beside the game, then above
 /// and below it.
@@ -19,7 +19,7 @@ const DETAIL_WIDTH: f32 = 760.0;
 /// The view: whether it is open, the panel chosen, and whether the
 /// keyboard is to be put on it and it brought into sight.
 #[derive(Default)]
-pub(super) struct Arrange {
+pub(super) struct LayoutView {
     pub open: bool,
     pub chosen: Option<u32>,
     pub focus: bool,
@@ -75,29 +75,29 @@ fn side_name(side: Side) -> &'static str {
 }
 
 /// What kind of panel it is, in words.
-fn kind_name(kind: PanelKind) -> &'static str {
+fn kind_name(kind: layout::Kind) -> &'static str {
     match kind {
-        PanelKind::Text => tr("Text"),
-        PanelKind::Map => tr("Map"),
-        PanelKind::Gauges => tr("Gauges"),
+        layout::Kind::Text => tr("Text"),
+        layout::Kind::Map => tr("Map"),
+        layout::Kind::Gauges => tr("Gauges"),
     }
 }
 
 /// The line of the list a panel has, the same every frame.
 fn row_id(panel: u32) -> egui::Id {
-    egui::Id::unique("arrange row").with(panel)
+    egui::Id::unique("layout row").with(panel)
 }
 
 impl Tab {
     /// Opens the view, with a panel chosen if one is given.
-    pub fn open_arrange(&mut self, panel: Option<u32>) {
+    pub fn open_layout_view(&mut self, panel: Option<u32>) {
         if self.editor.open {
             self.close_automation();
         }
-        self.arrange.open = true;
-        self.arrange.focus = true;
+        self.layout_view.open = true;
+        self.layout_view.focus = true;
         if panel.is_some() {
-            self.arrange.chosen = panel;
+            self.layout_view.chosen = panel;
         }
     }
 
@@ -115,12 +115,16 @@ impl Tab {
     /// The view, which takes the session's whole space: the list of panels
     /// on a card at the left, the picture of the window and the details of
     /// the one chosen at the right. Escape goes back to the game.
-    pub(super) fn arrange_page(&mut self, ui: &mut egui::Ui) {
+    pub(super) fn layout_page(&mut self, ui: &mut egui::Ui) {
         // Escape while a panel is dragged puts it back, and stays.
-        let leaving = self.arrange.dragged.is_none() && widgets::take_escape(ui);
+        let leaving = self.layout_view.dragged.is_none() && widgets::take_escape(ui);
         let listed = self.listed();
-        if self.arrange.chosen.is_none_or(|id| !listed.contains(&id)) {
-            self.arrange.chosen = listed.first().copied();
+        if self
+            .layout_view
+            .chosen
+            .is_none_or(|id| !listed.contains(&id))
+        {
+            self.layout_view.chosen = listed.first().copied();
         }
         let theme = theme::current();
         let page = egui::Frame::new()
@@ -140,7 +144,7 @@ impl Tab {
                 .rect_filled(list, egui::CornerRadius::same(14), theme.field);
             let pane = |name: &str, rect: egui::Rect| {
                 egui::UiBuilder::new()
-                    .id_salt(("arrange pane", name))
+                    .id_salt(("layout pane", name))
                     .max_rect(rect)
                     .layout(egui::Layout::top_down(egui::Align::Min))
             };
@@ -148,7 +152,7 @@ impl Tab {
                 let surface = theme.surface;
                 ui.visuals_mut().text_edit_bg_color = Some(surface);
                 ui.visuals_mut().extreme_bg_color = surface;
-                self.arrange_list(ui, &listed);
+                self.layout_list(ui, &listed);
             });
             ui.scope_builder(
                 pane("detail", detail.shrink2(egui::vec2(14.0, 6.0))),
@@ -158,20 +162,20 @@ impl Tab {
                         .show(ui, |ui| {
                             widgets::keep_clear_of_bar(ui);
                             ui.set_max_width(ui.available_width().min(DETAIL_WIDTH));
-                            self.arrange_detail(ui);
+                            self.layout_detail(ui);
                         });
                 },
             );
         });
         self.keep_layout(ui);
         if leaving {
-            self.arrange.open = false;
+            self.layout_view.open = false;
         }
     }
 
     /// The list: its heading with the button that adds a panel, then the
     /// panels under the side each is on.
-    fn arrange_list(&mut self, ui: &mut egui::Ui, listed: &[u32]) {
+    fn layout_list(&mut self, ui: &mut egui::Ui, listed: &[u32]) {
         ui.horizontal(|ui| {
             let heading = RichText::new(tr("Layout"))
                 .font(theme::font(Weight::Semibold, 17.0))
@@ -182,16 +186,17 @@ impl Tab {
                 let add = widgets::sign_button(ui, "+", tr("New panel"), true);
                 crate::widgets::menu_of(&add).show(|ui| {
                     widgets::menu_width(ui);
-                    let mut kinds = vec![(PanelKind::Text, tr("Panel of text"))];
-                    if !self.layout.has(PanelKind::Map) {
-                        kinds.push((PanelKind::Map, tr("Map")));
+                    let mut kinds = vec![(layout::Kind::Text, tr("Panel of text"))];
+                    if !self.layout.has(layout::Kind::Map) {
+                        kinds.push((layout::Kind::Map, tr("Map")));
                     }
-                    kinds.push((PanelKind::Gauges, tr("Gauges")));
+                    kinds.push((layout::Kind::Gauges, tr("Gauges")));
                     for (kind, name) in kinds {
                         if widgets::menu_item(ui, name, "").clicked() {
                             self.add_panel(kind);
-                            self.arrange.chosen = self.layout.panels.last().map(|panel| panel.id);
-                            self.arrange.focus = true;
+                            self.layout_view.chosen =
+                                self.layout.panels.last().map(|panel| panel.id);
+                            self.layout_view.focus = true;
                             ui.close();
                         }
                     }
@@ -199,7 +204,7 @@ impl Tab {
             });
         });
         ui.add_space(10.0);
-        self.arrange_keys(ui, listed);
+        self.layout_keys(ui, listed);
         egui::ScrollArea::vertical()
             .auto_shrink(false)
             .show(ui, |ui| {
@@ -227,7 +232,7 @@ impl Tab {
                         }
                         widgets::section_caption(ui, &caption);
                         for panel in &members {
-                            self.arrange_row(ui, panel);
+                            self.layout_row(ui, panel);
                         }
                     }
                 });
@@ -237,15 +242,15 @@ impl Tab {
     /// One panel's line: its name, and what it is and how it is shown
     /// under it. Tab stops at the one chosen; the arrows go through the
     /// rest.
-    fn arrange_row(&mut self, ui: &mut egui::Ui, panel: &PanelSpec) {
-        let chosen = self.arrange.chosen == Some(panel.id);
+    fn layout_row(&mut self, ui: &mut egui::Ui, panel: &PanelSpec) {
+        let chosen = self.layout_view.chosen == Some(panel.id);
         let name = panel.shown_name();
         // What it is, unless its name says so already.
         let mut about = Vec::new();
         if name != kind_name(panel.kind) {
             about.push(kind_name(panel.kind).to_owned());
         }
-        if panel.kind == PanelKind::Text && panel.channels {
+        if panel.kind == layout::Kind::Text && panel.channels {
             about.push(tr("the MUD's channels").to_owned());
         }
         let sharing: Vec<String> = (self.layout.panels.iter())
@@ -286,22 +291,25 @@ impl Tab {
         });
         widgets::hold_arrows(ui, &line);
         // Gone to by the keys, it is brought into sight.
-        if chosen && std::mem::take(&mut self.arrange.reveal) {
+        if chosen && std::mem::take(&mut self.layout_view.reveal) {
             line.scroll_to_me(None);
         }
-        if chosen && std::mem::take(&mut self.arrange.focus) && widgets::keyboard_in_use(ui.ctx()) {
+        if chosen
+            && std::mem::take(&mut self.layout_view.focus)
+            && widgets::keyboard_in_use(ui.ctx())
+        {
             line.request_focus();
         }
         if line.clicked() {
-            self.arrange.chosen = Some(panel.id);
+            self.layout_view.chosen = Some(panel.id);
         }
     }
 
     /// With the keyboard on the panel chosen: the arrows go to another,
     /// Home and End to the first and last; Alt and Up or Down move it among
     /// those of its side, and Alt and Left or Right to another side.
-    fn arrange_keys(&mut self, ui: &mut egui::Ui, listed: &[u32]) {
-        let Some(chosen) = self.arrange.chosen else {
+    fn layout_keys(&mut self, ui: &mut egui::Ui, listed: &[u32]) {
+        let Some(chosen) = self.layout_view.chosen else {
             return;
         };
         if ui.memory(|memory| memory.focused()) != Some(row_id(chosen)) {
@@ -349,8 +357,8 @@ impl Tab {
             _ => None,
         };
         if let Some(&id) = to.and_then(|to| listed.get(to)) {
-            self.arrange.chosen = Some(id);
-            self.arrange.reveal = true;
+            self.layout_view.chosen = Some(id);
+            self.layout_view.reveal = true;
             ui.memory_mut(|memory| memory.request_focus(row_id(id)));
         }
     }
@@ -408,10 +416,10 @@ impl Tab {
 
     /// The right of the view: the picture of the window, the details of
     /// the panel chosen, and the arrangements to start from.
-    fn arrange_detail(&mut self, ui: &mut egui::Ui) {
+    fn layout_detail(&mut self, ui: &mut egui::Ui) {
         self.unprofiled_banner(ui);
         self.miniature(ui);
-        if let Some(id) = self.arrange.chosen {
+        if let Some(id) = self.layout_view.chosen {
             self.panel_detail(ui, id);
         }
         widgets::section(ui, tr("Arrangements"), |ui| {
@@ -426,7 +434,7 @@ impl Tab {
                     widgets::button(ui, tr("Use"))
                 });
                 if used.clicked() {
-                    self.arrange_as(how);
+                    self.layout_as(how);
                     self.voice.say_now(&trf("{0}: in place.", &[name]));
                 }
             }
@@ -453,7 +461,7 @@ impl Tab {
             .cloned()
             .collect();
         let place = beside.iter().position(|other| other.id == id).unwrap_or(0);
-        let mut name = match &self.arrange.naming {
+        let mut name = match &self.layout_view.naming {
             Some((naming, typed)) if *naming == id => typed.clone(),
             _ => panel.name.clone(),
         };
@@ -492,7 +500,7 @@ impl Tab {
                 .map(|side| (*side, side_name(*side).to_owned()))
                 .collect();
             widgets::setting_row(ui, tr("Side"), None, &mut |ui| {
-                widgets::choose(ui, "arrange side", &mut side, &sides, |side| {
+                widgets::choose(ui, "layout side", &mut side, &sides, |side| {
                     side_name(side).to_owned()
                 })
             });
@@ -509,7 +517,7 @@ impl Tab {
                 })
                 .collect();
             widgets::setting_row(ui, tr("Place on its side"), None, &mut |ui| {
-                widgets::choose(ui, "arrange place", &mut at, &places, |at| {
+                widgets::choose(ui, "layout place", &mut at, &places, |at| {
                     (at + 1).to_string()
                 })
             });
@@ -546,25 +554,25 @@ impl Tab {
                     "Panels that share a place show their names as tabs, to choose between them.",
                 )),
                 &mut |ui| {
-                    widgets::choose(ui, "arrange tabs", &mut sharing, &others, |_| {
+                    widgets::choose(ui, "layout tabs", &mut sharing, &others, |_| {
                         tr("None").to_owned()
                     })
                 },
             );
             match panel.kind {
-                PanelKind::Text => drop(widgets::switch_setting(
+                layout::Kind::Text => drop(widgets::switch_setting(
                     ui,
                     &mut channels,
                     tr("Show the MUD's channels here"),
                     None,
                 )),
-                PanelKind::Gauges => {
+                layout::Kind::Gauges => {
                     let edit = widgets::setting_row(ui, tr("Gauges"), None, &mut |ui| {
                         widgets::button(ui, tr("Edit the gauges"))
                     });
                     edit_gauges = edit.clicked();
                 }
-                PanelKind::Map => {}
+                layout::Kind::Map => {}
             }
             let gone = widgets::setting_row(
                 ui,
@@ -577,10 +585,10 @@ impl Tab {
         // What was changed, put in place now that nothing is borrowed.
         // Given once typed, as in the panel's header.
         if named {
-            self.arrange.naming = None;
+            self.layout_view.naming = None;
             self.rename_to(id, &name);
         } else if name != panel.name {
-            self.arrange.naming = Some((id, name));
+            self.layout_view.naming = Some((id, name));
         }
         if let Some(panel) = self.layout.panel_mut(id) {
             panel.channels = channels;
@@ -618,7 +626,7 @@ impl Tab {
         if remove && let Some(index) = self.layout.panels.iter().position(|panel| panel.id == id) {
             self.remove_panel(index);
             // What had the keyboard is gone: it goes back to the list.
-            self.arrange.focus = true;
+            self.layout_view.focus = true;
         }
     }
 
@@ -646,7 +654,7 @@ impl Tab {
 
     /// Puts the panels as an arrangement has them. Panels are kept: those
     /// of text go together, the map and the gauges where it says.
-    fn arrange_as(&mut self, how: Arrangement) {
+    fn layout_as(&mut self, how: Arrangement) {
         self.layout.collapsed.clear();
         if let Arrangement::GameOnly = how {
             self.layout
@@ -655,8 +663,8 @@ impl Tab {
                 .for_each(|panel| panel.visible = false);
             return;
         }
-        if !self.layout.has(PanelKind::Map) {
-            self.add_panel(PanelKind::Map);
+        if !self.layout.has(layout::Kind::Map) {
+            self.add_panel(layout::Kind::Map);
         }
         let map_side = match how {
             Arrangement::Wide => Side::Left,
@@ -667,14 +675,14 @@ impl Tab {
             panel.stack = 0;
             panel.weight = 1.0;
             (panel.side, panel.size) = match panel.kind {
-                PanelKind::Map => (map_side, layout::BESIDE),
+                layout::Kind::Map => (map_side, layout::BESIDE),
                 kind => kind.home(),
             };
         }
         let rank = |panel: &PanelSpec| match panel.kind {
-            PanelKind::Map => 0,
-            PanelKind::Text => 1,
-            PanelKind::Gauges => 2,
+            layout::Kind::Map => 0,
+            layout::Kind::Text => 1,
+            layout::Kind::Gauges => 2,
         };
         self.layout.panels.sort_by_key(rank);
     }
@@ -712,24 +720,25 @@ impl Tab {
         if response.drag_started() {
             let origin = ui.input(|input| input.pointer.press_origin()).or(pointer);
             if let Some((block, ids, _)) = origin.and_then(under) {
-                let taken = (self.arrange.chosen)
+                let taken = (self.layout_view.chosen)
                     .filter(|id| ids.contains(id))
                     .unwrap_or(ids[0]);
-                self.arrange.chosen = Some(taken);
-                self.arrange.dragged = Some(taken);
-                self.arrange.grab = origin.map_or(egui::Vec2::ZERO, |origin| origin - block.min);
-                self.arrange.aim = None;
+                self.layout_view.chosen = Some(taken);
+                self.layout_view.dragged = Some(taken);
+                self.layout_view.grab =
+                    origin.map_or(egui::Vec2::ZERO, |origin| origin - block.min);
+                self.layout_view.aim = None;
             }
         }
         let escape =
             ui.input_mut(|input| input.consume_key(egui::Modifiers::NONE, egui::Key::Escape));
-        if escape && self.arrange.dragged.take().is_some() {
-            self.arrange.aim = None;
+        if escape && self.layout_view.dragged.take().is_some() {
+            self.layout_view.aim = None;
             self.voice.say_now(tr("Not moved."));
         }
         let mut drawn = now.clone();
         let mut lifted = None;
-        if let (Some(id), Some(pointer)) = (self.arrange.dragged, pointer) {
+        if let (Some(id), Some(pointer)) = (self.layout_view.dragged, pointer) {
             // The window without it: what it is aimed at is what is seen.
             let mut without = self.layout.clone();
             if let Some(panel) = without.panels.iter_mut().find(|panel| panel.id == id) {
@@ -743,11 +752,11 @@ impl Tab {
                 without.drop_target(id, pointer, &rects),
                 layout::nearest_side(rect, pointer),
             );
-            self.arrange.aim = Some(settled(self.arrange.aim, aimed, pointer));
-            let (onto, nearest) = self.arrange.aim.unwrap_or(aimed);
+            self.layout_view.aim = Some(settled(self.layout_view.aim, aimed, pointer));
+            let (onto, nearest) = self.layout_view.aim.unwrap_or(aimed);
             if response.drag_stopped() || !ui.input(|input| input.pointer.any_down()) {
-                self.arrange.dragged = None;
-                self.arrange.aim = None;
+                self.layout_view.dragged = None;
+                self.layout_view.aim = None;
                 self.drop_panel(id, onto, nearest);
                 let side = self.layout.panel(id).map_or(nearest, |panel| panel.side);
                 self.voice.say_now(&trf("Moved: {0}.", &[side_name(side)]));
@@ -764,7 +773,7 @@ impl Tab {
                     .panel(id)
                     .map(PanelSpec::shown_name)
                     .unwrap_or_default();
-                lifted = Some((pointer - self.arrange.grab, size, band, name));
+                lifted = Some((pointer - self.layout_view.grab, size, band, name));
                 drawn = base;
                 ui.ctx().set_cursor_icon(egui::CursorIcon::Grabbing);
             }
@@ -775,7 +784,7 @@ impl Tab {
         if response.clicked()
             && let Some((_, ids, _)) = pointer.and_then(under)
         {
-            self.arrange.chosen = ids.first().copied();
+            self.layout_view.chosen = ids.first().copied();
         }
     }
 
@@ -807,7 +816,7 @@ impl Tab {
                 rect.min + egui::vec2(glide(key, 2, to.x), glide(key, 3, to.y)),
             );
             let chosen =
-                lifted.is_none() && self.arrange.chosen.is_some_and(|id| ids.contains(&id));
+                lifted.is_none() && self.layout_view.chosen.is_some_and(|id| ids.contains(&id));
             let game = ids.is_empty();
             let fill = match (game, chosen) {
                 (true, _) => theme.surface,

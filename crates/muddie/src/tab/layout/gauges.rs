@@ -105,14 +105,8 @@ impl Tab {
             // The way to change them, at the corner, out of their way.
             return;
         }
-        let theme = theme::current();
         ui.horizontal_wrapped(|ui| {
-            let none = tr("No gauges here yet.");
-            ui.label(
-                RichText::new(none)
-                    .font(theme::font(Weight::Regular, 12.5))
-                    .color(theme.text_faint),
-            );
+            widgets::page_note(ui, tr("No gauges here yet."));
             if widgets::quiet_button(ui, tr("Add gauges")).clicked() {
                 self.open_gauges(id);
             }
