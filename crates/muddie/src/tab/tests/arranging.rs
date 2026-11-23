@@ -848,6 +848,36 @@ fn a_panel_is_named_again_one_way() {
     );
     app.rename_to(first, " Mapa grande ");
     assert_eq!(name_of(app, first), "Mapa grande");
+    // In the layout view, Escape in its field keeps the name it had, and
+    // the view stays; Enter gives the one typed.
+    app.open_layout_view(Some(first));
+    harness.run_steps(3);
+    harness
+        .get_by_role_and_label(egui::accesskit::Role::TextInput, "Name")
+        .focus();
+    harness.run_steps(1);
+    harness.key_press_modifiers(egui::Modifiers::COMMAND, egui::Key::A);
+    harness
+        .get_by_role_and_label(egui::accesskit::Role::TextInput, "Name")
+        .type_text("Otro");
+    harness.run_steps(1);
+    harness.key_press(egui::Key::Escape);
+    harness.run_steps(2);
+    let app = harness.state().tab();
+    assert_eq!(name_of(app, first), "Mapa grande");
+    assert_eq!(app.view(), View::Layout);
+    harness
+        .get_by_role_and_label(egui::accesskit::Role::TextInput, "Name")
+        .focus();
+    harness.run_steps(1);
+    harness.key_press_modifiers(egui::Modifiers::COMMAND, egui::Key::A);
+    harness
+        .get_by_role_and_label(egui::accesskit::Role::TextInput, "Name")
+        .type_text("Otro");
+    harness.run_steps(1);
+    harness.key_press(egui::Key::Enter);
+    harness.run_steps(2);
+    assert_eq!(name_of(harness.state().tab(), first), "Otro");
 }
 
 /// A gauge is put in a panel by its name: one renamed takes its gauges

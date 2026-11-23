@@ -410,7 +410,7 @@ impl Tab {
         widgets::menu_separator(ui);
         // Its name is in its details: renamed, it is chosen.
         if let [only] = chosen[..]
-            && widgets::menu_item(ui, tr("Rename"), "F2").clicked()
+            && widgets::menu_item(ui, tr("Rename…"), "F2").clicked()
         {
             self.choose_row(only, Modifiers::NONE);
             self.editor.rename = true;

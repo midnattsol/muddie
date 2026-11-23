@@ -1317,7 +1317,7 @@ fn a_menu_opens_as_the_right_button_is_pressed() {
         let item = egui::accesskit::Role::MenuItem;
         harness.query_by_role_and_label(item, name).is_some()
     };
-    for (line, item) in [("Travel", "Rename"), ("Gamma", "Delete")] {
+    for (line, item) in [("Travel", "Rename…"), ("Gamma", "Delete")] {
         let at = line_of(&harness, line).center();
         harness.event(egui::Event::PointerMoved(at));
         harness.step();

@@ -31,6 +31,10 @@ pub(super) struct LayoutView {
     pub aim: Option<(Option<layout::DropTarget>, Side)>,
     /// The name being typed for a panel, given it once typed.
     pub naming: Option<(u32, String)>,
+    /// The name's field had the keyboard: Escape is its own.
+    pub typing: bool,
+    /// Escape was pressed in this frame.
+    pub escape: bool,
 }
 
 /// An arrangement to start from.
@@ -116,8 +120,14 @@ impl Tab {
     /// on a card at the left, the picture of the window and the details of
     /// the one chosen at the right. Escape goes back to the game.
     pub(super) fn layout_page(&mut self, ui: &mut egui::Ui) {
-        // Escape while a panel is dragged puts it back, and stays.
-        let leaving = self.layout_view.dragged.is_none() && widgets::take_escape(ui);
+        // Escape while a panel is dragged puts it back, and stays; in the
+        // name's field, it is the field's, to leave what was typed. egui
+        // has taken the keyboard from the field by now: whether it had it
+        // is kept from the frame before.
+        self.layout_view.escape = ui.input(|input| input.key_pressed(egui::Key::Escape));
+        let leaving = self.layout_view.dragged.is_none()
+            && !std::mem::take(&mut self.layout_view.typing)
+            && widgets::take_escape(ui);
         let listed = self.listed();
         if self
             .layout_view
@@ -466,7 +476,9 @@ impl Tab {
             _ => panel.name.clone(),
         };
         let (mut visible, mut side) = (panel.visible, panel.side);
-        let mut named = false;
+        let (mut named, mut typing) = (false, false);
+        // Escape, as it was pressed before anything on the page took it.
+        let escape = self.layout_view.escape;
         let was_away = self.layout.collapsed.contains(&panel.side);
         let mut away = was_away;
         let mut size = panel.size;
@@ -483,7 +495,15 @@ impl Tab {
         widgets::section(ui, &title, |ui| {
             widgets::setting_row(ui, tr("Name"), None, &mut |ui| {
                 let field = widgets::row_field(ui, &mut name, tr("Name"), 220.0);
-                named = field.lost_focus();
+                typing = field.has_focus() || field.lost_focus();
+                // Given on leaving the field, as in the panel's header;
+                // Escape keeps the name it had.
+                if field.lost_focus() {
+                    match escape {
+                        true => name = panel.name.clone(),
+                        false => named = true,
+                    }
+                }
                 field
             });
             widgets::switch_setting(ui, &mut visible, tr("Shown"), None);
@@ -582,13 +602,14 @@ impl Tab {
             );
             remove = gone.clicked();
         });
+        self.layout_view.typing = typing;
         // What was changed, put in place now that nothing is borrowed.
         // Given once typed, as in the panel's header.
         if named {
             self.layout_view.naming = None;
             self.rename_to(id, &name);
-        } else if name != panel.name {
-            self.layout_view.naming = Some((id, name));
+        } else {
+            self.layout_view.naming = (name != panel.name).then_some((id, name));
         }
         if let Some(panel) = self.layout.panel_mut(id) {
             panel.channels = channels;

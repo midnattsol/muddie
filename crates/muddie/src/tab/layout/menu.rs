@@ -19,7 +19,7 @@ impl Tab {
         let mut asked = None;
         crate::widgets::menu_of(&more).show(|ui| {
             widgets::menu_width(ui);
-            if widgets::menu_item(ui, tr("Rename"), "").clicked() {
+            if widgets::menu_item(ui, tr("Rename…"), "").clicked() {
                 asked = Some(PanelAsk::Rename);
                 ui.close();
             }

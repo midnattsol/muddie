@@ -586,7 +586,7 @@ impl Tab {
     /// What can be done with a folder, from its menu.
     fn folder_menu(&mut self, ui: &mut egui::Ui, kind: Kind, path: &str) {
         widgets::menu_width(ui);
-        if widgets::menu_item(ui, tr("Rename"), "F2").clicked() {
+        if widgets::menu_item(ui, tr("Rename…"), "F2").clicked() {
             self.start_renaming(path);
             ui.close();
         }

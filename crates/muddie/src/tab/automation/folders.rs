@@ -160,17 +160,29 @@ impl Tab {
                 state.store(ui.ctx(), id);
             }
         }
-        if wrong && !name.is_empty() {
-            field
-                .clone()
-                .on_hover_text(trf("There is a folder called {0} already.", &[&name]));
+        // Why the name cannot be.
+        let problem = match () {
+            _ if name.is_empty() => None,
+            _ if name.contains('/') => Some(tr("A folder's name cannot have a slash.").to_owned()),
+            _ if wrong => Some(trf("There is a folder called {0} already.", &[&name])),
+            _ => None,
+        };
+        // The field's edge turns red; what is wrong is said over it, and
+        // to a screen reader with the field.
+        if let Some(problem) = &problem {
+            field.clone().on_hover_text(problem);
+            (ui.ctx())
+                .accesskit_node_builder(field.id, |node| node.set_description(problem.clone()));
         }
         let entered = field.lost_focus() && ui.input(|input| input.key_pressed(Key::Enter));
         if ui.input(|input| input.key_pressed(Key::Escape)) {
             self.editor.renaming = None;
         } else if entered && wrong {
-            // Kept, to be changed.
+            // Kept, to be changed, and why said again.
             field.request_focus();
+            if let Some(problem) = &problem {
+                self.voice.say_now(problem);
+            }
         } else if field.lost_focus()
             && let Some(Renaming { path, choose, .. }) = self.editor.renaming.take()
         {
@@ -302,7 +314,7 @@ impl Tab {
                     inside =
                         widgets::button_with(ui, widgets::Glyph::Folder, tr("New folder inside"))
                             .clicked();
-                    rename = widgets::button(ui, tr("Rename")).clicked();
+                    rename = widgets::button(ui, tr("Rename…")).clicked();
                 });
             },
         );
