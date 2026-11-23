@@ -167,9 +167,6 @@ msgstr "Bajar"
 msgid "Back to my position"
 msgstr "Volver a mi posición"
 
-msgid "Map view"
-msgstr "Vista del mapa"
-
 msgid "Tidy this area"
 msgstr "Ordenar esta área"
 
@@ -204,8 +201,6 @@ msgstr "El mapa no se guardará: no hay carpeta de datos."
 msgid "Could not save the map: {0}"
 msgstr "No se pudo guardar el mapa: {0}"
 
-msgid "Arrived."
-msgstr "Has llegado a tu destino."
 
 msgid "No room matches."
 msgstr "Ninguna sala coincide."
@@ -2059,8 +2054,6 @@ msgstr "al {0}"
 msgid "Arrows follow the exits, Enter goes, Escape goes back. F1 says all the keys."
 msgstr "Las flechas siguen las salidas, Intro va, Escape vuelve. F1 dice todas las teclas."
 
-msgid "Exploring the map from {0}. {1}. {2}"
-msgstr "Explorando el mapa desde {0}. {1}. {2}"
 
 msgid "Into {0}: {1}"
 msgstr "Entras en {0}: {1}"
@@ -2416,8 +2409,6 @@ msgstr "De camino"
 msgid "Stopped: the map lost track of where you are."
 msgstr "Parado: el mapa ha perdido dónde estás."
 
-msgid "Stopped: this is not the room the way expected."
-msgstr "Parado: esta no es la sala que esperaba el camino."
 
 msgid "Stopped: the last move had no effect."
 msgstr "Parado: el último movimiento no ha tenido efecto."
@@ -2955,3 +2946,84 @@ msgstr "Mover en Distribución…"
 
 msgid "Shift+F10 opens its menu."
 msgstr "Mayús+F10 abre su menú."
+
+msgid "Through {0}, to {1}"
+msgstr "Por {0}, a {1}"
+
+msgid "Left the map."
+msgstr "Fuera del mapa."
+
+msgid "Exploring the map from {0}."
+msgstr "Explorando el mapa desde {0}."
+
+#, python-brace-format
+msgid "Not sure where you are: exploring the map from one of {0} rooms alike, {1}."
+msgid_plural "Not sure where you are: exploring the map from one of {0} rooms alike, {1}."
+msgstr[0] "No se sabe dónde estás: explorando el mapa desde una de {0} salas iguales, {1}."
+msgstr[1] "No se sabe dónde estás: explorando el mapa desde una de {0} salas iguales, {1}."
+
+msgid "{0} {1}"
+msgstr "{0} {1}"
+
+msgid "Doors: {0}"
+msgstr "Puertas: {0}"
+
+msgid "open"
+msgstr "abierta"
+
+msgid "shut"
+msgstr "cerrada"
+
+msgid "locked"
+msgstr "cerrada con llave"
+
+msgid "{0}, {1}"
+msgstr "{0}, {1}"
+
+msgid "Command line."
+msgstr "Línea de comandos."
+
+msgid "Arrived: {0}."
+msgstr "Has llegado: {0}."
+
+msgid "Stopped in {0}: it is not the room the way expected."
+msgstr "Parado en {0}: no es la sala que esperaba el camino."
+
+msgid "a room the map does not know"
+msgstr "una sala que el mapa no conoce"
+
+msgid "{0}: {1}, {2}."
+msgstr "{0}: {1}, {2}."
+
+msgid "{0}, {1}: {2}."
+msgstr "{0}, {1}: {2}."
+
+msgid "{0}; door: {1}"
+msgstr "{0}; puerta: {1}"
+
+msgid "Its symbol: {0}"
+msgstr "Su símbolo: {0}"
+
+msgid "No level above."
+msgstr "No hay nivel encima."
+
+msgid "No level below."
+msgstr "No hay nivel debajo."
+
+msgid ", "
+msgstr ", "
+
+#, python-brace-format
+msgid "{0} level"
+msgid_plural "{0} levels"
+msgstr[0] "{0} nivel"
+msgstr[1] "{0} niveles"
+
+msgid "The keypad"
+msgstr "El teclado numérico"
+
+msgid "Follow the exits by where its keys are; slash and star, in and out"
+msgstr "Seguir las salidas según dónde están sus teclas; barra y asterisco, dentro y fuera"
+
+msgid "The room's menu, with each exit to follow"
+msgstr "El menú de la sala, con cada salida que seguir"

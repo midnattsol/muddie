@@ -8,6 +8,11 @@ use crate::theme::Weight;
 impl Tab {
     /// Draws the session in `ui`.
     pub fn show(&mut self, ui: &mut egui::Ui) {
+        // The map not drawn since the last frame is explored no more: its
+        // keys go back to what they are bound to, and that is said.
+        if self.map_view.left_unseen() {
+            self.voice.say_now(tr("Left the map."));
+        }
         if self.editor.recording_key {
             self.record_key(ui);
         } else {
@@ -171,6 +176,17 @@ impl Tab {
             Some(MapAsk::Leave(typed)) => {
                 self.input.push_str(&typed);
                 self.cursor_to_end = true;
+                // A screen reader says where the keyboard went; the voice
+                // alone does not.
+                if !self.voice.screen_reader() {
+                    self.voice.say_now(tr("Command line."));
+                }
+            }
+            Some(MapAsk::Asking(asked)) => {
+                if !self.voice.screen_reader() {
+                    self.voice
+                        .say_now(&trf("{0}: write it, then Enter.", &[&asked]));
+                }
             }
             Some(MapAsk::Command(command)) => {
                 self.run_command(command);

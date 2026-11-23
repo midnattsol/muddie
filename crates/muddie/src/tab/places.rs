@@ -72,7 +72,8 @@ impl Tab {
                             trf("You are already in {0}.", &[&name])
                         } else {
                             let moves = trn("{0} move", "{0} moves", steps.len() as u64);
-                            let mut said = format!("{name}, {moves}: {}.", in_runs(&steps));
+                            let mut said =
+                                trf("{0}, {1}: {2}.", &[&name, &moves, &in_runs(&steps)]);
                             let regions = map.regions_along(from, &steps);
                             if !regions.is_empty() {
                                 said.push(' ');
@@ -114,6 +115,10 @@ impl Tab {
                         if exit.blocked {
                             leads = trf("{0} (kept off routes)", &[&leads]);
                         }
+                        if let Some(door) = exit.door {
+                            let door = crate::mapview::door_words(&map, way, door);
+                            leads = trf("{0}; door: {1}", &[&leads, &door]);
+                        }
                         let word = direction_words(&map, way);
                         (word, leads, format!("/map through {way}"))
                     })
@@ -146,7 +151,7 @@ impl Tab {
                 (crate::mapview::near(&map, here.id, moves).into_iter())
                     .map(|(id, what, steps)| {
                         let moves = trn("{0} move", "{0} moves", steps.len() as u64);
-                        let way = format!("{moves}: {}", in_runs(&steps));
+                        let way = trf("{0}: {1}", &[&moves, &in_runs(&steps)]);
                         (what, way, format!("/map go {id}"))
                     })
                     .collect()
@@ -603,6 +608,9 @@ fn info_of(map: &muddie_mapper::Map, room: &muddie_mapper::Room) -> String {
     if room.cost > 0 {
         said.push(trf("Costs {0} more to enter.", &[&room.cost.to_string()]));
     }
+    if !room.symbol.trim().is_empty() {
+        said.push(trf("Its symbol: {0}", &[room.symbol.trim()]));
+    }
     sentences(said)
 }
 
@@ -628,7 +636,7 @@ fn in_runs(steps: &[Step]) -> String {
     (runs.into_iter())
         .map(|(count, command)| match count {
             1 => command.to_owned(),
-            count => format!("{count} {command}"),
+            count => trf("{0} {1}", &[&count.to_string(), command]),
         })
         .collect::<Vec<_>>()
         .join(", ")

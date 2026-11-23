@@ -7,7 +7,7 @@ use eframe::egui::{
 };
 use muddie_mapper::{Map, Pos, Room, RoomId, Walk, direction_offset};
 
-use crate::i18n::tr;
+use crate::i18n::{tr, trf};
 use crate::theme::{self, Theme, Weight};
 use crate::widgets;
 
@@ -53,6 +53,9 @@ pub enum MapAsk {
     Leave(String),
     /// Say this, while exploring the map.
     Say(String),
+    /// A field over the map asks for this: said where no screen reader
+    /// says where the keyboard went.
+    Asking(String),
     /// Say all the map knows of this room.
     Info(RoomId),
     /// Mark this room with this name.
@@ -155,7 +158,7 @@ pub fn moves_toward(map: &Map, from: RoomId, to: RoomId, moves: usize) -> String
     }
     let said = crate::i18n::trn("{0} move", "{0} moves", moves as u64);
     match toward(map, from, to) {
-        Some(way) => format!("{said} {way}"),
+        Some(way) => trf("{0} {1}", &[&said, &way]),
         None => said,
     }
 }
@@ -219,6 +222,14 @@ pub fn numbered(map: &Map, room: &Room) -> String {
 /// that routes avoid it, its names and its note.
 pub fn room_facts(map: &Map, room: &Room) -> Vec<String> {
     let mut facts = Vec::new();
+    // The doors, as they are drawn: open, shut or locked.
+    let doors: Vec<String> = (ordered_exits(room).into_iter())
+        .filter_map(|way| Some((way, room.exits[way].door?)))
+        .map(|(way, door)| door_words(map, way, door))
+        .collect();
+    if !doors.is_empty() {
+        facts.push(trf("Doors: {0}", &[&doors.join("; ")]));
+    }
     let closed: Vec<String> = (ordered_exits(room).into_iter())
         .filter(|way| room.exits[*way].blocked)
         .map(|way| direction_words(map, way))
@@ -255,6 +266,16 @@ pub fn room_facts(map: &Map, room: &Room) -> Vec<String> {
         facts.push(crate::i18n::trf("Note: {0}", &[&room.note]));
     }
     facts
+}
+
+/// A door on an exit, said: "east, locked".
+pub fn door_words(map: &Map, way: &str, door: muddie_mapper::Door) -> String {
+    let state = match door {
+        muddie_mapper::Door::Open => tr("open"),
+        muddie_mapper::Door::Closed => tr("shut"),
+        muddie_mapper::Door::Locked => tr("locked"),
+    };
+    trf("{0}, {1}", &[&direction_words(map, way), state])
 }
 
 /// What the map's tools asked for.
@@ -303,6 +324,15 @@ pub struct MapView {
     /// Whether the map had the keyboard the frame before: Escape takes it
     /// before it is seen.
     had_focus: bool,
+    /// Exploring was started, and the keyboard is coming: not to be
+    /// started again as it comes.
+    explore_started: bool,
+    /// It was drawn since the frame began.
+    drawn: bool,
+    /// The player is walking somewhere: Escape stops it.
+    walking: bool,
+    /// What a level button pressed is to say.
+    level_said: Option<String>,
     /// Whether the map is to take the keyboard when drawn, to explore it.
     focus_wanted: bool,
     /// The region of the room said last, to say a region on coming to it.
@@ -342,6 +372,10 @@ impl Default for MapView {
             told: None,
             reveal: None,
             had_focus: false,
+            explore_started: false,
+            drawn: false,
+            walking: false,
+            level_said: None,
             focus_wanted: false,
             said_region: None,
             trail: Vec::new(),
@@ -404,6 +438,8 @@ impl MapView {
             true => map.candidates().to_vec(),
             false => vec![current.id],
         };
+        self.drawn = true;
+        self.walking = walk.is_some();
         let tools = std::mem::take(&mut self.asked);
         if unsure {
             ui.label(unknown_whereabouts(map));
@@ -445,14 +481,14 @@ impl MapView {
             Sense::click_and_drag(),
         );
         let painter = ui.painter_at(rect);
-        let label = match (&told, chosen_room) {
-            (Some(told), Some(room)) => {
-                format!("{}. {told} · {}", tr("Map view"), exits_words(map, room))
-            }
-            _ => tr("Map view").to_owned(),
-        };
-        ui.ctx()
-            .accesskit_node_builder(response.id, |node| node.set_label(label));
+        // Named once, the same always: the room chosen is said by the
+        // keys as they choose it, not again as the map's name changes.
+        let hint = explore::keys_hint();
+        ui.ctx().accesskit_node_builder(response.id, |node| {
+            node.set_role(egui::accesskit::Role::Group);
+            node.set_label(tr("Map"));
+            node.set_description(hint);
+        });
         if std::mem::take(&mut self.focus_wanted) {
             response.request_focus();
         }
@@ -569,6 +605,9 @@ impl MapView {
         }
         if let Some(keyed) = self.keys(ui, &response, map, current) {
             chosen = chosen.or(Some(keyed));
+        }
+        if let Some(said) = self.level_said.take() {
+            chosen = chosen.or(Some(MapAsk::Say(said)));
         }
         self.bring_into_sight(ui, &response, map, &grid, (&area, level));
         room_tip(response, map, pointed);
@@ -779,11 +818,14 @@ impl MapView {
             let column =
                 Rect::from_min_max(egui::pos2(inside.right() - 32.0, inside.top()), inside.max);
             let mut right = ui.new_child(corner(egui::Align::Max).max_rect(column));
-            egui::Frame::new()
+            let said = egui::Frame::new()
                 .fill(theme::current().raised)
                 .corner_radius(egui::CornerRadius::same(8))
                 .inner_margin(egui::Margin::same(3))
                 .show(&mut right, |ui| level_steps(ui, &levels, &mut level));
+            if let Some(said) = said.inner {
+                self.level_said = Some(said);
+            }
         }
         let shown = (area, level);
         if self.browsing.as_ref().unwrap_or(&home) != &shown {
@@ -848,13 +890,21 @@ impl MapView {
             let room = self.menu_room.and_then(|id| map.room(id));
             if let Some(room) = room {
                 widgets::menu_heading(ui, &numbered(map, room));
+                // The heading is not reached by the keyboard: the first
+                // item says which room the menu is of.
+                let go = widgets::menu_item(ui, tr("Go here"), "Enter");
+                let of = numbered(map, room);
+                (ui.ctx()).accesskit_node_builder(go.id, |node| node.set_description(of));
+                if go.clicked() {
+                    chosen = Some(MapAsk::Walk(room.id));
+                    ui.close();
+                }
                 let mut item = |ui: &mut Ui, label: &str, keys: &str, action: MapAsk| {
                     if widgets::menu_item(ui, label, keys).clicked() {
                         chosen = Some(action);
                         ui.close();
                     }
                 };
-                item(ui, tr("Go here"), "Enter", MapAsk::Walk(room.id));
                 item(ui, tr("The way there"), "Shift+Enter", MapAsk::Way(room.id));
                 let info = crate::shortcuts::ROOM_INFO.written;
                 item(
@@ -882,6 +932,29 @@ impl MapView {
                 if widgets::menu_item(ui, tr("Appearance…"), "").clicked() {
                     chosen = Some(MapAsk::Look(room.id));
                     ui.close();
+                }
+                // Each exit to a room the map has, to follow with the
+                // keyboard as the arrows follow the compass: in, out, and
+                // those of a name of their own.
+                let exits: Vec<(String, RoomId)> = (ordered_exits(room).into_iter())
+                    .filter_map(|way| {
+                        let to = map.room(room.exits[way].to)?;
+                        let said = trf(
+                            "Through {0}, to {1}",
+                            &[&direction_words(map, way), &place_words(map, to)],
+                        );
+                        Some((said, to.id))
+                    })
+                    .collect();
+                if !exits.is_empty() {
+                    widgets::menu_separator(ui);
+                }
+                for (said, to) in exits {
+                    if widgets::menu_item(ui, &said, "").clicked() {
+                        self.choose(to);
+                        chosen = Some(MapAsk::Selected(to, Some(room.id)));
+                        ui.close();
+                    }
                 }
                 widgets::menu_separator(ui);
             }

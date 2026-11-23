@@ -35,7 +35,7 @@ impl Tab {
             ("/map", "note") if given => self.note_here(argument),
             ("/map", "unnote") => self.note_here(""),
             ("/map", "areas") => self.list_areas(),
-            ("/map", "show-area") if given => self.show_area(argument),
+            ("/map", "show-area") if given => self.show_area(argument, true),
             ("/map", "import") => self.import_map(argument),
             ("/map", "avoid") => self.toggle_avoid(argument),
             ("/map", "block") if given => self.toggle_blocked(argument),
@@ -112,7 +112,9 @@ impl Tab {
     }
 
     /// Shows an area on the map, to look at it, without going.
-    pub(super) fn show_area(&mut self, area: &str) {
+    /// Asked by the user, `told`, it says what the area has, and the
+    /// keys explore it from its room nearest the player.
+    pub(super) fn show_area(&mut self, area: &str, told: bool) {
         let map = self.map.borrow();
         let Some(area) = map.area_named(area) else {
             drop(map);
@@ -120,8 +122,34 @@ impl Tab {
         };
         let area = area.to_owned();
         self.map_view.show_area(&map, &area);
+        let said = told.then(|| {
+            let rooms: Vec<&muddie_mapper::Room> =
+                map.rooms().filter(|room| room.area == area).collect();
+            let levels: std::collections::BTreeSet<i32> =
+                rooms.iter().map(|room| room.pos.z).collect();
+            let here = map.current().map(|room| room.id);
+            let near = here.map(|here| map.moves_from(here));
+            let nearest = (rooms.iter())
+                .min_by_key(|room| {
+                    (near.as_ref())
+                        .and_then(|near| near.get(&room.id))
+                        .copied()
+                        .unwrap_or(usize::MAX)
+                })
+                .copied();
+            let counted = [
+                trn("{0} room", "{0} rooms", rooms.len() as u64),
+                trn("{0} level", "{0} levels", levels.len() as u64),
+            ];
+            let about = trf("{0}: {1}, {2}.", &[&area, &counted[0], &counted[1]]);
+            let explored = nearest.map(|room| self.map_view.explore(&map, room));
+            crate::mapview::sentences([Some(about), explored].into_iter().flatten())
+        });
         drop(map);
         self.set_map_shown(true);
+        if let Some(said) = said {
+            self.voice.say_now(&said);
+        }
     }
 
     /// Starts or stops logging the session.

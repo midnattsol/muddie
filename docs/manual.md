@@ -590,25 +590,31 @@ is what a name begins with, as Anduar in "Anduar: Plaza Mayor".
 | Home | Back to your room |
 | Backspace | Back to the room chosen before, and the one before it, to where you began |
 | Space | Says the room chosen again |
-| Ctrl+I | Says all the map knows of it |
+| Ctrl+I (Cmd+I on a Mac, as the rest with Ctrl here) | Says all the map knows of it |
 | Ctrl+L | Says what is near, up to ten moves around it, as **What is near** lists it: rooms with a mark or a note and the way into each other region first, then the other places, the nearest first |
 | Ctrl+F | Searches the map: type, Enter says how many were found and the first; the arrows go through them; Enter again goes to the one said, on the map. Escape goes back to the map |
 | Ctrl+B, Ctrl+N | Marks the room chosen, or writes a note on it (an empty one takes it off) |
 | F1 | Says all these keys |
 | Enter, Shift+Enter | Go to the room chosen; say the way there without going |
-| Escape, or typing | Back to the command line, with what was typed |
+| Shift+F10, or the menu key | The room's menu, as a right click: all that is done with it, and each of its exits, in, out and those of a name of their own too, to follow |
+| Escape, or typing | Back to the command line, with what was typed; while walking, Escape stops first |
 | Double-click a room | Goes there, one move at a time, waiting for each to succeed |
-| Right-click a room | Go here, the way there, what the map knows of it, Mark…, Note…, keep routes off, Appearance…, Tidy this area, Show all areas |
+| Right-click a room | Go here, the way there, what the map knows of it, Mark…, Note…, keep routes off, Appearance…, each exit to follow, Tidy this area, Show all areas |
 | Drag | Moves the view; the wheel zooms |
 | Shift+drag a room | Moves it to another cell |
-| ▲ and ▼, over the map's top right corner | Look at the level above or below; **Back to my position**, at the top left, returns |
+| ▲ and ▼, over the map's top right corner | Look at the level above or below, said; **Back to my position**, at the top left, returns |
 | The buttons beside the map's title | Where am I, Tidy this area, stop going; the dots hold the rest: Show all areas, Show an area…, Map appearance…, undoing the map's last change, and hiding or removing the panel |
 
 Exploring, each room is said short, as one who does not see it wants it:
 its name, and its region on coming to another; how many moves away and
 which way; its exits, in the MUD's words, in the order of the compass;
-and only when so, that it has no way straight back, that an exit is
-closed, that it is kept off routes, its marks and its note. Its number is not
+and only when so, that it has no way straight back, its doors, open, shut
+or locked, exits kept off routes or not explored, that it is kept off
+routes, its marks and its note. Reached with Tab, the map starts
+exploring as Alt+E does; while the map is not sure where you are, it says
+so, and from which of the rooms alike it starts. **Show an area…** says
+the area's rooms and levels, and explores it from its room nearest you.
+Hidden, or left for the editor, the map is explored no more, and says so. Its number is not
 said, but it is under the map. While exploring, the keys are the map's:
 nothing bound to the keypad, F1 or the map's Ctrl keys is sent to the MUD,
 so a keypad that walks in the game moves on the map instead. Nothing is

@@ -67,6 +67,16 @@ fn window<'a>(profiles: Option<Profiles>) -> Harness<'a, App> {
 }
 
 /// What the client has said, over the corner and under the bell.
+/// The map, as a screen reader finds it: a group called Map that says
+/// its keys.
+fn map_widget<'h, 'a>(harness: &'h Harness<'a, App>) -> Option<egui_kittest::Node<'h>> {
+    (harness.query_all_by_role(egui::accesskit::Role::Group)).find(|node| {
+        let node = node.accesskit_node();
+        node.label().as_deref() == Some("Map")
+            && node.description().is_some_and(|about| about.contains("F1"))
+    })
+}
+
 /// The button that edits a gauge, named by what the gauge says.
 fn gauge_button<'h, 'a>(
     harness: &'h Harness<'a, App>,

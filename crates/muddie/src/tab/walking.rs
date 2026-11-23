@@ -23,6 +23,8 @@ pub(super) struct MapSource {
     pub importing: Option<(crate::mapfetch::Importing, String, super::places::ImportWhy)>,
     /// The user was told the map lost track of where they are.
     pub lost: bool,
+    /// The user was told how to undo what the map changed of itself.
+    pub undo_told: bool,
     /// A map a script asked for before the session's map was open, to be
     /// imported once it is.
     pub waiting: Option<String>,
@@ -144,14 +146,30 @@ impl Tab {
                 }
             }
             Progress::Waiting => {}
+            // Where the walk ended, by name.
             Progress::Arrived => {
                 self.walk = None;
-                self.note(tr("Arrived."));
+                let here = self.here_words();
+                self.note(&trf("Arrived: {0}.", &[&here]));
             }
             Progress::Lost => {
                 self.walk = None;
-                self.note(tr("Stopped: this is not the room the way expected."));
+                let here = self.here_words();
+                self.note(&trf(
+                    "Stopped in {0}: it is not the room the way expected.",
+                    &[&here],
+                ));
             }
+        }
+    }
+
+    /// Where the player is, said by its place, or that the map does not
+    /// know.
+    fn here_words(&self) -> String {
+        let map = self.map.borrow();
+        match map.current() {
+            Some(room) => crate::mapview::place_words(&map, room),
+            None => tr("a room the map does not know").to_owned(),
         }
     }
 

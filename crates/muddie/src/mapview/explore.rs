@@ -75,8 +75,10 @@ pub(super) struct Prompt {
     searched: Option<String>,
     found: Vec<Found>,
     at: usize,
-    /// Whether it is to take the keyboard when next drawn.
-    focus: bool,
+    /// For how many frames more it asks for the keyboard: two, as it is
+    /// opened, for a menu it was chosen in gives the keyboard back where
+    /// it was as it closes, in the frame after.
+    focus: u8,
 }
 
 /// The keys with Ctrl (Cmd on a Mac) the map takes while exploring: all
@@ -121,12 +123,32 @@ pub fn found_words(map: &Map, here: Option<RoomId>, found: &Found) -> (String, S
     (title, detail.join(" · "))
 }
 
+/// What the map's keys are, in short: said on starting, and with the map
+/// when it is reached.
+pub(super) fn keys_hint() -> &'static str {
+    tr("Arrows follow the exits, Enter goes, Escape goes back. F1 says all the keys.")
+}
+
 impl MapView {
     /// Whether the map is being explored with the keys: it has the
     /// keyboard, or asks for some words over it. The keys it takes then
     /// are its own, not bound to anything else.
     pub fn exploring(&self) -> bool {
         self.had_focus || self.prompt.is_some()
+    }
+
+    /// Run as a frame begins: if the map was not drawn in the one before,
+    /// it is no longer explored, as nothing would read its keys. Returns
+    /// whether it was.
+    pub fn left_unseen(&mut self) -> bool {
+        if std::mem::take(&mut self.drawn) {
+            return false;
+        }
+        let was = self.exploring();
+        self.had_focus = false;
+        self.prompt = None;
+        self.keypad.clear();
+        was
     }
 
     /// Whether the map takes this key while exploring, before anything
@@ -150,9 +172,26 @@ impl MapView {
         current: &Room,
     ) -> Option<MapAsk> {
         let had_focus = std::mem::replace(&mut self.had_focus, response.has_focus());
+        // Reached with Tab rather than started: started all the same,
+        // from the room chosen or the player's. Given back by a menu that
+        // closed, it goes on as it was.
+        let arrived = response.has_focus() && !had_focus;
+        let started = arrived && std::mem::take(&mut self.explore_started);
+        if arrived && !started && ui.input(|input| input.key_pressed(egui::Key::Tab)) {
+            let from = self.selected.and_then(|id| map.room(id)).unwrap_or(current);
+            return Some(MapAsk::Say(self.explore(map, from)));
+        }
         // Escape, or anything typed but the digits that move: back to the
         // command line, with what was typed.
+        // While walking, Escape stops the walk first, as it says; then it
+        // leaves.
         if had_focus && ui.input(|input| input.key_pressed(egui::Key::Escape)) {
+            if self.walking {
+                // egui took the keyboard away on Escape: it stays here.
+                response.request_focus();
+                self.had_focus = true;
+                return Some(MapAsk::Command("/map stop"));
+            }
             return Some(self.leave(ui, response, String::new()));
         }
         if !response.has_focus() {
@@ -253,7 +292,7 @@ impl MapView {
             searched: None,
             found: Vec::new(),
             at: 0,
-            focus: true,
+            focus: 2,
         });
     }
 
@@ -269,6 +308,12 @@ impl MapView {
             }
             None => MapAsk::NoExit(way),
         }
+    }
+
+    /// The room chosen, if one is.
+    #[cfg(test)]
+    pub fn chosen_room(&self) -> Option<RoomId> {
+        self.selected
     }
 
     /// Whether the map has the keyboard, to be given the keypad's keys.
@@ -308,7 +353,7 @@ impl MapView {
 
     /// Chooses a room with the keys, the one chosen before kept to go
     /// back to, and brings it into sight.
-    fn choose(&mut self, room: RoomId) {
+    pub(super) fn choose(&mut self, room: RoomId) {
         if let Some(before) = self.selected.filter(|before| *before != room) {
             self.trail.push(before);
         }
@@ -338,18 +383,22 @@ impl MapView {
         self.selected = Some(from.id);
         self.reveal = Some(from.id);
         self.focus_wanted = true;
+        self.explore_started = true;
         self.trail.clear();
         self.prompt = None;
         self.said_region = map.region(from).map(str::to_owned);
         let here = place_words(map, from);
-        trf(
-            "Exploring the map from {0}. {1}. {2}",
-            &[
-                &here,
-                &exits_words(map, from),
-                tr("Arrows follow the exits, Enter goes, Escape goes back. F1 says all the keys."),
-            ],
-        )
+        let start = match map.current() {
+            Some(_) => trf("Exploring the map from {0}.", &[&here]),
+            // Not sure where the player is: from one of the rooms alike.
+            None => crate::i18n::trn(
+                "Not sure where you are: exploring the map from one of {0} rooms alike, {1}.",
+                "Not sure where you are: exploring the map from one of {0} rooms alike, {1}.",
+                map.candidates().len() as u64,
+            )
+            .replace("{1}", &here),
+        };
+        sentences([start, exits_words(map, from), keys_hint().to_owned()])
     }
 
     /// What is said of a room the keys or a click chose, `came` from the
@@ -367,8 +416,14 @@ impl MapView {
             _ => name.to_owned(),
         };
         self.said_region = region;
+        // How far, from where the player is: nothing, while the map is
+        // not sure, as was said on starting.
         let here = map.current().map(|here| here.id);
-        let mut parts = vec![said, how_far(map, here, room), exits_words(map, room)];
+        let far = here.map(|_| how_far(map, here, room));
+        let mut parts: Vec<String> = [Some(said), far, Some(exits_words(map, room))]
+            .into_iter()
+            .flatten()
+            .collect();
         if let Some(came) = came.filter(|came| *came != room.id)
             && !room.exits.values().any(|exit| exit.to == came)
         {
@@ -419,14 +474,21 @@ impl MapView {
         };
         let field = ui
             .horizontal(|ui| {
-                ui.label(&label);
+                let words = ui.label(&label);
                 let edit = egui::TextEdit::singleline(&mut prompt.text)
                     .id(id)
                     .desired_width(f32::INFINITY);
-                ui.add(edit)
+                let field = ui.add(edit);
+                // Named by its words, which are not read again on their own.
+                widgets::named_by(ui, &field, &words, &label);
+                field
             })
             .inner;
-        (ui.ctx()).accesskit_node_builder(field.id, |node| node.set_label(label));
+        // Opened, what it asks is said for whoever has no screen reader to
+        // say where the keyboard went.
+        if prompt.focus == 2 {
+            said = said.or(Some(MapAsk::Asking(label.clone())));
+        }
         // What was found, shown as it is said, for whoever sees it.
         if searched && let Some(searched) = &prompt.searched {
             let shown = match prompt.found.is_empty() {
@@ -435,7 +497,8 @@ impl MapView {
             };
             ui.label(RichText::new(shown).color(theme::current().text_dim));
         }
-        if std::mem::take(&mut prompt.focus) {
+        if prompt.focus > 0 {
+            prompt.focus -= 1;
             field.request_focus();
         }
         // The arrows go through what was found, not to another control.
@@ -481,7 +544,7 @@ impl MapView {
                     true => trf("Nothing on the map has {0}.", &[&text]),
                     false => {
                         let count = trn("{0} found", "{0} found", prompt.found.len() as u64);
-                        format!("{count}. {}", found_line(map, here, prompt))
+                        sentences([count, found_line(map, here, prompt)])
                     }
                 }))
             }
@@ -503,7 +566,7 @@ fn found_line(map: &Map, here: Option<RoomId>, prompt: &Prompt) -> String {
     let (title, detail) = found_words(map, here, &prompt.found[prompt.at]);
     let place = match detail.is_empty() {
         true => title,
-        false => format!("{title}, {detail}"),
+        false => trf("{0}, {1}", &[&title, &detail]),
     };
     let at = [(prompt.at + 1).to_string(), prompt.found.len().to_string()];
     trf("{0} of {1}: {2}", &[&at[0], &at[1], &place])
@@ -514,7 +577,12 @@ fn found_line(map: &Map, here: Option<RoomId>, prompt: &Prompt) -> String {
 /// and which way each is.
 fn near_words(map: &Map, from: RoomId) -> String {
     let near: Vec<String> = (near(map, from, NEAR).into_iter().take(NEAR_SAID))
-        .map(|(id, what, steps)| format!("{what}, {}", moves_toward(map, from, id, steps.len())))
+        .map(|(id, what, steps)| {
+            trf(
+                "{0}, {1}",
+                &[&what, &moves_toward(map, from, id, steps.len())],
+            )
+        })
         .collect();
     match near.is_empty() {
         true => tr("Nothing else is that near on the map.").to_owned(),

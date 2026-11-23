@@ -146,10 +146,14 @@ impl Tab {
                 _ => trf("Map: {0}.", &[&counted(&changes)]),
             }
         };
-        self.note(&trf(
-            "{0} To undo the last: Undo the map's last change, in the palette.",
-            &[&said],
-        ));
+        // How to undo it is said the first time only.
+        match std::mem::replace(&mut self.map_source.undo_told, true) {
+            true => self.note(&said),
+            false => self.note(&trf(
+                "{0} To undo the last: Undo the map's last change, in the palette.",
+                &[&said],
+            )),
+        }
     }
 
     /// Lists the rooms the map added of itself, each to go to.

@@ -184,37 +184,55 @@ pub(super) fn show_chips(ui: &mut Ui, chips: Chips) {
 }
 
 /// The level to show, as floors one above another: up, the level shown,
-/// and down, each step to the next level that has rooms.
-pub(super) fn level_steps(ui: &mut Ui, levels: &[i32], level: &mut i32) {
+/// and down, each step to the next level that has rooms. Returns what to
+/// say: the level gone to, or that there is none that way. The buttons
+/// stay pressable at either end, only drawn fainter, so that the keyboard
+/// stays on them, and say so.
+pub(super) fn level_steps(ui: &mut Ui, levels: &[i32], level: &mut i32) -> Option<String> {
     let below = levels.iter().rev().find(|known| **known < *level).copied();
     let above = levels.iter().find(|known| **known > *level).copied();
     let step = |ui: &mut Ui, sign, label, to: Option<i32>| {
-        let pressed = ui
-            .add_enabled_ui(to.is_some(), |ui| {
-                crate::widgets::sign_button(ui, sign, label, false).clicked()
-            })
-            .inner;
-        to.filter(|_| pressed)
+        ui.scope(|ui| {
+            if to.is_none() {
+                ui.multiply_opacity(0.35);
+            }
+            crate::widgets::sign_button(ui, sign, label, false).clicked()
+        })
+        .inner
     };
+    let mut said = None;
     ui.vertical_centered(|ui| {
         ui.spacing_mut().item_spacing.y = 2.0;
-        if let Some(to) = step(ui, "▲", tr("Up a level"), above) {
-            *level = to;
+        if step(ui, "▲", tr("Up a level"), above) {
+            said = Some(match above {
+                Some(to) => {
+                    *level = to;
+                    crate::i18n::trf("Level {0}", &[&to.to_string()])
+                }
+                None => tr("No level above.").to_owned(),
+            });
         }
         // Its number, said as the level it is.
-        let said = crate::i18n::trf("Level {0}", &[&level.to_string()]);
+        let level_said = crate::i18n::trf("Level {0}", &[&level.to_string()]);
         let shown = ui
             .label(
                 RichText::new(level.to_string())
                     .font(theme::font(Weight::Medium, 12.5))
                     .color(theme::current().text),
             )
-            .on_hover_text(&said);
-        shown.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Label, true, &said));
-        if let Some(to) = step(ui, "▼", tr("Down a level"), below) {
-            *level = to;
+            .on_hover_text(&level_said);
+        shown.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Label, true, &level_said));
+        if step(ui, "▼", tr("Down a level"), below) {
+            said = Some(match below {
+                Some(to) => {
+                    *level = to;
+                    crate::i18n::trf("Level {0}", &[&to.to_string()])
+                }
+                None => tr("No level below.").to_owned(),
+            });
         }
     });
+    said
 }
 
 /// The middle of the rooms given, to centre on.
@@ -552,17 +570,20 @@ pub(super) fn room_tip(response: Response, map: &Map, pointed: Option<&Room>) {
         }
         return;
     };
-    let mut text = numbered(map, room);
+    let mut parts = vec![numbered(map, room)];
     if room.added {
-        text.push_str(&format!(", {}", tr("added by the map")));
+        parts.push(tr("added by the map").to_owned());
     }
     if room.avoid {
-        text.push_str(&format!(", {}", tr("kept off routes")));
+        parts.push(tr("kept off routes").to_owned());
     }
     if room.cost > 0 {
-        let costs = crate::i18n::trf("costs {0} more to enter", &[&room.cost.to_string()]);
-        text.push_str(&format!(", {costs}"));
+        parts.push(crate::i18n::trf(
+            "costs {0} more to enter",
+            &[&room.cost.to_string()],
+        ));
     }
+    let text = parts.join(tr(", "));
     response.on_hover_text_at_pointer(text);
 }
 

@@ -132,7 +132,7 @@ fn reinos_de_leyenda_is_followed_by_the_rooms_it_shows_and_walked_in_its_words()
     // it can be explored with the keys.
     app.set_map_shown(true);
     harness.run_steps(3);
-    assert!(harness.query_by_label("Map view").is_some());
+    assert!(map_widget(&harness).is_some());
     // East, to a dune with a door west and an exit east: of the two
     // east of a dune, the middle one.
     step("Dunas [|o|,e]", "este");
@@ -633,46 +633,35 @@ fn a_room_is_chosen_on_the_map_to_see_it_and_moved_with_the_keys() {
     assert!(app.map.borrow_mut().set_current(1));
     harness.run_steps(3);
     // The player's room is in the middle of the map.
-    let middle = harness.get_by_label("Map view").rect().center();
+    let middle = map_widget(&harness).unwrap().rect().center();
     harness.hover_at(middle);
     harness.run_steps(1);
     harness.drag_at(middle);
     harness.run_steps(1);
     harness.drop_at(middle);
     harness.run_steps(2);
-    let label = |harness: &Harness<'_, App>| {
-        harness
-            .get_by_label_contains("Map view")
-            .accesskit_node()
-            .label()
-            .unwrap_or_default()
-    };
-    assert!(
-        label(&harness).contains("Dunas · #1 · you are here · Exits: este"),
-        "{}",
-        label(&harness)
-    );
-    // East along the exits, twice: two moves away, said.
+    let chosen = |harness: &Harness<'_, App>| harness.state().tab().map_view.chosen_room();
+    assert_eq!(chosen(&harness), Some(1));
+    // East along the exits, twice.
     harness.key_press(egui::Key::ArrowRight);
     harness.key_press(egui::Key::ArrowRight);
     harness.run_steps(2);
-    assert!(
-        label(&harness).contains("#3 · 2 moves"),
-        "{}",
-        label(&harness)
-    );
+    assert_eq!(chosen(&harness), Some(3));
     // No exit south: said so, and it stays.
     harness.key_press(egui::Key::ArrowDown);
     harness.run_steps(2);
-    assert!(label(&harness).contains("#3"));
+    assert_eq!(chosen(&harness), Some(3));
     // Enter walks there.
     harness.key_press(egui::Key::Enter);
     harness.run_steps(2);
     assert_eq!(sent_lines(&mut sent), ["este"]);
-    // Escape: none chosen.
+    // Escape stops the walk first, then leaves: none chosen.
     harness.key_press(egui::Key::Escape);
     harness.run_steps(2);
-    assert_eq!(label(&harness), "Map view");
+    assert_eq!(chosen(&harness), Some(3));
+    harness.key_press(egui::Key::Escape);
+    harness.run_steps(2);
+    assert_eq!(chosen(&harness), None);
 }
 
 /// For whoever does not see the map: Alt+E explores it from where they
@@ -714,7 +703,7 @@ fn the_map_is_explored_with_the_keys_alone() {
             .accesskit_node()
             .is_focused()
     };
-    assert!(focused(&harness, "Map view"));
+    assert!(map_widget(&harness).unwrap().is_focused());
     harness.key_press(Key::ArrowRight);
     harness.run_steps(2);
     assert_eq!(
@@ -759,14 +748,18 @@ fn the_map_is_explored_with_the_keys_alone() {
     // A letter typed: back to the command line, with it.
     harness.key_press_modifiers(crate::shortcuts::WITH_KEY, Key::E);
     harness.run_steps(3);
-    assert!(focused(&harness, "Map view"));
+    assert!(map_widget(&harness).unwrap().is_focused());
     harness.event(egui::Event::Text("m".into()));
     harness.run_steps(3);
     assert!(focused(&harness, "Command"));
     assert_eq!(harness.state().tab().input, "m");
-    // Escape: back too, as it was.
+    // Escape: back too, as it was; the first stops the walk still on.
     harness.key_press_modifiers(crate::shortcuts::WITH_KEY, Key::E);
     harness.run_steps(3);
+    harness.key_press(Key::Escape);
+    harness.run_steps(3);
+    assert!(harness.state().tab().walk.is_none());
+    assert!(map_widget(&harness).unwrap().is_focused());
     harness.key_press(Key::Escape);
     harness.run_steps(3);
     assert!(focused(&harness, "Command"));
@@ -850,24 +843,27 @@ fn the_map_explored_is_searched_named_noted_and_gone_back_along() {
     typed(&mut harness, "pozo");
     assert_eq!(
         said(&mut harness),
-        "1 found. 1 of 1: Pozo, 3 moves to the este"
+        "Find on the map: write it, then Enter. | 1 found. 1 of 1: Pozo, 3 moves to the este."
     );
     harness.key_press(Key::Enter);
     harness.run_steps(3);
     assert_eq!(said(&mut harness), "Pozo. 3 moves to the este. Exits: sur.");
-    assert!(focused(&harness, "Map view"));
+    assert!(map_widget(&harness).unwrap().is_focused());
     // A note and a name, said with the room from then on.
     command(&mut harness, Key::N);
     assert!(focused(&harness, "Note on Pozo"));
     typed(&mut harness, "Agua fresca");
-    assert_eq!(said(&mut harness), "Noted: Agua fresca");
+    assert_eq!(
+        said(&mut harness),
+        "Note on Pozo: write it, then Enter. | Noted: Agua fresca"
+    );
     command(&mut harness, Key::B);
     typed(&mut harness, "agua");
     assert_eq!(
         said(&mut harness),
-        "This room is now marked agua: typed in the palette, agua goes to it."
+        "Mark for Pozo: write it, then Enter. | This room is now marked agua: typed in the palette, agua goes to it."
     );
-    assert!(focused(&harness, "Map view"));
+    assert!(map_widget(&harness).unwrap().is_focused());
     harness.key_press(Key::Space);
     harness.run_steps(2);
     assert_eq!(
@@ -893,7 +889,7 @@ fn the_map_explored_is_searched_named_noted_and_gone_back_along() {
     harness.run_steps(2);
     harness.key_press(Key::Escape);
     harness.run_steps(3);
-    assert!(focused(&harness, "Map view"));
+    assert!(map_widget(&harness).unwrap().is_focused());
     harness.key_press(Key::Escape);
     harness.run_steps(3);
     assert!(focused(&harness, "Command"));
@@ -1263,4 +1259,42 @@ fn levels_and_other_areas_are_looked_at_over_the_map() {
     assert!(!harness.state().tab().palette.open);
     harness.get_by_label("Back to my position");
     assert_eq!(harness.state().tab().map.borrow().current().unwrap().id, 1);
+}
+
+/// What the map draws is said too: doors on exits and a room's symbol;
+/// an area shown is said, and explored from its room nearest; and the map
+/// no longer drawn is no longer explored, its keys given back.
+#[test]
+fn doors_areas_and_leaving_the_map_are_said() {
+    let mut harness = window(None);
+    harness.set_size(egui::vec2(1300.0, 860.0));
+    let app = harness.state_mut().tab_mut();
+    app.started = true;
+    app.voice.force_voice();
+    desert(app);
+    {
+        let mut map = app.map.borrow_mut();
+        map.edit_exit(3, "n", |exit| exit.door = Some(muddie_mapper::Door::Locked))
+            .unwrap();
+        assert!(map.set_current(3));
+    }
+    assert!(app.run_command("/map info 3"));
+    let info = last_said(app);
+    assert!(info.contains("Doors: north, locked"), "{info}");
+    // An area shown, asked for: said, and explored from its nearest room.
+    app.voice.said.clear();
+    app.run_command("/map show-area desierto");
+    harness.run_steps(3);
+    let said = harness.state().tab().voice.said.join(" | ");
+    assert!(said.starts_with("Desierto: 4 rooms, 1 level."), "{said}");
+    assert!(said.contains("Exploring the map from Dunas"), "{said}");
+    assert!(harness.state().tab().map_view.exploring());
+    // The map hidden while explored: left, and said.
+    let app = harness.state_mut().tab_mut();
+    app.voice.said.clear();
+    app.set_map_shown(false);
+    harness.run_steps(3);
+    let app = harness.state().tab();
+    assert!(!app.map_view.exploring());
+    assert_eq!(app.voice.said, ["Left the map."]);
 }

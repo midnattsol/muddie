@@ -727,7 +727,7 @@ fn shows_map() {
     harness.run_steps(3);
     // A third: the menu of the room under the pointer. The map is
     // centred on the player's room, so that is the room it opens on.
-    harness.get_by_label("Map view").click_secondary();
+    map_widget(&harness).unwrap().click_secondary();
     harness.run_steps(3);
     assert!(harness.query_by_label("Keep routes off").is_some());
     let image = harness.render().expect("rendering failed");
@@ -804,7 +804,7 @@ fn shows_map() {
     harness.key_press(egui::Key::Escape);
     harness.run_steps(2);
     // A room chosen with the keys, east of the player's, told under it.
-    let view = harness.get_by_label_contains("Map view").rect().center();
+    let view = map_widget(&harness).unwrap().rect().center();
     harness.hover_at(view);
     harness.run_steps(1);
     harness.drag_at(view);

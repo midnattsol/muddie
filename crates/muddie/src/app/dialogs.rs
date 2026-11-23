@@ -67,6 +67,12 @@ impl App {
                         tr("Exploring the map"),
                         &[
                             ("↑ ↓ ← →  PgUp PgDn", tr("Follow the exits")),
+                            (
+                                tr("The keypad"),
+                                tr(
+                                    "Follow the exits by where its keys are; slash and star, in and out",
+                                ),
+                            ),
                             (tr("Home"), tr("Back to your room")),
                             (tr("Backspace"), tr("Back to the room before")),
                             (tr("Space"), tr("Say the room again")),
@@ -82,6 +88,10 @@ impl App {
                                 tr("Write a note on the room"),
                             ),
                             (tr("Enter  Shift+Enter"), tr("Go there, or say the way")),
+                            (
+                                tr("Shift+F10  Menu key"),
+                                tr("The room's menu, with each exit to follow"),
+                            ),
                             ("F1", tr("Say all the keys")),
                             (tr("Escape"), tr("Back to the command line")),
                         ],
