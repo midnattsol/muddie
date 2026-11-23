@@ -50,13 +50,7 @@ impl Tab {
         if let Some(panel) = by_name.or_else(by_role) {
             return panel.id;
         }
-        let id = self.layout.next_id();
-        self.layout.panels.push(PanelSpec {
-            id,
-            name: name.to_owned(),
-            ..PanelSpec::default()
-        });
-        id
+        self.layout.add(name, Kind::Text)
     }
 
     /// Puts `text` in a panel, in place of what it showed; none clears it.

@@ -1,6 +1,8 @@
-# The gauges of Reinos de Leyenda, for what is urgent in a fight: life,
-# energy, and faith and the shield for a character who has them. All
-# alike: green, yellow under 60 %, red under 30 %, a whole bar.
+# The gauges of Reinos de Leyenda, for what is urgent in a fight. In
+# Puntos, life, energy, and faith for a character who has it, all alike:
+# green, yellow under 60 %, red under 30 %, a whole bar. In Efectos, the
+# states the character is in, which the plugin keeps in the variable
+# estados.
 
 [[gauge]]
 name = "Vida"
@@ -9,6 +11,7 @@ max = "Char.Status.pvs.max"
 colour = "#5fb85f"
 kind = "bar"
 step = [{ under = 60, colour = "#e0c040" }, { under = 30, colour = "#e05050" }]
+shown_in = "Puntos"
 
 [[gauge]]
 name = "Energía"
@@ -17,6 +20,7 @@ max = "Char.Status.pe.max"
 colour = "#5fb85f"
 kind = "bar"
 step = [{ under = 60, colour = "#e0c040" }, { under = 30, colour = "#e05050" }]
+shown_in = "Puntos"
 
 [[gauge]]
 name = "Fe"
@@ -25,11 +29,11 @@ max = "Char.Status.fe.max"
 colour = "#5fb85f"
 kind = "bar"
 step = [{ under = 60, colour = "#e0c040" }, { under = 30, colour = "#e05050" }]
+shown_in = "Puntos"
 
 [[gauge]]
-name = "Escudo"
-value = "Char.Status.escudo.min"
-max = "Char.Status.escudo.max"
-colour = "#5fb85f"
-kind = "bar"
-step = [{ under = 60, colour = "#e0c040" }, { under = 30, colour = "#e05050" }]
+name = "Efectos"
+value = "estados"
+colour = "#8a9bb8"
+kind = "effects"
+shown_in = "Efectos"

@@ -439,36 +439,44 @@ fn reinos_gives_gauges_states_and_channels_by_themselves() {
     for shown in ["Vida 3900 of 4141", "Energía 1300 of 1300", "Fe 220 of 220"] {
         assert!(summary.contains(shown), "{shown} in {summary}");
     }
-    // No shield now, and neither experience nor the trade is shown.
+    // Neither the shield, nor experience, nor the trade is shown.
     assert!(
         !summary.contains("Escudo") && !summary.contains("Experiencia") && !summary.contains("70"),
         "{summary}"
     );
-    // States come and go, among the gauges.
+    // States come and go, among the effects, by their short name; the
+    // worst kinds first.
+    let effects = |harness: &Harness<'_, App>| -> String {
+        let summary = harness.state().tab().gauges.summary();
+        let at = summary.find("Efectos").unwrap_or(summary.len());
+        summary[at..]
+            .split(", Vida")
+            .next()
+            .unwrap_or_default()
+            .to_owned()
+    };
+    events
+        .send(gmcp(
+            "Char.Status.Estados.set",
+            r#"{"debilidad":{"nombre":"debilidad","corto":"Debilidad","ayuda":"Vieja","tipo":"incapacidades"}}"#,
+        ))
+        .unwrap();
     events
         .send(gmcp(
             "Char.Status.Estados.add",
-            r#"{"nombre":"Envenenado","corto":"ven","tipo":"veneno","ayuda":"Pierdes vida"}"#,
+            r#"{"nombre":"dañadora","corto":"Enfermedad Dañadora","tipo":"enfermedades","ayuda":"Mortal"}"#,
         ))
         .unwrap();
     harness.run_steps(2);
-    let app = harness.state_mut().tab_mut();
-    assert!(app.gauges.summary().contains("Envenenado"));
+    assert_eq!(effects(&harness), "Efectos: Enfermedad Dañadora, Debilidad");
     events
         .send(gmcp(
             "Char.Status.Estados.remove",
-            r#"{"nombre":"Envenenado"}"#,
+            r#"{"nombre":"dañadora","corto":"Enfermedad Dañadora","tipo":"enfermedades"}"#,
         ))
         .unwrap();
     harness.run_steps(2);
-    assert!(
-        !harness
-            .state()
-            .tab()
-            .gauges
-            .summary()
-            .contains("Envenenado")
-    );
+    assert_eq!(effects(&harness), "Efectos: Debilidad");
     // Channels: each in its tab, and gone when left.
     events
         .send(gmcp("Comm.Canales", r#"{"chat":"chat","keel":"keel"}"#))

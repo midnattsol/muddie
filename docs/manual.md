@@ -435,8 +435,10 @@ per profile like the ones you install. Two come with it.
   way: `Char.Vitals` as gauges, `Room.Info` as the map, `Comm.Channel.Text`
   as channels. It is on in a new profile; switched off, the client makes
   nothing of them by itself, and scripts still get them.
-- **Reinos de Leyenda** gives that MUD its gauges (life, energy, and faith
-  and the shield for a character who has them), shows its channels, each in
+- **Reinos de Leyenda** gives that MUD its gauges, in two panels: **Puntos**,
+  life, energy, and faith for a character who has it, and **Efectos**, the
+  states the character is in, the worst first, each with what it is. It shows
+  its channels, each in
   its tab, and gives it its map: the one the MUD publishes, taken when the
   session has none. After that the map only changes when you ask: when the
   MUD publishes a newer one, a notice says so on connecting, and
@@ -460,7 +462,9 @@ per profile like the ones you install. Two come with it.
 Switching one does not run your scripts again. One made of scripts, as
 Reinos de Leyenda, is installed in the profile the first time it is
 switched on, in sight in the editor: its scripts in a folder of **Scripts**
-named after it, its gauges among those of **Gauges**. They are the
+named after it, its gauges among those of **Gauges**, in the panels they
+name: one of that name, the panel of gauges the profile came with if
+nothing is shown in it, or a new one. They are the
 profile's to change, as any of yours; switching the plugin off switches
 them off. It is not installed again by itself: when a new version of
 Muddie brings changes to it, a notice says so, and **Install again**, in

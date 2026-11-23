@@ -74,7 +74,8 @@ impl Tab {
             ));
             return false;
         }
-        let theirs = plugin.read_rules();
+        let mut theirs = plugin.read_rules();
+        self.place_gauges(&mut theirs.gauges, again);
         self.change_rules(|rules| {
             for gauge in &theirs.gauges {
                 let known = (rules.gauges.iter())
@@ -107,6 +108,39 @@ impl Tab {
         }
         self.run_actions();
         self.note(&trf("{0} installed again.", &[tr(plugin.name)]));
+    }
+
+    /// Puts the gauges a plugin brings in the panels they name, as they are
+    /// installed: those it brings again, or new to the profile.
+    fn place_gauges(&mut self, gauges: &mut [crate::rules::Gauge], again: bool) {
+        let theirs: Vec<String> = gauges
+            .iter()
+            .map(|gauge| gauge.shown_name().to_owned())
+            .collect();
+        let known = |name: &str| (self.rules.gauges.iter()).any(|gauge| gauge.shown_name() == name);
+        let placing: Vec<bool> = gauges
+            .iter()
+            .map(|gauge| again || !known(gauge.shown_name()))
+            .collect();
+        // The panels the profile's own gauges are shown in, not the plugin's.
+        let first = (self.layout.panels.iter())
+            .find(|panel| panel.kind == layout::Kind::Gauges)
+            .map(|panel| panel.id);
+        let mut used: std::collections::HashSet<u32> = (self.rules.gauges.iter())
+            .filter(|gauge| !theirs.iter().any(|name| name == gauge.shown_name()))
+            .filter_map(|gauge| match gauge.panel {
+                0 => first,
+                panel => Some(panel),
+            })
+            .collect();
+        for (gauge, placing) in gauges.iter_mut().zip(placing) {
+            let name = std::mem::take(&mut gauge.shown_in);
+            if placing && !name.trim().is_empty() {
+                gauge.panel = self.gauges_panel_called(&name, |id| used.contains(&id));
+                // Taken: the next name is not given it.
+                used.insert(gauge.panel);
+            }
+        }
     }
 
     /// Switches the folder of scripts and the gauges a plugin installed on

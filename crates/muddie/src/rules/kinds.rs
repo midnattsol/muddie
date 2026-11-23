@@ -310,6 +310,11 @@ pub struct Gauge {
     /// The panel of gauges it is shown in, by the panel's id; none shows
     /// it in the first there is.
     pub panel: u32,
+    /// The panel of gauges it is shown in, by the panel's name, for a
+    /// gauge a plugin brings, which cannot know the panels' ids: on
+    /// installing it, it becomes [`Self::panel`].
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub shown_in: String,
 }
 
 impl OnTime {

@@ -192,6 +192,45 @@ fn what_the_mud_is_asked_for_follows_the_plugins_on_and_off() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+/// A plugin's gauges go in the panels they name, as it is installed: the
+/// panel of gauges a profile comes with, empty, takes the first name, and
+/// one more is made for the next.
+#[test]
+fn a_plugin_puts_its_gauges_in_the_panels_they_name() {
+    let dir = std::env::temp_dir().join(format!("muddie-gauge-panels-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let profiles = Profiles::at(dir.clone());
+    profiles.save("Reinos", &Profile::default()).unwrap();
+    let mut harness = window(Some(profiles));
+    let app = harness.state_mut().tab_mut();
+    assert!(app.select_profile(Some("Reinos".into())));
+    let reinos = crate::bundled::find("reinos-de-leyenda").unwrap();
+    app.set_included(reinos, true);
+    let panel_of = |app: &Tab, gauge: &str| -> String {
+        let id = (app.rules.gauges.iter())
+            .find(|rule| rule.name == gauge)
+            .unwrap()
+            .panel;
+        app.layout
+            .panels
+            .iter()
+            .find(|panel| panel.id == id)
+            .unwrap()
+            .name
+            .clone()
+    };
+    for (gauge, panel) in [("Vida", "Puntos"), ("Fe", "Puntos"), ("Efectos", "Efectos")] {
+        assert_eq!(panel_of(app, gauge), panel, "{gauge}");
+    }
+    let of_gauges: Vec<&str> = (app.layout.panels.iter())
+        .filter(|panel| panel.kind == crate::tab::layout::Kind::Gauges)
+        .map(|panel| panel.name.as_str())
+        .collect();
+    assert_eq!(of_gauges, ["Puntos", "Efectos"]);
+    assert!(!app.rules.gauges.iter().any(|rule| rule.name == "Escudo"));
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 #[test]
 fn a_profile_keeps_what_is_changed_in_the_settings_as_it_is_changed() {
     let dir = std::env::temp_dir().join(format!("muddie-autosave-{}", std::process::id()));
@@ -277,7 +316,7 @@ fn a_plugin_that_comes_with_muddie_is_installed_in_sight_and_the_profiles() {
             .collect()
     };
     let all = |on: bool| -> Vec<(String, bool)> {
-        ["Vida", "Energía", "Fe", "Escudo"]
+        ["Vida", "Energía", "Fe", "Efectos"]
             .map(|name| (name.to_owned(), on))
             .to_vec()
     };

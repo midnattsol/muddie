@@ -44,7 +44,7 @@ end
 
 ---------------------------------------------------------------------------
 -- Gauges: they are among the gauges of the editor, made from Char.Status,
--- life, energy, faith and the shield. Char.Status gives each as {min = now,
+-- life, energy and faith. Char.Status gives each as {min = now,
 -- max = most}, at first all of them and then only what changed: it is
 -- merged into what came before, for the gauges to have it whole.
 
@@ -54,43 +54,74 @@ on_gmcp("Char", function()
 end)
 
 ---------------------------------------------------------------------------
--- States: each a light among the gauges, by its name. They are not said
--- aloud: the game says so itself, in its text. A state is {nombre, corto,
--- tipo, ayuda}.
+-- States: kept in the variable estados, which the gauge Efectos of the
+-- editor follows, each a label with what it is; the worst kinds first, in
+-- their colour. A state is {nombre, corto, tipo, ayuda}. They are not said
+-- aloud: the game says so itself, in its text.
 
-local states = {}
+-- The colour of each kind of state, the worst first.
+local KINDS = {
+    enfermedades = { colour = "#e05050", order = 1 },
+    incapacidades = { colour = "#e0c040", order = 2 },
+}
 
-local function state_on(state)
-    local name = text_of(state)
-    if not name or states[name] then
-        return
+-- A state as the gauge shows it, with what it is known by.
+local function shown(state)
+    if type(state) ~= "table" then
+        state = { nombre = state }
     end
-    states[name] = true
-    gauge(name, 1, 1, { kind = "light", colour = "#e0a040" })
+    local kind = KINDS[state.tipo or ""]
+    local id = text_of(state) or ""
+    return {
+        id = id,
+        name = state.corto or id,
+        about = state.ayuda or "",
+        colour = kind and kind.colour or "",
+        order = kind and kind.order or 99,
+    }
 end
 
-local function state_off(state)
-    local name = text_of(state)
-    if not name or not states[name] then
-        return
+local function keep(states)
+    table.sort(states, function(a, b)
+        if a.order ~= b.order then
+            return a.order < b.order
+        end
+        return a.name < b.name
+    end)
+    vars.estados = states
+end
+
+-- Those kept but the one known by `id`.
+local function all_but(id)
+    local left = {}
+    for _, known in vars.estados or {} do
+        if known.id ~= id then
+            table.insert(left, known)
+        end
     end
-    states[name] = nil
-    gauge(name)
+    return left
 end
 
 on_gmcp("Char.Status.Estados.set", function(data)
-    for name in pairs(states) do
-        state_off(name)
-    end
+    local states = {}
     if type(data) == "table" then
         for key, state in pairs(data) do
-            state_on(type(state) == "table" and state or key)
+            table.insert(states, shown(type(state) == "table" and state or key))
         end
     end
+    keep(states)
 end)
 
-on_gmcp("Char.Status.Estados.add", state_on)
-on_gmcp("Char.Status.Estados.remove", state_off)
+on_gmcp("Char.Status.Estados.add", function(state)
+    local new = shown(state)
+    local states = all_but(new.id)
+    table.insert(states, new)
+    keep(states)
+end)
+
+on_gmcp("Char.Status.Estados.remove", function(state)
+    keep(all_but(text_of(state)))
+end)
 
 ---------------------------------------------------------------------------
 -- Channels: each in its tab, made before anyone speaks on it, and taken

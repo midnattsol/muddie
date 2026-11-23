@@ -115,7 +115,6 @@ impl Tab {
     /// Adds a panel of a kind, under a name not taken, where that kind
     /// usually goes.
     pub(in crate::tab) fn add_panel(&mut self, kind: Kind) {
-        let id = self.layout.next_id();
         // A name not taken: the plain one, then numbered.
         let free = |base: &str, first: bool| -> String {
             let taken = |name: &String| self.layout.panels.iter().any(|panel| panel.name == *name);
@@ -132,16 +131,7 @@ impl Tab {
             Kind::Map => "Map".to_owned(),
             Kind::Gauges => free("Gauges", true),
         };
-        let (side, size) = kind.home();
-        self.layout.panels.push(PanelSpec {
-            id,
-            name,
-            kind,
-            side,
-            size,
-            ..PanelSpec::default()
-        });
-        self.layout.reveal(side);
+        self.layout.add(&name, kind);
     }
 
     /// Whether the map has its panel on screen.

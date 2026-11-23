@@ -10,6 +10,34 @@ pub(in crate::tab) fn panels_first(layout: &Layout, panel: u32) -> bool {
 }
 
 impl Tab {
+    /// The panel of gauges called `name`, for gauges that name it, as a
+    /// plugin's, which cannot know the panels' ids: one of that name; else
+    /// one no gauge is shown in, as the one a profile comes with, called
+    /// so; else a new one. `used` says whether a panel has gauges in it.
+    pub(in crate::tab) fn gauges_panel_called(
+        &mut self,
+        name: &str,
+        used: impl Fn(u32) -> bool,
+    ) -> u32 {
+        let name = name.trim();
+        let of_gauges = |panel: &&mut PanelSpec| panel.kind == Kind::Gauges;
+        let panels = &mut self.layout.panels;
+        if let Some(panel) = (panels.iter_mut())
+            .filter(of_gauges)
+            .find(|panel| panel.name.eq_ignore_ascii_case(name))
+        {
+            return panel.id;
+        }
+        if let Some(panel) = (panels.iter_mut())
+            .filter(of_gauges)
+            .find(|panel| !used(panel.id))
+        {
+            panel.name = name.to_owned();
+            return panel.id;
+        }
+        self.layout.add(name, Kind::Gauges)
+    }
+
     /// Whether the gauge called `name` belongs in the panel `id`: the
     /// one it was put in, or the first of the gauges' panels if it was put
     /// in none, as those the MUD's vitals and scripts make are.

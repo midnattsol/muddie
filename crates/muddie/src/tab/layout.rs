@@ -251,6 +251,23 @@ impl Layout {
             + 1
     }
 
+    /// Adds a panel of `kind` called `name`, where one of its kind goes,
+    /// that side brought out. Returns its id.
+    pub(super) fn add(&mut self, name: &str, kind: Kind) -> u32 {
+        let id = self.next_id();
+        let (side, size) = kind.home();
+        self.panels.push(PanelSpec {
+            id,
+            name: name.to_owned(),
+            kind,
+            side,
+            size,
+            ..PanelSpec::default()
+        });
+        self.reveal(side);
+        id
+    }
+
     /// Whether it has a panel of this kind.
     pub(super) fn has(&self, kind: Kind) -> bool {
         self.panels.iter().any(|panel| panel.kind == kind)
