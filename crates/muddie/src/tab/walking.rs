@@ -32,17 +32,6 @@ pub(super) struct MapSource {
 }
 
 impl Tab {
-    /// The server reported the room the player is in.
-    pub(super) fn entered_room(&mut self, json: &str) {
-        let Some(info) = RoomInfo::from_json(json) else {
-            return;
-        };
-        let room = info.id;
-        let saved = self.map.borrow_mut().visit(info);
-        self.map_saved(saved);
-        self.arrived_in(room);
-    }
-
     /// The map now has the player in `room`: continue a walk, if any.
     pub(super) fn arrived_in(&mut self, room: RoomId) {
         if std::mem::take(&mut self.map_source.lost) {

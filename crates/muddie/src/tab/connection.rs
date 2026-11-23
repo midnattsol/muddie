@@ -123,16 +123,13 @@ impl Tab {
     /// send the same way is asked for only while the plugin that makes
     /// something of it is on.
     fn connection_config(&self) -> Config {
-        let mut config = Config {
+        Config {
             screen_reader: self.voice.screen_reader(),
             encoding: self.encoding.clone(),
             gmcp_supports: self.wanted_modules(),
+            msdp_report: self.scripts.msdp_reports(),
             ..Config::default()
-        };
-        if !self.conventions() {
-            config.msdp_report.clear();
         }
-        config
     }
 
     pub fn disconnect(&mut self) {

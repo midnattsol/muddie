@@ -54,26 +54,10 @@ impl Default for Config {
             window: (80, 24),
             screen_reader: false,
             tls: false,
-            gmcp_supports: [
-                "Core 1",
-                "Char 1",
-                "Room 1",
-                "Comm.Channel 1",
-                "Client.Media 1",
-            ]
-            .map(String::from)
-            .to_vec(),
-            msdp_report: [
-                "HEALTH",
-                "HEALTH_MAX",
-                "MANA",
-                "MANA_MAX",
-                "MOVEMENT",
-                "MOVEMENT_MAX",
-                "ROOM",
-            ]
-            .map(String::from)
-            .to_vec(),
+            // The client's own; what a MUD sends is asked for by the plugins
+            // that make something of it.
+            gmcp_supports: ["Core 1", "Client.Media 1"].map(String::from).to_vec(),
+            msdp_report: Vec::new(),
             encoding: "auto".into(),
         }
     }

@@ -161,7 +161,7 @@ fn script_can_edit_and_query_the_map() {
             },
         ]
     );
-    assert!(error_text(&actions[13..]).contains("a room id must be"));
+    assert!(error_text(&actions[13..]).contains("a room needs its id"));
 }
 
 /// The text mapper example maps a room given in its expected format.

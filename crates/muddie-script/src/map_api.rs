@@ -27,32 +27,16 @@ fn place_of(world: &Map, value: &Value) -> mlua::Result<RoomId> {
     Ok(named.unwrap_or(id))
 }
 
-/// Reads a room description given by a script.
+/// Reads a room description given by a script, as the MUD sends one in
+/// GMCP `Room.Info` or MSDP `ROOM`, or made by the script: its `id` (or
+/// `num`, `vnum`), `name`, `area`, `exits`, where it is (`x`, `y`, `z`, or
+/// `coords`), and the `colour` to draw it in.
 pub(super) fn room_info(room: &Table) -> mlua::Result<RoomInfo> {
-    let mut exits = std::collections::BTreeMap::new();
-    if let Some(table) = room.get::<Option<Table>>("exits")? {
-        for pair in table.pairs::<String, Value>() {
-            let (direction, to) = pair?;
-            exits.insert(muddie_mapper::canonical_direction(&direction), id_of(&to)?);
-        }
-    }
-    let coordinate = |name: &str| room.get::<Option<i32>>(name);
-    let pos = match (coordinate("x")?, coordinate("y")?) {
-        (Some(x), Some(y)) => Some(Pos {
-            x,
-            y,
-            z: coordinate("z")?.unwrap_or(0),
-        }),
-        _ => None,
-    };
-    Ok(RoomInfo {
-        id: id_of(&room.get::<Value>("id")?)?,
-        name: room.get::<Option<String>>("name")?.unwrap_or_default(),
-        area: room.get::<Option<String>>("area")?.unwrap_or_default(),
-        exits,
-        pos,
-        colour: room_colour(&room.get::<Value>("colour")?)?,
-    })
+    let value = serde_json::to_value(room).map_err(mlua::Error::runtime)?;
+    let mut info = RoomInfo::from_value(&value)
+        .ok_or_else(|| mlua::Error::runtime("a room needs its id, a number or text"))?;
+    info.colour = room_colour(&room.get::<Value>("colour")?)?;
+    Ok(info)
 }
 
 /// Reads a room's colour given by a script, as [`color_from`] does; a
@@ -530,10 +514,13 @@ fn install_keeping(
     let shared = Rc::clone(state);
     api.set(
         "native",
-        lua.create_function(move |_, enabled: bool| {
+        // Given, whether the built-in loader is on; asked, whether it is.
+        lua.create_function(move |_, enabled: Option<bool>| {
             let mut state = shared.borrow_mut();
-            state.map_native_off = (!enabled).then(|| state.owner.clone());
-            Ok(())
+            if let Some(enabled) = enabled {
+                state.map_native_off = (!enabled).then(|| state.owner.clone());
+            }
+            Ok(state.map_native_off.is_none())
         })?,
     )?;
 

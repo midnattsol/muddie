@@ -49,6 +49,16 @@ impl Tab {
             }
         }
         self.scripts_synced = Some(switches);
+        // With no profile to install them in, the plugins that come with
+        // Muddie are run as they come.
+        if self.own_scripts_dir().is_none() {
+            let on: Vec<_> = (crate::bundled::ALL.iter())
+                .filter(|plugin| self.included(plugin))
+                .collect();
+            for plugin in on {
+                self.run_as_it_comes(plugin);
+            }
+        }
         // The rules run last, as one more script.
         self.run_rules();
         self.run_actions();

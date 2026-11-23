@@ -338,6 +338,7 @@ impl Engine {
         state.supports.retain(|(by, _)| by != owner);
         state.changed |= state.supports.len() != asked;
         state.merged.retain(|(by, _)| by != owner);
+        state.reports.retain(|(by, _)| by != owner);
         if state.separator.as_ref().is_some_and(|(by, _)| by == owner) {
             state.separator = None;
         }
@@ -388,6 +389,17 @@ impl Engine {
             }
         }
         modules
+    }
+
+    /// The MSDP variables the scripts loaded ask to be told of.
+    pub fn msdp_reports(&self) -> Vec<String> {
+        let mut variables: Vec<String> = Vec::new();
+        for (_, variable) in &self.state.borrow().reports {
+            if !variables.contains(variable) {
+                variables.push(variable.clone());
+            }
+        }
+        variables
     }
 
     /// What the scripts offer to do with the map, in the order offered.

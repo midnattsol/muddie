@@ -9,22 +9,11 @@ impl Tab {
         plugin.is_on(&self.included_on, &self.included_off)
     }
 
-    /// Whether what many MUDs send the same way is made something of.
-    pub(super) fn conventions(&self) -> bool {
-        crate::bundled::find(crate::bundled::COMMON).is_some_and(|plugin| self.included(plugin))
-    }
-
     /// Switches a plugin that comes with Muddie on or off, at once and
     /// without running the other scripts again, and keeps that with the
-    /// profile if there is one. One installed in the profile needs one.
+    /// profile if there is one; without one, it is run as it comes, for the
+    /// session.
     pub(super) fn set_included(&mut self, plugin: &'static crate::bundled::Bundled, on: bool) {
-        if on && plugin.installs() && self.own_scripts_dir().is_none() {
-            self.refuse(tr(
-                "This plugin is installed in a profile: save this session as a profile, then switch it on.",
-            ));
-            self.app_request = Some(AppRequest::SaveAsProfile);
-            return;
-        }
         plugin.switch(&mut self.included_on, &mut self.included_off, on);
         self.run_included(plugin, on);
         self.keep_included();
@@ -37,15 +26,22 @@ impl Tab {
         if self.plugin_offer == Some(plugin) {
             self.plugin_offer = None;
         }
-        if plugin.installs() && self.own_scripts_dir().is_some() {
+        if self.own_scripts_dir().is_some() {
             if on && !self.included_installed.contains_key(plugin.id) {
                 self.install_included(plugin, false);
             }
             self.switch_installed(plugin, on);
+        } else if on {
+            self.run_as_it_comes(plugin);
+            self.run_rules();
+        } else {
+            for (name, _) in plugin.scripts {
+                self.scripts.unload(&as_it_comes(plugin, name));
+            }
+            self.rules.gauges.retain(|gauge| !brought_by(gauge, plugin));
+            self.run_rules();
         }
         self.run_actions();
-        // The one that is part of the program changes what is asked for by
-        // itself, with no script to say so.
         self.sync_modules();
     }
 
@@ -74,15 +70,7 @@ impl Tab {
             ));
             return false;
         }
-        let mut theirs = plugin.read_rules();
-        // In the plugin's folder, as its scripts are, to be switched with
-        // them.
-        for gauge in &mut theirs.gauges {
-            gauge.folder = match gauge.folder.trim() {
-                "" => plugin.folder().to_owned(),
-                inner => crate::rules::joined(plugin.folder(), inner),
-            };
-        }
+        let mut theirs = plugin_rules(plugin);
         self.place_gauges(&mut theirs.gauges, again);
         self.change_rules(|rules| {
             for gauge in &theirs.gauges {
@@ -121,6 +109,29 @@ impl Tab {
         self.note(&trf("{0} installed again.", &[tr(plugin.name)]));
     }
 
+    /// Runs a plugin that comes with Muddie as it comes, in a session with
+    /// no profile to install it in: its scripts from the program, its
+    /// gauges among the session's rules, unsaved.
+    pub(super) fn run_as_it_comes(&mut self, plugin: &'static crate::bundled::Bundled) {
+        for (name, code) in plugin.scripts {
+            let owner = as_it_comes(plugin, name);
+            self.scripts.unload(&owner);
+            self.scripts.exec_owned(&owner, &owner, code);
+        }
+        let mut theirs = plugin_rules(plugin);
+        self.place_gauges(&mut theirs.gauges, false);
+        for gauge in theirs.gauges {
+            if !self
+                .rules
+                .gauges
+                .iter()
+                .any(|known| same_gauge(known, &gauge))
+            {
+                self.rules.gauges.push(gauge);
+            }
+        }
+    }
+
     /// Puts the gauges a plugin brings in the panels they name, as they are
     /// installed: those it brings again, or new to the profile.
     fn place_gauges(&mut self, gauges: &mut [crate::rules::Gauge], again: bool) {
@@ -134,8 +145,13 @@ impl Tab {
         let first = (self.layout.panels.iter())
             .find(|panel| panel.kind == layout::Kind::Gauges)
             .map(|panel| panel.id);
+        // Another plugin's, as the standard one's, which most MUDs leave
+        // unseen, take no panel from it.
+        let of_a_plugin = |gauge: &crate::rules::Gauge| {
+            (crate::bundled::ALL.iter()).any(|plugin| brought_by(gauge, plugin))
+        };
         let mut used: std::collections::HashSet<u32> = (self.rules.gauges.iter())
-            .filter(|gauge| !theirs(gauge))
+            .filter(|gauge| !theirs(gauge) && !of_a_plugin(gauge))
             .filter_map(|gauge| match gauge.panel {
                 0 => first,
                 panel => Some(panel),
@@ -269,15 +285,10 @@ impl Tab {
         }
     }
 
-    /// The GMCP modules to ask the MUD for now: the client's own; those
-    /// many MUDs send the same way, while the plugin that makes something
-    /// of them is on; and those the scripts loaded ask for.
+    /// The GMCP modules to ask the MUD for now: the client's own, and
+    /// those the scripts loaded ask for, the plugins' among them.
     pub(super) fn wanted_modules(&self) -> Vec<String> {
-        let ours = |module: &String| module.starts_with("Core ") || module.starts_with("Client.");
         let mut modules = muddie_core::Config::default().gmcp_supports;
-        if !self.conventions() {
-            modules.retain(ours);
-        }
         for module in self.scripts.supports() {
             if !modules.contains(&module) {
                 modules.push(module);
@@ -442,4 +453,28 @@ fn same_gauge(known: &crate::rules::Gauge, theirs: &crate::rules::Gauge) -> bool
     let folder = known.folder.trim();
     known.shown_name() == theirs.shown_name()
         && (folder.is_empty() || folder == theirs.folder.trim())
+}
+
+/// What a plugin that comes with Muddie brings to the rules: its gauges in
+/// a folder of its name, as its scripts are, to be switched with them.
+fn plugin_rules(plugin: &crate::bundled::Bundled) -> crate::rules::Rules {
+    let mut theirs = plugin.read_rules();
+    for gauge in &mut theirs.gauges {
+        gauge.folder = match gauge.folder.trim() {
+            "" => plugin.folder().to_owned(),
+            inner => crate::rules::joined(plugin.folder(), inner),
+        };
+    }
+    theirs
+}
+
+/// What a script of a plugin run as it comes is known by.
+fn as_it_comes(plugin: &crate::bundled::Bundled, script: &str) -> String {
+    format!("{}/{script}", plugin.folder())
+}
+
+/// Whether a gauge is in the folder of a plugin that comes with Muddie,
+/// or in one inside it.
+fn brought_by(gauge: &crate::rules::Gauge, plugin: &crate::bundled::Bundled) -> bool {
+    gauge.folder.split('/').next() == Some(plugin.folder())
 }

@@ -213,9 +213,10 @@ fn shown_in_card(ui: &mut egui::Ui, rule: &mut Gauge, panels: &[(u32, String)]) 
     }
     // Put in none, it is in the first.
     let first = panels[0].1.clone();
-    crate::widgets::choose(ui, "gauge panel", &mut rule.panel, panels, |_| {
+    let chosen = crate::widgets::choose(ui, "gauge panel", &mut rule.panel, panels, |_| {
         first.clone()
     });
+    (ui.ctx()).accesskit_node_builder(chosen.id, |node| node.set_label(tr("Shown in")));
     note(
         ui,
         tr(

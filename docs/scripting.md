@@ -145,7 +145,8 @@ send_msdp("REPORT", "HEALTH", "MANA")
 | `on_msdp(variable, fn)`, `msdp(variable)`, `send_msdp(command, ...)` | The same for MSDP. Values arrive as strings. |
 | `on_var(name, fn)` | Calls `fn(value, name)` when a variable of `vars` changes, by a script, a trigger or the editor: once the script that changed it is done, so it sees all it changed. A gauge can follow a variable the same way. |
 | `merge_gmcp(package, ...)` | For packages the server sends only what changed of, as `Char.Status` with only the life that changed: what comes is merged into what `gmcp(package)` and the gauges keep, tables inside merged too. Handlers still get what came. |
-| `support_gmcp(module, ...)` | Announces GMCP modules to the server besides the usual ones, as `"Name version"`: `support_gmcp("Map.Render 1")`. Some servers only send what was announced. They are asked for while the script is loaded: when it is switched off or removed, the server is told it no longer wants them. |
+| `report_msdp(variable, ...)` | Asks the server to report MSDP variables as they change: `report_msdp("HEALTH", "HEALTH_MAX")`. Asked for while the script is loaded, as `support_gmcp`. |
+| `support_gmcp(module, ...)` | Announces GMCP modules to the server besides the client's own (`Core` and `Client.Media`), as `"Name version"`: `support_gmcp("Map.Render 1")`. Some servers only send what was announced. They are asked for while the script is loaded: when it is switched off or removed, the server is told it no longer wants them. |
 | `on_event(name, fn)` | Calls `fn(data, name)` when something happens in the client: `"connect"`, `"disconnect"`, `"mxp"` with `{name, value}` when the MUD names a value with MXP (a variable, an entity, or what a flagged element held, such as `RoomName`), or `"panel"` with `{name, map, columns, rows}`: the size in characters of a panel that shows a drawing, once it stops changing, after connecting and after the script is run. `map` is true for the map's panel, whatever it is called. |
 | `panel_size(name)` | The size in characters of a panel, as `{columns, rows}`, at once; `nil` if it has not been on the screen. With no name, the map's panel. |
 | `completions(name, words)` | Words for Tab to offer, besides those seen in the output. Each name keeps its own list; `completions(name)` removes it. |
@@ -153,9 +154,9 @@ send_msdp("REPORT", "HEALTH", "MANA")
 
 ## The map
 
-The built-in loader maps from GMCP `Room.Info` and MSDP `ROOM`. For a MUD
-that reports rooms some other way, or only in text, a script feeds the map
-itself, and can turn the built-in loader off.
+The **Standard GMCP and MSDP** plugin maps from GMCP `Room.Info` and MSDP
+`ROOM`. For a MUD that reports rooms some other way, or only in text, a
+script feeds the map itself, and can turn the standard loader off.
 
 ```lua
 -- A MUD with no GMCP: read the room from its title and exits lines.
@@ -173,13 +174,15 @@ A room is a table with `id` and, optionally, `name`, `area`, `exits`
 (direction to room id), `x`, `y`, `z` and `colour` (a name, `"#rrggbb"` or a
 palette number, as for `highlight`; a room given without one keeps the
 colour it had). An id is a number, or the text the
-server identifies the room with.
+server identifies the room with. What a MUD sends in `Room.Info` or `ROOM`
+can be given as it comes: `num` or `vnum` for `id`, `zone` for `area`,
+`coords` for where it is, in any letter case.
 
 | Function | What it does |
 |---|---|
 | `map.visit(room)` | The player is now in `room`, which is added or updated. Returns its number. |
 | `map.set_room(room)` | Adds or updates a room without moving there. Returns its number. |
-| `map.native(false)` | Turns the built-in loader off. |
+| `map.native(false)` | Turns the standard loader off while the script is loaded; `map.native()` says whether it is on. |
 | `map.persist(false)` | Keeps the map in memory only, for servers that send it themselves. |
 | `map.clear()` | Forgets every room. |
 | `map.room(id)` | A room as a table, the current one if `id` is omitted. Also has `exits` (direction to room number), `weight`, `avoid`, `colour` (`"#rrggbb"`, or `nil`), `note`, what the user wrote of it (`""` for none), `renamed`, whether its name is one given in place of the map's, `added`, whether the map added it of itself (see `map.add`), and `shape` and `symbol`, how it is drawn. |

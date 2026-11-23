@@ -1,38 +1,15 @@
 //! The status strip of gauges and the helpers that feed the panels from
 //! GMCP.
 
-use std::collections::HashMap;
-
 use eframe::egui::{Align2, Color32, Rect, Role, Sense, Ui, WidgetInfo, vec2};
 use muddie_core::Line;
 use muddie_core::ansi::Assembler;
 use muddie_script::{Belongs, GaugeKind, GaugeLook, PanelOf};
-use serde_json::Value;
 
 use crate::i18n::trf;
 use crate::theme;
 
-/// Value and maximum field names of the vitals most MUDs report in
-/// `Char.Vitals`, with the gauge each pair is shown as.
-const VITALS: [(&str, &str, &str); 8] = [
-    ("HP", "hp", "maxhp"),
-    ("MP", "mp", "maxmp"),
-    ("MP", "mana", "maxmana"),
-    ("SP", "sp", "maxsp"),
-    ("EP", "ep", "maxep"),
-    ("WP", "wp", "maxwp"),
-    ("MV", "mv", "maxmv"),
-    ("MV", "moves", "maxmoves"),
-];
-
-/// The MSDP variables holding each vital's value and maximum, with the
-/// gauge they are shown as.
-const MSDP_VITALS: [(&str, &str, &str); 3] = [
-    ("HP", "HEALTH", "HEALTH_MAX"),
-    ("MP", "MANA", "MANA_MAX"),
-    ("MV", "MOVEMENT", "MOVEMENT_MAX"),
-];
-
+/// A gauge shown: what a script or a rule set it to, and how it looks.
 pub struct Gauge {
     /// What it is told apart by: its place, if it has one, else its name.
     pub key: String,
@@ -672,66 +649,6 @@ pub fn colour_named(name: &str) -> Option<Color32> {
     })
 }
 
-/// Extracts the vitals this client knows how to show from a `Char.Vitals`
-/// payload. Numbers may arrive as JSON numbers or as strings.
-pub fn vitals(json: &str) -> Vec<(&'static str, f64, f64)> {
-    let Ok(Value::Object(fields)) = serde_json::from_str(json) else {
-        return Vec::new();
-    };
-    let number = |key: &str| match fields.get(key)? {
-        Value::Number(number) => number.as_f64(),
-        Value::String(text) => text.trim().parse().ok(),
-        _ => None,
-    };
-    (VITALS.iter())
-        .filter_map(|&(name, value, max)| Some((name, number(value)?, number(max)?)))
-        .collect()
-}
-
-/// Collects vitals from MSDP, which reports a value and its maximum as
-/// separate variables that may arrive at different times.
-#[derive(Default)]
-pub struct MsdpVitals(HashMap<String, f64>);
-
-impl MsdpVitals {
-    /// Records an MSDP variable. If it belongs to a vital whose value and
-    /// maximum are now both known, returns that gauge's new level.
-    pub fn update(&mut self, variable: &str, json: &str) -> Option<(&'static str, f64, f64)> {
-        let (name, value, max) = (MSDP_VITALS.into_iter())
-            .find(|(_, value, max)| variable == *value || variable == *max)?;
-        let Ok(Value::String(text)) = serde_json::from_str(json) else {
-            return None;
-        };
-        self.0
-            .insert(variable.to_owned(), text.trim().parse().ok()?);
-        Some((name, *self.0.get(value)?, *self.0.get(max)?))
-    }
-
-    pub fn clear(&mut self) {
-        self.0.clear();
-    }
-}
-
-/// The lines of a `Comm.Channel.Text` payload, with its colours.
-pub fn channel_text(json: &str) -> Vec<Line> {
-    let Ok(Value::Object(fields)) = serde_json::from_str(json) else {
-        return Vec::new();
-    };
-    match fields.get("text") {
-        Some(Value::String(text)) => styled_lines(text),
-        _ => Vec::new(),
-    }
-}
-
-/// The channel a `Comm.Channel.Text` payload was said on, if it says.
-pub fn channel_name(json: &str) -> String {
-    let named = serde_json::from_str::<Value>(json).ok();
-    let name = named
-        .as_ref()
-        .and_then(|value| value.get("channel")?.as_str());
-    name.unwrap_or_default().trim().to_owned()
-}
-
 /// Splits text that may contain ANSI colour codes into styled lines.
 pub fn styled_lines(text: &str) -> Vec<Line> {
     let mut assembler = Assembler::new();
@@ -767,30 +684,6 @@ mod tests {
         assert_eq!(colour_named("green"), Some(theme.terminal[2]));
         assert_eq!(colour_named("#102030"), Some(Color32::from_rgb(16, 32, 48)));
         assert!(colour_named("purple").is_none() && colour_named("").is_none());
-    }
-
-    #[test]
-    fn vitals_accept_numbers_and_numeric_strings() {
-        let json = r#"{"hp": 80, "maxhp": "100", "mana": "5", "maxmana": 50, "mv": 3, "nl": "9"}"#;
-        assert_eq!(vitals(json), [("HP", 80.0, 100.0), ("MP", 5.0, 50.0)]);
-        assert_eq!(vitals("[1, 2]"), []);
-    }
-
-    #[test]
-    fn msdp_vitals_wait_for_both_halves() {
-        let mut vitals = MsdpVitals::default();
-        assert_eq!(vitals.update("HEALTH", r#""80""#), None);
-        assert_eq!(vitals.update("MANA_MAX", r#""50""#), None);
-        assert_eq!(
-            vitals.update("HEALTH_MAX", r#""100""#),
-            Some(("HP", 80.0, 100.0))
-        );
-        assert_eq!(
-            vitals.update("HEALTH", r#""75""#),
-            Some(("HP", 75.0, 100.0))
-        );
-        assert_eq!(vitals.update("ROOM", r#"{"VNUM":"7"}"#), None);
-        assert_eq!(vitals.update("MANA", r#""lots""#), None);
     }
 
     #[test]
@@ -831,14 +724,5 @@ mod tests {
         gauges.set("HP", None);
         gauges.set("XP", None);
         assert_eq!(gauges.summary(), "MP 5 of 50");
-    }
-
-    #[test]
-    fn channel_text_keeps_colours_and_splits_lines() {
-        let lines =
-            channel_text(r#"{"channel": "ooc", "text": "\u001b[32mAna: hola\u001b[0m\nsegunda"}"#);
-        let texts: Vec<String> = lines.iter().map(Line::text).collect();
-        assert_eq!(texts, ["Ana: hola", "segunda"]);
-        assert_ne!(lines[0].spans[0].style, lines[1].spans[0].style);
     }
 }

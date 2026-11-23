@@ -161,6 +161,9 @@ pub(super) struct State {
     pub(crate) awaited: Vec<Awaited>,
     /// The GMCP modules each script asked for, as `(owner, "Name version")`.
     pub(crate) supports: Vec<(String, String)>,
+    /// The MSDP variables each script asked to be told of, as
+    /// `(owner, variable)`.
+    pub(crate) reports: Vec<(String, String)>,
     /// Data last received per GMCP package or MSDP variable.
     pub(crate) data: HashMap<String, Value>,
     /// The GMCP packages that send only what changed, as `(owner, key)`:

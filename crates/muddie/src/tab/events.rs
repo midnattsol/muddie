@@ -226,29 +226,11 @@ impl Tab {
         self.voice.partial(&text);
     }
 
-    /// A GMCP package: what many MUDs send the same way is made something
-    /// of first, if its plugin is on, so that scripts can override it.
+    /// A GMCP package: media are played; the rest is the scripts', and
+    /// the plugins'.
     fn on_gmcp(&mut self, package: &str, data: &str, recording: bool) {
-        let common = self.conventions();
-        let is = |name: &str| package.eq_ignore_ascii_case(name);
-        if common && is("Char.Vitals") {
-            for (name, value, max) in panels::vitals(data) {
-                self.set_gauge(
-                    name,
-                    Some((value, max)),
-                    None,
-                    None,
-                    Default::default(),
-                    None,
-                );
-            }
-        } else if let Some(message) = crate::media::parse(package, data) {
+        if let Some(message) = crate::media::parse(package, data) {
             self.media(message);
-        } else if common && is("Comm.Channel.Text") {
-            let name = panels::channel_name(data);
-            self.channel_said(&name, "", panels::channel_text(data));
-        } else if common && is("Room.Info") && self.scripts.native_map() {
-            self.entered_room(data);
         }
         if recording {
             self.saw_data(package, false, data);
@@ -277,22 +259,8 @@ impl Tab {
         }
     }
 
-    /// An MSDP variable, made something of as GMCP's are.
+    /// An MSDP variable: the scripts', and the plugins'.
     fn on_msdp(&mut self, variable: &str, data: &str, recording: bool) {
-        let common = self.conventions();
-        if common && let Some((name, value, max)) = self.msdp_vitals.update(variable, data) {
-            self.set_gauge(
-                name,
-                Some((value, max)),
-                None,
-                None,
-                Default::default(),
-                None,
-            );
-        }
-        if common && variable == "ROOM" && self.scripts.native_map() {
-            self.entered_room(data);
-        }
         if recording {
             self.saw_data(variable, true, data);
         }
@@ -352,7 +320,6 @@ impl Tab {
         self.pending_partial = None;
         self.settled_partial = None;
         self.gauges.clear();
-        self.msdp_vitals.clear();
         self.sound.stop_all();
         self.fetching.base = None;
         self.fetching.jobs.clear();

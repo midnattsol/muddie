@@ -437,9 +437,10 @@ plugin switches those folders off, and what you switched off in them stays so
 when it is on again. Two come with it.
 
 - **Standard GMCP and MSDP** makes something of what many MUDs send the same
-  way: `Char.Vitals` as gauges, `Room.Info` as the map, `Comm.Channel.Text`
-  as channels. It is on in a new profile; switched off, the client makes
-  nothing of them by itself, and scripts still get them.
+  way: `Char.Vitals` and the MSDP vitals as gauges, which are in the editor
+  to change like your own, `Room.Info` and MSDP `ROOM` as the map,
+  `Comm.Channel.Text` as channels. It is on in a new profile; switched off,
+  the client makes nothing of them by itself, and scripts still get them.
 - **Reinos de Leyenda** gives that MUD its gauges, in two panels: **Puntos**,
   life, energy, and faith for a character who has it, and **Efectos**, the
   states the character is in, the worst first, each with what it is. It shows
@@ -785,7 +786,8 @@ its control at the right.
   channels are read, and the speed and language of the system's voice.
 
 A session without a profile connects, keeps its connection and logs as a new
-profile would. Muddie's settings are saved in `settings.toml`, each profile
+profile would; the plugins that come with Muddie run in it as they come,
+for that session, with nothing installed. Muddie's settings are saved in `settings.toml`, each profile
 in its `profile.toml`.
 
 ## Languages

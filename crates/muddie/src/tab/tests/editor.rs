@@ -357,7 +357,14 @@ fn rules_made_in_the_window_are_saved_and_take_effect() {
         ))
         .unwrap();
     harness.run_steps(2);
-    assert_eq!(sent.try_recv().unwrap(), Command::Send("eat bread".into()));
+    let next_sent = |sent: &mut tokio::sync::mpsc::UnboundedReceiver<Command>| {
+        std::iter::from_fn(|| sent.try_recv().ok())
+            .find(|command| matches!(command, Command::Send(_)))
+    };
+    assert_eq!(
+        next_sent(&mut sent),
+        Some(Command::Send("eat bread".into()))
+    );
     // Reloading scripts keeps the rules working.
     assert!(harness.state_mut().tab_mut().do_client_command("/reload"));
     events
@@ -366,7 +373,10 @@ fn rules_made_in_the_window_are_saved_and_take_effect() {
         ))
         .unwrap();
     harness.run_steps(2);
-    assert_eq!(sent.try_recv().unwrap(), Command::Send("eat bread".into()));
+    assert_eq!(
+        next_sent(&mut sent),
+        Some(Command::Send("eat bread".into()))
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 

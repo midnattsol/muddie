@@ -230,6 +230,7 @@ fn a_gauge_saved_is_shown_at_once_and_one_renamed_or_off_goes() {
         max: "Char.Status.pvs.max".into(),
         ..Default::default()
     });
+    let vida = rules.gauges.len() - 1;
     app.reload_rules(Some(rules.clone()));
     // Nothing reported yet: nothing to show.
     assert_eq!(app.gauges.summary(), "");
@@ -243,19 +244,19 @@ fn a_gauge_saved_is_shown_at_once_and_one_renamed_or_off_goes() {
     assert_eq!(app.gauges.summary(), "Vida 40 of 100, Oro 3 of 10");
     // Renamed and saved: at once, by what was reported last, in place of
     // the old name.
-    rules.gauges[0].name = "Salud".into();
+    rules.gauges[vida].name = "Salud".into();
     app.reload_rules(Some(rules.clone()));
     harness.run_steps(2);
     let app = harness.state_mut().tab_mut();
     assert_eq!(app.gauges.summary(), "Salud 40 of 100, Oro 3 of 10");
     // Switched off, it goes.
-    rules.gauges[0].enabled = false;
+    rules.gauges[vida].enabled = false;
     app.reload_rules(Some(rules));
     assert_eq!(app.gauges_said(), "Oro 3 of 10");
     // And by its tag, for the session, as a trigger does.
     let mut tagged = app.rules.clone();
-    tagged.gauges[0].enabled = true;
-    tagged.gauges[0].tags = vec!["fight".into()];
+    tagged.gauges[vida].enabled = true;
+    tagged.gauges[vida].tags = vec!["fight".into()];
     app.reload_rules(Some(tagged));
     harness.run_steps(2);
     let app = harness.state_mut().tab_mut();

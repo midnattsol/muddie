@@ -2078,9 +2078,6 @@ msgstr "el camino"
 msgid "Install again"
 msgstr "Instalar de nuevo"
 
-msgid "This plugin is installed in a profile: save this session as a profile, then switch it on."
-msgstr "Este plugin se instala en un perfil: guarda esta sesión como perfil y actívalo después."
-
 msgid "{0} could not be installed: {1}"
 msgstr "No se ha podido instalar {0}: {1}"
 

@@ -174,21 +174,26 @@ fn what_the_mud_is_asked_for_follows_the_plugins_on_and_off() {
             .collect()
     };
     let usual = muddie_core::Config::default().gmcp_supports;
-    // What is asked for to begin with.
+    // What is asked for to begin with: the client's own, and what the
+    // standard plugin asks for.
     app.sync_modules();
     told();
+    let standard = ["Char 1", "Room 1", "Comm.Channel 1"]
+        .map(String::from)
+        .to_vec();
+    let standard = [usual.clone(), standard].concat();
     app.set_included(reinos, true);
-    let with_comm = [usual.clone(), vec!["Comm 1".to_owned()]].concat();
+    let with_comm = [standard.clone(), vec!["Comm 1".to_owned()]].concat();
     assert_eq!(told(), [with_comm]);
     // Switched off, what it asked for is no longer wanted.
     app.set_included(reinos, false);
-    assert_eq!(told(), [usual]);
+    assert_eq!(told(), [standard]);
     // Nothing is said when nothing changed.
     app.run_actions();
     assert_eq!(told(), Vec::<Vec<String>>::new());
     // Without the standard plugin, only what is the client's own.
     app.set_included(common, false);
-    assert_eq!(told(), [["Core 1", "Client.Media 1"].map(String::from)]);
+    assert_eq!(told(), [usual]);
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
@@ -294,7 +299,12 @@ fn a_plugin_that_comes_with_muddie_is_installed_in_sight_and_the_profiles() {
     let dir = std::env::temp_dir().join(format!("muddie-install-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     let profiles = Profiles::at(dir.clone());
-    profiles.save("Reinos", &Profile::default()).unwrap();
+    // A profile for that MUD, which makes nothing of the standard GMCP.
+    let reinos_only = Profile {
+        included_off: vec![crate::bundled::COMMON.into()],
+        ..Profile::default()
+    };
+    profiles.save("Reinos", &reinos_only).unwrap();
     let mut harness = window(Some(profiles.clone()));
     harness.set_size(egui::vec2(1300.0, 860.0));
     let app = harness.state_mut().tab_mut();
@@ -397,24 +407,25 @@ fn a_plugin_that_comes_with_muddie_is_installed_in_sight_and_the_profiles() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// Without a profile there is nowhere to install it: it is said, and the
-/// session is offered to be saved as one.
+/// Without a profile there is nowhere to install it: it is run as it
+/// comes, for the session, and goes when switched off.
 #[test]
-fn a_plugin_that_comes_with_muddie_needs_a_profile() {
+fn a_plugin_that_comes_with_muddie_runs_as_it_comes_without_a_profile() {
     let mut harness = window(None);
     let app = harness.state_mut().tab_mut();
     let plugin = crate::bundled::find("reinos-de-leyenda").unwrap();
     app.set_included(plugin, true);
-    assert!(!app.included(plugin));
-    assert!(
-        notes(app)
-            .iter()
-            .any(|said| said.contains("save this session as a profile"))
-    );
-    assert!(matches!(
-        app.take_app_request(),
-        Some(AppRequest::SaveAsProfile)
-    ));
+    assert!(app.included(plugin));
+    let theirs = |app: &Tab| {
+        (app.rules.gauges.iter())
+            .filter(|gauge| gauge.folder == "Reinos de Leyenda")
+            .count()
+    };
+    assert_eq!(theirs(app), 4);
+    assert!(app.scripts.supports().contains(&"Comm 1".to_owned()));
+    app.set_included(plugin, false);
+    assert_eq!(theirs(app), 0);
+    assert!(!app.scripts.supports().contains(&"Comm 1".to_owned()));
 }
 
 #[test]

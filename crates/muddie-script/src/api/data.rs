@@ -149,6 +149,30 @@ fn install_supports(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     )?;
     let shared = Rc::clone(state);
     add(
+        "report_msdp",
+        lua.create_function(move |_, variables: mlua::Variadic<String>| {
+            let mut state = shared.borrow_mut();
+            let owner = state.owner.clone();
+            let mut new = Vec::new();
+            for variable in variables {
+                let asked = (owner.clone(), variable.clone());
+                if !state.reports.contains(&asked) {
+                    state.reports.push(asked);
+                    new.push(variable);
+                }
+            }
+            // Told now, if MSDP is on; and on connecting, as asked.
+            if !new.is_empty() {
+                (state.actions).push(Action::Msdp {
+                    variable: "REPORT".into(),
+                    values: new,
+                });
+            }
+            Ok(())
+        })?,
+    )?;
+    let shared = Rc::clone(state);
+    add(
         "support_gmcp",
         lua.create_function(move |_, modules: mlua::Variadic<String>| {
             let mut state = shared.borrow_mut();

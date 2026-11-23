@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 use eframe::egui::{self, CentralPanel, Key, Label, Modifiers, Panel, RichText, TextEdit};
 use muddie_core::Line;
 use muddie_core::{Command, Config, Event, Session, Target, connect};
-use muddie_mapper::{Map, Progress, RoomId, RoomInfo, Walk};
+use muddie_mapper::{Map, Progress, RoomId, Walk};
 use muddie_script::{Action, Engine, Kind, Switches};
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -23,7 +23,7 @@ use crate::mapview::{MapAsk, MapView};
 use crate::output::{Output, server_job};
 use crate::packages;
 use crate::palette;
-use crate::panels::{self, Gauges, MsdpVitals};
+use crate::panels::{self, Gauges};
 use crate::profile::{Profile, Profiles};
 use crate::rules::Rules;
 use crate::secrets;
@@ -103,7 +103,6 @@ pub struct Tab {
     voice: Voice,
     scripts: Engine,
     gauges: Gauges,
-    msdp_vitals: MsdpVitals,
     /// The panels around the output, as they are and as they were saved.
     layout: layout::Layout,
     /// What the panels are doing: what each shows, the one being dragged, where
@@ -297,7 +296,6 @@ impl Tab {
             voice: Voice::default(),
             scripts: Engine::new(Rc::clone(&map)).expect("failed to start the script runtime"),
             gauges: Gauges::default(),
-            msdp_vitals: MsdpVitals::default(),
             layout: layout::Layout::default(),
             panels: layout::Panels::default(),
             dispatched: None,

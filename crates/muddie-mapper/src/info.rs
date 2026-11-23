@@ -26,7 +26,13 @@ impl RoomInfo {
     /// are all accepted, in any letter case. Returns `None` if there is no
     /// room number, without which a room cannot be mapped.
     pub fn from_json(json: &str) -> Option<Self> {
-        let Value::Object(fields) = serde_json::from_str(json).ok()? else {
+        Self::from_value(&serde_json::from_str(json).ok()?)
+    }
+
+    /// The same, from what was read already, as a script gives it: its
+    /// coordinates may also be `x`, `y` and `z` of their own.
+    pub fn from_value(value: &Value) -> Option<Self> {
+        let Value::Object(fields) = value.clone() else {
             return None;
         };
         let fields = lower_keys(fields);
@@ -51,7 +57,9 @@ impl RoomInfo {
             exits,
             // Not Aardwolf's `coord`: that locates the whole area on a
             // continent, so every room in it would land on the same spot.
-            pos: first(&["coords"]).and_then(position),
+            pos: first(&["coords"])
+                .and_then(position)
+                .or_else(|| position(&Value::Object(fields.clone()))),
             colour: None,
         })
     }
@@ -66,7 +74,10 @@ fn lower_keys(fields: Fields<String, Value>) -> Fields<String, Value> {
 /// A room identifier: a number, or text (numeric or not, see [`room_id`]).
 fn identifier(value: &Value) -> Option<RoomId> {
     match value {
-        Value::Number(number) => number.as_i64(),
+        Value::Number(number) => (number.as_i64()).or_else(|| {
+            let whole = number.as_f64().filter(|number| number.fract() == 0.0)?;
+            Some(whole as i64)
+        }),
         Value::String(text) if !text.trim().is_empty() => Some(room_id(text)),
         _ => None,
     }
@@ -75,7 +86,9 @@ fn identifier(value: &Value) -> Option<RoomId> {
 /// Servers send numbers either as JSON numbers or as strings.
 fn integer(value: &Value) -> Option<i64> {
     match value {
-        Value::Number(number) => number.as_i64(),
+        Value::Number(number) => number
+            .as_i64()
+            .or_else(|| number.as_f64().map(|n| n as i64)),
         Value::String(text) => text.trim().parse().ok(),
         _ => None,
     }

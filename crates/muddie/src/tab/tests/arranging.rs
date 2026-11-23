@@ -439,15 +439,19 @@ fn a_gauge_is_changed_where_it_is_shown() {
     harness.get_by_label("Edit Salud").click();
     harness.run_steps(3);
     let app = harness.state_mut().tab_mut();
-    assert_eq!((app.editor.gauge_here, app.view()), (Some(0), View::Game));
-    app.editor.draft.gauges[0].colour = "red".into();
+    let salud = app.rules.gauges.len() - 1;
+    assert_eq!(
+        (app.editor.gauge_here, app.view()),
+        (Some(salud), View::Game)
+    );
+    app.editor.draft.gauges[salud].colour = "red".into();
     harness.run_steps(2);
     // Closed, what was changed is saved, as in the editor.
     harness.key_press(Key::Escape);
     harness.run_steps(3);
     let app = harness.state().tab();
     assert!(app.editor.gauge_here.is_none());
-    assert_eq!(app.rules.gauges[0].colour, "red");
+    assert_eq!(app.rules.gauges.last().unwrap().colour, "red");
 }
 
 #[test]

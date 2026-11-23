@@ -3,7 +3,7 @@
 
 use egui_kittest::Harness;
 use egui_kittest::kittest::{NodeT, Queryable};
-use muddie_mapper::Pos;
+use muddie_mapper::{Pos, RoomInfo};
 
 use super::input::PARTIAL_SETTLE;
 use super::*;

@@ -32,8 +32,7 @@ pub struct Bundled {
     pub names: &'static [&'static str],
 }
 
-/// What many MUDs send the same way, after those that did it first:
-/// carried out by the program itself.
+/// What many MUDs send the same way, after those that did it first.
 pub const COMMON: &str = "common";
 
 pub const ALL: [Bundled; 2] = [
@@ -41,8 +40,11 @@ pub const ALL: [Bundled; 2] = [
         id: COMMON,
         name: "Standard GMCP and MSDP",
         about: "Gauges from Char.Vitals, the map from Room.Info, channels from Comm.Channel.Text.",
-        scripts: &[],
-        rules: "",
+        scripts: &[(
+            "Standard GMCP and MSDP.luau",
+            include_str!("../plugins/standard/Standard GMCP and MSDP.luau"),
+        )],
+        rules: include_str!("../plugins/standard/rules.toml"),
         default_on: true,
         hosts: &[],
         names: &[],
