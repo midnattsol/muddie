@@ -88,7 +88,8 @@ fn triggers_do_what_their_fields_say() {
             Action::PlaySound {
                 file: "tell.ogg".into(),
                 volume: 1.0,
-                looped: false
+                looped: false,
+                owner: "rules".into()
             },
         ]
     );

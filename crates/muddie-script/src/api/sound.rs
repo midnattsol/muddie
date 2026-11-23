@@ -17,10 +17,13 @@ pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()>
                 ),
                 None => (1.0, false),
             };
-            (shared.borrow_mut().actions).push(Action::PlaySound {
+            let mut state = shared.borrow_mut();
+            let owner = state.owner.clone();
+            state.actions.push(Action::PlaySound {
                 file,
                 volume: volume.clamp(0.0, 1.0),
                 looped,
+                owner,
             });
             Ok(())
         })?,

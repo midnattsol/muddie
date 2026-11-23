@@ -352,6 +352,32 @@ impl Engine {
         if state.map_native_off.as_deref() == Some(owner) {
             state.map_native_off = None;
         }
+        if state.map_memory_only.as_deref() == Some(owner) {
+            state.map_memory_only = None;
+        }
+        // What it set of the map and the session goes back as it was
+        // before any script set it.
+        let (undone, kept) = std::mem::take(&mut state.set_by)
+            .into_iter()
+            .partition(|(_, by)| by == owner);
+        state.set_by = kept;
+        for (what, _) in undone {
+            let mut map = self.map.borrow_mut();
+            match what {
+                crate::state::Set::Learning => map.set_learning(false),
+                crate::state::Set::Directions => map.forget_taught_directions(),
+                crate::state::Set::Naming => map.set_naming(Default::default()),
+                crate::state::Set::Language => {
+                    state.actions.push(Action::Language(String::new()));
+                }
+                crate::state::Set::Panel(name) => {
+                    state.actions.push(Action::Panel { name, text: None });
+                }
+                crate::state::Set::Channel(name) => {
+                    state.actions.push(Action::ChannelClosed(name));
+                }
+            }
+        }
         state.macros.retain(|_, bound| {
             bound.retain(|bound| bound.owner != owner);
             !bound.is_empty()

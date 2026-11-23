@@ -44,6 +44,14 @@ switched), and when Muddie is closed. A script that is run again starts
 from its first line with nothing: that is where to ask a MUD for whatever
 it had sent. What must outlast all of this is kept in `vars`.
 
+What a script makes and sets goes with it when it is switched off or
+removed, as when it is run again: its triggers, aliases, macros, timers,
+handlers and gauges; the panels it put text in and the channels it opened,
+emptied and closed; its sounds, stopped; and what it set of the map and the
+session (`map.learn`, `map.directions`, `map.names`, `map.native`,
+`map.persist`, `map.language`, `separator`, `merge_gmcp`, `support_gmcp`,
+`report_msdp`, `completions`), back as they were before any script set them.
+
 | Function | What it does |
 |---|---|
 | `send(text)` | Sends a command to the MUD. Aliases are not applied. |

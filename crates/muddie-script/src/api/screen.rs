@@ -160,7 +160,9 @@ fn install_panel(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     add(
         "panel",
         lua.create_function(move |_, (name, text): (String, Option<String>)| {
-            (shared.borrow_mut().actions).push(Action::Panel { name, text });
+            let mut state = shared.borrow_mut();
+            state.set(crate::state::Set::Panel(name.to_lowercase()));
+            state.actions.push(Action::Panel { name, text });
             Ok(())
         })?,
     )?;
@@ -227,11 +229,14 @@ fn install_channel(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
         "channel",
         lua.create_function(
             move |_, (name, text, options): (String, Option<String>, Option<mlua::Table>)| {
+                super::rules::only(options.as_ref(), &["panel"])?;
                 let panel = match options {
                     Some(options) => options.get::<Option<String>>("panel")?,
                     None => None,
                 };
-                (shared.borrow_mut().actions).push(Action::Channel {
+                let mut state = shared.borrow_mut();
+                state.set(crate::state::Set::Channel(name.to_lowercase()));
+                state.actions.push(Action::Channel {
                     name,
                     text,
                     panel: panel.unwrap_or_default(),

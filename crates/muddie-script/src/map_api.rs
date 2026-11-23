@@ -195,15 +195,18 @@ fn install_visiting(
     api.set(
         "language",
         lua.create_function(move |_, language: String| {
-            (shared.borrow_mut().actions).push(Action::Language(language));
+            let mut state = shared.borrow_mut();
+            state.set(crate::state::Set::Language);
+            state.actions.push(Action::Language(language));
             Ok(())
         })?,
     )?;
 
-    let world = Rc::clone(map);
+    let (shared, world) = (Rc::clone(state), Rc::clone(map));
     api.set(
         "learn",
         lua.create_function(move |_, on: bool| {
+            shared.borrow_mut().set(crate::state::Set::Learning);
             world.borrow_mut().set_learning(on);
             Ok(())
         })?,
@@ -228,10 +231,11 @@ fn install_visiting(
         })?,
     )?;
 
-    let world = Rc::clone(map);
+    let (shared, world) = (Rc::clone(state), Rc::clone(map));
     api.set(
         "directions",
         lua.create_function(move |_, words: Table| {
+            shared.borrow_mut().set(crate::state::Set::Directions);
             let mut taught = Vec::new();
             for pair in words.pairs::<String, Value>() {
                 let (direction, said) = pair?;
@@ -252,10 +256,11 @@ fn install_visiting(
         })?,
     )?;
 
-    let world = Rc::clone(map);
+    let (shared, world) = (Rc::clone(state), Rc::clone(map));
     api.set(
         "names",
         lua.create_function(move |_, ways: Option<Table>| {
+            shared.borrow_mut().set(crate::state::Set::Naming);
             let naming = match ways {
                 None => Naming::default(),
                 Some(ways) => {
@@ -528,7 +533,9 @@ fn install_keeping(
     api.set(
         "persist",
         lua.create_function(move |_, enabled: bool| {
-            shared.borrow_mut().map_memory_only = !enabled;
+            let mut state = shared.borrow_mut();
+            state.map_memory_only = (!enabled).then(|| state.owner.clone());
+            drop(state);
             if !enabled {
                 world.borrow_mut().stop_storing();
             }

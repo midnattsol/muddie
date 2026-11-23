@@ -276,6 +276,7 @@ fn sounds_are_requested_with_their_options() {
         file: file.into(),
         volume,
         looped,
+        owner: "test".into(),
     };
     assert_eq!(
         engine.take_actions(),
@@ -400,6 +401,32 @@ fn handlers_of_data_are_switched_by_their_tags() {
         [
             Action::Echo("hp 70".into()),
             Action::Echo("connected".into())
+        ]
+    );
+}
+
+#[test]
+fn what_a_script_set_of_the_map_and_the_session_goes_with_it() {
+    let mut engine = Engine::new(Rc::default()).unwrap();
+    engine.exec_owned(
+        "one",
+        "one",
+        r#"map.persist(false) map.language("es") panel("Mapa", "x") channel("ooc")
+        map.names({region = true}) map.directions({n = {"norte"}})"#,
+    );
+    assert!(!engine.persist_map());
+    engine.take_actions();
+    engine.unload("one");
+    assert!(engine.persist_map());
+    assert_eq!(
+        engine.take_actions(),
+        [
+            Action::Language(String::new()),
+            Action::Panel {
+                name: "mapa".into(),
+                text: None
+            },
+            Action::ChannelClosed("ooc".into()),
         ]
     );
 }

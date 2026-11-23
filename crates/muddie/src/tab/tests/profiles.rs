@@ -92,16 +92,17 @@ fn a_plugin_for_the_mud_is_offered_and_switched_on_without_the_rest_starting_ove
     events.send(Event::Connected).unwrap();
     harness.run_steps(3);
     assert!(harness.state().tab().plugin_offer.is_none());
-    // Switched off, what it made is gone.
+    // Switched off, what it made is gone: its channels' tabs too, and
+    // what the MUD says on them is not taken up.
     let app = harness.state_mut().tab_mut();
     app.set_plugin(reinos, false);
-    let before = app.panels.channels[0].log.len();
+    assert!(app.panels.channels.is_empty());
     app.scripts.on_gmcp(
         "Comm.MensajeCanal",
         r#"{"canal": "chat", "mensaje": "otra"}"#,
     );
     app.run_actions();
-    assert_eq!(app.panels.channels[0].log.len(), before);
+    assert!(app.panels.channels.is_empty());
     // Declined instead, it is not offered again in this profile either.
     app.offer_plugin_for("rlmud.org", "");
     assert!(app.plugin_offer.is_some());
@@ -518,7 +519,8 @@ fn a_plugin_downloaded_is_installed_and_removed_as_any_other() {
     std::fs::write(source.join("main.luau"), "support_gmcp(\"Combat 1\")").unwrap();
     std::fs::write(
         source.join("rules.toml"),
-        "[[gauge]]\nname = \"Rage\"\nvalue = \"Char.Rage\"\nmax = \"100\"\n",
+        "[[gauge]]\nname = \"Rage\"\nvalue = \"Char.Rage\"\nmax = \"100\"\n\
+         [[trigger]]\nname = \"Flee\"\npattern = \"hurts\"\nsend = \"flee\"\n",
     )
     .unwrap();
     let git = |arguments: &[&str]| {
@@ -564,6 +566,9 @@ fn a_plugin_downloaded_is_installed_and_removed_as_any_other() {
     assert!(app.scripts.supports().contains(&"Combat 1".to_owned()));
     let rage = app.rules.gauges.iter().find(|gauge| gauge.name == "Rage");
     assert_eq!(rage.map(|gauge| gauge.folder.as_str()), Some("combat"));
+    // Every kind of rule it brings, as gauges are.
+    let flee = app.rules.triggers.iter().find(|rule| rule.name == "Flee");
+    assert_eq!(flee.map(|rule| rule.folder.as_str()), Some("combat"));
     assert!(
         profiles
             .load("Main")
@@ -579,6 +584,7 @@ fn a_plugin_downloaded_is_installed_and_removed_as_any_other() {
     app.remove_plugin("combat");
     assert!(!script.exists() && !profiles.plugins_dir().join("combat").exists());
     assert!(!app.rules.gauges.iter().any(|gauge| gauge.name == "Rage"));
+    assert!(app.rules.triggers.is_empty());
     assert!(app.plugin("combat").is_none());
     std::fs::remove_dir_all(&dir).unwrap();
 }

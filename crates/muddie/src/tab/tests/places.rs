@@ -94,7 +94,7 @@ fn reinos(app: &mut Tab) {
     for (name, code) in &plugin.scripts {
         app.scripts.exec(name, code);
     }
-    app.rules.gauges.extend(plugin.read_rules().gauges);
+    app.rules.gauges.extend(plugin.read_rules().unwrap().gauges);
     app.run_rules();
     app.run_actions();
 }

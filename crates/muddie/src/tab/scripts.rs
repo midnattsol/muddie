@@ -258,7 +258,10 @@ impl Tab {
                     let look = (look != Default::default()).then_some(look);
                     self.set_gauge(&name, level, look, Some(&owner), belongs, panel);
                 }
-                Action::Unloaded(owner) => self.gauges.drop_owned_by(&owner),
+                Action::Unloaded(owner) => {
+                    self.gauges.drop_owned_by(&owner);
+                    self.sound.stop_where(|label| label.key == owner);
+                }
                 Action::Language(language) => self.declare_language(language),
                 Action::Walk(room) => self.walk_to(room),
                 Action::Entered(room) => {
@@ -302,9 +305,16 @@ impl Tab {
                     file,
                     volume,
                     looped,
+                    owner,
                 } => {
                     let path = self.sound_file(&file);
-                    if let Err(error) = self.sound.play(&path, volume, looped) {
+                    // Known by the script that asked, to stop with it.
+                    let label = muddie_sound::Label {
+                        key: owner,
+                        ..Default::default()
+                    };
+                    let times = (!looped).then_some(1);
+                    if let Err(error) = self.sound.play_as(&path, volume, times, label) {
                         self.refuse(&trf("Could not play the sound: {0}", &[&error]));
                     }
                 }

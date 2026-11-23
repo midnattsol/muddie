@@ -41,7 +41,8 @@ impl Tab {
 
     /// A plugin said the language its MUD is played in.
     pub(super) fn declare_language(&mut self, language: String) {
-        self.language.declared = Some(language);
+        // None, from a plugin that no longer says it.
+        self.language.declared = (!language.trim().is_empty()).then_some(language);
         self.speak_the_language();
     }
 

@@ -152,9 +152,9 @@ impl Plugin {
         &self.name
     }
 
-    /// Its rules, read; none if they cannot be.
-    pub fn read_rules(&self) -> crate::rules::Rules {
-        toml::from_str(&self.rules).unwrap_or_default()
+    /// Its rules, read; or what is wrong with them.
+    pub fn read_rules(&self) -> Result<crate::rules::Rules, String> {
+        toml::from_str(&self.rules).map_err(|error| error.to_string())
     }
 
     /// Whether it is on until switched off.

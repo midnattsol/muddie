@@ -65,6 +65,32 @@ pub(super) enum MacroAction {
 /// What a key does, for whom: the script that bound it, and what it is
 /// switched by. A key can be bound several times, to do one thing while
 /// one is on and another while another is: the first on does.
+/// What a script sets that outlives the call, to be undone when it stops.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum Set {
+    /// The map learning from what is seen (`map.learn`).
+    Learning,
+    /// Words for directions (`map.directions`).
+    Directions,
+    /// How the MUD writes room names (`map.names`).
+    Naming,
+    /// The language the MUD is played in (`map.language`).
+    Language,
+    /// A panel's text, by its name (`panel`).
+    Panel(String),
+    /// A channel's tab, by its name (`channel`).
+    Channel(String),
+}
+
+impl State {
+    /// Notes that the script running set `what`.
+    pub(crate) fn set(&mut self, what: Set) {
+        let owner = self.owner.clone();
+        self.set_by.retain(|(known, _)| *known != what);
+        self.set_by.push((what, owner));
+    }
+}
+
 /// A gauge a script shows: its name, and what it is switched by.
 pub(crate) struct Shown {
     pub(crate) owner: String,
@@ -187,8 +213,12 @@ pub(super) struct State {
     pub(crate) actions: Vec<Action>,
     /// Set by `map.native(false)`, with the script that did.
     pub(crate) map_native_off: Option<String>,
-    /// Set by `map.persist(false)`.
-    pub(crate) map_memory_only: bool,
+    /// Set by `map.persist(false)`, with the script that did.
+    pub(crate) map_memory_only: Option<String>,
+    /// What scripts set that is the map's or the session's, each by what it
+    /// is and the script that set it last: to be undone when that script
+    /// stops. One of [`Set`].
+    pub(crate) set_by: Vec<(Set, String)>,
     /// Set by `gag()` while a line's triggers run.
     pub(crate) gag: bool,
     /// The line whose triggers are running, with its styles.

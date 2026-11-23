@@ -57,7 +57,7 @@ impl Tab {
             for (name, _) in &plugin.scripts {
                 self.scripts.unload(&as_it_comes(plugin, name));
             }
-            self.rules.gauges.retain(|gauge| !brought_by(gauge, plugin));
+            self.rules.drop_folder(plugin.folder());
             self.run_rules();
         }
         self.run_actions();
@@ -89,25 +89,33 @@ impl Tab {
             ));
             return false;
         }
-        let mut theirs = plugin_rules(plugin);
+        let Some(mut theirs) = self.plugin_rules(plugin) else {
+            return false;
+        };
         self.place_gauges(&mut theirs.gauges, again);
-        self.change_rules(|rules| {
-            for gauge in &theirs.gauges {
-                let known = rules
-                    .gauges
-                    .iter()
-                    .position(|known| same_gauge(known, gauge));
-                match known {
-                    Some(at) if again => rules.gauges[at] = gauge.clone(),
-                    // One installed before plugins had a folder goes in it.
-                    Some(at) => rules.gauges[at].folder.clone_from(&gauge.folder),
-                    None => rules.gauges.push(gauge.clone()),
-                }
-            }
-        });
+        self.change_rules(|rules| rules.bring(&theirs, again));
         (self.plugins_installed).insert(plugin.id.clone(), plugin.fingerprint());
         self.keep_plugins();
         true
+    }
+
+    /// What a plugin brings to the rules, in a folder of its name, as its
+    /// scripts are, to be switched with them; none, and said, if its rules
+    /// cannot be read.
+    fn plugin_rules(&mut self, plugin: &Plugin) -> Option<crate::rules::Rules> {
+        match plugin.read_rules() {
+            Ok(mut theirs) => {
+                theirs.put_in(plugin.folder());
+                Some(theirs)
+            }
+            Err(error) => {
+                self.refuse(&trf(
+                    "The rules of {0} could not be read: {1}",
+                    &[&plugin.shown_name(), &error],
+                ));
+                None
+            }
+        }
     }
 
     /// Installs a plugin again, putting back what it installed as it came,
@@ -137,27 +145,23 @@ impl Tab {
             self.scripts.unload(&owner);
             self.scripts.exec_owned(&owner, &owner, code);
         }
-        let mut theirs = plugin_rules(plugin);
+        let Some(mut theirs) = self.plugin_rules(plugin) else {
+            return;
+        };
         self.place_gauges(&mut theirs.gauges, false);
-        for gauge in theirs.gauges {
-            if !self
-                .rules
-                .gauges
-                .iter()
-                .any(|known| same_gauge(known, &gauge))
-            {
-                self.rules.gauges.push(gauge);
-            }
-        }
+        self.rules.bring(&theirs, false);
     }
 
     /// Puts the gauges a plugin brings in the panels they name, as they are
     /// installed: those it brings again, or new to the profile.
     fn place_gauges(&mut self, gauges: &mut [crate::rules::Gauge], again: bool) {
-        let theirs =
-            |known: &crate::rules::Gauge| gauges.iter().any(|gauge| same_gauge(known, gauge));
+        let theirs = |known: &crate::rules::Gauge| {
+            gauges
+                .iter()
+                .any(|gauge| crate::rules::same_gauge(known, gauge))
+        };
         let known = |gauge: &crate::rules::Gauge| {
-            (self.rules.gauges.iter()).any(|known| same_gauge(known, gauge))
+            (self.rules.gauges.iter()).any(|known| crate::rules::same_gauge(known, gauge))
         };
         let placing: Vec<bool> = gauges.iter().map(|gauge| again || !known(gauge)).collect();
         // The panels the profile's own gauges are shown in, not the plugin's.
@@ -190,10 +194,7 @@ impl Tab {
     /// installed on or off, as saved: what is switched off in them stays
     /// so.
     fn switch_installed(&mut self, plugin: &Plugin, on: bool) {
-        self.change_rules(|rules| {
-            rules.set_folder_on(Kind::Script, plugin.folder(), on);
-            rules.set_folder_on(Kind::Gauge, plugin.folder(), on);
-        });
+        self.change_rules(|rules| rules.set_folder_on_everywhere(plugin.folder(), on));
         self.scripts_synced = None;
         self.sync_scripts();
     }
@@ -344,12 +345,7 @@ impl Tab {
         if let Some(folder) = self.own_scripts_dir().map(|dir| dir.join(plugin.folder())) {
             let _ = std::fs::remove_dir_all(folder);
         }
-        self.change_rules(|rules| {
-            rules.gauges.retain(|gauge| !brought_by(gauge, &plugin));
-            rules
-                .folders
-                .retain(|folder| folder.path.split('/').next() != Some(plugin.folder()));
-        });
+        self.change_rules(|rules| rules.drop_folder(plugin.folder()));
         let elsewhere = self.profiles.as_ref().is_some_and(|profiles| {
             (profiles.names().iter())
                 .filter(|other| Some(other.as_str()) != self.profile.as_deref())
@@ -470,28 +466,6 @@ impl Tab {
             trf("Plugin {0} disabled.", &[&plugin.shown_name()])
         });
     }
-}
-
-/// Whether a gauge of the profile is one a plugin brings: in the same
-/// folder, under the same name; or, as plugins installed them before they
-/// had a folder, in none.
-fn same_gauge(known: &crate::rules::Gauge, theirs: &crate::rules::Gauge) -> bool {
-    let folder = known.folder.trim();
-    known.shown_name() == theirs.shown_name()
-        && (folder.is_empty() || folder == theirs.folder.trim())
-}
-
-/// What a plugin brings to the rules: its gauges in a folder of its name,
-/// as its scripts are, to be switched with them.
-fn plugin_rules(plugin: &Plugin) -> crate::rules::Rules {
-    let mut theirs = plugin.read_rules();
-    for gauge in &mut theirs.gauges {
-        gauge.folder = match gauge.folder.trim() {
-            "" => plugin.folder().to_owned(),
-            inner => crate::rules::joined(plugin.folder(), inner),
-        };
-    }
-    theirs
 }
 
 /// What a script of a plugin run as it comes is known by.
