@@ -251,6 +251,39 @@ fn gauges_follow_variables_that_triggers_set() {
     assert_eq!(shown.last(), Some(&("Vida".to_owned(), Some((25.0, 80.0)))));
 }
 
+/// A gauge of effects follows a list a script keeps, and shows none when
+/// there is none.
+#[test]
+fn a_gauge_of_effects_follows_a_list() {
+    let rules = Rules {
+        gauges: vec![Gauge {
+            name: "Efectos".into(),
+            value: "estados".into(),
+            kind: GaugeKind::Effects,
+            ..Gauge::starter()
+        }],
+        ..Rules::default()
+    };
+    let mut engine = run(&rules);
+    let shown = |engine: &mut Engine| -> Vec<Vec<String>> {
+        (engine.take_actions().into_iter())
+            .filter_map(|action| match action {
+                Action::Gauge { look, .. } => {
+                    Some(look.items.into_iter().map(|item| item.name).collect())
+                }
+                _ => None,
+            })
+            .collect()
+    };
+    engine.exec(
+        "t",
+        r#"vars.estados = {{name = "Enfermedad Dañadora", colour = "red"}}"#,
+    );
+    assert_eq!(shown(&mut engine), [vec!["Enfermedad Dañadora".to_owned()]]);
+    engine.exec("t", "vars.estados = nil");
+    assert_eq!(shown(&mut engine), [Vec::<String>::new()]);
+}
+
 #[test]
 fn rules_run_their_scripts_and_take_commands_on_several_lines() {
     let rules = Rules {

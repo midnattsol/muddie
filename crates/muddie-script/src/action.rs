@@ -10,8 +10,8 @@ pub struct GaugeLook {
     pub colour: String,
     /// The percentage under which the numbers turn to a warning colour.
     pub low: f64,
-    /// What it is drawn as: `bar`, `cells`, `number`, `light` or `text`;
-    /// empty for a bar.
+    /// What it is drawn as: `bar`, `cells`, `number`, `light`, `text` or
+    /// `effects`; empty for a bar.
     pub kind: String,
     /// The colour it takes under each percentage, whatever its order.
     pub steps: Vec<(f64, String)>,
@@ -19,6 +19,19 @@ pub struct GaugeLook {
     pub text: String,
     /// The colour of a light while it is off; empty leaves it unlit.
     pub off_colour: String,
+    /// What a gauge of the `effects` kind shows, in order.
+    pub items: Vec<Effect>,
+}
+
+/// One of what a gauge of effects shows: a state the character is in, as
+/// poisoned or blessed.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct Effect {
+    pub name: String,
+    /// What it is, said and shown with it; empty for nothing.
+    pub about: String,
+    /// A colour name or `#rrggbb`; empty takes the gauge's.
+    pub colour: String,
 }
 
 #[derive(Debug, Clone, PartialEq)]

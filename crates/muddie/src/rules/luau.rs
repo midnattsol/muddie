@@ -155,7 +155,7 @@ impl Gauge {
         };
         let root = self.value.trim().split('.').next().unwrap_or_default();
         let code = format!(
-            "{PRELUDE}local function update()\n{shown}end\n\
+            "{PRELUDE}local shown = false\nlocal function update()\n{shown}end\n\
              on_gmcp({root}, update)\n\
              on_msdp({variable}, update)\n\
              on_var({root}, update)\n\
@@ -180,6 +180,15 @@ impl Gauge {
                      \tend\n"
                 )
             }
+            // What is on, from a list or a table by name, once there is
+            // one; none, once it is gone.
+            GaugeKind::Effects => format!(
+                "\tlocal said = raw({value})\n\
+                 \tif type(said) == \"table\" or shown then\n\
+                 \t\tgauge({name}, 0, 0, {{{look}, items = type(said) == \"table\" and said or {{}}}})\n\
+                 \t\tshown = true\n\
+                 \tend\n"
+            ),
             GaugeKind::Text => format!(
                 "\tlocal said = raw({value})\n\
                  \tif said ~= nil and type(said) ~= \"table\" then\n\

@@ -80,6 +80,44 @@ fn variables_are_followed_when_they_change() {
     assert_eq!(engine.take_actions(), [Action::Echo("hp 1".into())]);
 }
 
+/// A gauge of effects is given them as a script or a MUD writes them: a
+/// list in its order, or a table by name in the order of the names, each
+/// a name or a table; one that is false is not on.
+#[test]
+fn a_gauge_of_effects_takes_them_as_lists_or_tables() {
+    let mut engine = engine("");
+    let items = |engine: &mut Engine, given: &str| -> Vec<(String, String, String)> {
+        engine.exec(
+            "t",
+            &format!("gauge('Efectos', 0, 0, {{kind = 'effects', items = {given}}})"),
+        );
+        match engine.take_actions().as_slice() {
+            [Action::Gauge { look, .. }] => (look.items.iter())
+                .map(|item| (item.name.clone(), item.about.clone(), item.colour.clone()))
+                .collect(),
+            other => panic!("{other:?}"),
+        }
+    };
+    let it = |name: &str, about: &str, colour: &str| {
+        (name.to_owned(), about.to_owned(), colour.to_owned())
+    };
+    assert_eq!(
+        items(
+            &mut engine,
+            r#"{"Ciego", {name = "Veneno", about = "1 de daño", colour = "red"}}"#
+        ),
+        [it("Ciego", "", ""), it("Veneno", "1 de daño", "red")]
+    );
+    assert_eq!(
+        items(
+            &mut engine,
+            r#"{prisa = true, lento = false, bendito = {desc = "+2"}}"#
+        ),
+        [it("bendito", "+2", ""), it("prisa", "", "")]
+    );
+    assert_eq!(items(&mut engine, "{}"), []);
+}
+
 #[test]
 fn scripts_can_send_gmcp_and_drive_panels() {
     let mut engine = engine("");

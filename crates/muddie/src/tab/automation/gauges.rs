@@ -32,26 +32,14 @@ impl Tab {
 
 /// What a gauge is drawn as, and what each kind is for.
 fn kind_row(ui: &mut egui::Ui, rule: &mut Gauge) {
-    let kinds = [
-        GaugeKind::Bar,
-        GaugeKind::Cells,
-        GaugeKind::Number,
-        GaugeKind::Light,
-        GaugeKind::Text,
-    ];
+    let kinds = GaugeKind::ALL;
     widgets::card(
         ui,
         Some(widgets::Glyph::Type),
         tr("Type"),
         |_| {},
         |ui| {
-            let names = [
-                tr("Bar"),
-                tr("Cells"),
-                tr("Number"),
-                tr("Light"),
-                tr("Text"),
-            ];
+            let names = kinds.map(GaugeKind::shown);
             let current = kinds
                 .iter()
                 .position(|kind| *kind == rule.kind)
@@ -66,6 +54,9 @@ fn kind_row(ui: &mut egui::Ui, rule: &mut Gauge) {
                     tr("On or off, for what is so or is not: hidden, poisoned, in combat.")
                 }
                 GaugeKind::Text => tr("What the MUD says, as words: a stance, a target, a place."),
+                GaugeKind::Effects => tr(
+                    "What the character is in, each as a label, only while it lasts: poisoned, blessed, in combat.",
+                ),
             };
             note(ui, about);
         },
@@ -99,6 +90,9 @@ fn follows(ui: &mut egui::Ui, rule: &mut Gauge) {
                 widgets::field(ui, tr("Value"), &mut rule.value, "Char.Status.poisoned");
             }
             let hint = match rule.kind {
+                GaugeKind::Effects => tr(
+                    "A list, or a table by name, of what the character is in: a GMCP package, or a variable a script or a trigger keeps. Each one a name, or a table of name, about and colour.",
+                ),
                 GaugeKind::Light => tr(
                     "It is on when the value is true, a number other than 0, or words other than no, false or off.",
                 ),
@@ -281,6 +275,7 @@ fn preview_values(rule: &Gauge) -> Vec<(f64, f64, &'static str)> {
     match rule.kind {
         GaugeKind::Light => vec![(1.0, 1.0, ""), (0.0, 1.0, "")],
         GaugeKind::Text => vec![(0.0, 0.0, tr("standing"))],
+        GaugeKind::Effects => vec![(0.0, 0.0, "")],
         GaugeKind::Number if rule.max.trim().is_empty() => vec![(1250.0, 0.0, "")],
         _ => {
             let mut under: Vec<u8> = rule.steps.iter().map(|step| step.under).collect();
@@ -304,18 +299,22 @@ fn preview_values(rule: &Gauge) -> Vec<(f64, f64, &'static str)> {
     }
 }
 
-/// How a gauge made in the editor looks, as the panel draws it.
+/// How a gauge made in the editor looks, as the panel draws it; one of
+/// effects, with two to show.
 fn look_of(rule: &Gauge, text: &str) -> muddie_script::GaugeLook {
-    let kind = match rule.kind {
-        GaugeKind::Bar => "bar",
-        GaugeKind::Cells => "cells",
-        GaugeKind::Number => "number",
-        GaugeKind::Light => "light",
-        GaugeKind::Text => "text",
+    let sample = |name: &str, colour: &str| muddie_script::Effect {
+        name: name.to_owned(),
+        colour: colour.to_owned(),
+        ..muddie_script::Effect::default()
+    };
+    let items = match rule.kind {
+        GaugeKind::Effects => vec![sample(tr("Poisoned"), "red"), sample(tr("Blessed"), "")],
+        _ => Vec::new(),
     };
     muddie_script::GaugeLook {
         colour: rule.colour.clone(),
-        kind: kind.to_owned(),
+        kind: rule.kind.key().to_owned(),
+        items,
         steps: rule
             .steps
             .iter()

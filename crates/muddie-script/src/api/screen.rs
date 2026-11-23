@@ -49,6 +49,7 @@ fn install_gauge(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
                             look.steps.push((step.get("under")?, step.get("colour")?));
                         }
                     }
+                    look.items = effects_of(options.get("items")?)?;
                 }
                 let mut state = shared.borrow_mut();
                 let owner = state.owner.clone();
@@ -63,6 +64,62 @@ fn install_gauge(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
         )?,
     )?;
     Ok(())
+}
+
+/// The effects a gauge is given, as a script or a MUD writes them: a list,
+/// or a table by name; each a name, or a table of `name`, `about` (or
+/// `desc`, `description`) and `colour`. One that is false or 0 is not on.
+fn effects_of(given: Value) -> mlua::Result<Vec<Effect>> {
+    let Value::Table(table) = given else {
+        return Ok(Vec::new());
+    };
+    // A list in its order; a table by name, in the order of the names.
+    let mut entries: Vec<(Value, Value)> =
+        table.pairs::<Value, Value>().collect::<mlua::Result<_>>()?;
+    if table.raw_len() == 0 {
+        entries.sort_by_key(|(key, _)| key.to_string().unwrap_or_default());
+    } else {
+        entries.retain(|(key, _)| key.is_integer());
+        entries.sort_by_key(|(key, _)| key.as_integer().unwrap_or_default());
+    }
+    let mut effects = Vec::new();
+    for (key, value) in entries {
+        let named = key.as_string().map(|key| key.to_string_lossy());
+        let effect = match value {
+            Value::String(name) => Effect {
+                name: name.to_string_lossy(),
+                ..Effect::default()
+            },
+            Value::Table(entry) => {
+                let text = |keys: &[&str]| -> mlua::Result<String> {
+                    for key in keys {
+                        if let Some(text) = entry.get::<Option<String>>(*key)? {
+                            return Ok(text);
+                        }
+                    }
+                    Ok(String::new())
+                };
+                Effect {
+                    name: Some(text(&["name"])?)
+                        .filter(|name| !name.is_empty())
+                        .or(named)
+                        .unwrap_or_default(),
+                    about: text(&["about", "desc", "description"])?,
+                    colour: text(&["colour", "color"])?,
+                }
+            }
+            Value::Boolean(false) | Value::Integer(0) => continue,
+            Value::Number(number) if number.abs() < f64::EPSILON => continue,
+            _ => Effect {
+                name: named.unwrap_or_default(),
+                ..Effect::default()
+            },
+        };
+        if !effect.name.trim().is_empty() {
+            effects.push(effect);
+        }
+    }
+    Ok(effects)
 }
 
 fn install_panel(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {

@@ -407,6 +407,12 @@ follows something the MUD reports, or a variable, and is one of these kinds:
 - **Number**: a number as it is, such as gold or level.
 - **Light**: on or off, for what is so or is not: hidden, poisoned.
 - **Text**: what the MUD says, as words: a stance, a target.
+- **Effects**: what the character is in, each as a label in its colour, only
+  while it lasts: poisoned, blessed, in combat. It follows a list, or a table
+  by name; each one a name, or a table of `name`, `about` and `colour`. As
+  many as fit in the panel are shown, and the rest under one more, **+3**,
+  that lists them; what each is shows on hovering it, and is read with the
+  rest.
 
 Say where the value is, and the maximum for those that have one: a GMCP
 package and the fields inside it (`Char.Vitals.health.current`), the name

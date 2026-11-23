@@ -30,7 +30,7 @@ mod memory;
 mod state;
 mod switches;
 
-pub use action::{Action, GaugeLook};
+pub use action::{Action, Effect, GaugeLook};
 
 /// Something a script offers to do with the map, as the user is shown it.
 #[derive(Debug, Clone, PartialEq, Eq)]

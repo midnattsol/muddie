@@ -548,6 +548,28 @@ fn shows_panels() {
     app.layout.panels.retain(|panel| panel.name != "Minimapa");
     layout.run_steps(4);
     save(&mut layout, "layout");
+    // Effects, as labels after the bars.
+    let effect = |name: &str, colour: &str| muddie_script::Effect {
+        name: name.into(),
+        colour: colour.into(),
+        ..muddie_script::Effect::default()
+    };
+    let look = muddie_script::GaugeLook {
+        kind: "effects".into(),
+        colour: "yellow".into(),
+        items: vec![
+            effect("Enfermedad Dañadora", "red"),
+            effect("Debilidad", "yellow"),
+            effect("Bendición", "green"),
+        ],
+        ..muddie_script::GaugeLook::default()
+    };
+    let app = layout.state_mut().tab_mut();
+    app.gauges
+        .set_by("Efectos", Some((0.0, 0.0)), Some(look), Some("t"));
+    layout.run_steps(4);
+    save(&mut layout, "effects");
+    layout.state_mut().tab_mut().gauges.set("Efectos", None);
     let app = layout.state_mut().tab_mut();
     let gauges = app
         .layout

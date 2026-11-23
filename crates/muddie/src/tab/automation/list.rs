@@ -1031,14 +1031,7 @@ fn rule_rows<T: crate::rules::When>(
 }
 
 fn gauge_row(rule: &crate::rules::Gauge) -> Row {
-    use crate::rules::GaugeKind;
-    let kind = match rule.kind {
-        GaugeKind::Bar => tr("Bar"),
-        GaugeKind::Cells => tr("Cells"),
-        GaugeKind::Number => tr("Number"),
-        GaugeKind::Light => tr("Light"),
-        GaugeKind::Text => tr("Text"),
-    };
+    let kind = rule.kind.shown();
     let title = match rule.shown_name() {
         "" => tr("New gauge").to_owned(),
         name => name.to_owned(),

@@ -225,6 +225,35 @@ fn panels_are_kept_fed_by_triggers_and_moved_about() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+/// Effects are labels, read together; as many as fit in the panel, and
+/// the rest under one more, which lists them with what each is.
+#[test]
+fn effects_are_labels_and_those_that_do_not_fit_are_under_one_more() {
+    let mut harness = window(None);
+    harness.set_size(egui::vec2(900.0, 700.0));
+    let effect = |n: u32| muddie_script::Effect {
+        name: format!("Efecto número {n}"),
+        about: format!("Lo que hace el {n}"),
+        ..muddie_script::Effect::default()
+    };
+    let look = muddie_script::GaugeLook {
+        kind: "effects".into(),
+        items: (1..=12).map(effect).collect(),
+        ..muddie_script::GaugeLook::default()
+    };
+    let app = harness.state_mut().tab_mut();
+    app.gauges
+        .set_by("Efectos", Some((0.0, 0.0)), Some(look), Some("t"));
+    harness.run_steps(3);
+    harness.get_by_label_contains("Efectos: Efecto número 1, Efecto número 2,");
+    let more = harness.get_by_label_contains(" more: ");
+    let said = more.accesskit_node().label().unwrap_or_default();
+    assert!(said.ends_with("Efecto número 12"), "{said}");
+    more.click();
+    harness.run_steps(3);
+    harness.get_by_label("Lo que hace el 12");
+}
+
 #[test]
 fn gauges_are_shown_in_the_order_of_the_editor() {
     let mut harness = window(None);

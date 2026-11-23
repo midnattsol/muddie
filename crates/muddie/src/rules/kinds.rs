@@ -274,6 +274,8 @@ pub enum GaugeKind {
     Light,
     /// What the MUD says, as text.
     Text,
+    /// What the character is in, each as a label: poisoned, blessed.
+    Effects,
 }
 
 /// A colour a gauge takes while it is under a percentage of its maximum.
@@ -329,6 +331,29 @@ impl OnTime {
 }
 
 impl GaugeKind {
+    /// Every kind, in the order the editor offers them.
+    pub const ALL: [Self; 6] = [
+        Self::Bar,
+        Self::Cells,
+        Self::Number,
+        Self::Light,
+        Self::Text,
+        Self::Effects,
+    ];
+
+    /// Its name, as shown.
+    pub fn shown(self) -> &'static str {
+        use crate::i18n::tr;
+        match self {
+            Self::Bar => tr("Bar"),
+            Self::Cells => tr("Cells"),
+            Self::Number => tr("Number"),
+            Self::Light => tr("Light"),
+            Self::Text => tr("Text"),
+            Self::Effects => tr("Effects"),
+        }
+    }
+
     /// Whether it shows how full something is, and so has a maximum and
     /// can change colour by level.
     pub fn has_level(self) -> bool {
@@ -336,13 +361,14 @@ impl GaugeKind {
     }
 
     /// Its name, as rules and scripts write it.
-    pub(super) fn key(self) -> &'static str {
+    pub fn key(self) -> &'static str {
         match self {
             Self::Bar => "bar",
             Self::Cells => "cells",
             Self::Number => "number",
             Self::Light => "light",
             Self::Text => "text",
+            Self::Effects => "effects",
         }
     }
 }

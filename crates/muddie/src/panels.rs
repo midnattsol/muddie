@@ -71,6 +71,7 @@ impl Gauge {
             "light" if self.value != 0.0 => trf("{0} on", &[&self.name]),
             "light" => trf("{0} off", &[&self.name]),
             "text" => format!("{} {}", self.name, self.look.text),
+            "effects" => effects_said(&self.name, &self.look.items),
             "number" if self.max <= 0.0 => format!("{} {value}", self.name),
             _ => trf(
                 "{0} {1} of {2}",
@@ -255,6 +256,7 @@ pub fn draw_gauge(ui: &mut Ui, name: &str, value: f64, max: f64, look: &GaugeLoo
     let shade = Shade::of(name, value, max, look);
     match kind {
         "light" => draw_light(ui, name, value != 0.0, &shade, look),
+        "effects" => draw_effects(ui, name, &look.items, &shade),
         "text" => draw_words(ui, name, look.text.clone(), &shade, false),
         "number" => {
             let said = if max > 0.0 {
@@ -350,6 +352,111 @@ fn draw_light(ui: &mut Ui, name: &str, on: bool, shade: &Shade, look: &GaugeLook
         small,
         text,
     );
+}
+
+/// What a gauge of effects says: its name and what is on, or that nothing
+/// is.
+fn effects_said(name: &str, items: &[muddie_script::Effect]) -> String {
+    if items.is_empty() {
+        return trf("{0}: none", &[name]);
+    }
+    let names: Vec<&str> = items.iter().map(|item| item.name.as_str()).collect();
+    format!("{name}: {}", names.join(", "))
+}
+
+/// The effects that are on, each a label in its colour: a dot and its
+/// name on a tint of it, what it is shown on hovering it. As many as fit
+/// in the width of the panel; the rest under one more, "+3", that lists
+/// them. Nothing, while none is on.
+fn draw_effects(ui: &mut Ui, name: &str, items: &[muddie_script::Effect], shade: &Shade) {
+    const HEIGHT: f32 = 24.0;
+    const GAP: f32 = 6.0;
+    if items.is_empty() {
+        return;
+    }
+    let theme = theme::current();
+    let font = theme::font(theme::Weight::Medium, 12.0);
+    let width_of = |text: &str| 26.0 + measure(ui, text, &font);
+    let more_of = |left: usize| format!("+{left}");
+    // How many fit, leaving room for the one more if not all do.
+    let room = ui.max_rect().width();
+    let widths: Vec<f32> = items.iter().map(|item| width_of(&item.name)).collect();
+    let mut shown = items.len();
+    let total = |count: usize| -> f32 {
+        let chips: f32 = widths[..count].iter().sum::<f32>() + GAP * count as f32;
+        match count < items.len() {
+            true => chips + width_of(&more_of(items.len() - count)) - 12.0,
+            false => chips - GAP,
+        }
+    };
+    while shown > 1 && total(shown) > room {
+        shown -= 1;
+    }
+    let (rect, response) =
+        ui.allocate_exact_size(vec2(total(shown).min(room), HEIGHT), Sense::hover());
+    let said = effects_said(name, items);
+    response.widget_info(|| WidgetInfo::labeled(Role::Label, true, &said));
+    let painter = ui.painter_at(rect.expand(2.0));
+    let mut x = rect.left();
+    for (item, width) in items.iter().zip(&widths).take(shown) {
+        let colour = colour_named(&item.colour).unwrap_or(shade.colour);
+        let chip = Rect::from_min_size(eframe::egui::pos2(x, rect.top()), vec2(*width, HEIGHT));
+        painter.rect_filled(chip, HEIGHT / 2.0, colour.gamma_multiply(0.18));
+        painter.circle_filled(chip.left_center() + vec2(11.0, 0.0), 3.5, colour);
+        painter.text(
+            chip.left_center() + vec2(19.0, 0.0),
+            Align2::LEFT_CENTER,
+            &item.name,
+            font.clone(),
+            theme.text,
+        );
+        if !item.about.is_empty() {
+            let id = ui.make_persistent_id(("effect", name, &item.name));
+            ui.interact(chip, id, Sense::hover())
+                .on_hover_text(&item.about);
+        }
+        x += width + GAP;
+    }
+    let left = &items[shown..];
+    if left.is_empty() {
+        return;
+    }
+    // The rest, under one more: listed with what each is.
+    let label = more_of(left.len());
+    let chip = Rect::from_min_max(eframe::egui::pos2(x, rect.top()), rect.max);
+    let names: Vec<&str> = left.iter().map(|item| item.name.as_str()).collect();
+    let said = trf(
+        "{0} more: {1}",
+        &[&left.len().to_string(), &names.join(", ")],
+    );
+    let more = ui.interact(
+        chip,
+        ui.make_persistent_id(("more effects", name)),
+        Sense::click(),
+    );
+    more.widget_info(|| WidgetInfo::labeled(Role::Button, true, &said));
+    let fill = if more.hovered() {
+        theme.raised
+    } else {
+        theme.surface
+    };
+    painter.rect_filled(chip, HEIGHT / 2.0, fill);
+    painter.text(
+        chip.center(),
+        Align2::CENTER_CENTER,
+        &label,
+        font,
+        theme.text_dim,
+    );
+    crate::widgets::menu_of(&more).show(|ui| {
+        crate::widgets::menu_width(ui);
+        for item in left {
+            crate::widgets::menu_heading(ui, &item.name);
+            if !item.about.is_empty() {
+                ui.label(eframe::egui::RichText::new(&item.about).color(theme.text_dim));
+            }
+        }
+    });
 }
 
 /// Words or a number under the gauge's name; a number low enough to stand

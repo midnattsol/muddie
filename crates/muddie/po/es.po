@@ -2968,3 +2968,24 @@ msgstr "El área que mostrar"
 
 msgid "Where it is: a GMCP package and the fields inside it, such as Char.Vitals.health.current, the name of a MSDP variable, or a variable of the editor's, which a trigger can set. The maximum can also be a number. Incoming data and Variables, in the editor, show what there is."
 msgstr "Dónde está: un paquete GMCP y los campos dentro, como Char.Vitals.health.current, el nombre de una variable MSDP, o una variable del editor, que puede poner un disparador. El máximo también puede ser un número. Datos recibidos y Variables, en el editor, muestran lo que hay."
+
+msgid "Effects"
+msgstr "Efectos"
+
+msgid "{0}: none"
+msgstr "{0}: ninguno"
+
+msgid "{0} more: {1}"
+msgstr "{0} más: {1}"
+
+msgid "What the character is in, each as a label, only while it lasts: poisoned, blessed, in combat."
+msgstr "En qué estado está el personaje, cada uno como una etiqueta, solo mientras dura: envenenado, bendecido, en combate."
+
+msgid "A list, or a table by name, of what the character is in: a GMCP package, or a variable a script or a trigger keeps. Each one a name, or a table of name, about and colour."
+msgstr "Una lista, o una tabla por nombre, de en qué estado está el personaje: un paquete GMCP, o una variable que lleve un script o un disparador. Cada uno, un nombre, o una tabla de name, about y colour."
+
+msgid "Poisoned"
+msgstr "Envenenado"
+
+msgid "Blessed"
+msgstr "Bendecido"
