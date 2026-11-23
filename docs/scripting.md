@@ -65,7 +65,7 @@ trigger("^(?<who>\\w+) tells you: (.*)$", function(m, line)
 end)
 
 trigger("^You are hungry", function() send("eat bread") end,
-        {name = "Survival/Eat", tags = {"survival"}})
+        {place = "Survival/Eat", tags = {"survival"}})
 
 trigger("^\\[spam\\]", function() gag() end) -- hide the line
 
@@ -86,12 +86,12 @@ after(5, function() cancel(id) end)
 | `tags` | The same for tags: `tags.disable("combat")` switches off everything that carries the tag, of every kind. |
 | `after(seconds, fn, options)`, `every(seconds, fn, options)` | Timers. Switched off, one lets its turns pass. |
 | `cancel(id)` | Takes away what the id belongs to, and says whether there was something: `trigger`, `alias`, `after`, `every`, `bind`, `on_gmcp`, `on_msdp`, `on_var` and `on_event` each return one. |
-| `bind(key, action, options)` | Runs a command or a function when a key is pressed: `bind("f5", "look")`, `bind("ctrl+shift+k", fn)`. A key bound again under another `name` does that while it is on and those bound before are not: the first bound that is on is the one that runs. Bound again under the same name, it does the new thing instead. |
+| `bind(key, action, options)` | Runs a command or a function when a key is pressed: `bind("f5", "look")`, `bind("ctrl+shift+k", fn)`. A key bound again under another `place` does that while it is on and those bound before are not: the first bound that is on is the one that runs. Bound again under the same place, it does the new thing instead. |
 | `separator(text)` | The text that separates commands typed on one line (`;` by default; doubled, it is typed literally). `separator(false)` turns splitting off, and `separator()` gives back `;`. |
 | `vars` | The variables, as a table: `vars.target = "orc"` keeps a value, `vars.target` reads it, `vars.target = nil` forgets it, and `for name, value in vars do` goes through them. They are those of the editor, kept with the session's profile. A table kept in one must be assigned whole to be kept: `local bag = vars.bag; bag.gold = 5; vars.bag = bag`. |
-| `expand(text)` | `text` with each `$name` replaced by that variable's value, `$name.key` by a field of a table and `$name.1` by an item of an array, as the commands of rules and key bindings are. |
+| `expand(text)` | `text` with each `$name` replaced by that variable's value, `$name.key` by a field of a table and `$name.1` by an item of an array, as the commands of rules are. |
 
-The options table takes `name`, its place as `Folder/Name`, to switch it by;
+The options table takes `place`, as `Folder/Name`, to switch it by;
 `tags`, a list of tags (or one alone) that switch it with everything else
 that carries one of them; and, for triggers and aliases, `once`, to remove it
 after it fires. A rule of the editor has as its place its folder and its

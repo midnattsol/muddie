@@ -117,9 +117,9 @@ fn tags_switch_triggers_off_and_once_fires_a_single_time() {
 #[test]
 fn a_thing_is_switched_by_its_place_or_its_folder_and_only_of_its_kind() {
     let mut engine = engine(
-        r#"trigger("hit", function() send("flee") end, {name = "Combat/Flee"})
-        trigger("hit", function() send("quaff") end, {name = "Combat/Healing/Quaff"})
-        alias("^hit$", function() send("kick") end, {name = "Combat/Kick"})"#,
+        r#"trigger("hit", function() send("flee") end, {place = "Combat/Flee"})
+        trigger("hit", function() send("quaff") end, {place = "Combat/Healing/Quaff"})
+        alias("^hit$", function() send("kick") end, {place = "Combat/Kick"})"#,
     );
     engine.exec("t", r#"triggers.disable("Combat/Healing")"#);
     engine.on_line("you are hit");
@@ -245,10 +245,10 @@ fn switches_cover_keys_and_timers_and_are_told_about() {
     let mut engine = engine(
         r#"
         trigger("hit", function() send("flee") end, {tags = {"combat"}})
-        bind("f1", "kick", {name = "Fighting", tags = {"combat"}})
-        bind("f1", "look", {name = "Exploring"})
+        bind("f1", "kick", {place = "Fighting", tags = {"combat"}})
+        bind("f1", "look", {place = "Exploring"})
         bind("f2", "score")
-        every(1, function() send("tick") end, {name = "Pulse", tags = {"combat"}})
+        every(1, function() send("tick") end, {place = "Pulse", tags = {"combat"}})
         tags.disable("combat")
         "#,
     );
@@ -277,7 +277,7 @@ fn switches_cover_keys_and_timers_and_are_told_about() {
     assert!(engine.on_key("f1"));
     assert_eq!(engine.take_actions(), [send("kick")]);
     // Bound again under the same name, a key does the new thing instead.
-    engine.exec("t", r#"bind("f1", "bash", {name = "Fighting"})"#);
+    engine.exec("t", r#"bind("f1", "bash", {place = "Fighting"})"#);
     assert!(engine.on_key("f1"));
     assert_eq!(engine.take_actions(), [send("bash")]);
 }

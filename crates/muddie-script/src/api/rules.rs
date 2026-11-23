@@ -51,13 +51,13 @@ fn install_triggers_and_aliases(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::
     Ok(())
 }
 
-/// What `options` say a thing is switched by: its `name`, which is its
-/// place, and its `tags`, a list or one alone.
+/// What `options` say a thing is switched by: its `place`, a folder and
+/// a name as `"Folder/Name"`, and its `tags`, a list or one alone.
 fn belongs(options: Option<&Table>) -> mlua::Result<Belongs> {
     let Some(options) = options else {
         return Ok(Belongs::default());
     };
-    let place = options.get::<Option<String>>("name")?;
+    let place = options.get::<Option<String>>("place")?;
     let tags = match options.get::<Value>("tags")? {
         Value::Nil => Vec::new(),
         Value::String(tag) => vec![tag.to_string_lossy()],

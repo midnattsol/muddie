@@ -427,7 +427,7 @@ impl Tab {
 impl Tab {
     /// Runs the session for a frame, on screen or not: events from the
     /// server, timers, and anything waiting on the clock.
-    pub fn poll(&mut self, ctx: &egui::Context, _settings: &Settings, on_screen: bool) {
+    pub fn poll(&mut self, ctx: &egui::Context, on_screen: bool) {
         let lines_before = self.output.total_pushed();
         if self.handle_events() {
             ctx.request_repaint();

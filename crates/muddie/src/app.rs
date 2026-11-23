@@ -353,7 +353,7 @@ impl App {
         let pressed = std::mem::take(&mut *self.keypad.lock().expect("keypad lock"));
         let tab = &mut self.tabs[self.active];
         tab.keypad_pressed.extend(pressed);
-        tab.show(ui, &self.settings);
+        tab.show(ui);
         if let Some(request) = tab.take_app_request() {
             self.carry_out(request, ui.ctx());
         }
@@ -407,7 +407,7 @@ impl eframe::App for App {
         crate::widgets::note_input(ui.ctx());
         // Every session keeps running; only the one on screen is drawn.
         for (index, tab) in self.tabs.iter_mut().enumerate() {
-            tab.poll(ui.ctx(), &self.settings, index == self.active);
+            tab.poll(ui.ctx(), index == self.active);
         }
         self.window_keys(ui);
         self.windows(ui.ctx());

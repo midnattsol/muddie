@@ -1,5 +1,5 @@
-//! Triggers, aliases and keys made in the interface instead of in a
-//! script. They are kept in `rules.toml` and turned into Luau for the
+//! Triggers, aliases, macros, timers and gauges made in the editor
+//! instead of in a script. They are kept in `rules.toml` and turned into Luau for the
 //! script engine, so they behave exactly like their scripted equivalents.
 
 use std::path::Path;

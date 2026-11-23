@@ -7,7 +7,7 @@ use crate::theme::Weight;
 
 impl Tab {
     /// Draws the session in `ui`.
-    pub fn show(&mut self, ui: &mut egui::Ui, _settings: &Settings) {
+    pub fn show(&mut self, ui: &mut egui::Ui) {
         if self.editor.recording_key {
             self.record_key(ui);
         } else {

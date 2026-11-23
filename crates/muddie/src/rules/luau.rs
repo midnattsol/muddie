@@ -48,7 +48,7 @@ impl<T: Luau> Rule<T> {
             .map(|tag| quoted(tag.trim()))
             .collect();
         let options = format!(
-            "{{name = {}, tags = {{{}}}}}",
+            "{{place = {}, tags = {{{}}}}}",
             quoted(place),
             tags.join(", ")
         );

@@ -1,5 +1,5 @@
-//! The automation window: triggers, aliases and macros made without a
-//! script, in a list on the left with the selected one's details beside it.
+//! The editor: each kind of rule, the variables and the scripts, in a
+//! list on the left with the selected one's details beside it.
 
 use super::*;
 

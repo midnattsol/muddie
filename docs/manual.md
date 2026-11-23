@@ -198,7 +198,7 @@ What it does, by group:
   one.
 - **Settings**, each page; **Help**: the keyboard shortcuts and About.
 
-## The editor: triggers, aliases, macros, timers and scripts
+## The editor: triggers, aliases, macros, timers, gauges, variables and scripts
 
 **Editor**, at the left of the top bar, takes the place of the game
 while you work on it; **Game**, Escape or Ctrl+E goes back, and the session
@@ -221,7 +221,7 @@ Home fits it to its contents again; the height chosen is kept for every
 editor of the same kind. The button at the right of **Do** opens the editor
 over the whole window, and Escape closes it.
 
-The three, and what else there is:
+Each kind, and what else there is:
 
 - A **trigger** goes off when a line of output matches. Besides its action
   it can say something, play a sound, colour the matched text or hide the
