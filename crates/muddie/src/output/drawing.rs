@@ -330,7 +330,7 @@ impl Output {
     /// characters fill at this width; when what that guess is made with
     /// changes, they are all added up again.
     fn add_up(&mut self, ui: &Ui, width: f32) {
-        let font = palette::font();
+        let font = theme::output_font();
         let (glyph, plain) =
             ui.fonts_mut(|fonts| (fonts.glyph_width(&font, 'm'), fonts.row_height(&font)));
         let unit = if self.unit > 0.0 { self.unit } else { plain };

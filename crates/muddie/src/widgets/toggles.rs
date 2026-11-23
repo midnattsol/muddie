@@ -53,7 +53,7 @@ fn sized_switch(ui: &mut Ui, on: &mut bool, label: &str, size: Vec2) -> Response
         let centre = rect.left_center() + vec2(rect.height() / 2.0 + travel * how_on, 0.0);
         // A white knob, as switches have; on an accent too light for it
         // to be seen, such as the yellow of high contrast, a dark one.
-        let seen = crate::palette::contrast(Color32::WHITE, theme.accent) >= 1.8;
+        let seen = crate::output_style::contrast(Color32::WHITE, theme.accent) >= 1.8;
         let knob_on = if seen {
             Color32::WHITE
         } else {

@@ -96,7 +96,7 @@ impl Theme {
         let grounds = [theme.background, theme.surface, theme.field, theme.raised];
         for colour in [&mut theme.text_dim, &mut theme.text_faint] {
             for ground in grounds {
-                *colour = crate::palette::legible(*colour, ground, READABLE);
+                *colour = crate::output_style::legible(*colour, ground, READABLE);
             }
         }
         theme
@@ -175,10 +175,10 @@ pub fn apply(ctx: &egui::Context, settings: &Settings) -> Result<(), String> {
     let theme = Theme::named(settings.theme);
     *CURRENT.write().expect("theme lock") = Current {
         theme,
-        mud: match settings.mud_palette {
-            crate::settings::MudPalette::Vivid => VIVID,
-            crate::settings::MudPalette::Soft => theme.terminal,
-            crate::settings::MudPalette::Classic => CLASSIC,
+        mud: match settings.mud_colours {
+            crate::settings::MudColours::Vivid => VIVID,
+            crate::settings::MudColours::Soft => theme.terminal,
+            crate::settings::MudColours::Classic => CLASSIC,
         },
         output_size: settings.font_size.clamp(8.0, 40.0),
         line_spacing: settings.line_spacing.clamp(0.8, 2.0),
@@ -346,7 +346,7 @@ pub fn mix(base: Color32, other: Color32, amount: f32) -> Color32 {
 #[cfg(test)]
 mod readable_tests {
     use super::*;
-    use crate::palette::contrast;
+    use crate::output_style::contrast;
 
     #[test]
     fn every_text_can_be_read_on_every_ground_of_every_theme() {

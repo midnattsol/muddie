@@ -134,7 +134,7 @@ fn appearance_settings(ui: &mut Ui, settings: &mut Settings) {
     });
     widgets::section(ui, tr("MUD text"), |ui| {
         widgets::setting_row(ui, tr("MUD colours"), None, &mut |ui| {
-            palette_choice(ui, &mut settings.mud_palette)
+            colours_choice(ui, &mut settings.mud_colours)
         });
         widgets::setting_row(ui, tr("Font"), None, &mut |ui| font_choice(ui, settings));
         widgets::setting_row(ui, tr("Size"), None, &mut |ui| {
@@ -186,14 +186,14 @@ fn theme_choice(ui: &mut Ui, chosen: &mut ThemeName) -> egui::Response {
 }
 
 /// The colours of the MUD's text, whatever the theme.
-fn palette_choice(ui: &mut Ui, chosen: &mut MudPalette) -> egui::Response {
-    let name = |palette: MudPalette| match palette {
-        MudPalette::Vivid => tr("Vivid"),
-        MudPalette::Soft => tr("Soft (follows the theme)"),
-        MudPalette::Classic => tr("Classic terminal"),
+fn colours_choice(ui: &mut Ui, chosen: &mut MudColours) -> egui::Response {
+    let name = |palette: MudColours| match palette {
+        MudColours::Vivid => tr("Vivid"),
+        MudColours::Soft => tr("Soft (follows the theme)"),
+        MudColours::Classic => tr("Classic terminal"),
     };
-    let palettes = [MudPalette::Vivid, MudPalette::Soft, MudPalette::Classic];
-    pick(ui, "mud palette", chosen, palettes, |palette| {
+    let palettes = [MudColours::Vivid, MudColours::Soft, MudColours::Classic];
+    pick(ui, "mud colours", chosen, palettes, |palette| {
         name(palette).to_owned()
     })
 }

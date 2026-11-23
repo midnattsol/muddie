@@ -13,7 +13,7 @@ use eframe::egui::{
 use muddie_core::{Color, Line, LinkTarget};
 
 use crate::i18n::tr;
-use crate::palette;
+use crate::output_style;
 use crate::theme;
 
 mod drawing;
@@ -295,7 +295,7 @@ impl Output {
     fn row_height(&self, ui: &Ui) -> f32 {
         match self.unit {
             unit if unit > 0.0 => unit,
-            _ => ui.fonts_mut(|fonts| fonts.row_height(&palette::font())),
+            _ => ui.fonts_mut(|fonts| fonts.row_height(&theme::output_font())),
         }
     }
 

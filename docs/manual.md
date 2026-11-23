@@ -780,7 +780,7 @@ its control at the right.
 
 - **General**: the language, and the interface scale.
 - **Appearance**: the theme (Dark, Graphite, Mocha, Dusk, Tokyo Night, Nord,
-  Light, High contrast), and for the text of the MUD its palette, its font
+  Light, High contrast), and for the text of the MUD its colours, its font
   (MesloLGS NF unless another is chosen: JetBrains Mono, which also comes
   with the program, or any monospaced font installed), its size and its line
   spacing, with a sample.

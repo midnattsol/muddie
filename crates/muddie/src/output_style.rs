@@ -1,14 +1,10 @@
 //! Maps the core's terminal styles to egui text formats, in the colours of
 //! the current theme.
 
-use eframe::egui::{Color32, FontId, Stroke, TextFormat};
+use eframe::egui::{Color32, Stroke, TextFormat};
 use muddie_core::{Color, Style};
 
 use crate::theme;
-
-pub fn font() -> FontId {
-    theme::output_font()
-}
 
 /// Resolves an xterm 256-colour palette index.
 fn indexed(index: u8) -> Color32 {
@@ -75,7 +71,7 @@ fn worked_out(style: Style) -> TextFormat {
     fg = legible(fg, behind, if style.faint { 3.0 } else { 4.5 });
     let line = Stroke::new(1.0, fg);
     TextFormat {
-        font_id: font(),
+        font_id: theme::output_font(),
         color: fg,
         background: bg,
         italics: style.italic,
@@ -126,7 +122,7 @@ pub(crate) fn legible(colour: Color32, behind: Color32, wanted: f32) -> Color32 
 /// The format of lines the client adds itself (echoed input, notes).
 pub fn local_format() -> TextFormat {
     TextFormat {
-        font_id: font(),
+        font_id: theme::output_font(),
         color: theme::current().text_dim,
         line_height: theme::output_line_height(),
         ..TextFormat::default()

@@ -21,7 +21,7 @@ pub enum SpeechOutput {
 /// The sixteen colours the MUD's text is drawn in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
-pub enum MudPalette {
+pub enum MudColours {
     /// Saturated, as a game's colours are meant to look.
     #[default]
     Vivid,
@@ -71,7 +71,8 @@ pub struct Settings {
     /// English, empty to follow the system.
     pub language: String,
     /// The colours of the MUD's text, whatever the theme.
-    pub mud_palette: MudPalette,
+    #[serde(alias = "mud_palette")]
+    pub mud_colours: MudColours,
     /// Size of the output's text, in points.
     pub font_size: f32,
     /// A TrueType or OpenType file to use for the output instead of the
@@ -122,7 +123,7 @@ impl Default for Settings {
         Self {
             theme: ThemeName::default(),
             language: String::new(),
-            mud_palette: MudPalette::default(),
+            mud_colours: MudColours::default(),
             font_size: 15.0,
             font_file: String::new(),
             font_index: 0,
@@ -199,6 +200,12 @@ mod tests {
         std::fs::write(&path, "theme = \"light\"\n").unwrap();
         let partial = Settings::load(&path).unwrap();
         assert_eq!((partial.theme, partial.font_size), (ThemeName::Light, 15.0));
+        // The MUD's colours, as they were once kept, are read.
+        std::fs::write(&path, "mud_palette = \"classic\"\n").unwrap();
+        assert_eq!(
+            Settings::load(&path).unwrap().mud_colours,
+            MudColours::Classic
+        );
         std::fs::write(&path, "theme = \"plaid\"\n").unwrap();
         assert!(Settings::load(&path).is_err());
         std::fs::remove_dir_all(path.parent().unwrap()).unwrap();

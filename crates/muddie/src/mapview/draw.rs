@@ -485,7 +485,7 @@ fn draw_exit_marks(painter: &Painter, room: &Room, rect: Rect, fill: Color32) {
     if half < 4.0 {
         return;
     }
-    let contrast = |ink| crate::palette::contrast(fill, ink);
+    let contrast = |ink| crate::output_style::contrast(fill, ink);
     let ink = if contrast(Color32::BLACK) > contrast(Color32::WHITE) {
         Color32::from_black_alpha(180)
     } else {

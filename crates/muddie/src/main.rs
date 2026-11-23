@@ -16,7 +16,7 @@ mod mapfetch;
 mod mapview;
 mod media;
 mod output;
-mod palette;
+mod output_style;
 mod panels;
 mod plugins;
 mod profile;

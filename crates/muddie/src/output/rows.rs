@@ -82,7 +82,7 @@ pub fn links(text: &str) -> Vec<Range<usize>> {
 
 pub(super) fn append_line(job: &mut LayoutJob, line: &Line) {
     for span in &line.spans {
-        job.append(&span.text, 0.0, palette::format(span.style));
+        job.append(&span.text, 0.0, output_style::format(span.style));
     }
 }
 
@@ -91,7 +91,7 @@ pub fn server_job(line: &Line) -> LayoutJob {
     let mut job = LayoutJob::default();
     append_line(&mut job, line);
     if job.text.is_empty() {
-        job.append(" ", 0.0, palette::format(Default::default()));
+        job.append(" ", 0.0, output_style::format(Default::default()));
     }
     job
 }
@@ -100,7 +100,11 @@ impl Row {
     pub(super) fn job(&self, timestamps: bool) -> LayoutJob {
         let mut job = LayoutJob::default();
         if timestamps {
-            job.append(&format!("{} ", self.time), 0.0, palette::local_format());
+            job.append(
+                &format!("{} ", self.time),
+                0.0,
+                output_style::local_format(),
+            );
         }
         match &self.content {
             Content::Server(line) if self.links.is_empty() => append_line(&mut job, line),
@@ -120,11 +124,11 @@ impl Row {
                 }
                 append_line(&mut job, &line);
             }
-            Content::Local(text) => job.append(text, 0.0, palette::local_format()),
+            Content::Local(text) => job.append(text, 0.0, output_style::local_format()),
         }
         if job.text.is_empty() {
             // An empty job has no height; a blank line must still take a row.
-            job.append(" ", 0.0, palette::local_format());
+            job.append(" ", 0.0, output_style::local_format());
         }
         job
     }

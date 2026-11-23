@@ -30,7 +30,7 @@ impl Tab {
     /// The size in characters of a panel `size` points wide and tall, in
     /// the output's typeface.
     pub(super) fn cells(ui: &egui::Ui, size: egui::Vec2) -> (u32, u32) {
-        let font = palette::font();
+        let font = theme::output_font();
         let (wide, tall) =
             ui.fonts_mut(|fonts| (fonts.glyph_width(&font, 'm'), fonts.row_height(&font)));
         (

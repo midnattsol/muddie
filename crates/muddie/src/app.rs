@@ -10,7 +10,7 @@ use eframe::egui::{
 use crate::i18n::{self, tr, trf};
 use crate::keypad;
 use crate::profile::Profiles;
-use crate::settings::{MudPalette, Settings, ThemeName};
+use crate::settings::{MudColours, Settings, ThemeName};
 use crate::tab::{Startup, Tab, View};
 use crate::theme::{self, Weight, size};
 use crate::widgets;

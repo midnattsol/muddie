@@ -138,7 +138,7 @@ impl Tab {
     ) -> egui::text_edit::TextEditOutput {
         let theme = theme::current();
         let hint = RichText::new(tr("Type a command"))
-            .font(palette::font())
+            .font(theme::output_font())
             .color(theme.text_faint);
         let edge = if focused {
             theme.accent.gamma_multiply(0.7)
@@ -152,7 +152,7 @@ impl Tab {
             .inner_margin(egui::Margin::symmetric(14, 8));
         let has_text = !self.input.is_empty();
         let shown = frame.show(ui, |ui| {
-            let height = ui.fonts_mut(|fonts| fonts.row_height(&palette::font())) + 4.0;
+            let height = ui.fonts_mut(|fonts| fonts.row_height(&theme::output_font())) + 4.0;
             let row = egui::vec2(ui.available_width(), height);
             let centred = egui::Layout::left_to_right(egui::Align::Center);
             ui.allocate_ui_with_layout(row, centred, |ui| {
@@ -163,7 +163,7 @@ impl Tab {
                 let edit = TextEdit::singleline(&mut self.input)
                     .id(id)
                     .frame(egui::Frame::NONE)
-                    .font(palette::font())
+                    .font(theme::output_font())
                     .password(secret)
                     // Keeps Tab from moving to the next control while there
                     // is a word to complete.
@@ -355,7 +355,7 @@ impl Tab {
 /// The prompt mark, drawn rather than typed, level with the middle of the
 /// lowercase letters of the field whose middle is `line`.
 fn prompt_mark(ui: &egui::Ui, mark: egui::Rect, line: f32) {
-    let x_height = ui.fonts_mut(|fonts| fonts.row_height(&palette::font())) * 0.08;
+    let x_height = ui.fonts_mut(|fonts| fonts.row_height(&theme::output_font())) * 0.08;
     let (centre, arm) = (egui::pos2(mark.center().x, line + x_height), 4.0);
     let chevron = vec![
         centre + egui::vec2(-arm * 0.5, -arm),

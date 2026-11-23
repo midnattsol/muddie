@@ -21,7 +21,6 @@ use crate::keypad;
 use crate::logger::SessionLog;
 use crate::mapview::{MapAsk, MapView};
 use crate::output::{Output, server_job};
-use crate::palette;
 use crate::panels::{self, Gauges};
 use crate::profile::{Profile, Profiles};
 use crate::rules::Rules;

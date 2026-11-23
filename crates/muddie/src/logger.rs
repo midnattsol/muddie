@@ -114,7 +114,7 @@ fn span_css(style: Style) -> Option<String> {
     if style == Style::default() {
         return None;
     }
-    let format = crate::palette::format(style);
+    let format = crate::output_style::format(style);
     let mut css_text = format!("color:{}", css(format.color));
     if style.bg != Color::Default || style.inverse {
         css_text.push_str(&format!(";background:{}", css(format.background)));
