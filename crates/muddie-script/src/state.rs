@@ -125,6 +125,12 @@ pub(super) fn msdp_key(variable: &str) -> String {
     format!("msdp {}", variable.to_lowercase())
 }
 
+/// The key handlers of a variable of `vars` are kept under: its name as it
+/// is written, for variables are told apart by case.
+pub(super) fn var_key(name: &str) -> String {
+    format!("var {name}")
+}
+
 /// State shared between the engine and the functions scripts call.
 #[derive(Default)]
 pub(super) struct State {
@@ -171,6 +177,14 @@ pub(super) struct State {
     /// Values kept between sessions, and the file they are saved in.
     pub(crate) memory: serde_json::Map<String, serde_json::Value>,
     pub(crate) memory_file: Option<PathBuf>,
+    /// The variables changed since their handlers were last told, in the
+    /// order they changed.
+    pub(crate) vars_changed: Vec<String>,
+    /// How deep in script code the engine is: handlers of variables are
+    /// told when it comes out, so a script sees all its changes made.
+    pub(crate) running: u32,
+    /// Whether handlers of variables are being told now.
+    pub(crate) telling: bool,
     /// What is switched off for the session.
     pub(crate) switches: Switches,
     /// The modules asked for or the switches changed since the frontend

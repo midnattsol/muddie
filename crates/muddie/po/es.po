@@ -871,9 +871,6 @@ msgstr "ninguno"
 msgid "It is on when the value is true, a number other than 0, or words other than no, false or off."
 msgstr "Se enciende si el valor es true, un número distinto de 0 o un texto distinto de no, false u off."
 
-msgid "Where the MUD reports it: a GMCP package and the fields inside it, such as Char.Vitals.health.current, or the name of a MSDP variable. The maximum can also be a number. Incoming data, in the editor, shows what there is."
-msgstr "Ubicación del valor: un paquete GMCP y sus campos, como Char.Vitals.health.current, o el nombre de una variable MSDP. El máximo también puede ser un número fijo. Consulta Datos recibidos para ver los valores disponibles."
-
 msgid "Colour by level"
 msgstr "Color según el nivel"
 
@@ -2968,3 +2965,6 @@ msgstr "Mostrar un área…"
 
 msgid "The area to show"
 msgstr "El área que mostrar"
+
+msgid "Where it is: a GMCP package and the fields inside it, such as Char.Vitals.health.current, the name of a MSDP variable, or a variable of the editor's, which a trigger can set. The maximum can also be a number. Incoming data and Variables, in the editor, show what there is."
+msgstr "Dónde está: un paquete GMCP y los campos dentro, como Char.Vitals.health.current, el nombre de una variable MSDP, o una variable del editor, que puede poner un disparador. El máximo también puede ser un número. Datos recibidos y Variables, en el editor, muestran lo que hay."

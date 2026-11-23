@@ -4,7 +4,7 @@
 use super::*;
 
 impl Engine {
-    /// Keeps the values of `remember` in `file`, loading what it holds.
+    /// Keeps the values of `vars` in `file`, loading what it holds.
     pub fn use_memory_file(&mut self, file: PathBuf) {
         let loaded = match std::fs::read_to_string(&file) {
             Ok(text) => serde_json::from_str(&text).map_err(|error| error.to_string()),
@@ -49,16 +49,21 @@ impl Engine {
         name: &str,
         value: Option<serde_json::Value>,
     ) -> Result<(), String> {
-        let mut state = self.state.borrow_mut();
-        match value {
-            Some(value) => {
-                state.memory.insert(name.to_owned(), value);
+        let saved = {
+            let mut state = self.state.borrow_mut();
+            match value {
+                Some(value) => {
+                    state.memory.insert(name.to_owned(), value);
+                }
+                None => {
+                    state.memory.remove(name);
+                }
             }
-            None => {
-                state.memory.remove(name);
-            }
-        }
-        state.save_memory()
+            state.var_changed(name);
+            state.save_memory()
+        };
+        self.tell_vars_changed();
+        saved
     }
 
     /// What is switched off for the session.

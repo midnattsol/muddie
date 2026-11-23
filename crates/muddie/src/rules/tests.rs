@@ -221,6 +221,36 @@ fn gauges_follow_values_the_server_reports() {
     );
 }
 
+/// For a MUD that only says it in its text: a trigger keeps it in a
+/// variable, and a gauge follows the variable, a field inside it too.
+#[test]
+fn gauges_follow_variables_that_triggers_set() {
+    let rules = Rules {
+        triggers: vec![trigger(r"^Hp: (\d+)/(\d+)", |rule| {
+            rule.when.regex = true;
+            rule.lua = true;
+            rule.script = "vars.hp = tonumber(m[1]) vars.me = {most = tonumber(m[2])}".into();
+        })],
+        gauges: vec![Gauge {
+            name: "Vida".into(),
+            value: "hp".into(),
+            max: "me.most".into(),
+            ..Gauge::starter()
+        }],
+        ..Rules::default()
+    };
+    let mut engine = run(&rules);
+    engine.take_actions();
+    engine.on_line("Hp: 25/80");
+    let shown: Vec<_> = (engine.take_actions().into_iter())
+        .filter_map(|action| match action {
+            Action::Gauge { name, level, .. } => Some((name, level)),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(shown.last(), Some(&("Vida".to_owned(), Some((25.0, 80.0)))));
+}
+
 #[test]
 fn rules_run_their_scripts_and_take_commands_on_several_lines() {
     let rules = Rules {

@@ -20,7 +20,12 @@ fn install_data_handlers(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<
     // keeps their names apart.
     type KeyFn = fn(&str) -> String;
     let gmcp_key: KeyFn = |package| package.to_lowercase();
-    for (name, key) in [("on_gmcp", gmcp_key), ("on_msdp", msdp_key as KeyFn)] {
+    let handlers = [
+        ("on_gmcp", gmcp_key),
+        ("on_msdp", msdp_key as KeyFn),
+        ("on_var", var_key as KeyFn),
+    ];
+    for (name, key) in handlers {
         let shared = Rc::clone(state);
         add(
             name,

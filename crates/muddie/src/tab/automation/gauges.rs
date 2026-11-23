@@ -103,7 +103,7 @@ fn follows(ui: &mut egui::Ui, rule: &mut Gauge) {
                     "It is on when the value is true, a number other than 0, or words other than no, false or off.",
                 ),
                 _ => tr(
-                    "Where the MUD reports it: a GMCP package and the fields inside it, such as Char.Vitals.health.current, or the name of a MSDP variable. The maximum can also be a number. Incoming data, in the editor, shows what there is.",
+                    "Where it is: a GMCP package and the fields inside it, such as Char.Vitals.health.current, the name of a MSDP variable, or a variable of the editor's, which a trigger can set. The maximum can also be a number. Incoming data and Variables, in the editor, show what there is.",
                 ),
             };
             note(ui, hint);

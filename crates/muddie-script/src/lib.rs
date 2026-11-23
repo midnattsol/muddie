@@ -65,6 +65,13 @@ impl DataHandler {
 }
 
 impl State {
+    /// Notes that a variable changed, for its handlers to be told.
+    fn var_changed(&mut self, name: &str) {
+        if !self.vars_changed.iter().any(|known| known == name) {
+            self.vars_changed.push(name.to_owned());
+        }
+    }
+
     fn next_id(&mut self) -> u64 {
         self.last_id += 1;
         self.last_id
@@ -431,10 +438,65 @@ impl Engine {
     /// Runs script code as `owner`, whose what it makes then is, and
     /// under the time budget. Returns whether it succeeded.
     fn as_owner(&self, owner: &str, run: impl FnOnce() -> mlua::Result<()>) -> bool {
-        let before = std::mem::replace(&mut self.state.borrow_mut().owner, owner.to_owned());
+        let before = {
+            let mut state = self.state.borrow_mut();
+            state.running += 1;
+            std::mem::replace(&mut state.owner, owner.to_owned())
+        };
         let ok = self.guarded(run);
-        self.state.borrow_mut().owner = before;
+        let out = {
+            let mut state = self.state.borrow_mut();
+            state.owner = before;
+            state.running -= 1;
+            state.running == 0
+        };
+        // Out of script code: what it changed is told.
+        if out {
+            self.tell_vars_changed();
+        }
         ok
+    }
+
+    /// Calls the handlers of each variable changed with its value and its
+    /// name. A handler that changes a variable has it told in turn, a few
+    /// rounds at most, so two that change each other do not go on forever.
+    fn tell_vars_changed(&self) {
+        if std::mem::replace(&mut self.state.borrow_mut().telling, true) {
+            return;
+        }
+        for _ in 0..8 {
+            let changed = std::mem::take(&mut self.state.borrow_mut().vars_changed);
+            if changed.is_empty() {
+                break;
+            }
+            for name in changed {
+                let key = var_key(&name);
+                let callbacks: Vec<(u64, String, Function)> = (self.state.borrow().data_handlers)
+                    .iter()
+                    .filter(|handler| handler.covers(&key))
+                    .map(|handler| (handler.id, handler.owner.clone(), handler.callback.clone()))
+                    .collect();
+                if callbacks.is_empty() {
+                    continue;
+                }
+                let vars: mlua::Result<Table> = self.lua.globals().get("vars");
+                let value: Value = vars
+                    .and_then(|vars| vars.get(name.as_str()))
+                    .unwrap_or(Value::Nil);
+                for (id, owner, callback) in callbacks {
+                    let still_there =
+                        (self.state.borrow().data_handlers.iter()).any(|handler| handler.id == id);
+                    if still_there {
+                        self.as_owner(&owner, || {
+                            callback.call::<()>((value.clone(), name.as_str()))
+                        });
+                    }
+                }
+            }
+        }
+        let mut state = self.state.borrow_mut();
+        state.vars_changed.clear();
+        state.telling = false;
     }
 
     /// Runs script code under the time budget, reporting failure as an

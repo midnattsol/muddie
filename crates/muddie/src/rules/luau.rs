@@ -145,8 +145,8 @@ impl Luau for OnTime {
 
 impl Gauge {
     /// A gauge: shown again whenever what it follows is reported, over
-    /// GMCP or MSDP, and at once, from what was reported last: as it is
-    /// saved, not when the MUD next says something.
+    /// GMCP or MSDP, or changes, as a variable, and at once, from what is
+    /// there: as it is saved, not when the MUD next says something.
     pub(super) fn chunk(&self) -> (String, String) {
         let name = if self.name.trim().is_empty() {
             self.value.trim()
@@ -158,6 +158,7 @@ impl Gauge {
             "{PRELUDE}local function update()\n{shown}end\n\
              on_gmcp({root}, update)\n\
              on_msdp({variable}, update)\n\
+             on_var({root}, update)\n\
              update()\n",
             shown = self.shown(name),
             root = quoted(root),

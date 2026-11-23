@@ -31,9 +31,10 @@ pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()>
                 Value::Nil => drop(state.memory.remove(&key)),
                 value => {
                     let json = serde_json::to_value(&value).map_err(mlua::Error::runtime)?;
-                    state.memory.insert(key, json);
+                    state.memory.insert(key.clone(), json);
                 }
             }
+            state.var_changed(&key);
             state.save_memory().map_err(mlua::Error::runtime)
         })?,
     )?;

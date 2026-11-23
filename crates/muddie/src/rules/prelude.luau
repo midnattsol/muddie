@@ -13,7 +13,15 @@ local function raw(path)
 			return data
 		end
 	end
-	return msdp(path)
+	local reported = msdp(path)
+	if reported ~= nil then return reported end
+	-- Else a variable of the scripts, and the fields inside it.
+	local data = vars[parts[1]]
+	for i = 2, #parts do
+		if type(data) ~= "table" then return nil end
+		data = data[parts[i]]
+	end
+	return data
 end
 local function dig(path)
 	return tonumber(path) or tonumber(raw(path))

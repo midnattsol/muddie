@@ -401,7 +401,7 @@ can also be pressed where it is shown, to change it over the game in the
 same details, with the way to the editor. Each gauge says which panel it is shown in, so that yours can be below
 and an enemy's beside the map, and they are shown in the order of the
 editor's list: drag one there, or press Alt+Up or Alt+Down, to move it. A gauge
-follows something the MUD reports, and is one of these kinds:
+follows something the MUD reports, or a variable, and is one of these kinds:
 
 - **Bar** and **Cells**: how full something is, of its maximum.
 - **Number**: a number as it is, such as gold or level.
@@ -409,8 +409,11 @@ follows something the MUD reports, and is one of these kinds:
 - **Text**: what the MUD says, as words: a stance, a target.
 
 Say where the value is, and the maximum for those that have one: a GMCP
-package and the fields inside it (`Char.Vitals.health.current`), or the name
-of a MSDP variable; **Incoming data**, in the editor, shows what there is. Choose its colour, and for
+package and the fields inside it (`Char.Vitals.health.current`), the name
+of a MSDP variable, or a variable of the editor's (`hp`, or `bag.gold` for a
+field inside one), which a trigger or a script sets: for MUDs that only say
+it in their text. **Incoming data** and **Variables**, in the editor, show
+what there is. Choose its colour, and for
 those with a maximum the colours it takes as it gets low: yellow under 60 %,
 red under 30 %, as many levels as wanted, kept in order. A light can have a
 colour for when it is off as well, to say which of two things is so: red for

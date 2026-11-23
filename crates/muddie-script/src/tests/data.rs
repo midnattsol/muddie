@@ -41,6 +41,45 @@ fn gmcp_data_reaches_handlers_and_is_remembered() {
     assert!(error_text(&engine.take_actions()).contains("bad data for Char.Vitals"));
 }
 
+/// A variable is followed as what the MUD reports is: its handlers are told
+/// once the script that changed it is done, with its value as it is then,
+/// whoever changed it.
+#[test]
+fn variables_are_followed_when_they_change() {
+    let mut engine = engine(
+        r#"on_var("hp", function(value, name) echo(`{name} {value}`) end)
+        on_var("bag", function(bag) echo(`gold {bag and bag.gold}`); vars.told = true end)
+        on_var("told", function(value) echo(`told {value}`) end)"#,
+    );
+    // Twice in one script: told once, of the last.
+    engine.exec("t", "vars.hp = 10 vars.hp = 12 vars.other = 1");
+    assert_eq!(engine.take_actions(), [Action::Echo("hp 12".into())]);
+    // A handler that changes a variable has it told in turn.
+    engine.exec("t", "vars.bag = {gold = 5}");
+    assert_eq!(
+        engine.take_actions(),
+        [
+            Action::Echo("gold 5".into()),
+            Action::Echo("told true".into())
+        ]
+    );
+    // Changed in the editor, forgotten too.
+    engine
+        .set_variable("hp", Some(serde_json::json!(30)))
+        .unwrap();
+    engine.set_variable("hp", None).unwrap();
+    assert_eq!(
+        engine.take_actions(),
+        [Action::Echo("hp 30".into()), Action::Echo("hp nil".into())]
+    );
+    // Taken away, it is told no more.
+    engine.exec(
+        "t",
+        "cancel(on_var('hp', function() echo('again') end)) vars.hp = 1",
+    );
+    assert_eq!(engine.take_actions(), [Action::Echo("hp 1".into())]);
+}
+
 #[test]
 fn scripts_can_send_gmcp_and_drive_panels() {
     let mut engine = engine("");
