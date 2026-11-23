@@ -254,8 +254,8 @@ fn shows_editor() {
             rule.when.regex = true;
             rule.send = "kill %1\nshield".into();
             rule.when.sound = "alert.ogg".into();
-            rule.lua = true;
-            rule.script = "-- Only the dangerous ones\nsend(\"kill \" .. m[1])\nlocal feared = {Orc = true, Troll = true}\nif feared[m[1]] and gmcp(\"Char.Vitals\").hp < 40 then\n\tsend(\"flee\")\n\techo(\"Too weak for \" .. m[1])\nend".into();
+            rule.luau = true;
+            rule.code = "-- Only the dangerous ones\nsend(\"kill \" .. m[1])\nlocal feared = {Orc = true, Troll = true}\nif feared[m[1]] and gmcp(\"Char.Vitals\").hp < 40 then\n\tsend(\"flee\")\n\techo(\"Too weak for \" .. m[1])\nend".into();
         }));
     app.rules.triggers.push(trigger("The wind howls", |rule| {
         rule.enabled = false;
@@ -276,17 +276,16 @@ fn shows_editor() {
     save(&mut rules, "automation");
     // The same with a mistake in the script, and then as commands.
     let app = rules.state_mut().tab_mut();
-    let good = app.editor.draft.triggers[1].script.clone();
-    app.editor.draft.triggers[1].script =
-        good.replace("then\n\tsend(\"flee\")", "\n\tsend(\"flee\"");
+    let good = app.editor.draft.triggers[1].code.clone();
+    app.editor.draft.triggers[1].code = good.replace("then\n\tsend(\"flee\")", "\n\tsend(\"flee\"");
     rules.run_steps(3);
     save(&mut rules, "mistake");
     let app = rules.state_mut().tab_mut();
-    app.editor.draft.triggers[1].script = good;
-    app.editor.draft.triggers[1].lua = false;
+    app.editor.draft.triggers[1].code = good;
+    app.editor.draft.triggers[1].luau = false;
     rules.run_steps(3);
     save(&mut rules, "commands");
-    rules.state_mut().tab_mut().editor.draft.triggers[1].lua = true;
+    rules.state_mut().tab_mut().editor.draft.triggers[1].luau = true;
     // The script's editor made taller from its grip, with the keyboard on
     // it; and then open larger, over the window.
     rules.set_size(egui::vec2(1500.0, 1300.0));

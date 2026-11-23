@@ -35,17 +35,17 @@ impl Tab {
     fn trigger_does(&mut self, ui: &mut egui::Ui, index: usize) {
         let name = list::rule_title(&self.editor.draft.triggers, index);
         let rule = &mut self.editor.draft.triggers[index];
-        let mistake = if rule.lua {
-            self.editor.checks.of(&self.scripts, &rule.script)
+        let mistake = if rule.luau {
+            self.editor.checks.of(&self.scripts, &rule.code)
         } else {
             None
         };
         let said = action_block(
             ui,
             ActionEdit {
-                lua: &mut rule.lua,
+                luau: &mut rule.luau,
                 commands: &mut rule.send,
-                script: &mut rule.script,
+                code: &mut rule.code,
                 matched: true,
                 commands_hint: "kill %1\nloot",
                 script_hint: "if m[1] ~= \"you\" then\n\tsend(\"assist \" .. m[1])\nend",
@@ -116,7 +116,7 @@ fn effects(rule: &crate::rules::Trigger, captures: &regex::Captures) -> String {
     let sent: Vec<String> = (crate::rules::commands(&rule.send).iter())
         .map(|command| fill(command, captures))
         .collect();
-    if rule.lua {
+    if rule.luau {
         effects.push(tr("runs the script").to_owned());
     } else if !sent.is_empty() {
         effects.push(format!("{} {}", tr("sends"), sent.join("; ")));
@@ -285,9 +285,9 @@ impl Extra {
 
     fn label(self) -> &'static str {
         match self {
-            Extra::Speak => tr("Say"),
+            Extra::Speak => tr("Speak"),
             Extra::Sound => tr("Play a sound"),
-            Extra::Highlight => tr("Colour the match"),
+            Extra::Highlight => tr("Highlight"),
             Extra::Gag => tr("Hide the line"),
             Extra::Panel => tr("Show it in the panel"),
         }

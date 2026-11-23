@@ -12,7 +12,7 @@ impl Tab {
         let (group, rest) = line.split_once(' ').unwrap_or((line, ""));
         let rest = rest.trim();
         match group {
-            "/lua" => return self.run_lua(rest),
+            "/luau" => return self.run_luau(rest),
             "/reload" => return self.restart_scripts_said(),
             "/tag" => return self.tag_command(rest),
             _ => {}
@@ -65,9 +65,9 @@ impl Tab {
         true
     }
 
-    /// Runs a line of Lua: what it prints is its answer, and if it prints
+    /// Runs a line of Luau: what it prints is its answer, and if it prints
     /// nothing, that it was run is.
-    fn run_lua(&mut self, code: &str) -> bool {
+    fn run_luau(&mut self, code: &str) -> bool {
         self.scripts.exec("lua", code);
         self.run_actions();
         if self.palette.answer.is_empty() {

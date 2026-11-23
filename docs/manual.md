@@ -169,7 +169,7 @@ that have what is typed. Up and Down choose, which is also read aloud with
 where it is in the list, and Enter does it; Escape, or a click anywhere
 else, closes it. Its foot says these keys.
 
-What needs a word more, as **Mark…**, **Go to…** or **Run Lua…**, asks
+What needs a word more, as **Mark…**, **Go to…** or **Run Luau…**, asks
 for it in the palette's field, which is named, and read aloud, as what it
 asks; where there is something to choose from, as places, marks, exits or
 plugins, it is offered as you type, and Tab puts the one chosen in the

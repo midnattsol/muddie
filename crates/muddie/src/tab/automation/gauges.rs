@@ -29,7 +29,7 @@ fn kind_row(ui: &mut egui::Ui, rule: &mut Gauge) {
     widgets::card(
         ui,
         Some(widgets::Glyph::Type),
-        tr("Type"),
+        tr("Kind"),
         |_| {},
         |ui| {
             let names = kinds.map(KindName::shown);

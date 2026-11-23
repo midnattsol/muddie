@@ -152,7 +152,7 @@ fn aliases_and_keys() {
     assert_eq!(engine.take_actions(), [send("say a;b"), send("look")]);
     // Switched to Luau, a rule starts from what it ran.
     assert_eq!(
-        crate::rules::commands_as_lua("kill %1 $target", true),
+        crate::rules::commands_as_luau("kill %1 $target", true),
         "send(expand(\"kill \" .. (m[1] or \"\") .. \" $target\"))\n"
     );
 }
@@ -249,8 +249,8 @@ fn gauges_follow_variables_that_triggers_set() {
     let rules = Rules {
         triggers: vec![trigger(r"^Hp: (\d+)/(\d+)", |rule| {
             rule.when.regex = true;
-            rule.lua = true;
-            rule.script = "vars.hp = tonumber(m[1]) vars.me = {most = tonumber(m[2])}".into();
+            rule.luau = true;
+            rule.code = "vars.hp = tonumber(m[1]) vars.me = {most = tonumber(m[2])}".into();
         })],
         gauges: vec![Gauge {
             name: "Vida".into(),
@@ -311,11 +311,11 @@ fn rules_run_their_scripts_and_take_commands_on_several_lines() {
         triggers: vec![trigger(r"^(\w+) attacks", |rule| {
             rule.when.regex = true;
             rule.send = "kill %1\nshield; parry".into();
-            rule.script = "send(\"never sent\")".into();
+            rule.code = "send(\"never sent\")".into();
         })],
         macros: vec![key("f5", |rule| {
-            rule.lua = true;
-            rule.script = "send(\"score\")".into();
+            rule.luau = true;
+            rule.code = "send(\"score\")".into();
             rule.send = "never sent".into();
         })],
         ..Rules::default()
@@ -333,8 +333,8 @@ fn rules_run_their_scripts_and_take_commands_on_several_lines() {
     let broken = Rules {
         triggers: vec![trigger("x", |rule| {
             rule.name = "Broken".into();
-            rule.script = "this is not Luau".into();
-            rule.lua = true;
+            rule.code = "this is not Luau".into();
+            rule.luau = true;
         })],
         ..rules
     };
@@ -351,8 +351,8 @@ fn timers_go_off_once_or_again_and_again() {
             timer(20, |rule| rule.send = "save\nscore".into()),
             timer(30, |rule| {
                 rule.when.repeat = false;
-                rule.lua = true;
-                rule.script = "send(\"once\")".into();
+                rule.luau = true;
+                rule.code = "send(\"once\")".into();
             }),
             timer(600, |rule| {
                 rule.enabled = false;
@@ -628,6 +628,14 @@ fn rules_round_trip_through_their_file() {
             .unwrap()
             .contains("seconds = 300.0")
     );
+    // Its Luau as it was once written, `lua` and `script`, is read.
+    std::fs::write(
+        &path,
+        "[[trigger]]\npattern = \"x\"\nlua = true\nscript = \"send('a')\"\n",
+    )
+    .unwrap();
+    let old = &Rules::load(&path).unwrap().triggers[0];
+    assert!(old.luau && old.code == "send('a')");
     // A rule written by hand without `enabled` is on.
     std::fs::write(&path, "[[trigger]]\npattern = \"x\"\n").unwrap();
     assert!(Rules::load(&path).unwrap().triggers[0].enabled);

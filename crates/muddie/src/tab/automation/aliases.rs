@@ -36,7 +36,7 @@ impl Tab {
                 let rule = &*rule;
                 try_block(ui, sample, tr("Type a command"), |sample| {
                     try_pattern(patterns, &source, sample, |captures| {
-                        if rule.lua {
+                        if rule.luau {
                             return tr("runs the script").to_owned();
                         }
                         let sent: Vec<String> = (crate::rules::commands(&rule.send).iter())
@@ -49,17 +49,17 @@ impl Tab {
         );
         let name = list::rule_title(&self.editor.draft.aliases, index);
         let rule = &mut self.editor.draft.aliases[index];
-        let mistake = if rule.lua {
-            self.editor.checks.of(&self.scripts, &rule.script)
+        let mistake = if rule.luau {
+            self.editor.checks.of(&self.scripts, &rule.code)
         } else {
             None
         };
         let said = action_block(
             ui,
             ActionEdit {
-                lua: &mut rule.lua,
+                luau: &mut rule.luau,
                 commands: &mut rule.send,
-                script: &mut rule.script,
+                code: &mut rule.code,
                 matched: true,
                 commands_hint: "kill %1",
                 script_hint: "send(\"say \" .. string.upper(m[1]))",

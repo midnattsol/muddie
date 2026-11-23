@@ -68,7 +68,7 @@ pub fn commands(send: &str) -> Vec<String> {
 /// what the rule runs and what switching it to Luau starts from: `%1`...
 /// become the match's groups if the rule has a match, and `$name` the
 /// variable's value.
-pub fn commands_as_lua(send: &str, matched: bool) -> String {
+pub fn commands_as_luau(send: &str, matched: bool) -> String {
     let mut code = String::new();
     for command in commands(send) {
         let mut pieces: Vec<String> = Vec::new();

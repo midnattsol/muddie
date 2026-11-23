@@ -52,17 +52,17 @@ impl Tab {
                 );
             },
         );
-        let mistake = if rule.lua {
-            self.editor.checks.of(&self.scripts, &rule.script)
+        let mistake = if rule.luau {
+            self.editor.checks.of(&self.scripts, &rule.code)
         } else {
             None
         };
         let said = action_block(
             ui,
             ActionEdit {
-                lua: &mut rule.lua,
+                luau: &mut rule.luau,
                 commands: &mut rule.send,
-                script: &mut rule.script,
+                code: &mut rule.code,
                 matched: false,
                 commands_hint: "north",
                 script_hint: "map.go(\"Temple\")",

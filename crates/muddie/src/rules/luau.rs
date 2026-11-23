@@ -3,9 +3,9 @@
 use super::*;
 
 /// Its commands, each sent with the groups of the match put in if it
-/// has one, as [`commands_as_lua`] makes them.
+/// has one, as [`commands_as_luau`] makes them.
 fn sends(send: &str, matched: bool) -> String {
-    (commands_as_lua(send, matched).lines())
+    (commands_as_luau(send, matched).lines())
         .map(|line| format!("\t{line}\n"))
         .collect()
 }
@@ -65,8 +65,8 @@ impl<T: Luau> Rule<T> {
 
     /// What it does: its script, or its commands.
     fn action(&self) -> String {
-        match self.lua {
-            true => script(&self.script),
+        match self.luau {
+            true => script(&self.code),
             false => sends(&self.send, T::MATCHED),
         }
     }

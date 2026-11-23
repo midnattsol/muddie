@@ -29,9 +29,11 @@ pub struct Rule<T> {
     /// what the match caught, where there is a match.
     pub send: String,
     /// Luau to run instead.
-    pub script: String,
-    /// What it does is the script, not the commands.
-    pub lua: bool,
+    #[serde(alias = "script")]
+    pub code: String,
+    /// What it does is its Luau, not the commands.
+    #[serde(alias = "lua")]
+    pub luau: bool,
 }
 
 impl<T: Default> Default for Rule<T> {
@@ -43,8 +45,8 @@ impl<T: Default> Default for Rule<T> {
             tags: Vec::new(),
             when: T::default(),
             send: String::new(),
-            script: String::new(),
-            lua: false,
+            code: String::new(),
+            luau: false,
         }
     }
 }
@@ -233,7 +235,7 @@ impl<T: When> Rule<T> {
 
     /// What it does: its commands, or that it runs a script.
     pub fn does(&self) -> Option<(Part, String)> {
-        if self.lua {
+        if self.luau {
             return Some((Part::Script, "Luau".to_owned()));
         }
         let sent = commands(&self.send);

@@ -21,9 +21,9 @@ pub(in crate::tab) fn off_badge(ui: &mut egui::Ui, on: bool) {
 
 /// What a rule does: either the commands it sends or the script it runs.
 pub(in crate::tab) struct ActionEdit<'a> {
-    pub(in crate::tab) lua: &'a mut bool,
+    pub(in crate::tab) luau: &'a mut bool,
     pub(in crate::tab) commands: &'a mut String,
-    pub(in crate::tab) script: &'a mut String,
+    pub(in crate::tab) code: &'a mut String,
     /// The rule matches something, so there are groups to refer to.
     pub(in crate::tab) matched: bool,
     pub(in crate::tab) commands_hint: &'a str,
@@ -48,9 +48,9 @@ pub(in crate::tab) fn action_block(
     mistake: Option<&(usize, String)>,
 ) -> Option<String> {
     let ActionEdit {
-        lua,
+        luau: lua,
         commands,
-        script,
+        code: script,
         matched,
         commands_hint,
         script_hint,
@@ -79,7 +79,7 @@ pub(in crate::tab) fn action_block(
                     *lua = true;
                     // Start the script from the commands there were.
                     if script.trim().is_empty() {
-                        *script = crate::rules::commands_as_lua(commands, matched);
+                        *script = crate::rules::commands_as_luau(commands, matched);
                     }
                 }
                 None => {}

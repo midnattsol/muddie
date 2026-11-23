@@ -1471,8 +1471,8 @@ fn a_rule_that_fails_is_marked_in_its_list() {
     let mut rules = app.rules.clone();
     rules.triggers.push(trigger("hello", |rule| {
         rule.name = "Broken".into();
-        rule.lua = true;
-        rule.script = "this is not luau".into();
+        rule.luau = true;
+        rule.code = "this is not luau".into();
     }));
     rules
         .triggers

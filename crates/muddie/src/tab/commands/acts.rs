@@ -259,9 +259,9 @@ impl Tab {
         // The scripts, plugins and tags.
         let scripts = tr("Scripts");
         acts.push(item(
-            tr("Run Lua…"),
+            tr("Run Luau…"),
             scripts,
-            ask(tr("Lua to run").into(), "/lua ", Offers::Nothing),
+            ask(tr("Luau to run").into(), "/luau ", Offers::Nothing),
         ));
         acts.push(item(tr("Restart scripts"), scripts, run("/reload")));
         let switches = self.scripts.switches();

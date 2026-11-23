@@ -18,7 +18,7 @@ All paths are under the configuration folder: `~/.config/muddie` on Linux,
 | files given with `--script` | In every session, last |
 
 In the palette (Ctrl+K), **Restart scripts** starts the scripts afresh
-after editing them, and **Run Lua…** runs a line of Luau on the spot.
+after editing them, and **Run Luau…** runs a line of Luau on the spot.
 
 A script can be split into modules: `require("name")` loads `name.luau` or
 `name/init.luau` from the folder of any loaded script, once, and returns what

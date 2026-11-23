@@ -182,16 +182,16 @@ fn the_palette_does_what_is_chosen_and_asks_in_its_field_for_what_it_needs() {
     );
     assert!(!app.notices().0.last().unwrap().corner);
     assert_eq!(output_lines(app).len(), before);
-    // Run Lua… asks for it in the field, named as what it asks.
+    // Run Luau… asks for it in the field, named as what it asks.
     let run = |harness: &mut Harness<'_, App>, code: &str| {
         let app = harness.state_mut().tab_mut();
         app.palette.open = true;
-        app.palette.query = "run lua".into();
+        app.palette.query = "run luau".into();
         harness.run_steps(2);
         harness.key_press(Key::Enter);
         harness.run_steps(2);
         // The field is named as what it asks, for a screen reader.
-        harness.get_by_role_and_label(egui::accesskit::Role::TextInput, "Lua to run");
+        harness.get_by_role_and_label(egui::accesskit::Role::TextInput, "Luau to run");
         harness.state_mut().tab_mut().palette.query = code.into();
         harness.run_steps(2);
         harness.key_press(Key::Enter);
@@ -221,7 +221,7 @@ fn the_palette_does_what_is_chosen_and_asks_in_its_field_for_what_it_needs() {
     // Enter with nothing typed says what is asked; Escape goes back to
     // the search, and then closes the palette.
     let app = harness.state_mut().tab_mut();
-    app.palette.query = "run lua".into();
+    app.palette.query = "run luau".into();
     harness.run_steps(2);
     harness.key_press(Key::Enter);
     harness.run_steps(2);
@@ -230,7 +230,7 @@ fn the_palette_does_what_is_chosen_and_asks_in_its_field_for_what_it_needs() {
     let said = harness.state().tab().voice.said.clone();
     assert!(
         said.iter()
-            .any(|line| line == "Lua to run: write it, then Enter."),
+            .any(|line| line == "Luau to run: write it, then Enter."),
         "{said:?}"
     );
     harness.key_press(Key::Escape);
