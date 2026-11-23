@@ -250,14 +250,18 @@ fn what_a_script_sets_for_all_goes_with_it() {
     );
     engine.on_input("say a; b");
     assert_eq!(engine.take_actions(), [Action::Send("say a; b".into())]);
-    assert!(!engine.native_map());
+    let native = |engine: &mut Engine| {
+        engine.exec("ask", r#"send(tostring(map.native()))"#);
+        engine.take_actions()
+    };
+    assert_eq!(native(&mut engine), [Action::Send("false".into())]);
     engine.unload("one");
     engine.on_input("say a; b");
     assert_eq!(
         engine.take_actions(),
         [Action::Send("say a".into()), Action::Send("b".into())]
     );
-    assert!(engine.native_map());
+    assert_eq!(native(&mut engine), [Action::Send("true".into())]);
     // Nor is a package merged any more.
     engine.on_gmcp("Char.Status", r#"{"pe": 5}"#);
     engine.on_gmcp("Char.Status", r#"{"pvs": 7}"#);

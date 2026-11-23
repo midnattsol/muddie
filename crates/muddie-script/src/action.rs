@@ -2,7 +2,6 @@
 
 use super::*;
 
-/// Something a script asked the client to do.
 /// How a gauge is drawn, as far as the script cares to say.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct GaugeLook {
@@ -85,6 +84,7 @@ pub struct Effect {
     pub colour: String,
 }
 
+/// Something a script asked the client to do.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Action {
     Send(String),

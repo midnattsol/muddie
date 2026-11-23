@@ -31,7 +31,7 @@ mod state;
 mod switches;
 
 pub use action::{Action, Effect, GaugeKind, GaugeLook};
-pub use convert::{COLOUR_NAMES, colour_named, split_commands};
+pub use convert::{colour_named, split_commands};
 
 /// Something a script offers to do with the map, as the user is shown it.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -289,7 +289,6 @@ impl Engine {
         }
     }
 
-    /// Runs a chunk of Luau code; `name` identifies it in error messages.
     /// Says whether `code` is Luau that could be run, without running it:
     /// the line and the message of its first mistake if it is not.
     pub fn check(&self, code: &str) -> Option<(usize, String)> {
@@ -309,6 +308,8 @@ impl Engine {
         Some(located.unwrap_or((1, text)))
     }
 
+    /// Runs a chunk of Luau code as its own owner; `name` identifies it
+    /// in error messages.
     pub fn exec(&mut self, name: &str, code: &str) {
         self.exec_owned(name, name, code);
     }
@@ -615,7 +616,6 @@ mod tests;
 /// separators of the system throughout, so that the same file reached as
 /// `scripts\New folder/hunt.luau` and as `scripts\New folder\hunt.luau`, as
 /// Windows takes both, is one owner.
-/// What a script file is known as, as the owner of what it makes.
 pub fn owner_of(path: &Path) -> String {
     path.components().collect::<PathBuf>().display().to_string()
 }

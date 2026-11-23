@@ -479,8 +479,8 @@ profile's to change, as any of yours; switching the plugin off switches
 them off. It is not installed again by itself: when a new version of
 Muddie brings changes to it, a notice says so, and **Install again**, in
 its menu, puts back what it installed as it comes, keeping what you added.
-It needs a profile to be installed in: in a session without one, you are
-asked to save it as one first.
+In a session without a profile there is nowhere to install it: it runs as
+it comes, for that session, and is gone when the session ends.
 
 ### Channels
 

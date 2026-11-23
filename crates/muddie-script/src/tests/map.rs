@@ -16,7 +16,8 @@ fn script_can_load_the_map_from_text() {
             map.visit({id = title, name = title, area = "town", exits = exits})
         end)"#,
     );
-    assert!(!engine.native_map());
+    engine.exec("ask", "send(tostring(map.native()))");
+    assert_eq!(engine.take_actions(), [Action::Send("false".into())]);
     for line in [
         "[ Gate ]",
         "Exits: north=Square",
@@ -101,7 +102,8 @@ fn script_can_edit_and_query_the_map() {
         map.set_room({id = 2, name = "Square", x = 5, y = 5, exits = {south = 1}})
         map.set_room({id = 3, name = "Old Square"})"#,
     );
-    assert!(engine.native_map());
+    engine.exec("ask", "send(tostring(map.native()))");
+    assert_eq!(engine.take_actions(), [Action::Send("true".into())]);
     engine.exec(
         "test",
         r#"echo(`{map.room()} {map.way(2)} {#map.find("square")} {map.find("square")[2]}`)

@@ -8,10 +8,9 @@ use super::*;
 pub(super) const RULES: &str = "rules";
 
 impl Tab {
-    /// The part of the settings window that belongs to sessions.
     /// Starts the script runtime afresh and runs the user's scripts: the
-    /// general one, the plugins, the profile's packages and scripts, and
-    /// those given on the command line; then the rules.
+    /// general one, the profile's plugins and scripts, and those given on
+    /// the command line; then the rules.
     pub fn load_scripts(&mut self) {
         // What was switched for the session stays as it was left, unless
         // what is saved for it is what changed.
@@ -62,7 +61,6 @@ impl Tab {
         }
         // The rules run last, as one more script.
         self.run_rules();
-        self.run_actions();
     }
 
     /// A new runtime, knowing as much of the panels as the old one did,

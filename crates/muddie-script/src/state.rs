@@ -62,9 +62,6 @@ pub(super) enum MacroAction {
     Function(Function),
 }
 
-/// What a key does, for whom: the script that bound it, and what it is
-/// switched by. A key can be bound several times, to do one thing while
-/// one is on and another while another is: the first on does.
 /// What a script sets that outlives the call, to be undone when it stops.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum Set {
@@ -98,6 +95,9 @@ pub(crate) struct Shown {
     pub(crate) belongs: Belongs,
 }
 
+/// What a key does, for whom: the script that bound it, and what it is
+/// switched by. A key can be bound several times, to do one thing while
+/// one is on and another while another is: the first on does.
 pub(super) struct Macro {
     /// What `cancel` takes it away by.
     pub(crate) id: u64,
