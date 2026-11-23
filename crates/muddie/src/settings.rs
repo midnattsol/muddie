@@ -52,15 +52,6 @@ pub enum ThemeName {
     Contrast,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum LogFormat {
-    #[default]
-    Text,
-    /// Keeps the colours.
-    Html,
-}
-
 /// Missing fields take their defaults, so files written by older versions
 /// keep loading.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

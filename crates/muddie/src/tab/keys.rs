@@ -46,18 +46,7 @@ impl Tab {
             self.map_view.keypad_pressed(std::mem::take(&mut keypad));
         }
         for name in keypad.into_iter().filter(|_| !exploring) {
-            let mut full = String::new();
-            for (down, modifier) in [
-                (held.ctrl, "ctrl+"),
-                (held.alt, "alt+"),
-                (held.shift, "shift+"),
-            ] {
-                if down {
-                    full.push_str(modifier);
-                }
-            }
-            full.push_str(name);
-            if self.scripts.on_key(&full) {
+            if self.scripts.on_key(&key_name(held, name)) {
                 ui.input_mut(|input| {
                     input
                         .events
@@ -75,21 +64,34 @@ impl Tab {
             {
                 continue;
             }
-            let mut full = String::new();
-            for (held, modifier) in [
-                (modifiers.ctrl, "ctrl+"),
-                (modifiers.alt, "alt+"),
-                (modifiers.shift, "shift+"),
-            ] {
-                if held {
-                    full.push_str(modifier);
-                }
-            }
-            full.push_str(&name);
-            if self.scripts.on_key(&full) {
+            if self.scripts.on_key(&key_name(modifiers, &name)) {
                 ui.input_mut(|input| input.consume_key(modifiers, key));
                 self.run_actions();
             }
         }
+    }
+}
+
+/// A key as macros name it: `ctrl+`, `alt+` and `shift+`, those held, in
+/// that order, before its name.
+pub(super) fn key_name(held: egui::Modifiers, name: &str) -> String {
+    let mut full = String::new();
+    for (down, modifier) in [
+        (held.ctrl, "ctrl+"),
+        (held.alt, "alt+"),
+        (held.shift, "shift+"),
+    ] {
+        if down {
+            full.push_str(modifier);
+        }
+    }
+    full + name
+}
+
+impl Tab {
+    /// Opens the bar to find in the output, with the keyboard in it.
+    pub(super) fn open_find(&mut self) {
+        self.find.open = true;
+        self.find.wants_focus = true;
     }
 }

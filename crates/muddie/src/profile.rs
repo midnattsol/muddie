@@ -65,7 +65,7 @@ pub struct SessionPrefs {
     /// Seconds between keep-alive messages while idle; 0 sends none.
     pub keepalive_seconds: u32,
     pub log_sessions: bool,
-    pub log_format: crate::settings::LogFormat,
+    pub log_format: crate::logger::LogFormat,
     pub media_downloads: bool,
     /// The MUD's channels not read aloud, by name.
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -80,7 +80,7 @@ impl Default for SessionPrefs {
             reconnect: true,
             keepalive_seconds: 60,
             log_sessions: false,
-            log_format: crate::settings::LogFormat::default(),
+            log_format: crate::logger::LogFormat::default(),
             media_downloads: true,
             quiet_channels: Vec::new(),
         }

@@ -14,10 +14,7 @@ impl Tab {
                 self.kept_input = None;
                 self.cursor_to_end = true;
             }
-            crate::output::Clicked::Find => {
-                self.find.open = true;
-                self.find.wants_focus = true;
-            }
+            crate::output::Clicked::Find => self.open_find(),
             // The menu is closed: what it did is said over the corner.
             crate::output::Clicked::Copied => self.say(tr("Copied."), false),
         }

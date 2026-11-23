@@ -241,8 +241,7 @@ impl Tab {
             self.history.search(&mut self.input);
         }
         if find {
-            self.find.open = true;
-            self.find.wants_focus = true;
+            self.open_find();
         }
     }
 

@@ -86,19 +86,7 @@ impl Tab {
     /// be bound as that key. Escape cancels.
     pub(in crate::tab) fn record_key(&mut self, ui: &mut egui::Ui) {
         let held = ui.input(|input| input.modifiers);
-        let prefix = |modifiers: Modifiers| {
-            let mut prefix = String::new();
-            for (down, name) in [
-                (modifiers.ctrl, "ctrl+"),
-                (modifiers.alt, "alt+"),
-                (modifiers.shift, "shift+"),
-            ] {
-                if down {
-                    prefix.push_str(name);
-                }
-            }
-            prefix
-        };
+        let prefix = |modifiers: Modifiers| crate::tab::keys::key_name(modifiers, "");
         // The keypad first: egui would report its keys as plain digits.
         let mut recorded =
             (self.keypad_pressed.drain(..).next()).map(|name| format!("{}{name}", prefix(held)));

@@ -357,13 +357,10 @@ impl Tab {
             },
             Act::MapAction(label) => self.use_map_action(&label),
             Act::CopyOutput => {
-                ctx.copy_text(self.output.all_text());
+                self.output.copy_all(ctx);
                 self.say(tr("Copied."), false);
             }
-            Act::Find => {
-                self.find.open = true;
-                self.find.wants_focus = true;
-            }
+            Act::Find => self.open_find(),
             Act::Panel(id) => {
                 let shown = self.layout.panel(id).is_some_and(|panel| panel.visible);
                 self.layout.set_shown(id, !shown);

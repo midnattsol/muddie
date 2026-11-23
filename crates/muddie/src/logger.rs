@@ -6,9 +6,19 @@ use std::io::{self, BufWriter, Write};
 use std::path::{Path, PathBuf};
 
 use muddie_core::{Color, Line, Style};
+use serde::{Deserialize, Serialize};
 
-use crate::settings::LogFormat;
 use crate::theme;
+
+/// How a session is logged, as each profile chooses.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum LogFormat {
+    #[default]
+    Text,
+    /// Keeps the colours.
+    Html,
+}
 
 pub struct SessionLog {
     file: BufWriter<File>,

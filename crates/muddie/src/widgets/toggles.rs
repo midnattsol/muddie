@@ -3,7 +3,7 @@
 use super::*;
 
 /// A switch, for a setting that is simply on or off. `label` names it for
-/// screen readers; show it yourself with [`switch_row`] if it needs showing.
+/// screen readers; show it yourself with [`switch_setting`] if it needs showing.
 pub fn switch(ui: &mut Ui, on: &mut bool, label: &str) -> Response {
     sized_switch(ui, on, label, vec2(40.0, 22.0))
 }

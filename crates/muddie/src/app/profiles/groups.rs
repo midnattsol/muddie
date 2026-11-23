@@ -157,7 +157,7 @@ pub(in crate::app) fn keeping_group(ui: &mut Ui, prefs: &mut SessionPrefs) {
 
 /// The session's log, and the sounds the MUD asks for.
 pub(in crate::app) fn logs_group(ui: &mut Ui, prefs: &mut SessionPrefs) {
-    use crate::settings::LogFormat;
+    use crate::logger::LogFormat;
     widgets::section(ui, tr("Logging and sound"), |ui| {
         let about = tr("Saves everything shown to a file.");
         widgets::setting_row(ui, tr("Session log"), Some(about), &mut |ui| {

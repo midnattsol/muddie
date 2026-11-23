@@ -227,7 +227,8 @@ impl Tab {
         }
     }
 
-    /// Saves the connection settings as the profile named in the bar.
+    /// Saves the connection settings as the profile of the name given for
+    /// it.
     pub(super) fn save_profile(&mut self) {
         let name = self.profile_name.trim().to_owned();
         let Some(profiles) = &self.profiles else {

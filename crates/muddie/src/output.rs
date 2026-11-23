@@ -361,6 +361,11 @@ impl Output {
         }
     }
 
+    /// Copies all of it, as text: from its menu and from the palette alike.
+    pub fn copy_all(&self, ctx: &eframe::egui::Context) {
+        ctx.copy_text(self.all_text());
+    }
+
     /// All of it as text, a line a row, as it would be copied.
     pub fn all_text(&self) -> String {
         let mut text = String::new();

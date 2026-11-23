@@ -173,7 +173,7 @@ impl Output {
                 ui.ctx().copy_text(text);
             }
             Asked::CopyLine(line) => ui.ctx().copy_text(line),
-            Asked::CopyAll => ui.ctx().copy_text(self.all_text()),
+            Asked::CopyAll => self.copy_all(ui.ctx()),
             Asked::Find => return Some(Clicked::Find),
         }
         Some(Clicked::Copied)
