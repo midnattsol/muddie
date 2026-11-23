@@ -155,7 +155,7 @@ end)
 on_gmcp("Comm.ApagaCanal", function(data)
     local name = text_of(data)
     if name then
-        channel_close(name)
+        close_channel(name)
     end
 end)
 

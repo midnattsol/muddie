@@ -393,7 +393,7 @@ The layout is kept with the profile.
 What a panel of text shows comes from elsewhere. A trigger can show the lines
 it matches in a panel, and hide them from the output so that they are only
 there: that is how tells, or combat, get a panel of their own. A script can
-write to one with `panel_add(name, text)`, or put a whole text in it with
+write to one with `add_to_panel(name, text)`, or put a whole text in it with
 `panel(name, text)`. A panel can also be told to show the MUD's channels,
 from its menu.
 

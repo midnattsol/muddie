@@ -5,11 +5,11 @@ use super::*;
 pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     install_gauge(lua, state)?;
     install_panel(lua, state)?;
-    install_panel_add(lua, state)?;
+    install_add_to_panel(lua, state)?;
     install_to_panel(lua, state)?;
     install_panel_size(lua, state)?;
     install_channel(lua, state)?;
-    install_channel_close(lua, state)?;
+    install_close_channel(lua, state)?;
     Ok(())
 }
 
@@ -163,12 +163,12 @@ fn install_panel(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     Ok(())
 }
 
-fn install_panel_add(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
+fn install_add_to_panel(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     let globals = lua.globals();
     let add = |name: &str, function: Function| globals.set(name, function);
     let shared = Rc::clone(state);
     add(
-        "panel_add",
+        "add_to_panel",
         lua.create_function(move |_, (name, text): (String, String)| {
             (shared.borrow_mut().actions).push(Action::PanelAdd { name, text });
             Ok(())
@@ -239,10 +239,10 @@ fn install_channel(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     Ok(())
 }
 
-fn install_channel_close(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
+fn install_close_channel(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     let shared = Rc::clone(state);
     lua.globals().set(
-        "channel_close",
+        "close_channel",
         lua.create_function(move |_, name: String| {
             shared
                 .borrow_mut()
