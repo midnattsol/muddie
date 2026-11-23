@@ -2851,3 +2851,6 @@ msgstr "Buscar un comando escrito antes"
 
 msgid "Staying connected"
 msgstr "Mantener la conexión"
+
+msgid "Enter names it again."
+msgstr "Intro le cambia el nombre."

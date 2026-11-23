@@ -823,6 +823,14 @@ fn a_panel_is_renamed_in_its_header() {
     harness.key_press(Key::Escape);
     harness.run_steps(2);
     assert_eq!(name(&harness), "Mundo");
+    // Enter on its name, reached with the keyboard, names it again too.
+    harness
+        .get_by_role_and_label(egui::accesskit::Role::Label, "Mundo")
+        .focus();
+    harness.run_steps(1);
+    harness.key_press(Key::Enter);
+    harness.run_steps(2);
+    assert!(harness.state().tab().panels.renaming.is_some());
 }
 
 /// A panel is named again as typed, in its header or in Layout alike: a

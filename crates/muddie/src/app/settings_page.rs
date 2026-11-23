@@ -319,10 +319,11 @@ fn text_settings(ui: &mut Ui, settings: &mut Settings) {
 fn speed_control(ui: &mut Ui, rate: &mut i32) -> egui::Response {
     let theme = theme::current();
     let font = theme::font(Weight::Regular, 12.0);
+    // The words are for the eye: the slider says how fast it is.
     let word = |ui: &mut Ui, text: &str| {
-        ui.label(RichText::new(text).font(font.clone()).color(theme.text_dim))
-            .rect
-            .width()
+        let shown = ui.label(RichText::new(text).font(font.clone()).color(theme.text_dim));
+        (ui.ctx()).accesskit_node_builder(shown.id, |node| node.set_hidden());
+        shown.rect.width()
     };
     let gap = ui.spacing().item_spacing.x;
     let fast = word(ui, tr("Fast"));

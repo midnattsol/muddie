@@ -101,6 +101,10 @@ impl App {
                 self.connect_button(ui, ctx, name);
             });
         });
+        // Said where it is read, not only over the button.
+        if self.waits_to_reconnect(name) {
+            widgets::page_note(ui, tr("The changes take effect on reconnecting."));
+        }
         if let Some(action) = asked {
             self.profile_action(action, name);
         }
@@ -113,8 +117,7 @@ impl App {
     /// so in its place, and connecting is reconnecting.
     pub(in crate::app) fn connect_button(&mut self, ui: &mut Ui, ctx: &egui::Context, name: &str) {
         if self.waits_to_reconnect(name) {
-            let again = widgets::primary_button(ui, tr("Reconnect"))
-                .on_hover_text(tr("The changes take effect on reconnecting."));
+            let again = widgets::primary_button(ui, tr("Reconnect"));
             if again.clicked() {
                 self.tabs[self.active].reconnect(ctx);
                 self.show_profiles = false;

@@ -404,8 +404,10 @@ impl Tab {
                 let (grip, handle) =
                     ui.allocate_exact_size(egui::vec2(12.0, 22.0), egui::Sense::drag());
                 let handle = handle.on_hover_cursor(egui::CursorIcon::Grab);
+                // Not a button: it is only dragged. The keyboard moves a
+                // panel from its menu, or in Layout.
                 handle.widget_info(|| {
-                    egui::WidgetInfo::labeled(egui::Role::Button, true, trf("Move {0}", &[&name]))
+                    egui::WidgetInfo::labeled(egui::Role::Image, true, trf("Move {0}", &[&name]))
                 });
                 let dots = if handle.hovered() || handle.dragged() {
                     theme.text
@@ -445,7 +447,14 @@ impl Tab {
                             .selectable(false)
                             .sense(egui::Sense::click()),
                     );
-                    if caption.double_clicked() {
+                    // Named again with a double click, or Enter on it, as
+                    // it says to a screen reader.
+                    let enter = caption.has_focus()
+                        && ui.input(|input| input.key_pressed(egui::Key::Enter));
+                    (ui.ctx()).accesskit_node_builder(caption.id, |node| {
+                        node.set_description(tr("Enter names it again."));
+                    });
+                    if caption.double_clicked() || enter {
                         this.rename_panel(id);
                     }
                 }
