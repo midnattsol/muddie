@@ -1,6 +1,7 @@
 [package]
 name = "muddie-mapper"
 version.workspace = true
+publish.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "Room graph, pathfinding and map storage for the muddie MUD client."

@@ -1,0 +1,47 @@
+# Versions, the changelog and releases, from Conventional Commits: see
+# .github/workflows/release.yml. Muddie is one program: its crates share
+# the workspace's version and are never published to a registry, so the
+# version is read from the git tags, and only `muddie` is tagged
+# (`v0.2.0`) and released, with the changes of every crate.
+
+[workspace]
+git_only = true
+# Released when the release PR is merged, not on every push.
+release_always = false
+# Muddie is a program, not a library: a feature is a minor version even
+# before 1.0, a fix a patch.
+features_always_increment_minor = true
+git_tag_enable = false
+git_release_enable = false
+changelog_update = false
+pr_name = "chore(release): v{{ version }}"
+
+[[package]]
+name = "muddie"
+git_tag_enable = true
+git_tag_name = "v{{ version }}"
+git_release_enable = true
+# Published once its files are built and tried.
+git_release_draft = true
+git_release_name = "Muddie {{ version }}"
+changelog_update = true
+changelog_path = "CHANGELOG.md"
+changelog_include = [
+    "muddie-core",
+    "muddie-mapper",
+    "muddie-script",
+    "muddie-sound",
+    "muddie-speech",
+]
+
+[changelog]
+# What a player would notice; the rest is in the history. Commits that
+# do not follow Conventional Commits are left out.
+commit_parsers = [
+    { message = "^feat", group = "added" },
+    { message = "^fix", group = "fixed" },
+    { message = "^perf", group = "changed" },
+    { message = "^revert", group = "changed" },
+    { message = "^docs", group = "documentation" },
+    { message = ".*", skip = true },
+]

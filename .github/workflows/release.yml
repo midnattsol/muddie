@@ -1,61 +1,307 @@
 name: Release
 
-# A tag publishes what CI already built and tried for its commit on main:
-# nothing is tested or built again, and what is published is what was tried.
-# To release: set the version in Cargo.toml, push it to main, then
-# `git tag v0.2.0 && git push lab v0.2.0`. Pushed together, the release
-# waits for CI to finish.
+# Versions and releases come from Conventional Commits (release-plz.toml):
+# nothing is set or tagged by hand.
+#
+# Each push to main keeps one release PR up to date: the next version, in
+# every crate and Cargo.lock, and the changelog. Merging it releases: once
+# CI passed for that commit, it is tagged, built and packaged on each
+# system, its installers tried, and published. Nothing is tested again,
+# as the commit's tests passed.
 on:
   push:
-    tags: ["v*"]
+    branches: [main]
 
-permissions:
-  contents: write
-  actions: read
+permissions: {}
+
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
-  release:
+  # The next version and its changelog, as a PR to merge when wanted.
+  pr:
+    name: Release PR
+    if: github.repository_owner == 'midnattsol'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    concurrency:
+      group: release-plz-pr
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: release-plz/action@v0.5
+        with:
+          command: release-pr
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+  # Whether this commit is a merged release PR, and if so, that CI passed
+  # for it: waited for while it runs, saying how it goes.
+  gate:
+    name: Is a release, its CI passed
+    if: github.repository_owner == 'midnattsol'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read
+    outputs:
+      release: ${{ steps.pr.outputs.release }}
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
     steps:
-      - uses: actions/checkout@v7
-      - name: The tag is the version in Cargo.toml
+      - id: pr
+        name: A merged release PR
         run: |
-          version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
-          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
-            echo "::error::The tag is $GITHUB_REF_NAME but Cargo.toml says $version"
-            exit 1
+          branch=$(gh api "repos/$GH_REPO/commits/$GITHUB_SHA/pulls" -q '.[0].head.ref // ""')
+          if [[ "$branch" == release-plz-* ]]; then
+            echo "Merged from $branch: a release."
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Not a release PR: nothing to release."
+            echo "release=false" >> "$GITHUB_OUTPUT"
           fi
-      - name: CI of this commit on main, passed
-        id: ci
+      - if: steps.pr.outputs.release == 'true'
+        name: CI of this commit passed
         run: |
           run=""
-          # Just pushed together with the tag, CI may not have started yet.
-          for _ in $(seq 1 20); do
+          for try in $(seq 1 20); do
             run=$(gh run list --workflow ci.yml --branch main --event push \
               --commit "$GITHUB_SHA" --limit 1 --json databaseId -q '.[0].databaseId')
             [ -n "$run" ] && break
+            echo "Waiting for CI to start ($try/20)…"
             sleep 15
           done
           if [ -z "$run" ]; then
-            echo "::error::No CI run on main for $GITHUB_SHA: push the commit to main first"
+            echo "::error::No CI run for $GITHUB_SHA"
             exit 1
           fi
-          gh run watch "$run" --exit-status --interval 60 > /dev/null || {
-            echo "::error::CI did not pass for $GITHUB_SHA: https://github.com/$GH_REPO/actions/runs/$run"
+          url="https://github.com/$GH_REPO/actions/runs/$run"
+          echo "CI: $url"
+          while :; do
+            read -r status conclusion < <(gh run view "$run" --json status,conclusion \
+              -q '.status + " " + (.conclusion // "-")')
+            [ "$status" = completed ] && break
+            echo "CI is $status…"
+            sleep 30
+          done
+          if [ "$conclusion" != success ]; then
+            echo "::error::CI ended in $conclusion: $url"
             exit 1
-          }
-          echo "run=$run" >> "$GITHUB_OUTPUT"
-      - name: Its files
+          fi
+          echo "CI passed."
+
+  # The tag, and the release as a draft with the changelog's notes, to be
+  # published once its files are built and tried.
+  tag:
+    name: Tag
+    needs: gate
+    if: needs.gate.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+    outputs:
+      tag: ${{ steps.released.outputs.tag }}
+      version: ${{ steps.released.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+      - id: release-plz
+        uses: release-plz/action@v0.5
+        with:
+          command: release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - id: released
+        env:
+          RELEASES: ${{ steps.release-plz.outputs.releases }}
         run: |
-          gh run download "${{ steps.ci.outputs.run }}" --pattern 'muddie-*' --dir artifacts
-          mkdir dist
-          find artifacts -type f -exec mv -t dist {} +
+          tag=$(jq -r '.[] | select(.package_name == "muddie") | .tag' <<< "$RELEASES")
+          version=$(jq -r '.[] | select(.package_name == "muddie") | .version' <<< "$RELEASES")
+          if [ -z "$tag" ]; then
+            echo "::error::release-plz released nothing: $RELEASES"
+            exit 1
+          fi
+          echo "Tagged $tag."
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  # Built and packaged on each system. For Linux, built on an older system
+  # than the runner's, as manylinux does: a program needs the C library it
+  # was built against or a newer one, so built on Debian 12 it runs on it
+  # and on every system since, Ubuntu 24.04 among them.
+  build:
+    needs: tag
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            container: debian:12
+            name: linux-x86_64
+            binary: muddie
+          - os: windows-latest
+            name: windows-x86_64
+            binary: muddie.exe
+          - os: macos-latest
+            name: macos-aarch64
+            binary: muddie
+    runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container }}
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    env:
+      VERSION: ${{ needs.tag.outputs.version }}
+    steps:
+      # The container has nothing: what building and fetching Rust need.
+      - if: matrix.os == 'ubuntu-latest'
+        run: |
+          apt-get update
+          apt-get install -y build-essential ca-certificates cmake curl git pkg-config libdbus-1-dev libspeechd-dev
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.tag.outputs.tag }}
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release -p muddie
+      # What to unpack and run as it is, on every system.
+      - name: Archive
+        shell: bash
+        run: |
+          mkdir -p dist muddie-${{ matrix.name }}
+          cp target/release/${{ matrix.binary }} README.md README.es.md LICENSE-MIT LICENSE-APACHE muddie-${{ matrix.name }}/
+          cp -r docs examples muddie-${{ matrix.name }}/
+          # On Linux, what install.sh puts in the menu: ./install.sh --no-build
+          if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
+            mkdir -p muddie-${{ matrix.name }}/target/release
+            mv muddie-${{ matrix.name }}/muddie muddie-${{ matrix.name }}/target/release/
+            cp install.sh uninstall.sh muddie-${{ matrix.name }}/
+            cp -r assets muddie-${{ matrix.name }}/
+          fi
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            7z a dist/muddie-${{ matrix.name }}.zip muddie-${{ matrix.name }}
+          else
+            tar czf dist/muddie-${{ matrix.name }}.tar.gz muddie-${{ matrix.name }}
+          fi
+      # What installs it as programs are installed on each system.
+      - name: Debian package
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          cargo install cargo-deb --locked
+          cargo deb -p muddie --no-build --output dist/
+      - name: Windows installer
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          choco install innosetup -y --no-progress
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=$env:VERSION" packaging\windows\muddie.iss
+      - name: macOS disk image
+        if: matrix.os == 'macos-latest'
+        run: packaging/macos/make-dmg.sh "$VERSION" dist/muddie-${{ matrix.name }}.dmg
+      # A signed statement that these files were built here, from this
+      # commit: `gh attestation verify FILE -R midnattsol/muddie`.
+      - uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: dist/*
+      - uses: actions/upload-artifact@v7
+        with:
+          name: muddie-${{ matrix.name }}
+          path: dist/*
+
+  # Each installer installs, and what it installs starts and has the
+  # screen readers of its system built in.
+  debian-package:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ["debian:13", "ubuntu:24.04"]
+    runs-on: ubuntu-latest
+    container: ${{ matrix.image }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: muddie-linux-x86_64
+      - run: |
+          apt-get update
+          apt-get install -y ./muddie_*.deb
+          muddie --version | tee version.txt
+          grep -q Orca version.txt
+
+  installers:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            artifact: muddie-windows-x86_64
+            speech: NVDA
+          - os: macos-latest
+            artifact: muddie-macos-aarch64
+            speech: VoiceOver
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: ${{ matrix.artifact }}
+      - name: Windows installer
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem muddie-*-setup.exe | Select-Object -First 1
+          Start-Process -Wait -FilePath $setup.FullName -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/CURRENTUSER', '/NORESTART'
+          $exe = Join-Path $env:LOCALAPPDATA 'Programs\Muddie\muddie.exe'
+          if (-not (Test-Path $exe)) { throw "not installed in $exe" }
+          $menu = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs'
+          if (-not (Get-ChildItem $menu -Recurse -Filter 'Muddie.lnk')) { throw 'not in the Start menu' }
+          & $exe --version | Out-File -Encoding utf8 version.txt
+          Get-Content version.txt
+      - name: macOS disk image
+        if: matrix.os == 'macos-latest'
+        run: |
+          hdiutil attach muddie-*.dmg -mountpoint /Volumes/Muddie -nobrowse
+          cp -R /Volumes/Muddie/Muddie.app "$RUNNER_TEMP/"
+          hdiutil detach /Volumes/Muddie
+          codesign --verify --deep "$RUNNER_TEMP/Muddie.app"
+          "$RUNNER_TEMP/Muddie.app/Contents/MacOS/muddie" --version | tee version.txt
+      - name: The screen readers of the system are built in
+        shell: bash
+        run: grep -q "${{ matrix.speech }}" version.txt
+
+  # The files on the draft, with what each adds up to, and the draft
+  # published.
+  publish:
+    needs: [tag, build, debian-package, installers]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ needs.tag.outputs.tag }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: muddie-*
+          path: dist
+          merge-multiple: true
+      - run: |
           cd dist
-          # What each file should add up to, to check a download against.
           sha256sum muddie* > SHA256SUMS
           ls -l
-      - name: Published
-        run: gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --title "Muddie ${GITHUB_REF_NAME#v}" --generate-notes
+      - run: gh release upload "$TAG" dist/* --clobber
+      - run: gh release edit "$TAG" --draft=false --latest
