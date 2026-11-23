@@ -127,7 +127,6 @@ fn scripts_can_send_gmcp_and_drive_panels() {
         send_gmcp("Core.Supports.Add", {"Char.Items 1"})
         send_gmcp("Char.Login", {name = "ana"})
         gauge("HP")
-        chat("Ana: hola")
         map.go(42)"#,
     );
     let gmcp = |package: &str, data: &str| Action::Gmcp {
@@ -146,7 +145,6 @@ fn scripts_can_send_gmcp_and_drive_panels() {
                 look: GaugeLook::default(),
                 owner: "test".into(),
             },
-            Action::Chat("Ana: hola".into()),
             Action::Walk(42),
         ]
     );

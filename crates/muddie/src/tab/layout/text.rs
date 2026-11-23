@@ -34,8 +34,8 @@ impl Tab {
     }
 
     /// The panel a script or a trigger means by `name`, made as a panel
-    /// of text if there is none. `map` and `chat` mean the panel that is
-    /// the map and the one of the channels, whatever they are called.
+    /// of text if there is none. `map` and `channels` mean the panel that
+    /// is the map and the one of the channels, whatever they are called.
     pub(in crate::tab) fn panel_called(&mut self, name: &str) -> u32 {
         let name = name.trim();
         let panels = &self.layout.panels;
@@ -44,7 +44,7 @@ impl Tab {
             .find(|panel| panel.name.eq_ignore_ascii_case(name));
         let by_role = || match name.to_lowercase().as_str() {
             "map" => panels.iter().find(|panel| panel.kind == Kind::Map),
-            "chat" => panels.iter().find(|panel| panel.channels),
+            "channels" => panels.iter().find(|panel| panel.channels),
             _ => None,
         };
         if let Some(panel) = by_name.or_else(by_role) {

@@ -173,7 +173,7 @@ fn templates_are_filled_from_a_match() {
     assert_eq!(trigger.when.regex_source(), "a \\(b\\)\\?");
     assert_eq!(
         trigger.summary(),
-        [(Part::Send, "x".to_owned()), (Part::Hide, String::new())]
+        [(Part::Send, "x".to_owned()), (Part::Gag, String::new())]
     );
 }
 
@@ -616,8 +616,18 @@ fn rules_round_trip_through_their_file() {
             .unwrap()
             .contains("[[macro]]")
     );
+    // Timers in seconds, as they are given everywhere.
+    assert!(
+        std::fs::read_to_string(&path)
+            .unwrap()
+            .contains("seconds = 300.0")
+    );
     // A rule written by hand without `enabled` is on.
     std::fs::write(&path, "[[trigger]]\npattern = \"x\"\n").unwrap();
     assert!(Rules::load(&path).unwrap().triggers[0].enabled);
+    // A timer saved in tenths, as they were once, or in whole seconds.
+    std::fs::write(&path, "[[timer]]\ntenths = 25\n[[timer]]\nseconds = 2\n").unwrap();
+    let timers = Rules::load(&path).unwrap().timers;
+    assert_eq!((timers[0].when.tenths, timers[1].when.tenths), (25, 20));
     std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }

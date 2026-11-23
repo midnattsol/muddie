@@ -979,11 +979,11 @@ fn shown_part(part: Part, text: String) -> (widgets::Glyph, String) {
     match part {
         Part::Send => (Glyph::Send, text),
         Part::Script => (Glyph::Code, text),
-        Part::Say => (Glyph::Say, text),
+        Part::Speak => (Glyph::Say, text),
         Part::Sound => (Glyph::Sound, text),
-        Part::Colour => (Glyph::Colour, text),
+        Part::Highlight => (Glyph::Colour, text),
         Part::Panel => (Glyph::Panel, text),
-        Part::Hide => (Glyph::Hide, tr("hides the line").to_owned()),
+        Part::Gag => (Glyph::Hide, tr("hides the line").to_owned()),
         Part::Key => (Glyph::Key, text),
         Part::Time => (Glyph::Timer, text),
     }
@@ -1011,7 +1011,7 @@ fn rule_rows<T: crate::rules::When>(
             let title = rule_title(rules, index);
             let rule = &rules[index];
             let parts: Vec<(widgets::Glyph, String)> = (detail(rule).into_iter())
-                .filter(|(part, text)| *part == Part::Hide || !text.is_empty())
+                .filter(|(part, text)| *part == Part::Gag || !text.is_empty())
                 .map(|(part, text)| shown_part(part, text))
                 .collect();
             Row {

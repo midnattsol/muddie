@@ -629,31 +629,19 @@ fn colour_for(name: &str) -> Color32 {
 /// The names a gauge's colour can be chosen by.
 pub const GAUGE_COLOURS: [&str; 7] = ["red", "green", "yellow", "blue", "magenta", "cyan", "white"];
 
-/// A colour given by name, from the theme's palette, or as `#rrggbb`.
+/// A colour given as text, read as scripts read one: the sixteen of the
+/// palette in the theme's colours.
 pub fn colour_named(name: &str) -> Option<Color32> {
-    let name = name.trim().to_lowercase();
-    if let Some(hex) = name.strip_prefix('#') {
-        let value = u32::from_str_radix(hex, 16)
-            .ok()
-            .filter(|_| hex.len() == 6)?;
-        return Some(Color32::from_rgb(
-            (value >> 16) as u8,
-            (value >> 8) as u8,
-            value as u8,
-        ));
-    }
-    let index = match name.as_str() {
-        "red" => 1,
-        "green" => 2,
-        "yellow" => 3,
-        "blue" => 4,
-        "magenta" | "purple" => 5,
-        "cyan" => 6,
-        "white" => 7,
-        "accent" => return Some(theme::current().accent),
+    let theme = theme::current();
+    Some(match muddie_script::colour_named(name)? {
+        muddie_core::Color::Indexed(index) if index < 16 => theme.terminal[usize::from(index)],
+        muddie_core::Color::Indexed(index) => {
+            let (red, green, blue) = muddie_core::Color::xterm_rgb(index)?;
+            Color32::from_rgb(red, green, blue)
+        }
+        muddie_core::Color::Rgb(red, green, blue) => Color32::from_rgb(red, green, blue),
         _ => return None,
-    };
-    Some(theme::current().terminal[index])
+    })
 }
 
 /// Extracts the vitals this client knows how to show from a `Char.Vitals`
@@ -742,6 +730,15 @@ mod tests {
         // In between: two columns.
         assert_eq!(bar_width(400.0, 3), (400.0 - GAP) / 2.0);
         assert_eq!(bar_width(500.0, 0), BAR_WIDTH);
+    }
+
+    #[test]
+    fn colours_are_named_as_scripts_name_them() {
+        let theme = theme::current();
+        assert_eq!(colour_named("Bright Red"), Some(theme.terminal[9]));
+        assert_eq!(colour_named("green"), Some(theme.terminal[2]));
+        assert_eq!(colour_named("#102030"), Some(Color32::from_rgb(16, 32, 48)));
+        assert!(colour_named("purple").is_none() && colour_named("").is_none());
     }
 
     #[test]

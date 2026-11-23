@@ -57,12 +57,36 @@ pub fn key_name(key: &str) -> String {
     name + key
 }
 
-/// Reads a colour given by a script: a palette number, `"#rrggbb"`, or a
-/// name such as `"red"` or `"bright blue"`. `nil` gives `None`.
+/// The names of the sixteen colours of the palette, each also `bright`.
+pub const COLOUR_NAMES: [&str; 8] = [
+    "black", "red", "green", "yellow", "blue", "magenta", "cyan", "white",
+];
+
+/// Reads a colour given as text, as scripts and rules give them: a name
+/// such as `"red"` or `"bright blue"`, `"#rrggbb"`, or a palette number.
+pub fn colour_named(text: &str) -> Option<Color> {
+    let text = text.trim().to_lowercase();
+    if let Some(hex) = text.strip_prefix('#') {
+        let channel = |at: usize| u8::from_str_radix(hex.get(at..at + 2)?, 16).ok();
+        return match (hex.len(), channel(0), channel(2), channel(4)) {
+            (6, Some(r), Some(g), Some(b)) => Some(Color::Rgb(r, g, b)),
+            _ => None,
+        };
+    }
+    if let Ok(index) = text.parse::<u8>() {
+        return Some(Color::Indexed(index));
+    }
+    let (bright, name) = match text.strip_prefix("bright ") {
+        Some(name) => (8, name),
+        None => (0, text.as_str()),
+    };
+    let index = COLOUR_NAMES.iter().position(|known| *known == name)?;
+    Some(Color::Indexed(bright + index as u8))
+}
+
+/// Reads a colour given by a script, as [`colour_named`] does, or as a
+/// palette number. `nil` gives `None`.
 pub(super) fn color_from(value: &Value) -> mlua::Result<Option<Color>> {
-    const NAMES: [&str; 8] = [
-        "black", "red", "green", "yellow", "blue", "magenta", "cyan", "white",
-    ];
     let unknown =
         || mlua::Error::runtime("a colour is a name, \"#rrggbb\" or a number from 0 to 255");
     match value {
@@ -73,25 +97,9 @@ pub(super) fn color_from(value: &Value) -> mlua::Result<Option<Color>> {
         Value::Number(index) if index.fract() == 0.0 && (0.0..=255.0).contains(index) => {
             Ok(Some(Color::Indexed(*index as u8)))
         }
-        Value::String(text) => {
-            let text = text.to_string_lossy().trim().to_lowercase();
-            if let Some(hex) = text.strip_prefix('#') {
-                let channel = |at: usize| u8::from_str_radix(hex.get(at..at + 2)?, 16).ok();
-                return match (hex.len(), channel(0), channel(2), channel(4)) {
-                    (6, Some(r), Some(g), Some(b)) => Ok(Some(Color::Rgb(r, g, b))),
-                    _ => Err(unknown()),
-                };
-            }
-            let (bright, name) = match text.strip_prefix("bright ") {
-                Some(name) => (8, name),
-                None => (0, text.as_str()),
-            };
-            let index = NAMES
-                .iter()
-                .position(|known| *known == name)
-                .ok_or_else(unknown)?;
-            Ok(Some(Color::Indexed(bright + index as u8)))
-        }
+        Value::String(text) => (colour_named(&text.to_string_lossy()))
+            .map(Some)
+            .ok_or_else(unknown),
         _ => Err(unknown()),
     }
 }

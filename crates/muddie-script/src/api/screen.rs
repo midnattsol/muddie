@@ -9,7 +9,7 @@ pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()>
     install_to_panel(lua, state)?;
     install_panel_size(lua, state)?;
     install_channel(lua, state)?;
-    install_chat(lua, state)?;
+    install_channel_close(lua, state)?;
     Ok(())
 }
 
@@ -207,7 +207,7 @@ fn install_channel(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     Ok(())
 }
 
-fn install_chat(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
+fn install_channel_close(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     let shared = Rc::clone(state);
     lua.globals().set(
         "channel_close",
@@ -216,16 +216,6 @@ fn install_chat(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
                 .borrow_mut()
                 .actions
                 .push(Action::ChannelClosed(name));
-            Ok(())
-        })?,
-    )?;
-    let globals = lua.globals();
-    let add = |name: &str, function: Function| globals.set(name, function);
-    let shared = Rc::clone(state);
-    add(
-        "chat",
-        lua.create_function(move |_, text: String| {
-            shared.borrow_mut().actions.push(Action::Chat(text));
             Ok(())
         })?,
     )?;

@@ -60,8 +60,6 @@ pub enum Action {
     /// The MUD is played in this language, by its code or name: its words
     /// for directions are those of the map, under any a script teaches.
     Language(String),
-    /// Add a line to the chat panel.
-    Chat(String),
     /// A channel of the MUD's is no longer heard: its tab goes.
     ChannelClosed(String),
     /// Something a script tells the user, as the client tells its own:

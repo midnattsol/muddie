@@ -5,10 +5,10 @@ use super::*;
 /// What a trigger can do besides its commands.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(in crate::tab) enum Extra {
-    Say,
+    Speak,
     Sound,
-    Colour,
-    Hide,
+    Highlight,
+    Gag,
     Panel,
 }
 
@@ -141,17 +141,17 @@ fn also(
     text_panels: &[String],
 ) {
     let given = |extra: Extra| match extra {
-        Extra::Say => !rule.when.speak.trim().is_empty(),
+        Extra::Speak => !rule.when.speak.trim().is_empty(),
         Extra::Sound => !rule.when.sound.trim().is_empty(),
-        Extra::Colour => !rule.when.highlight.trim().is_empty(),
-        Extra::Hide => rule.when.gag,
+        Extra::Highlight => !rule.when.highlight.trim().is_empty(),
+        Extra::Gag => rule.when.gag,
         Extra::Panel => !rule.when.panel.trim().is_empty(),
     };
     let all = [
-        Extra::Say,
+        Extra::Speak,
         Extra::Sound,
-        Extra::Colour,
-        Extra::Hide,
+        Extra::Highlight,
+        Extra::Gag,
         Extra::Panel,
     ];
     let (shown, missing): (Vec<Extra>, Vec<Extra>) = all
@@ -185,7 +185,7 @@ fn also(
                 for extra in missing {
                     if widgets::menu_item_with(ui, extra.glyph(), extra.label(), "").clicked() {
                         added.push(extra);
-                        if extra == Extra::Hide {
+                        if extra == Extra::Gag {
                             rule.when.gag = true;
                         }
                         ui.close();
@@ -224,16 +224,16 @@ fn extra_row(
             ui.scope(|ui| {
                 ui.set_width(ui.available_width());
                 match extra {
-                    Extra::Say => {
+                    Extra::Speak => {
                         widgets::text_box(ui, &mut rule.when.speak, tr("%1 is here"));
                     }
                     Extra::Sound => {
                         widgets::text_box(ui, &mut rule.when.sound, "alert.ogg");
                     }
-                    Extra::Colour => {
+                    Extra::Highlight => {
                         widgets::text_box(ui, &mut rule.when.highlight, "yellow, #ffcc00");
                     }
-                    Extra::Hide => {
+                    Extra::Gag => {
                         let text =
                             RichText::new(tr("The line is not shown.")).color(theme.text_dim);
                         ui.label(text);
@@ -271,30 +271,30 @@ impl Extra {
     /// Takes it from the trigger.
     fn take_from(self, rule: &mut crate::rules::Trigger) {
         match self {
-            Extra::Say => rule.when.speak.clear(),
+            Extra::Speak => rule.when.speak.clear(),
             Extra::Sound => rule.when.sound.clear(),
-            Extra::Colour => rule.when.highlight.clear(),
-            Extra::Hide => rule.when.gag = false,
+            Extra::Highlight => rule.when.highlight.clear(),
+            Extra::Gag => rule.when.gag = false,
             Extra::Panel => rule.when.panel.clear(),
         }
     }
 
     fn glyph(self) -> widgets::Glyph {
         match self {
-            Extra::Say => widgets::Glyph::Say,
+            Extra::Speak => widgets::Glyph::Say,
             Extra::Sound => widgets::Glyph::Sound,
-            Extra::Colour => widgets::Glyph::Colour,
-            Extra::Hide => widgets::Glyph::Hide,
+            Extra::Highlight => widgets::Glyph::Colour,
+            Extra::Gag => widgets::Glyph::Hide,
             Extra::Panel => widgets::Glyph::Panel,
         }
     }
 
     fn label(self) -> &'static str {
         match self {
-            Extra::Say => tr("Say"),
+            Extra::Speak => tr("Say"),
             Extra::Sound => tr("Play a sound"),
-            Extra::Colour => tr("Colour the match"),
-            Extra::Hide => tr("Hide the line"),
+            Extra::Highlight => tr("Colour the match"),
+            Extra::Gag => tr("Hide the line"),
             Extra::Panel => tr("Show it in the panel"),
         }
     }

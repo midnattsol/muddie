@@ -1,10 +1,10 @@
 -- A tour of the everyday script functions. Copy what you need into
 -- ~/.config/muddie/profiles/<your profile>/scripts/.
 
--- Speak tells, and keep a copy of them in the chat panel.
+-- Speak tells, and keep a copy of them in a tab of the channels' panel.
 trigger("^(?<who>\\w+) tells you: (?<what>.*)$", function(m, line)
     highlight("bright yellow")
-    chat(line)
+    channel("Tells", line)
     speak(`{m.who} says {m.what}`, {interrupt = true})
 end)
 

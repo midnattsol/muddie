@@ -31,7 +31,7 @@ mod state;
 mod switches;
 
 pub use action::{Action, Effect, GaugeLook};
-pub use convert::split_commands;
+pub use convert::{COLOUR_NAMES, colour_named, split_commands};
 
 /// Something a script offers to do with the map, as the user is shown it.
 #[derive(Debug, Clone, PartialEq, Eq)]

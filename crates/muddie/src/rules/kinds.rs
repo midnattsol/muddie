@@ -98,14 +98,51 @@ pub struct OnKey {
     pub key: String,
 }
 
-/// A timer does something after a while, once or again and again.
+/// A timer does something after a while, once or again and again. It is
+/// saved in seconds, as it is given everywhere.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(default)]
+#[serde(from = "TimeSaved", into = "TimeSaved")]
 pub struct OnTime {
     /// How long it waits, in tenths of a second.
     pub tenths: u32,
     /// Goes off every so long, instead of only once after starting.
     pub repeat: bool,
+}
+
+/// A timer as it is saved: how long it waits in seconds, or, as it was
+/// saved once, in tenths of a second.
+#[derive(Serialize, Deserialize)]
+struct TimeSaved {
+    #[serde(default)]
+    seconds: Option<f64>,
+    #[serde(default, skip_serializing)]
+    tenths: Option<u32>,
+    #[serde(default = "yes")]
+    repeat: bool,
+}
+
+impl From<TimeSaved> for OnTime {
+    fn from(saved: TimeSaved) -> Self {
+        let tenths = match (saved.seconds, saved.tenths) {
+            (Some(seconds), _) => (seconds * 10.0).round().max(0.0) as u32,
+            (None, Some(tenths)) => tenths,
+            (None, None) => Self::default().tenths,
+        };
+        Self {
+            tenths,
+            repeat: saved.repeat,
+        }
+    }
+}
+
+impl From<OnTime> for TimeSaved {
+    fn from(time: OnTime) -> Self {
+        Self {
+            seconds: Some(f64::from(time.tenths) / 10.0),
+            tenths: None,
+            repeat: time.repeat,
+        }
+    }
 }
 
 impl Default for OnTime {
@@ -171,14 +208,14 @@ pub enum Part {
     /// That it runs a Luau script.
     Script,
     /// What it says aloud.
-    Say,
+    Speak,
     Sound,
     /// The colour the match is drawn in.
-    Colour,
+    Highlight,
     /// The panel it shows the line in.
     Panel,
     /// That it hides the line.
-    Hide,
+    Gag,
     /// The key that sets it off.
     Key,
     /// How often it goes off, or after how long.
@@ -211,9 +248,9 @@ impl Rule<OnLine> {
         let when = &self.when;
         let mut parts: Vec<(Part, String)> = self.does().into_iter().collect();
         for (part, text) in [
-            (Part::Say, &when.speak),
+            (Part::Speak, &when.speak),
             (Part::Sound, &when.sound),
-            (Part::Colour, &when.highlight),
+            (Part::Highlight, &when.highlight),
             (Part::Panel, &when.panel),
         ] {
             if !text.trim().is_empty() {
@@ -221,7 +258,7 @@ impl Rule<OnLine> {
             }
         }
         if when.gag {
-            parts.push((Part::Hide, String::new()));
+            parts.push((Part::Gag, String::new()));
         }
         parts
     }
