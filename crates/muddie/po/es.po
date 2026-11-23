@@ -2956,3 +2956,9 @@ msgstr "La sala en la que estás"
 
 msgid "Write it, then Enter."
 msgstr "Escríbelo y pulsa Enter."
+
+msgid "The map is as tidy as it gets."
+msgstr "El mapa ya está todo lo ordenado que puede estar."
+
+msgid "Not tidied: drawn again, {0} exits would point the wrong way and {1} rooms would lie on another; now it is {2} and {3}."
+msgstr "No se ha ordenado: dibujada de nuevo, {0} salidas apuntarían donde no deben y {1} salas quedarían encima de otra; ahora son {2} y {3}."

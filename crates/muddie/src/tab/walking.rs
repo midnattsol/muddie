@@ -2,6 +2,7 @@
 
 use super::*;
 use crate::widgets;
+use muddie_mapper::Tidied;
 
 /// How long a walk waits for a move to take effect before giving up, as
 /// happens at a closed door.
@@ -239,12 +240,24 @@ impl Tab {
                 &[area, &rooms.to_string()],
             ));
         }
-        let moved = self.map.borrow_mut().relayout(area);
-        if let Some(moved) = self.map_saved(moved) {
-            self.note(&trf(
+        let tidied = self.map.borrow_mut().relayout(area);
+        match self.map_saved(tidied) {
+            Some(Tidied::Moved(0)) => self.note(tr("The map is as tidy as it gets.")),
+            Some(Tidied::Moved(moved)) => self.note(&trf(
                 "Tidied the map: {0} rooms moved.",
                 &[&moved.to_string()],
-            ));
+            )),
+            // Drawn again it would look worse: it is left as it is.
+            Some(Tidied::Kept { now, then }) => self.refuse(&trf(
+                "Not tidied: drawn again, {0} exits would point the wrong way and {1} rooms would lie on another; now it is {2} and {3}.",
+                &[
+                    &then.wrong_exits.to_string(),
+                    &then.stacked.to_string(),
+                    &now.wrong_exits.to_string(),
+                    &now.stacked.to_string(),
+                ],
+            )),
+            None => {}
         }
     }
 

@@ -1076,7 +1076,8 @@ fn a_very_large_area_is_tidied_only_when_told_all() {
             name: "Camino".into(),
             area: "Mapa Completo".into(),
             pos: Pos {
-                x: id as i32 * 3,
+                // Tangled: ten rooms on each cell.
+                x: id as i32 * 3 % 30,
                 y: 0,
                 z: 0,
             },
@@ -1111,6 +1112,12 @@ fn a_very_large_area_is_tidied_only_when_told_all() {
     assert_eq!(x_of_2(app), 6);
     answer(app, "/map tidy all");
     assert_eq!(x_of_2(app), 4);
+    // Tidy, it is not drawn again: the exit that closes the ring points
+    // the wrong way however it is drawn.
+    assert_eq!(
+        answer(app, "/map tidy all"),
+        ["The map is as tidy as it gets."]
+    );
 }
 
 /// The appearance of the map, from its menu, and of a room, from the

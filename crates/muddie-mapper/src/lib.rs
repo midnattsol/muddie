@@ -34,6 +34,7 @@ pub use journal::Changed;
 pub use locating::{Located, Sighting};
 pub use mudlet::{MUDLET_READER, MudletMap, read_mudlet_map};
 pub use naming::{Found, FoundBy, Naming};
+pub use relayout::{Drawing, Tidied};
 pub use rusqlite::Error;
 pub use walk::{Progress, Walk};
 

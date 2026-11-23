@@ -203,5 +203,5 @@ server identifies the room with.
 | `map.direction(word)` | The direction a word says, as the map keeps it (`"n"`, `"ne"`... `"u"`, `"d"`, `"in"`, `"out"`), in the MUD's words or in English; `nil` if it says none. |
 | `map.remove_exit(from, direction)`, `map.remove_room(id)` | Remove. |
 | `map.edit_room(id, changes)` | Changes what `changes` gives of a room, leaving the rest: `name`, in place of the one it has, such as one taken wrong, which the server reporting it or the map taken again leaves (the room's table says `renamed`); `weight` and `avoid`, how routes treat it; `x`, `y`, `z`, where it is; `colour`, `shape` (`"square"`, `"circle"`, `"diamond"` or `"hexagon"`) and `symbol`, a character or two written in it, how it is drawn, which are kept so too. `false` gives back the map's own colour, shape or weight, or no symbol. Returns whether there was the room. |
-| `map.relayout(area)` | Draws an area again from scratch, the player's if none is given; returns how many rooms moved. |
+| `map.relayout(area)` | Draws an area again from scratch, the player's if none is given, if that draws it better: no more exits pointing the wrong way, nor rooms on another's cell, than now. Returns how many rooms moved; none if it was left as it was, and then why, as a second value. |
 | `map.areas()`, `map.id(text)` | Area names; the number used for a text id. |

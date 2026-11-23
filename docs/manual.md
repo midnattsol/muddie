@@ -526,6 +526,11 @@ marks a way up or down, and a dot an exit off the compass. A room to avoid
 is struck through in red, and a locked exit is red. Zoomed in far enough,
 each room's name is written under it. When you move, the view glides to
 the new room. The list of areas only shows when the map has more than one.
+**Tidy the area** draws it again from scratch, from where you are, each room
+the way its exits say, on its own level. It is done only if that draws it
+better: if more exits would point the wrong way, or more rooms would lie on
+another, the area is left as it is and the map says why, so a map drawn by
+hand is never made worse.
 A map taken from Mudlet before this version of Muddie read its colours is
 taken again the next time the plugin asks for it.
 

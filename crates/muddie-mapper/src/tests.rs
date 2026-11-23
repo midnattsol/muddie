@@ -290,31 +290,66 @@ fn server_reports_keep_what_the_user_set_on_exits() {
 }
 
 #[test]
-fn relayout_redraws_a_tangled_area_around_the_player() {
+fn tidying_redraws_a_tangled_area_on_its_levels() {
     let mut map = town();
     let mut dock = info(30, "Dock", &[("e", 31)]);
     dock.area = "town".into();
     map.set_room(dock).unwrap();
     map.set_room(info(31, "Pier", &[])).unwrap();
     for (id, at) in [
-        (1, pos(7, -3, 2)),
-        (2, pos(7, -3, 2)),
+        (1, pos(7, -3, 0)),
+        (2, pos(7, -3, 0)),
         (3, pos(0, 9, 0)),
+        (30, pos(5, 5, 0)),
         (31, pos(-4, 0, 0)),
     ] {
         map.move_room(id, at).unwrap();
     }
-    // The player is on the tower top, which keeps its place.
-    assert_eq!(map.relayout("town").unwrap(), 4);
+    assert!(matches!(map.relayout("town").unwrap(), Tidied::Moved(5)));
     let at = |id| map.room(id).unwrap().pos;
+    // The player is on the tower top, which keeps its place; the rest is
+    // drawn the way the exits say, east of it, on its own level: up and
+    // down move no room.
+    assert_eq!(at(4), pos(1, 1, 1));
     assert_eq!(
-        [at(4), at(3), at(2), at(1)],
-        [pos(1, 1, 1), pos(1, 1, 0), pos(0, 1, 0), pos(0, 0, 0)]
+        [at(1), at(2), at(3)],
+        [pos(3, 0, 0), pos(3, 1, 0), pos(4, 1, 0)]
     );
     // The dock and pier connect to nothing else: a separate island.
-    assert_eq!([at(30), at(31)], [pos(3, 0, 0), pos(4, 0, 0)]);
-    assert_eq!(map.relayout("town").unwrap(), 0);
-    assert_eq!(map.relayout("nowhere").unwrap(), 0);
+    assert_eq!([at(30), at(31)], [pos(6, 0, 0), pos(7, 0, 0)]);
+    assert_eq!(map.relayout("town").unwrap(), Tidied::Moved(0));
+    assert_eq!(map.relayout("nowhere").unwrap(), Tidied::Moved(0));
+}
+
+#[test]
+fn tidying_leaves_a_drawing_it_would_make_worse() {
+    // Drawn by hand: the road east is two steps long, with a hill between
+    // that it goes round, and every exit points its way.
+    let mut map = Map::in_memory();
+    for room in [
+        info(1, "Road", &[("e", 2), ("ne", 3)]),
+        info(2, "Road", &[("w", 1), ("nw", 3)]),
+        info(3, "Hill", &[("sw", 1), ("se", 2)]),
+    ] {
+        map.set_room(room).unwrap();
+    }
+    for (id, at) in [(1, pos(0, 0, 0)), (2, pos(2, 0, 0)), (3, pos(1, 1, 0))] {
+        map.move_room(id, at).unwrap();
+    }
+    // Drawn again from scratch, the road would be a step long, and the
+    // hill's exits would point the wrong way: it is left as it is.
+    let kept = map.relayout("town").unwrap();
+    assert_eq!(
+        kept,
+        Tidied::Kept {
+            now: Drawing::default(),
+            then: Drawing {
+                wrong_exits: 2,
+                stacked: 0
+            }
+        }
+    );
+    assert_eq!(map.room(2).unwrap().pos, pos(2, 0, 0));
 }
 
 #[test]

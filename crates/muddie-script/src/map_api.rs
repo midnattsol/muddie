@@ -710,11 +710,21 @@ fn install_exits(lua: &Lua, map: &Rc<RefCell<Map>>, api: &Table) -> mlua::Result
             let mut world = world.borrow_mut();
             let area = area.or_else(|| Some(world.current()?.area.clone()));
             let Some(area) = area else {
-                return Ok(0);
+                return Ok((0, None));
             };
-            world
-                .relayout(&area)
-                .map_err(|error| mlua::Error::runtime(format!("could not save the map: {error}")))
+            let tidied = (world.relayout(&area))
+                .map_err(|error| mlua::Error::runtime(format!("could not save the map: {error}")))?;
+            Ok(match tidied {
+                muddie_mapper::Tidied::Moved(moved) => (moved, None),
+                // Left as it was, and why.
+                muddie_mapper::Tidied::Kept { now, then } => (
+                    0,
+                    Some(format!(
+                        "drawn again, {} exits would point the wrong way and {} rooms would lie on another; now {} and {}",
+                        then.wrong_exits, then.stacked, now.wrong_exits, now.stacked
+                    )),
+                ),
+            })
         })?,
     )?;
 
