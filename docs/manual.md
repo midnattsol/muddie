@@ -366,7 +366,7 @@ another side, saying where it is now. Escape goes back to the game.
   tab. Drag the edge between two panels, or between a panel and the output,
   to size them.
 - Its **menu** has **Rename…**, what goes with its kind (the channels for
-  one of text, editing the gauges; for the map, its appearance, showing every area, undoing
+  one of text, editing the gauges; for the map, its appearance, showing every area or another, undoing
   the last room it added, and under the name of each plugin what it offers
   to do with the map), hiding it and removing it. **Rename…**, a double
   click on the name, or **Rename** and the panel's name in the palette, turn
@@ -525,7 +525,10 @@ short stub leads to a room not drawn. Inside a room, a triangle up or down
 marks a way up or down, and a dot an exit off the compass. A room to avoid
 is struck through in red, and a locked exit is red. Zoomed in far enough,
 each room's name is written under it. When you move, the view glides to
-the new room. The list of areas only shows when the map has more than one.
+the new room. Where the area has rooms on more than one level, the levels
+are over the map's top right corner, one above another: ▲ goes up, ▼ down.
+**Show an area…**, in the map's menu or the palette, looks at another area
+without going there, if the map has more than one.
 **Tidy the area** draws it again from scratch, from where you are, each room
 the way its exits say, on its own level. It is done only if that draws it
 better: if more exits would point the wrong way, or more rooms would lie on
@@ -568,8 +571,8 @@ is what a name begins with, as Anduar in "Anduar: Plaza Mayor".
 | Right-click a room | Go here, avoid in routes, its appearance, tidy the area |
 | Drag | Moves the view; the wheel zooms |
 | Shift+drag a room | Moves it to another cell |
-| The area list, − and + | Looks at another area or level; **Back to me** returns |
-| The buttons beside the map's title | Find where you are, tidy the area, stop going; the dots hold the rest: show every area, avoid this room, hide the map |
+| ▲ and ▼, over the map's top right corner | Look at the level above or below; **Back to my position**, at the top left, returns |
+| The buttons beside the map's title | Find where you are, tidy the area, stop going; the dots hold the rest: show every area, show an area, avoid this room, hide the map |
 
 Exploring, each room is said short, as one who does not see it wants it:
 its name, and its region on coming to another; how many moves away and

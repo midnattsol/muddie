@@ -39,6 +39,12 @@ impl Tab {
                 }
                 Kind::Map => {
                     self.map_view.menu_items(ui);
+                    // Another area, to look at: asked for in the palette.
+                    let several = self.map_view.area_count(&self.map.borrow()) > 1;
+                    if several && widgets::menu_item(ui, tr("Show an area…"), "").clicked() {
+                        asked = Some(PanelAsk::ShowArea);
+                        ui.close();
+                    }
                     if widgets::menu_item(ui, tr("Map appearance…"), "").clicked() {
                         asked = Some(PanelAsk::Appearance);
                         ui.close();
@@ -82,6 +88,11 @@ impl Tab {
             Some(PanelAsk::MapTool(label)) => self.use_map_tool(&label),
             Some(PanelAsk::UndoChange) => self.undo_change(),
             Some(PanelAsk::Appearance) => self.open_map_appearance(),
+            Some(PanelAsk::ShowArea) => self.ask(crate::tab::commands::Asking::new(
+                tr("The area to show"),
+                "/map view ",
+                crate::tab::commands::Offers::Areas,
+            )),
             None => {}
         }
     }
@@ -170,6 +181,7 @@ enum PanelAsk {
     MapTool(String),
     UndoChange,
     Appearance,
+    ShowArea,
 }
 
 /// Hiding the panel, and removing it.

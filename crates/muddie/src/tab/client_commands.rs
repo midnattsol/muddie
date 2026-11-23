@@ -14,6 +14,7 @@ impl Tab {
         let given = !argument.is_empty();
         match command {
             "/map-show" | "/map-hide" => self.set_map_shown(command == "/map-show"),
+            "/view-area" if given => self.view_area(argument),
             "/tag" => self.tag_command(argument),
             "/where" => self.say_where(),
             "/find" if given => self.find_rooms(argument),
@@ -92,6 +93,21 @@ impl Tab {
         }
     }
 
+    /// Shows an area on the map, to look at it, without going.
+    fn view_area(&mut self, area: &str) {
+        let map = self.map.borrow();
+        let Some(area) =
+            (map.areas().into_iter()).find(|name| name.eq_ignore_ascii_case(area.trim()))
+        else {
+            drop(map);
+            return self.refuse(tr("The map has no area of that name."));
+        };
+        let area = area.to_owned();
+        self.map_view.show_area(&map, &area);
+        drop(map);
+        self.set_map_shown(true);
+    }
+
     /// Starts or stops logging the session.
     fn toggle_log(&mut self) {
         match self.log.take() {
@@ -138,6 +154,7 @@ pub(super) fn client_command(line: &str) -> Option<(&'static str, String)> {
         ("/map", "remove") => "/remove-room",
         ("/map", "show") => "/map-show",
         ("/map", "hide") => "/map-hide",
+        ("/map", "view") => "/view-area",
         ("/plugin", "list") => "/packages",
         ("/plugin", "install") => "/install",
         ("/plugin", "update") => "/update",

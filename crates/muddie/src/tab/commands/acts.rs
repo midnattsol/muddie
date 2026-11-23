@@ -191,6 +191,13 @@ impl Tab {
             ),
         ));
         let state = self.map.borrow();
+        if state.areas().len() > 1 {
+            acts.push(item(
+                tr("Show an area…"),
+                map,
+                ask(tr("The area to show").into(), "/map view ", Offers::Areas),
+            ));
+        }
         if !state.candidates().is_empty() {
             acts.push(item(tr("Which room am I in"), map, run("/map here")));
         }

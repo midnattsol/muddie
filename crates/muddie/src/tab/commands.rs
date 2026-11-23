@@ -86,6 +86,17 @@ pub struct Asking {
     pub(super) offers: Offers,
 }
 
+impl Asking {
+    /// What to ask, the command it completes, and what to offer.
+    pub(super) fn new(title: &str, command: &str, offers: Offers) -> Self {
+        Self {
+            title: title.to_owned(),
+            command: command.to_owned(),
+            offers,
+        }
+    }
+}
+
 /// What is offered as an answer, as it is typed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Offers {
@@ -99,6 +110,8 @@ pub enum Offers {
     Exits,
     /// The plugins installed.
     Plugins,
+    /// The areas of the map.
+    Areas,
 }
 
 impl Act {
@@ -268,6 +281,10 @@ impl Tab {
                     .map(|word| answer(word, String::new()))
                     .collect()
             }
+            Offers::Areas => (self.map.borrow().areas().into_iter())
+                .filter(|name| has(name))
+                .map(|name| answer(name.to_owned(), String::new()))
+                .collect(),
             Offers::Plugins => (self.profiles.as_ref())
                 .map(Profiles::packages)
                 .unwrap_or_default()
@@ -286,6 +303,7 @@ impl Tab {
         self.palette.chosen = 0;
         self.palette.cache = None;
         self.palette.focus = true;
+        self.palette.open = true;
         self.palette.asking = Some(asking);
     }
 

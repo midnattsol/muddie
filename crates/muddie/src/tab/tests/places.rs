@@ -1189,3 +1189,59 @@ fn the_appearance_of_the_map_and_of_rooms_is_chosen() {
     harness.run_steps(2);
     assert_eq!(shape(&harness, called[0]), None);
 }
+
+/// The levels are over the map's top right corner, a floor above another,
+/// only where the area has more than one: the number said as the level it
+/// is. Looking at another level, or another area, chosen in the palette,
+/// the way back to where the player is is over the top left corner.
+#[test]
+fn levels_and_other_areas_are_looked_at_over_the_map() {
+    let mut harness = window(None);
+    harness.set_size(egui::vec2(1300.0, 860.0));
+    let app = harness.state_mut().tab_mut();
+    desert(app);
+    assert!(app.map.borrow_mut().set_current(1));
+    harness.run_steps(3);
+    assert!(harness.query_by_label("Level 0").is_none());
+    let room = |id, name: &str, area: &str, z| muddie_mapper::RoomInfo {
+        id,
+        name: name.into(),
+        area: area.into(),
+        exits: Default::default(),
+        pos: Some(Pos { x: 0, y: 0, z }),
+        colour: None,
+    };
+    let map = &harness.state().tab().map;
+    map.borrow_mut()
+        .set_room(room(60, "Pozo", "Desierto", -1))
+        .unwrap();
+    map.borrow_mut()
+        .set_room(room(70, "Palmeras", "Oasis", 0))
+        .unwrap();
+    harness.run_steps(3);
+    harness.get_by_label("Level 0");
+    assert!(harness.query_by_label("Back to my position").is_none());
+    // Down to the well, and back.
+    harness.get_by_label("Down a level").click();
+    harness.run_steps(3);
+    harness.get_by_label("Level -1");
+    harness.get_by_label("Back to my position").click();
+    harness.run_steps(3);
+    harness.get_by_label("Level 0");
+    assert!(harness.query_by_label("Back to my position").is_none());
+    // Another area, chosen as it is typed, is shown without going.
+    let app = harness.state_mut().tab_mut();
+    app.toggle_palette();
+    app.palette.query = "show an area".into();
+    harness.run_steps(2);
+    harness.key_press(Key::Enter);
+    harness.run_steps(2);
+    harness.get_by_role_and_label(egui::accesskit::Role::TextInput, "The area to show");
+    harness.state_mut().tab_mut().palette.query = "oa".into();
+    harness.run_steps(2);
+    harness.key_press(Key::Enter);
+    harness.run_steps(3);
+    assert!(!harness.state().tab().palette.open);
+    harness.get_by_label("Back to my position");
+    assert_eq!(harness.state().tab().map.borrow().current().unwrap().id, 1);
+}

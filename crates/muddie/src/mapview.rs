@@ -402,7 +402,6 @@ impl MapView {
             heading(ui, map, current);
         }
         let (area, level, home) = self.place(ui, map, current, tools.locate);
-        let (area, level) = self.place_controls(ui, map, (area, level), home);
         let here_id = (!unsure).then_some(current.id);
         let prompted = self.prompt_line(ui, map, here_id);
         // A room no longer there, or left over, is no longer chosen.
@@ -429,6 +428,8 @@ impl MapView {
         // An id of its own, not one counted from what is drawn before it,
         // which a line over the map changes: the keyboard stays with it.
         let (rect, _) = ui.allocate_exact_size(size, Sense::hover());
+        // Over its corners, before it, to be reached with Tab before it.
+        let (area, level) = self.corner_controls(ui, map, (area, level), home, rect);
         let response = ui.interact(
             rect,
             ui.make_persistent_id("map view"),
@@ -707,7 +708,7 @@ impl MapView {
     }
 
     /// How many areas the map has, counted again only when it changes.
-    fn area_count(&mut self, map: &Map) -> usize {
+    pub fn area_count(&mut self, map: &Map) -> usize {
         match self.areas {
             Some((revision, count)) if revision == map.revision() => count,
             _ => {
@@ -718,49 +719,63 @@ impl MapView {
         }
     }
 
-    /// The controls over the map, in one compact bar: which area, if the
-    /// map has several, which level, and the way back to where the player
-    /// is. Returns the area and level to show.
-    fn place_controls(
+    /// Shows `area`, at the level the player is on if it has rooms there,
+    /// else its lowest: to look at it, without going.
+    pub fn show_area(&mut self, map: &Map, area: &str) {
+        let levels = self.levels_of(map, area);
+        let Some(lowest) = levels.first().copied() else {
+            return;
+        };
+        let on = map
+            .current()
+            .map(|room| room.pos.z)
+            .filter(|z| levels.contains(z));
+        self.browsing = Some((area.to_owned(), on.unwrap_or(lowest)));
+        self.pan = Vec2::ZERO;
+    }
+
+    /// The controls over the map's top corners, in a layer just above it:
+    /// the way back to where the player is, at the left, while looking
+    /// elsewhere; the levels at the right, a floor above another, where the
+    /// area has more than one. Returns the area and level to show.
+    fn corner_controls(
         &mut self,
         ui: &mut Ui,
         map: &Map,
         (mut area, mut level): (String, i32),
         home: (String, i32),
+        rect: Rect,
     ) -> (String, i32) {
-        let theme = theme::current();
-        let browsing = self.browsing.is_some();
-        let several_areas = self.area_count(map) > 1;
         // Levels only where the area has more than one, or one without
         // rooms is being looked at.
         let levels = self.levels_of(map, &area);
         let several_levels = levels.len() > 1 || !levels.contains(&level);
-        if !several_areas && !several_levels && !browsing {
-            return (area, level);
-        }
-        ui.horizontal(|ui| {
-            if several_areas || several_levels {
-                eframe::egui::Frame::new()
-                    .fill(theme.raised)
-                    .corner_radius(eframe::egui::CornerRadius::same(8))
-                    .inner_margin(eframe::egui::Margin::symmetric(4, 2))
-                    .show(ui, |ui| {
-                        ui.horizontal(|ui| {
-                            ui.spacing_mut().item_spacing.x = 4.0;
-                            if several_areas {
-                                area_choice(ui, map, &mut area);
-                            }
-                            if several_levels {
-                                level_steps(ui, &levels, &mut level);
-                            }
-                        });
-                    });
-            }
-            if browsing && crate::widgets::button(ui, tr("Back to my position")).clicked() {
+        let layer = egui::LayerId::new(ui.layer_id().order, ui.scope_id().with("map corners"));
+        ui.ctx().set_sublayer(ui.layer_id(), layer);
+        let inside = rect.shrink(8.0);
+        let corner = |align| {
+            egui::UiBuilder::new()
+                .layer_id(layer)
+                .max_rect(inside)
+                .layout(egui::Layout::top_down(align))
+        };
+        if self.browsing.is_some() {
+            let mut left = ui.new_child(corner(egui::Align::Min));
+            if crate::widgets::button(&mut left, tr("Back to my position")).clicked() {
                 (area, level) = home.clone();
             }
-        });
-        ui.add_space(2.0);
+        }
+        if several_levels {
+            // A narrow column at the right edge, the floors centred in it.
+            let column =
+                Rect::from_min_max(egui::pos2(inside.right() - 32.0, inside.top()), inside.max);
+            let mut right = ui.new_child(corner(egui::Align::Max).max_rect(column));
+            egui::Frame::new()
+                .fill(theme::current().raised)
+                .corner_radius(egui::CornerRadius::same(8))
+                .inner_margin(egui::Margin::same(3))
+                .show(&mut right, |ui| level_steps(ui, &levels, &mut level));
+        }
         let shown = (area, level);
         if self.browsing.as_ref().unwrap_or(&home) != &shown {
             self.pan = Vec2::ZERO;

@@ -183,23 +183,8 @@ pub(super) fn show_chips(ui: &mut Ui, chips: Chips) {
     }
 }
 
-/// The area to show, among those the map has.
-pub(super) fn area_choice(ui: &mut Ui, map: &Map, area: &mut String) {
-    let chooser = crate::widgets::dropdown("map area")
-        .selected_text(area.as_str())
-        .width(120.0)
-        .show_ui(ui, |ui| {
-            for name in map.areas() {
-                crate::widgets::choice_value(ui, area, name.to_owned(), name);
-            }
-        })
-        .response;
-    ui.ctx()
-        .accesskit_node_builder(chooser.id, |node| node.set_label(tr("Area")));
-}
-
-/// The level to show: the next one down or up that has rooms, as the
-/// area has them, and which it is.
+/// The level to show, as floors one above another: up, the level shown,
+/// and down, each step to the next level that has rooms.
 pub(super) fn level_steps(ui: &mut Ui, levels: &[i32], level: &mut i32) {
     let below = levels.iter().rev().find(|known| **known < *level).copied();
     let above = levels.iter().find(|known| **known > *level).copied();
@@ -211,17 +196,25 @@ pub(super) fn level_steps(ui: &mut Ui, levels: &[i32], level: &mut i32) {
             .inner;
         to.filter(|_| pressed)
     };
-    if let Some(to) = step(ui, "▼", tr("Down a level"), below) {
-        *level = to;
-    }
-    ui.label(
-        RichText::new(crate::i18n::trf("Level {0}", &[&level.to_string()]))
-            .font(theme::font(Weight::Regular, 12.5))
-            .color(theme::current().text),
-    );
-    if let Some(to) = step(ui, "▲", tr("Up a level"), above) {
-        *level = to;
-    }
+    ui.vertical_centered(|ui| {
+        ui.spacing_mut().item_spacing.y = 2.0;
+        if let Some(to) = step(ui, "▲", tr("Up a level"), above) {
+            *level = to;
+        }
+        // Its number, said as the level it is.
+        let said = crate::i18n::trf("Level {0}", &[&level.to_string()]);
+        let shown = ui
+            .label(
+                RichText::new(level.to_string())
+                    .font(theme::font(Weight::Medium, 12.5))
+                    .color(theme::current().text),
+            )
+            .on_hover_text(&said);
+        shown.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Label, true, &said));
+        if let Some(to) = step(ui, "▼", tr("Down a level"), below) {
+            *level = to;
+        }
+    });
 }
 
 /// The middle of the rooms given, to centre on.
