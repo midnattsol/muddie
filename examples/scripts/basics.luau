@@ -1,11 +1,12 @@
 -- A tour of the everyday script functions. Copy what you need into
 -- ~/.config/muddie/profiles/<your profile>/scripts/.
 
--- Speak tells, and keep a copy of them in a tab of the channels' panel.
+-- Keep tells in a tab of the channels' panel: read there, with the
+-- channel's name, rather than as the line came.
 trigger("^(?<who>\\w+) tells you: (?<what>.*)$", function(m, line)
     highlight("bright yellow")
+    silence()
     channel("Tells", line)
-    speak(`{m.who} says {m.what}`, {interrupt = true})
 end)
 
 -- Hide a noisy line.

@@ -9,6 +9,7 @@ pub(in crate::tab) enum Extra {
     Sound,
     Highlight,
     Gag,
+    Silence,
     Panel,
 }
 
@@ -142,6 +143,7 @@ fn also(
         Extra::Sound => !rule.when.sound.trim().is_empty(),
         Extra::Highlight => !rule.when.highlight.trim().is_empty(),
         Extra::Gag => rule.when.gag,
+        Extra::Silence => rule.when.silence,
         Extra::Panel => !rule.when.panel.trim().is_empty(),
     };
     let all = [
@@ -149,6 +151,7 @@ fn also(
         Extra::Sound,
         Extra::Highlight,
         Extra::Gag,
+        Extra::Silence,
         Extra::Panel,
     ];
     let (shown, missing): (Vec<Extra>, Vec<Extra>) = all
@@ -182,8 +185,10 @@ fn also(
                 for extra in missing {
                     if widgets::menu_item_with(ui, extra.glyph(), extra.label(), "").clicked() {
                         added.push(extra);
-                        if extra == Extra::Gag {
-                            rule.when.gag = true;
+                        match extra {
+                            Extra::Gag => rule.when.gag = true,
+                            Extra::Silence => rule.when.silence = true,
+                            _ => {}
                         }
                         ui.close();
                     }
@@ -233,6 +238,10 @@ fn extra_row(
                             RichText::new(tr("The line is not shown.")).color(theme.text_dim);
                         ui.label(text);
                     }
+                    Extra::Silence => {
+                        let said = tr("The line is shown, and read back with the review keys, but not read aloud as it comes.");
+                        ui.label(RichText::new(said).color(theme.text_dim));
+                    }
                     Extra::Panel => panel_choice(ui, &mut rule.when.panel, text_panels),
                 }
             });
@@ -266,6 +275,7 @@ impl Extra {
             Extra::Sound => rule.when.sound.clear(),
             Extra::Highlight => rule.when.highlight.clear(),
             Extra::Gag => rule.when.gag = false,
+            Extra::Silence => rule.when.silence = false,
             Extra::Panel => rule.when.panel.clear(),
         }
     }
@@ -276,6 +286,7 @@ impl Extra {
             Extra::Sound => widgets::Glyph::Sound,
             Extra::Highlight => widgets::Glyph::Colour,
             Extra::Gag => widgets::Glyph::Hide,
+            Extra::Silence => widgets::Glyph::Say,
             Extra::Panel => widgets::Glyph::Panel,
         }
     }
@@ -286,6 +297,7 @@ impl Extra {
             Extra::Sound => tr("Play a sound"),
             Extra::Highlight => tr("Highlight"),
             Extra::Gag => tr("Hide the line"),
+            Extra::Silence => tr("Do not read it aloud"),
             Extra::Panel => tr("Show it in the panel"),
         }
     }

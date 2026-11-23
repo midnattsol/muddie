@@ -207,6 +207,8 @@ impl App {
             };
             let mut tab = Tab::new(&self.ctx, startup, &self.settings);
             tab.play_quietly(name);
+            // What it says is said by the session on screen, once.
+            tab.silence();
             self.profile_session_said = tab.said_count();
             self.profile_session = Some(tab);
         }

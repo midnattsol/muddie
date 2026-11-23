@@ -361,6 +361,26 @@ impl Output {
         }
     }
 
+    /// Does what the first link of a row does when clicked: opens a web
+    /// address, or gives back the command to send or to finish. `None` if
+    /// it has none; `Some(None)` if a web address was opened.
+    pub fn follow_link(
+        &self,
+        ctx: &eframe::egui::Context,
+        index: usize,
+    ) -> Option<Option<Clicked>> {
+        let link = self.rows.get(index)?.links.first()?;
+        Some(match &link.target {
+            LinkTarget::Url(address) => {
+                ctx.open_url(eframe::egui::OpenUrl::new_tab(address));
+                None
+            }
+            LinkTarget::Send(text) => Some(Clicked::Send(text.clone())),
+            LinkTarget::Prompt(text) => Some(Clicked::Prompt(text.clone())),
+            LinkTarget::Menu(items) => items.first().map(|(_, text)| Clicked::Send(text.clone())),
+        })
+    }
+
     /// Copies all of it, as text: from its menu and from the palette alike.
     pub fn copy_all(&self, ctx: &eframe::egui::Context) {
         ctx.copy_text(self.all_text());

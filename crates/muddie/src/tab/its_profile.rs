@@ -109,6 +109,11 @@ impl Tab {
         std::mem::take(&mut self.profile_written)
     }
 
+    /// This session says nothing aloud, ever: one kept out of sight.
+    pub fn silence(&mut self) {
+        self.voice.silence();
+    }
+
     /// Takes the saved profile of this name, without connecting: for what
     /// is done with the profile from outside its sessions.
     pub fn play_quietly(&mut self, name: &str) {

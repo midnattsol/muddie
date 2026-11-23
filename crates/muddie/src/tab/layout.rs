@@ -118,6 +118,8 @@ pub struct PanelSpec {
     /// The panels of a side with the same number here, other than none,
     /// share one place as tabs.
     pub stack: u32,
+    /// What is put in a panel of text is not read aloud.
+    pub quiet: bool,
 }
 
 impl PanelSpec {
@@ -155,6 +157,7 @@ impl Default for PanelSpec {
             channels: false,
             weight: 1.0,
             stack: 0,
+            quiet: false,
         }
     }
 }
@@ -190,6 +193,7 @@ impl Default for Layout {
             channels,
             weight: 1.0,
             stack: 0,
+            quiet: false,
         };
         Self {
             columns_full: false,

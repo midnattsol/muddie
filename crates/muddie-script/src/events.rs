@@ -61,6 +61,7 @@ impl Engine {
         {
             let mut state = self.state.borrow_mut();
             state.gag = false;
+            state.silenced = false;
             state.current_line = styled;
         }
         for hit in self.hits(text, Kind::Trigger, usize::MAX) {
@@ -75,6 +76,12 @@ impl Engine {
             return None;
         }
         Some(line.unwrap_or_default())
+    }
+
+    /// Whether a trigger asked that the last line be shown but not read
+    /// aloud.
+    pub fn line_silenced(&self) -> bool {
+        self.state.borrow().silenced
     }
 
     /// Handles a line typed by the user: a client command, or one or more

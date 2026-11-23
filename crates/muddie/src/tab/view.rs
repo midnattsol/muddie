@@ -48,12 +48,38 @@ impl Tab {
                 &summary
             });
         }
-        // The channels to read back are those of the panel that shows them.
+        // The text panels to read back, by name: that of the channels
+        // first, as Alt+Shift reads it unless another is chosen.
+        let mut texts: Vec<(String, u32)> = (self.layout.panels.iter())
+            .filter(|panel| panel.kind == super::layout::Kind::Text)
+            .map(|panel| (panel.shown_name(), panel.id))
+            .collect();
         let channels = (self.layout.panels.iter()).find(|panel| panel.channels);
-        let chat = channels
-            .and_then(|panel| self.panels.text.iter().find(|(id, _)| *id == panel.id))
-            .map_or(&self.panels.no_chat, |(_, content)| &content.log);
-        self.voice.update(ui, &self.output, chat);
+        texts.sort_by_key(|(_, id)| Some(*id) != channels.map(|panel| panel.id));
+        let logs: Vec<(&str, &crate::output::Output)> = (texts.iter())
+            .map(|(name, id)| {
+                let log = (self.panels.text.iter()).find(|(known, _)| known == id);
+                (
+                    name.as_str(),
+                    log.map_or(&self.panels.no_chat, |(_, content)| &content.log),
+                )
+            })
+            .collect();
+        let reviewed = self.voice.update(ui, &self.output, &logs);
+        match reviewed {
+            Some(crate::voice::Reviewed::Copy(text)) => {
+                ui.ctx().copy_text(text);
+                self.voice.say_now(tr("Copied."));
+            }
+            Some(crate::voice::Reviewed::Follow(row)) => {
+                match self.output.follow_link(ui.ctx(), row) {
+                    Some(Some(clicked)) => self.link_clicked(clicked),
+                    Some(None) => self.voice.say_now(tr("Opened in the browser.")),
+                    None => self.voice.say_now(tr("That line has no link.")),
+                }
+            }
+            None => {}
+        }
         if !self.started {
             return self.welcome(ui);
         }

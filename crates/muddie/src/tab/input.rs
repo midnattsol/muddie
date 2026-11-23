@@ -123,8 +123,23 @@ impl Tab {
             .rev()
             .flat_map(|entry| complete::words(entry));
         let given = scripted.iter().map(String::as_str);
+        let before = self.input.clone();
         self.completion
             .complete(&mut self.input, seen.into_iter().chain(typed).chain(given));
+        // The field changed under the caret, which a screen reader does
+        // not read: the word it is now is said.
+        match self.input == before {
+            true => self.voice.say_now(tr("No word to complete it with.")),
+            false => {
+                let word = self
+                    .input
+                    .split_whitespace()
+                    .last()
+                    .unwrap_or_default()
+                    .to_owned();
+                self.voice.say_now(&word);
+            }
+        }
         true
     }
 
@@ -238,7 +253,13 @@ impl Tab {
         } else if down {
             self.history.newer(&mut self.input);
         } else if search {
+            let before = self.input.clone();
             self.history.search(&mut self.input);
+            let found = self.input.clone();
+            self.voice.say_now(match found == before {
+                true => tr("No earlier command has it."),
+                false => &found,
+            });
         }
         if find {
             self.open_find();
@@ -302,8 +323,14 @@ impl Tab {
             self.find.place = self.output.found_place(&self.find.query);
             match found {
                 Some(row) => {
-                    let text = self.output.text(row).trim().to_owned();
-                    self.voice.say_now(&text);
+                    let text = self.output.text(row).trim();
+                    let said = match self.find.place {
+                        Some((at, of)) => {
+                            trf("{0} of {1}: {2}", &[&at.to_string(), &of.to_string(), text])
+                        }
+                        None => text.to_owned(),
+                    };
+                    self.voice.say_now(&said);
                 }
                 None => self.voice.say_now(tr("Not found.")),
             }
@@ -335,6 +362,11 @@ impl Tab {
             .then(|| self.dispatched.clone())
             .flatten();
         match &shown {
+            // Shown, but kept from being read: as if it had been.
+            Some(shown) if self.scripts.line_silenced() => {
+                self.output.set_partial(shown);
+                self.voice.skip_partial(&text);
+            }
             Some(shown) => self.output.set_partial(shown),
             None => {
                 self.output.clear_partial();

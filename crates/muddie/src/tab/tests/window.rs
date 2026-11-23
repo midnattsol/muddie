@@ -149,10 +149,34 @@ fn what_is_said_aloud_is_the_game_the_channels_and_the_client() {
         .unwrap();
     harness.run_steps(3);
     assert!(said(&harness).is_empty());
+    // The game not read, Muddie still says what it says of itself.
     let app = harness.state_mut().tab_mut();
     app.voice.set_muted(true);
-    app.note("Nobody hears this.");
+    events
+        .send(Event::Line(
+            panels::styled_lines("A troll arrives.").remove(0),
+        ))
+        .unwrap();
+    harness.run_steps(3);
     assert!(said(&harness).is_empty());
+    harness.state_mut().tab_mut().note("Still heard.");
+    assert_eq!(said(&harness), ["Still heard."]);
+    // Read again: a tell that comes as a line and over GMCP is read once.
+    let app = harness.state_mut().tab_mut();
+    app.voice.set_muted(false);
+    app.set_channel_quiet("ooc", false);
+    app.voice.said.clear();
+    events
+        .send(Event::Line(panels::styled_lines("Ana: otra vez").remove(0)))
+        .unwrap();
+    events
+        .send(Event::Gmcp {
+            package: "Comm.Channel.Text".into(),
+            data: r#"{"channel": "ooc", "text": "Ana: otra vez"}"#.into(),
+        })
+        .unwrap();
+    harness.run_steps(3);
+    assert_eq!(said(&harness), ["Ana: otra vez"]);
 }
 
 #[test]
@@ -719,4 +743,96 @@ fn titles_and_captions_are_headings() {
     harness.run_steps(3);
     harness.get_by_role_and_label(egui::accesskit::Role::Heading, "Editor");
     harness.get_by_role_and_label(egui::accesskit::Role::Heading, "When");
+}
+
+/// What the game sends is read as the player wants it: a line a trigger
+/// silences is shown and not read, prompts can be left unread, what a
+/// trigger moves to a panel is read with the panel's name, and the review
+/// keys go through any panel of text, saying where they stop.
+#[test]
+fn the_game_is_read_as_wanted_and_any_panel_is_read_back() {
+    let mut harness = window(None);
+    let app = harness.state_mut().tab_mut();
+    app.voice.force_voice();
+    app.rules
+        .triggers
+        .push(trigger("spam", |rule| rule.when.silence = true));
+    app.rules.triggers.push(trigger("tells you", |rule| {
+        rule.when.panel = "Tells".into();
+        rule.when.gag = true;
+    }));
+    for (name, code) in app.rules.chunks() {
+        app.scripts.exec(&name, &code);
+    }
+    let mut settings = app.settings.clone();
+    settings.speech_prompts = false;
+    app.voice.configure(&settings);
+    app.voice.force_voice();
+    let (events, _sent) = fake_connection(app);
+    let line = |text: &str| Event::Line(panels::styled_lines(text).remove(0));
+    events.send(line("some spam here")).unwrap();
+    events
+        .send(Event::Prompt(panels::styled_lines("<100hp>").remove(0)))
+        .unwrap();
+    events.send(line("Ana tells you: hola")).unwrap();
+    events.send(line("Bob tells you: adiós")).unwrap();
+    harness.run_steps(3);
+    let said = |harness: &Harness<'_, App>| harness.state().tab().voice.said.clone();
+    assert_eq!(
+        said(&harness),
+        ["Tells: Ana tells you: hola", "Tells: Bob tells you: adiós"]
+    );
+    let app = harness.state_mut().tab_mut();
+    assert_eq!(app.output.text(0), "some spam here");
+    app.voice.said.clear();
+    // Alt+Shift reads the panel back, the newest first, and says so at
+    // the start of it.
+    let review = egui::Modifiers::ALT | egui::Modifiers::SHIFT;
+    harness.key_press_modifiers(review, egui::Key::ArrowUp);
+    harness.key_press_modifiers(review, egui::Key::ArrowUp);
+    harness.key_press_modifiers(review, egui::Key::ArrowUp);
+    harness.run_steps(1);
+    assert_eq!(
+        said(&harness),
+        [
+            "Bob tells you: adiós",
+            "Ana tells you: hola",
+            "First line: Ana tells you: hola"
+        ]
+    );
+    // Alt alone reads the game output, not the panel.
+    harness.state_mut().tab_mut().voice.said.clear();
+    harness.key_press_modifiers(egui::Modifiers::ALT, egui::Key::ArrowUp);
+    harness.run_steps(1);
+    assert_eq!(said(&harness), ["<100hp>"]);
+    // Alt+Shift+Right names the panel it goes to.
+    harness.state_mut().tab_mut().voice.said.clear();
+    harness.key_press_modifiers(review, egui::Key::ArrowRight);
+    harness.run_steps(1);
+    assert_eq!(said(&harness), ["Tells, 2 lines."]);
+}
+
+/// With new lines interrupting, a burst of them is read whole: only its
+/// first line cuts short what was being said.
+#[test]
+fn a_burst_of_lines_interrupts_once() {
+    let mut harness = window(None);
+    let app = harness.state_mut().tab_mut();
+    let mut settings = app.settings.clone();
+    settings.speech_interrupts = true;
+    app.voice.configure(&settings);
+    app.voice.force_voice();
+    let (events, _sent) = fake_connection(app);
+    for text in ["The Square", "A wide square.", "Exits: north."] {
+        events
+            .send(Event::Line(panels::styled_lines(text).remove(0)))
+            .unwrap();
+    }
+    harness.run_steps(3);
+    let voice = &harness.state().tab().voice;
+    assert_eq!(
+        voice.said,
+        ["The Square", "A wide square.", "Exits: north."]
+    );
+    assert_eq!(voice.cut, ["The Square"]);
 }

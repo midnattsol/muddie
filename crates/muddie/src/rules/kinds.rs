@@ -70,6 +70,8 @@ pub struct OnLine {
     pub regex: bool,
     /// Hide the line.
     pub gag: bool,
+    /// Show the line, but not read it aloud.
+    pub silence: bool,
     /// Colour to give the matched text, as a name or `#rrggbb`; empty for
     /// none.
     pub highlight: String,
@@ -218,6 +220,8 @@ pub enum Part {
     Panel,
     /// That it hides the line.
     Gag,
+    /// That it keeps the line from being read aloud.
+    Silence,
     /// The key that sets it off.
     Key,
     /// How often it goes off, or after how long.
@@ -261,6 +265,9 @@ impl Rule<OnLine> {
         }
         if when.gag {
             parts.push((Part::Gag, String::new()));
+        }
+        if when.silence {
+            parts.push((Part::Silence, String::new()));
         }
         parts
     }

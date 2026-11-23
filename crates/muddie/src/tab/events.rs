@@ -37,7 +37,8 @@ impl Tab {
         }
         match event {
             Event::Connected => self.on_connected(),
-            Event::Line(line) | Event::Prompt(line) => self.on_line(line, recording),
+            Event::Line(line) => self.on_line(line, false, recording),
+            Event::Prompt(line) => self.on_line(line, true, recording),
             Event::Partial(line) => self.on_partial(line),
             Event::InputHidden(hidden) => {
                 self.input_hidden = hidden;
@@ -154,7 +155,7 @@ impl Tab {
 
     /// A whole line, or a prompt: a sound asked for is played, anything
     /// else goes through the triggers and is shown as they leave it.
-    fn on_line(&mut self, line: Line, recording: bool) {
+    fn on_line(&mut self, line: Line, prompt: bool, recording: bool) {
         let text = line.text();
         if let Some(request) = sound::parse_msp(&text) {
             if recording {
@@ -182,7 +183,15 @@ impl Tab {
         match shown {
             Some(shown) => {
                 self.show_line(&shown);
-                self.voice.line(&text);
+                // Read unless a trigger asked not to, or the session is
+                // not the one on screen: only that one is heard.
+                if self.scripts.line_silenced() || !self.on_screen {
+                    self.voice.skip_line(&text);
+                } else if prompt {
+                    self.voice.prompt(&text);
+                } else {
+                    self.voice.line(&text);
+                }
                 self.dispatched = Some(shown);
             }
             None => {

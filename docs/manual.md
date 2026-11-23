@@ -681,13 +681,20 @@ settings, **Speak with** chooses what reads it:
   speed and in the language set below it.
 - **Nothing**.
 
-**Speech in this session** in the palette silences it for the session, and
-brings it back, with the system's voice if there is no
-screen reader. What is said on the MUD's channels is read too, after the
-channel's name; **Read the channels** in the settings turns that off, and
-**Read aloud** in the menu of a channel's tab, for that channel alone, in
-that profile. **Interrupt with new lines** has each new line cut short the
-one being said, for games where what came before is soon old.
+**Read the game aloud** in the palette stops reading the game in that
+session, and brings it back, with the system's voice if there is no screen
+reader: what Muddie says of itself, the review keys and the map are still
+said. What is said on the MUD's channels is read too, after the channel's
+name, and what a trigger puts in a panel of text, after the panel's name;
+what was just read as a line is not read again so. **Read the channels** in
+the settings turns the channels off, and **Read aloud**, in the menu of a
+channel's tab or of a panel of text, that one alone. **Read the prompt**
+off leaves the prompt unread after each command, and **Do not read it
+aloud**, in a trigger, any line it matches: both are shown and read back
+with the review keys. **Interrupt with new lines** has new lines cut short
+what is being said, for games where what came before is soon old: a room
+that comes in many lines at once is read whole. Only the session on screen
+is read; others are read again when they are shown.
 
 | Key | What it does |
 |---|---|
@@ -695,7 +702,10 @@ one being said, for games where what came before is soon old.
 | Alt+Up, Alt+Down | Reads the previous and next line of output |
 | Alt+Home, Alt+End | Reads the first and last line |
 | Alt+1 ... Alt+9 | Reads the most recent lines |
-| Alt+Shift with the same keys | The same for the panel of channels |
+| Alt+Shift with the same keys | The same for a panel of text: the channels' at first |
+| Alt+Shift+Left, Alt+Shift+Right | Chooses the panel of text Alt+Shift reads |
+| Alt+C | Copies the line read last |
+| Alt+O | Does what the link of the line read last does |
 | Alt+0 | Reads the gauges |
 | Alt+M | Says where you are by the map, and how far a walk has left |
 | Alt+E | Explores the map with the keys, from where you are, without moving |
@@ -713,11 +723,9 @@ the new size is said; and opening a dialog with the keyboard puts it on
 its first control. In an editor of code Tab inserts a tab; Escape and then
 Tab move on to the next control.
 
-A gauge is said as soon as it falls under one of its warnings (a step
-where it changes colour, or its low mark), as it is seen turning colour.
-
 The review keys cut short what is being said, so moving through the lines
-is quick. Sending a command silences what was still queued. For the system's
+is quick, and say "First line" or "Last line" at either end. Tab, completing
+a word, says the word, and Ctrl+R the command it found. Sending a command silences what was still queued. For the system's
 voice, set the language (`es`, `en`...) to that of the MUD, so its text is
 read with the right voice.
 

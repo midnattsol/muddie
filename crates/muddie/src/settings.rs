@@ -94,6 +94,8 @@ pub struct Settings {
     /// What is said on the MUD's channels is said aloud too, with the
     /// channel's name before it.
     pub speech_channels: bool,
+    /// Prompts are read as they come.
+    pub speech_prompts: bool,
     /// Show the time each line arrived.
     pub timestamps: bool,
     /// Leave a command in the command line after sending it, selected:
@@ -127,6 +129,7 @@ impl Default for Settings {
             speech: SpeechOutput::default(),
             speech_interrupts: false,
             speech_channels: true,
+            speech_prompts: true,
             timestamps: false,
             keep_command: false,
             automation_panes: [190.0, 320.0],

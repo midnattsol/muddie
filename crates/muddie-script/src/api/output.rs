@@ -86,6 +86,14 @@ fn install_gag(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
             Ok(())
         })?,
     )?;
+    let shared = Rc::clone(state);
+    add(
+        "silence",
+        lua.create_function(move |_, ()| {
+            shared.borrow_mut().silenced = true;
+            Ok(())
+        })?,
+    )?;
     Ok(())
 }
 

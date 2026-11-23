@@ -1045,8 +1045,6 @@ msgstr "Los cambios se aplican al reconectar."
 msgid "Automatic"
 msgstr "Automática"
 
-msgid "Same, for the panel of channels"
-msgstr "Igual, en el panel de canales"
 
 msgid "Edit profile"
 msgstr "Editar perfil"
@@ -2834,8 +2832,6 @@ msgstr "sin explorar"
 msgid "Note on {0}"
 msgstr "Nota en {0}"
 
-msgid "Speech in this session"
-msgstr "Voz en esta sesión"
 
 msgid "What speaks"
 msgstr "Qué habla"
@@ -2854,3 +2850,72 @@ msgstr "Mantener la conexión"
 
 msgid "Enter names it again."
 msgstr "Intro le cambia el nombre."
+
+msgid "Opened in the browser."
+msgstr "Abierto en el navegador."
+
+msgid "That line has no link."
+msgstr "Esa línea no tiene enlace."
+
+msgid "No word to complete it with."
+msgstr "No hay palabra con que completarla."
+
+msgid "No earlier command has it."
+msgstr "Ningún comando anterior lo tiene."
+
+msgid "Read the game aloud"
+msgstr "Leer el juego en voz alta"
+
+msgid "The game is no longer read aloud."
+msgstr "El juego ya no se lee en voz alta."
+
+msgid "The game is read aloud."
+msgstr "El juego se lee en voz alta."
+
+msgid "The line is shown, and read back with the review keys, but not read aloud as it comes."
+msgstr "La línea se muestra, y se repasa con las teclas de repaso, pero no se lee en voz alta al llegar."
+
+msgid "Do not read it aloud"
+msgstr "No leerla en voz alta"
+
+msgid "does not read it aloud"
+msgstr "no la lee en voz alta"
+
+msgid "{0}: {1}"
+msgstr "{0}: {1}"
+
+msgid "Read the prompt"
+msgstr "Leer el prompt"
+
+msgid "The line the MUD waits for a command with, after each one. It can still be read back."
+msgstr "La línea con la que el MUD espera un comando, tras cada uno. Se puede seguir repasando."
+
+msgid "No text panels."
+msgstr "No hay paneles de texto."
+
+msgid "{0}, {1}."
+msgstr "{0}, {1}."
+
+msgid "First line: {0}"
+msgstr "Primera línea: {0}"
+
+msgid "Last line: {0}"
+msgstr "Última línea: {0}"
+
+#, python-brace-format
+msgid "{0} line"
+msgid_plural "{0} lines"
+msgstr[0] "{0} línea"
+msgstr[1] "{0} líneas"
+
+msgid "Same, for a panel of text"
+msgstr "Igual, para un panel de texto"
+
+msgid "Choose the panel of text to read"
+msgstr "Elegir el panel de texto que leer"
+
+msgid "Copy the line read last"
+msgstr "Copiar la última línea leída"
+
+msgid "Follow the link of the line read last"
+msgstr "Seguir el enlace de la última línea leída"

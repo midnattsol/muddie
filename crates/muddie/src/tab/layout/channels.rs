@@ -57,13 +57,14 @@ impl Tab {
     /// Says aloud what was said on a channel, after its name, unless the
     /// channels are not read or this one is kept quiet.
     fn read_channel(&mut self, name: &str, lines: &[Line]) {
-        if !self.settings.speech_channels || self.channel_quiet(name) {
+        if !self.settings.speech_channels || self.channel_quiet(name) || !self.on_screen {
             return;
         }
         for line in lines {
             let text = line.text();
             if !text.trim().is_empty() {
-                self.voice.say(&format!("{name}: {}", text.trim()));
+                let said = crate::i18n::trf("{0}: {1}", &[name, text.trim()]);
+                self.voice.read(&said, &text);
             }
         }
     }

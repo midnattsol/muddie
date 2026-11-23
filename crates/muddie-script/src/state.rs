@@ -219,6 +219,9 @@ pub(super) struct State {
     /// is and the script that set it last: to be undone when that script
     /// stops. One of [`Set`].
     pub(crate) set_by: Vec<(Set, String)>,
+    /// The line the triggers run on is shown, but not read aloud
+    /// (`silence()`).
+    pub(crate) silenced: bool,
     /// Set by `gag()` while a line's triggers run.
     pub(crate) gag: bool,
     /// The line whose triggers are running, with its styles.

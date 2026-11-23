@@ -89,6 +89,9 @@ impl Luau for OnLine {
         if when.gag {
             code.push_str("\tgag()\n");
         }
+        if when.silence {
+            code.push_str("\tsilence()\n");
+        }
         code.push_str(&rule.action());
         if !when.speak.trim().is_empty() {
             code.push_str(&format!(

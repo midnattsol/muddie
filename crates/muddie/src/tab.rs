@@ -108,6 +108,8 @@ pub struct Tab {
     /// The line the triggers were last given, for those that show it in
     /// a panel.
     dispatched: Option<Line>,
+    /// The session is the one on screen: only it is read aloud.
+    on_screen: bool,
     /// Shared with the script engine, which reads and edits it. No borrow
     /// may be held while calling into `scripts`.
     map: Rc<RefCell<Map>>,
@@ -293,6 +295,7 @@ impl Tab {
             layout: layout::Layout::default(),
             panels: layout::Panels::default(),
             dispatched: None,
+            on_screen: true,
             map,
             map_view: MapView::default(),
             walk: None,
@@ -416,6 +419,7 @@ impl Tab {
     /// Runs the session for a frame, on screen or not: events from the
     /// server, timers, and anything waiting on the clock.
     pub fn poll(&mut self, ctx: &egui::Context, on_screen: bool) {
+        self.on_screen = on_screen;
         let lines_before = self.output.total_pushed();
         if self.handle_events() {
             ctx.request_repaint();

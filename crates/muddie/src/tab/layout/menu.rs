@@ -26,11 +26,20 @@ impl Tab {
             widgets::menu_separator(ui);
             let panel = &mut self.layout.panels[index];
             match spec.kind {
-                Kind::Text => drop(widgets::menu_check(
-                    ui,
-                    &mut panel.channels,
-                    tr("Show the MUD's channels here"),
-                )),
+                Kind::Text => {
+                    widgets::menu_check(
+                        ui,
+                        &mut panel.channels,
+                        tr("Show the MUD's channels here"),
+                    );
+                    // The channels have their own, each, in their tabs.
+                    if !panel.channels {
+                        let mut aloud = !panel.quiet;
+                        if widgets::menu_check(ui, &mut aloud, tr("Read aloud")).clicked() {
+                            panel.quiet = !aloud;
+                        }
+                    }
+                }
                 Kind::Gauges => {
                     if widgets::menu_item(ui, tr("Edit the gauges"), "").clicked() {
                         asked = Some(PanelAsk::Gauges);

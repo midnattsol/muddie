@@ -41,7 +41,19 @@ impl App {
                             ),
                             (
                                 crate::shortcuts::with_arrows!("Shift+↑ …"),
-                                tr("Same, for the panel of channels"),
+                                tr("Same, for a panel of text"),
+                            ),
+                            (
+                                crate::shortcuts::with_arrows!("Shift+←  →"),
+                                tr("Choose the panel of text to read"),
+                            ),
+                            (
+                                crate::shortcuts::with_key!("C"),
+                                tr("Copy the line read last"),
+                            ),
+                            (
+                                crate::shortcuts::with_key!("O"),
+                                tr("Follow the link of the line read last"),
                             ),
                             (crate::shortcuts::GAUGES.written, tr("Read the gauges")),
                             (crate::shortcuts::WHERE.written, tr("Where am I")),

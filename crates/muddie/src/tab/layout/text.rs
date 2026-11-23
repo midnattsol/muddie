@@ -74,10 +74,20 @@ impl Tab {
     }
 
     /// Adds a line at the end of a panel.
+    /// Read aloud after the panel's name, unless the panel is kept
+    /// quiet, or the line was just read as it came.
     pub(in crate::tab) fn add_to_panel(&mut self, name: &str, line: &Line) {
         let id = self.panel_called(name);
         self.text_of(id).log.push(line);
         self.note_unread(id);
+        let Some(panel) = self.layout.panel(id) else {
+            return;
+        };
+        let text = line.text();
+        if !panel.quiet && !text.trim().is_empty() && self.on_screen {
+            let said = trf("{0}: {1}", &[&panel.shown_name(), text.trim()]);
+            self.voice.read(&said, &text);
+        }
     }
 
     /// Marks a panel that got something while another tab of its place

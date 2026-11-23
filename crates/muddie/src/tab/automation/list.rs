@@ -979,6 +979,7 @@ fn shown_part(part: Part, text: String) -> (widgets::Glyph, String) {
         Part::Highlight => (Glyph::Colour, text),
         Part::Panel => (Glyph::Panel, text),
         Part::Gag => (Glyph::Hide, tr("hides the line").to_owned()),
+        Part::Silence => (Glyph::Say, tr("does not read it aloud").to_owned()),
         Part::Key => (Glyph::Key, text),
         Part::Time => (Glyph::Timer, text),
     }
@@ -1007,7 +1008,9 @@ fn rule_rows<T: crate::rules::Luau>(
             let title = rule_title(rules, index);
             let rule = &rules[index];
             let parts: Vec<(widgets::Glyph, String)> = (detail(rule).into_iter())
-                .filter(|(part, text)| *part == Part::Gag || !text.is_empty())
+                .filter(|(part, text)| {
+                    matches!(part, Part::Gag | Part::Silence) || !text.is_empty()
+                })
                 .map(|(part, text)| shown_part(part, text))
                 .collect();
             Row {

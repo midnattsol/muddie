@@ -379,6 +379,14 @@ fn speech_settings(ui: &mut Ui, settings: &mut Settings, through: Option<&str>) 
                 "What is said on the MUD's channels, with the channel's name.",
             )),
         );
+        widgets::switch_setting(
+            ui,
+            &mut settings.speech_prompts,
+            tr("Read the prompt"),
+            Some(tr(
+                "The line the MUD waits for a command with, after each one. It can still be read back.",
+            )),
+        );
     });
     // These are for the system's voice alone.
     let voice = settings.speech == SpeechOutput::Voice;

@@ -78,7 +78,10 @@ impl Tab {
         acts.push(item(tr("Copy all output"), session, Act::CopyOutput));
         let log = switched(tr("Log this session"), self.log.is_some());
         acts.push(item(&log, session, Act::Log));
-        let speech = switched(tr("Speech in this session"), self.voice.enabled());
+        let speech = switched(
+            tr("Read the game aloud"),
+            self.voice.enabled() && self.voice.reads_game(),
+        );
         acts.push(item(&speech, session, Act::Speech));
         acts.push(match &self.profile {
             Some(name) => {
@@ -344,8 +347,11 @@ impl Tab {
             Act::ReadChannel(name, read) => {
                 self.set_channel_quiet(&name, !read);
             }
-            Act::Speech => match self.voice.enabled() {
-                true => self.voice.set_muted(true),
+            Act::Speech => match self.voice.enabled() && self.voice.reads_game() {
+                true => {
+                    self.voice.set_muted(true);
+                    self.voice.say_now(tr("The game is no longer read aloud."));
+                }
                 false => {
                     self.voice.set_muted(false);
                     // Asked to speak with nothing to speak through: the
@@ -353,6 +359,7 @@ impl Tab {
                     if !self.voice.enabled() {
                         self.voice.force_voice();
                     }
+                    self.voice.say_now(tr("The game is read aloud."));
                 }
             },
             Act::MapAction(label) => self.use_map_action(&label),

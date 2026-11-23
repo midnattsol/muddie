@@ -3,8 +3,9 @@
 //! in use, and so to a braille display too, or through the system's voice,
 //! as the settings say; it is the same on every system.
 
+use std::collections::VecDeque;
 use std::sync::{Arc, OnceLock};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use eframe::egui::{Key, Modifiers, Ui};
 use muddie_speech::{Narrator, Speech, Through};
@@ -12,6 +13,24 @@ use muddie_speech::{Narrator, Speech, Through};
 use crate::i18n::tr;
 use crate::output::Output;
 use crate::settings::{Settings, SpeechOutput};
+
+/// Lines of the game closer than this to the one before are one burst: a
+/// new line cuts short what is said only at the first of them.
+const BURST: Duration = Duration::from_millis(300);
+
+/// What was read of the game this recently is not read again as said on a
+/// channel or put in a panel, nor the other way round: many MUDs send a
+/// tell as a line and over GMCP both.
+const ALREADY_READ: Duration = Duration::from_secs(3);
+
+/// What the review keys ask for besides reading.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Reviewed {
+    /// The line read last, to copy.
+    Copy(String),
+    /// The first link of the line read last, in the main output, by row.
+    Follow(usize),
+}
 
 /// Alt plus one of these reads the first to ninth most recent line.
 const RECENT_KEYS: [Key; 9] = [
@@ -32,16 +51,30 @@ pub struct Voice {
     /// the system's voice.
     output: SpeechOutput,
     forced: bool,
-    /// Silenced for this session.
+    /// The game is not read aloud in this session; what Muddie says of
+    /// itself still is.
     muted: bool,
+    /// Nothing is ever said: the session is kept out of sight.
+    silent: bool,
+    /// Prompts are not read.
+    quiet_prompts: bool,
+    /// When a line of the game was last read: the start of a burst
+    /// interrupts, the rest of it waits.
+    last_read: Option<Instant>,
+    /// What was read lately, and whether it was a line of the game.
+    recent: VecDeque<(String, Instant, bool)>,
     /// The line to speech, while there is one to keep, and where it goes.
     speech: Option<Speech>,
     opened: Option<Through>,
     narrator: Narrator,
     /// A new line of the game cuts short what is being said.
     interrupts: bool,
-    /// Rows last read with the review keys: in the output, and in the chat.
-    review: [Option<usize>; 2],
+    /// The lines last read with the review keys, by their serial (see
+    /// [`Output::total_pushed`]), so that dropping old ones does not move
+    /// them: in the output, and in the panel reviewed.
+    review: [Option<u64>; 2],
+    /// The text panel reviewed with Alt+Shift, by its name.
+    panel: Option<String>,
     ctrl_was_down: bool,
     /// Speech rate from -100 to 100, and the language code to speak in.
     rate: i32,
@@ -55,6 +88,9 @@ pub struct Voice {
     /// What was said, in tests, which speak to nothing.
     #[cfg(test)]
     pub said: Vec<String>,
+    /// What of that cut short what was being said, in tests.
+    #[cfg(test)]
+    pub cut: Vec<String>,
 }
 
 impl Voice {
@@ -64,6 +100,7 @@ impl Voice {
         self.rate = settings.speech_rate;
         self.language = settings.speech_language.clone();
         self.interrupts = settings.speech_interrupts;
+        self.quiet_prompts = !settings.speech_prompts;
         self.output = settings.speech;
         let opened = self.opened;
         self.open();
@@ -87,12 +124,19 @@ impl Voice {
 
     /// Where speech goes, or nothing.
     fn wanted(&self) -> Option<Through> {
-        match (self.forced, self.output, self.muted) {
+        match (self.forced, self.output, self.silent) {
             (_, _, true) => None,
             (true, ..) | (false, SpeechOutput::Voice, _) => Some(Through::Voice),
             (false, SpeechOutput::Reader, _) => Some(Through::ScreenReader),
             (false, SpeechOutput::Off, _) => None,
         }
+    }
+
+    /// This session says nothing, ever: one kept out of sight, whose
+    /// messages are said by the session on screen.
+    pub fn silence(&mut self) {
+        self.silent = true;
+        self.open();
     }
 
     /// Starts or stops the line to speech when where it is wanted to go
@@ -148,13 +192,18 @@ impl Voice {
         (self.speech.as_ref()).is_some_and(|speech| speech.status().screen_reader)
     }
 
-    /// Silences speech for this session, or lets it speak again.
+    /// Stops reading the game in this session, or reads it again. What
+    /// Muddie says of itself, the review keys and the map are still said.
     pub fn set_muted(&mut self, muted: bool) {
-        if muted != self.muted {
-            // Speaking again, it says what it speaks with.
-            self.muted = muted;
-            self.open();
+        self.muted = muted;
+        if muted {
+            self.stop();
         }
+    }
+
+    /// Whether the game is read aloud in this session.
+    pub fn reads_game(&self) -> bool {
+        !self.muted
     }
 
     /// Says `text` after whatever is being said.
@@ -171,6 +220,9 @@ impl Voice {
         #[cfg(test)]
         if self.wanted().is_some() {
             self.said.push(text.to_owned());
+            if interrupt {
+                self.cut.push(text.to_owned());
+            }
         }
         if let Some(speech) = &self.speech {
             speech.say(text, interrupt);
@@ -184,10 +236,67 @@ impl Voice {
         }
     }
 
-    /// A line or prompt from the server was completed.
+    /// A line from the server was completed.
     pub fn line(&mut self, text: &str) {
         if let Some(text) = self.narrator.line(text) {
-            self.speak(&text, self.interrupts);
+            self.read_game(&text);
+        }
+    }
+
+    /// A prompt from the server was completed: read as a line, unless
+    /// prompts are not read.
+    pub fn prompt(&mut self, text: &str) {
+        match self.quiet_prompts {
+            false => self.line(text),
+            true => self.skip_line(text),
+        }
+    }
+
+    /// Reads what the game said, unless the game is not read: cutting
+    /// short what is said only at the start of a burst, so that a room
+    /// that comes in many lines is read whole. What was just read as said
+    /// on a channel is not read again.
+    fn read_game(&mut self, text: &str) {
+        if self.muted || self.read_lately(text, false) {
+            return;
+        }
+        let now = Instant::now();
+        let first = self
+            .last_read
+            .is_none_or(|at| now.duration_since(at) > BURST);
+        self.last_read = Some(now);
+        self.keep_read(text, true);
+        self.speak(text, self.interrupts && first);
+    }
+
+    /// Reads what was said on a channel or put in a panel, after what is
+    /// being said, unless the game is not read or it was just read as a
+    /// line.
+    pub fn read(&mut self, text: &str, line: &str) {
+        if self.muted || self.read_lately(line, true) {
+            return;
+        }
+        self.keep_read(line, false);
+        self.say(text);
+    }
+
+    /// Whether `text` was read lately the other way: as a line, if it
+    /// comes from a channel, or from a channel if it is a line.
+    fn read_lately(&mut self, text: &str, from_channel: bool) -> bool {
+        let now = Instant::now();
+        (self.recent).retain(|(_, at, _)| now.duration_since(*at) < ALREADY_READ);
+        let text = text.trim();
+        !text.is_empty()
+            && (self.recent.iter()).any(|(read, _, line)| {
+                *line == from_channel && (read.contains(text) || text.contains(read.as_str()))
+            })
+    }
+
+    fn keep_read(&mut self, text: &str, line: bool) {
+        let text = text.trim();
+        if !text.is_empty() {
+            self.recent
+                .push_back((text.to_owned(), Instant::now(), line));
         }
     }
 
@@ -208,17 +317,26 @@ impl Voice {
     }
 
     /// Runs once per frame: speaks settled text and handles the speech
-    /// keys.
-    pub fn update(&mut self, ui: &mut Ui, output: &Output, chat: &Output) {
+    /// keys, over the output and the text panels, by their names. Returns
+    /// what the keys asked for besides reading.
+    pub fn update(
+        &mut self,
+        ui: &mut Ui,
+        output: &Output,
+        panels: &[(&str, &Output)],
+    ) -> Option<Reviewed> {
         // What speaks can change at any time: the speech thread wakes the
         // window then, so the status bar and the MUD learn of it.
         let _ = self.window.set(ui.ctx().clone());
         if !self.enabled() {
-            return;
+            return None;
         }
         let now = Instant::now();
-        if let Some(text) = self.narrator.poll(now) {
-            self.speak(&text, self.interrupts);
+        // Text that stays unended is a prompt.
+        if let Some(text) = self.narrator.poll(now)
+            && !self.quiet_prompts
+        {
+            self.read_game(&text);
         }
         if let Some(deadline) = self.narrator.deadline() {
             ui.ctx()
@@ -232,21 +350,77 @@ impl Voice {
         }
         self.ctrl_was_down = ctrl_down;
 
-        self.review_keys(ui, output, 0, Modifiers::NONE);
-        self.review_keys(ui, chat, 1, Modifiers::SHIFT);
+        // Shift first: Alt alone would take Alt+Shift too.
+        let mut asked = self.choose_panel(ui, panels);
+        let panel = (self.panel.as_deref())
+            .and_then(|name| {
+                panels
+                    .iter()
+                    .find(|(known, _)| known.eq_ignore_ascii_case(name))
+            })
+            .or(panels.first());
+        if let Some((_, log)) = panel {
+            asked = asked.or(self.review_keys(ui, log, 1, Modifiers::SHIFT));
+        }
+        asked.or(self.review_keys(ui, output, 0, Modifiers::NONE))
+    }
+
+    /// Alt+Shift+Left and Right choose the text panel Alt+Shift reviews,
+    /// saying its name and how many lines it has.
+    fn choose_panel(&mut self, ui: &mut Ui, panels: &[(&str, &Output)]) -> Option<Reviewed> {
+        let keys = crate::shortcuts::WITH_ARROWS | Modifiers::SHIFT;
+        let (back, on) = ui.input_mut(|input| {
+            (
+                input.consume_key(keys, Key::ArrowLeft),
+                input.consume_key(keys, Key::ArrowRight),
+            )
+        });
+        if !(back || on) {
+            return None;
+        }
+        if panels.is_empty() {
+            self.say_now(tr("No text panels."));
+            return None;
+        }
+        let at = (self.panel.as_deref())
+            .and_then(|name| {
+                panels
+                    .iter()
+                    .position(|(known, _)| known.eq_ignore_ascii_case(name))
+            })
+            .unwrap_or(0);
+        let next = match back {
+            true => (at + panels.len() - 1) % panels.len(),
+            false => (at + 1) % panels.len(),
+        };
+        let (name, log) = panels[next];
+        self.panel = Some(name.to_owned());
+        self.review[1] = None;
+        let lines = crate::i18n::trn("{0} line", "{0} lines", log.len() as u64);
+        self.say_now(&crate::i18n::trf("{0}, {1}.", &[name, &lines]));
+        None
     }
 
     /// With `modifiers` held, Up/Down/Home/End move through `output`
-    /// reading each line, and 1..9 read the most recent lines without
-    /// moving. Alt reviews the main output and Alt+Shift the chat.
-    fn review_keys(&mut self, ui: &mut Ui, output: &Output, which: usize, modifiers: Modifiers) {
-        let Some(last) = output.len().checked_sub(1) else {
-            return;
-        };
-        let current = self.review[which].map(|row| row.min(last));
-        let (moved, recent) = ui.input_mut(|input| {
-            // The arrows with Alt (Option on a Mac), the figures with
-            // Alt (Ctrl on a Mac), and Shift for the panel of channels.
+    /// reading each line, saying so at either end, and 1..9 read the most
+    /// recent lines without moving. Alt reviews the main output and
+    /// Alt+Shift a text panel. C copies the line read, and O, in the main
+    /// output, follows its link.
+    fn review_keys(
+        &mut self,
+        ui: &mut Ui,
+        output: &Output,
+        which: usize,
+        modifiers: Modifiers,
+    ) -> Option<Reviewed> {
+        let last = output.len().checked_sub(1)?;
+        // The first row there is, by serial.
+        let first = output.total_pushed() - output.len() as u64;
+        let current =
+            self.review[which].map(|serial| (serial.saturating_sub(first) as usize).min(last));
+        let (moved, recent, copy, follow) = ui.input_mut(|input| {
+            // The arrows with Alt (Option on a Mac), the figures and the
+            // letters with Alt (Ctrl on a Mac), and Shift for a panel.
             let arrows = crate::shortcuts::WITH_ARROWS | modifiers;
             let figures = crate::shortcuts::WITH_KEY | modifiers;
             let mut pressed = |key| input.consume_key(arrows, key);
@@ -262,15 +436,30 @@ impl Voice {
                 None
             };
             let recent = (RECENT_KEYS.iter()).position(|&key| input.consume_key(figures, key));
-            (moved, recent)
+            let copy = input.consume_key(figures, Key::C);
+            let follow = which == 0 && input.consume_key(figures, Key::O);
+            (moved, recent, copy, follow)
         });
-        if moved.is_some() {
-            self.review[which] = moved;
+        if let Some(row) = moved {
+            self.review[which] = Some(first + row as u64);
         }
-        let row = moved.or_else(|| recent.and_then(|back| last.checked_sub(back)));
-        if let Some(row) = row {
-            let text = output.text(row).trim();
-            self.say_now(if text.is_empty() { tr("Blank.") } else { text });
+        let read = current.unwrap_or(last);
+        if copy {
+            return Some(Reviewed::Copy(output.text(read).trim().to_owned()));
         }
+        if follow {
+            return Some(Reviewed::Follow(read));
+        }
+        let row = moved.or_else(|| recent.and_then(|back| last.checked_sub(back)))?;
+        let text = output.text(row).trim();
+        let text = if text.is_empty() { tr("Blank.") } else { text };
+        // Pressed again at either end, it says it is there.
+        let said = match (moved.is_some() && moved == current, row) {
+            (true, 0) => crate::i18n::trf("First line: {0}", &[text]),
+            (true, row) if row == last => crate::i18n::trf("Last line: {0}", &[text]),
+            _ => text.to_owned(),
+        };
+        self.say_now(&said);
+        None
     }
 }
