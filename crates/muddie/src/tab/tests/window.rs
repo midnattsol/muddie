@@ -222,7 +222,7 @@ fn alt_m_says_where_you_are_and_how_far_a_walk_has_left() {
     assert!(
         said.last()
             .unwrap()
-            .ends_with("Walking to Puerta, ciudad: 1 step left."),
+            .ends_with("Walking to Puerta, ciudad: 1 move left."),
         "{said:?}"
     );
 }

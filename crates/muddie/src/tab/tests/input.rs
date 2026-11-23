@@ -100,7 +100,7 @@ fn client_commands_are_carried_out_and_the_rest_is_the_mud_s() {
     for line in ["/map", "/map walk 3", "/where", "/say hello", "north"] {
         assert!(!app.do_client_command(line), "{line}");
     }
-    assert!(app.do_client_command("/map hide") && !app.map_shown());
+    assert!(app.do_client_command("/map stop"));
     // Removing a plugin is asked once more, however it is asked for.
     assert!(app.do_client_command("/plugin remove extra"));
     assert_eq!(

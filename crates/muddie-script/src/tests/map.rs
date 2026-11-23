@@ -41,7 +41,7 @@ fn script_can_load_the_map_from_text() {
         "test",
         r#"local here = map.room()
         echo(`{here.name} {here.exits.s == map.id("Gate")} {map.room("Tower")}`)
-        echo(table.concat(map.path("Gate"), ","))
+        echo(table.concat(map.way("Gate"), ","))
         map.go("Gate")"#,
     );
     assert_eq!(
@@ -104,21 +104,21 @@ fn script_can_edit_and_query_the_map() {
     assert!(engine.native_map());
     engine.exec(
         "test",
-        r#"echo(`{map.room()} {map.path(2)} {#map.find("square")} {map.find("square")[2]}`)
-        echo(table.concat(map.path(2, 1), ",") .. " " .. tostring(map.path(3, 1)))
+        r#"echo(`{map.room()} {map.way(2)} {#map.find("square")} {map.find("square")[2]}`)
+        echo(table.concat(map.way(2, 1), ",") .. " " .. tostring(map.way(3, 1)))
         echo(`{map.set_exit(2, "enter portal", 3)} {map.set_exit(9, "n", 1)}`)
-        echo(table.concat(map.path(3, 1), ";"))
+        echo(table.concat(map.way(3, 1), ";"))
         echo(`{map.edit_room(3, {x = 7, y = 8})} {map.room(3).x},{map.room(3).y},{map.room(3).z}`)
         echo(`{map.remove_exit(2, "enter portal")} {map.remove_room(3)} {map.room(3)}`)
         map.set_room({id = 4, name = "Detour", area = "wilds", exits = {n = 2}})
         map.set_exit(1, "e", 4)
-        echo(`{map.edit_room(2, {avoid = true})} {map.room(2).avoid} {map.path(2, 1)[1]} {map.path(4, 1)[1]}`)
+        echo(`{map.edit_room(2, {avoid = true})} {map.room(2).avoid} {map.way(2, 1)[1]} {map.way(4, 1)[1]}`)
         echo(`{map.edit_room(4, {weight = 9})} {map.room(4).weight} {table.concat(map.areas(), "+")}`)
         map.edit_room(2, {avoid = false})
         map.set_exit(1, "gate", 2, {command = "open gate;n", cost = 0})
         map.set_exit(1, "n", nil, {blocked = true})
         local gate = map.exit(1, "gate")
-        echo(`{map.path(2, 1)[1]} {gate.custom} {gate.blocked} {map.exit(1, "n").blocked} {map.exit(1, "x")}`)
+        echo(`{map.way(2, 1)[1]} {gate.custom} {gate.blocked} {map.exit(1, "n").blocked} {map.exit(1, "x")}`)
         echo(`{map.set_exit(1, "gate", nil, {command = ""})} {map.exit(1, "gate").command} {map.set_exit(1, "x", nil, {})}`)
         echo(`{map.tidy("nowhere")} {map.tidy()}`)
         panel("Minimap", "+-+\n| |")
@@ -142,7 +142,7 @@ fn script_can_edit_and_query_the_map() {
             "true 7,8,0",
             "true true nil",
             "true true n e",
-            "true 9 +wilds",
+            "true 9 wilds",
             "open gate;n true false true nil",
             "true nil false",
             "0 0",
@@ -187,7 +187,7 @@ fn script_can_follow_a_server_that_shows_rooms_by_name_only() {
             map.set_room({id = room[1], name = room[2], area = "desert", exits = room[3]})
         end
         on_gmcp("Room.Actual", function(seen) map.arrive(seen) end)
-        on_gmcp("Room.Fallido", function() map.stop() end)"#,
+        on_gmcp("Room.Fallido", function() map.failed() end)"#,
     );
     engine.exec("test", r#"map.import("https://mud.example.org/map.zip")"#);
     assert_eq!(
@@ -206,11 +206,11 @@ fn script_can_follow_a_server_that_shows_rooms_by_name_only() {
     engine.on_gmcp("Room.Fallido", "");
     assert_eq!(
         engine.take_actions(),
-        [Action::Entered(2), Action::Entered(3), Action::StopWalk]
+        [Action::Entered(2), Action::Entered(3), Action::MoveFailed]
     );
     engine.exec(
         "test",
-        r#"echo(table.concat(map.path(1), ","))
+        r#"echo(table.concat(map.way(1), ","))
         echo(tostring(map.here(1)) .. " " .. tostring(map.here(7)))
         echo(map.exit(2, "Oeste").to)"#,
     );

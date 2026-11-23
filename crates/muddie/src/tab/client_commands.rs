@@ -25,7 +25,7 @@ impl Tab {
             ("/map", "find") if given => self.find_rooms(argument),
             ("/map", "go") if given => self.go_to(argument),
             ("/map", "here") => self.here(argument),
-            ("/map", "route") if given => self.say_route(argument),
+            ("/map", "way") if given => self.say_route(argument),
             ("/map", "exits") => self.say_exits(),
             ("/map", "explore") => self.explore_map(),
             ("/map", "near") => self.say_near(argument),
@@ -42,7 +42,6 @@ impl Tab {
             ("/map", "added") => self.list_added(),
             ("/map", "check") => self.check_map(),
             ("/map", "remove") if given => self.remove_room_command(argument),
-            ("/map", "hide") => self.set_map_shown(false),
             ("/map", "stop") => self.stop_walking(),
             ("/plugin", "install") if given => self.install_plugin(argument),
             ("/plugin", "update") if given => self.update_plugin(argument),
@@ -108,8 +107,8 @@ impl Tab {
     /// Shows an area on the map, to look at it, without going.
     fn show_area(&mut self, area: &str) {
         let map = self.map.borrow();
-        let Some(area) =
-            (map.areas().into_iter()).find(|name| name.eq_ignore_ascii_case(area.trim()))
+        let Some(area) = (map.areas().into_iter())
+            .find(|name| name.to_lowercase() == area.trim().to_lowercase())
         else {
             drop(map);
             return self.refuse(tr("The map has no area of that name."));

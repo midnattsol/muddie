@@ -14,6 +14,19 @@ pub(super) fn id_of(value: &Value) -> mlua::Result<RoomId> {
     }
 }
 
+/// Reads a place to go to: a room's id, as [`id_of`] reads one, or, as the
+/// user names places, its mark or name, the nearest of several.
+fn place_of(world: &Map, value: &Value) -> mlua::Result<RoomId> {
+    let id = id_of(value)?;
+    let named = match value {
+        Value::String(text) if world.room(id).is_none() => {
+            world.room_meant(&text.to_string_lossy())
+        }
+        _ => None,
+    };
+    Ok(named.unwrap_or(id))
+}
+
 /// Reads a room description given by a script.
 pub(super) fn room_info(room: &Table) -> mlua::Result<RoomInfo> {
     let mut exits = std::collections::BTreeMap::new();
@@ -122,7 +135,7 @@ pub(super) fn install_map_api(
 
 /// The map is updated even when saving it fails; the script still gets
 /// the failure as an error, so the user hears about it.
-fn saved(result: Result<(), muddie_mapper::Error>) -> mlua::Result<()> {
+fn saved<T>(result: Result<T, muddie_mapper::Error>) -> mlua::Result<T> {
     result.map_err(|error| mlua::Error::runtime(format!("could not save the map: {error}")))
 }
 
@@ -524,14 +537,15 @@ fn install_routes(
 ) -> mlua::Result<()> {
     let world = Rc::clone(map);
     api.set(
-        "path",
+        "way",
         lua.create_function(move |_, (to, from): (Value, Value)| {
             let world = world.borrow();
             let from = match from {
                 Value::Nil => world.current().map(|room| room.id),
-                from => Some(id_of(&from)?),
+                from => Some(place_of(&world, &from)?),
             };
-            let route = from.and_then(|from| world.route(from, id_of(&to).ok()?));
+            let to = place_of(&world, &to)?;
+            let route = from.and_then(|from| world.route(from, to));
             Ok(route.map(|steps| {
                 (steps.into_iter())
                     .map(|step| step.command)
@@ -540,23 +554,26 @@ fn install_routes(
         })?,
     )?;
 
-    let shared = Rc::clone(state);
+    let (shared, world) = (Rc::clone(state), Rc::clone(map));
     api.set(
         "go",
         lua.create_function(move |_, to: Value| {
-            (shared.borrow_mut().actions).push(Action::Walk(id_of(&to)?));
+            let to = place_of(&world.borrow(), &to)?;
+            (shared.borrow_mut().actions).push(Action::Walk(to));
             Ok(())
         })?,
     )?;
 
-    let shared = Rc::clone(state);
-    api.set(
-        "stop",
-        lua.create_function(move |_, ()| {
-            shared.borrow_mut().actions.push(Action::StopWalk);
-            Ok(())
-        })?,
-    )?;
+    for (name, action) in [("stop", Action::StopWalk), ("failed", Action::MoveFailed)] {
+        let shared = Rc::clone(state);
+        api.set(
+            name,
+            lua.create_function(move |_, ()| {
+                shared.borrow_mut().actions.push(action.clone());
+                Ok(())
+            })?,
+        )?;
+    }
 
     let shared = Rc::clone(state);
     api.set(
@@ -713,8 +730,7 @@ fn install_exits(lua: &Lua, map: &Rc<RefCell<Map>>, api: &Table) -> mlua::Result
             let Some(area) = area else {
                 return Ok((0, None));
             };
-            let tidied = (world.tidy(&area))
-                .map_err(|error| mlua::Error::runtime(format!("could not save the map: {error}")))?;
+            let tidied = saved(world.tidy(&area))?;
             Ok(match tidied {
                 muddie_mapper::Tidied::Moved(moved) => (moved, None),
                 // Left as it was, and why.

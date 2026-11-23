@@ -38,7 +38,7 @@ pub enum MapAction {
     Avoid(RoomId, bool),
     /// Draw this area again from scratch.
     Tidy(String),
-    /// Run one of the client's own commands, such as `/where`.
+    /// Run one of the client's own commands, such as `/map where`.
     Command(&'static str),
     /// Open the scripts, to set a mapper up.
     Scripts,
@@ -55,7 +55,7 @@ pub enum MapAction {
     Say(String),
     /// Say all the map knows of this room.
     Info(RoomId),
-    /// Give this room this name.
+    /// Mark this room with this name.
     Mark(RoomId, String),
     /// Write this note on this room; an empty one takes it away.
     Note(RoomId, String),
@@ -250,7 +250,6 @@ struct Tools {
     locate: bool,
     tidy: bool,
     stop: bool,
-    hide: bool,
 }
 
 pub struct MapView {
@@ -495,7 +494,7 @@ impl MapView {
             let rooms = std::iter::once(current.id).chain(walk.rooms_left());
             draw_route(&painter, map, rooms, &grid, &colours, &on_level);
         }
-        let marks = Marks {
+        let shown = Highlights {
             here: &here,
             destination: walk.and_then(|walk| walk.left().1),
             selected: self.selected,
@@ -506,7 +505,7 @@ impl MapView {
             &visible,
             &grid,
             &colours,
-            &marks,
+            &shown,
             map.appearance(),
         );
         draw_names(&painter, &visible, &grid, &colours);
@@ -821,7 +820,7 @@ impl MapView {
                 grid.on_screen(grid.cell_under(point)),
                 Vec2::splat(grid.half() * 2.0),
             );
-            let stroke = Stroke::new(1.5, colours.mark);
+            let stroke = Stroke::new(1.5, colours.moving);
             painter.rect_stroke(ghost, grid.corner(), stroke, StrokeKind::Outside);
         }
         if response.drag_stopped()
@@ -900,9 +899,7 @@ impl MapView {
 impl Tools {
     /// What the tools on the panel's header asked of the map.
     fn action(self, area: &str) -> Option<MapAction> {
-        if self.hide {
-            Some(MapAction::Command("/map hide"))
-        } else if self.stop {
+        if self.stop {
             Some(MapAction::Command("/map stop"))
         } else if self.tidy {
             Some(MapAction::Tidy(area.to_owned()))

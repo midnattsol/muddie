@@ -103,6 +103,8 @@ pub enum Action {
     LostTrack,
     /// The server said a move failed: the moves sent did not happen, and
     /// a walk stops.
+    MoveFailed,
+    /// Stop walking, as the user would.
     StopWalk,
     /// Take the map made with Mudlet at this address in place of the one
     /// there is; if it was taken from there, only if it has changed.

@@ -143,16 +143,12 @@ impl Tab {
             item(
                 tr("The way to…"),
                 map,
-                ask(tr("The way to").into(), "/map route ", Offers::Places),
+                ask(tr("The way to").into(), "/map way ", Offers::Places),
             ),
             item(
                 tr("Find rooms…"),
                 map,
-                ask(
-                    tr("Find rooms called").into(),
-                    "/map find ",
-                    Offers::Nothing,
-                ),
+                ask(tr("Find rooms with").into(), "/map find ", Offers::Nothing),
             ),
             item(
                 tr("What the map knows of…"),

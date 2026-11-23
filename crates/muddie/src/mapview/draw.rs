@@ -25,7 +25,8 @@ pub(super) struct Colours {
     route: Color32,
     /// The ring round the room chosen to look at.
     selected: Color32,
-    pub(super) mark: Color32,
+    /// The outline of where a room being moved would go.
+    pub(super) moving: Color32,
     name: Color32,
     name_behind: Color32,
     /// Behind the map, which the rooms of other areas fade into.
@@ -41,9 +42,9 @@ pub(super) struct Grid {
     pub(super) level: i32,
 }
 
-/// What marks some rooms: those the player is or may be in, the one a
-/// walk ends in, and the area shown, whose rooms are drawn in full.
-pub(super) struct Marks<'a> {
+/// What sets some rooms apart: those the player is or may be in, the one
+/// a walk ends in, and the area shown, whose rooms are drawn in full.
+pub(super) struct Highlights<'a> {
     pub(super) here: &'a [RoomId],
     pub(super) destination: Option<RoomId>,
     pub(super) selected: Option<RoomId>,
@@ -369,24 +370,24 @@ pub(super) fn draw_rooms(
     visible: &[&Room],
     grid: &Grid,
     colours: &Colours,
-    marks: &Marks<'_>,
+    shown: &Highlights<'_>,
     appearance: Appearance,
 ) {
     let (half, corner) = (grid.half(), grid.corner());
     let rgb = |[red, green, blue]: muddie_mapper::Colour| Color32::from_rgb(red, green, blue);
     let usual = appearance.colour.map_or(colours.room, rgb);
-    let is_here = |room: &&&Room| marks.here.contains(&room.id);
+    let is_here = |room: &&&Room| shown.here.contains(&room.id);
     let elsewhere = visible.iter().filter(|room| !is_here(room));
     for room in elsewhere.chain(visible.iter().filter(is_here)) {
         let rect = Rect::from_center_size(grid.on_screen(room.pos), Vec2::splat(half * 2.0));
-        let is_here = marks.here.contains(&room.id);
-        if is_here && marks.here.len() == 1 {
+        let is_here = shown.here.contains(&room.id);
+        if is_here && shown.here.len() == 1 {
             let glow = RectShape::filled(rect.expand(half * 0.3), corner * 2.0, colours.glow);
             painter.add(glow.with_blur_width(half * 1.4));
         }
         let mut fill = room.colour.map_or(usual, rgb);
         let shape = room.shape.unwrap_or(appearance.shape);
-        if room.area != marks.area {
+        if room.area != shown.area {
             fill = theme::mix(fill, colours.behind, 0.55);
         }
         let border = match room.avoid {
@@ -412,7 +413,7 @@ pub(super) fn draw_rooms(
             painter.line_segment([inset.left_bottom(), inset.right_top()], strike);
         }
         draw_exit_marks(painter, room, rect, fill);
-        let ring = match (is_here, marks.destination == Some(room.id)) {
+        let ring = match (is_here, shown.destination == Some(room.id)) {
             (true, _) => Some(colours.current),
             (false, true) => Some(colours.route),
             (false, false) => None,
@@ -422,7 +423,7 @@ pub(super) fn draw_rooms(
             ring_shape(painter, shape, rect.expand(3.5), corner + 3.5, stroke);
         }
         // The room chosen to look at, round whatever ring it has.
-        if marks.selected == Some(room.id) {
+        if shown.selected == Some(room.id) {
             let stroke = Stroke::new(2.5, colours.selected);
             ring_shape(painter, shape, rect.expand(6.75), corner + 6.75, stroke);
         }
@@ -476,7 +477,7 @@ fn ring_shape(painter: &Painter, shape: RoomShape, rect: Rect, corner: f32, stro
     }
 }
 
-/// Marks inside a room: what is written in it, if anything, and for its
+/// What is drawn inside a room: what is written in it, if anything, and for its
 /// exits that no line shows a triangle up, one down, and a dot for those
 /// off the compass (none where something is written), in black or white,
 /// whichever stands out from the room. Too small a room has none.
@@ -577,7 +578,7 @@ impl Colours {
             blocked: theme.danger,
             route: theme.accent.gamma_multiply(0.8),
             selected: theme.accent,
-            mark: theme.text_dim,
+            moving: theme.text_dim,
             name: theme.text_dim,
             name_behind: theme.surface.gamma_multiply(0.8),
             behind: theme.surface,

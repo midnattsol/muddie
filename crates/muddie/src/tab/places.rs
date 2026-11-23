@@ -79,6 +79,10 @@ impl Tab {
                                 said.push(' ');
                                 said.push_str(&through(&regions));
                             }
+                            if rooms.len() > 1 {
+                                said.push(' ');
+                                said.push_str(&nearest_of(rooms.len()));
+                            }
                             said
                         })
                     }
@@ -149,7 +153,6 @@ impl Tab {
                             (place, way, format!("/map go {id}"))
                         })
                     })
-                    .take(MAX_LISTED_ROOMS)
                     .collect()
             })
         };
@@ -162,9 +165,11 @@ impl Tab {
                 self.note(tr("Nothing else is that near on the map."))
             }
             Some(found) => {
-                for (name, way, command) in found {
+                let more = found.len().saturating_sub(MAX_LISTED_ROOMS);
+                for (name, way, command) in found.into_iter().take(MAX_LISTED_ROOMS) {
                     self.offer(&name, &way, &command);
                 }
+                self.say_more(more);
             }
         }
     }
@@ -503,14 +508,14 @@ fn brought_up_to_date(replaced: muddie_mapper::Replaced) -> String {
     sentences(said)
 }
 
-/// That the names the user gave rooms were kept, if any were, and what
+/// That the rooms the user renamed kept their names, if any did, and what
 /// became of the rooms the map had added.
 fn names_kept(replaced: muddie_mapper::Replaced) -> Vec<String> {
     let mut said = Vec::new();
     if replaced.renamed > 0 {
         said.push(trn(
-            "The name you gave {0} room was kept.",
-            "The names you gave {0} rooms were kept.",
+            "{0} room you renamed kept its name.",
+            "{0} rooms you renamed kept their names.",
             replaced.renamed as u64,
         ));
     }
@@ -578,6 +583,15 @@ impl Tab {
 pub(super) use crate::mapview::{
     direction_words, numbered, ordered_exits, place_words, room_facts, sentences,
 };
+
+/// That a room is the nearest of several that a place may mean.
+pub(super) fn nearest_of(rooms: usize) -> String {
+    trn(
+        "The nearest of {0} rooms that match.",
+        "The nearest of {0} rooms that match.",
+        rooms as u64,
+    )
+}
 
 /// The regions a route goes through, said.
 pub(super) fn through(regions: &[String]) -> String {

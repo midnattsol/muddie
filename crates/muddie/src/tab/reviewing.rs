@@ -252,7 +252,7 @@ impl Tab {
     }
 
     /// Says how many more there were than were listed, if any.
-    fn say_more(&mut self, more: usize) {
+    pub(super) fn say_more(&mut self, more: usize) {
         if more > 0 {
             self.note(&trn("And {0} more.", "And {0} more.", more as u64));
         }

@@ -155,7 +155,7 @@ fn reinos_de_leyenda_is_followed_by_the_rooms_it_shows_and_walked_in_its_words()
     assert!(app.walk.is_none());
     assert_eq!(
         answer(app, "/map go dunas"),
-        ["Going to Dunas: 1 move. The nearest of 3 rooms of that name. Escape stops it."]
+        ["Going to Dunas: 1 move. The nearest of 3 rooms that match. Escape stops it."]
     );
     assert_eq!(sent_lines(&mut sent), ["sur"]);
     // A move that fails stops the walk.
@@ -183,7 +183,7 @@ fn the_map_is_said_in_words() {
     );
     assert_eq!(said(app, "/map here 3"), ["Dunas. Exits: norte, oeste."]);
     assert_eq!(said(app, "/map exits"), ["norte: Pozo", "oeste: Dunas"]);
-    assert_eq!(said(app, "/map route 1"), ["Dunas [e], 2 moves: 2 oeste."]);
+    assert_eq!(said(app, "/map way 1"), ["Dunas [e], 2 moves: 2 oeste."]);
     assert_eq!(
         said(app, "/map near"),
         ["Pozo: 1 move: norte", "Dunas [e]: 2 moves: 2 oeste"]

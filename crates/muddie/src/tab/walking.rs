@@ -136,11 +136,7 @@ impl Tab {
         }
         if rooms.len() > 1 {
             said.push(' ');
-            said.push_str(&trn(
-                "The nearest of {0} rooms of that name.",
-                "The nearest of {0} rooms of that name.",
-                rooms.len() as u64,
-            ));
+            said.push_str(&places::nearest_of(rooms.len()));
         }
         said.push(' ');
         said.push_str(tr("Escape stops it."));
@@ -237,9 +233,10 @@ impl Tab {
         let tidied = self.map.borrow_mut().tidy(area);
         match self.map_saved(tidied) {
             Some(Tidied::Moved(0)) => self.note(tr("The map is as tidy as it gets.")),
-            Some(Tidied::Moved(moved)) => self.note(&trf(
+            Some(Tidied::Moved(moved)) => self.note(&trn(
+                "Tidied the map: {0} room moved.",
                 "Tidied the map: {0} rooms moved.",
-                &[&moved.to_string()],
+                moved as u64,
             )),
             // Drawn again it would look worse: it is left as it is.
             Some(Tidied::Kept { now, then }) => self.refuse(&trf(
@@ -255,20 +252,27 @@ impl Tab {
         }
     }
 
-    /// Up to [`MAX_LISTED_ROOMS`] rooms matching `query`, one line each.
-    /// Lists the rooms whose name contains `query`, each to be walked to
-    /// by choosing it. Returns whether there were any.
+    /// Lists the places that have `query`, as the palette finds them, the
+    /// nearest first, up to [`MAX_LISTED_ROOMS`]: each is walked to by
+    /// choosing it. Returns whether there were any.
     pub(super) fn offer_rooms(&mut self, query: &str) -> bool {
-        let rooms: Vec<(RoomId, String, String)> = {
+        let (rooms, more) = {
             let map = self.map.borrow();
-            (map.find(query).into_iter())
-                .take(MAX_LISTED_ROOMS)
-                .map(|room| (room.id, places::numbered(&map, room), room.area.clone()))
-                .collect()
+            let here = map.current().map(|room| room.id);
+            let found = map.search(query, here);
+            let more = found.len().saturating_sub(MAX_LISTED_ROOMS);
+            let rooms: Vec<(String, String, String)> = (found.iter().take(MAX_LISTED_ROOMS))
+                .map(|found| {
+                    let (title, about) = crate::mapview::found_words(&map, here, found);
+                    (title, about, format!("/map go {}", found.room))
+                })
+                .collect();
+            (rooms, more)
         };
-        for (id, name, area) in &rooms {
-            self.offer(name, area, &format!("/map go {id}"));
+        for (title, about, command) in &rooms {
+            self.offer(title, about, command);
         }
+        self.say_more(more);
         !rooms.is_empty()
     }
 
@@ -324,8 +328,8 @@ impl Tab {
             let name = places::place_words(&map, map.room(to?)?);
             Some(
                 trn(
-                    "Walking to {1}: {0} step left.",
-                    "Walking to {1}: {0} steps left.",
+                    "Walking to {1}: {0} move left.",
+                    "Walking to {1}: {0} moves left.",
                     left as u64,
                 )
                 .replace("{1}", &name),
@@ -355,7 +359,7 @@ impl Tab {
     }
 
     /// Lets routes pass through a room, or keeps them out of it: the one
-    /// given by number, or the one the player is in.
+    /// meant, by number, mark or name, or the one the player is in.
     pub(super) fn toggle_avoid(&mut self, room: &str) {
         match self.room_meant(room) {
             Ok(id) => {

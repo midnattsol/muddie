@@ -418,9 +418,13 @@ impl Map {
         self.rooms.values()
     }
 
-    /// The names of all areas, in alphabetical order.
+    /// The names of the areas, in alphabetical order: rooms in none are
+    /// in no area.
     pub fn areas(&self) -> Vec<&str> {
-        let areas: BTreeSet<&str> = self.rooms.values().map(|room| room.area.as_str()).collect();
+        let areas: BTreeSet<&str> = (self.rooms.values())
+            .map(|room| room.area.as_str())
+            .filter(|area| !area.is_empty())
+            .collect();
         areas.into_iter().collect()
     }
 

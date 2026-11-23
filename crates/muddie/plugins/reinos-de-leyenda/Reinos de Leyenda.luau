@@ -306,7 +306,7 @@ end)
 -- A move that could not be made: it did not happen, and a walk stops.
 on_gmcp("Room.MovimientoErroneo", function()
     shown = nil
-    map.stop()
+    map.failed()
 end)
 
 on_gmcp("Room.Actual", function(room)

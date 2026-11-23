@@ -556,8 +556,8 @@ Everything the map shows can be said: what the palette does with the map
 tells where you are, what is around, where each exit leads and the way to
 anywhere, and goes there. Typed in the palette, the name of a place lists
 the places of the map that have it, under **Places**, each once with where
-it is and how many moves away, the nearest first, the names given to
-rooms with **Mark…** and the rooms whose note has it: Enter goes there, and Shift with Enter says the way
+it is and how many moves away, the nearest first, the rooms marked with
+**Mark…** and the rooms whose note has it: Enter goes there, and Shift with Enter says the way
 without going. Going somewhere says how far, and the regions the way goes
 through; nothing of what the game says on the way is left unread. Escape in
 the empty command line stops the walk.
@@ -576,18 +576,18 @@ is what a name begins with, as Anduar in "Anduar: Plaza Mayor".
 | Backspace | Back to the room chosen before, and the one before it, to where you began |
 | Space | Says the room chosen again |
 | Ctrl+I | Says all the map knows of it |
-| Ctrl+L | Says what is noted up to ten moves around it: rooms with a name or a note, and the way into each other region, the nearest first |
+| Ctrl+L | Says what is noted up to ten moves around it: rooms with a mark or a note, and the way into each other region, the nearest first |
 | Ctrl+F | Searches the map: type, Enter says how many were found and the first; the arrows go through them; Enter again goes to the one said, on the map. Escape goes back to the map |
 | Ctrl+B, Ctrl+N | Marks the room chosen, or writes a note on it (an empty one takes it off) |
 | F1 | Says all these keys |
 | Enter, Shift+Enter | Go to the room chosen; say the way there without going |
 | Escape, or typing | Back to the command line, with what was typed |
-| Double-click a room | Goes there, one step at a time, waiting for each to succeed |
+| Double-click a room | Goes there, one move at a time, waiting for each to succeed |
 | Right-click a room | Go here, the way there, what the map knows of it, Mark…, Note…, avoid in routes, Room appearance…, Tidy this area, Show all areas |
 | Drag | Moves the view; the wheel zooms |
 | Shift+drag a room | Moves it to another cell |
 | ▲ and ▼, over the map's top right corner | Look at the level above or below; **Back to my position**, at the top left, returns |
-| The buttons beside the map's title | Find where you are, Tidy this area, stop going; the dots hold the rest: Show all areas, Show an area…, Map appearance…, undoing the map's last change, and hiding or removing the panel |
+| The buttons beside the map's title | Show my position, Tidy this area, stop going; the dots hold the rest: Show all areas, Show an area…, Map appearance…, undoing the map's last change, and hiding or removing the panel |
 
 Exploring, each room is said short, as one who does not see it wants it:
 its name, and its region on coming to another; how many moves away and

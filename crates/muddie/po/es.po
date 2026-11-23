@@ -237,8 +237,10 @@ msgid "This room has no such exit."
 msgstr "Esta sala no tiene esa salida."
 
 #, python-brace-format
-msgid "Tidied the map: {0} rooms moved."
-msgstr "Mapa ordenado: {0} salas movidas."
+msgid "Tidied the map: {0} room moved."
+msgid_plural "Tidied the map: {0} rooms moved."
+msgstr[0] "Mapa ordenado: {0} sala movida."
+msgstr[1] "Mapa ordenado: {0} salas movidas."
 
 msgid "exits"
 msgstr "salidas"
@@ -528,9 +530,6 @@ msgstr "Un comando por línea. %1 es lo que sigue a la palabra."
 
 msgid "m holds the match, input what was typed."
 msgstr "m contiene la coincidencia e input, el comando escrito."
-
-msgid "One command per line, sent as if you had typed them."
-msgstr "Un comando por línea, enviados como si los escribieras."
 
 msgid "Run when the key is pressed."
 msgstr "Se ejecuta al pulsar la tecla."
@@ -1587,10 +1586,10 @@ msgid "The {0} channel is read aloud."
 msgstr "El canal {0} se leerá en voz alta."
 
 #, python-brace-format
-msgid "Walking to {1}: {0} step left."
-msgid_plural "Walking to {1}: {0} steps left."
-msgstr[0] "Caminando hacia {1}: queda {0} paso."
-msgstr[1] "Caminando hacia {1}: quedan {0} pasos."
+msgid "Walking to {1}: {0} move left."
+msgid_plural "Walking to {1}: {0} moves left."
+msgstr[0] "Caminando hacia {1}: queda {0} movimiento."
+msgstr[1] "Caminando hacia {1}: quedan {0} movimientos."
 
 msgid "Say where you are, by the map"
 msgstr "Decir dónde estás, según el mapa"
@@ -1826,10 +1825,10 @@ msgstr[0] "{0} paso"
 msgstr[1] "{0} pasos"
 
 #, python-brace-format
-msgid "The nearest of {0} rooms of that name."
-msgid_plural "The nearest of {0} rooms of that name."
-msgstr[0] "La más cercana de {0} salas con ese nombre."
-msgstr[1] "La más cercana de {0} salas con ese nombre."
+msgid "The nearest of {0} rooms that match."
+msgid_plural "The nearest of {0} rooms that match."
+msgstr[0] "La más cercana de {0} salas que coinciden."
+msgstr[1] "La más cercana de {0} salas que coinciden."
 
 msgid "There is no room of that number."
 msgstr "No hay ninguna sala con ese número."
@@ -1905,10 +1904,10 @@ msgstr[0] "{0} nueva"
 msgstr[1] "{0} nuevas"
 
 #, python-brace-format
-msgid "The name you gave {0} room was kept."
-msgid_plural "The names you gave {0} rooms were kept."
-msgstr[0] "Se ha mantenido el nombre que le diste a {0} sala."
-msgstr[1] "Se han mantenido los nombres que les diste a {0} salas."
+msgid "{0} room you renamed kept its name."
+msgid_plural "{0} rooms you renamed kept their names."
+msgstr[0] "{0} sala que renombraste conserva su nombre."
+msgstr[1] "{0} salas que renombraste conservan sus nombres."
 
 #, python-brace-format
 msgid "Could not take the map: {0}"
@@ -2716,8 +2715,8 @@ msgstr "El camino a"
 msgid "Find rooms…"
 msgstr "Buscar salas…"
 
-msgid "Find rooms called"
-msgstr "Buscar salas llamadas"
+msgid "Find rooms with"
+msgstr "Buscar salas con"
 
 msgid "What the map knows of…"
 msgstr "Lo que sabe el mapa de…"

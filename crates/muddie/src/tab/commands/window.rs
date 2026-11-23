@@ -105,7 +105,7 @@ impl Tab {
         };
         // Shift and Enter on a place says the way there, without going.
         if way && let Some(Act::Place(name)) = &chosen.act {
-            let line = format!("/map route {name}");
+            let line = format!("/map way {name}");
             self.palette.query.clear();
             self.run_command_from(&line, true);
             return true;

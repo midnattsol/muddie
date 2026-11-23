@@ -255,12 +255,13 @@ impl Tab {
                     self.record_whereabouts();
                     self.lost_track()
                 }
-                Action::StopWalk => {
+                Action::MoveFailed => {
                     self.map.borrow_mut().moves_failed();
                     if self.walk.take().is_some() {
                         self.note(tr("Stopped: the server said the move failed."));
                     }
                 }
+                Action::StopWalk => self.stop_walking(),
                 Action::ImportMap(address) => self.import_for_script(address),
                 Action::MapNewer { address, answer } => self.check_newer_map(address, answer),
                 // The palette lists them: worked out again.
