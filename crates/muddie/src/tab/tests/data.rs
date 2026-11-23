@@ -75,7 +75,8 @@ fn what_the_mud_sends_is_kept_to_look_at_and_made_into_gauges() {
     events.send(vitals(55)).unwrap();
     harness.run_steps(3);
     let app = harness.state().tab();
-    assert!(app.gauge_is_in(app.gauges.get("health").unwrap(), made.panel));
+    let made_in = app.gauges_panel_of(&made.panel).unwrap();
+    assert!(app.gauge_is_in(app.gauges.get("health").unwrap(), made_in));
     assert!(app.gauges.summary().contains("health 55 of 100"));
 }
 

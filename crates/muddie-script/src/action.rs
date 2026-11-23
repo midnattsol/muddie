@@ -74,14 +74,6 @@ impl GaugeKind {
     }
 }
 
-/// The panel a gauge is shown in: by its id, as the editor keeps it, or
-/// by its name, as a script gives it.
-#[derive(Debug, Clone, PartialEq)]
-pub enum PanelOf {
-    Id(u32),
-    Named(String),
-}
-
 /// One of what a gauge of effects shows: a state the character is in, as
 /// poisoned or blessed.
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -115,8 +107,9 @@ pub enum Action {
         owner: String,
         /// What it is switched by: its place and its tags.
         belongs: Belongs,
-        /// The panel it is shown in; none for the first of gauges.
-        panel: Option<PanelOf>,
+        /// The panel of gauges it is shown in, by its name; empty for the
+        /// first of them.
+        panel: String,
     },
     /// A script was stopped: what it showed, as its gauges, goes.
     Unloaded(String),

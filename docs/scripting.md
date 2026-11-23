@@ -26,7 +26,7 @@ the module returns.
 
 A plugin is a git repository with its `.luau` scripts at the top; a
 `rules.toml`, written as a profile's, with the rules it brings, of any kind,
-each gauge with `shown_in`, the name of the panel it goes in; and a
+each gauge with `panel`, the name of the panel it goes in; and a
 `plugin.toml` that says what it is:
 
 ```toml

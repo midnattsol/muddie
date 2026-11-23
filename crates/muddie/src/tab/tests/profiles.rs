@@ -213,17 +213,12 @@ fn a_plugin_puts_its_gauges_in_the_panels_they_name() {
     let reinos = &crate::plugins::included("reinos-de-leyenda").unwrap();
     app.set_plugin(reinos, true);
     let panel_of = |app: &Tab, gauge: &str| -> String {
-        let id = (app.rules.gauges.iter())
+        let named = &(app.rules.gauges.iter())
             .find(|rule| rule.name == gauge)
             .unwrap()
             .panel;
-        app.layout
-            .panels
-            .iter()
-            .find(|panel| panel.id == id)
-            .unwrap()
-            .name
-            .clone()
+        let id = app.gauges_panel_of(named).unwrap();
+        app.layout.panel(id).unwrap().name.clone()
     };
     for (gauge, panel) in [("Vida", "Puntos"), ("Fe", "Puntos"), ("Efectos", "Efectos")] {
         assert_eq!(panel_of(app, gauge), panel, "{gauge}");
@@ -571,7 +566,10 @@ fn a_plugin_downloaded_is_installed_and_removed_as_any_other() {
     assert!(app.scripts.supports().contains(&"Combat 1".to_owned()));
     // What it says of itself, as one that comes with Muddie does.
     let plugin = app.plugin("combat").unwrap();
-    assert_eq!((plugin.shown_name(), plugin.about()), ("combat".into(), "Fights.".into()));
+    assert_eq!(
+        (plugin.shown_name(), plugin.about()),
+        ("combat".into(), "Fights.".into())
+    );
     assert!(crate::plugins::for_mud(app.plugins(), "combat.example.org", "").is_some());
     let rage = app.rules.gauges.iter().find(|gauge| gauge.name == "Rage");
     assert_eq!(rage.map(|gauge| gauge.folder.as_str()), Some("combat"));

@@ -247,11 +247,11 @@ impl Tab {
         look: Option<muddie_script::GaugeLook>,
         owner: Option<&str>,
         belongs: muddie_script::Belongs,
-        panel: Option<muddie_script::PanelOf>,
+        panel: String,
     ) {
         // A panel named that there is not is made, as a channel's is.
-        if let Some(muddie_script::PanelOf::Named(called)) = &panel {
-            self.gauges_panel_named(called);
+        if !panel.trim().is_empty() {
+            self.gauges_panel_named(&panel);
         }
         let warning = (self.gauges).set_by(name, level, look, owner, belongs, panel);
         if let Some(warning) = warning {

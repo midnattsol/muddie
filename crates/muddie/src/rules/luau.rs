@@ -235,8 +235,8 @@ impl Gauge {
             .map(|tag| quoted(tag.trim()))
             .collect();
         let mut said = format!("place = {}, tags = {{{}}}", quoted(place), tags.join(", "));
-        if self.panel != 0 {
-            said.push_str(&format!(", panel = {}", self.panel));
+        if !self.panel.trim().is_empty() {
+            said.push_str(&format!(", panel = {}", quoted(self.panel.trim())));
         }
         said
     }

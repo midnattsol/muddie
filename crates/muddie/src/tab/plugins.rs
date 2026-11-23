@@ -165,9 +165,6 @@ impl Tab {
         };
         let placing: Vec<bool> = gauges.iter().map(|gauge| again || !known(gauge)).collect();
         // The panels the profile's own gauges are shown in, not the plugin's.
-        let first = (self.layout.panels.iter())
-            .find(|panel| panel.kind == layout::Kind::Gauges)
-            .map(|panel| panel.id);
         // Another plugin's, as the standard one's, which most MUDs leave
         // unseen, take no panel from it.
         let of_a_plugin = |gauge: &crate::rules::Gauge| {
@@ -175,17 +172,14 @@ impl Tab {
         };
         let mut used: std::collections::HashSet<u32> = (self.rules.gauges.iter())
             .filter(|gauge| !theirs(gauge) && !of_a_plugin(gauge))
-            .filter_map(|gauge| match gauge.panel {
-                0 => first,
-                panel => Some(panel),
-            })
+            .filter_map(|gauge| self.gauges_panel_of(&gauge.panel))
             .collect();
         for (gauge, placing) in gauges.iter_mut().zip(placing) {
-            let name = std::mem::take(&mut gauge.shown_in);
-            if placing && !name.trim().is_empty() {
-                gauge.panel = self.gauges_panel_called(&name, |id| used.contains(&id));
+            let name = gauge.panel.trim().to_owned();
+            if placing && !name.is_empty() {
+                let id = self.gauges_panel_called(&name, |id| used.contains(&id));
                 // Taken: the next name is not given it.
-                used.insert(gauge.panel);
+                used.insert(id);
             }
         }
     }

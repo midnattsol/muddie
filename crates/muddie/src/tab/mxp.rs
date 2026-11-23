@@ -178,7 +178,7 @@ impl Tab {
                 Some(look),
                 None,
                 Default::default(),
-                None,
+                String::new(),
             );
         }
     }

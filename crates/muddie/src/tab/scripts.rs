@@ -108,7 +108,10 @@ impl Tab {
         files.extend(self.extra_scripts.iter().cloned());
         if let Some(profiles) = &self.profiles {
             match Rules::load(&profiles.rules_path(self.profile.as_deref())) {
-                Ok(rules) => self.rules = rules,
+                Ok(rules) => {
+                    self.rules = rules;
+                    self.name_gauge_panels();
+                }
                 Err(error) => self.refuse(&trf("Could not load the rules: {0}", &[&error])),
             }
         }

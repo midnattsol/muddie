@@ -38,23 +38,12 @@ fn install_gauge(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
                 ];
                 super::rules::only(options.as_ref(), &known)?;
                 let belongs = super::rules::belongs(options.as_ref())?;
-                let mut panel = None;
+                let mut panel = String::new();
                 // As a gauge of the rules is written: `kind`, `colour`,
                 // `off_colour`, and `step = {{under = 30, colour = "red"}}`;
                 // where it is shown, and what it is switched by.
                 if let Some(options) = options {
-                    panel = match options.get::<Value>("panel")? {
-                        Value::Nil => None,
-                        Value::Integer(id) => Some(PanelOf::Id(id as u32)),
-                        Value::Number(id) => Some(PanelOf::Id(id as u32)),
-                        Value::String(name) => Some(PanelOf::Named(name.to_string_lossy())),
-                        other => {
-                            return Err(mlua::Error::runtime(format!(
-                                "a gauge's panel is a name, not {}",
-                                other.type_name()
-                            )));
-                        }
-                    };
+                    panel = options.get::<Option<String>>("panel")?.unwrap_or_default();
                     let text = |key: &str| -> mlua::Result<String> {
                         Ok(options.get::<Option<String>>(key)?.unwrap_or_default())
                     };

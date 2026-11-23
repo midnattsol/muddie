@@ -25,7 +25,7 @@ fn gmcp_data_reaches_handlers_and_is_remembered() {
                     place: Some("Vitals/HP".into()),
                     tags: vec!["fight".into()],
                 },
-                panel: Some(PanelOf::Named("Puntos".into())),
+                panel: "Puntos".into(),
             },
         ]
     );
@@ -158,7 +158,7 @@ fn scripts_can_send_gmcp_and_drive_panels() {
                 look: GaugeLook::default(),
                 owner: "test".into(),
                 belongs: Belongs::default(),
-                panel: None,
+                panel: String::new(),
             },
             Action::Walk(42),
         ]

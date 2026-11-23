@@ -30,7 +30,7 @@ mod memory;
 mod state;
 mod switches;
 
-pub use action::{Action, Effect, GaugeKind, GaugeLook, PanelOf};
+pub use action::{Action, Effect, GaugeKind, GaugeLook};
 pub use convert::{COLOUR_NAMES, colour_named, split_commands};
 
 /// Something a script offers to do with the map, as the user is shown it.

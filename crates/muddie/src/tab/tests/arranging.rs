@@ -248,7 +248,7 @@ fn effects_are_labels_and_those_that_do_not_fit_are_under_one_more() {
         Some(look),
         Some("t"),
         Default::default(),
-        None,
+        String::new(),
     );
     harness.run_steps(3);
     harness.get_by_label_contains("Efectos: Efecto número 1, Efecto número 2,");
@@ -848,4 +848,34 @@ fn a_panel_is_named_again_one_way() {
     );
     app.rename_to(first, " Mapa grande ");
     assert_eq!(name_of(app, first), "Mapa grande");
+}
+
+/// A gauge is put in a panel by its name: one renamed takes its gauges
+/// with it, and rules written when they were put in by the panel's id are
+/// named as they are read.
+#[test]
+fn gauges_are_in_their_panels_by_name() {
+    let mut harness = window(None);
+    harness.run_steps(2);
+    let app = harness.state_mut().tab_mut();
+    let first = app
+        .layout
+        .panels
+        .iter()
+        .find(|panel| panel.kind == layout::Kind::Gauges);
+    let (id, name) = first.map(|panel| (panel.id, panel.name.clone())).unwrap();
+    app.change_rules(|rules| {
+        rules.gauges.push(crate::rules::Gauge {
+            name: "Vida".into(),
+            panel: name.clone(),
+            ..crate::rules::Gauge::starter()
+        });
+    });
+    app.rename_to(id, "Puntos");
+    assert_eq!(app.rules.gauges.last().unwrap().panel, "Puntos");
+    let old: crate::rules::Rules =
+        toml::from_str(&format!("[[gauge]]\nname = \"Vida\"\npanel = {id}\n")).unwrap();
+    app.rules = old;
+    app.name_gauge_panels();
+    assert_eq!(app.rules.gauges[0].panel, "Puntos");
 }

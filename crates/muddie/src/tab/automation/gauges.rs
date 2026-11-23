@@ -5,9 +5,9 @@ use crate::rules::{Gauge, GaugeKind, KindName, Step};
 
 impl Tab {
     pub(in crate::tab) fn gauge_detail(&mut self, ui: &mut egui::Ui, index: usize) -> bool {
-        let panels: Vec<(u32, String)> = (self.layout.panels.iter())
+        let panels: Vec<(String, String)> = (self.layout.panels.iter())
             .filter(|panel| panel.kind == super::layout::Kind::Gauges)
-            .map(|panel| (panel.id, panel.name.clone()))
+            .map(|panel| (panel.name.clone(), panel.name.clone()))
             .collect();
         let delete = self.rule_head(ui, Kind::Gauge, index, tr("Gauge name"));
         let rule = &mut self.editor.draft.gauges[index];
@@ -192,7 +192,7 @@ fn steps(ui: &mut egui::Ui, rule: &mut Gauge) {
 
 /// Which panel of gauges it is shown in. Returns whether a panel was asked
 /// for, there being none.
-fn shown_in(ui: &mut egui::Ui, rule: &mut Gauge, panels: &[(u32, String)]) -> bool {
+fn shown_in(ui: &mut egui::Ui, rule: &mut Gauge, panels: &[(String, String)]) -> bool {
     widgets::card(
         ui,
         Some(widgets::Glyph::Panel),
@@ -202,7 +202,7 @@ fn shown_in(ui: &mut egui::Ui, rule: &mut Gauge, panels: &[(u32, String)]) -> bo
     )
 }
 
-fn shown_in_card(ui: &mut egui::Ui, rule: &mut Gauge, panels: &[(u32, String)]) -> bool {
+fn shown_in_card(ui: &mut egui::Ui, rule: &mut Gauge, panels: &[(String, String)]) -> bool {
     if panels.is_empty() {
         let mut add = false;
         ui.horizontal(|ui| {

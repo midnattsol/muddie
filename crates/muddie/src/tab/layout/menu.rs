@@ -124,8 +124,20 @@ impl Tab {
         if taken {
             return self.refuse(&trf("There is a panel called {0} already.", &[typed]));
         }
-        if let Some(panel) = self.layout.panel_mut(id) {
-            typed.clone_into(&mut panel.name);
+        let Some(panel) = self.layout.panel_mut(id) else {
+            return;
+        };
+        let before = std::mem::replace(&mut panel.name, typed.to_owned());
+        // The gauges put in it go with it, as they are put in by its name.
+        if panel.kind == Kind::Gauges {
+            let renamed = typed.to_owned();
+            self.change_rules(|rules| {
+                for gauge in &mut rules.gauges {
+                    if gauge.panel.trim().eq_ignore_ascii_case(before.trim()) {
+                        gauge.panel.clone_from(&renamed);
+                    }
+                }
+            });
         }
     }
 

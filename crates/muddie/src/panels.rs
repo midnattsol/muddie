@@ -4,7 +4,7 @@
 use eframe::egui::{Align2, Color32, Rect, Role, Sense, Ui, WidgetInfo, vec2};
 use muddie_core::Line;
 use muddie_core::ansi::Assembler;
-use muddie_script::{Belongs, GaugeKind, GaugeLook, PanelOf};
+use muddie_script::{Belongs, GaugeKind, GaugeLook};
 
 use crate::i18n::trf;
 use crate::theme;
@@ -16,8 +16,9 @@ pub struct Gauge {
     pub name: String,
     /// What it is switched by.
     pub belongs: Belongs,
-    /// The panel it is shown in; none for the first of gauges.
-    pub panel: Option<PanelOf>,
+    /// The panel of gauges it is shown in, by its name; empty for the
+    /// first of them.
+    pub panel: String,
     value: f64,
     max: f64,
     look: GaugeLook,
@@ -79,7 +80,7 @@ impl Gauges {
     /// to say when it falls under one of its warnings, as when it turns
     /// to a warning colour: what is seen at a glance is heard.
     pub fn set(&mut self, name: &str, level: Option<(f64, f64)>) -> Option<String> {
-        self.set_by(name, level, None, None, Belongs::default(), None)
+        self.set_by(name, level, None, None, Belongs::default(), String::new())
     }
 
     /// The same, also saying how the gauge is drawn, and set by `owner`, a
@@ -93,7 +94,7 @@ impl Gauges {
         look: Option<GaugeLook>,
         owner: Option<&str>,
         belongs: Belongs,
-        panel: Option<PanelOf>,
+        panel: String,
     ) -> Option<String> {
         let key = belongs.place.clone().unwrap_or_else(|| name.to_owned());
         let index = self.0.iter().position(|gauge| gauge.key == key);
@@ -702,7 +703,7 @@ mod tests {
                 look,
                 None,
                 Belongs::default(),
-                None,
+                String::new(),
             )
         };
         // As it starts is not news; above every warning, nothing either.

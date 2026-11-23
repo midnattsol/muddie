@@ -571,7 +571,7 @@ fn shows_panels() {
         Some(look),
         Some("t"),
         Default::default(),
-        None,
+        String::new(),
     );
     layout.run_steps(4);
     save(&mut layout, "effects");

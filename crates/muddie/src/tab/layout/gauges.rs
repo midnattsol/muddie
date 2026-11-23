@@ -2,14 +2,6 @@
 
 use super::*;
 use crate::panels;
-use muddie_script::PanelOf;
-
-/// Whether `panel` is the first of the panels of gauges, the one that
-/// shows the gauges put in none.
-pub(in crate::tab) fn panels_first(layout: &Layout, panel: u32) -> bool {
-    let first = layout.panels.iter().find(|spec| spec.kind == Kind::Gauges);
-    first.is_some_and(|spec| spec.id == panel)
-}
 
 impl Tab {
     /// The panel of gauges called `name`, for gauges that name it, as a
@@ -52,20 +44,45 @@ impl Tab {
         }
     }
 
-    /// Whether a gauge belongs in the panel `id`: the one it was put in,
-    /// by its id or its name, or the first of the gauges' panels if it was
-    /// put in none, as those the MUD's vitals make are.
+    /// Whether a gauge belongs in the panel `id`: the one it was put in, by
+    /// its name, or the first of the gauges' panels if it was put in none
+    /// or in one there is not.
     pub(in crate::tab) fn gauge_is_in(&self, gauge: &panels::Gauge, id: u32) -> bool {
+        self.gauges_panel_of(&gauge.panel) == Some(id)
+    }
+
+    /// The panel of gauges of this name, else the first of them.
+    pub(in crate::tab) fn gauges_panel_of(&self, name: &str) -> Option<u32> {
         let of_gauges = |panel: &&PanelSpec| panel.kind == Kind::Gauges;
-        let own = match &gauge.panel {
-            Some(PanelOf::Id(own)) => self.layout.panel(*own).filter(of_gauges),
-            Some(PanelOf::Named(name)) => (self.layout.panels.iter())
-                .filter(of_gauges)
-                .find(|panel| panel.name.eq_ignore_ascii_case(name.trim())),
-            None => None,
-        };
-        let home = own.or_else(|| self.layout.panels.iter().find(of_gauges));
-        home.is_some_and(|panel| panel.id == id)
+        let named = (self.layout.panels.iter())
+            .filter(of_gauges)
+            .find(|panel| !name.trim().is_empty() && panel.name.eq_ignore_ascii_case(name.trim()));
+        named
+            .or_else(|| self.layout.panels.iter().find(of_gauges))
+            .map(|panel| panel.id)
+    }
+
+    /// Names the panels of the gauges of rules written before gauges were
+    /// put in panels by name, which say the panel's id; and saves them so.
+    pub(in crate::tab) fn name_gauge_panels(&mut self) {
+        let mut named = false;
+        for gauge in &mut self.rules.gauges {
+            let Some(id) = gauge
+                .panel
+                .strip_prefix('#')
+                .and_then(|id| id.parse::<u32>().ok())
+            else {
+                continue;
+            };
+            gauge.panel =
+                (self.layout.panel(id)).map_or_else(String::new, |panel| panel.name.clone());
+            named = true;
+        }
+        if let (true, Some(profiles)) = (named, &self.profiles) {
+            let _ = self
+                .rules
+                .save(&profiles.rules_path(self.profile.as_deref()));
+        }
     }
 
     /// Whether a gauge is switched on: its place, its folders and its tags.
@@ -179,9 +196,7 @@ impl Tab {
     /// Goes to the gauges in the editor, on the first of this panel's.
     pub(in crate::tab) fn open_gauges(&mut self, panel: u32) {
         self.open_automation(automation::GAUGES);
-        let first = panels_first(&self.layout, panel);
-        let here =
-            |gauge: &crate::rules::Gauge| gauge.panel == panel || (first && gauge.panel == 0);
+        let here = |gauge: &crate::rules::Gauge| self.gauges_panel_of(&gauge.panel) == Some(panel);
         if let Some(index) = self.editor.draft.gauges.iter().position(here) {
             self.select_rule(automation::GAUGES, index);
         }

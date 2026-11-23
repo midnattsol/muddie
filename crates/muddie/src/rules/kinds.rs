@@ -333,14 +333,31 @@ pub struct Gauge {
     /// The colour it takes under each percentage of its maximum.
     #[serde(rename = "step")]
     pub steps: Vec<Step>,
-    /// The panel of gauges it is shown in, by the panel's id; none shows
+    /// The panel of gauges it is shown in, by the panel's name; none shows
     /// it in the first there is.
-    pub panel: u32,
-    /// The panel of gauges it is shown in, by the panel's name, for a
-    /// gauge a plugin brings, which cannot know the panels' ids: on
-    /// installing it, it becomes [`Self::panel`].
-    #[serde(skip_serializing_if = "String::is_empty")]
-    pub shown_in: String,
+    #[serde(
+        alias = "shown_in",
+        deserialize_with = "panel_named",
+        skip_serializing_if = "String::is_empty"
+    )]
+    pub panel: String,
+}
+
+/// A gauge's panel as it is written: its name, or, as rules were once
+/// written, its id, kept as `#` and the id until it is named (see
+/// `Tab::name_gauge_panels`).
+fn panel_named<'de, D: serde::Deserializer<'de>>(given: D) -> Result<String, D::Error> {
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Written {
+        Name(String),
+        Id(u32),
+    }
+    Ok(match Written::deserialize(given)? {
+        Written::Name(name) => name,
+        Written::Id(0) => String::new(),
+        Written::Id(id) => format!("#{id}"),
+    })
 }
 
 impl OnTime {

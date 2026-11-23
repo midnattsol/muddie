@@ -14,9 +14,6 @@ impl Tab {
         {
             self.add_panel(layout::Kind::Gauges);
         }
-        let panel = (self.layout.panels.iter())
-            .find(|panel| panel.kind == layout::Kind::Gauges)
-            .map_or(0, |panel| panel.id);
         // Made in the editor, and shown there to be finished.
         self.open_automation(automation::GAUGES);
         // Named after what it is: `health`, not the `current` inside it.
@@ -35,7 +32,6 @@ impl Tab {
             name: name.to_owned(),
             value: path.to_owned(),
             max: likely_max(path, all).unwrap_or_default(),
-            panel,
             ..crate::rules::Gauge::starter()
         });
         self.select_rule(automation::GAUGES, self.editor.draft.gauges.len() - 1);

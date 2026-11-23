@@ -219,7 +219,7 @@ fn gauges_follow_values_the_server_reports() {
                 place: Some("Salud".into()),
                 tags: Vec::new(),
             },
-            panel: None,
+            panel: String::new(),
         }]
     );
     // A maximum can be a plain number; a value not there yet shows nothing.
@@ -237,7 +237,7 @@ fn gauges_follow_values_the_server_reports() {
                 place: Some("Oro".into()),
                 tags: Vec::new(),
             },
-            panel: None,
+            panel: String::new(),
         }]
     );
 }
