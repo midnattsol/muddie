@@ -334,42 +334,55 @@ pub fn segmented(ui: &mut Ui, choices: &[&str], current: usize) -> Option<usize>
             });
             let total = widths.sum::<f32>() + 2.0 * choices.len().saturating_sub(1) as f32;
             let row = Layout::left_to_right(Align::Center);
+            let reached = current.min(choices.len().saturating_sub(1));
+            let list = egui::UiBuilder::new()
+                .layout(row)
+                .accessibility_role(egui::accesskit::Role::TabList);
             ui.allocate_ui_with_layout(vec2(total, 24.0), row, |ui| {
-                ui.spacing_mut().item_spacing.x = 2.0;
-                for (index, name) in choices.iter().enumerate() {
-                    let selected = index == current;
-                    let font = theme::font(Weight::Medium, 12.5);
-                    let width = ui
-                        .painter()
-                        .layout_no_wrap((*name).to_owned(), font.clone(), theme.text)
-                        .size()
-                        .x;
-                    let (rect, response) =
-                        ui.allocate_exact_size(vec2(width + 24.0, 24.0), Sense::click());
-                    response.widget_info(|| {
-                        WidgetInfo::selected(Role::Tab, ui.is_enabled(), selected, *name)
-                    });
-                    let hovered = response.hovered() || response.has_focus();
-                    if selected {
-                        ui.painter()
-                            .rect_filled(rect, CornerRadius::same(7), theme.raised);
+                ui.scope_builder(list, |ui| {
+                    ui.spacing_mut().item_spacing.x = 2.0;
+                    let mut tabs = Vec::with_capacity(choices.len());
+                    for (index, name) in choices.iter().enumerate() {
+                        let selected = index == current;
+                        let font = theme::font(Weight::Medium, 12.5);
+                        let width = ui
+                            .painter()
+                            .layout_no_wrap((*name).to_owned(), font.clone(), theme.text)
+                            .size()
+                            .x;
+                        let (rect, response) = ui.allocate_exact_size(
+                            vec2(width + 24.0, 24.0),
+                            tab_sense(index == reached),
+                        );
+                        response.widget_info(|| {
+                            WidgetInfo::selected(Role::Tab, ui.is_enabled(), selected, *name)
+                        });
+                        let hovered = response.hovered() || response.has_focus();
+                        if selected {
+                            ui.painter()
+                                .rect_filled(rect, CornerRadius::same(7), theme.raised);
+                        }
+                        let colour = if selected || hovered {
+                            theme.text
+                        } else {
+                            theme.text_dim
+                        };
+                        ui.painter().text(
+                            rect.center(),
+                            egui::Align2::CENTER_CENTER,
+                            *name,
+                            font,
+                            colour,
+                        );
+                        if response.clicked() && !selected {
+                            chosen = Some(index);
+                        }
+                        tabs.push(response);
                     }
-                    let colour = if selected || hovered {
-                        theme.text
-                    } else {
-                        theme.text_dim
-                    };
-                    ui.painter().text(
-                        rect.center(),
-                        egui::Align2::CENTER_CENTER,
-                        *name,
-                        font,
-                        colour,
-                    );
-                    if response.clicked() && !selected {
+                    if let Some(index) = tab_keys(ui, &tabs).filter(|index| *index != current) {
                         chosen = Some(index);
                     }
-                }
+                });
             });
         });
     chosen
@@ -411,7 +424,7 @@ pub fn tab(ui: &mut Ui, text: &str, on: bool, fresh: bool) -> Response {
     // Room for the dot beside the name.
     let dot = if fresh { 10.0 } else { 0.0 };
     let size = vec2(galley.size().x + 18.0 + dot, 24.0);
-    let (rect, response) = ui.allocate_exact_size(size, Sense::click());
+    let (rect, response) = ui.allocate_exact_size(size, tab_sense(on));
     response.widget_info(|| {
         WidgetInfo::selected(Role::Tab, ui.is_enabled(), on, fresh_said(text, fresh))
     });
@@ -433,6 +446,45 @@ pub fn tab(ui: &mut Ui, text: &str, on: bool, fresh: bool) -> Response {
         }
     }
     response
+}
+
+/// How a tab of a list of them is pressed: any with the pointer, and only
+/// the one shown reached with Tab, the others with the arrows: see
+/// [`tab_keys`].
+fn tab_sense(shown: bool) -> Sense {
+    match shown {
+        true => Sense::click(),
+        false => Sense::CLICK,
+    }
+}
+
+/// The keys of a list of tabs, as in any other: on one, the arrows show
+/// the one beside it, round from the last to the first, and Home and End
+/// the first and the last, with the keyboard going to it. Returns the one
+/// to show.
+pub fn tab_keys(ui: &Ui, tabs: &[Response]) -> Option<usize> {
+    let at = tabs.iter().position(Response::has_focus)?;
+    let count = tabs.len();
+    let to = ui.input_mut(|input| {
+        let mut pressed = |key| input.consume_key(egui::Modifiers::NONE, key);
+        if pressed(egui::Key::ArrowRight) || pressed(egui::Key::ArrowDown) {
+            Some((at + 1) % count)
+        } else if pressed(egui::Key::ArrowLeft) || pressed(egui::Key::ArrowUp) {
+            Some((at + count - 1) % count)
+        } else if pressed(egui::Key::Home) {
+            Some(0)
+        } else if pressed(egui::Key::End) {
+            Some(count - 1)
+        } else {
+            None
+        }
+    })?;
+    ui.memory_mut(|memory| {
+        // Not to whatever egui finds that way: the tab beside.
+        memory.move_focus(egui::FocusDirection::None);
+        memory.request_focus(tabs[to].id);
+    });
+    Some(to)
 }
 
 /// Adds a button in the look of a button, not of a field: see

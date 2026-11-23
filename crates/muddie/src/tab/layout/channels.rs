@@ -237,10 +237,15 @@ impl Tab {
                     .map(|channel| (channel.name.clone(), channel.unread)),
             )
             .collect();
+        // One of them is shown, and reached with Tab: All, if what was is gone.
+        if !names.iter().any(|(name, _)| *name == shown) {
+            shown.clear();
+        }
         let list = egui::UiBuilder::new().accessibility_role(egui::accesskit::Role::TabList);
         ui.scope_builder(list, |ui| {
             ui.horizontal_wrapped(|ui| {
                 ui.spacing_mut().item_spacing = egui::vec2(2.0, 2.0);
+                let mut tabs = Vec::with_capacity(names.len());
                 for (name, unread) in &names {
                     let label = if name.is_empty() {
                         tr("All")
@@ -270,6 +275,10 @@ impl Tab {
                             self.set_channel_quiet(name, !read);
                         }
                     }
+                    tabs.push(tab);
+                }
+                if let Some(at) = widgets::tab_keys(ui, &tabs) {
+                    shown.clone_from(&names[at].0);
                 }
             })
         });

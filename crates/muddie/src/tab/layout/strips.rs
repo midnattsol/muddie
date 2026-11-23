@@ -316,12 +316,18 @@ impl Tab {
         // A list of tabs, to a screen reader, saying how many and which.
         let list = egui::UiBuilder::new().accessibility_role(egui::accesskit::Role::TabList);
         ui.scope_builder(list, |ui| {
+            let mut tabs = Vec::with_capacity(place.len());
             for &index in place {
                 let panel = &self.layout.panels[index];
                 let unread = self.panels.unread_tabs.contains(&panel.id);
-                if widgets::tab(ui, &panel.shown_name(), panel.id == shown, unread).clicked() {
+                let tab = widgets::tab(ui, &panel.shown_name(), panel.id == shown, unread);
+                if tab.clicked() {
                     shown = panel.id;
                 }
+                tabs.push(tab);
+            }
+            if let Some(at) = widgets::tab_keys(ui, &tabs) {
+                shown = ids[at];
             }
         });
         self.panels.shown_tabs.retain(|(known, _)| *known != stack);

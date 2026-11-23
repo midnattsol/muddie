@@ -307,3 +307,47 @@ fn a_channel_handled_by_a_plugin_and_by_a_script_is_one_channel_said_once() {
         "each line once among all of them"
     );
 }
+
+#[test]
+fn the_tabs_of_channels_are_one_stop_and_the_arrows_go_among_them() {
+    let mut harness = window(None);
+    harness.set_size(egui::vec2(1300.0, 800.0));
+    let app = harness.state_mut().tab_mut();
+    app.scripts.exec(
+        "t",
+        r#"channel("chat", "Ana: hola") channel("mercenario") channel("bando", "Eva: al norte")"#,
+    );
+    app.run_actions();
+    harness.run_steps(3);
+    let shown = |harness: &Harness<App>| -> String {
+        let app = harness.state().tab();
+        app.panels.channel_shown[0].1.clone()
+    };
+    harness.get_by_label("All").focus();
+    harness.run_steps(2);
+    // The one beside is shown, with the keyboard on it.
+    harness.key_press(Key::ArrowRight);
+    harness.run_steps(2);
+    assert_eq!(shown(&harness), "chat");
+    assert!(harness.get_by_label("chat").is_focused());
+    harness.key_press(Key::End);
+    harness.run_steps(2);
+    assert_eq!(shown(&harness), "bando");
+    assert!(harness.get_by_label("bando").is_focused());
+    // From the last round to the first, and back.
+    harness.key_press(Key::ArrowRight);
+    harness.run_steps(2);
+    assert_eq!(shown(&harness), "");
+    harness.key_press(Key::ArrowLeft);
+    harness.run_steps(2);
+    assert_eq!(shown(&harness), "bando");
+    harness.key_press(Key::Home);
+    harness.run_steps(2);
+    assert!(harness.get_by_label("All").is_focused());
+    // Tab leaves the list, past the tabs not shown.
+    harness.key_press(Key::Tab);
+    harness.run_steps(2);
+    for name in ["chat", "mercenario", "bando"] {
+        assert!(!harness.get_by_label(name).is_focused(), "{name}");
+    }
+}
