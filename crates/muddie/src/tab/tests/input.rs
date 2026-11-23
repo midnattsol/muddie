@@ -105,7 +105,10 @@ fn client_commands_are_carried_out_and_the_rest_is_the_mud_s() {
     assert!(app.do_client_command("/plugin remove extra"));
     assert_eq!(
         app.take_app_request(),
-        Some(AppRequest::RemovePlugin("extra".to_owned()))
+        Some(AppRequest::RemovePlugin {
+            name: "extra".to_owned(),
+            profile: None
+        })
     );
     // Tags, switched for the session by name.
     app.scripts

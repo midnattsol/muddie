@@ -382,3 +382,18 @@ fn patterns_are_compiled_only_once_tried() {
         "{actions:?}"
     );
 }
+
+#[test]
+fn an_option_that_is_none_is_said() {
+    let mut engine = engine("");
+    engine.exec("t", r#"trigger("x", function() end, {name = "Old/Way"})"#);
+    let actions = engine.take_actions();
+    let said = error_text(&actions);
+    assert!(
+        said.contains("there is no option name here; there are place, tags, once"),
+        "{said}"
+    );
+    engine.exec("t", r#"on_gmcp("Char", function() end, {place = "A"})"#);
+    let actions = engine.take_actions();
+    assert!(error_text(&actions).contains("there is no option place"));
+}

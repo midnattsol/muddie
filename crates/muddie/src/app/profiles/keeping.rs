@@ -62,27 +62,31 @@ impl App {
     }
 
     /// When a session wrote the profile being edited (a plugin switched
-    /// from a command, say), takes what it wrote of the plugins.
+    /// from a command, a channel kept quiet, say), takes all it wrote,
+    /// keeping only what is being typed in the window and not saved yet:
+    /// what the window saves next is not what was there before.
     pub(in crate::app) fn reread_profile(&mut self) {
-        let written = self
-            .tabs
-            .iter_mut()
+        let sessions = self.tabs.iter_mut().chain(self.profile_session.as_mut());
+        let written = sessions
             .map(Tab::take_profile_written)
             .fold(false, |any, one| any | one);
         let (Some(profiles), Some(edit), true) = (&self.profiles, self.editing.as_mut(), written)
         else {
             return;
         };
-        if let Ok(stored) = profiles.load(&edit.name) {
-            for draft in [&mut edit.draft, &mut edit.saved, &mut edit.seen] {
-                draft.plugins_on.clone_from(&stored.plugins_on);
-                draft.plugins_off.clone_from(&stored.plugins_off);
-                draft.plugins_declined.clone_from(&stored.plugins_declined);
-                draft
-                    .plugins_installed
-                    .clone_from(&stored.plugins_installed);
-            }
+        let Ok(stored) = profiles.load(&edit.name) else {
+            return;
+        };
+        let mut draft = stored.clone();
+        if edit.draft.host != edit.saved.host {
+            draft.host.clone_from(&edit.draft.host);
         }
+        if edit.draft.character != edit.saved.character {
+            draft.character.clone_from(&edit.draft.character);
+        }
+        edit.saved = stored;
+        edit.seen = draft.clone();
+        edit.draft = draft;
     }
 
     /// Puts the password typed in the keyring, under the profile.

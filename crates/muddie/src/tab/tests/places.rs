@@ -128,6 +128,11 @@ fn reinos_de_leyenda_is_followed_by_the_rooms_it_shows_and_walked_in_its_words()
             .iter()
             .any(|said| said.contains("in one of 3 rooms alike"))
     );
+    // The map is drawn all the same, about the rooms it may be: shown,
+    // it can be explored with the keys.
+    app.set_map_shown(true);
+    harness.run_steps(3);
+    assert!(harness.query_by_label("Map view").is_some());
     // East, to a dune with a door west and an exit east: of the two
     // east of a dune, the middle one.
     step("Dunas [|o|,e]", "este");
@@ -208,6 +213,12 @@ fn the_map_is_said_in_words() {
     );
     assert_eq!(found[0].act, Some(commands::Act::Place("3".into())));
     assert_eq!(said(app, "/map unnote"), ["The note was taken off."]);
+    // An exit listed is gone through when chosen, as one move.
+    let (_events, mut sent) = fake_connection(app);
+    assert!(app.do_client_command("/map through oeste"));
+    assert_eq!(sent_lines(&mut sent), ["oeste"]);
+    assert!(app.walk.is_some());
+    assert!(said(app, "/map through este")[0].contains("no such exit"));
     assert!(app.palette_places("cactus").is_empty());
 }
 

@@ -109,6 +109,12 @@ impl Tab {
         std::mem::take(&mut self.profile_written)
     }
 
+    /// Takes the saved profile of this name, without connecting: for what
+    /// is done with the profile from outside its sessions.
+    pub fn play_quietly(&mut self, name: &str) {
+        self.select_profile(Some(name.to_owned()));
+    }
+
     /// Plays with the saved profile of this name, and connects.
     pub fn play(&mut self, name: &str, ctx: &egui::Context) {
         if self.select_profile(Some(name.to_owned())) {
@@ -138,32 +144,37 @@ impl Tab {
         self.save_profile();
     }
 
-    /// Runs a command about the installed plugins, whose answers are then
-    /// shown where it was asked.
+    /// Runs a command about the plugins, whose answers are then shown
+    /// where it was asked.
     pub fn plugin_command(&mut self, command: &str) {
-        let before = self.output.len();
+        self.plugin_said = Some(self.notices.said);
         self.do_client_command(command);
-        self.plugin_said = before;
+    }
+
+    /// Downloads a plugin, once the user said so, as a command about
+    /// plugins.
+    pub fn plugin_installed(&mut self, address: &str) {
+        self.plugin_said = Some(self.notices.said);
+        self.install_plugin(address);
     }
 
     /// Removes a plugin, once the user said so, as a command about plugins.
     pub fn plugin_removed(&mut self, name: &str) {
-        let before = self.output.len();
+        self.plugin_said = Some(self.notices.said);
         self.remove_plugin(name);
-        self.plugin_said = before;
     }
 
     /// What the plugin commands asked for last have said, and whether
     /// one is still at work.
     pub fn plugin_answers(&self) -> (Vec<String>, bool) {
-        let from = self.plugin_said.min(self.output.len());
         let busy = !self.plugin_jobs.is_empty();
-        if from == 0 && !busy {
-            return (Vec::new(), false);
-        }
-        let said = (from..self.output.len())
-            .map(|row| self.output.text(row).to_owned())
-            .collect();
+        let said = match self.plugin_said {
+            Some(since) => (self.notices.list.iter())
+                .filter(|notice| notice.serial > since)
+                .map(|notice| notice.text.clone())
+                .collect(),
+            None => Vec::new(),
+        };
         (said, busy)
     }
 }

@@ -162,7 +162,13 @@ impl Tab {
         let room = ui.available_size() - egui::vec2(0.0, 22.0);
         let cells = Self::cells(ui, room);
         self.panel_measured(id, cells, true);
-        if self.map.borrow().current().is_some() {
+        // Where the player is, or the rooms they may be in, while the map
+        // is unsure of which.
+        let placed = {
+            let map = self.map.borrow();
+            map.current().is_some() || !map.candidates().is_empty()
+        };
+        if placed {
             let map = self.map.borrow();
             let walk = self.walk.as_ref().map(|(walk, _)| walk);
             return self.map_view.show(ui, &map, walk);

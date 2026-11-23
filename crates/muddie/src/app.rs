@@ -65,6 +65,11 @@ pub struct App {
     settings_error: Option<String>,
     /// A problem with a profile to show in the Profiles window.
     profile_error: Option<String>,
+    /// A session of a profile that no session on screen plays, kept for
+    /// what is done with that profile from the Profiles window: its
+    /// plugins installed and removed. It never connects.
+    profile_session: Option<Tab>,
+    ctx: egui::Context,
     /// Keypad keys noted by the window layer, waiting for the next frame.
     keypad: keypad::Pressed,
 }
@@ -125,6 +130,8 @@ impl App {
             show_about: false,
             settings_error,
             profile_error: None,
+            profile_session: None,
+            ctx: cc.egui_ctx.clone(),
             keypad,
         }
     }
@@ -176,6 +183,32 @@ impl App {
         self.apply_settings(ctx);
     }
 
+    /// The session of a profile: one on screen playing it, else the one
+    /// kept for it, made now if need be; with none named, the one on
+    /// screen.
+    pub(crate) fn session_of(&mut self, profile: Option<&str>) -> &mut Tab {
+        let Some(name) = profile else {
+            return &mut self.tabs[self.active];
+        };
+        if let Some(index) = self.tabs.iter().position(|tab| tab.uses_profile(name)) {
+            return &mut self.tabs[index];
+        }
+        let kept = (self.profile_session.as_ref()).is_some_and(|tab| tab.uses_profile(name));
+        if !kept {
+            let startup = Startup {
+                profiles: self.profiles.clone(),
+                profile: None,
+                target: None,
+                speech: false,
+                scripts: Vec::new(),
+            };
+            let mut tab = Tab::new(&self.ctx, startup, &self.settings);
+            tab.play_quietly(name);
+            self.profile_session = Some(tab);
+        }
+        self.profile_session.as_mut().expect("made above")
+    }
+
     fn new_tab(&mut self, ctx: &egui::Context) {
         let startup = Startup {
             profiles: self.profiles.clone(),
@@ -206,8 +239,12 @@ impl App {
             AppRequest::CloseSession => self.close_tab(self.active, ctx),
             AppRequest::Settings(section) => self.open_settings(section),
             AppRequest::Profiles => self.open_profiles(None),
-            AppRequest::RemovePlugin(name) => {
-                self.asking = Some(asks::Ask::RemovePlugin(name));
+            AppRequest::InstallPlugin { address, profile } => {
+                self.asking = Some(asks::Ask::Install { address, profile });
+                self.ask_error = None;
+            }
+            AppRequest::RemovePlugin { name, profile } => {
+                self.asking = Some(asks::Ask::RemovePlugin { name, profile });
                 self.ask_error = None;
             }
             AppRequest::Play(name) => self.play(&name, ctx),
@@ -407,8 +444,24 @@ impl eframe::App for App {
         self.trace_frames(ui);
         crate::widgets::note_input(ui.ctx());
         // Every session keeps running; only the one on screen is drawn.
+        let mut asked = Vec::new();
         for (index, tab) in self.tabs.iter_mut().enumerate() {
             tab.poll(ui.ctx(), index == self.active);
+            // What one not on screen asked, as of a plugin removed from
+            // its profile from the Profiles window.
+            if index != self.active {
+                asked.extend(tab.take_app_request());
+            }
+        }
+        for request in asked {
+            self.carry_out(request, ui.ctx());
+        }
+        let kept = self.profile_session.as_mut().and_then(|tab| {
+            tab.poll(ui.ctx(), false);
+            tab.take_app_request()
+        });
+        if let Some(request) = kept {
+            self.carry_out(request, ui.ctx());
         }
         self.window_keys(ui);
         self.windows(ui.ctx());

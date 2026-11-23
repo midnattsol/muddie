@@ -191,7 +191,9 @@ pub struct Tab {
     /// The session has no saved profile to keep its variables in, so
     /// they are carried from one start of the scripts to the next.
     variables_passing: bool,
-    plugin_said: usize,
+    /// Since which of the client's messages the plugin commands asked
+    /// for last have answered, if they were.
+    plugin_said: Option<u64>,
     /// The command left in the command line after it was sent, while it
     /// is still untouched; and whether it has yet to be selected.
     kept_input: Option<String>,
@@ -329,7 +331,7 @@ impl Tab {
             cursor_to_end: false,
             data_view: data::DataView::default(),
             variables_passing: false,
-            plugin_said: 0,
+            plugin_said: None,
             kept_input: None,
             select_input: false,
             supports: Vec::new(),

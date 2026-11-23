@@ -161,9 +161,6 @@ msgstr "Línea vacía."
 msgid "No gauges."
 msgstr "No hay indicadores."
 
-msgid "No map yet: the server has not reported a room."
-msgstr "Aún no hay mapa: el servidor no ha informado de ninguna sala."
-
 msgid "Down"
 msgstr "Bajar"
 
@@ -2792,9 +2789,6 @@ msgstr "Apariencia de {0}…"
 
 msgid "Included fonts"
 msgstr "Fuentes incluidas"
-
-msgid "Install the plugin at"
-msgstr "Instalar el plugin de"
 
 msgid "Read the first and last line"
 msgstr "Leer la primera y la última línea"

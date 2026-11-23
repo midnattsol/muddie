@@ -373,30 +373,77 @@ impl Tab {
         }
     }
 
+    /// The exit of the room the player is in that `direction` names, in the
+    /// MUD's words or English, with the room and its key; else why there
+    /// is none.
+    fn exit_here(&self, direction: &str) -> Result<(RoomId, String, muddie_mapper::Exit), String> {
+        let map = self.map.borrow();
+        let Some(here) = map.current() else {
+            drop(map);
+            return Err(self.unknown_whereabouts());
+        };
+        // In the MUD's words or English, or as the interface says it.
+        let key = map.direction(direction);
+        let said = || {
+            let typed = direction.trim().to_lowercase();
+            (here.exits.keys())
+                .find(|way| crate::mapview::direction_words(&map, way).to_lowercase() == typed)
+                .cloned()
+        };
+        let key = match here.exits.contains_key(&key) {
+            true => key,
+            false => said().unwrap_or(key),
+        };
+        match here.exits.get(&key) {
+            Some(exit) => Ok((here.id, key, exit.clone())),
+            None => Err(tr("This room has no such exit.").to_owned()),
+        }
+    }
+
     /// Lets routes use an exit of the room the player is in, or keeps
     /// them from it.
     pub(super) fn toggle_blocked(&mut self, direction: &str) {
-        let toggled = {
-            let mut map = self.map.borrow_mut();
-            let here = map.current().map(|room| room.id);
-            let direction = map.direction(direction);
-            let exit = here.and_then(|id| map.room(id)?.exits.get(&direction).cloned());
-            here.zip(exit).map(|(id, exit)| {
-                let blocked = !exit.blocked;
-                (
-                    map.edit_exit(id, &direction, |exit| exit.blocked = blocked),
-                    blocked,
-                )
-            })
+        let (here, key, exit) = match self.exit_here(direction) {
+            Ok(found) => found,
+            Err(why) => return self.refuse(&why),
         };
-        let Some((saved, blocked)) = toggled else {
-            return self.refuse(tr("This room has no such exit."));
-        };
+        let blocked = !exit.blocked;
+        let saved = self
+            .map
+            .borrow_mut()
+            .edit_exit(here, &key, |exit| exit.blocked = blocked);
         match self.map_saved(saved) {
             Some(_) if blocked => self.note(tr("That exit is kept off routes.")),
             Some(_) => self.note(tr("Routes may use that exit again.")),
             None => {}
         }
+    }
+
+    /// Goes through an exit of the room the player is in: a walk of one
+    /// move, followed as any; to where the map has not been, the move is
+    /// only sent.
+    pub(super) fn go_through(&mut self, direction: &str) {
+        let (here, key, exit) = match self.exit_here(direction) {
+            Ok(found) => found,
+            Err(why) => return self.refuse(&why),
+        };
+        let command = {
+            let map = self.map.borrow();
+            (exit.command.clone()).unwrap_or_else(|| map.command_for(&key).to_owned())
+        };
+        if self.map.borrow().room(exit.to).is_none() {
+            return self.send(command);
+        }
+        let walk = Walk::new(
+            here,
+            vec![muddie_mapper::Step {
+                command,
+                to: exit.to,
+            }],
+        );
+        let progress = walk.start();
+        self.walk = Some((walk, Instant::now()));
+        self.follow(progress);
     }
 
     /// Stops walking, if walking.

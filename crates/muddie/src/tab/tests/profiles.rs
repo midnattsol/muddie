@@ -273,6 +273,10 @@ fn a_profile_keeps_what_is_changed_in_the_settings_as_it_is_changed() {
         .get_by_role_and_label(egui::accesskit::Role::Tab, "Session")
         .click();
     harness.run_steps(2);
+    // What the session keeps in the profile meanwhile is not undone by
+    // what the window saves next.
+    harness.state_mut().tab_mut().set_channel_quiet("ooc", true);
+    harness.run_steps(2);
     (harness.get_by_role_and_label(egui::accesskit::Role::Switch, "Auto-reconnect"))
         .click_accesskit();
     harness.run_steps(2);
@@ -284,7 +288,11 @@ fn a_profile_keeps_what_is_changed_in_the_settings_as_it_is_changed() {
     let saved = Profiles::at(dir.clone()).load("Reinos").unwrap();
     assert_eq!(saved.character, "Naylhena");
     // It was on, as it is to begin with: off in this profile only.
-    assert_eq!(saved.session.map(|session| session.reconnect), Some(false));
+    let session = saved.session.unwrap();
+    assert_eq!(
+        (session.reconnect, session.quiet_channels),
+        (false, vec!["ooc".to_owned()])
+    );
     assert!(crate::profile::SessionPrefs::default().reconnect);
     std::fs::remove_dir_all(&dir).unwrap();
 }
@@ -533,7 +541,13 @@ fn a_plugin_downloaded_is_installed_and_removed_as_any_other() {
     let mut harness = window(Some(profiles.clone()));
     let app = harness.state_mut().tab_mut();
     assert!(app.select_profile(Some("Main".into())));
-    app.plugin_command(&format!("/plugin install {} combat", source.display()));
+    // Typed, it is asked first; said yes to, it is downloaded.
+    assert!(app.do_client_command(&format!("/plugin install {} combat", source.display())));
+    assert!(matches!(
+        app.take_app_request(),
+        Some(AppRequest::InstallPlugin { .. })
+    ));
+    app.plugin_installed(&format!("{} combat", source.display()));
     for _ in 0..300 {
         harness.run_steps(1);
         if harness.state().tab().plugin_jobs.is_empty() {
@@ -566,5 +580,33 @@ fn a_plugin_downloaded_is_installed_and_removed_as_any_other() {
     assert!(!script.exists() && !profiles.plugins_dir().join("combat").exists());
     assert!(!app.rules.gauges.iter().any(|gauge| gauge.name == "Rage"));
     assert!(app.plugin("combat").is_none());
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// What is done with a profile's plugins from the Profiles window is done
+/// in that profile, whichever the session on screen plays, and what it
+/// answers is what the client said of it.
+#[test]
+fn a_profile_s_plugins_are_its_own_whatever_is_played() {
+    let dir = std::env::temp_dir().join(format!("muddie-edited-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let profiles = Profiles::at(dir.clone());
+    profiles.save("Played", &Profile::default()).unwrap();
+    profiles.save("Edited", &Profile::default()).unwrap();
+    let mut harness = window(Some(profiles.clone()));
+    assert!(
+        harness
+            .state_mut()
+            .tab_mut()
+            .select_profile(Some("Played".into()))
+    );
+    let app = harness.state_mut();
+    let edited = app.session_of(Some("Edited"));
+    edited.plugin_command("/plugin enable reinos-de-leyenda");
+    let (said, _) = edited.plugin_answers();
+    assert_eq!(said, ["Plugin Reinos de Leyenda enabled."]);
+    let on = |name: &str| profiles.load(name).unwrap().plugins_on;
+    assert_eq!(on("Edited"), ["reinos-de-leyenda"]);
+    assert!(on("Played").is_empty());
     std::fs::remove_dir_all(&dir).unwrap();
 }

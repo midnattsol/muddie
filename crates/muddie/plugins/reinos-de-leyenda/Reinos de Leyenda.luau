@@ -293,7 +293,7 @@ trigger([[^(.*?) \[([A-Za-z|,\-]+)\]\s*$]], function(m)
             step(this)
         end
     end)
-end, { name = "Reinos de Leyenda/Sala escrita" })
+end, { place = "Reinos de Leyenda/Sala escrita" })
 
 on_gmcp("Room.Movimiento", function(way)
     heard = true

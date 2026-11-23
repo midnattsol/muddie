@@ -25,10 +25,17 @@ pub(super) enum Ask {
         to: String,
     },
     Delete(String),
-    /// The address of the git repository of a plugin to install.
-    Install(String),
-    /// Whether to remove an installed plugin, from every profile.
-    RemovePlugin(String),
+    /// The address of the git repository of a plugin to install, in the
+    /// profile of this name, or the session's with none.
+    Install {
+        address: String,
+        profile: Option<String>,
+    },
+    /// Whether to remove a plugin downloaded from a profile.
+    RemovePlugin {
+        name: String,
+        profile: Option<String>,
+    },
 }
 
 impl Ask {
@@ -39,8 +46,8 @@ impl Ask {
             Ask::Rename { .. } => tr("Rename profile"),
             Ask::Duplicate { .. } => tr("Duplicate profile"),
             Ask::Delete(_) => tr("Delete profile"),
-            Ask::Install(_) => tr("Install a plugin"),
-            Ask::RemovePlugin(_) => tr("Remove plugin"),
+            Ask::Install { .. } => tr("Install a plugin"),
+            Ask::RemovePlugin { .. } => tr("Remove plugin"),
         }
     }
 
@@ -52,8 +59,8 @@ impl Ask {
             Ask::Rename { .. } => tr("Rename"),
             Ask::Duplicate { .. } => tr("Duplicate"),
             Ask::Delete(_) => tr("Delete"),
-            Ask::Install(_) => tr("Install"),
-            Ask::RemovePlugin(_) => tr("Remove"),
+            Ask::Install { .. } => tr("Install"),
+            Ask::RemovePlugin { .. } => tr("Remove"),
         }
     }
 
@@ -63,12 +70,12 @@ impl Ask {
         match self {
             Ask::New { name, .. } | Ask::SaveSession(name) => Some((name, tr("Name"), "")),
             Ask::Rename { to, .. } | Ask::Duplicate { to, .. } => Some((to, tr("Name"), "")),
-            Ask::Install(address) => Some((
+            Ask::Install { address, .. } => Some((
                 address,
                 tr("Address of its git repository"),
                 "https://github.com/…/….git",
             )),
-            Ask::Delete(_) | Ask::RemovePlugin(_) => None,
+            Ask::Delete(_) | Ask::RemovePlugin { .. } => None,
         }
     }
 }
@@ -172,13 +179,13 @@ impl App {
                 .duplicate(from, to.trim())
                 .map(|()| Some(to.trim().to_owned())),
             Ask::Delete(name) => self.delete_profile(&profiles, name),
-            Ask::Install(address) => {
-                let command = format!("/plugin install {}", address.trim());
-                self.tabs[self.active].plugin_command(&command);
+            Ask::Install { address, profile } => {
+                self.session_of(profile.as_deref())
+                    .plugin_installed(address.trim());
                 Ok(None)
             }
-            Ask::RemovePlugin(name) => {
-                self.tabs[self.active].plugin_removed(name);
+            Ask::RemovePlugin { name, profile } => {
+                self.session_of(profile.as_deref()).plugin_removed(name);
                 Ok(None)
             }
         };
@@ -349,7 +356,7 @@ fn ask_body(
                 &[name],
             ));
         }
-        Ask::RemovePlugin(name) => {
+        Ask::RemovePlugin { name, .. } => {
             ui.label(trf(
                 "Remove {0}? Its scripts and gauges go from this profile, and what was downloaded of it once no profile has it.",
                 &[name],
@@ -365,7 +372,7 @@ fn ask_body(
             }
         }
     }
-    if matches!(ask, Ask::Install(_)) {
+    if matches!(ask, Ask::Install { .. }) {
         widgets::page_note(
             ui,
             tr("Only install what you trust: a plugin can send commands as you."),

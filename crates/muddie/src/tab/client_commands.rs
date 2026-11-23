@@ -39,21 +39,26 @@ impl Tab {
             ("/map", "import") => self.import_map(argument),
             ("/map", "avoid") => self.toggle_avoid(argument),
             ("/map", "block") if given => self.toggle_blocked(argument),
+            ("/map", "through") if given => self.go_through(argument),
             ("/map", "added") => self.list_added(),
             ("/map", "check") => self.check_map(),
             ("/map", "remove") if given => self.remove_room_command(argument),
             ("/map", "stop") => self.stop_walking(),
             ("/map", "tidy") => self.tidy_command(argument),
             ("/map", "undo") => self.undo_change(),
-            ("/plugin", "install") if given => self.install_plugin(argument),
+            // Installing a plugin, with the warning that it acts as you, and
+            // taking one away, files and all, are asked once more.
+            ("/plugin", "install") => {
+                let (address, profile) = (argument.to_owned(), self.profile.clone());
+                self.app_request = Some(commands::AppRequest::InstallPlugin { address, profile });
+            }
             ("/plugin", "update") if given => self.update_plugin(argument),
             ("/plugin", "enable" | "disable") if given => {
                 self.enable_plugin(argument, what == "enable");
             }
-            // Taking a plugin away, files and all, is asked once more.
             ("/plugin", "remove") if given => {
-                let name = argument.to_owned();
-                self.app_request = Some(commands::AppRequest::RemovePlugin(name));
+                let (name, profile) = (argument.to_owned(), self.profile.clone());
+                self.app_request = Some(commands::AppRequest::RemovePlugin { name, profile });
             }
             _ => return false,
         }

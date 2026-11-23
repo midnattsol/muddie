@@ -33,6 +33,10 @@ fn install_gauge(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
                     _ => return Err(mlua::Error::runtime("gauge needs both a value and a max")),
                 };
                 let mut look = GaugeLook::default();
+                let known = [
+                    "kind", "colour", "off_colour", "text", "step", "items", "panel", "place", "tags",
+                ];
+                super::rules::only(options.as_ref(), &known)?;
                 let belongs = super::rules::belongs(options.as_ref())?;
                 let mut panel = None;
                 // As a gauge of the rules is written: `kind`, `colour`,

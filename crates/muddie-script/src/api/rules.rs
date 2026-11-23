@@ -22,6 +22,7 @@ fn install_triggers_and_aliases(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::
             lua.create_function(
                 move |_, (pattern, callback, options): (String, Function, Option<Table>)| {
                     let pattern = Pattern::new(&pattern).map_err(mlua::Error::runtime)?;
+                    only(options.as_ref(), &["place", "tags", "once"])?;
                     let belongs = belongs(options.as_ref())?;
                     let once = match &options {
                         Some(options) => options.get::<Option<bool>>("once")?.unwrap_or(false),
@@ -47,6 +48,25 @@ fn install_triggers_and_aliases(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::
                 },
             )?,
         )?;
+    }
+    Ok(())
+}
+
+/// That `options` give nothing but what is `known`: one misspelt, or of
+/// another function, would be left out without a word.
+pub(super) fn only(options: Option<&Table>, known: &[&str]) -> mlua::Result<()> {
+    let Some(options) = options else {
+        return Ok(());
+    };
+    for pair in options.pairs::<Value, Value>() {
+        let (key, _) = pair?;
+        let key = key.to_string().unwrap_or_default();
+        if !known.contains(&key.as_str()) {
+            return Err(mlua::Error::runtime(format!(
+                "there is no option {key} here; there are {}",
+                known.join(", ")
+            )));
+        }
     }
     Ok(())
 }
@@ -144,6 +164,7 @@ fn install_macro(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
                     Value::Function(function) => MacroAction::Function(function),
                     _ => return Err(mlua::Error::runtime("macro needs a command or a function")),
                 };
+                only(options.as_ref(), &["place", "tags"])?;
                 let belongs = belongs(options.as_ref())?;
                 let mut state = shared.borrow_mut();
                 let id = state.next_id();
@@ -173,6 +194,7 @@ fn install_timers(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
             name,
             lua.create_function(
                 move |_, (seconds, callback, options): (f64, Function, Option<mlua::Table>)| {
+                    only(options.as_ref(), &["place", "tags"])?;
                     let belongs = belongs(options.as_ref())?;
                     let delay = Duration::try_from_secs_f64(seconds)
                         .map_err(|_| mlua::Error::runtime("the time must be a positive number"))?

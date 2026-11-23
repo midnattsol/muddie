@@ -115,7 +115,7 @@ impl Tab {
                             leads = trf("{0} (kept off routes)", &[&leads]);
                         }
                         let word = direction_words(&map, way);
-                        (word, leads, format!("/map go {}", exit.to))
+                        (word, leads, format!("/map through {way}"))
                     })
                     .collect()
             })

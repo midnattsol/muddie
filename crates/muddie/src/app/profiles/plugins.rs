@@ -61,7 +61,11 @@ impl App {
     /// downloading another and updating those downloaded, beside their
     /// caption; and what the last commands about plugins said.
     pub(in crate::app) fn plugins_groups(&mut self, ui: &mut Ui) {
-        let plugins = self.tabs[self.active].plugins().to_vec();
+        // All is done in the profile being edited, by a session of it.
+        let Some(name) = self.editing.as_ref().map(|edit| edit.name.clone()) else {
+            return;
+        };
+        let plugins = self.session_of(Some(&name)).plugins().to_vec();
         let downloaded: Vec<&Plugin> = (plugins.iter())
             .filter(|plugin| plugin.included.is_none())
             .collect();
@@ -96,19 +100,22 @@ impl App {
             self.install_again(&plugin);
         }
         if install {
-            self.asking = Some(Ask::Install(String::new()));
+            self.asking = Some(Ask::Install {
+                address: String::new(),
+                profile: Some(name.clone()),
+            });
             self.ask_error = None;
         }
         for command in commands {
-            self.tabs[self.active].plugin_command(&command);
+            self.session_of(Some(&name)).plugin_command(&command);
         }
-        self.plugin_answers(ui);
+        self.plugin_answers(ui, &name);
     }
 
     /// What the last commands about plugins said, under their card, and
     /// whether one is still at work.
-    fn plugin_answers(&mut self, ui: &mut Ui) {
-        let (said, busy) = self.tabs[self.active].plugin_answers();
+    fn plugin_answers(&mut self, ui: &mut Ui, name: &str) {
+        let (said, busy) = self.session_of(Some(name)).plugin_answers();
         if !busy && said.is_empty() {
             return;
         }
@@ -131,8 +138,14 @@ impl App {
         let Some(name) = self.editing.as_ref().map(|edit| edit.name.clone()) else {
             return;
         };
-        for tab in self.tabs.iter_mut().filter(|tab| tab.uses_profile(&name)) {
-            tab.install_plugin_again(plugin);
+        // Installed once, in the profile; the others playing it run its
+        // scripts again.
+        self.session_of(Some(&name)).install_plugin_again(plugin);
+        let first = self.tabs.iter().position(|tab| tab.uses_profile(&name));
+        for (index, tab) in self.tabs.iter_mut().enumerate() {
+            if tab.uses_profile(&name) && Some(index) != first {
+                tab.load_scripts();
+            }
         }
     }
 }

@@ -157,8 +157,9 @@ send_msdp("REPORT", "HEALTH", "MANA")
 | `completions(name, words)` | Words for Tab to offer, besides those seen in the output. Each name keeps its own list; `completions(name)` removes it. |
 | `mssp()` | The server's MSSP status as a table. |
 
-Each `on_` function takes, last, the options a trigger takes, of which only
-`tags` matters: while one of its tags is off, it is told nothing.
+Each `on_` function takes, last, options with `tags`: while one of its tags
+is off, it is told nothing. An option a function does not take is an error,
+rather than left out without a word.
 
 ## The map
 

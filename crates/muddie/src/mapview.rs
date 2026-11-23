@@ -384,15 +384,10 @@ impl MapView {
     pub fn show(&mut self, ui: &mut Ui, map: &Map, walk: Option<&Walk>) -> Option<MapAsk> {
         // Where the player is, or, while the map is unsure, the first of
         // the rooms they may be in: the map is drawn there all the same.
+        // Its panel shows it only once there is one or the other.
         let unsure = map.current().is_none();
         let first_candidate = || map.candidates().first().and_then(|id| map.room(*id));
-        let Some(current) = map.current().or_else(first_candidate) else {
-            ui.label(match map.rooms().next() {
-                None => tr("No map yet: the server has not reported a room.").to_owned(),
-                Some(_) => unknown_whereabouts(map),
-            });
-            return None;
-        };
+        let current = map.current().or_else(first_candidate)?;
         let here: Vec<RoomId> = match unsure {
             true => map.candidates().to_vec(),
             false => vec![current.id],

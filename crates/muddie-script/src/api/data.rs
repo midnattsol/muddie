@@ -31,6 +31,7 @@ fn install_data_handlers(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<
             name,
             lua.create_function(
                 move |_, (source, callback, options): (String, Function, Option<Table>)| {
+                    super::rules::only(options.as_ref(), &["tags"])?;
                     let tags = super::rules::belongs(options.as_ref())?.tags;
                     let mut state = shared.borrow_mut();
                     let id = state.next_id();
@@ -119,6 +120,7 @@ fn install_on_event(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
         "on_event",
         lua.create_function(
             move |_, (name, callback, options): (String, Function, Option<Table>)| {
+                super::rules::only(options.as_ref(), &["tags"])?;
                 let tags = super::rules::belongs(options.as_ref())?.tags;
                 let mut state = shared.borrow_mut();
                 let id = state.next_id();

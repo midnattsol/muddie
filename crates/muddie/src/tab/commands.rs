@@ -147,8 +147,17 @@ pub enum AppRequest {
     Profile(crate::app::ProfileAction, String),
     /// Keeps this session, which has none, as a profile.
     SaveAsProfile,
-    /// Asks whether to remove this plugin, then does.
-    RemovePlugin(String),
+    /// Asks whether to download a plugin from this address, and install it
+    /// in this profile, then does.
+    InstallPlugin {
+        address: String,
+        profile: Option<String>,
+    },
+    /// Asks whether to remove this plugin from this profile, then does.
+    RemovePlugin {
+        name: String,
+        profile: Option<String>,
+    },
     /// Plays with the saved profile of this name: in this session if it
     /// is not connected, else in a new one.
     Play(String),
@@ -285,10 +294,15 @@ impl Tab {
                 let ways: Vec<String> = (map.current().into_iter())
                     .flat_map(|room| room.exits.keys().cloned())
                     .collect();
+                // Shown in words, answered by the exit's own key, which the
+                // map knows whatever the language of the interface.
                 (ways.iter())
-                    .map(|way| crate::mapview::direction_words(&map, way))
-                    .filter(|word| has(word))
-                    .map(|word| answer(word, String::new()))
+                    .map(|way| (way, crate::mapview::direction_words(&map, way)))
+                    .filter(|(_, word)| has(word))
+                    .map(|(way, word)| Item {
+                        act: Some(Act::Answer(way.clone())),
+                        ..answer(word, String::new())
+                    })
                     .collect()
             }
             Offers::Areas => (self.map.borrow().areas().into_iter())

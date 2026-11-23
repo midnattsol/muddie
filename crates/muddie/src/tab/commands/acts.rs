@@ -285,14 +285,11 @@ impl Tab {
                 Act::Run(line),
             ));
         }
+        // Asked in its window, as from the profile's plugins.
         acts.push(item(
             tr("Install a plugin…"),
             plugins,
-            ask(
-                tr("Install the plugin at").into(),
-                "/plugin install ",
-                Offers::Nothing,
-            ),
+            run("/plugin install"),
         ));
         if self.plugins.iter().any(|plugin| plugin.included.is_none()) {
             acts.push(item(
