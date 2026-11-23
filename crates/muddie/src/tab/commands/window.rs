@@ -579,14 +579,14 @@ fn look_of(item: &Item) -> (widgets::Glyph, &'static str) {
     };
     match act {
         Act::View(View::Game) => (Glyph::Send, ""),
-        Act::View(View::Editor) => (Glyph::Code, crate::shortcuts::SWITCH_VIEW.written),
+        Act::View(View::Editor) => (Glyph::Code, crate::shortcuts::SWITCH_VIEW.written()),
         Act::View(View::Layout) => (Glyph::Panel, ""),
-        Act::View(View::Data) => (Glyph::Data, crate::shortcuts::DATA_VIEW.written),
+        Act::View(View::Data) => (Glyph::Data, crate::shortcuts::DATA_VIEW.written()),
         Act::Section(_) => (Glyph::Code, ""),
         Act::App(request) => match request {
-            AppRequest::NewSession => (Glyph::Plus, crate::shortcuts::NEW_SESSION.written),
-            AppRequest::CloseSession => (Glyph::Close, crate::shortcuts::CLOSE_SESSION.written),
-            AppRequest::Settings(_) => (Glyph::Settings, crate::shortcuts::SETTINGS.written),
+            AppRequest::NewSession => (Glyph::Plus, crate::shortcuts::NEW_SESSION.written()),
+            AppRequest::CloseSession => (Glyph::Close, crate::shortcuts::CLOSE_SESSION.written()),
+            AppRequest::Settings(_) => (Glyph::Settings, crate::shortcuts::SETTINGS.written()),
             AppRequest::Shortcuts => (Glyph::Key, ""),
             AppRequest::Profiles
             | AppRequest::Profile(..)
@@ -594,9 +594,9 @@ fn look_of(item: &Item) -> (widgets::Glyph, &'static str) {
             | AppRequest::Play(_) => (Glyph::Profile, ""),
             _ => (Glyph::Check, ""),
         },
-        Act::Reconnect => (Glyph::Restart, crate::shortcuts::RECONNECT.written),
+        Act::Reconnect => (Glyph::Restart, crate::shortcuts::RECONNECT.written()),
         Act::Disconnect => (Glyph::Close, ""),
-        Act::Find => (Glyph::Search, crate::shortcuts::FIND.written),
+        Act::Find => (Glyph::Search, crate::shortcuts::FIND.written()),
         Act::CopyOutput => (Glyph::Copy, ""),
         Act::Log => (Glyph::Text, ""),
         Act::Speech | Act::ReadChannel(..) => (Glyph::Say, ""),

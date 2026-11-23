@@ -81,14 +81,14 @@ pub(super) struct Prompt {
     focus: u8,
 }
 
-/// The keys with Ctrl (Cmd on a Mac) the map takes while exploring: all
-/// about the room, what is near, search, name and note.
-const COMMANDS: [egui::Key; 5] = [
-    crate::shortcuts::ROOM_INFO.keys.logical_key,
-    crate::shortcuts::NEAR.keys.logical_key,
-    crate::shortcuts::FIND.keys.logical_key,
-    crate::shortcuts::MARK.keys.logical_key,
-    crate::shortcuts::NOTE.keys.logical_key,
+/// The shortcuts the map takes while exploring: all about the room, what
+/// is near, search, mark and note.
+const COMMANDS: [crate::shortcuts::Shortcut; 5] = [
+    crate::shortcuts::ROOM_INFO,
+    crate::shortcuts::NEAR,
+    crate::shortcuts::FIND,
+    crate::shortcuts::MARK,
+    crate::shortcuts::NOTE,
 ];
 
 /// A place found, as it is listed and said: what it was found by, and
@@ -152,11 +152,13 @@ impl MapView {
     }
 
     /// Whether the map takes this key while exploring, before anything
-    /// bound to it: the keypad, F1, and its keys with Ctrl.
+    /// bound to it: the keypad, F1, and its shortcuts.
     pub fn takes(&self, key: egui::Key, modifiers: egui::Modifiers) -> bool {
+        let shortcut = |keys: egui::KeyboardShortcut| {
+            keys.logical_key == key && modifiers.matches_logically(keys.modifiers)
+        };
         self.exploring()
-            && (key == egui::Key::F1
-                || (modifiers.matches_exact(egui::Modifiers::COMMAND) && COMMANDS.contains(&key)))
+            && (key == egui::Key::F1 || COMMANDS.iter().any(|command| shortcut(command.keys())))
     }
 
     /// The keys, while the map has the keyboard: those that move the room
@@ -595,11 +597,11 @@ fn all_keys() -> String {
     trf(
         "Arrows, or the keypad, follow the exits; Page Up and Page Down go up and down, as minus and plus on the keypad, and slash and star go in and out. Home comes back to you, Backspace to the room before. Space says the room again, {0} all about it, {1} what is near. {2} finds on the map. {3} marks the room, {4} writes a note on it. Enter goes there, Shift+Enter says the way. Shift+F10 opens the room's menu, with all that is done with it. Escape, or typing, goes back to the command line.",
         &[
-            crate::shortcuts::ROOM_INFO.written,
-            crate::shortcuts::NEAR.written,
-            crate::shortcuts::FIND.written,
-            crate::shortcuts::MARK.written,
-            crate::shortcuts::NOTE.written,
+            crate::shortcuts::ROOM_INFO.written(),
+            crate::shortcuts::NEAR.written(),
+            crate::shortcuts::FIND.written(),
+            crate::shortcuts::MARK.written(),
+            crate::shortcuts::NOTE.written(),
         ],
     )
 }

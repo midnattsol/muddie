@@ -3027,3 +3027,90 @@ msgstr "Seguir las salidas según dónde están sus teclas; barra y asterisco, d
 
 msgid "The room's menu, with each exit to follow"
 msgstr "El menú de la sala, con cada salida que seguir"
+
+msgid "Between the game and the editor"
+msgstr "Entre el juego y el editor"
+
+msgid "Between the game and the incoming data"
+msgstr "Entre el juego y los datos entrantes"
+
+msgid "Search the commands typed before"
+msgstr "Buscar en los comandos escritos antes"
+
+msgid "All about the room, exploring the map"
+msgstr "Todo sobre la sala, explorando el mapa"
+
+msgid "What is near, exploring the map"
+msgstr "Qué hay cerca, explorando el mapa"
+
+msgid "Mark the room, exploring the map"
+msgstr "Marcar la sala, explorando el mapa"
+
+msgid "Note on the room, exploring the map"
+msgstr "Nota de la sala, explorando el mapa"
+
+msgid "Select all"
+msgstr "Seleccionar todo"
+
+msgid "Reads the output line by line"
+msgstr "Lee la salida línea a línea"
+
+msgid "Reads a panel of text line by line"
+msgstr "Lee un panel de texto línea a línea"
+
+msgid "Chooses the panel of text to read"
+msgstr "Elige el panel de texto que leer"
+
+msgid "Reads the most recent lines"
+msgstr "Lee las líneas más recientes"
+
+msgid "Reads the most recent lines of a panel"
+msgstr "Lee las líneas más recientes de un panel"
+
+msgid "Copies the line read last"
+msgstr "Copia la última línea leída"
+
+msgid "Does what the link of the line read last does"
+msgstr "Sigue el enlace de la última línea leída"
+
+msgid "Key: {0}."
+msgstr "Tecla: {0}."
+
+msgid "{0} is also Muddie's: {1}. This macro goes before it."
+msgstr "{0} también es de Muddie: {1}. Esta macro va antes."
+
+msgid "{0} is also the key of {1}: the first switched on runs."
+msgstr "{0} también es la tecla de {1}: se ejecuta la primera activada."
+
+msgid "Keys"
+msgstr "Teclas"
+
+msgid "Press a shortcut's keys to choose others, then the keys; Escape keeps them. A macro on the same keys goes before it. The keys that read the output stay as they are."
+msgstr "Pulsa las teclas de un atajo para elegir otras y luego pulsa las nuevas; Escape deja las que tenía. Una macro con las mismas teclas va antes. Las teclas que leen la salida no cambian."
+
+msgid "Press the keys…"
+msgstr "Pulsa las teclas…"
+
+msgid "Reset"
+msgstr "Restablecer"
+
+msgid "Reset {0}"
+msgstr "Restablecer {0}"
+
+msgid "Press to choose other keys."
+msgstr "Púlsalo para elegir otras teclas."
+
+msgid "{0} kept: {1}."
+msgstr "{0} se queda igual: {1}."
+
+msgid "Press the keys for {0}; Escape keeps them."
+msgstr "Pulsa las teclas para {0}; Escape deja las que tenía."
+
+msgid "Hold Ctrl or Alt with the key, or use a function key."
+msgstr "Mantén Ctrl o Alt con la tecla, o usa una tecla de función."
+
+msgid "{0} is already used: {1}."
+msgstr "{0} ya se usa: {1}."
+
+msgid "{0}: {1}."
+msgstr "{0}: {1}."

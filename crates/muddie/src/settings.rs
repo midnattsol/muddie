@@ -109,6 +109,9 @@ pub struct Settings {
     /// The editor's folders left open, for each profile by its name (none
     /// for a session with no profile): the others are closed.
     pub open_folders: std::collections::BTreeMap<String, Vec<(crate::rules::Kind, String)>>,
+    /// Muddie's shortcuts pressed with other keys than their own, by their
+    /// name: see [`crate::shortcuts::configure`].
+    pub shortcuts: std::collections::BTreeMap<String, String>,
 }
 
 impl Default for Settings {
@@ -135,6 +138,7 @@ impl Default for Settings {
             automation_panes: [190.0, 320.0],
             code_heights: [0.0; 2],
             open_folders: Default::default(),
+            shortcuts: Default::default(),
         }
     }
 }

@@ -263,13 +263,85 @@ msgstr ""
 msgid "{0} more: {1}"
 msgstr ""
 
+msgid "Settings"
+msgstr ""
+
+msgid "New session"
+msgstr ""
+
+msgid "Close session"
+msgstr ""
+
+msgid "Reconnect"
+msgstr ""
+
+msgid "Between the game and the editor"
+msgstr ""
+
+msgid "Between the game and the incoming data"
+msgstr ""
+
+msgid "Find"
+msgstr ""
+
+msgid "Search the commands typed before"
+msgstr ""
+
+msgid "Read the gauges"
+msgstr ""
+
+msgid "Explore the map"
+msgstr ""
+
+msgid "Show or hide the map"
+msgstr ""
+
+msgid "All about the room, exploring the map"
+msgstr ""
+
+msgid "What is near, exploring the map"
+msgstr ""
+
+msgid "Mark the room, exploring the map"
+msgstr ""
+
+msgid "Note on the room, exploring the map"
+msgstr ""
+
+msgid "Select all"
+msgstr ""
+
+msgid "Undo"
+msgstr ""
+
+msgid "Redo"
+msgstr ""
+
+msgid "Reads the output line by line"
+msgstr ""
+
+msgid "Reads a panel of text line by line"
+msgstr ""
+
+msgid "Chooses the panel of text to read"
+msgstr ""
+
+msgid "Reads the most recent lines"
+msgstr ""
+
+msgid "Reads the most recent lines of a panel"
+msgstr ""
+
+msgid "Copies the line read last"
+msgstr ""
+
+msgid "Does what the link of the line read last does"
+msgstr ""
+
 msgid "Copy line"
 msgstr ""
 
 msgid "Copy all output"
-msgstr ""
-
-msgid "Find"
 msgstr ""
 
 msgid "Install a plugin…"
@@ -997,9 +1069,6 @@ msgstr ""
 msgid "Undo the map's last change"
 msgstr ""
 
-msgid "Settings"
-msgstr ""
-
 msgid "Help"
 msgstr ""
 
@@ -1012,19 +1081,10 @@ msgstr ""
 msgid "Session"
 msgstr ""
 
-msgid "Reconnect"
-msgstr ""
-
 msgid "Connect"
 msgstr ""
 
 msgid "Disconnect"
-msgstr ""
-
-msgid "New session"
-msgstr ""
-
-msgid "Close session"
 msgstr ""
 
 msgid "Profiles"
@@ -1057,9 +1117,6 @@ msgid "Exits of this room"
 msgstr ""
 
 msgid "What is near"
-msgstr ""
-
-msgid "Explore the map"
 msgstr ""
 
 msgid "Go to…"
@@ -1660,9 +1717,6 @@ msgstr ""
 msgid "Deleted {0}."
 msgstr ""
 
-msgid "Undo"
-msgstr ""
-
 #, python-brace-format
 msgid "Could not delete the script: {0}"
 msgstr ""
@@ -1865,6 +1919,18 @@ msgid "Function keys, keys with Ctrl or Alt, and the numeric keypad can be used.
 msgstr ""
 
 msgid "Run when the key is pressed."
+msgstr ""
+
+#, python-brace-format
+msgid "Key: {0}."
+msgstr ""
+
+#, python-brace-format
+msgid "{0} is also Muddie's: {1}. This macro goes before it."
+msgstr ""
+
+#, python-brace-format
+msgid "{0} is also the key of {1}: the first switched on runs."
 msgstr ""
 
 msgid "Folder name"
@@ -2231,6 +2297,44 @@ msgstr ""
 msgid "Speech"
 msgstr ""
 
+msgid "Keys"
+msgstr ""
+
+msgid "Press a shortcut's keys to choose others, then the keys; Escape keeps them. A macro on the same keys goes before it. The keys that read the output stay as they are."
+msgstr ""
+
+msgid "Press the keys…"
+msgstr ""
+
+msgid "Reset"
+msgstr ""
+
+#, python-brace-format
+msgid "Reset {0}"
+msgstr ""
+
+msgid "Press to choose other keys."
+msgstr ""
+
+#, python-brace-format
+msgid "{0} kept: {1}."
+msgstr ""
+
+#, python-brace-format
+msgid "Press the keys for {0}; Escape keeps them."
+msgstr ""
+
+msgid "Hold Ctrl or Alt with the key, or use a function key."
+msgstr ""
+
+#, python-brace-format
+msgid "{0} is already used: {1}."
+msgstr ""
+
+#, python-brace-format
+msgid "{0}: {1}."
+msgstr ""
+
 msgid "Language"
 msgstr ""
 
@@ -2573,9 +2677,6 @@ msgstr ""
 msgid "Follow the link of the line read last"
 msgstr ""
 
-msgid "Read the gauges"
-msgstr ""
-
 msgid "Explore the map with the keys"
 msgstr ""
 
@@ -2670,12 +2771,6 @@ msgid "Move up or down"
 msgstr ""
 
 msgid "Move out of its folder"
-msgstr ""
-
-msgid "Redo"
-msgstr ""
-
-msgid "Show or hide the map"
 msgstr ""
 
 msgid "← →  ↑ ↓ on an edge"

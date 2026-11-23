@@ -863,3 +863,56 @@ fn ctrl_silences_the_sessions_out_of_sight_too() {
         "{before:?} {after:?}"
     );
 }
+
+#[test]
+fn a_shortcut_is_pressed_with_other_keys_chosen_in_the_settings() {
+    let mut harness = window(None);
+    harness.state_mut().tab_mut().voice.force_voice();
+    harness.state_mut().open_settings(crate::app::Section::Keys);
+    harness.run_steps(3);
+    let own = crate::shortcuts::PALETTE.written();
+    harness.get_by_label(&format!("Palette: {own}")).click();
+    harness.run_steps(2);
+    let said = |harness: &Harness<App>| harness.state().tab().voice.said.last().cloned();
+    // Keys Muddie has for something else are not taken.
+    harness.key_press_modifiers(Modifiers::COMMAND, Key::E);
+    harness.run_steps(2);
+    let editor = crate::shortcuts::write(&crate::shortcuts::SWITCH_VIEW.keys());
+    assert_eq!(
+        said(&harness).as_deref(),
+        Some(format!("{editor} is already used: Between the game and the editor.").as_str())
+    );
+    // Keys that type are not either.
+    harness.key_press(Key::P);
+    harness.run_steps(2);
+    assert_eq!(
+        said(&harness).as_deref(),
+        Some("Hold Ctrl or Alt with the key, or use a function key.")
+    );
+    harness.key_press_modifiers(Modifiers::COMMAND | Modifiers::SHIFT, Key::P);
+    harness.run_steps(2);
+    let chosen = crate::shortcuts::PALETTE.written();
+    assert_ne!(chosen, own);
+    assert_eq!(
+        said(&harness).as_deref(),
+        Some(format!("Palette: {chosen}.").as_str())
+    );
+    assert!(harness.state().settings().shortcuts.contains_key("palette"));
+    // The palette opens with them, and no more with its own.
+    harness.state_mut().close_settings_for_tests();
+    harness.run_steps(2);
+    harness.key_press_modifiers(Modifiers::COMMAND, Key::K);
+    harness.run_steps(2);
+    assert!(!harness.state().tab().palette.open);
+    harness.key_press_modifiers(Modifiers::COMMAND | Modifiers::SHIFT, Key::P);
+    harness.run_steps(2);
+    assert!(harness.state().tab().palette.open);
+    // Its own again.
+    harness.key_press(Key::Escape);
+    harness.state_mut().open_settings(crate::app::Section::Keys);
+    harness.run_steps(3);
+    harness.get_by_label("Reset Palette").click();
+    harness.run_steps(2);
+    assert!(harness.state().settings().shortcuts.is_empty());
+    assert_eq!(crate::shortcuts::PALETTE.written(), own);
+}

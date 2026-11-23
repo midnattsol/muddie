@@ -134,7 +134,7 @@ fn output_menu(response: &eframe::egui::Response, line: Option<&str>, asked: &mu
             .lock()
             .when_opened;
         let copy = ui.add_enabled_ui(chosen, |ui| {
-            crate::widgets::menu_item(ui, tr("Copy"), crate::shortcuts::COPY.written)
+            crate::widgets::menu_item(ui, tr("Copy"), crate::shortcuts::COPY.written())
         });
         if copy.inner.clicked() {
             *asked = Some(Asked::Copy);
@@ -151,7 +151,7 @@ fn output_menu(response: &eframe::egui::Response, line: Option<&str>, asked: &mu
             ui.close();
         }
         crate::widgets::menu_separator(ui);
-        if crate::widgets::menu_item(ui, tr("Find"), crate::shortcuts::FIND.written).clicked() {
+        if crate::widgets::menu_item(ui, tr("Find"), crate::shortcuts::FIND.written()).clicked() {
             *asked = Some(Asked::Find);
             ui.close();
         }

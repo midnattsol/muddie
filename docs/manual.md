@@ -234,7 +234,9 @@ Each kind, and what else there is:
   the key: function keys, combinations with Ctrl or Alt, and the keys of the
   numeric keypad can be used. The keypad's digits are one key with Num Lock
   on and another with it off, so it can walk with Num Lock off and type
-  numbers with it on; record the key in the state you will use it in.
+  numbers with it on; record the key in the state you will use it in. The
+  key recorded is said, and so is what else has it: one of Muddie's
+  shortcuts, which the macro goes before, or another macro.
 - A **timer** goes off after a while: every so many seconds, or once.
 - **Scripts** are Luau code that is always loaded, for what no rule can do:
   building the map, acting on what the MUD reports. They are the profile's
@@ -813,6 +815,12 @@ its control at the right.
   the command line.
 - **Speech**: what reads aloud, whether new lines interrupt, whether the
   channels are read, and the speed and language of the system's voice.
+- **Keys**: the keys of Muddie's shortcuts, the same for every profile.
+  Press a shortcut's keys and then the new ones: they are said, or why they
+  cannot be (they type, or Muddie uses them already); Escape keeps those it
+  had, and **Reset** gives it its own back. Copying, selecting all, undoing
+  and the keys that read the output stay as they are; a macro on any keys
+  goes before them.
 
 A session without a profile connects, keeps its connection and logs as a new
 profile would; the plugins that come with Muddie run in it as they come,

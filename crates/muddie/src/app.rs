@@ -41,6 +41,9 @@ pub struct App {
     show_settings: bool,
     /// The page of the settings on screen.
     settings_section: Section,
+    /// The shortcut whose keys are being chosen, by its name: the next
+    /// keys pressed are its.
+    recording_shortcut: Option<&'static str>,
     /// The Profiles window, the profile chosen in it, and its tab.
     show_profiles: bool,
     editing: Option<ProfileEdit>,
@@ -102,6 +105,7 @@ impl App {
         // by side: the language is one for the whole program.
         #[cfg(not(test))]
         i18n::set_language(&settings.language);
+        crate::shortcuts::configure(&settings.shortcuts);
         if let Err(error) = theme::apply(&cc.egui_ctx, &settings) {
             settings_error = Some(error);
         }
@@ -118,6 +122,7 @@ impl App {
             extra_scripts,
             show_settings: false,
             settings_section: Section::General,
+            recording_shortcut: None,
             show_profiles: false,
             editing: None,
             profile_tab: ProfileTab::default(),
@@ -162,6 +167,11 @@ impl App {
     }
 
     #[cfg(test)]
+    pub fn close_settings_for_tests(&mut self) {
+        self.show_settings = false;
+    }
+
+    #[cfg(test)]
     pub fn close_profiles_for_tests(&mut self) {
         self.show_profiles = false;
     }
@@ -182,6 +192,7 @@ impl App {
     #[cfg(test)]
     pub fn use_language(&mut self, ctx: &egui::Context, code: &str) {
         self.settings.language = code.to_owned();
+        i18n::set_language(code);
         self.apply_settings(ctx);
     }
 
@@ -278,7 +289,11 @@ impl App {
 
     /// Puts changed settings into effect and saves them.
     fn apply_settings(&mut self, ctx: &egui::Context) {
+        // Not in tests, which read the interface in English side by side:
+        // the language is one for the whole program.
+        #[cfg(not(test))]
         i18n::set_language(&self.settings.language);
+        crate::shortcuts::configure(&self.settings.shortcuts);
         self.settings_error = theme::apply(ctx, &self.settings).err();
         for tab in &mut self.tabs {
             tab.settings_changed(&self.settings);
@@ -331,27 +346,27 @@ impl App {
     fn window_keys(&mut self, ui: &mut Ui) {
         let pressed =
             |shortcut: &KeyboardShortcut| ui.input_mut(|input| input.consume_shortcut(shortcut));
-        if pressed(&NEW_SESSION.keys) {
+        if pressed(&NEW_SESSION.keys()) {
             self.new_tab(ui.ctx());
         }
-        if pressed(&CLOSE_SESSION.keys) {
+        if pressed(&CLOSE_SESSION.keys()) {
             self.close_tab(self.active, ui.ctx());
         }
-        if pressed(&SETTINGS.keys) {
+        if pressed(&SETTINGS.keys()) {
             self.open_settings(Section::General);
         }
         let tab = &mut self.tabs[self.active];
-        if pressed(&PALETTE.keys) {
+        if pressed(&PALETTE.keys()) {
             tab.toggle_palette();
         }
-        if pressed(&SWITCH_VIEW.keys) {
+        if pressed(&SWITCH_VIEW.keys()) {
             tab.set_view(if tab.view() == View::Game {
                 View::Editor
             } else {
                 View::Game
             });
         }
-        if pressed(&DATA_VIEW.keys) {
+        if pressed(&DATA_VIEW.keys()) {
             tab.set_view(if tab.view() == View::Data {
                 View::Game
             } else {
@@ -455,6 +470,8 @@ impl eframe::App for App {
         ui.input_mut(|input| drop_alt_typing(&mut input.events, input.modifiers, last));
         self.trace_frames(ui);
         crate::widgets::note_input(ui.ctx());
+        // Keys being chosen for a shortcut are for nothing else.
+        self.record_shortcut(ui);
         // Every session keeps running; only the one on screen is drawn.
         let mut asked = Vec::new();
         for (index, tab) in self.tabs.iter_mut().enumerate() {

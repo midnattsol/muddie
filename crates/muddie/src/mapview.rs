@@ -906,7 +906,7 @@ impl MapView {
                     }
                 };
                 item(ui, tr("The way there"), "Shift+Enter", MapAsk::Way(room.id));
-                let info = crate::shortcuts::ROOM_INFO.written;
+                let info = crate::shortcuts::ROOM_INFO.written();
                 item(
                     ui,
                     tr("What the map knows of it"),
@@ -914,10 +914,12 @@ impl MapView {
                     MapAsk::Info(room.id),
                 );
                 let mut asked = None;
-                if widgets::menu_item(ui, tr("Mark…"), crate::shortcuts::MARK.written).clicked() {
+                if widgets::menu_item(ui, tr("Mark…"), crate::shortcuts::MARK.written()).clicked()
+                {
                     asked = Some(explore::Asked::Mark);
                 }
-                if widgets::menu_item(ui, tr("Note…"), crate::shortcuts::NOTE.written).clicked() {
+                if widgets::menu_item(ui, tr("Note…"), crate::shortcuts::NOTE.written()).clicked()
+                {
                     asked = Some(explore::Asked::Note);
                 }
                 if let Some(asked) = asked {
