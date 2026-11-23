@@ -1,123 +1,47 @@
 name: Release
 
-# Versions and releases come from Conventional Commits (release-plz.toml):
-# nothing is set or tagged by hand.
-#
-# Each push to main keeps one release PR up to date: the next version, in
-# every crate and Cargo.lock, and the changelog. Merging it releases: once
-# CI passed for that commit, it is tagged, built and packaged on each
-# system, its installers tried, and published. Nothing is tested again,
-# as the commit's tests passed.
+# Runs when CI passes on main, never otherwise, and tests nothing again.
+# release-plz (release-plz.toml) keeps one release PR with the next
+# version and the changelog; once it is merged, it tags the version and
+# drafts its release, which is then built, packaged, tried and published.
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
 
 permissions: {}
 
 env:
   CARGO_TERM_COLOR: always
+  # The commit CI passed for, not whatever main is by now.
+  SHA: ${{ github.event.workflow_run.head_sha }}
 
 jobs:
-  # The next version and its changelog, as a PR to merge when wanted.
-  pr:
-    name: Release PR
-    if: github.repository_owner == 'midnattsol'
+  release-plz:
+    if: >-
+      github.repository_owner == 'midnattsol'
+      && github.event.workflow_run.conclusion == 'success'
+      && github.event.workflow_run.event == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: write
       pull-requests: write
     concurrency:
-      group: release-plz-pr
+      group: release-plz
       cancel-in-progress: false
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: release-plz/action@v0.5
-        with:
-          command: release-pr
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-
-  # Whether this commit is a merged release PR, and if so, that CI passed
-  # for it: waited for while it runs, saying how it goes.
-  gate:
-    name: Is a release, its CI passed
-    if: github.repository_owner == 'midnattsol'
-    runs-on: ubuntu-latest
-    permissions:
-      actions: read
-      contents: read
-      pull-requests: read
-    outputs:
-      release: ${{ steps.pr.outputs.release }}
-    env:
-      GH_TOKEN: ${{ github.token }}
-      GH_REPO: ${{ github.repository }}
-    steps:
-      - id: pr
-        name: A merged release PR
-        run: |
-          branch=$(gh api "repos/$GH_REPO/commits/$GITHUB_SHA/pulls" -q '.[0].head.ref // ""')
-          if [[ "$branch" == release-plz-* ]]; then
-            echo "Merged from $branch: a release."
-            echo "release=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "Not a release PR: nothing to release."
-            echo "release=false" >> "$GITHUB_OUTPUT"
-          fi
-      - if: steps.pr.outputs.release == 'true'
-        name: CI of this commit passed
-        run: |
-          run=""
-          for try in $(seq 1 20); do
-            run=$(gh run list --workflow ci.yml --branch main --event push \
-              --commit "$GITHUB_SHA" --limit 1 --json databaseId -q '.[0].databaseId')
-            [ -n "$run" ] && break
-            echo "Waiting for CI to start ($try/20)…"
-            sleep 15
-          done
-          if [ -z "$run" ]; then
-            echo "::error::No CI run for $GITHUB_SHA"
-            exit 1
-          fi
-          url="https://github.com/$GH_REPO/actions/runs/$run"
-          echo "CI: $url"
-          while :; do
-            read -r status conclusion < <(gh run view "$run" --json status,conclusion \
-              -q '.status + " " + (.conclusion // "-")')
-            [ "$status" = completed ] && break
-            echo "CI is $status…"
-            sleep 30
-          done
-          if [ "$conclusion" != success ]; then
-            echo "::error::CI ended in $conclusion: $url"
-            exit 1
-          fi
-          echo "CI passed."
-
-  # The tag, and the release as a draft with the changelog's notes, to be
-  # published once its files are built and tried.
-  tag:
-    name: Tag
-    needs: gate
-    if: needs.gate.outputs.release == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: read
     outputs:
       tag: ${{ steps.released.outputs.tag }}
       version: ${{ steps.released.outputs.version }}
     steps:
       - uses: actions/checkout@v7
         with:
+          ref: ${{ env.SHA }}
           fetch-depth: 0
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
-      - id: release-plz
+      # The release PR merged: the tag, and the release as a draft.
+      - id: release
         uses: release-plz/action@v0.5
         with:
           command: release
@@ -125,24 +49,27 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
       - id: released
         env:
-          RELEASES: ${{ steps.release-plz.outputs.releases }}
+          RELEASES: ${{ steps.release.outputs.releases }}
         run: |
-          tag=$(jq -r '.[] | select(.package_name == "muddie") | .tag' <<< "$RELEASES")
-          version=$(jq -r '.[] | select(.package_name == "muddie") | .version' <<< "$RELEASES")
-          if [ -z "$tag" ]; then
-            echo "::error::release-plz released nothing: $RELEASES"
-            exit 1
-          fi
-          echo "Tagged $tag."
+          tag=$(jq -r '.[]? | select(.package_name == "muddie") | .tag' <<< "${RELEASES:-[]}")
+          version=$(jq -r '.[]? | select(.package_name == "muddie") | .version' <<< "${RELEASES:-[]}")
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
+      # Otherwise the release PR, brought up to date.
+      - if: steps.released.outputs.tag == ''
+        uses: release-plz/action@v0.5
+        with:
+          command: release-pr
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
 
   # Built and packaged on each system. For Linux, built on an older system
   # than the runner's, as manylinux does: a program needs the C library it
   # was built against or a newer one, so built on Debian 12 it runs on it
   # and on every system since, Ubuntu 24.04 among them.
   build:
-    needs: tag
+    needs: release-plz
+    if: needs.release-plz.outputs.tag != ''
     strategy:
       fail-fast: false
       matrix:
@@ -164,7 +91,7 @@ jobs:
       id-token: write
       attestations: write
     env:
-      VERSION: ${{ needs.tag.outputs.version }}
+      VERSION: ${{ needs.release-plz.outputs.version }}
     steps:
       # The container has nothing: what building and fetching Rust need.
       - if: matrix.os == 'ubuntu-latest'
@@ -173,7 +100,7 @@ jobs:
           apt-get install -y build-essential ca-certificates cmake curl git pkg-config libdbus-1-dev libspeechd-dev
       - uses: actions/checkout@v7
         with:
-          ref: ${{ needs.tag.outputs.tag }}
+          ref: ${{ needs.release-plz.outputs.tag }}
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo build --release -p muddie
@@ -285,14 +212,14 @@ jobs:
   # The files on the draft, with what each adds up to, and the draft
   # published.
   publish:
-    needs: [tag, build, debian-package, installers]
+    needs: [release-plz, build, debian-package, installers]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
-      TAG: ${{ needs.tag.outputs.tag }}
+      TAG: ${{ needs.release-plz.outputs.tag }}
     steps:
       - uses: actions/download-artifact@v8
         with:

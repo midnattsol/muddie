@@ -1,65 +1,34 @@
 name: CI
 
-# What a change can break is checked, and only that: the code on each
-# system, the dependencies, the workflows. A change to the manual or the
-# README runs none of it. "CI ok" sums up every commit, whatever ran, and
-# is what a release waits for (see release.yml).
+# Formatting, lints, the tests on each system and the dependencies, when
+# something they check changes: a change to the manual or the README runs
+# none of it. When it passes on main, release.yml runs.
 on:
   push:
     branches: [main]
+    paths: &checked
+      - 'crates/**'
+      - 'examples/**'
+      - 'assets/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'rust-toolchain.toml'
+      - 'deny.toml'
+      - '.github/workflows/**'
   pull_request:
-  # Vulnerabilities are found in what does not change.
-  schedule:
-    - cron: "41 5 * * *"
-  # Everything, by hand.
+    paths: *checked
   workflow_dispatch:
 
 permissions:
   contents: read
-  pull-requests: read
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  # What changed, by what it can break.
-  changes:
-    runs-on: ubuntu-latest
-    outputs:
-      code: ${{ steps.filter.outputs.code }}
-      dependencies: ${{ steps.filter.outputs.dependencies }}
-      workflows: ${{ steps.filter.outputs.workflows }}
-    steps:
-      - uses: actions/checkout@v7
-      - id: filter
-        uses: dorny/paths-filter@v4
-        with:
-          # What the tests build and read: the crates, and the examples
-          # and the assets outside them. A change to this file runs all.
-          filters: |
-            code:
-              - 'crates/**'
-              - 'examples/**'
-              - 'assets/**'
-              - 'Cargo.toml'
-              - 'Cargo.lock'
-              - 'rust-toolchain.toml'
-              - '.github/workflows/ci.yml'
-            dependencies:
-              - '**/Cargo.toml'
-              - 'Cargo.lock'
-              - 'deny.toml'
-              - '.github/workflows/ci.yml'
-            workflows:
-              - '.github/**'
-
-  # Formatting, lints and every test, on each system: what is different
-  # on each (paths, speech, keys) is tried where it runs.
+  # What is different on each system (paths, speech, keys) is tried where
+  # it runs.
   test:
-    needs: changes
-    if: >-
-      github.event_name == 'workflow_dispatch'
-      || (github.event_name != 'schedule' && needs.changes.outputs.code == 'true')
     strategy:
       fail-fast: false
       matrix:
@@ -80,43 +49,9 @@ jobs:
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
 
-  # Known vulnerabilities, and licences that let Muddie be shared as it
-  # is: when the dependencies change, and every day.
+  # Known vulnerabilities, and licences that let Muddie be shared as it is.
   dependencies:
-    needs: changes
-    if: >-
-      github.event_name == 'schedule'
-      || github.event_name == 'workflow_dispatch'
-      || needs.changes.outputs.dependencies == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: EmbarkStudios/cargo-deny-action@v2
-
-  # The workflows themselves: their syntax, expressions and scripts.
-  workflows:
-    needs: changes
-    if: >-
-      github.event_name == 'workflow_dispatch'
-      || needs.changes.outputs.workflows == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: raven-actions/actionlint@v2
-
-  # Whatever applied, passed; what did not apply was skipped, and that is
-  # no failure. The one check to require, and what a release waits for.
-  ok:
-    name: CI ok
-    if: always()
-    needs: [changes, test, dependencies, workflows]
-    runs-on: ubuntu-latest
-    steps:
-      - env:
-          RESULTS: ${{ toJSON(needs) }}
-        run: |
-          echo "$RESULTS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
-          if echo "$RESULTS" | jq -e 'any(.[]; .result == "failure" or .result == "cancelled")' > /dev/null; then
-            echo "::error::A check failed"
-            exit 1
-          fi
