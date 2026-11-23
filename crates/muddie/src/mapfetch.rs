@@ -1,4 +1,4 @@
-//! Maps made with Mudlet, taken from a file or from the web, read away
+//! Maps made with Mudlet, imported from a file or from the web, read away
 //! from the thread that draws. A zip is opened in memory and only the map
 //! in it is read: nothing it holds is written anywhere or run.
 
@@ -12,8 +12,8 @@ use muddie_mapper::{MudletMap, read_mudlet_map};
 /// largest MUDs are a few tens of megabytes.
 const LARGEST: u64 = 128 * 1024 * 1024;
 
-/// What taking a map came to.
-pub enum Taken {
+/// What importing a map came to.
+pub enum Imported {
     /// The map, and the version of it the web gave, to ask only for a
     /// newer one next time.
     Map {
@@ -24,8 +24,8 @@ pub enum Taken {
     Unchanged,
 }
 
-/// Where what taking a map came to arrives.
-pub type Taking = Receiver<Result<Taken, String>>;
+/// Where what importing a map came to arrives.
+pub type Importing = Receiver<Result<Imported, String>>;
 
 /// Where whether a map has changed arrives.
 pub type Checking = Receiver<Result<bool, String>>;
@@ -97,15 +97,15 @@ pub fn on_the_web(source: &str) -> bool {
 
 /// Takes the map at `source`, a file or an address, away from the thread
 /// that asked; from the web, only if newer than the version `known`.
-pub fn take(source: String, known: Option<String>) -> Taking {
+pub fn import(source: String, known: Option<String>) -> Importing {
     let (done, result) = channel();
     std::thread::spawn(move || {
         let _ = done.send(fetch(&source, known.as_deref()).and_then(|fetched| {
             let Some((bytes, version)) = fetched else {
-                return Ok(Taken::Unchanged);
+                return Ok(Imported::Unchanged);
             };
             let map = read_mudlet_map(&unpacked(bytes)?)?;
-            Ok(Taken::Map { map, version })
+            Ok(Imported::Map { map, version })
         }));
     });
     result
@@ -288,13 +288,13 @@ mod tests {
         std::fs::write(&path, zip(&[("map.dat", b"\xff\xff\xff\xff")])).unwrap();
         let source = path.display().to_string();
         assert!(!on_the_web(&source) && on_the_web("HTTPS://example.org/map.zip"));
-        let error = match take(source, None).recv().unwrap() {
+        let error = match import(source, None).recv().unwrap() {
             Err(error) => error,
             Ok(_) => panic!("not a map"),
         };
         assert!(error.contains("not a map of Mudlet"), "{error}");
         std::fs::remove_file(&path).unwrap();
-        let missing = take("/no/such/map.dat".into(), None).recv().unwrap();
+        let missing = import("/no/such/map.dat".into(), None).recv().unwrap();
         assert!(missing.is_err());
     }
 }

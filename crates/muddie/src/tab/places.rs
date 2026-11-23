@@ -1,9 +1,9 @@
 //! The map in words: where the player is, what is around, the way to a
-//! place, the names given to rooms and the areas; and maps taken from
+//! place, the names given to rooms and the areas; and maps imported from
 //! elsewhere. All is said, so the map serves whoever does not see it.
 
 use super::*;
-use crate::mapfetch::{self, Taken};
+use crate::mapfetch::{self, Imported};
 use muddie_mapper::Step;
 use std::collections::HashSet;
 use std::sync::mpsc::TryRecvError;
@@ -63,7 +63,7 @@ impl Tab {
                 (true, _) => Err(tr("No room matches.").to_owned()),
                 (false, None) => Err(String::new()),
                 (false, Some(from)) => match map.route_to_nearest(from, &rooms) {
-                    None => Err(tr("No known route to that place.").to_owned()),
+                    None => Err(tr("No known way to that place.").to_owned()),
                     Some((to, steps)) => {
                         let name = map
                             .room(to)
@@ -321,8 +321,8 @@ impl Tab {
                 .map(|(_, version)| version.map(str::to_owned))
         };
         match known {
-            Some(version) => self.take_map(address, version, Taking::Update),
-            None => self.take_map(address, None, Taking::Script),
+            Some(version) => self.start_import(address, version, ImportWhy::Update),
+            None => self.start_import(address, None, ImportWhy::Script),
         }
     }
 
@@ -334,29 +334,31 @@ impl Tab {
                 "Say which map made with Mudlet to take: a file or an address.",
             ));
         }
-        self.take_map(source.to_owned(), None, Taking::Asked);
+        self.start_import(source.to_owned(), None, ImportWhy::Asked);
     }
 
     /// Starts taking a map, away from the screen; from the web, only if
     /// newer than the version `known`.
-    fn take_map(&mut self, source: String, known: Option<String>, why: Taking) {
-        if self.map_source.taking.is_some() {
-            if why == Taking::Asked {
-                self.refuse(tr("A map is being taken already."));
+    fn start_import(&mut self, source: String, known: Option<String>, why: ImportWhy) {
+        if self.map_source.importing.is_some() {
+            if why == ImportWhy::Asked {
+                self.refuse(tr("A map is being imported already."));
             }
             return;
         }
         match why {
-            Taking::Update => self.say(&trf("Looking for a newer map at {0}…", &[&source]), false),
-            _ => self.say(&trf("Taking the map from {0}…", &[&source]), false),
+            ImportWhy::Update => {
+                self.say(&trf("Looking for a newer map at {0}…", &[&source]), false)
+            }
+            _ => self.say(&trf("Importing the map from {0}…", &[&source]), false),
         }
-        let result = mapfetch::take(source.clone(), known);
-        self.map_source.taking = Some((result, source, why));
+        let result = mapfetch::import(source.clone(), known);
+        self.map_source.importing = Some((result, source, why));
     }
 
-    /// Puts in place a map that has been taken, once it is here.
-    pub(super) fn check_map_taken(&mut self, ctx: &egui::Context) {
-        let Some((result, _, _)) = &self.map_source.taking else {
+    /// Puts in place a map that has been imported, once it is here.
+    pub(super) fn check_map_imported(&mut self, ctx: &egui::Context) {
+        let Some((result, _, _)) = &self.map_source.importing else {
             return;
         };
         let taken = match result.try_recv() {
@@ -366,12 +368,12 @@ impl Tab {
             Err(TryRecvError::Disconnected) => Err(tr("it stopped half way").to_owned()),
             Ok(taken) => taken,
         };
-        let Some((_, source, why)) = self.map_source.taking.take() else {
+        let Some((_, source, why)) = self.map_source.importing.take() else {
             return;
         };
         match taken {
-            Ok(Taken::Unchanged) => self.say(tr("The map is up to date already."), false),
-            Ok(Taken::Map {
+            Ok(Imported::Unchanged) => self.say(tr("The map is up to date already."), false),
+            Ok(Imported::Map {
                 map: taken,
                 version,
             }) => {
@@ -389,26 +391,26 @@ impl Tab {
                 };
                 match self.map_saved(saved) {
                     None => {}
-                    Some(replaced) if why == Taking::Update => {
+                    Some(replaced) if why == ImportWhy::Update => {
                         self.say(&brought_up_to_date(replaced), false)
                     }
                     Some(replaced) => {
                         let rooms = trn("{0} room", "{0} rooms", replaced.rooms as u64);
-                        let mut said = vec![trf("The map was taken: {0}.", &[&rooms])];
+                        let mut said = vec![trf("The map was imported: {0}.", &[&rooms])];
                         said.extend(names_kept(replaced));
                         self.say(&sentences(said), false);
                         self.set_map_shown(true);
                     }
                 }
             }
-            Err(error) if why == Taking::Update => self.say(
+            Err(error) if why == ImportWhy::Update => self.say(
                 &trf(
                     "Could not bring the server's map up to date: {0}",
                     &[&error],
                 ),
                 true,
             ),
-            Err(error) => self.say(&trf("Could not take the map: {0}", &[&error]), true),
+            Err(error) => self.say(&trf("Could not import the map: {0}", &[&error]), true),
         }
     }
 }
@@ -507,18 +509,18 @@ fn names_kept(replaced: muddie_mapper::Replaced) -> Vec<String> {
     }
     if replaced.added > 0 {
         said.push(trn(
-            "{0} room the map added, which the map taken does not have, was kept.",
-            "{0} rooms the map added, which the map taken does not have, were kept.",
+            "{0} room the map added, which the map imported does not have, was kept.",
+            "{0} rooms the map added, which the map imported does not have, were kept.",
             replaced.added as u64,
         ));
     }
     said
 }
 
-/// Why a map is being taken: the user or a script asked for it, or one
+/// Why a map is being imported: the user or a script asked for it, or one
 /// taken before is brought up to date.
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub(super) enum Taking {
+pub(super) enum ImportWhy {
     Asked,
     Script,
     Update,

@@ -279,7 +279,10 @@ impl Tab {
                         self.note(tr("Stopped: the server said the move failed."));
                     }
                 }
-                Action::StopWalk => self.stop_walking(),
+                // A script stops just in case: it is told nothing if there
+                // was no walk.
+                Action::StopWalk if self.walk.is_some() => self.stop_walking(),
+                Action::StopWalk => {}
                 Action::ShowArea(area) => self.show_area(&area),
                 Action::ImportMap(address) => self.import_for_script(address),
                 Action::MapNewer { address, answer } => self.check_newer_map(address, answer),

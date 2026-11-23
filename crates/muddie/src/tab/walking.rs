@@ -15,18 +15,18 @@ pub(super) const MAX_LISTED_ROOMS: usize = 10;
 /// with all in one area, as some MUDs' are, would be drawn all again.
 const MAX_TIDIED: usize = 2000;
 
-/// A map being taken from elsewhere, and whether the user knows the map
+/// A map being imported, and whether the user knows the map
 /// lost track of where they are.
 #[derive(Default)]
 pub(super) struct MapSource {
-    /// A map being taken: where its result comes, where from, and why.
-    pub taking: Option<(crate::mapfetch::Taking, String, super::places::Taking)>,
+    /// A map being imported: where its result comes, where from, and why.
+    pub importing: Option<(crate::mapfetch::Importing, String, super::places::ImportWhy)>,
     /// The user was told the map lost track of where they are.
     pub lost: bool,
     /// A map a script asked for before the session's map was open, to be
-    /// taken once it is.
+    /// imported once it is.
     pub waiting: Option<String>,
-    /// Whether maps the map was taken from have changed: where each answer
+    /// Whether maps the map was imported from have changed: where each answer
     /// comes, and the script's to tell if one has.
     pub checking: Vec<(crate::mapfetch::Checking, u64)>,
 }
@@ -108,7 +108,7 @@ impl Tab {
             return self.refuse(&said);
         };
         let Some(((_, route), (place, through))) = route.zip(place) else {
-            return self.refuse(tr("No known route to that place."));
+            return self.refuse(tr("No known way to that place."));
         };
         if route.is_empty() {
             return self.note(&trf("You are already in {0}.", &[&place]));
@@ -327,8 +327,8 @@ impl Tab {
             let name = places::place_words(&map, map.room(to?)?);
             Some(
                 trn(
-                    "Walking to {1}: {0} move left.",
-                    "Walking to {1}: {0} moves left.",
+                    "Going to {1}: {0} move left.",
+                    "Going to {1}: {0} moves left.",
                     left as u64,
                 )
                 .replace("{1}", &name),

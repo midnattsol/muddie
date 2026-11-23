@@ -14,8 +14,9 @@ pub(super) fn id_of(value: &Value) -> mlua::Result<RoomId> {
     }
 }
 
-/// Reads a place to go to: a room's id, as [`id_of`] reads one, or, as the
-/// user names places, its mark or name, the nearest of several.
+/// Reads a place: a room's id, as [`id_of`] reads one, or, as the user
+/// names places, its mark or name, the nearest of several. Wherever a
+/// script gives a room, it may give it so.
 fn place_of(world: &Map, value: &Value) -> mlua::Result<RoomId> {
     let id = id_of(value)?;
     let named = match value {
@@ -222,7 +223,7 @@ fn install_visiting(
     api.set(
         "here",
         lua.create_function(move |_, id: Value| {
-            let id = id_of(&id)?;
+            let id = place_of(&world.borrow(), &id)?;
             let found = world.borrow_mut().set_current(id);
             if found {
                 shared.borrow_mut().actions.push(Action::Entered(id));
@@ -307,7 +308,7 @@ fn install_finding(lua: &Lua, map: &Rc<RefCell<Map>>, api: &Table) -> mlua::Resu
             let world = world.borrow();
             let room = match id {
                 Value::Nil => world.current(),
-                id => world.room(id_of(&id)?),
+                id => world.room(place_of(&world, &id)?),
             };
             room.map(|room| room_table(lua, room)).transpose()
         })?,
@@ -365,7 +366,8 @@ fn install_changing(lua: &Lua, map: &Rc<RefCell<Map>>, api: &Table) -> mlua::Res
     api.set(
         "remove_room",
         lua.create_function(move |_, id: Value| {
-            let result = world.borrow_mut().remove_room(id_of(&id)?);
+            let id = place_of(&world.borrow(), &id)?;
+            let result = world.borrow_mut().remove_room(id);
             let found = *result.as_ref().unwrap_or(&true);
             saved(result.map(drop))?;
             Ok(found)
@@ -386,7 +388,7 @@ fn install_changing(lua: &Lua, map: &Rc<RefCell<Map>>, api: &Table) -> mlua::Res
             match room {
                 Value::Nil => saved(world.unmark(&name)),
                 room => {
-                    let id = id_of(&room)?;
+                    let id = place_of(&world, &room)?;
                     if world.room(id).is_none() {
                         return Ok(false);
                     }
@@ -400,7 +402,7 @@ fn install_changing(lua: &Lua, map: &Rc<RefCell<Map>>, api: &Table) -> mlua::Res
     api.set(
         "edit_room",
         lua.create_function(move |_, (id, options): (Value, Table)| {
-            let id = id_of(&id)?;
+            let id = place_of(&world.borrow(), &id)?;
             let edit = RoomEdit::read(&options)?;
             let mut world = world.borrow_mut();
             let Some(room) = world.room(id) else {

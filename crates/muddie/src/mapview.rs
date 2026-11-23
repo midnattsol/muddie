@@ -241,8 +241,7 @@ pub fn room_facts(map: &Map, room: &Room) -> Vec<String> {
     }
     if room.added {
         facts.push(
-            tr("The map added it where you went: the map taken from elsewhere does not have it.")
-                .to_owned(),
+            tr("The map added it where you went: the map imported does not have it.").to_owned(),
         );
     }
     if room.avoid {

@@ -34,7 +34,10 @@ fn counted(changes: &[Changed]) -> String {
     let rerouted = count(|change| u64::from(matches!(change, Changed::Rerouted { .. })));
     let parts: Vec<String> = [
         (made, trn("{0} room added", "{0} rooms added", made)),
-        (found, trn("{0} way added", "{0} ways added", found)),
+        (
+            found,
+            trn("{0} exit connected", "{0} exits connected", found),
+        ),
         (
             renamed,
             trn("{0} name put right", "{0} names put right", renamed),
@@ -42,7 +45,7 @@ fn counted(changes: &[Changed]) -> String {
         (exits, trn("{0} exit added", "{0} exits added", exits)),
         (
             rerouted,
-            trn("{0} way put right", "{0} ways put right", rerouted),
+            trn("{0} exit put right", "{0} exits put right", rerouted),
         ),
     ]
     .into_iter()
@@ -69,7 +72,7 @@ impl Tab {
             match undone {
                 Changed::Made(_, name) => trf("Undone: {0} is no longer on the map.", &[&name]),
                 Changed::Found(_, name) => {
-                    trf("Undone: the way to {0} is no longer on the map.", &[&name])
+                    trf("Undone: the exit to {0} is no longer on the map.", &[&name])
                 }
                 Changed::Renamed { was, now, .. } if was.is_empty() => {
                     trf("Undone: “{0}” has no name again.", &[&now])
@@ -117,7 +120,7 @@ impl Tab {
             let room = |id| room_words(&map, id);
             match changes.as_slice() {
                 [Changed::Made(_, name)] => trf("Map: added the room “{0}”.", &[name]),
-                [Changed::Found(_, name)] => trf("Map: added the way to “{0}”.", &[name]),
+                [Changed::Found(_, name)] => trf("Map: connected an exit to “{0}”.", &[name]),
                 [Changed::Renamed { was, now, .. }] if was.is_empty() => trf(
                     "Map put right: a room with no name is now called “{0}”.",
                     &[now],

@@ -418,3 +418,27 @@ fn scripts_undo_and_show_an_area_as_the_user_does() {
         ]
     );
 }
+
+/// Wherever a script gives a room on the map, it may give it by its mark
+/// or its name, as the user names places.
+#[test]
+fn a_room_is_given_by_its_mark_or_name_wherever_one_is_taken() {
+    let mut engine = engine(
+        r#"map.set_room({id = 1, name = "Gate", exits = {n = 2}})
+        map.set_room({id = 2, name = "Square", exits = {s = 1}})"#,
+    );
+    engine.exec(
+        "test",
+        r#"echo(`{map.mark("well", "Square")} {map.room("well").name} {map.here("gate")} {map.room().id}`)
+        echo(`{map.edit_room("well", {note = "dry"})} {map.room(2).note} {map.remove_room("Square")} {map.room(2)}`)"#,
+    );
+    let echoed: Vec<Action> = engine.take_actions();
+    assert_eq!(
+        echoed,
+        [
+            Action::Entered(1),
+            Action::Echo("true Square true 1".into()),
+            Action::Echo("true dry true nil".into()),
+        ]
+    );
+}

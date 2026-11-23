@@ -425,7 +425,7 @@ impl Tab {
         self.scripts.tick(now);
         self.run_actions();
         self.check_walk(ctx);
-        self.check_map_taken(ctx);
+        self.check_map_imported(ctx);
         self.check_newer_maps(ctx);
         self.tell_map_changes(ctx, now);
         self.check_partial(ctx);

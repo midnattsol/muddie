@@ -234,13 +234,13 @@ fn a_map_of_mudlet_is_imported_from_a_file() {
     app.run_command("/map import /no/such/map.dat");
     for _ in 0..50 {
         harness.run_steps(1);
-        if harness.state().tab().map_source.taking.is_none() {
+        if harness.state().tab().map_source.importing.is_none() {
             break;
         }
         std::thread::sleep(Duration::from_millis(20));
     }
     let said = last_said(harness.state().tab());
-    assert!(said.starts_with("Could not take the map"), "{said}");
+    assert!(said.starts_with("Could not import the map"), "{said}");
 }
 
 /// The session is connected, as the scripts are told.
@@ -260,14 +260,14 @@ fn the_plugin_takes_the_servers_map_when_there_is_none_and_it_is_said_aside() {
     harness.run_steps(2);
     let said = harness.state().tab().notices().0.to_vec();
     let taking = (said.iter())
-        .find(|notice| notice.text.starts_with("Taking the map from https://"))
+        .find(|notice| notice.text.starts_with("Importing the map from https://"))
         .unwrap();
     assert!(taking.corner);
     // Tests do not reach the web: it failed, and says so aside too, once
     // the thread that tried has said so, however busy the machine.
     let failed = |harness: &Harness<'_, App>| {
         (harness.state().tab().notices().0.iter())
-            .find(|notice| notice.text.starts_with("Could not take the map"))
+            .find(|notice| notice.text.starts_with("Could not import the map"))
             .cloned()
     };
     for _ in 0..100 {
@@ -279,7 +279,7 @@ fn the_plugin_takes_the_servers_map_when_there_is_none_and_it_is_said_aside() {
     }
     let failed = failed(&harness).expect("the failure said");
     assert!(failed.corner && failed.problem, "{failed:?}");
-    assert!(failed.text.starts_with("Could not take the map"));
+    assert!(failed.text.starts_with("Could not import the map"));
     // Over the corner, though the game is in sight.
     harness.get_by_label(&failed.text);
     assert!(
@@ -302,7 +302,7 @@ fn the_plugin_leaves_a_map_there_is_and_brings_it_up_to_date_when_asked() {
     connected_now(app);
     harness.run_steps(2);
     let app = harness.state_mut().tab_mut();
-    assert!(app.map_source.taking.is_none());
+    assert!(app.map_source.importing.is_none());
     assert!(!notes(app).iter().any(|said| said.contains("map from")));
     // Offered in the palette, under the map, and in the map's menu.
     let sync = "Sync with the official map";
@@ -315,8 +315,8 @@ fn the_plugin_leaves_a_map_there_is_and_brings_it_up_to_date_when_asked() {
         (sync, "Map")
     );
     app.act(commands::Act::MapAction(sync.into()), &ctx);
-    assert!(app.map_source.taking.is_some());
-    assert!(last_said(app).starts_with("Taking the map from https://"));
+    assert!(app.map_source.importing.is_some());
+    assert!(last_said(app).starts_with("Importing the map from https://"));
     // Taken away with the plugin.
     app.scripts.unload("Reinos de Leyenda.luau");
     app.run_actions();
@@ -538,16 +538,16 @@ fn a_map_read_by_an_older_reader_is_taken_whole_again() {
             map.set_source_reader(reader).unwrap();
         }
         app.import_for_script(address.to_owned());
-        let taking = app.map_source.taking.as_ref();
+        let taking = app.map_source.importing.as_ref();
         taking.map(|(_, _, why)| *why)
     };
     // Taken before readers were noted, or by an older one: whole.
-    assert!(why_taken(None) == Some(crate::tab::places::Taking::Script));
+    assert!(why_taken(None) == Some(crate::tab::places::ImportWhy::Script));
     let older = muddie_mapper::MUDLET_READER - 1;
-    assert!(why_taken(Some(older)) == Some(crate::tab::places::Taking::Script));
+    assert!(why_taken(Some(older)) == Some(crate::tab::places::ImportWhy::Script));
     // By this one: only if newer than the version it has.
     let current = Some(muddie_mapper::MUDLET_READER);
-    assert!(why_taken(current) == Some(crate::tab::places::Taking::Update));
+    assert!(why_taken(current) == Some(crate::tab::places::ImportWhy::Update));
 }
 
 /// For whoever does not see the map: the places of it found from the

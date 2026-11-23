@@ -208,6 +208,11 @@ server identifies the room with. What a MUD sends in `Room.Info` or `ROOM`
 can be given as it comes: `num` or `vnum` for `id`, `zone` for `area`,
 `coords` for where it is, in any letter case.
 
+Where a function takes a room that is on the map (`map.room`, `map.here`,
+`map.mark`, `map.edit_room`, `map.remove_room`, `map.way`, `map.go`), it
+may be given as the user names places too: by a mark or a name, the
+nearest of several.
+
 | Function | What it does |
 |---|---|
 | `map.visit(room)` | The player is now in `room`, which is added or updated. Returns its number. |
