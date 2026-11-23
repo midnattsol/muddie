@@ -385,3 +385,27 @@ fn scripts_show_their_text_in_the_language_of_the_interface() {
     assert_eq!(engine.take_actions(), [Action::Echo("synced".into())]);
     crate::set_interface_language("");
 }
+
+#[test]
+fn handlers_of_data_are_switched_by_their_tags() {
+    let mut engine = engine(
+        r#"on_gmcp("Char.Vitals", function(data) echo(`hp {data.hp}`) end, {tags = "fight"})
+        on_event("connect", function() echo("connected") end, {tags = {"fight"}})"#,
+    );
+    engine.exec("t", r#"echo(table.concat(tags.list(), ","))"#);
+    assert_eq!(engine.take_actions(), [Action::Echo("fight".into())]);
+    engine.exec("t", r#"tags.disable("fight")"#);
+    engine.on_gmcp("Char.Vitals", r#"{"hp": 80}"#);
+    engine.on_event("connect", "");
+    assert_eq!(engine.take_actions(), []);
+    engine.exec("t", r#"tags.enable("fight")"#);
+    engine.on_gmcp("Char.Vitals", r#"{"hp": 70}"#);
+    engine.on_event("connect", "");
+    assert_eq!(
+        engine.take_actions(),
+        [
+            Action::Echo("hp 70".into()),
+            Action::Echo("connected".into())
+        ]
+    );
+}

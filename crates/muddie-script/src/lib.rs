@@ -192,9 +192,15 @@ impl State {
     /// The tags there are, those anything carries and those switched off,
     /// in alphabetical order.
     fn tag_names(&self) -> Vec<String> {
+        let handlers = self
+            .data_handlers
+            .iter()
+            .flat_map(|handler| handler.tags.iter());
         let carried = (Kind::ALL.iter())
             .flat_map(|&kind| self.belongings(kind))
-            .flat_map(|belongs| belongs.tags.iter().map(|tag| tag_key(tag)))
+            .flat_map(|belongs| belongs.tags.iter())
+            .chain(handlers)
+            .map(|tag| tag_key(tag))
             .collect::<Vec<String>>();
         let mut names: Vec<String> = carried
             .into_iter()
@@ -495,11 +501,12 @@ impl Engine {
             }
             for name in changed {
                 let key = var_key(&name);
-                let callbacks: Vec<(u64, String, Function)> = (self.state.borrow().data_handlers)
-                    .iter()
-                    .filter(|handler| handler.covers(&key))
+                let state = self.state.borrow();
+                let callbacks: Vec<(u64, String, Function)> = (state.data_handlers.iter())
+                    .filter(|handler| handler.covers(&key) && handler.on(&state.switches))
                     .map(|handler| (handler.id, handler.owner.clone(), handler.callback.clone()))
                     .collect();
+                drop(state);
                 if callbacks.is_empty() {
                     continue;
                 }

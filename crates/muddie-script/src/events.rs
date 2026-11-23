@@ -145,7 +145,7 @@ impl Engine {
             };
             state.data.insert(key.clone(), kept);
             (state.data_handlers.iter())
-                .filter(|handler| handler.covers(&key))
+                .filter(|handler| handler.covers(&key) && handler.on(&state.switches))
                 .map(|handler| (handler.id, handler.owner.clone(), handler.callback.clone()))
                 .collect()
         };

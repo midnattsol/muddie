@@ -99,6 +99,19 @@ pub(super) struct DataHandler {
     /// also matches packages under it.
     pub(crate) key: String,
     pub(crate) callback: Function,
+    /// The tags it carries: it is told nothing while one is off.
+    pub(crate) tags: Vec<String>,
+}
+
+impl DataHandler {
+    /// Whether it is told what comes: none of its tags is switched off.
+    pub(crate) fn on(&self, switches: &Switches) -> bool {
+        let belongs = Belongs {
+            place: None,
+            tags: self.tags.clone(),
+        };
+        switches.active(Kind::Script, &belongs)
+    }
 }
 
 /// Something a script offers to do with the map, which the user chooses

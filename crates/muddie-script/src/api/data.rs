@@ -29,18 +29,22 @@ fn install_data_handlers(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<
         let shared = Rc::clone(state);
         add(
             name,
-            lua.create_function(move |_, (source, callback): (String, Function)| {
-                let mut state = shared.borrow_mut();
-                let id = state.next_id();
-                let owner = state.owner.clone();
-                state.data_handlers.push(DataHandler {
-                    id,
-                    owner,
-                    key: key(&source),
-                    callback,
-                });
-                Ok(id)
-            })?,
+            lua.create_function(
+                move |_, (source, callback, options): (String, Function, Option<Table>)| {
+                    let tags = super::rules::belongs(options.as_ref())?.tags;
+                    let mut state = shared.borrow_mut();
+                    let id = state.next_id();
+                    let owner = state.owner.clone();
+                    state.data_handlers.push(DataHandler {
+                        id,
+                        owner,
+                        key: key(&source),
+                        callback,
+                        tags,
+                    });
+                    Ok(id)
+                },
+            )?,
         )?;
     }
     for (name, key) in [("gmcp", gmcp_key), ("msdp", msdp_key as KeyFn)] {
@@ -113,18 +117,22 @@ fn install_on_event(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     let shared = Rc::clone(state);
     add(
         "on_event",
-        lua.create_function(move |_, (name, callback): (String, Function)| {
-            let mut state = shared.borrow_mut();
-            let id = state.next_id();
-            let owner = state.owner.clone();
-            state.data_handlers.push(DataHandler {
-                id,
-                owner,
-                key: event_key(&name),
-                callback,
-            });
-            Ok(id)
-        })?,
+        lua.create_function(
+            move |_, (name, callback, options): (String, Function, Option<Table>)| {
+                let tags = super::rules::belongs(options.as_ref())?.tags;
+                let mut state = shared.borrow_mut();
+                let id = state.next_id();
+                let owner = state.owner.clone();
+                state.data_handlers.push(DataHandler {
+                    id,
+                    owner,
+                    key: event_key(&name),
+                    callback,
+                    tags,
+                });
+                Ok(id)
+            },
+        )?,
     )?;
     Ok(())
 }
