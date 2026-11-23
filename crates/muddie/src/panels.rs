@@ -283,17 +283,28 @@ impl Gauges {
         ui.horizontal_wrapped(|ui| {
             ui.spacing_mut().item_spacing = vec2(GAP, 8.0);
             for gauge in chosen {
+                let id = ui.make_persistent_id(("edit gauge", &gauge.key));
+                // What presses it lies under what the gauge has to press of
+                // its own, as its "+3": made before it, where it was drawn
+                // the frame before.
+                let editable = editable(gauge);
+                let last = ui.data(|data| data.get_temp::<eframe::egui::Rect>(id));
+                let press = last
+                    .filter(|_| editable)
+                    .map(|rect| ui.interact(rect, id, Sense::click()));
                 let drawn = ui.scope(|ui| {
                     draw_gauge(ui, &gauge.name, gauge.value, gauge.max, &gauge.look, width);
                 });
-                if !editable(gauge) {
-                    continue;
+                if editable && last != Some(drawn.response.rect) {
+                    ui.data_mut(|data| data.insert_temp(id, drawn.response.rect));
+                    ui.ctx().request_repaint();
                 }
-                let id = ui.make_persistent_id(("edit gauge", &gauge.key));
+                let Some(press) = press else {
+                    continue;
+                };
                 // Named by what it is, as it is reached with Tab; what
                 // pressing it does, after.
                 let label = gauge.said();
-                let press = ui.interact(drawn.response.rect, id, Sense::click());
                 press.widget_info(|| WidgetInfo::labeled(Role::Button, true, &label));
                 let about = crate::i18n::trf("Press to edit {0}", &[&gauge.name]);
                 (ui.ctx()).accesskit_node_builder(press.id, |node| node.set_description(about));
