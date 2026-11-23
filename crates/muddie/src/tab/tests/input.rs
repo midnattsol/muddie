@@ -180,7 +180,7 @@ fn the_palette_does_what_is_chosen_and_asks_in_its_field_for_what_it_needs() {
         app.palette.message.clone(),
         Some(("Tag combat off.".to_owned(), false))
     );
-    assert!(!app.notices().0.last().unwrap().corner);
+    assert!(!app.messages().0.last().unwrap().corner);
     assert_eq!(output_lines(app).len(), before);
     // Run Luau… asks for it in the field, named as what it asks.
     let run = |harness: &mut Harness<'_, App>, code: &str| {

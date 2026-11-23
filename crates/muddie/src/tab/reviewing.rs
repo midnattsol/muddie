@@ -99,7 +99,7 @@ impl Tab {
     }
 
     /// Tells what the map changed of itself, a moment after the first of
-    /// it, all together: as the player walks, one notice and not many.
+    /// it, all together: as the player walks, one message and not many.
     pub(super) fn tell_map_changes(&mut self, ctx: &egui::Context, now: Instant) {
         let told = self.map.borrow_mut().take_told();
         if !told.is_empty() {

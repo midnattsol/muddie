@@ -100,7 +100,7 @@ impl App {
             }
             let active = self.active;
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                notices(ui, &mut self.tabs[active]);
+                messages(ui, &mut self.tabs[active]);
                 self.tabs[active].status_line(ui);
             });
         });
@@ -251,9 +251,9 @@ fn session_menu(ui: &mut Ui, connected: bool, profile: Option<&str>) -> Option<S
 /// The bell of what the client said in a session, marked while some have
 /// not been looked at; pressed, the list of them, each with when it was
 /// said, to read again or copy.
-fn notices(ui: &mut Ui, tab: &mut Tab) {
+fn messages(ui: &mut Ui, tab: &mut Tab) {
     let theme = theme::current();
-    let (said, unread) = tab.notices();
+    let (said, unread) = tab.messages();
     let label = match unread {
         0 => tr("Messages").to_owned(),
         count => crate::i18n::trn("Messages, {0} new", "Messages, {0} new", count as u64),
@@ -266,10 +266,10 @@ fn notices(ui: &mut Ui, tab: &mut Tab) {
     let said: Vec<_> = said.iter().rev().take(60).cloned().collect();
     let mut clear = false;
     let shown = crate::widgets::menu_of(&bell).width(420.0).show(|ui| {
-        clear = notices_list(ui, &said);
+        clear = messages_list(ui, &said);
     });
     if shown.is_some() {
-        tab.notices_read();
+        tab.messages_read();
     }
     if clear {
         tab.clear_notices();
@@ -278,7 +278,7 @@ fn notices(ui: &mut Ui, tab: &mut Tab) {
 
 /// The messages, newest first, with the way to clear them. Returns
 /// whether clearing was asked for.
-fn notices_list(ui: &mut Ui, said: &[crate::tab::Notice]) -> bool {
+fn messages_list(ui: &mut Ui, said: &[crate::tab::Message]) -> bool {
     let theme = theme::current();
     let mut clear = false;
     ui.horizontal(|ui| {
@@ -297,19 +297,19 @@ fn notices_list(ui: &mut Ui, said: &[crate::tab::Notice]) -> bool {
         .max_height(360.0)
         .show(ui, |ui| {
             widgets::keep_clear_of_bar(ui);
-            for notice in said {
+            for message in said {
                 ui.horizontal_top(|ui| {
-                    let time = RichText::new(&notice.time)
+                    let time = RichText::new(&message.time)
                         .font(egui::FontId::monospace(11.5))
                         .color(theme.text_faint);
                     ui.add(egui::Label::new(time).selectable(false));
-                    let colour = if notice.problem {
+                    let colour = if message.problem {
                         theme.danger
                     } else {
                         theme.text
                     };
                     ui.add(
-                        egui::Label::new(RichText::new(&notice.text).color(colour))
+                        egui::Label::new(RichText::new(&message.text).color(colour))
                             .wrap()
                             .selectable(true),
                     );

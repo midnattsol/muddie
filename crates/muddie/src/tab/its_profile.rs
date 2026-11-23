@@ -147,15 +147,15 @@ impl Tab {
     /// What the client said since the message of this number, to be
     /// said again elsewhere: as that of a session kept for a profile.
     pub fn said_since(&self, since: u64) -> Vec<(String, bool)> {
-        (self.notices.list.iter())
-            .filter(|notice| notice.serial > since)
-            .map(|notice| (notice.text.clone(), notice.problem))
+        (self.messages.list.iter())
+            .filter(|message| message.serial > since)
+            .map(|message| (message.text.clone(), message.problem))
             .collect()
     }
 
     /// How many messages the client said in this session.
     pub fn said_count(&self) -> u64 {
-        self.notices.said
+        self.messages.said
     }
 
     /// Says again what another session said.

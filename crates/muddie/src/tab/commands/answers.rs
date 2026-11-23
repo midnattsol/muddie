@@ -53,8 +53,8 @@ impl Tab {
             (None, ..) => {}
             // A line asked from elsewhere, as the map: over the corner.
             (Some(_), false, false) => {
-                if let Some(notice) = self.notices.list.last_mut() {
-                    notice.corner = true;
+                if let Some(message) = self.messages.list.last_mut() {
+                    message.corner = true;
                 }
             }
             // A line asked of the palette: in it.

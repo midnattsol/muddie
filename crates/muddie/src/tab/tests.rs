@@ -68,8 +68,8 @@ fn window<'a>(profiles: Option<Profiles>) -> Harness<'a, App> {
 
 /// What the client has said, over the corner and under the bell.
 fn notes(app: &Tab) -> Vec<String> {
-    (app.notices().0.iter())
-        .map(|notice| notice.text.clone())
+    (app.messages().0.iter())
+        .map(|message| message.text.clone())
         .collect()
 }
 

@@ -1,36 +1,36 @@
-//! Notices over the bottom right corner of the window, which move nothing:
+//! Messages over the bottom right corner of the window, which move nothing:
 //! what the client says, wherever the user is, and what waits for an
 //! answer, such as a plugin offered for the MUD. What is said is kept under
 //! the bell too, and the screen reader is told of it as it is said.
 
 use super::*;
 
-/// How long a notice stays: one of something that could not be done,
+/// How long a message stays: one of something that could not be done,
 /// longer.
 const SAID_FOR: std::time::Duration = std::time::Duration::from_secs(6);
 const PROBLEM_FOR: std::time::Duration = std::time::Duration::from_secs(10);
 
-/// How many notices are shown at once, at most.
+/// How many messages are shown at once, at most.
 const AT_ONCE: usize = 3;
 
 impl App {
-    /// The notices of the session on screen.
+    /// The messages of the session on screen.
     pub(super) fn toasts(&mut self, ctx: &egui::Context) {
         let tab = &self.tabs[self.active];
-        let (said, _) = tab.notices();
-        let fresh: Vec<&crate::tab::Notice> = (said.iter())
-            .filter(|notice| notice.corner)
-            .filter(|notice| {
-                let lasts = if notice.problem {
+        let (said, _) = tab.messages();
+        let fresh: Vec<&crate::tab::Message> = (said.iter())
+            .filter(|message| message.corner)
+            .filter(|message| {
+                let lasts = if message.problem {
                     PROBLEM_FOR
                 } else {
                     SAID_FOR
                 };
-                notice.at.elapsed() < lasts
+                message.at.elapsed() < lasts
             })
             .collect();
         let fresh: Vec<(String, bool)> = (fresh.iter().rev().take(AT_ONCE).rev())
-            .map(|notice| (notice.text.clone(), notice.problem))
+            .map(|message| (message.text.clone(), message.problem))
             .collect();
         let offered = tab.plugin_offered();
         if fresh.is_empty() && offered.is_none() {

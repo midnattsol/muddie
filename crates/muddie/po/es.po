@@ -247,7 +247,7 @@ msgid "Script error: {0}"
 msgstr "Error de script: {0}"
 
 msgid "Close session"
-msgstr "Cerrar sesión"
+msgstr "Cerrar esta sesión"
 
 msgid "Session"
 msgstr "Sesión"
@@ -261,8 +261,6 @@ msgstr "Atajos de teclado"
 msgid "Earlier and later commands"
 msgstr "Navegar por el historial de comandos"
 
-msgid "Search the commands typed before"
-msgstr "Buscar en el historial de comandos"
 
 msgid "Complete the word being typed"
 msgstr "Autocompletar la palabra"
@@ -1120,7 +1118,7 @@ msgid "Soft (follows the theme)"
 msgstr "Suaves (según el tema)"
 
 msgid "Scrollback"
-msgstr "Historial"
+msgstr "Líneas guardadas"
 
 msgid "Lines kept to scroll back through and search."
 msgstr "Líneas que se conservan para desplazarse y buscar."
@@ -1897,7 +1895,7 @@ msgid "Moved: {0}."
 msgstr "Movido: {0}."
 
 msgid "Arrangements"
-msgstr "Disposiciones de partida"
+msgstr "Distribuciones"
 
 msgid "Use"
 msgstr "Usar"
@@ -2847,3 +2845,9 @@ msgstr "El nombre de una carpeta no puede llevar barra."
 
 msgid "Palette"
 msgstr "Paleta"
+
+msgid "Find a command typed before"
+msgstr "Buscar un comando escrito antes"
+
+msgid "Staying connected"
+msgstr "Mantener la conexión"

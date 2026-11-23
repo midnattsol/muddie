@@ -15,10 +15,10 @@ fn what_the_client_says_can_be_read_again() {
     app.run_command("/tag Combat off");
     app.run_command("/map find nowhere");
     harness.run_steps(3);
-    let (said, unread) = harness.state().tab().notices();
+    let (said, unread) = harness.state().tab().messages();
     let texts: Vec<(&str, bool)> = said
         .iter()
-        .map(|notice| (notice.text.as_str(), notice.problem))
+        .map(|message| (message.text.as_str(), message.problem))
         .collect();
     assert_eq!(
         texts,
@@ -39,7 +39,7 @@ fn what_the_client_says_can_be_read_again() {
             .count()
             >= 2
     );
-    assert_eq!(harness.state().tab().notices().1, 0);
+    assert_eq!(harness.state().tab().messages().1, 0);
 }
 
 #[test]
@@ -432,7 +432,7 @@ fn what_is_said_out_of_sight_of_the_game_is_shown_over_the_corner() {
         1,
         "said twice"
     );
-    // In the editor, a notice says it, moving nothing, and goes.
+    // In the editor, a message says it, moving nothing, and goes.
     harness
         .state_mut()
         .tab_mut()

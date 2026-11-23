@@ -17,7 +17,7 @@ impl App {
                             ("↑  ↓", tr("Earlier and later commands")),
                             (
                                 crate::shortcuts::HISTORY_SEARCH.written,
-                                tr("Search the commands typed before"),
+                                tr("Find a command typed before"),
                             ),
                             ("Tab", tr("Complete the word being typed")),
                             (crate::shortcuts::FIND.written, tr("Find in the output")),

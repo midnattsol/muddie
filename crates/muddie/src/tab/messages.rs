@@ -8,7 +8,7 @@ use super::*;
 /// Something the client said: when, what, and whether it was that
 /// something could not be done.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Notice {
+pub struct Message {
     pub time: String,
     pub text: String,
     pub problem: bool,
@@ -36,7 +36,7 @@ impl Tab {
         crate::debug::show(&self.title(), "NOTE", text);
         let problem = problem || (self.palette.answering && self.palette.answer_failed);
         let answering = self.palette.answering;
-        self.keep_notice(text, problem, !answering);
+        self.keep_message(text, problem, !answering);
         if answering {
             self.palette.answer.push(commands::Said {
                 text: text.to_owned(),
@@ -60,39 +60,39 @@ impl Tab {
 
     /// Keeps something the client said, to be read again, and to show over
     /// the corner if `corner`.
-    pub(super) fn keep_notice(&mut self, text: &str, problem: bool, corner: bool) {
+    pub(super) fn keep_message(&mut self, text: &str, problem: bool, corner: bool) {
         if text.trim().is_empty() {
             return;
         }
-        if self.notices.list.len() >= MOST_NOTICES {
-            self.notices.list.remove(0);
+        if self.messages.list.len() >= MOST_NOTICES {
+            self.messages.list.remove(0);
         }
-        self.notices.said += 1;
-        self.notices.list.push(Notice {
+        self.messages.said += 1;
+        self.messages.list.push(Message {
             time: crate::output::clock(),
             text: text.to_owned(),
             problem,
-            serial: self.notices.said,
+            serial: self.messages.said,
             at: Instant::now(),
             corner,
         });
-        self.notices.unread += 1;
+        self.messages.unread += 1;
     }
 
     /// What the client said in this session, newest last, and how many
     /// of them have not been looked at.
-    pub fn notices(&self) -> (&[Notice], usize) {
-        (&self.notices.list, self.notices.unread)
+    pub fn messages(&self) -> (&[Message], usize) {
+        (&self.messages.list, self.messages.unread)
     }
 
     /// They have been looked at.
-    pub fn notices_read(&mut self) {
-        self.notices.unread = 0;
+    pub fn messages_read(&mut self) {
+        self.messages.unread = 0;
     }
 
     pub fn clear_notices(&mut self) {
-        self.notices.list.clear();
-        self.notices.unread = 0;
+        self.messages.list.clear();
+        self.messages.unread = 0;
     }
 
     /// Shows a line of the client's own, without speaking it.
@@ -111,10 +111,10 @@ impl Tab {
 /// What the client said, to be read again, and how many of those have not
 /// been looked at.
 #[derive(Default)]
-pub(super) struct Notices {
+pub(super) struct Messages {
     /// What the client said, to be read again, and how many of those
     /// have not been looked at.
-    pub(super) list: Vec<Notice>,
+    pub(super) list: Vec<Message>,
     pub(super) unread: usize,
     /// How many have been said in the session, kept or not.
     pub(super) said: u64,

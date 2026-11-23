@@ -48,13 +48,13 @@ fn desert(app: &mut Tab) {
 
 /// What a command answers: each line, with what it is about if anything.
 fn answer(app: &mut Tab, command: &str) -> Vec<String> {
-    let before = app.notices().0.len();
+    let before = app.messages().0.len();
     app.run_command(command);
     // A line, over the corner; a list, in the palette.
     if app.palette.results.is_none() {
-        return (app.notices().0[before..].iter())
-            .filter(|notice| notice.corner)
-            .map(|notice| notice.text.clone())
+        return (app.messages().0[before..].iter())
+            .filter(|message| message.corner)
+            .map(|message| message.text.clone())
             .collect();
     }
     (app.palette.results.iter().flatten())
@@ -67,7 +67,7 @@ fn answer(app: &mut Tab, command: &str) -> Vec<String> {
 
 /// The last thing the client said of itself.
 fn last_said(app: &Tab) -> String {
-    (app.notices().0.last()).map_or_else(String::new, |notice| notice.text.clone())
+    (app.messages().0.last()).map_or_else(String::new, |message| message.text.clone())
 }
 
 /// Steps the window once what the plugin of Reinos waits for, to take the
@@ -258,16 +258,16 @@ fn the_plugin_takes_the_servers_map_when_there_is_none_and_it_is_said_aside() {
     reinos(app);
     connected_now(app);
     harness.run_steps(2);
-    let said = harness.state().tab().notices().0.to_vec();
+    let said = harness.state().tab().messages().0.to_vec();
     let taking = (said.iter())
-        .find(|notice| notice.text.starts_with("Importing the map from https://"))
+        .find(|message| message.text.starts_with("Importing the map from https://"))
         .unwrap();
     assert!(taking.corner);
     // Tests do not reach the web: it failed, and says so aside too, once
     // the thread that tried has said so, however busy the machine.
     let failed = |harness: &Harness<'_, App>| {
-        (harness.state().tab().notices().0.iter())
-            .find(|notice| notice.text.starts_with("Could not import the map"))
+        (harness.state().tab().messages().0.iter())
+            .find(|message| message.text.starts_with("Could not import the map"))
             .cloned()
     };
     for _ in 0..100 {

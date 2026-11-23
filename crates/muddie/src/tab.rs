@@ -59,7 +59,7 @@ mod view;
 mod walking;
 mod welcome;
 
-pub use messages::Notice;
+pub use messages::Message;
 
 pub use commands::AppRequest;
 pub use view::View;
@@ -165,7 +165,7 @@ pub struct Tab {
     protocols: Vec<(String, bool)>,
     /// What the client said, to be read again, and how many of those have not
     /// been looked at.
-    notices: messages::Notices,
+    messages: messages::Messages,
     /// How its sessions go, kept with the profile: those of the settings
     /// with none.
     prefs: crate::profile::SessionPrefs,
@@ -321,7 +321,7 @@ impl Tab {
             prefs: crate::profile::SessionPrefs::default(),
             profile_written: false,
             connected_with: None,
-            notices: messages::Notices::default(),
+            messages: messages::Messages::default(),
             app_request: None,
             unprofiled_seen: false,
             cursor_to_end: false,

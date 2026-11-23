@@ -663,7 +663,7 @@ fn restarting_the_scripts_says_when_and_which_failed() {
     harness.get_by_label(&format!("Restarted at {at}"));
     // Said over the corner, as the lines of the game are not in sight,
     // and kept as something that could not be done.
-    let (said, _) = harness.state().tab().notices();
+    let (said, _) = harness.state().tab().messages();
     let last = said.last().unwrap();
     assert!(
         last.problem && last.text.contains("1 failed"),

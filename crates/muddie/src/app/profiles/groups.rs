@@ -134,7 +134,7 @@ pub(in crate::app) fn login_group(ui: &mut Ui, edit: &mut ProfileEdit) {
 
 /// Connecting again when the connection drops, and keeping it alive.
 pub(in crate::app) fn keeping_group(ui: &mut Ui, prefs: &mut SessionPrefs) {
-    widgets::section(ui, tr("Connection"), |ui| {
+    widgets::section(ui, tr("Staying connected"), |ui| {
         widgets::switch_setting(ui, &mut prefs.reconnect, tr("Auto-reconnect"), None);
         let about = tr("Stops the server or a router from closing an idle connection.");
         widgets::setting_row(ui, tr("Keep-alive"), Some(about), &mut |ui| {

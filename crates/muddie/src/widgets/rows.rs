@@ -1,4 +1,4 @@
-//! Groups of settings: their rows, captions, notes and notices.
+//! Groups of settings: their rows, captions, notes and messages.
 
 use super::*;
 
@@ -303,7 +303,7 @@ pub fn page_note(ui: &mut Ui, text: &str) {
     ui.add(egui::Label::new(note).wrap());
 }
 
-/// A notice over the corner of the window, which moves nothing: what it
+/// A message over the corner of the window, which moves nothing: what it
 /// says, marked if it is that something could not be done, and what can
 /// be done about it under it, if anything.
 pub fn toast(
