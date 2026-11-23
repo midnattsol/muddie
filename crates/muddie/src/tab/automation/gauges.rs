@@ -263,7 +263,8 @@ fn preview_card(ui: &mut egui::Ui, rule: &Gauge) {
         ui.horizontal_wrapped(|ui| {
             ui.spacing_mut().item_spacing = egui::vec2(22.0, 12.0);
             for (value, max, text) in preview_values(rule) {
-                crate::panels::draw_gauge(ui, name, value, max, &look_of(rule, text));
+                let look = look_of(rule, text);
+                crate::panels::draw_gauge(ui, name, value, max, &look, crate::panels::BAR_WIDTH);
             }
         });
     });

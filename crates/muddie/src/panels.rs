@@ -49,6 +49,11 @@ struct Gauge {
 }
 
 impl Gauge {
+    /// Whether it is drawn as a bar, of one piece or of cells.
+    fn is_bar(&self) -> bool {
+        matches!(self.look.kind.as_str(), "" | "bar" | "cells")
+    }
+
     /// The lowest of its warnings it is under, as a percentage: the
     /// steps where it changes colour, and its low mark.
     fn under(&self) -> Option<f64> {
@@ -204,11 +209,15 @@ impl Gauges {
             return (false, None);
         }
         let mut pressed = None;
+        // The bars share the width of the panel, in as many columns as fit.
+        let bars = chosen.iter().filter(|gauge| gauge.is_bar()).count();
+        let width = bar_width(ui.available_width(), bars);
         ui.horizontal_wrapped(|ui| {
-            ui.spacing_mut().item_spacing = vec2(22.0, 8.0);
+            ui.spacing_mut().item_spacing = vec2(GAP, 8.0);
             for gauge in chosen {
-                let drawn =
-                    ui.scope(|ui| draw_gauge(ui, &gauge.name, gauge.value, gauge.max, &gauge.look));
+                let drawn = ui.scope(|ui| {
+                    draw_gauge(ui, &gauge.name, gauge.value, gauge.max, &gauge.look, width);
+                });
                 if !editable(&gauge.name) {
                     continue;
                 }
@@ -236,6 +245,30 @@ impl Gauges {
     }
 }
 
+/// The room between gauges side by side.
+const GAP: f32 = 22.0;
+/// How wide a bar is drawn where nothing says otherwise, as in a preview.
+pub const BAR_WIDTH: f32 = 158.0;
+
+/// How wide each of `count` bars is in a panel `room` wide: in as many
+/// columns as fit, none narrower than it reads well, and in one row no
+/// wider than it looks well; in a narrow panel, one under another, its
+/// whole width.
+fn bar_width(room: f32, count: usize) -> f32 {
+    const NARROWEST: f32 = 140.0;
+    const WIDEST: f32 = 320.0;
+    if count == 0 {
+        return BAR_WIDTH;
+    }
+    let fit = ((room + GAP) / (NARROWEST + GAP)).floor().max(1.0) as usize;
+    let columns = fit.min(count);
+    let width = (room - GAP * (columns - 1) as f32) / columns as f32;
+    match columns == count && columns > 1 {
+        true => width.min(WIDEST),
+        false => width.max(NARROWEST.min(room)),
+    }
+}
+
 /// A number without the `.0` a whole one would otherwise have.
 fn plain(number: f64) -> String {
     if number.fract() == 0.0 && number.abs() < 1e15 {
@@ -248,7 +281,7 @@ fn plain(number: f64) -> String {
 /// Draws one gauge as its look says: a bar or a row of cells under its
 /// name and numbers, a number alone, a light that is on or off, or a few
 /// words.
-pub fn draw_gauge(ui: &mut Ui, name: &str, value: f64, max: f64, look: &GaugeLook) {
+pub fn draw_gauge(ui: &mut Ui, name: &str, value: f64, max: f64, look: &GaugeLook, bar: f32) {
     let kind = match look.kind.as_str() {
         "" => "bar",
         kind => kind,
@@ -266,7 +299,7 @@ pub fn draw_gauge(ui: &mut Ui, name: &str, value: f64, max: f64, look: &GaugeLoo
             };
             draw_words(ui, name, said, &shade, true);
         }
-        _ => draw_bar(ui, name, value, max, &shade, kind == "cells"),
+        _ => draw_bar(ui, name, value, max, &shade, kind == "cells", bar),
     }
 }
 
@@ -378,8 +411,12 @@ fn draw_effects(ui: &mut Ui, name: &str, items: &[muddie_script::Effect], shade:
     let font = theme::font(theme::Weight::Medium, 12.0);
     let width_of = |text: &str| 26.0 + measure(ui, text, &font);
     let more_of = |left: usize| format!("+{left}");
-    // How many fit, leaving room for the one more if not all do.
-    let room = ui.max_rect().width();
+    // How many fit in what is left of the row, or in the next if little is
+    // left, leaving room for the one more if not all do.
+    let room = match ui.available_width() {
+        left if left >= 200.0 => left,
+        _ => ui.max_rect().width(),
+    };
     let widths: Vec<f32> = items.iter().map(|item| width_of(&item.name)).collect();
     let mut shown = items.len();
     let total = |count: usize| -> f32 {
@@ -495,11 +532,11 @@ fn draw_words(ui: &mut Ui, name: &str, said: String, shade: &Shade, number: bool
 }
 
 /// A bar, or a row of cells, under the gauge's name and its numbers.
-fn draw_bar(ui: &mut Ui, name: &str, value: f64, max: f64, shade: &Shade, cells: bool) {
+fn draw_bar(ui: &mut Ui, name: &str, value: f64, max: f64, shade: &Shade, cells: bool, width: f32) {
     let theme = theme::current();
     let small = theme::font(theme::Weight::Medium, 11.5);
     let numbers = format!("{} / {}", plain(value), plain(max));
-    let (rect, response) = ui.allocate_exact_size(vec2(158.0, 31.0), Sense::hover());
+    let (rect, response) = ui.allocate_exact_size(vec2(width, 31.0), Sense::hover());
     let described = format!("{name} {numbers}");
     response.widget_info(|| WidgetInfo::labeled(Role::ProgressIndicator, true, described.as_str()));
     let painter = ui.painter();
@@ -681,6 +718,21 @@ pub fn styled_lines(text: &str) -> Vec<Line> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Bars share a wide panel, no wider than looks well; in a narrow
+    /// one, each takes its whole width, one under another.
+    #[test]
+    fn bars_share_the_width_of_their_panel() {
+        // Three in a row at the bottom of a wide window: their widest.
+        assert_eq!(bar_width(1460.0, 3), 320.0);
+        // Three in a row that fits them just: the width shared.
+        assert_eq!(bar_width(600.0, 3), (600.0 - 2.0 * GAP) / 3.0);
+        // Beside the output, narrow: one under another, the whole width.
+        assert_eq!(bar_width(300.0, 3), 300.0);
+        // In between: two columns.
+        assert_eq!(bar_width(400.0, 3), (400.0 - GAP) / 2.0);
+        assert_eq!(bar_width(500.0, 0), BAR_WIDTH);
+    }
 
     #[test]
     fn vitals_accept_numbers_and_numeric_strings() {
