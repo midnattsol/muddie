@@ -16,14 +16,6 @@ pub const WITH_KEY: Modifiers = if MAC { Modifiers::CTRL } else { Modifiers::ALT
 /// Ctrl and the arrows are the system's.
 pub const WITH_ARROWS: Modifiers = Modifiers::ALT;
 
-/// Reconnecting: Alt+R; on a Mac Cmd+R, as reloading is in every app
-/// there, Ctrl+R being the search of what was typed, as in a terminal.
-pub const RECONNECT: Modifiers = if MAC {
-    Modifiers::COMMAND
-} else {
-    Modifiers::ALT
-};
-
 /// How Command and a key are written: Cmd on a Mac, Ctrl elsewhere.
 macro_rules! command {
     ($key:literal) => {
@@ -58,9 +50,6 @@ macro_rules! with_arrows {
 }
 
 pub(crate) use {with_arrows, with_key};
-
-/// How reconnecting is written.
-pub const RECONNECT_KEYS: &str = if MAC { "Cmd+R" } else { "Alt+R" };
 
 /// One of Muddie's shortcuts: the keys it is pressed with, and how they
 /// are written, everywhere it is shown.
@@ -109,3 +98,41 @@ pub const ROOM_INFO: Shortcut = command_shortcut!(I, "I");
 pub const NEAR: Shortcut = command_shortcut!(L, "L");
 pub const MARK: Shortcut = command_shortcut!(B, "B");
 pub const NOTE: Shortcut = command_shortcut!(N, "N");
+
+/// [`WITH_KEY`] and a key.
+macro_rules! with_key_shortcut {
+    ($key:ident, $written:literal) => {
+        Shortcut {
+            keys: eframe::egui::KeyboardShortcut::new(WITH_KEY, eframe::egui::Key::$key),
+            written: with_key!($written),
+        }
+    };
+}
+
+/// Says where the player is, by the map.
+pub const WHERE: Shortcut = with_key_shortcut!(M, "M");
+/// Explores the map with the keys.
+pub const EXPLORE: Shortcut = with_key_shortcut!(E, "E");
+/// Reads the gauges aloud.
+pub const GAUGES: Shortcut = with_key_shortcut!(Num0, "0");
+
+/// Reconnecting: Alt+R; on a Mac Cmd+R, as reloading is in every app
+/// there, Ctrl+R being the search of what was typed, as in a terminal.
+pub const RECONNECT: Shortcut = Shortcut {
+    keys: eframe::egui::KeyboardShortcut::new(
+        if MAC {
+            Modifiers::COMMAND
+        } else {
+            Modifiers::ALT
+        },
+        eframe::egui::Key::R,
+    ),
+    written: if MAC { "Cmd+R" } else { "Alt+R" },
+};
+
+/// Searching the commands typed before, as in a terminal: Ctrl+R, on a
+/// Mac too.
+pub const HISTORY_SEARCH: Shortcut = Shortcut {
+    keys: eframe::egui::KeyboardShortcut::new(Modifiers::CTRL, eframe::egui::Key::R),
+    written: "Ctrl+R",
+};

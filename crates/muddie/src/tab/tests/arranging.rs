@@ -141,7 +141,7 @@ fn panels_are_kept_fed_by_triggers_and_moved_about() {
     app.set_map_shown(false);
     harness.run_steps(3);
     assert!(
-        harness.query_by_label("Show my position").is_none(),
+        harness.query_by_label("Where am I").is_none(),
         "the map is hidden"
     );
     let kept = layout::Layout::load(&dir.join("layout.toml")).unwrap();

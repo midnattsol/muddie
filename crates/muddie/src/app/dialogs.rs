@@ -15,7 +15,10 @@ impl App {
                         tr("Typing"),
                         &[
                             ("↑  ↓", tr("Earlier and later commands")),
-                            ("Ctrl+R", tr("Search the commands typed before")),
+                            (
+                                crate::shortcuts::HISTORY_SEARCH.written,
+                                tr("Search the commands typed before"),
+                            ),
                             ("Tab", tr("Complete the word being typed")),
                             (crate::shortcuts::FIND.written, tr("Find in the output")),
                         ],
@@ -40,13 +43,10 @@ impl App {
                                 crate::shortcuts::with_arrows!("Shift+↑ …"),
                                 tr("Same, for the panel of channels"),
                             ),
-                            (crate::shortcuts::with_key!("0"), tr("Read the gauges")),
+                            (crate::shortcuts::GAUGES.written, tr("Read the gauges")),
+                            (crate::shortcuts::WHERE.written, tr("Where am I")),
                             (
-                                crate::shortcuts::with_key!("M"),
-                                tr("Say where you are, by the map"),
-                            ),
-                            (
-                                crate::shortcuts::with_key!("E"),
+                                crate::shortcuts::EXPLORE.written,
                                 tr("Explore the map with the keys"),
                             ),
                         ],
@@ -79,7 +79,7 @@ impl App {
                         &[
                             (crate::shortcuts::NEW_SESSION.written, tr("New session")),
                             (crate::shortcuts::CLOSE_SESSION.written, tr("Close session")),
-                            (crate::shortcuts::RECONNECT_KEYS, tr("Reconnect")),
+                            (crate::shortcuts::RECONNECT.written, tr("Reconnect")),
                             (crate::shortcuts::PALETTE.written, tr("Commands")),
                             (
                                 crate::shortcuts::SWITCH_VIEW.written,

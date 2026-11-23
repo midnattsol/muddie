@@ -181,7 +181,6 @@ impl MapView {
         };
         ui.memory_mut(|memory| memory.set_focus_lock_filter(response.id, filter));
         let pressed = |modifiers, key| ui.input_mut(|input| input.consume_key(modifiers, key));
-        let command = |key| pressed(egui::Modifiers::COMMAND, key);
         let chosen = self.selected.unwrap_or(current.id);
         // The keypad first, by where its keys are: what egui made of them,
         // Home for 7 with Num Lock off, was taken away.
@@ -193,18 +192,20 @@ impl MapView {
         if pressed(egui::Modifiers::NONE, egui::Key::F1) {
             return Some(MapAsk::Say(all_keys()));
         }
-        if command(egui::Key::I) {
+        let shortcut =
+            |shortcut: crate::shortcuts::Shortcut| ui.input_mut(|input| shortcut.pressed(input));
+        if shortcut(crate::shortcuts::ROOM_INFO) {
             return Some(MapAsk::Info(chosen));
         }
-        if command(egui::Key::L) {
+        if shortcut(crate::shortcuts::NEAR) {
             return Some(MapAsk::Say(near_words(map, chosen)));
         }
         let asked = [
-            (egui::Key::F, Asked::Search),
-            (egui::Key::B, Asked::Mark),
-            (egui::Key::N, Asked::Note),
+            (crate::shortcuts::FIND, Asked::Search),
+            (crate::shortcuts::MARK, Asked::Mark),
+            (crate::shortcuts::NOTE, Asked::Note),
         ];
-        if let Some((_, asked)) = asked.into_iter().find(|(key, _)| command(*key)) {
+        if let Some((_, asked)) = asked.into_iter().find(|(keys, _)| shortcut(*keys)) {
             self.ask(map, asked, chosen);
             return None;
         }

@@ -222,7 +222,7 @@ fn session_menu(ui: &mut Ui, connected: bool, profile: Option<&str>) -> Option<S
     item(
         ui,
         connect,
-        crate::shortcuts::RECONNECT_KEYS,
+        crate::shortcuts::RECONNECT.written,
         SessionAction::Reconnect,
     );
     if connected {

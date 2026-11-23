@@ -33,14 +33,14 @@ impl Tab {
         }
         // Alt+M (Ctrl+M on a Mac) says where the player is, by the map;
         // Alt+E explores it.
-        if ui.input_mut(|input| input.consume_key(crate::shortcuts::WITH_KEY, Key::M)) {
+        if ui.input_mut(|input| crate::shortcuts::WHERE.pressed(input)) {
             self.say_where_aloud();
         }
-        if ui.input_mut(|input| input.consume_key(crate::shortcuts::WITH_KEY, Key::E)) {
+        if ui.input_mut(|input| crate::shortcuts::EXPLORE.pressed(input)) {
             self.explore_map();
         }
         // Alt+0 (Ctrl+0 on a Mac) reads the gauges aloud.
-        if ui.input_mut(|input| input.consume_key(crate::shortcuts::WITH_KEY, Key::Num0)) {
+        if ui.input_mut(|input| crate::shortcuts::GAUGES.pressed(input)) {
             let summary = self.gauges_said();
             self.voice.say_now(if summary.is_empty() {
                 tr("No gauges.")

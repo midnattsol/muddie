@@ -221,7 +221,7 @@ impl Tab {
             (
                 input.consume_key(Modifiers::NONE, Key::ArrowUp),
                 input.consume_key(Modifiers::NONE, Key::ArrowDown),
-                input.consume_key(Modifiers::CTRL, Key::R),
+                crate::shortcuts::HISTORY_SEARCH.pressed(input),
                 crate::shortcuts::FIND.pressed(input),
             )
         });

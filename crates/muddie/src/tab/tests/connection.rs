@@ -70,7 +70,7 @@ fn reconnecting_closes_the_connection_and_opens_it_again() {
     app.port = "1".into();
     let (events, mut sent) = fake_connection(app);
     // Alt+R asks the connection to close...
-    harness.key_press_modifiers(crate::shortcuts::RECONNECT, Key::R);
+    harness.key_press_modifiers(crate::shortcuts::RECONNECT.keys.modifiers, Key::R);
     harness.run_steps(2);
     assert_eq!(sent.try_recv().ok(), Some(Command::Disconnect));
     assert!(harness.state().tab().reconnect_wanted);

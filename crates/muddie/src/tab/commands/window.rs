@@ -459,10 +459,10 @@ fn keys_at_the_foot(ui: &mut egui::Ui, chosen: Option<&Item>, asking: bool) {
         let more = asking && chosen.is_some();
         let keys = [
             Some(("↑ ↓", tr("choose"))),
-            chosen.map(|_| ("Enter", if place { tr("go") } else { tr("run") })),
-            place.then(|| ("⇧ Enter", tr("the way"))),
+            chosen.map(|_| (tr("Enter"), if place { tr("go") } else { tr("run") })),
+            place.then(|| (tr("Shift+Enter"), tr("the way"))),
             more.then(|| ("Tab", tr("complete"))),
-            Some(("Esc", tr("close"))),
+            Some((tr("Escape"), tr("close"))),
         ];
         for (keys, does) in keys.into_iter().flatten() {
             let chip = RichText::new(keys)
@@ -612,7 +612,7 @@ fn look_of(item: &Item) -> (widgets::Glyph, &'static str) {
             | AppRequest::Play(_) => (Glyph::Profile, ""),
             _ => (Glyph::Check, ""),
         },
-        Act::Reconnect => (Glyph::Restart, crate::shortcuts::RECONNECT_KEYS),
+        Act::Reconnect => (Glyph::Restart, crate::shortcuts::RECONNECT.written),
         Act::Disconnect => (Glyph::Close, ""),
         Act::Find => (Glyph::Search, crate::shortcuts::FIND.written),
         Act::CopyOutput => (Glyph::Copy, ""),
