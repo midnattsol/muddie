@@ -180,7 +180,7 @@ msgid "Map view"
 msgstr "Vista del mapa"
 
 msgid "Tidy this area"
-msgstr "Ordenar esta zona"
+msgstr "Ordenar esta área"
 
 msgid "Keep routes off"
 msgstr "Fuera de las rutas"
@@ -417,7 +417,7 @@ msgid "Matches:"
 msgstr "Coincide:"
 
 msgid "Show all areas"
-msgstr "Mostrar todas las zonas"
+msgstr "Mostrar todas las áreas"
 
 msgid "Address"
 msgstr "Dirección"
@@ -578,41 +578,41 @@ msgid "Hide the map"
 msgstr "Ocultar el mapa"
 
 msgid "Plugins are enabled per profile: save or choose a profile first."
-msgstr "Los complementos se activan por perfil. Guarda o selecciona un perfil para continuar."
+msgstr "Los plugins se activan por perfil. Guarda o selecciona un perfil para continuar."
 
 #, python-brace-format
 msgid "Plugin {0} enabled."
-msgstr "Complemento {0} activado."
+msgstr "Plugin {0} activado."
 
 #, python-brace-format
 msgid "Plugin {0} disabled."
-msgstr "Complemento {0} desactivado."
+msgstr "Plugin {0} desactivado."
 
 #, python-brace-format
 msgid "Plugin {0} removed."
-msgstr "Complemento {0} eliminado."
+msgstr "Plugin {0} quitado."
 
 #, python-brace-format
 msgid "The plugin could not be removed: {0}"
-msgstr "No se pudo eliminar el complemento: {0}"
+msgstr "No se pudo quitar el plugin: {0}"
 
 #, python-brace-format
 msgid "Plugin {0} installed."
-msgstr "Complemento {0} instalado."
+msgstr "Plugin {0} instalado."
 
 #, python-brace-format
 msgid "Plugin {0} updated."
-msgstr "Complemento {0} actualizado."
+msgstr "Plugin {0} actualizado."
 
 #, python-brace-format
 msgid "The plugin could not be installed or updated: {0}"
-msgstr "No se pudo instalar o actualizar el complemento: {0}"
+msgstr "No se pudo instalar o actualizar el plugin: {0}"
 
 msgid "Plugins need a configuration folder, and none was found."
-msgstr "Los complementos necesitan una carpeta de configuración, y no se encontró ninguna."
+msgstr "Los plugins necesitan una carpeta de configuración, y no se encontró ninguna."
 
 msgid "Give the plugin a name after the address: letters, digits, - and _."
-msgstr "Indica un nombre para el complemento después de la dirección (letras, cifras, - y _)."
+msgstr "Indica un nombre para el plugin después de la dirección (letras, cifras, - y _)."
 
 msgid "Starts or stops logging the session"
 msgstr "Inicia o detiene el registro de la sesión"
@@ -929,7 +929,7 @@ msgstr "nuevo"
 
 #, python-brace-format
 msgid "There is a plugin for {0}."
-msgstr "Hay un complemento para {0}."
+msgstr "Hay un plugin para {0}."
 
 msgid "Not now"
 msgstr "Ahora no"
@@ -1131,19 +1131,19 @@ msgid "Interface"
 msgstr "Interfaz"
 
 msgid "Install a plugin"
-msgstr "Instalar un complemento"
+msgstr "Instalar un plugin"
 
 msgid "Address of its git repository"
 msgstr "Dirección de su repositorio git"
 
 msgid "Only install what you trust: a plugin can send commands as you."
-msgstr "Instala solo complementos de confianza: pueden enviar comandos en tu nombre."
+msgstr "Instala solo plugins de confianza: pueden enviar comandos en tu nombre."
 
 msgid "Connection"
 msgstr "Conexión"
 
 msgid "Plugins"
-msgstr "Complementos"
+msgstr "Plugins"
 
 msgid "TLS encryption"
 msgstr "Cifrado TLS"
@@ -1369,7 +1369,7 @@ msgstr "Varias carpetas"
 
 #, python-brace-format
 msgid "There is a plugin for {0}: {1} It can be enabled from the notice at the bottom right."
-msgstr "Hay un complemento disponible para {0}: {1} Puedes activarlo desde el aviso de la esquina inferior derecha."
+msgstr "Hay un plugin disponible para {0}: {1} Puedes activarlo desde el aviso de la esquina inferior derecha."
 
 msgid "Changes pending"
 msgstr "Cambios pendientes"
@@ -1851,7 +1851,7 @@ msgstr "Entrar cuesta {0}."
 #, python-brace-format
 #, python-brace-format
 msgid "The map has no areas yet."
-msgstr "El mapa aún no tiene zonas."
+msgstr "El mapa aún no tiene áreas."
 
 #, python-brace-format
 msgid "{0} room"
@@ -1929,10 +1929,10 @@ msgid "The game alone"
 msgstr "Solo el juego"
 
 msgid "The map and the panels of text at the right, the gauges below."
-msgstr "El mapa y los paneles de texto a la derecha, las barras abajo."
+msgstr "El mapa y los paneles de texto a la derecha, los indicadores abajo."
 
 msgid "The map at the left, the panels of text at the right, the gauges below."
-msgstr "El mapa a la izquierda, los paneles de texto a la derecha, las barras abajo."
+msgstr "El mapa a la izquierda, los paneles de texto a la derecha, los indicadores abajo."
 
 msgid "Every panel hidden; they are kept, to show again."
 msgstr "Todos los paneles ocultos; se conservan para mostrarlos de nuevo."
@@ -2328,7 +2328,7 @@ msgid "No rules yet"
 msgstr "Aún no hay reglas"
 
 msgid "Each profile has its own scripts, triggers and gauges. Choose a profile, or connect, to edit them."
-msgstr "Cada perfil tiene sus propios scripts, triggers e indicadores. Elige un perfil, o conéctate, para editarlos."
+msgstr "Cada perfil tiene sus propios scripts, disparadores e indicadores. Elige un perfil, o conéctate, para editarlos."
 
 msgid "Edit the rules of sessions without a profile"
 msgstr "Editar las reglas de las sesiones sin perfil"
@@ -2565,34 +2565,34 @@ msgid "No room is marked {0}."
 msgstr "Ninguna sala tiene la marca {0}."
 
 msgid "Collapse the left side"
-msgstr "Plegar el lado izquierdo"
+msgstr "Contraer el lado izquierdo"
 
 msgid "Expand the left side"
-msgstr "Desplegar el lado izquierdo"
+msgstr "Expandir el lado izquierdo"
 
 msgid "Collapse the right side"
-msgstr "Plegar el lado derecho"
+msgstr "Contraer el lado derecho"
 
 msgid "Expand the right side"
-msgstr "Desplegar el lado derecho"
+msgstr "Expandir el lado derecho"
 
 msgid "Collapse the top side"
-msgstr "Plegar el lado de arriba"
+msgstr "Contraer el lado de arriba"
 
 msgid "Expand the top side"
-msgstr "Desplegar el lado de arriba"
+msgstr "Expandir el lado de arriba"
 
 msgid "Collapse the bottom side"
-msgstr "Plegar el lado de abajo"
+msgstr "Contraer el lado de abajo"
 
 msgid "Expand the bottom side"
-msgstr "Desplegar el lado de abajo"
+msgstr "Expandir el lado de abajo"
 
 msgid "{0}, collapsed"
-msgstr "{0}, plegado"
+msgstr "{0}, contraído"
 
 msgid "Its side collapsed"
-msgstr "Su lado plegado"
+msgstr "Su lado contraído"
 
 msgid "The whole side is kept as a thin strip, to expand as it was."
 msgstr "Todo el lado queda como una tira fina, para desplegarlo como estaba."
@@ -2679,7 +2679,7 @@ msgid "Redo"
 msgstr "Rehacer"
 
 msgid "There is no tag called {0}."
-msgstr "No hay ningún tag llamado {0}."
+msgstr "No hay ninguna etiqueta llamada {0}."
 
 msgid "{0}: write it, then Enter."
 msgstr "{0}: escríbelo y pulsa Enter."
@@ -2757,7 +2757,7 @@ msgid "Lua to run"
 msgstr "Lua que ejecutar"
 
 msgid "Tag {0}"
-msgstr "Tag {0}"
+msgstr "Etiqueta {0}"
 
 msgid "Plugin {0}"
 msgstr "Plugin {0}"
