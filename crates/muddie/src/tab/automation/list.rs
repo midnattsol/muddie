@@ -834,18 +834,6 @@ impl Tab {
         let folder = self.chosen_folder();
         let index = match section_kind(section).and_then(|kind| self.editor.draft.list_mut(kind)) {
             Some(list) => list.add(&folder),
-            None if section == GAUGES => {
-                // In the first panel of gauges there is.
-                let panel = (self.layout.panels.iter())
-                    .find(|panel| panel.kind == super::layout::Kind::Gauges)
-                    .map_or(0, |panel| panel.id);
-                let gauges = &mut self.editor.draft.gauges;
-                gauges.push(crate::rules::Gauge {
-                    panel,
-                    ..crate::rules::Gauge::starter()
-                });
-                gauges.len() - 1
-            }
             None if section == VARIABLES => return self.add_variable(),
             None => return self.add_script(None),
         };
@@ -1031,7 +1019,7 @@ fn rule_rows<T: crate::rules::When>(
 }
 
 fn gauge_row(rule: &crate::rules::Gauge) -> Row {
-    let kind = rule.kind.shown();
+    let kind = crate::rules::KindName::shown(rule.kind);
     let title = match rule.shown_name() {
         "" => tr("New gauge").to_owned(),
         name => name.to_owned(),
@@ -1041,8 +1029,8 @@ fn gauge_row(rule: &crate::rules::Gauge) -> Row {
         detail: format!("{kind}  ·  {}", rule.value.trim()),
         parts: Vec::new(),
         on: rule.enabled,
-        folder: String::new(),
-        tags: Vec::new(),
+        folder: rule.folder.trim().to_owned(),
+        tags: rule.tags.clone(),
         problem: false,
     }
 }

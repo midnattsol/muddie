@@ -327,16 +327,31 @@ fn a_plugin_that_comes_with_muddie_is_installed_in_sight_and_the_profiles() {
     let mine = "-- mine\n";
     std::fs::write(&script, mine).unwrap();
     let app = harness.state_mut().tab_mut();
-    app.change_rules(|rules| rules.gauges[0].colour = "#ffffff".into());
-    // Switched off, its folder and gauges are; on again, they are, and
-    // nothing is installed again.
+    app.change_rules(|rules| {
+        rules.gauges[0].colour = "#ffffff".into();
+        rules.gauges[2].enabled = false;
+    });
+    // In its folder, as its scripts are.
+    assert!(
+        rules()
+            .gauges
+            .iter()
+            .all(|gauge| gauge.folder == "Reinos de Leyenda")
+    );
+    // Switched off, its folders are; on again, they are, and what the
+    // player switched off in them stays so, and nothing is installed again.
+    let mine_off = |mut all: Vec<(String, bool)>| {
+        all[2].1 = false;
+        all
+    };
     app.set_included(plugin, false);
     assert!(!app.scripts.is_loaded(&script));
-    assert_eq!(gauges(&rules()), all(false));
     assert!(!rules().folder_on(Kind::Script, "Reinos de Leyenda"));
+    assert!(!rules().folder_on(Kind::Gauge, "Reinos de Leyenda"));
     app.set_included(plugin, true);
     assert!(app.scripts.is_loaded(&script));
-    assert_eq!(gauges(&rules()), all(true));
+    assert!(rules().folder_on(Kind::Gauge, "Reinos de Leyenda"));
+    assert_eq!(gauges(&rules()), mine_off(all(true)));
     assert_eq!(std::fs::read_to_string(&script).unwrap(), mine);
     assert_eq!(rules().gauges[0].colour, "#ffffff");
 

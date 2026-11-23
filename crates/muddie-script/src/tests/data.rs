@@ -6,7 +6,9 @@ use super::*;
 fn gmcp_data_reaches_handlers_and_is_remembered() {
     let mut engine = engine(
         r#"on_gmcp("char", function(data, package) echo(`{package}: {data.hp}/{data.maxhp}`) end)
-        on_gmcp("Char.Vitals", function(data) gauge("HP", data.hp, data.maxhp) end)
+        on_gmcp("Char.Vitals", function(data)
+            gauge("HP", data.hp, data.maxhp, {place = "Vitals/HP", tags = "fight", panel = "Puntos"})
+        end)
         on_gmcp("Room.Info", function(data) echo(`{data.name} {#data.exits} {data.area}`) end)"#,
     );
     engine.on_gmcp("Char.Vitals", r#"{"hp": 80, "maxhp": 100}"#);
@@ -19,6 +21,11 @@ fn gmcp_data_reaches_handlers_and_is_remembered() {
                 level: Some((80.0, 100.0)),
                 look: GaugeLook::default(),
                 owner: "test".into(),
+                belongs: Belongs {
+                    place: Some("Vitals/HP".into()),
+                    tags: vec!["fight".into()],
+                },
+                panel: Some(PanelOf::Named("Puntos".into())),
             },
         ]
     );
@@ -27,6 +34,12 @@ fn gmcp_data_reaches_handlers_and_is_remembered() {
         r#"{"name": "Plaza", "exits": ["n", "s"], "area": null}"#,
     );
     assert_eq!(engine.take_actions(), [Action::Echo("Plaza 2 nil".into())]);
+    // A gauge shown is switched by its place, as a trigger is.
+    engine.exec("t", r#"echo(table.concat(gauges.list(), ","))"#);
+    assert_eq!(
+        engine.take_actions(),
+        [Action::Echo("Vitals,Vitals/HP".into())]
+    );
     // Packages that only share a prefix are not "under" the handler's.
     engine.on_gmcp("Charms.List", "[]");
     engine.on_gmcp("Core.Ping", "");
@@ -144,6 +157,8 @@ fn scripts_can_send_gmcp_and_drive_panels() {
                 level: None,
                 look: GaugeLook::default(),
                 owner: "test".into(),
+                belongs: Belongs::default(),
+                panel: None,
             },
             Action::Walk(42),
         ]

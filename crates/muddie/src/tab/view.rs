@@ -41,7 +41,7 @@ impl Tab {
         }
         // Alt+0 (Ctrl+0 on a Mac) reads the gauges aloud.
         if ui.input_mut(|input| input.consume_key(crate::shortcuts::WITH_KEY, Key::Num0)) {
-            let summary = self.gauges.summary();
+            let summary = self.gauges_said();
             self.voice.say_now(if summary.is_empty() {
                 tr("No gauges.")
             } else {

@@ -8,11 +8,8 @@ use super::*;
 pub struct GaugeLook {
     /// A colour name or `#rrggbb`; empty lets the client choose.
     pub colour: String,
-    /// The percentage under which the numbers turn to a warning colour.
-    pub low: f64,
-    /// What it is drawn as: `bar`, `cells`, `number`, `light`, `text` or
-    /// `effects`; empty for a bar.
-    pub kind: String,
+    /// What it is drawn as.
+    pub kind: GaugeKind,
     /// The colour it takes under each percentage, whatever its order.
     pub steps: Vec<(f64, String)>,
     /// What a gauge of the `text` kind says.
@@ -21,6 +18,68 @@ pub struct GaugeLook {
     pub off_colour: String,
     /// What a gauge of the `effects` kind shows, in order.
     pub items: Vec<Effect>,
+}
+
+/// What a gauge is drawn as.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum GaugeKind {
+    /// A bar that fills.
+    #[default]
+    Bar,
+    /// A row of ten cells.
+    Cells,
+    /// Its number, with no bar.
+    Number,
+    /// A light that is on or off: for what is so or is not.
+    Light,
+    /// What the MUD says, as text.
+    Text,
+    /// What the character is in, each as a label: poisoned, blessed.
+    Effects,
+}
+
+impl GaugeKind {
+    /// Every kind, in the order the editor offers them.
+    pub const ALL: [Self; 6] = [
+        Self::Bar,
+        Self::Cells,
+        Self::Number,
+        Self::Light,
+        Self::Text,
+        Self::Effects,
+    ];
+
+    /// Whether it shows how full something is, and so has a maximum and
+    /// can change colour by level.
+    pub fn has_level(self) -> bool {
+        matches!(self, Self::Bar | Self::Cells | Self::Number)
+    }
+
+    /// The kind of this name, as rules and scripts write it.
+    pub fn from_key(key: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|kind| kind.key() == key.trim())
+    }
+
+    /// Its name, as rules and scripts write it.
+    pub fn key(self) -> &'static str {
+        match self {
+            Self::Bar => "bar",
+            Self::Cells => "cells",
+            Self::Number => "number",
+            Self::Light => "light",
+            Self::Text => "text",
+            Self::Effects => "effects",
+        }
+    }
+}
+
+/// The panel a gauge is shown in: by its id, as the editor keeps it, or
+/// by its name, as a script gives it.
+#[derive(Debug, Clone, PartialEq)]
+pub enum PanelOf {
+    Id(u32),
+    Named(String),
 }
 
 /// One of what a gauge of effects shows: a state the character is in, as
@@ -54,6 +113,10 @@ pub enum Action {
         level: Option<(f64, f64)>,
         look: GaugeLook,
         owner: String,
+        /// What it is switched by: its place and its tags.
+        belongs: Belongs,
+        /// The panel it is shown in; none for the first of gauges.
+        panel: Option<PanelOf>,
     },
     /// A script was stopped: what it showed, as its gauges, goes.
     Unloaded(String),

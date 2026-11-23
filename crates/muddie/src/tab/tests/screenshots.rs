@@ -555,7 +555,7 @@ fn shows_panels() {
         ..muddie_script::Effect::default()
     };
     let look = muddie_script::GaugeLook {
-        kind: "effects".into(),
+        kind: muddie_script::GaugeKind::Effects,
         colour: "yellow".into(),
         items: vec![
             effect("Enfermedad Dañadora", "red"),
@@ -565,8 +565,14 @@ fn shows_panels() {
         ..muddie_script::GaugeLook::default()
     };
     let app = layout.state_mut().tab_mut();
-    app.gauges
-        .set_by("Efectos", Some((0.0, 0.0)), Some(look), Some("t"));
+    app.gauges.set_by(
+        "Efectos",
+        Some((0.0, 0.0)),
+        Some(look),
+        Some("t"),
+        Default::default(),
+        None,
+    );
     layout.run_steps(4);
     save(&mut layout, "effects");
     layout.state_mut().tab_mut().gauges.set("Efectos", None);

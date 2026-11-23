@@ -1,5 +1,5 @@
 //! What can be switched on and off for a session: each trigger, alias,
-//! macro, timer and script by its place among those of its kind, a folder
+//! macro, timer, gauge and script by its place among those of its kind, a folder
 //! with all it holds, and everything that carries a tag.
 
 use std::collections::BTreeSet;
@@ -14,15 +14,17 @@ pub enum Kind {
     Alias,
     Macro,
     Timer,
+    Gauge,
     Script,
 }
 
 impl Kind {
-    pub const ALL: [Kind; 5] = [
+    pub const ALL: [Kind; 6] = [
         Kind::Trigger,
         Kind::Alias,
         Kind::Macro,
         Kind::Timer,
+        Kind::Gauge,
         Kind::Script,
     ];
 
@@ -33,6 +35,7 @@ impl Kind {
             Kind::Alias => "aliases",
             Kind::Macro => "macros",
             Kind::Timer => "timers",
+            Kind::Gauge => "gauges",
             Kind::Script => "scripts",
         }
     }

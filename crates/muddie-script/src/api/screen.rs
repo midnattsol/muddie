@@ -33,17 +33,39 @@ fn install_gauge(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
                     _ => return Err(mlua::Error::runtime("gauge needs both a value and a max")),
                 };
                 let mut look = GaugeLook::default();
+                let belongs = super::rules::belongs(options.as_ref())?;
+                let mut panel = None;
                 // As a gauge of the rules is written: `kind`, `colour`,
-                // `off_colour`, and `step = {{under = 30, colour = "red"}}`.
+                // `off_colour`, and `step = {{under = 30, colour = "red"}}`;
+                // where it is shown, and what it is switched by.
                 if let Some(options) = options {
+                    panel = match options.get::<Value>("panel")? {
+                        Value::Nil => None,
+                        Value::Integer(id) => Some(PanelOf::Id(id as u32)),
+                        Value::Number(id) => Some(PanelOf::Id(id as u32)),
+                        Value::String(name) => Some(PanelOf::Named(name.to_string_lossy())),
+                        other => {
+                            return Err(mlua::Error::runtime(format!(
+                                "a gauge's panel is a name, not {}",
+                                other.type_name()
+                            )));
+                        }
+                    };
                     let text = |key: &str| -> mlua::Result<String> {
                         Ok(options.get::<Option<String>>(key)?.unwrap_or_default())
                     };
                     look.colour = text("colour")?;
-                    look.kind = text("kind")?;
+                    let kind = text("kind")?;
+                    look.kind = match kind.trim() {
+                        "" => GaugeKind::Bar,
+                        key => GaugeKind::from_key(key).ok_or_else(|| {
+                            mlua::Error::runtime(format!(
+                                "a gauge's kind is bar, cells, number, light, text or effects, not {key}"
+                            ))
+                        })?,
+                    };
                     look.off_colour = text("off_colour")?;
                     look.text = text("text")?;
-                    look.low = options.get::<Option<f64>>("low")?.unwrap_or(0.0);
                     if let Some(steps) = options.get::<Option<Vec<mlua::Table>>>("step")? {
                         for step in steps {
                             look.steps.push((step.get("under")?, step.get("colour")?));
@@ -53,11 +75,21 @@ fn install_gauge(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
                 }
                 let mut state = shared.borrow_mut();
                 let owner = state.owner.clone();
+                state.gauges.retain(|shown| shown.owner != owner || shown.name != name);
+                if level.is_some() {
+                    state.gauges.push(crate::state::Shown {
+                        owner: owner.clone(),
+                        name: name.clone(),
+                        belongs: belongs.clone(),
+                    });
+                }
                 (state.actions).push(Action::Gauge {
                     name,
                     level,
                     look,
                     owner,
+                    belongs,
+                    panel,
                 });
                 Ok(())
             },

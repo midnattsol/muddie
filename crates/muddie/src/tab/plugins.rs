@@ -75,14 +75,25 @@ impl Tab {
             return false;
         }
         let mut theirs = plugin.read_rules();
+        // In the plugin's folder, as its scripts are, to be switched with
+        // them.
+        for gauge in &mut theirs.gauges {
+            gauge.folder = match gauge.folder.trim() {
+                "" => plugin.folder().to_owned(),
+                inner => crate::rules::joined(plugin.folder(), inner),
+            };
+        }
         self.place_gauges(&mut theirs.gauges, again);
         self.change_rules(|rules| {
             for gauge in &theirs.gauges {
-                let known = (rules.gauges.iter())
-                    .position(|known| known.shown_name() == gauge.shown_name());
+                let known = rules
+                    .gauges
+                    .iter()
+                    .position(|known| same_gauge(known, gauge));
                 match known {
                     Some(at) if again => rules.gauges[at] = gauge.clone(),
-                    Some(_) => {}
+                    // One installed before plugins had a folder goes in it.
+                    Some(at) => rules.gauges[at].folder.clone_from(&gauge.folder),
                     None => rules.gauges.push(gauge.clone()),
                 }
             }
@@ -113,21 +124,18 @@ impl Tab {
     /// Puts the gauges a plugin brings in the panels they name, as they are
     /// installed: those it brings again, or new to the profile.
     fn place_gauges(&mut self, gauges: &mut [crate::rules::Gauge], again: bool) {
-        let theirs: Vec<String> = gauges
-            .iter()
-            .map(|gauge| gauge.shown_name().to_owned())
-            .collect();
-        let known = |name: &str| (self.rules.gauges.iter()).any(|gauge| gauge.shown_name() == name);
-        let placing: Vec<bool> = gauges
-            .iter()
-            .map(|gauge| again || !known(gauge.shown_name()))
-            .collect();
+        let theirs =
+            |known: &crate::rules::Gauge| gauges.iter().any(|gauge| same_gauge(known, gauge));
+        let known = |gauge: &crate::rules::Gauge| {
+            (self.rules.gauges.iter()).any(|known| same_gauge(known, gauge))
+        };
+        let placing: Vec<bool> = gauges.iter().map(|gauge| again || !known(gauge)).collect();
         // The panels the profile's own gauges are shown in, not the plugin's.
         let first = (self.layout.panels.iter())
             .find(|panel| panel.kind == layout::Kind::Gauges)
             .map(|panel| panel.id);
         let mut used: std::collections::HashSet<u32> = (self.rules.gauges.iter())
-            .filter(|gauge| !theirs.iter().any(|name| name == gauge.shown_name()))
+            .filter(|gauge| !theirs(gauge))
             .filter_map(|gauge| match gauge.panel {
                 0 => first,
                 panel => Some(panel),
@@ -143,22 +151,13 @@ impl Tab {
         }
     }
 
-    /// Switches the folder of scripts and the gauges a plugin installed on
-    /// or off, as saved.
+    /// Switches the folders of the scripts and the gauges a plugin
+    /// installed on or off, as saved: what is switched off in them stays
+    /// so.
     fn switch_installed(&mut self, plugin: &'static crate::bundled::Bundled, on: bool) {
-        let theirs = plugin.read_rules();
-        let names: Vec<&str> = theirs
-            .gauges
-            .iter()
-            .map(crate::rules::Gauge::shown_name)
-            .collect();
         self.change_rules(|rules| {
             rules.set_folder_on(Kind::Script, plugin.folder(), on);
-            for gauge in &mut rules.gauges {
-                if names.contains(&gauge.shown_name()) {
-                    gauge.enabled = on;
-                }
-            }
+            rules.set_folder_on(Kind::Gauge, plugin.folder(), on);
         });
         self.scripts_synced = None;
         self.sync_scripts();
@@ -434,4 +433,13 @@ impl Tab {
         }
         self.set_package(name, enable);
     }
+}
+
+/// Whether a gauge of the profile is one a plugin brings: in the same
+/// folder, under the same name; or, as plugins installed them before they
+/// had a folder, in none.
+fn same_gauge(known: &crate::rules::Gauge, theirs: &crate::rules::Gauge) -> bool {
+    let folder = known.folder.trim();
+    known.shown_name() == theirs.shown_name()
+        && (folder.is_empty() || folder == theirs.folder.trim())
 }

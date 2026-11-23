@@ -247,7 +247,7 @@ Each kind, and what else there is:
   says whether a script is run by itself when a session starts; switched
   off it is kept, and can still be run by hand with the triangle.
 
-**Folders** keep each section in order: triggers, aliases, macros, timers
+**Folders** keep each section in order: triggers, aliases, macros, timers, gauges
 and scripts. Make one with the folder button beside **+**; it is named as it
 is made, and named again from its menu (a right click), with a double click
 or with **F2**. A click on a folder chooses it, and its details show what it
@@ -431,7 +431,10 @@ poisoned, green for not. Alt+0 reads the gauges aloud.
 
 Muddie itself knows the ways of no MUD in particular: those are plugins, in
 each profile's **Plugins** tab in the Profiles window, switched on and off
-per profile like the ones you install. Two come with it.
+per profile like the ones you install. What a plugin installs goes in a
+folder of its name, among the scripts and among the gauges: switched off, the
+plugin switches those folders off, and what you switched off in them stays so
+when it is on again. Two come with it.
 
 - **Standard GMCP and MSDP** makes something of what many MUDs send the same
   way: `Char.Vitals` as gauges, `Room.Info` as the map, `Comm.Channel.Text`

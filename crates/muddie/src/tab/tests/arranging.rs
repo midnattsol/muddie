@@ -237,13 +237,19 @@ fn effects_are_labels_and_those_that_do_not_fit_are_under_one_more() {
         ..muddie_script::Effect::default()
     };
     let look = muddie_script::GaugeLook {
-        kind: "effects".into(),
+        kind: muddie_script::GaugeKind::Effects,
         items: (1..=12).map(effect).collect(),
         ..muddie_script::GaugeLook::default()
     };
     let app = harness.state_mut().tab_mut();
-    app.gauges
-        .set_by("Efectos", Some((0.0, 0.0)), Some(look), Some("t"));
+    app.gauges.set_by(
+        "Efectos",
+        Some((0.0, 0.0)),
+        Some(look),
+        Some("t"),
+        Default::default(),
+        None,
+    );
     harness.run_steps(3);
     harness.get_by_label_contains("Efectos: Efecto número 1, Efecto número 2,");
     let more = harness.get_by_label_contains(" more: ");

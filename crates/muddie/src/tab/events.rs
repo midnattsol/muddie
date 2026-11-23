@@ -233,7 +233,14 @@ impl Tab {
         let is = |name: &str| package.eq_ignore_ascii_case(name);
         if common && is("Char.Vitals") {
             for (name, value, max) in panels::vitals(data) {
-                self.set_gauge(name, Some((value, max)), None, None);
+                self.set_gauge(
+                    name,
+                    Some((value, max)),
+                    None,
+                    None,
+                    Default::default(),
+                    None,
+                );
             }
         } else if let Some(message) = crate::media::parse(package, data) {
             self.media(message);
@@ -257,8 +264,15 @@ impl Tab {
         level: Option<(f64, f64)>,
         look: Option<muddie_script::GaugeLook>,
         owner: Option<&str>,
+        belongs: muddie_script::Belongs,
+        panel: Option<muddie_script::PanelOf>,
     ) {
-        if let Some(warning) = self.gauges.set_by(name, level, look, owner) {
+        // A panel named that there is not is made, as a channel's is.
+        if let Some(muddie_script::PanelOf::Named(called)) = &panel {
+            self.gauges_panel_named(called);
+        }
+        let warning = (self.gauges).set_by(name, level, look, owner, belongs, panel);
+        if let Some(warning) = warning {
             self.voice.say_now(&warning);
         }
     }
@@ -267,7 +281,14 @@ impl Tab {
     fn on_msdp(&mut self, variable: &str, data: &str, recording: bool) {
         let common = self.conventions();
         if common && let Some((name, value, max)) = self.msdp_vitals.update(variable, data) {
-            self.set_gauge(name, Some((value, max)), None, None);
+            self.set_gauge(
+                name,
+                Some((value, max)),
+                None,
+                None,
+                Default::default(),
+                None,
+            );
         }
         if common && variable == "ROOM" && self.scripts.native_map() {
             self.entered_room(data);

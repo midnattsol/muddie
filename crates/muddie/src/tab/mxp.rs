@@ -166,10 +166,20 @@ impl Tab {
             let max = number(&max).unwrap_or(0.0);
             let look = muddie_script::GaugeLook {
                 colour,
-                kind: if bar && max > 0.0 { "bar" } else { "number" }.to_owned(),
+                kind: match bar && max > 0.0 {
+                    true => muddie_script::GaugeKind::Bar,
+                    false => muddie_script::GaugeKind::Number,
+                },
                 ..muddie_script::GaugeLook::default()
             };
-            self.set_gauge(&called, Some((value, max)), Some(look), None);
+            self.set_gauge(
+                &called,
+                Some((value, max)),
+                Some(look),
+                None,
+                Default::default(),
+                None,
+            );
         }
     }
 }

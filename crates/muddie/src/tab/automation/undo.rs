@@ -202,7 +202,6 @@ impl Tab {
             return list.remove(index);
         }
         match section {
-            GAUGES => self.delete_gauge(index),
             VARIABLES => self.forget_variable(index),
             _ => self.delete_script(index),
         }

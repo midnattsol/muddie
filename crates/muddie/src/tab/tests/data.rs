@@ -75,7 +75,7 @@ fn what_the_mud_sends_is_kept_to_look_at_and_made_into_gauges() {
     events.send(vitals(55)).unwrap();
     harness.run_steps(3);
     let app = harness.state().tab();
-    assert!(app.gauge_is_in("health", made.panel));
+    assert!(app.gauge_is_in(app.gauges.get("health").unwrap(), made.panel));
     assert!(app.gauges.summary().contains("health 55 of 100"));
 }
 
@@ -251,5 +251,15 @@ fn a_gauge_saved_is_shown_at_once_and_one_renamed_or_off_goes() {
     // Switched off, it goes.
     rules.gauges[0].enabled = false;
     app.reload_rules(Some(rules));
-    assert_eq!(app.gauges.summary(), "Oro 3 of 10");
+    assert_eq!(app.gauges_said(), "Oro 3 of 10");
+    // And by its tag, for the session, as a trigger does.
+    let mut tagged = app.rules.clone();
+    tagged.gauges[0].enabled = true;
+    tagged.gauges[0].tags = vec!["fight".into()];
+    app.reload_rules(Some(tagged));
+    harness.run_steps(2);
+    let app = harness.state_mut().tab_mut();
+    assert_eq!(app.gauges_said(), "Salud 40 of 100, Oro 3 of 10");
+    assert!(app.do_client_command("/tag fight off"));
+    assert_eq!(app.gauges_said(), "Oro 3 of 10");
 }

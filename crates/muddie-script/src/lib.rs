@@ -30,7 +30,7 @@ mod memory;
 mod state;
 mod switches;
 
-pub use action::{Action, Effect, GaugeLook};
+pub use action::{Action, Effect, GaugeKind, GaugeLook, PanelOf};
 pub use convert::{COLOUR_NAMES, colour_named, split_commands};
 
 /// Something a script offers to do with the map, as the user is shown it.
@@ -172,6 +172,7 @@ impl State {
                 .map(|bound| &bound.belongs)
                 .collect(),
             Kind::Timer => self.timers.iter().map(|timer| &timer.belongs).collect(),
+            Kind::Gauge => self.gauges.iter().map(|gauge| &gauge.belongs).collect(),
             Kind::Script => self.scripts.iter().collect(),
         }
     }
@@ -327,6 +328,7 @@ impl Engine {
         state.timers.retain(|timer| timer.owner != owner);
         state.data_handlers.retain(|handler| handler.owner != owner);
         state.awaited.retain(|awaited| awaited.owner != owner);
+        state.gauges.retain(|shown| shown.owner != owner);
         let offered = state.map_actions.len();
         state.map_actions.retain(|tool| tool.owner != owner);
         if state.map_actions.len() != offered {

@@ -1,6 +1,8 @@
 //! Panels of gauges, and changing a gauge where it is shown.
 
 use super::*;
+use crate::panels;
+use muddie_script::PanelOf;
 
 /// Whether `panel` is the first of the panels of gauges, the one that
 /// shows the gauges put in none.
@@ -38,35 +40,66 @@ impl Tab {
         self.layout.add(name, Kind::Gauges)
     }
 
-    /// Whether the gauge called `name` belongs in the panel `id`: the
-    /// one it was put in, or the first of the gauges' panels if it was put
-    /// in none, as those the MUD's vitals and scripts make are.
-    pub(in crate::tab) fn gauge_is_in(&self, name: &str, id: u32) -> bool {
+    /// The panel of gauges called `name`, made if there is none: where a
+    /// script shows a gauge, as a channel's tab, by the panel's name.
+    pub(in crate::tab) fn gauges_panel_named(&mut self, name: &str) -> u32 {
+        let found = (self.layout.panels.iter()).find(|panel| {
+            panel.kind == Kind::Gauges && panel.name.eq_ignore_ascii_case(name.trim())
+        });
+        match found {
+            Some(panel) => panel.id,
+            None => self.layout.add(name.trim(), Kind::Gauges),
+        }
+    }
+
+    /// Whether a gauge belongs in the panel `id`: the one it was put in,
+    /// by its id or its name, or the first of the gauges' panels if it was
+    /// put in none, as those the MUD's vitals make are.
+    pub(in crate::tab) fn gauge_is_in(&self, gauge: &panels::Gauge, id: u32) -> bool {
         let of_gauges = |panel: &&PanelSpec| panel.kind == Kind::Gauges;
-        // Its own panel if that is one of gauges, else the first of them.
-        let made = (self.rules.gauges.iter()).find(|gauge| gauge.shown_name() == name);
-        let own = made.and_then(|gauge| self.layout.panel(gauge.panel).filter(of_gauges));
+        let own = match &gauge.panel {
+            Some(PanelOf::Id(own)) => self.layout.panel(*own).filter(of_gauges),
+            Some(PanelOf::Named(name)) => (self.layout.panels.iter())
+                .filter(of_gauges)
+                .find(|panel| panel.name.eq_ignore_ascii_case(name.trim())),
+            None => None,
+        };
         let home = own.or_else(|| self.layout.panels.iter().find(of_gauges));
         home.is_some_and(|panel| panel.id == id)
+    }
+
+    /// Whether a gauge is switched on: its place, its folders and its tags.
+    pub(in crate::tab) fn gauge_on(&self, gauge: &panels::Gauge) -> bool {
+        (self.scripts.switches()).active(muddie_script::Kind::Gauge, &gauge.belongs)
+    }
+
+    /// The gauges switched on, said, as Alt+0 says them.
+    pub(in crate::tab) fn gauges_said(&self) -> String {
+        self.gauges.summary_of(|gauge| self.gauge_on(gauge))
+    }
+
+    /// Where the gauge of this key is among those of the editor, if it is
+    /// one of them: its key is its place.
+    fn gauge_made(&self, key: &str) -> Option<usize> {
+        let gauges = &self.rules.gauges;
+        (0..gauges.len()).find(|&index| crate::rules::RuleList::place(gauges, index) == key)
     }
 
     /// The gauges of a panel in a row, or how to get some.
     pub(in crate::tab) fn gauges_body(&mut self, ui: &mut egui::Ui, id: u32) {
         // In the order they have in the editor, whichever the MUD
         // reported first.
-        let made = &self.rules.gauges;
-        (self.gauges).arrange(|name| made.iter().position(|gauge| gauge.shown_name() == name));
-        let made = |name: &str| {
-            self.rules
-                .gauges
-                .iter()
-                .any(|gauge| gauge.shown_name() == name)
-        };
-        let (any, pressed) = self
-            .gauges
-            .show(ui, |name| self.gauge_is_in(name, id), made);
-        if let Some(name) = pressed {
-            self.edit_gauge_here(&name);
+        let places: Vec<String> = (0..self.rules.gauges.len())
+            .map(|index| crate::rules::RuleList::place(&self.rules.gauges, index))
+            .collect();
+        (self.gauges).arrange(|key| places.iter().position(|place| place == key));
+        let (any, pressed) = self.gauges.show(
+            ui,
+            |gauge| self.gauge_on(gauge) && self.gauge_is_in(gauge, id),
+            |gauge| self.gauge_made(&gauge.key).is_some(),
+        );
+        if let Some(key) = pressed {
+            self.edit_gauge_here(&key);
         }
         if any {
             // The way to change them, at the corner, out of their way.
@@ -88,9 +121,8 @@ impl Tab {
 
     /// Opens the details of a gauge made in the editor over the game, to
     /// change it where it is shown.
-    pub(in crate::tab) fn edit_gauge_here(&mut self, name: &str) {
-        let Some(index) = (self.rules.gauges.iter()).position(|gauge| gauge.shown_name() == name)
-        else {
+    pub(in crate::tab) fn edit_gauge_here(&mut self, key: &str) {
+        let Some(index) = self.gauge_made(key) else {
             return;
         };
         if !self.editor.open {
@@ -133,7 +165,7 @@ impl Tab {
             },
         );
         if delete {
-            self.delete_gauge(index);
+            self.editor.draft.gauges.remove(index);
             open = false;
         }
         if editor {
@@ -148,12 +180,6 @@ impl Tab {
             self.open_automation(automation::GAUGES);
             self.select_rule(automation::GAUGES, index);
         }
-    }
-
-    /// Deletes a gauge made in the editor: it is no longer shown either.
-    pub(in crate::tab) fn delete_gauge(&mut self, index: usize) {
-        let gone = self.editor.draft.gauges.remove(index);
-        self.gauges.set(gone.shown_name(), None);
     }
 
     /// Goes to the gauges in the editor, on the first of this panel's.

@@ -14,7 +14,6 @@ impl Tab {
             return list.len();
         }
         match section {
-            GAUGES => self.editor.draft.gauges.len(),
             VARIABLES => self.scripts.variable_count(),
             SCRIPTS => self.editor.script_files.len(),
             _ => 0,
@@ -243,9 +242,6 @@ impl Tab {
         let order = moved_order(self.section_len(), moving, to);
         match section_kind(section).and_then(|kind| self.editor.draft.list_mut(kind)) {
             Some(list) => list.reorder(&order),
-            None if section == GAUGES => {
-                crate::rules::reorder(&mut self.editor.draft.gauges, &order)
-            }
             None => return,
         }
         let now = |old: usize| order.iter().position(|&index| index == old).unwrap_or(old);
@@ -262,7 +258,6 @@ impl Tab {
     fn row_on(&self, index: usize) -> bool {
         let draft = &self.editor.draft;
         match self.editor.section {
-            GAUGES => draft.gauges.get(index).is_some_and(|gauge| gauge.enabled),
             SCRIPTS => self.script_entry(index).is_some_and(|entry| entry.enabled),
             section => (section_kind(section).and_then(|kind| draft.list(kind)))
                 .is_some_and(|list| index < list.len() && list.enabled(index)),
@@ -284,7 +279,6 @@ impl Tab {
     pub(in crate::tab) fn switch_rows(&mut self, rows: &[usize], on: bool) {
         for &index in rows {
             match self.editor.section {
-                GAUGES => self.editor.draft.gauges[index].enabled = on,
                 SCRIPTS => {
                     if let Some(mut entry) = self.script_entry(index) {
                         entry.enabled = on;

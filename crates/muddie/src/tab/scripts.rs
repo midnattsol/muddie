@@ -240,9 +240,11 @@ impl Tab {
                     level,
                     look,
                     owner,
+                    belongs,
+                    panel,
                 } => {
                     let look = (look != Default::default()).then_some(look);
-                    self.set_gauge(&name, level, look, Some(&owner));
+                    self.set_gauge(&name, level, look, Some(&owner), belongs, panel);
                 }
                 Action::Unloaded(owner) => self.gauges.drop_owned_by(&owner),
                 Action::Language(language) => self.declare_language(language),

@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use eframe::egui::{Align2, Color32, Rect, Role, Sense, Ui, WidgetInfo, vec2};
 use muddie_core::Line;
 use muddie_core::ansi::Assembler;
-use muddie_script::GaugeLook;
+use muddie_script::{Belongs, GaugeKind, GaugeLook, PanelOf};
 use serde_json::Value;
 
 use crate::i18n::trf;
@@ -33,8 +33,14 @@ const MSDP_VITALS: [(&str, &str, &str); 3] = [
     ("MV", "MOVEMENT", "MOVEMENT_MAX"),
 ];
 
-struct Gauge {
-    name: String,
+pub struct Gauge {
+    /// What it is told apart by: its place, if it has one, else its name.
+    pub key: String,
+    pub name: String,
+    /// What it is switched by.
+    pub belongs: Belongs,
+    /// The panel it is shown in; none for the first of gauges.
+    pub panel: Option<PanelOf>,
     value: f64,
     max: f64,
     look: GaugeLook,
@@ -51,20 +57,18 @@ struct Gauge {
 impl Gauge {
     /// Whether it is drawn as a bar, of one piece or of cells.
     fn is_bar(&self) -> bool {
-        matches!(self.look.kind.as_str(), "" | "bar" | "cells")
+        matches!(self.look.kind, GaugeKind::Bar | GaugeKind::Cells)
     }
 
     /// The lowest of its warnings it is under, as a percentage: the
-    /// steps where it changes colour, and its low mark.
+    /// steps where it changes colour.
     fn under(&self) -> Option<f64> {
         if self.max <= 0.0 {
             return None;
         }
         let percent = (self.value / self.max).clamp(0.0, 1.0) * 100.0;
-        let marks = self.look.steps.iter().map(|(under, _)| *under);
-        let low = (self.look.low > 0.0).then_some(self.look.low);
-        marks
-            .chain(low)
+        (self.look.steps.iter())
+            .map(|(under, _)| *under)
             .filter(|under| percent < *under)
             .min_by(f64::total_cmp)
     }
@@ -78,12 +82,12 @@ impl Gauge {
 /// What a gauge is, said aloud: when asked for, and as a screen reader
 /// reads it where it is shown.
 fn said_of(name: &str, value: f64, max: f64, look: &GaugeLook) -> String {
-    match look.kind.as_str() {
-        "light" if value != 0.0 => trf("{0} on", &[name]),
-        "light" => trf("{0} off", &[name]),
-        "text" => format!("{name} {}", look.text),
-        "effects" => effects_said(name, &look.items),
-        "number" if max <= 0.0 => format!("{name} {}", plain(value)),
+    match look.kind {
+        GaugeKind::Light if value != 0.0 => trf("{0} on", &[name]),
+        GaugeKind::Light => trf("{0} off", &[name]),
+        GaugeKind::Text => format!("{name} {}", look.text),
+        GaugeKind::Effects => effects_said(name, &look.items),
+        GaugeKind::Number if max <= 0.0 => format!("{name} {}", plain(value)),
         _ => trf("{0} {1} of {2}", &[name, &plain(value), &plain(max)]),
     }
 }
@@ -93,28 +97,35 @@ fn said_of(name: &str, value: f64, max: f64, look: &GaugeLook) -> String {
 pub struct Gauges(Vec<Gauge>);
 
 impl Gauges {
+    #[cfg(test)]
     /// Sets the named gauge to `(value, max)`, or removes it. Returns what
     /// to say when it falls under one of its warnings, as when it turns
     /// to a warning colour: what is seen at a glance is heard.
     pub fn set(&mut self, name: &str, level: Option<(f64, f64)>) -> Option<String> {
-        self.set_by(name, level, None, None)
+        self.set_by(name, level, None, None, Belongs::default(), None)
     }
 
     /// The same, also saying how the gauge is drawn, and set by `owner`, a
-    /// script or the rules. With no look given a gauge keeps the one it
-    /// has, and with no owner the owner it has.
+    /// script or the rules, with what it is switched by and where it is
+    /// shown. With no look given a gauge keeps the one it has, and with no
+    /// owner the owner it has.
     pub fn set_by(
         &mut self,
         name: &str,
         level: Option<(f64, f64)>,
         look: Option<GaugeLook>,
         owner: Option<&str>,
+        belongs: Belongs,
+        panel: Option<PanelOf>,
     ) -> Option<String> {
-        let index = self.0.iter().position(|gauge| gauge.name == name);
+        let key = belongs.place.clone().unwrap_or_else(|| name.to_owned());
+        let index = self.0.iter().position(|gauge| gauge.key == key);
         let index = match (index, level) {
             (Some(index), Some((value, max))) => {
                 let gauge = &mut self.0[index];
                 (gauge.value, gauge.max) = (value, max);
+                name.clone_into(&mut gauge.name);
+                (gauge.belongs, gauge.panel) = (belongs, panel);
                 if let Some(look) = look {
                     gauge.look = look;
                 }
@@ -126,7 +137,10 @@ impl Gauges {
             }
             (None, Some((value, max))) => {
                 let mut gauge = Gauge {
+                    key,
                     name: name.to_owned(),
+                    belongs,
+                    panel,
                     value,
                     max,
                     look: look.unwrap_or_default(),
@@ -156,6 +170,12 @@ impl Gauges {
         lower.then(|| gauge.said())
     }
 
+    #[cfg(test)]
+    /// The gauge of this key: its place, or else its name.
+    pub fn get(&self, key: &str) -> Option<&Gauge> {
+        self.0.iter().find(|gauge| gauge.key == key)
+    }
+
     pub fn clear(&mut self) {
         self.0.clear();
     }
@@ -180,33 +200,42 @@ impl Gauges {
         self.0.retain(|gauge| gauge.owner.as_deref() != Some(owner));
     }
 
-    /// Puts the gauges in the order `place` gives each by its name,
-    /// those it gives none after, as they were.
+    /// Puts the gauges in the order `place` gives each by its key, those
+    /// it gives none after, as they were.
     pub fn arrange(&mut self, place: impl Fn(&str) -> Option<usize>) {
-        let place = |gauge: &Gauge| place(&gauge.name).unwrap_or(usize::MAX);
+        let place = |gauge: &Gauge| place(&gauge.key).unwrap_or(usize::MAX);
         if !self.0.is_sorted_by_key(place) {
             self.0.sort_by_key(place);
         }
     }
 
+    #[cfg(test)]
     /// All gauges as a sentence for speech, e.g. "HP 80 of 100, MP 5 of
     /// 50", each said as what it is.
     pub fn summary(&self) -> String {
-        let parts: Vec<String> = self.0.iter().map(Gauge::said).collect();
+        self.summary_of(|_| true)
+    }
+
+    /// The same, of those `shown` says yes to.
+    pub fn summary_of(&self, shown: impl Fn(&Gauge) -> bool) -> String {
+        let parts: Vec<String> = (self.0.iter())
+            .filter(|gauge| shown(gauge))
+            .map(Gauge::said)
+            .collect();
         parts.join(", ")
     }
 
-    /// Draws, in a row that wraps, the gauges `wanted` says yes to by
-    /// their names. Returns whether there were any.
+    /// Draws, in a row that wraps, the gauges `wanted` says yes to.
     /// `editable` says which can be pressed, to be changed: those made in
-    /// the editor. Returns whether there were any, and the one pressed.
+    /// the editor. Returns whether there were any, and the key of the one
+    /// pressed.
     pub fn show(
         &self,
         ui: &mut Ui,
-        wanted: impl Fn(&str) -> bool,
-        editable: impl Fn(&str) -> bool,
+        wanted: impl Fn(&Gauge) -> bool,
+        editable: impl Fn(&Gauge) -> bool,
     ) -> (bool, Option<String>) {
-        let chosen: Vec<&Gauge> = self.0.iter().filter(|gauge| wanted(&gauge.name)).collect();
+        let chosen: Vec<&Gauge> = self.0.iter().filter(|gauge| wanted(gauge)).collect();
         if chosen.is_empty() {
             return (false, None);
         }
@@ -220,10 +249,10 @@ impl Gauges {
                 let drawn = ui.scope(|ui| {
                     draw_gauge(ui, &gauge.name, gauge.value, gauge.max, &gauge.look, width);
                 });
-                if !editable(&gauge.name) {
+                if !editable(gauge) {
                     continue;
                 }
-                let id = ui.make_persistent_id(("edit gauge", &gauge.name));
+                let id = ui.make_persistent_id(("edit gauge", &gauge.key));
                 let label = crate::i18n::trf("Edit {0}", &[&gauge.name]);
                 let press = ui.interact(drawn.response.rect, id, Sense::click());
                 press.widget_info(|| WidgetInfo::labeled(Role::Button, true, &label));
@@ -239,7 +268,7 @@ impl Gauges {
                     .on_hover_cursor(eframe::egui::CursorIcon::PointingHand)
                     .clicked()
                 {
-                    pressed = Some(gauge.name.clone());
+                    pressed = Some(gauge.key.clone());
                 }
             }
         });
@@ -284,17 +313,13 @@ fn plain(number: f64) -> String {
 /// name and numbers, a number alone, a light that is on or off, or a few
 /// words.
 pub fn draw_gauge(ui: &mut Ui, name: &str, value: f64, max: f64, look: &GaugeLook, bar: f32) {
-    let kind = match look.kind.as_str() {
-        "" => "bar",
-        kind => kind,
-    };
     let shade = Shade::of(name, value, max, look);
     let heard = said_of(name, value, max, look);
-    match kind {
-        "light" => draw_light(ui, name, value != 0.0, &shade, look, &heard),
-        "effects" => draw_effects(ui, name, &look.items, &shade),
-        "text" => draw_words(ui, name, look.text.clone(), &shade, false, &heard),
-        "number" => {
+    match look.kind {
+        GaugeKind::Light => draw_light(ui, name, value != 0.0, &shade, look, &heard),
+        GaugeKind::Effects => draw_effects(ui, name, &look.items, &shade),
+        GaugeKind::Text => draw_words(ui, name, look.text.clone(), &shade, false, &heard),
+        GaugeKind::Number => {
             let said = if max > 0.0 {
                 format!("{} / {}", plain(value), plain(max))
             } else {
@@ -302,7 +327,10 @@ pub fn draw_gauge(ui: &mut Ui, name: &str, value: f64, max: f64, look: &GaugeLoo
             };
             draw_words(ui, name, said, &shade, true, &heard);
         }
-        _ => draw_bar(ui, name, value, max, &shade, kind == "cells", bar, &heard),
+        GaugeKind::Bar | GaugeKind::Cells => {
+            let cells = look.kind == GaugeKind::Cells;
+            draw_bar(ui, name, value, max, &shade, cells, bar, &heard);
+        }
     }
 }
 
@@ -329,7 +357,7 @@ impl Shade {
             .min_by(|a, b| a.0.total_cmp(&b.0))
             .and_then(|(_, colour)| colour_named(colour));
         let own = colour_named(&look.colour).unwrap_or_else(|| colour_for(name));
-        let warned = level.is_some() || (look.low > 0.0 && max > 0.0 && percent < look.low);
+        let warned = level.is_some();
         Self {
             fraction,
             level,
@@ -772,8 +800,17 @@ mod tests {
             steps: vec![(60.0, "yellow".into()), (30.0, "red".into())],
             ..GaugeLook::default()
         };
-        let mut set =
-            |value: f64| gauges.set_by("Health", Some((value, 100.0)), Some(look.clone()), None);
+        let mut set = |value: f64| {
+            let look = Some(look.clone());
+            gauges.set_by(
+                "Health",
+                Some((value, 100.0)),
+                look,
+                None,
+                Belongs::default(),
+                None,
+            )
+        };
         // As it starts is not news; above every warning, nothing either.
         assert_eq!(set(50.0), None);
         assert_eq!(set(80.0), None);

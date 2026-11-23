@@ -203,7 +203,7 @@ fn gauges_follow_values_the_server_reports() {
     );
     let look = muddie_script::GaugeLook {
         colour: "green".into(),
-        kind: "cells".into(),
+        kind: muddie_script::GaugeKind::Cells,
         steps: vec![(30.0, "red".into())],
         ..muddie_script::GaugeLook::default()
     };
@@ -214,6 +214,11 @@ fn gauges_follow_values_the_server_reports() {
             level: Some((25.0, 100.0)),
             look: look.clone(),
             owner: "rules".into(),
+            belongs: muddie_script::Belongs {
+                place: Some("Salud".into()),
+                tags: Vec::new(),
+            },
+            panel: None,
         }]
     );
     // A maximum can be a plain number; a value not there yet shows nothing.
@@ -227,6 +232,11 @@ fn gauges_follow_values_the_server_reports() {
             level: Some((40.0, 1000.0)),
             look,
             owner: "rules".into(),
+            belongs: muddie_script::Belongs {
+                place: Some("Oro".into()),
+                tags: Vec::new(),
+            },
+            panel: None,
         }]
     );
 }
@@ -539,12 +549,7 @@ fn gauges_come_in_kinds_and_change_colour_by_level() {
         .map(|action| match action {
             Action::Gauge {
                 name, level, look, ..
-            } => (
-                name.as_str(),
-                *level,
-                look.kind.as_str(),
-                look.text.as_str(),
-            ),
+            } => (name.as_str(), *level, look.kind.key(), look.text.as_str()),
             other => panic!("{other:?}"),
         })
         .collect();

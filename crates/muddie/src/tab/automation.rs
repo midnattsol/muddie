@@ -54,6 +54,7 @@ pub(super) fn section_kind(section: usize) -> Option<Kind> {
         ALIASES => Some(Kind::Alias),
         MACROS => Some(Kind::Macro),
         TIMERS => Some(Kind::Timer),
+        GAUGES => Some(Kind::Gauge),
         SCRIPTS => Some(Kind::Script),
         _ => None,
     }

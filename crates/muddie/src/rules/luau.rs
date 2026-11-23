@@ -139,12 +139,8 @@ impl Gauge {
     /// A gauge: shown again whenever what it follows is reported, over
     /// GMCP or MSDP, or changes, as a variable, and at once, from what is
     /// there: as it is saved, not when the MUD next says something.
-    pub(super) fn chunk(&self) -> (String, String) {
-        let name = if self.name.trim().is_empty() {
-            self.value.trim()
-        } else {
-            self.name.trim()
-        };
+    pub(super) fn chunk(&self, place: &str) -> (String, String) {
+        let name = self.shown_name();
         let root = self.value.trim().split('.').next().unwrap_or_default();
         let code = format!(
             "{PRELUDE}local shown = false\nlocal function update()\n{shown}end\n\
@@ -152,7 +148,7 @@ impl Gauge {
              on_msdp({variable}, update)\n\
              on_var({root}, update)\n\
              update()\n",
-            shown = self.shown(name),
+            shown = self.shown(name, &self.belonging(place)),
             root = quoted(root),
             variable = quoted(self.value.trim()),
         );
@@ -161,8 +157,9 @@ impl Gauge {
 
     /// How it is shown, by its kind: lit or not, as text, or as a value
     /// against its maximum.
-    fn shown(&self, name: &str) -> String {
-        let (name, value, look) = (quoted(name), quoted(self.value.trim()), self.look());
+    fn shown(&self, name: &str, belonging: &str) -> String {
+        let (name, value) = (quoted(name), quoted(self.value.trim()));
+        let look = format!("{}, {belonging}", self.look());
         match self.kind {
             GaugeKind::Light => {
                 format!(
@@ -194,7 +191,7 @@ impl Gauge {
                  \tif value and max and max > 0 then\n\
                  \t\tgauge({name}, value, max, {{{look}}})\n\
                  \telseif value and max then\n\
-                 \t\tgauge({name})\n\
+                 \t\tgauge({name}, nil, nil, {{{belonging}}})\n\
                  \tend\n",
                 max = quoted(self.maximum()),
             ),
@@ -215,6 +212,20 @@ impl Gauge {
             ("", _) => "100",
             (max, _) => max,
         }
+    }
+
+    /// What it is switched by, its place and its tags, and the panel it
+    /// is shown in, if it was put in one.
+    fn belonging(&self, place: &str) -> String {
+        let tags: Vec<String> = (self.tags.iter())
+            .filter(|tag| !tag.trim().is_empty())
+            .map(|tag| quoted(tag.trim()))
+            .collect();
+        let mut said = format!("place = {}, tags = {{{}}}", quoted(place), tags.join(", "));
+        if self.panel != 0 {
+            said.push_str(&format!(", panel = {}", self.panel));
+        }
+        said
     }
 
     /// How it looks, named as the rule names it: its kind, its colours,

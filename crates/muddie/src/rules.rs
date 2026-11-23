@@ -125,6 +125,7 @@ impl Rules {
             Kind::Alias => Some(&self.aliases),
             Kind::Macro => Some(&self.macros),
             Kind::Timer => Some(&self.timers),
+            Kind::Gauge => Some(&self.gauges),
             Kind::Script => None,
         }
     }
@@ -135,6 +136,7 @@ impl Rules {
             Kind::Alias => Some(&mut self.aliases),
             Kind::Macro => Some(&mut self.macros),
             Kind::Timer => Some(&mut self.timers),
+            Kind::Gauge => Some(&mut self.gauges),
             Kind::Script => None,
         }
     }
@@ -369,10 +371,11 @@ impl Rules {
         chunks.extend(rule_chunks(&self.aliases));
         chunks.extend(rule_chunks(&self.macros));
         chunks.extend(rule_chunks(&self.timers));
+        let gauges = &self.gauges;
         chunks.extend(
-            (self.gauges.iter())
-                .filter(|rule| rule.enabled && !rule.value.trim().is_empty())
-                .map(Gauge::chunk),
+            (0..gauges.len())
+                .filter(|&index| !gauges[index].value.trim().is_empty())
+                .map(|index| gauges[index].chunk(&RuleList::place(gauges, index))),
         );
         chunks
     }
@@ -443,9 +446,79 @@ pub trait RuleList {
     fn reorder(&mut self, order: &[usize]);
 }
 
-impl<T: When> RuleList for Vec<Rule<T>> {
+/// One rule, whatever its kind: what [`RuleList`] needs of each.
+pub trait Ruled {
+    /// What it is called: its name, or else what it is made of.
+    fn title(&self) -> String;
+    fn head(&mut self) -> Head<'_>;
+    fn is_on(&self) -> bool;
+    fn folder(&self) -> &str;
+    fn tags(&self) -> &[String];
+    /// A new one, in a folder.
+    fn new_in(folder: &str) -> Self;
+}
+
+impl<T: When> Ruled for Rule<T> {
+    fn title(&self) -> String {
+        Rule::title(self)
+    }
+    fn head(&mut self) -> Head<'_> {
+        Head {
+            name: &mut self.name,
+            enabled: &mut self.enabled,
+            folder: &mut self.folder,
+            tags: &mut self.tags,
+        }
+    }
+    fn is_on(&self) -> bool {
+        self.enabled
+    }
+    fn folder(&self) -> &str {
+        &self.folder
+    }
+    fn tags(&self) -> &[String] {
+        &self.tags
+    }
+    fn new_in(folder: &str) -> Self {
+        Rule {
+            folder: folder.to_owned(),
+            ..Rule::default()
+        }
+    }
+}
+
+impl Ruled for Gauge {
+    fn title(&self) -> String {
+        self.shown_name().to_owned()
+    }
+    fn head(&mut self) -> Head<'_> {
+        Head {
+            name: &mut self.name,
+            enabled: &mut self.enabled,
+            folder: &mut self.folder,
+            tags: &mut self.tags,
+        }
+    }
+    fn is_on(&self) -> bool {
+        self.enabled
+    }
+    fn folder(&self) -> &str {
+        &self.folder
+    }
+    fn tags(&self) -> &[String] {
+        &self.tags
+    }
+    fn new_in(folder: &str) -> Self {
+        Gauge {
+            folder: folder.to_owned(),
+            ..Gauge::starter()
+        }
+    }
+}
+
+impl<R: Ruled> RuleList for Vec<R> {
     fn len(&self) -> usize {
-        <[Rule<T>]>::len(self)
+        <[R]>::len(self)
     }
     fn title(&self, index: usize) -> String {
         self[index].title()
@@ -455,9 +528,9 @@ impl<T: When> RuleList for Vec<Rule<T>> {
     /// folder is told apart by a number, `Title #2`.
     fn place(&self, index: usize) -> String {
         let rule = &self[index];
-        let (folder, title) = (rule.folder.trim(), rule.title());
+        let (folder, title) = (Ruled::folder(rule).trim(), rule.title());
         let alike = (self[..index].iter())
-            .filter(|other| other.folder.trim() == folder && other.title() == title)
+            .filter(|other| Ruled::folder(*other).trim() == folder && other.title() == title)
             .count();
         match alike {
             0 => joined(folder, &title),
@@ -465,32 +538,23 @@ impl<T: When> RuleList for Vec<Rule<T>> {
         }
     }
     fn enabled(&self, index: usize) -> bool {
-        self[index].enabled
+        self[index].is_on()
     }
     fn folder(&self, index: usize) -> &str {
-        &self[index].folder
+        Ruled::folder(&self[index])
     }
     fn set_folder(&mut self, index: usize, folder: String) {
-        self[index].folder = folder;
+        *self[index].head().folder = folder;
     }
     fn tags(&self, index: usize) -> &[String] {
-        &self[index].tags
+        Ruled::tags(&self[index])
     }
     fn head_mut(&mut self, index: usize) -> Head<'_> {
-        let rule = &mut self[index];
-        Head {
-            name: &mut rule.name,
-            enabled: &mut rule.enabled,
-            folder: &mut rule.folder,
-            tags: &mut rule.tags,
-        }
+        self[index].head()
     }
     fn add(&mut self, folder: &str) -> usize {
-        self.push(Rule {
-            folder: folder.to_owned(),
-            ..Rule::default()
-        });
-        <[Rule<T>]>::len(self) - 1
+        self.push(R::new_in(folder));
+        <[R]>::len(self) - 1
     }
     fn remove(&mut self, index: usize) {
         Vec::remove(self, index);

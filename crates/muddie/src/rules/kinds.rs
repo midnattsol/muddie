@@ -296,24 +296,7 @@ pub struct ScriptEntry {
     pub tags: Vec<String>,
 }
 
-/// What a gauge is drawn as.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum GaugeKind {
-    /// A bar that fills.
-    #[default]
-    Bar,
-    /// A row of ten cells.
-    Cells,
-    /// Its number, with no bar.
-    Number,
-    /// A light that is on or off: for what is so or is not.
-    Light,
-    /// What the MUD says, as text.
-    Text,
-    /// What the character is in, each as a label: poisoned, blessed.
-    Effects,
-}
+pub use muddie_script::GaugeKind;
 
 /// A colour a gauge takes while it is under a percentage of its maximum.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -330,6 +313,12 @@ pub struct Gauge {
     pub name: String,
     #[serde(default = "yes")]
     pub enabled: bool,
+    /// The folder it is in, as `Folder/Inner`; empty for none.
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub folder: String,
+    /// The tags it carries: each switches it with all else that carries it.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub tags: Vec<String>,
     /// Where the value is: a GMCP package and the fields inside it, such
     /// as `Char.Vitals.health.current`, or the name of a MSDP variable.
     pub value: String,
@@ -372,19 +361,14 @@ impl OnTime {
     }
 }
 
-impl GaugeKind {
-    /// Every kind, in the order the editor offers them.
-    pub const ALL: [Self; 6] = [
-        Self::Bar,
-        Self::Cells,
-        Self::Number,
-        Self::Light,
-        Self::Text,
-        Self::Effects,
-    ];
-
+/// A gauge's kind, as the interface names it.
+pub trait KindName {
     /// Its name, as shown.
-    pub fn shown(self) -> &'static str {
+    fn shown(self) -> &'static str;
+}
+
+impl KindName for GaugeKind {
+    fn shown(self) -> &'static str {
         use crate::i18n::tr;
         match self {
             Self::Bar => tr("Bar"),
@@ -393,24 +377,6 @@ impl GaugeKind {
             Self::Light => tr("Light"),
             Self::Text => tr("Text"),
             Self::Effects => tr("Effects"),
-        }
-    }
-
-    /// Whether it shows how full something is, and so has a maximum and
-    /// can change colour by level.
-    pub fn has_level(self) -> bool {
-        matches!(self, Self::Bar | Self::Cells | Self::Number)
-    }
-
-    /// Its name, as rules and scripts write it.
-    pub fn key(self) -> &'static str {
-        match self {
-            Self::Bar => "bar",
-            Self::Cells => "cells",
-            Self::Number => "number",
-            Self::Light => "light",
-            Self::Text => "text",
-            Self::Effects => "effects",
         }
     }
 }

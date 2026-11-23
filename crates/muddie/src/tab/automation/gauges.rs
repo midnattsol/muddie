@@ -1,7 +1,7 @@
 //! The details of a gauge.
 
 use super::*;
-use crate::rules::{Gauge, GaugeKind, Step};
+use crate::rules::{Gauge, GaugeKind, KindName, Step};
 
 impl Tab {
     pub(in crate::tab) fn gauge_detail(&mut self, ui: &mut egui::Ui, index: usize) -> bool {
@@ -9,15 +9,8 @@ impl Tab {
             .filter(|panel| panel.kind == super::layout::Kind::Gauges)
             .map(|panel| (panel.id, panel.name.clone()))
             .collect();
+        let delete = self.rule_head(ui, Kind::Gauge, index, tr("Gauge name"));
         let rule = &mut self.editor.draft.gauges[index];
-        let hint = tr("Gauge name");
-        let delete = rule_header(
-            ui,
-            &mut rule.name,
-            &mut rule.enabled,
-            hint,
-            &mut self.editor.rename,
-        );
         kind_row(ui, rule);
         follows(ui, rule);
         colours(ui, rule);
@@ -39,7 +32,7 @@ fn kind_row(ui: &mut egui::Ui, rule: &mut Gauge) {
         tr("Type"),
         |_| {},
         |ui| {
-            let names = kinds.map(GaugeKind::shown);
+            let names = kinds.map(KindName::shown);
             let current = kinds
                 .iter()
                 .position(|kind| *kind == rule.kind)
@@ -308,7 +301,7 @@ fn look_of(rule: &Gauge, text: &str) -> muddie_script::GaugeLook {
     };
     muddie_script::GaugeLook {
         colour: rule.colour.clone(),
-        kind: rule.kind.key().to_owned(),
+        kind: rule.kind,
         items,
         steps: rule
             .steps
@@ -317,6 +310,5 @@ fn look_of(rule: &Gauge, text: &str) -> muddie_script::GaugeLook {
             .collect(),
         text: text.to_owned(),
         off_colour: rule.off_colour.clone(),
-        ..muddie_script::GaugeLook::default()
     }
 }

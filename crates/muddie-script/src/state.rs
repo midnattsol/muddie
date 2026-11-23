@@ -65,6 +65,13 @@ pub(super) enum Binding {
 /// What a key does, for whom: the script that bound it, and what it is
 /// switched by. A key can be bound several times, to do one thing while
 /// one is on and another while another is: the first on does.
+/// A gauge a script shows: its name, and what it is switched by.
+pub(crate) struct Shown {
+    pub(crate) owner: String,
+    pub(crate) name: String,
+    pub(crate) belongs: Belongs,
+}
+
 pub(super) struct Bound {
     /// What `cancel` takes it away by.
     pub(crate) id: u64,
@@ -172,6 +179,8 @@ pub(super) struct State {
     pub(crate) current_line: Option<Line>,
     /// Byte range of the text the running trigger matched.
     pub(crate) current_match: Option<(usize, usize)>,
+    /// The gauges the scripts show, by what they are switched by.
+    pub(crate) gauges: Vec<Shown>,
     /// What each key does, by its normalised name.
     pub(crate) bindings: HashMap<String, Vec<Bound>>,
     /// Values kept between sessions, and the file they are saved in.
