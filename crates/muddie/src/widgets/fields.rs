@@ -6,14 +6,21 @@ use super::*;
 pub fn field(ui: &mut Ui, label: &str, value: &mut String, hint: &str) -> Response {
     ui.vertical(|ui| {
         ui.spacing_mut().item_spacing.y = 4.0;
-        let name = ui.label(
-            RichText::new(label)
-                .font(theme::font(Weight::Regular, 12.0))
-                .color(theme::current().text_dim),
-        );
-        text_box(ui, value, hint).labelled_by(name.id)
+        let words = field_label(ui, label);
+        let field = text_box(ui, value, hint);
+        named_by(ui, &field, &words, label);
+        field
     })
     .inner
+}
+
+/// The words above a field, or another control, that name it.
+pub fn field_label(ui: &mut Ui, label: &str) -> Response {
+    ui.label(
+        RichText::new(label)
+            .font(theme::font(Weight::Regular, 12.0))
+            .color(theme::current().text_dim),
+    )
 }
 
 /// A single-line text box, as wide as the space allows.

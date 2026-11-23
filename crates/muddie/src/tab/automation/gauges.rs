@@ -162,12 +162,12 @@ fn levels(ui: &mut egui::Ui, rule: &mut Gauge) {
     for (place, step) in rule.steps.iter_mut().enumerate() {
         ui.horizontal(|ui| {
             let label = ui.label(RichText::new(tr("Under")).color(theme::current().text_dim));
-            ui.add(
+            let under = ui.add(
                 crate::widgets::number(&mut step.under)
                     .range(1..=100)
                     .suffix(" %"),
-            )
-            .labelled_by(label.id);
+            );
+            crate::widgets::named_by(ui, &under, &label, tr("Under"));
             ui.add_space(6.0);
             ui.push_id(place, |ui| swatches(ui, &mut step.colour));
             if widgets::close_button(ui, tr("Remove"), 22.0).clicked() {
@@ -218,17 +218,11 @@ fn shown_in_card(ui: &mut egui::Ui, rule: &mut Gauge, panels: &[(u32, String)]) 
         });
         return add;
     }
-    let home = panels
-        .iter()
-        .find(|(id, _)| *id == rule.panel)
-        .unwrap_or(&panels[0]);
-    crate::widgets::dropdown("gauge panel")
-        .selected_text(home.1.clone())
-        .show_ui(ui, |ui| {
-            for (id, name) in panels {
-                crate::widgets::choice_value(ui, &mut rule.panel, *id, name);
-            }
-        });
+    // Put in none, it is in the first.
+    let first = panels[0].1.clone();
+    crate::widgets::choose(ui, "gauge panel", &mut rule.panel, panels, |_| {
+        first.clone()
+    });
     note(
         ui,
         tr(

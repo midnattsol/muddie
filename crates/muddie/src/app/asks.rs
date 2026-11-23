@@ -281,24 +281,20 @@ fn choose_game(
     (templates, problems): &(Vec<String>, Vec<String>),
     unused: &dyn Fn(&str) -> String,
 ) {
-    let theme = theme::current();
-    let label = ui.label(
-        RichText::new(tr("Game"))
-            .font(theme::font(Weight::Medium, 12.5))
-            .color(theme.text_dim),
-    );
+    let label = widgets::field_label(ui, tr("Game"));
     let by_hand = tr("Another, filled in by hand");
     let before = game.clone();
-    widgets::dropdown("new profile game")
-        .selected_text(game.clone().unwrap_or_else(|| by_hand.to_owned()))
-        .show_ui(ui, |ui| {
-            widgets::choice_value(ui, game, None, by_hand);
-            for template in templates {
-                widgets::choice_value(ui, game, Some(template.clone()), template);
-            }
-        })
-        .response
-        .labelled_by(label.id);
+    let choices: Vec<(Option<String>, String)> = std::iter::once((None, by_hand.to_owned()))
+        .chain(
+            templates
+                .iter()
+                .map(|name| (Some(name.clone()), name.clone())),
+        )
+        .collect();
+    let chosen = widgets::choose(ui, "new profile game", game, &choices, |game| {
+        game.unwrap_or_else(|| by_hand.to_owned())
+    });
+    widgets::named_by(ui, &chosen, &label, tr("Game"));
     if *game != before {
         // Named after the game, unless named otherwise already.
         let default = |game: &Option<String>| unused(game.as_deref().unwrap_or(tr("New profile")));
@@ -361,13 +357,7 @@ fn ask_body(
         }
         _ => {
             if let Some((typed, label, example)) = ask.typed_mut() {
-                let theme = theme::current();
-                let name = ui.label(
-                    RichText::new(label)
-                        .font(theme::font(Weight::Medium, 12.5))
-                        .color(theme.text_dim),
-                );
-                let field = widgets::text_box(ui, typed, example).labelled_by(name.id);
+                let field = widgets::field(ui, label, typed, example);
                 field.request_focus();
                 ready = !typed.trim().is_empty();
                 entered =

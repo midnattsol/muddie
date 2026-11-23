@@ -274,6 +274,14 @@ fn row_words(ui: &mut Ui, label: &str, about: Option<&str>) -> (Vec<egui::Id>, f
     (shown, height)
 }
 
+/// Names a control by the words shown beside it, for a screen reader,
+/// and keeps the words from being read again on their own: it does not
+/// know what words a control was labelled by.
+pub fn named_by(ui: &Ui, control: &Response, words: &Response, label: &str) {
+    (ui.ctx()).accesskit_node_builder(control.id, |node| node.set_label(label));
+    (ui.ctx()).accesskit_node_builder(words.id, |node| node.set_hidden());
+}
+
 /// Why something asked in a window cannot be done, under what it is
 /// about: marked as a problem, and told to screen readers as it appears.
 pub fn problem_note(ui: &mut Ui, text: &str) {

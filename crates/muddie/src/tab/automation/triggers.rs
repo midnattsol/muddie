@@ -252,19 +252,15 @@ fn extra_row(
 
 /// The panel of text it shows its line in.
 fn panel_choice(ui: &mut egui::Ui, panel: &mut String, text_panels: &[String]) {
-    let chosen = match panel.trim().is_empty() {
-        true => tr("Choose a panel").to_owned(),
-        false => panel.clone(),
-    };
-    crate::widgets::dropdown("trigger panel")
-        .selected_text(chosen)
-        .show_ui(ui, |ui| {
-            for name in text_panels {
-                if crate::widgets::choice(ui, *panel == *name, name).clicked() {
-                    panel.clone_from(name);
-                }
-            }
-        });
+    let choices: Vec<(String, String)> = (text_panels.iter())
+        .map(|name| (name.clone(), name.clone()))
+        .collect();
+    crate::widgets::choose(ui, "trigger panel", panel, &choices, |panel| {
+        match panel.trim().is_empty() {
+            true => tr("Choose a panel").to_owned(),
+            false => panel,
+        }
+    });
 }
 
 impl Extra {

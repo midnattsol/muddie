@@ -192,11 +192,12 @@ impl Tab {
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = 9.0;
             ui.add_space(12.0);
-            widgets::switch(ui, &mut self.tls, tr("TLS encryption"));
+            let switch = widgets::switch(ui, &mut self.tls, tr("TLS encryption"));
             let label = RichText::new(tr("TLS encryption"))
                 .font(theme::font(Weight::Regular, 13.0))
                 .color(theme::current().text_dim);
-            ui.add(Label::new(label).selectable(false));
+            let words = ui.add(Label::new(label).selectable(false));
+            widgets::named_by(ui, &switch, &words, tr("TLS encryption"));
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.add_space(4.0);
                 if widgets::quiet_button(ui, tr("More options")).clicked() {
