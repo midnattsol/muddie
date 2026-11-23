@@ -711,7 +711,7 @@ is read; others are read again when they are shown.
 
 | Key | What it does |
 |---|---|
-| Ctrl | Silences speech |
+| Ctrl | Silences speech, of every session |
 | Alt+Up, Alt+Down | Reads the previous and next line of output |
 | Alt+Home, Alt+End | Reads the first and last line |
 | Alt+1 ... Alt+9 | Reads the most recent lines |
@@ -722,6 +722,7 @@ is read; others are read again when they are shown.
 | Alt+0 | Reads the gauges |
 | Alt+M | Says where you are by the map, and how far a walk has left |
 | Alt+E | Explores the map with the keys, from where you are, without moving |
+| Left, Right, Home, End | In a row of tabs, shows the one beside, the first or the last: Tab reaches only the one shown |
 
 On a Mac, Option types characters (@ on a Spanish keyboard is Option+2),
 so the shortcuts held with Alt and a letter or a figure are held with Ctrl

@@ -91,6 +91,9 @@ pub struct Voice {
     /// What of that cut short what was being said, in tests.
     #[cfg(test)]
     pub cut: Vec<String>,
+    /// How many times what was being said was silenced, in tests.
+    #[cfg(test)]
+    pub stopped: usize,
 }
 
 impl Voice {
@@ -229,8 +232,22 @@ impl Voice {
         }
     }
 
+    /// Pressing Ctrl silences speech, as it does in screen readers: of
+    /// every session, the ones out of sight too, each with its own voice.
+    pub fn hush_on_ctrl(&mut self, ctx: &eframe::egui::Context) {
+        let ctrl_down = ctx.input(|input| input.modifiers.ctrl);
+        if ctrl_down && !self.ctrl_was_down {
+            self.stop();
+        }
+        self.ctrl_was_down = ctrl_down;
+    }
+
     /// Silences what is being said and all that is waiting.
     pub fn stop(&mut self) {
+        #[cfg(test)]
+        {
+            self.stopped += 1;
+        }
         if let Some(speech) = &self.speech {
             speech.stop();
         }
@@ -342,13 +359,6 @@ impl Voice {
             ui.ctx()
                 .request_repaint_after(deadline.saturating_duration_since(now));
         }
-
-        // Pressing Ctrl silences speech, as it does in screen readers.
-        let ctrl_down = ui.input(|input| input.modifiers.ctrl);
-        if ctrl_down && !self.ctrl_was_down {
-            self.stop();
-        }
-        self.ctrl_was_down = ctrl_down;
 
         // Shift first: Alt alone would take Alt+Shift too.
         let mut asked = self.choose_panel(ui, panels);

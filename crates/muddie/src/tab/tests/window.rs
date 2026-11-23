@@ -838,3 +838,28 @@ fn a_burst_of_lines_interrupts_once() {
     );
     assert_eq!(voice.cut, ["The Square"]);
 }
+
+#[test]
+fn ctrl_silences_the_sessions_out_of_sight_too() {
+    let mut harness = window(None);
+    harness.key_press_modifiers(egui::Modifiers::COMMAND, Key::T);
+    harness.run_steps(3);
+    let stopped = |harness: &Harness<App>| -> Vec<usize> {
+        let tabs = harness.state().tabs();
+        tabs.iter().map(|tab| tab.voice.stopped).collect()
+    };
+    assert_eq!(harness.state().tabs().len(), 2);
+    let before = stopped(&harness);
+    harness.event(egui::Event::ModifiersChanged(egui::Modifiers::CTRL));
+    harness.run_steps(2);
+    harness.event(egui::Event::ModifiersChanged(egui::Modifiers::NONE));
+    harness.run_steps(2);
+    let after = stopped(&harness);
+    assert!(
+        before
+            .iter()
+            .zip(&after)
+            .all(|(before, after)| after > before),
+        "{before:?} {after:?}"
+    );
+}

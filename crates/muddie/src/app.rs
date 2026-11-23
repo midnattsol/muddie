@@ -144,6 +144,12 @@ impl App {
         &self.tabs[self.active]
     }
 
+    /// Every session, the ones out of sight too.
+    #[cfg(test)]
+    pub fn tabs(&self) -> &[Tab] {
+        &self.tabs
+    }
+
     #[cfg(test)]
     pub fn settings(&self) -> &Settings {
         &self.settings

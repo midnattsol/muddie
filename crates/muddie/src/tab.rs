@@ -420,6 +420,7 @@ impl Tab {
     /// server, timers, and anything waiting on the clock.
     pub fn poll(&mut self, ctx: &egui::Context, on_screen: bool) {
         self.on_screen = on_screen;
+        self.voice.hush_on_ctrl(ctx);
         let lines_before = self.output.total_pushed();
         if self.handle_events() {
             ctx.request_repaint();
