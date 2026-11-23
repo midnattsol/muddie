@@ -89,7 +89,7 @@ fn example_scripts_load() {
         .collect();
     files.sort();
     assert!(
-        files.len() >= 6,
+        files.len() >= 5,
         "examples not found in {}",
         folder.display()
     );

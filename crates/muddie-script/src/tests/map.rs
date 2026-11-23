@@ -378,3 +378,25 @@ fn script_adds_the_room_the_map_has_not_where_the_player_went() {
         ]
     );
 }
+
+#[test]
+fn scripts_write_notes_and_marks_as_the_user_does() {
+    let mut engine = engine(r#"map.set_room({id = 1, name = "Gate", area = "town", exits = {}})"#);
+    engine.exec(
+        "test",
+        r#"assert(map.edit_room(1, {note = "Guarded at night"}))
+        assert(map.mark("Home", 1) and not map.mark("Nowhere", 9))
+        echo(`{map.room(1).note} {map.marks().Home}`)
+        assert(map.mark("Home"))
+        echo(`{map.marks().Home} {map.go("Gate")}`)"#,
+    );
+    assert_eq!(
+        engine.take_actions(),
+        [
+            Action::Echo("Guarded at night 1".into()),
+            // Gone to, as the user names it, before it is said.
+            Action::Walk(1),
+            Action::Echo("nil nil".into()),
+        ]
+    );
+}

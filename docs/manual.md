@@ -238,8 +238,8 @@ Each kind, and what else there is:
 - **Scripts** are Luau code that is always loaded, for what no rule can do:
   building the map, acting on what the MUD reports. They are the profile's
   `.luau` files. The `+` offers examples to start from: a map the MUD draws
-  itself, a map it sends whole, a map read from the room descriptions, words
-  to complete given by the MUD, and gauges. A script is saved, and run, a
+  itself, a map it sends whole, a map read from the room descriptions, and
+  words to complete given by the MUD. A script is saved, and run, a
   moment after you stop typing; the triangle does it at once, and under its
   name it says when it ran, or what kept it from running. Only that script
   is run again: the others, and the rules, go on with all they keep, and

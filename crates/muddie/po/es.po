@@ -492,9 +492,6 @@ msgstr "Un mapa leído de las descripciones de las salas"
 msgid "Words to complete, given by the MUD"
 msgstr "Palabras para completar, dadas por el MUD"
 
-msgid "Gauges from the MUD's vitals"
-msgstr "Indicadores a partir de los vitales del MUD"
-
 msgid "Dusk"
 msgstr "Atardecer"
 

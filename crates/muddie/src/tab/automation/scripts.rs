@@ -4,7 +4,7 @@
 use super::*;
 
 /// Scripts to start from: what each is for, its file name, its text.
-pub(in crate::tab) const EXAMPLES: [(&str, &str, &str); 5] = [
+pub(in crate::tab) const EXAMPLES: [(&str, &str, &str); 4] = [
     (
         "A map the MUD draws itself",
         "drawn-map",
@@ -24,11 +24,6 @@ pub(in crate::tab) const EXAMPLES: [(&str, &str, &str); 5] = [
         "Words to complete, given by the MUD",
         "completions",
         include_str!("../../../../../examples/scripts/completions.luau"),
-    ),
-    (
-        "Gauges from the MUD's vitals",
-        "vitals-gmcp",
-        include_str!("../../../../../examples/scripts/vitals-gmcp.luau"),
     ),
 ];
 

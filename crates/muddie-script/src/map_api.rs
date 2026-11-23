@@ -375,6 +375,30 @@ fn install_changing(lua: &Lua, map: &Rc<RefCell<Map>>, api: &Table) -> mlua::Res
 
     let world = Rc::clone(map);
     api.set(
+        "marks",
+        lua.create_function(move |_, ()| Ok(world.borrow().marks().clone()))?,
+    )?;
+
+    let world = Rc::clone(map);
+    api.set(
+        "mark",
+        lua.create_function(move |_, (name, room): (String, Value)| {
+            let mut world = world.borrow_mut();
+            match room {
+                Value::Nil => saved(world.unmark(&name)),
+                room => {
+                    let id = id_of(&room)?;
+                    if world.room(id).is_none() {
+                        return Ok(false);
+                    }
+                    saved(world.mark(&name, id)).map(|()| true)
+                }
+            }
+        })?,
+    )?;
+
+    let world = Rc::clone(map);
+    api.set(
         "edit_room",
         lua.create_function(move |_, (id, options): (Value, Table)| {
             let id = id_of(&id)?;
@@ -395,6 +419,7 @@ fn install_changing(lua: &Lua, map: &Rc<RefCell<Map>>, api: &Table) -> mlua::Res
 /// gives back the map's own colour, shape or weight, or no symbol.
 struct RoomEdit {
     name: Option<String>,
+    note: Option<String>,
     weight: Option<u32>,
     avoid: Option<bool>,
     colour: Option<Option<muddie_mapper::Colour>>,
@@ -445,6 +470,7 @@ impl RoomEdit {
         };
         Ok(Self {
             name: options.get("name")?,
+            note: options.get("note")?,
             weight: match given("weight")? {
                 Some(Value::Boolean(false)) => Some(1),
                 Some(_) => options.get("weight")?,
@@ -463,6 +489,9 @@ impl RoomEdit {
     fn apply(self, map: &mut Map, id: RoomId, at: Pos) -> Result<(), muddie_mapper::Error> {
         if let Some(name) = &self.name {
             map.rename(id, name)?;
+        }
+        if let Some(note) = &self.note {
+            map.set_note(id, note)?;
         }
         if let Some(weight) = self.weight {
             map.set_weight(id, weight)?;
