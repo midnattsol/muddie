@@ -272,9 +272,10 @@ pub fn parse(text: &str) -> Option<KeyboardShortcut> {
     // Command is what the system takes it to be: Cmd on a Mac, Ctrl
     // elsewhere; held so, egui matches it whichever of the two the
     // window reports.
-    if MAC {
-        held.command = held.mac_cmd;
-    } else if held.ctrl {
+    if MAC && held.mac_cmd {
+        held.mac_cmd = false;
+        held.command = true;
+    } else if !MAC && held.ctrl {
         held.ctrl = false;
         held.command = true;
     }
