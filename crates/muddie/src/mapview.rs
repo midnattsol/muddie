@@ -290,7 +290,7 @@ pub struct MapView {
     /// the area, the level or whether every area is shown changes.
     on_level: Option<(Shown, Vec<(Pos, RoomId)>)>,
     /// How many areas the map has, at a revision of it.
-    areas: Option<(u64, usize)>,
+    areas: std::cell::Cell<Option<(u64, usize)>>,
     /// The levels of an area, at a revision of the map.
     levels: Option<((u64, String), Vec<i32>)>,
     /// The room chosen to look at, with a click or the keys.
@@ -336,7 +336,7 @@ impl Default for MapView {
             menu_room: None,
             asked: Tools::default(),
             on_level: None,
-            areas: None,
+            areas: Default::default(),
             levels: None,
             selected: None,
             told: None,
@@ -716,21 +716,13 @@ impl MapView {
         levels
     }
 
-    /// The area on show: the one looked at, or else the player's.
-    pub fn area_shown(&self, map: &Map) -> Option<String> {
-        match &self.browsing {
-            Some((area, _)) => Some(area.clone()),
-            None => map.current().map(|room| room.area.clone()),
-        }
-    }
-
     /// How many areas the map has.
-    pub fn area_count(&mut self, map: &Map) -> usize {
-        match self.areas {
+    pub fn area_count(&self, map: &Map) -> usize {
+        match self.areas.get() {
             Some((revision, count)) if revision == map.revision() => count,
             _ => {
                 let count = map.areas().len();
-                self.areas = Some((map.revision(), count));
+                self.areas.set(Some((map.revision(), count)));
                 count
             }
         }
@@ -887,7 +879,7 @@ impl MapView {
                     chosen = Some(MapAsk::Avoid(room.id, avoid));
                     ui.close();
                 }
-                if widgets::menu_item(ui, tr("Room appearance…"), "").clicked() {
+                if widgets::menu_item(ui, tr("Appearance…"), "").clicked() {
                     chosen = Some(MapAsk::Look(room.id));
                     ui.close();
                 }

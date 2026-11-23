@@ -191,7 +191,7 @@ impl Tab {
             ),
         ));
         let state = self.map.borrow();
-        if state.areas().len() > 1 {
+        if self.map_view.area_count(&state) > 1 {
             acts.push(item(
                 tr("Show an area…"),
                 map,

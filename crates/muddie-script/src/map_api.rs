@@ -772,7 +772,10 @@ fn install_exits(lua: &Lua, map: &Rc<RefCell<Map>>, api: &Table) -> mlua::Result
         "tidy",
         lua.create_function(move |lua, area: Option<String>| {
             let mut world = world.borrow_mut();
-            let area = area.or_else(|| Some(world.current()?.area.clone()));
+            let area = match area {
+                Some(area) => Some(world.area_named(&area).map_or(area, str::to_owned)),
+                None => world.current().map(|room| room.area.clone()),
+            };
             let Some(area) = area else {
                 return Ok((0, None));
             };

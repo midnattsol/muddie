@@ -225,11 +225,9 @@ impl Tab {
         self.say_more(more);
     }
 
-    /// Takes a room off the map: by number, mark or name.
+    /// Takes a room off the map: by number, mark or name, which the
+    /// command is not run without.
     pub(super) fn remove_room_command(&mut self, argument: &str) {
-        if argument.trim().is_empty() {
-            return self.refuse(tr("Say which room."));
-        }
         let id = match self.room_meant(argument) {
             Ok(id) => id,
             Err(why) => return self.refuse(&why),

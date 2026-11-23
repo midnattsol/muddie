@@ -114,9 +114,7 @@ impl Tab {
     /// Shows an area on the map, to look at it, without going.
     pub(super) fn show_area(&mut self, area: &str) {
         let map = self.map.borrow();
-        let Some(area) = (map.areas().into_iter())
-            .find(|name| name.to_lowercase() == area.trim().to_lowercase())
-        else {
+        let Some(area) = map.area_named(area) else {
             drop(map);
             return self.refuse(tr("The map has no area of that name."));
         };

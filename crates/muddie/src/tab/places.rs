@@ -109,7 +109,7 @@ impl Tab {
                         let exit = &room.exits[way];
                         let mut leads = match map.room(exit.to) {
                             Some(to) => place_words(&map, to),
-                            None => tr("somewhere not yet mapped").to_owned(),
+                            None => tr("not explored").to_owned(),
                         };
                         if exit.blocked {
                             leads = trf("{0} (kept off routes)", &[&leads]);
@@ -172,15 +172,21 @@ impl Tab {
 
     /// Says all the map knows of a room: the one given, or the player's.
     pub(super) fn say_info(&mut self, argument: &str) {
-        let said = self.room_meant(argument).map(|id| {
-            let map = self.map.borrow();
-            map.room(id)
-                .map(|room| info_of(&map, room))
-                .unwrap_or_default()
-        });
-        match said {
-            Ok(said) => self.note(&said),
+        match self.room_meant(argument) {
+            Ok(room) => self.say_room_info(room),
             Err(why) => self.refuse(&why),
+        }
+    }
+
+    /// Says all the map knows of a room.
+    pub(super) fn say_room_info(&mut self, room: RoomId) {
+        let said = {
+            let map = self.map.borrow();
+            map.room(room).map(|room| info_of(&map, room))
+        };
+        match said {
+            Some(said) => self.note(&said),
+            None => self.refuse(tr("There is no room of that number.")),
         }
     }
 

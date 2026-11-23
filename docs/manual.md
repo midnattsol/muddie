@@ -31,7 +31,7 @@ the **menu** (the three lines): a new session, the settings, the profiles,
 the keyboard shortcuts and what Muddie is. At the bottom, the sessions as tabs, what the
 one on screen is doing, and the **bell** of the messages the client has given
 in it, marked while some are new: all it said can be read there again. What
-the client says (connected, the map taken, a plugin installed...) is shown
+the client says (connected, the map imported, a plugin installed...) is shown
 for a few seconds over the bottom right corner, where it moves nothing, and
 read aloud; it is never put among the lines of the game, which are the
 game's. Over the corner too is what waits for an answer, such as a plugin
@@ -537,7 +537,7 @@ the map works it out from those and the exit you took. Where several rooms
 are alike, as in a desert, it says it is not sure and follows each it could
 be until a move tells them apart; **Which room am I in**, in the palette, lists them, to say which.
 
-Each room is drawn in its colour: a map taken from Mudlet keeps the colours
+Each room is drawn in its colour: a map imported from Mudlet keeps the colours
 of its rooms, which in most MUDs follow the land (sand, forest, rock), and
 scripts can colour rooms too. The room you are in glows and is ringed; while
 the map is unsure, each room you may be in is ringed. During a walk, the way
@@ -557,7 +557,7 @@ the way its exits say, on its own level. It is done only if that draws it
 better: if more exits would point the wrong way, or more rooms would lie on
 another, the area is left as it is and the map says why, so a map drawn by
 hand is never made worse.
-A map taken from Mudlet before this version of Muddie read its colours is
+A map imported from Mudlet before this version of Muddie read its colours is
 taken again the next time the plugin asks for it.
 
 Everything the map shows can be said: what the palette does with the map
@@ -591,11 +591,11 @@ is what a name begins with, as Anduar in "Anduar: Plaza Mayor".
 | Enter, Shift+Enter | Go to the room chosen; say the way there without going |
 | Escape, or typing | Back to the command line, with what was typed |
 | Double-click a room | Goes there, one move at a time, waiting for each to succeed |
-| Right-click a room | Go here, the way there, what the map knows of it, Mark…, Note…, keep routes off, Room appearance…, Tidy this area, Show all areas |
+| Right-click a room | Go here, the way there, what the map knows of it, Mark…, Note…, keep routes off, Appearance…, Tidy this area, Show all areas |
 | Drag | Moves the view; the wheel zooms |
 | Shift+drag a room | Moves it to another cell |
 | ▲ and ▼, over the map's top right corner | Look at the level above or below; **Back to my position**, at the top left, returns |
-| The buttons beside the map's title | Show my position, Tidy this area, stop going; the dots hold the rest: Show all areas, Show an area…, Map appearance…, undoing the map's last change, and hiding or removing the panel |
+| The buttons beside the map's title | Where am I, Tidy this area, stop going; the dots hold the rest: Show all areas, Show an area…, Map appearance…, undoing the map's last change, and hiding or removing the panel |
 
 Exploring, each room is said short, as one who does not see it wants it:
 its name, and its region on coming to another; how many moves away and
@@ -612,13 +612,13 @@ A room kept off routes is never walked through, only into, and an exit
 kept off routes is never used. Both are kept when the server reports the room again.
 
 **Map appearance…**, in the map's menu, chooses the colour and shape (square,
-circle, diamond or hexagon) rooms are drawn in, and **Room appearance…**, in
+circle, diamond or hexagon) rooms are drawn in, and **Appearance…**, in
 a room's menu, its own colour and shape and a character or two written in it, for the room
 or for every room called as it is. A room takes the map's colour and
 shape unless it has its own: one set for it, or, for its colour, one the
-map taken brought. What you choose is kept with the map: when the server
+map imported brought. What you choose is kept with the map: when the server
 reports the room, and when the map is taken again.
-Maps taken from Mudlet bring their rooms' colours and symbols, and their
+Maps imported from Mudlet bring their rooms' colours and symbols, and their
 doors, drawn as a small square on the exit: hollow while open, filled
 while shut, red while locked.
 
@@ -628,7 +628,7 @@ alone, nor from a room it does not know for certain you were in. A room
 is known by where it is as much as by its name: when the exit you took
 leads to a room with just the exits the game shows, and no room next to
 where you were has the name shown with them, the map follows you there
-though it names it otherwise, as maps taken from elsewhere name some
+though it names it otherwise, as maps imported from elsewhere name some
 rooms with what was said in them as they were mapped, cut short, or not
 at all, and MUDs rename rooms. What it learns:
 
@@ -655,7 +655,7 @@ at all, and MUDs rename rooms. What it learns:
 
 A notice says what it learnt a moment after, with whatever else it learnt
 meanwhile, and **Undo the map's last change** undoes it, the last first. When the map is
-taken again, what it learnt stays; a room it added that the map taken has
+imported again, what it learnt stays; a room it added that the map imported has
 by then, reached from a room by the same exit and with the same name and
 exits, becomes that room, with your notes and names.
 

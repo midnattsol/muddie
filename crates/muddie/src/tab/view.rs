@@ -120,7 +120,7 @@ impl Tab {
     fn map_asked(&mut self, asked: Option<MapAsk>) {
         match asked {
             Some(MapAsk::Walk(room)) => self.walk_to(room),
-            Some(MapAsk::Tidy(area)) => drop(self.run_command(&format!("/map tidy {area}"))),
+            Some(MapAsk::Tidy(area)) => self.tidy_chosen(&area),
             Some(MapAsk::Scripts) => self.open_automation(automation::SCRIPTS),
             Some(MapAsk::Selected(room, came)) => {
                 let told = {
@@ -138,7 +138,7 @@ impl Tab {
                 self.voice.say_now(&trf("No exit {0}.", &[&way]));
             }
             Some(MapAsk::Say(said)) => self.voice.say_now(&said),
-            Some(MapAsk::Info(room)) => drop(self.run_command(&format!("/map info {room}"))),
+            Some(MapAsk::Info(room)) => self.say_room_info(room),
             Some(MapAsk::Mark(room, name)) => self.mark_room(room, &name),
             Some(MapAsk::Look(room)) => self.open_look(room),
             Some(MapAsk::Note(room, note)) => self.write_note(room, &note),

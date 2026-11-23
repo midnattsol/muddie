@@ -1761,8 +1761,6 @@ msgid_plural "You are in one of {0} rooms alike:"
 msgstr[0] "Estás en una de {0} salas iguales:"
 msgstr[1] "Estás en una de {0} salas iguales:"
 
-msgid "somewhere not yet mapped"
-msgstr "un sitio aún sin mapear"
 
 #, python-brace-format
 msgid "{0} (kept off routes)"
@@ -2106,8 +2104,6 @@ msgstr "Nota: {0}"
 
 #, python-brace-format
 #, python-brace-format
-msgid "Note on {0}"
-msgstr "Nota de {0}"
 
 #, python-brace-format
 msgid "Nothing on the map has {0}."
@@ -2504,8 +2500,6 @@ msgstr "Todo el lado queda como una tira fina, para desplegarlo como estaba."
 msgid "The {0} channel is no longer read aloud."
 msgstr "El canal {0} ya no se lee en voz alta."
 
-msgid "Room appearance…"
-msgstr "Apariencia de la sala…"
 
 msgid "Map appearance…"
 msgstr "Apariencia del mapa…"
@@ -2683,9 +2677,6 @@ msgstr "El mapa no sabe dónde estás: moverte se lo dice, o En esta sala estoy�
 msgid "{0} To undo the last: Undo the map's last change, in the palette."
 msgstr "{0} Para deshacer el último: Deshacer el último cambio del mapa, en la paleta."
 
-msgid "Say which room."
-msgstr "Di qué sala."
-
 msgid "This room is now marked {0}: typed in the palette, {0} goes to it."
 msgstr "Esta sala tiene ahora la marca {0}: escribir {0} en la paleta lleva a ella."
 
@@ -2841,3 +2832,12 @@ msgstr "Intro"
 
 msgid "Shift+Enter"
 msgstr "Mayús+Intro"
+
+msgid "Appearance…"
+msgstr "Apariencia…"
+
+msgid "not explored"
+msgstr "sin explorar"
+
+msgid "Note on {0}"
+msgstr "Nota en {0}"

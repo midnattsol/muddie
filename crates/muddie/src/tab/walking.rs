@@ -181,19 +181,23 @@ impl Tab {
     /// once the user says so, in a dialog.
     pub(super) fn tidy_command(&mut self, area: &str) {
         let area = match area.trim() {
-            "" => self.map_view.area_shown(&self.map.borrow()),
-            area => (self.map.borrow().areas().into_iter())
-                .find(|known| known.to_lowercase() == area.to_lowercase())
-                .map(str::to_owned),
+            // The player's, as for a script.
+            "" => match self.map.borrow().current() {
+                Some(room) => Ok(room.area.clone()),
+                None => Err(self.unknown_whereabouts()),
+            },
+            area => (self.map.borrow().area_named(area))
+                .map(str::to_owned)
+                .ok_or_else(|| tr("The map has no area of that name.").to_owned()),
         };
         match area {
-            Some(area) => self.tidy_chosen(&area),
-            None => self.refuse(tr("The map has no area of that name.")),
+            Ok(area) => self.tidy_chosen(&area),
+            Err(why) => self.refuse(&why),
         }
     }
 
     /// Tidies an area, asking first if it is large.
-    fn tidy_chosen(&mut self, area: &str) {
+    pub(super) fn tidy_chosen(&mut self, area: &str) {
         match self.too_many_to_tidy(area) {
             Some(_) => self.tidy_asked = Some(area.to_owned()),
             None => self.tidy(area),

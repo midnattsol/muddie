@@ -347,6 +347,7 @@ impl Map {
     }
 
     /// Whether changes are being saved to a file.
+    #[cfg(test)]
     pub fn is_stored(&self) -> bool {
         self.store.is_some()
     }
@@ -427,6 +428,16 @@ impl Map {
             .filter(|area| !area.is_empty())
             .collect();
         areas.into_iter().collect()
+    }
+
+    /// The area called `name`: so written, or else in another case. How
+    /// an area is found by its name, wherever it is given.
+    pub fn area_named(&self, name: &str) -> Option<&str> {
+        let name = name.trim();
+        let areas = self.areas();
+        (areas.iter().find(|area| **area == name))
+            .or_else(|| (areas.iter()).find(|area| area.to_lowercase() == name.to_lowercase()))
+            .copied()
     }
 
     /// Rooms whose name contains `query`, ignoring case, ordered by name.

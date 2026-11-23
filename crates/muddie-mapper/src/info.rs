@@ -25,6 +25,7 @@ impl RoomInfo {
     /// JSON). Field names differ between servers, so the common spellings
     /// are all accepted, in any letter case. Returns `None` if there is no
     /// room number, without which a room cannot be mapped.
+    #[cfg(test)]
     pub fn from_json(json: &str) -> Option<Self> {
         Self::from_value(&serde_json::from_str(json).ok()?)
     }
