@@ -93,38 +93,25 @@ fn unmarked_prompt_fires_triggers_once_it_settles() {
 }
 
 #[test]
-fn client_commands_are_grouped() {
-    let read = |line| {
-        client_commands::client_command(line).map(|(command, rest)| format!("{command} {rest}"))
-    };
-    assert_eq!(
-        read("/map go Temple of Mota").unwrap(),
-        "/go Temple of Mota"
-    );
-    // Its name before.
-    assert_eq!(read("/map walk 3").unwrap(), "/go 3");
-    assert_eq!(
-        read("/plugin install https://example.org/x.git mine").unwrap(),
-        "/install https://example.org/x.git mine"
-    );
-    // What is not one of the client's is the MUD's.
-    assert_eq!(read("/map"), None);
-    assert_eq!(read("/where"), None);
-    assert_eq!(read("/say hello"), None);
-    assert_eq!(read("north"), None);
-
+fn client_commands_are_carried_out_and_the_rest_is_the_mud_s() {
     let mut harness = window(None);
     let app = harness.state_mut().tab_mut();
+    // What is not one of the client's is the MUD's.
+    for line in ["/map", "/map walk 3", "/where", "/say hello", "north"] {
+        assert!(!app.do_client_command(line), "{line}");
+    }
     assert!(app.do_client_command("/map hide") && !app.map_shown());
-    assert!(app.do_client_command("/map show") && app.map_shown());
-    // Tags: listed, and switched for the session by name.
+    // Tags, switched for the session by name.
     app.scripts
         .exec("t", r#"bind("f9", "kick", {tags = {"Combat"}})"#);
     let tag_on = |app: &Tab| app.scripts.switches().tag_on("combat");
     assert!(app.do_client_command("/tag Combat off") && !tag_on(app));
-    assert!(app.do_client_command("/tag combat") && tag_on(app));
-    assert!(app.do_client_command("/tag"));
-    assert!(notes(app).iter().any(|line| line == "combat: on"));
+    assert!(app.do_client_command("/tag combat on") && tag_on(app));
+    assert!(app.do_client_command("/tag Nadie on"));
+    assert_eq!(
+        notes(app).last().unwrap(),
+        "There is no tag called Nadie on."
+    );
 }
 
 /// The palette is what can be done, each by what it does, in the

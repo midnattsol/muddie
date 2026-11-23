@@ -95,6 +95,11 @@ impl Asking {
             offers,
         }
     }
+
+    /// Asks which area to show on the map, to look at it.
+    pub(in crate::tab) fn area_to_show() -> Self {
+        Self::new(tr("The area to show"), "/map show-area ", Offers::Areas)
+    }
 }
 
 /// What is offered as an answer, as it is typed.

@@ -189,7 +189,6 @@ fn the_map_is_said_in_words() {
         ["Pozo: 1 move: norte", "Dunas [e]: 2 moves: 2 oeste"]
     );
     said(app, "/map mark casa");
-    assert_eq!(said(app, "/map mark"), ["casa: Dunas"]);
     assert_eq!(
         said(app, "/map info casa"),
         ["Dunas (#3). In Desierto, at 6, 0, 0. Exits: norte, oeste. Marked casa."]
@@ -964,14 +963,13 @@ fn the_rooms_the_map_added_are_listed_said_apart_undone_and_checked() {
     let checked = answer(app, "/map check");
     assert_eq!(checked.len(), 1);
     assert!(checked[0].ends_with(": no name"), "{checked:?}");
-    assert_eq!(
-        answer(app, "/map undo"),
-        ["Undone: Oasis is no longer on the map."]
-    );
+    app.undo_change();
+    assert_eq!(last_said(app), "Undone: Oasis is no longer on the map.");
     assert!(app.map.borrow().room(id).is_none());
+    app.undo_change();
     assert_eq!(
-        answer(app, "/map undo"),
-        ["The map has changed nothing of itself to undo."]
+        last_said(app),
+        "The map has changed nothing of itself to undo."
     );
     assert_eq!(
         answer(app, "/map remove 9"),
@@ -1059,9 +1057,9 @@ fn reinos_has_the_map_keep_itself_up_to_date_unless_switched_off() {
         last_said(app),
         "Map: 1 room added, 2 names put right. To undo the last: Undo the map's last change, in the palette."
     );
-    app.run_command("/map undo");
+    app.undo_change();
     assert_eq!(last_said(app), "Undone: Cueva is no longer on the map.");
-    app.run_command("/map undo");
+    app.undo_change();
     assert_eq!(last_said(app), "Undone: “Dunas” has no name again.");
     // Switched off, nothing is learnt.
     app.act(commands::Act::MapTool(learning.into()), &ctx);
@@ -1075,7 +1073,7 @@ fn reinos_has_the_map_keep_itself_up_to_date_unless_switched_off() {
 /// A map with all in one area, as Reinos de Leyenda's is: tidying it would
 /// draw every room again, so it is done only when told "all".
 #[test]
-fn a_very_large_area_is_tidied_only_when_told_all() {
+fn a_very_large_area_is_tidied_only_once_the_user_says_so() {
     let mut harness = window(None);
     let app = harness.state_mut().tab_mut();
     let rooms: Vec<Room> = (1..=2001)
@@ -1111,21 +1109,17 @@ fn a_very_large_area_is_tidied_only_when_told_all() {
     app.map.borrow_mut().replace_all(rooms, None).unwrap();
     assert!(app.map.borrow_mut().set_current(1));
     let x_of_2 = |app: &Tab| app.map.borrow().room(2).unwrap().pos.x;
-    assert_eq!(
-        answer(app, "/map tidy"),
-        [
-            "Mapa Completo has 2001 rooms: tidying it would draw them all again, and what was drawn by hand would be lost."
-        ]
-    );
+    // Chosen, it is asked first, in a dialog: nothing is drawn yet.
+    app.tidy_chosen("Mapa Completo");
+    assert_eq!(app.tidy_asked.as_deref(), Some("Mapa Completo"));
     assert_eq!(x_of_2(app), 6);
-    answer(app, "/map tidy all");
+    // Told to, it is drawn again.
+    app.tidy("Mapa Completo");
     assert_eq!(x_of_2(app), 4);
     // Tidy, it is not drawn again: the exit that closes the ring points
     // the wrong way however it is drawn.
-    assert_eq!(
-        answer(app, "/map tidy all"),
-        ["The map is as tidy as it gets."]
-    );
+    app.tidy("Mapa Completo");
+    assert_eq!(last_said(app), "The map is as tidy as it gets.");
 }
 
 /// The appearance of the map, from its menu, and of a room, from the

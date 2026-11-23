@@ -108,7 +108,7 @@ impl Tab {
                             Some(to) => place_words(&map, to),
                             None => tr("somewhere not yet mapped").to_owned(),
                         };
-                        if exit.locked {
+                        if exit.blocked {
                             leads = trf("{0} (routes do not use it)", &[&leads]);
                         }
                         let word = direction_words(&map, way);
@@ -235,30 +235,8 @@ impl Tab {
         })
     }
 
-    /// Names the room the player is in; with no name, lists the names
-    /// given, each to go to by choosing it.
+    /// Marks the room the player is in, to go to it by its mark.
     pub(super) fn mark_here(&mut self, name: &str) {
-        if name.is_empty() {
-            let marks: Vec<(String, String)> = {
-                let map = self.map.borrow();
-                (map.marks().iter())
-                    .map(|(name, id)| {
-                        let room = (map.room(*id))
-                            .map_or_else(|| format!("#{id}"), |room| place_words(&map, room));
-                        (name.clone(), room)
-                    })
-                    .collect()
-            };
-            if marks.is_empty() {
-                return self.refuse(tr(
-                    "No room is marked yet: Mark…, in the palette, marks the room you are in.",
-                ));
-            }
-            for (name, room) in marks {
-                self.offer(&name, &room, &format!("/map go {name}"));
-            }
-            return;
-        }
         let here = self.map.borrow().current().map(|room| room.id);
         let Some(here) = here else {
             let said = self.unknown_whereabouts();
@@ -272,7 +250,7 @@ impl Tab {
         }
     }
 
-    /// Names a room. Returns whether it was saved; if not, says so.
+    /// Marks a room. Returns whether it was saved; if not, says so.
     pub(super) fn mark_room(&mut self, room: RoomId, name: &str) -> bool {
         let saved = self.map.borrow_mut().mark(name, room);
         self.map_saved(saved).is_some()

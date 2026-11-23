@@ -223,7 +223,7 @@ pub struct Exit {
     /// Extra cost of using the exit when finding routes; 0 for a normal one.
     pub cost: u32,
     /// Routes never use the exit, as for a door that cannot be opened.
-    pub locked: bool,
+    pub blocked: bool,
     /// What a walk sends to use the exit when the direction alone is not
     /// enough; several commands are separated by `;` ("open door;n").
     pub command: Option<String>,

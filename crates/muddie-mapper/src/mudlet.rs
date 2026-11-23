@@ -23,7 +23,7 @@ const STORED: [&str; 12] = [
 ];
 
 /// The directions Mudlet numbers its exits with, from 1, where it says
-/// which are locked.
+/// which are locked, as Mudlet calls the exits routes do not use.
 const NUMBERED: [&str; 12] = [
     "n", "ne", "nw", "e", "w", "s", "se", "sw", "u", "d", "in", "out",
 ];
@@ -238,7 +238,7 @@ fn read_room(
             Exit {
                 to: RoomId::from(to),
                 cost: costs.get(key).map_or(0, |cost| (*cost).max(0) as u32),
-                locked: locked_number(direction) || door(key) == Some(Door::Locked),
+                blocked: locked_number(direction) || door(key) == Some(Door::Locked),
                 door: door(key),
                 ..Exit::default()
             },
@@ -261,7 +261,7 @@ fn read_room(
             Exit {
                 to: RoomId::from(to),
                 cost: costs.get(command).map_or(0, |cost| (*cost).max(0) as u32),
-                locked: locked || door(command) == Some(Door::Locked),
+                blocked: locked || door(command) == Some(Door::Locked),
                 door: door(command),
                 ..Exit::default()
             },
@@ -561,14 +561,14 @@ mod tests {
         );
         assert_eq!(first.weight, 3);
         let north = &first.exits["n"];
-        assert!(north.locked && north.to == 2);
+        assert!(north.blocked && north.to == 2);
         assert_eq!(first.exits["e"].cost, 4);
         assert_eq!(first.exits["e"].door, Some(Door::Closed));
         assert_eq!(north.door, None);
         let symbols: Vec<&str> = read.rooms.iter().map(|room| room.symbol.as_str()).collect();
         assert_eq!(symbols, ["B", "⌂", ""]);
         let portal = &first.exits["entrar portal"];
-        assert!(portal.locked && portal.to == 2);
+        assert!(portal.blocked && portal.to == 2);
         assert!(read.rooms[1].avoid);
         assert_eq!(read.rooms[1].pos, Pos { x: 2, y: 0, z: 0 });
         let colours: Vec<Option<Colour>> = read.rooms.iter().map(|room| room.colour).collect();

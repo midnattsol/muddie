@@ -384,28 +384,6 @@ impl Tab {
         }
     }
 
-    /// Lists the installed plugins, each with whether it is on in this
-    /// profile and the command that switches it.
-    pub(super) fn list_plugins(&mut self) {
-        let installed = self
-            .profiles
-            .as_ref()
-            .map(Profiles::packages)
-            .unwrap_or_default();
-        if installed.is_empty() {
-            self.refuse(tr(
-                "No plugins are installed: Install a plugin…, in the palette, installs one from its git address.",
-            ));
-        }
-        for package in installed {
-            let (state, switch) = match self.packages.contains(&package) {
-                true => (tr("enabled in this profile"), "disable"),
-                false => (tr("not enabled; choose it to enable it"), "enable"),
-            };
-            self.offer(&package, state, &format!("/plugin {switch} {package}"));
-        }
-    }
-
     /// Downloads a plugin from a git repository and enables it: the
     /// address, then a name for it if the address does not give one.
     pub(super) fn install_plugin(&mut self, argument: &str) {

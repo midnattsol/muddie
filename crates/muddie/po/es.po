@@ -2383,9 +2383,6 @@ msgid "No exits"
 msgstr "Sin salidas"
 
 #, python-brace-format
-msgid "Closed: {0}"
-msgstr "Cerrada: {0}"
-
 msgid "No way straight back"
 msgstr "Sin vuelta directa"
 
@@ -2989,3 +2986,6 @@ msgstr "Envenenado"
 
 msgid "Blessed"
 msgstr "Bendecido"
+
+msgid "Kept off routes: {0}"
+msgstr "Fuera de las rutas: {0}"

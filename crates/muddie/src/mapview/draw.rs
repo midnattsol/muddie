@@ -21,7 +21,7 @@ pub(super) struct Colours {
     current: Color32,
     glow: Color32,
     exit: Color32,
-    locked: Color32,
+    blocked: Color32,
     route: Color32,
     /// The ring round the room chosen to look at.
     selected: Color32,
@@ -254,8 +254,8 @@ pub(super) fn draw_exits(
             if step.is_some_and(|(_, _, dz)| dz != 0) {
                 continue;
             }
-            let colour = if exit.locked {
-                colours.locked
+            let colour = if exit.blocked {
+                colours.blocked
             } else {
                 colours.exit
             };
@@ -291,7 +291,7 @@ pub(super) fn draw_exits(
 
 /// A door on an exit, between its room and where it leads, as a small
 /// square on the line: hollow while open, filled while shut, in the colour
-/// of exits routes do not use while locked.
+/// of exits blocked to routes.
 fn draw_door(painter: &Painter, door: Door, from: Pos2, to: Pos2, grid: &Grid, colours: &Colours) {
     let along = (to - from).normalized();
     let at = from + along * (grid.half() + (grid.cell - grid.half() * 2.0) * 0.5);
@@ -307,7 +307,7 @@ fn draw_door(painter: &Painter, door: Door, from: Pos2, to: Pos2, grid: &Grid, c
             );
         }
         Door::Closed => drop(painter.rect_filled(square, 1.0, colours.exit)),
-        Door::Locked => drop(painter.rect_filled(square, 1.0, colours.locked)),
+        Door::Locked => drop(painter.rect_filled(square, 1.0, colours.blocked)),
     }
 }
 
@@ -574,7 +574,7 @@ impl Colours {
             current: theme.text,
             glow: theme.accent.gamma_multiply(0.75),
             exit: theme::mix(theme.surface, theme.text_dim, 0.7),
-            locked: theme.danger,
+            blocked: theme.danger,
             route: theme.accent.gamma_multiply(0.8),
             selected: theme.accent,
             mark: theme.text_dim,

@@ -530,7 +530,7 @@ impl ExitOptions {
         };
         Ok(Self {
             cost: options.get("cost")?,
-            locked: options.get("locked")?,
+            blocked: options.get("blocked")?,
             command: options.get("command")?,
         })
     }

@@ -9,7 +9,7 @@ use crate::{Colour, Door, Exit, Pos, Room, Shape};
 
 /// Version of the schema below, kept in the database's `user_version`.
 /// Version 1 lacked the rooms' `weight` and `avoid` columns, versions 1
-/// and 2 the exits' `cost`, `locked`, `command` and `custom`, and versions
+/// and 2 the exits' `cost`, `locked` (blocked to routes), `command` and `custom`, and versions
 /// up to 3 the marks and what is known about the map, versions up to 4
 /// the rooms' `colour`, versions up to 5 their `note`, and versions up to
 /// 6 whether their name is the user's (`renamed`), and versions up to 7
@@ -136,7 +136,8 @@ impl Store {
             let exit = Exit {
                 to: row.get(2)?,
                 cost: row.get(3)?,
-                locked: row.get(4)?,
+                // Kept as `locked`, its name before.
+                blocked: row.get(4)?,
                 command: row.get(5)?,
                 custom: row.get(6)?,
                 door: row.get::<_, Option<u8>>(7)?.and_then(door_unpacked),
@@ -312,7 +313,7 @@ fn save_room(transaction: &Transaction, room: &Room, known: bool) -> Result<()> 
             direction,
             exit.to,
             exit.cost,
-            exit.locked,
+            exit.blocked,
             exit.command,
             exit.custom,
             exit.door.map(door_packed)

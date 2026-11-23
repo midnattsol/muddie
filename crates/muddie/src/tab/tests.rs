@@ -196,7 +196,7 @@ fn demo<'a>(builder: egui_kittest::HarnessBuilder<App>) -> Harness<'a, App> {
         ] {
             map.set_colour(id, Some(colour)).unwrap();
         }
-        map.edit_exit(4, "ne", |exit| exit.locked = true).unwrap();
+        map.edit_exit(4, "ne", |exit| exit.blocked = true).unwrap();
     }
     harness.run_steps(3);
     harness

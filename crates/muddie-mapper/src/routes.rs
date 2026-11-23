@@ -4,7 +4,7 @@ use super::*;
 
 impl Map {
     /// The cheapest known route between two rooms: each move costs the
-    /// weight of the room entered plus the exit's own cost, locked exits
+    /// weight of the room entered plus the exit's own cost, exits blocked to routes
     /// are never used, and rooms marked to avoid are only entered as the
     /// destination. Empty if both are the same room; `None` if there is no
     /// route.
@@ -39,7 +39,7 @@ impl Map {
                 continue;
             };
             for (direction, exit) in &room.exits {
-                if exit.locked {
+                if exit.blocked {
                     continue;
                 }
                 let next = exit.to;
@@ -104,7 +104,7 @@ impl Map {
                 continue;
             }
             let far = moves[&id] + 1;
-            for exit in room.exits.values().filter(|exit| !exit.locked) {
+            for exit in room.exits.values().filter(|exit| !exit.blocked) {
                 let next = exit.to;
                 let weight = self.rooms.get(&next).map_or(1, |room| room.weight);
                 let next_cost = cost + u64::from(weight) + u64::from(exit.cost);
@@ -138,7 +138,7 @@ impl Map {
                     continue;
                 };
                 for (direction, exit) in &room.exits {
-                    if exit.locked || !self.rooms.contains_key(&exit.to) || !seen.insert(exit.to) {
+                    if exit.blocked || !self.rooms.contains_key(&exit.to) || !seen.insert(exit.to) {
                         continue;
                     }
                     let command =

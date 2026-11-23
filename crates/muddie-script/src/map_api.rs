@@ -57,13 +57,13 @@ fn colour_text([red, green, blue]: Colour) -> String {
     format!("#{red:02x}{green:02x}{blue:02x}")
 }
 
-/// Applies the `cost`, `locked` and `command` a script gave to an exit.
+/// Applies the `cost`, `blocked` and `command` a script gave to an exit.
 pub(super) fn apply_exit_options(exit: &mut Exit, options: &ExitOptions) {
     if let Some(cost) = options.cost {
         exit.cost = cost;
     }
-    if let Some(locked) = options.locked {
-        exit.locked = locked;
+    if let Some(blocked) = options.blocked {
+        exit.blocked = blocked;
     }
     if let Some(command) = &options.command {
         exit.command = (!command.is_empty()).then(|| command.clone());
@@ -74,7 +74,7 @@ pub(super) fn apply_exit_options(exit: &mut Exit, options: &ExitOptions) {
 #[derive(Default)]
 pub(super) struct ExitOptions {
     pub(crate) cost: Option<u32>,
-    pub(crate) locked: Option<bool>,
+    pub(crate) blocked: Option<bool>,
     pub(crate) command: Option<String>,
 }
 
@@ -686,7 +686,7 @@ fn install_exits(lua: &Lua, map: &Rc<RefCell<Map>>, api: &Table) -> mlua::Result
             let table = lua.create_table()?;
             table.set("to", exit.to)?;
             table.set("cost", exit.cost)?;
-            table.set("locked", exit.locked)?;
+            table.set("blocked", exit.blocked)?;
             table.set("command", exit.command.as_deref())?;
             table.set("custom", exit.custom)?;
             Ok(Some(table))

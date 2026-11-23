@@ -44,19 +44,7 @@ impl Tab {
         self.palette.chosen = 0;
         self.palette.answer.clear();
         (self.palette.answering, self.palette.answer_failed) = (true, false);
-        let mut ours = self.do_client_command(line);
-        // A line of Lua is a command of the client too, carried out by
-        // the scripts: what it prints is its answer, and if it prints
-        // nothing, that it was run is.
-        let lua = line.trim_start().trim_start_matches('/');
-        if let (false, Some(code)) = (ours, lua.strip_prefix("lua")) {
-            self.scripts.exec("lua", code.trim());
-            self.run_actions();
-            if self.palette.answer.is_empty() {
-                self.note(tr("Done."));
-            }
-            ours = true;
-        }
+        let ours = self.do_client_command(line);
         self.palette.answering = false;
         let said = std::mem::take(&mut self.palette.answer);
         let failed = self.palette.answer_failed;

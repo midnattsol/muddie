@@ -88,11 +88,7 @@ impl Tab {
             Some(PanelAsk::MapTool(label)) => self.use_map_tool(&label),
             Some(PanelAsk::UndoChange) => self.undo_change(),
             Some(PanelAsk::Appearance) => self.open_map_appearance(),
-            Some(PanelAsk::ShowArea) => self.ask(crate::tab::commands::Asking::new(
-                tr("The area to show"),
-                "/map view ",
-                crate::tab::commands::Offers::Areas,
-            )),
+            Some(PanelAsk::ShowArea) => self.ask(crate::tab::commands::Asking::area_to_show()),
             None => {}
         }
     }

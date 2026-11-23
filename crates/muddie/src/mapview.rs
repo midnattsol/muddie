@@ -206,11 +206,14 @@ pub fn numbered(map: &Map, room: &Room) -> String {
 pub fn room_facts(map: &Map, room: &Room) -> Vec<String> {
     let mut facts = Vec::new();
     let closed: Vec<String> = (ordered_exits(room).into_iter())
-        .filter(|way| room.exits[*way].locked)
+        .filter(|way| room.exits[*way].blocked)
         .map(|way| direction_words(map, way))
         .collect();
     if !closed.is_empty() {
-        facts.push(crate::i18n::trf("Closed: {0}", &[&closed.join(", ")]));
+        facts.push(crate::i18n::trf(
+            "Kept off routes: {0}",
+            &[&closed.join(", ")],
+        ));
     }
     let unexplored: Vec<String> = (ordered_exits(room).into_iter())
         .filter(|way| map.room(room.exits[*way].to).is_none())

@@ -195,7 +195,7 @@ impl Tab {
             acts.push(item(
                 tr("Show an area…"),
                 map,
-                ask(tr("The area to show").into(), "/map view ", Offers::Areas),
+                Act::Ask(Asking::area_to_show()),
             ));
         }
         if !state.candidates().is_empty() {
@@ -228,7 +228,7 @@ impl Tab {
                     map,
                     ask(
                         tr("Keep routes off the exit").into(),
-                        "/map lock ",
+                        "/map block ",
                         Offers::Exits,
                     ),
                 ));
@@ -333,7 +333,7 @@ impl Tab {
             Act::Reconnect => self.reconnect(ctx),
             Act::Disconnect => self.disconnect(),
             Act::Log => {
-                self.do_client_command("/log");
+                self.toggle_log();
             }
             Act::ReadChannel(name, read) => {
                 self.set_channel_quiet(&name, !read);

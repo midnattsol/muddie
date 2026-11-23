@@ -536,7 +536,7 @@ joins rooms that lead to each other; one with an arrow at its end goes one
 way only, a dashed one is an exit off the compass (`enter portal`), and a
 short stub leads to a room not drawn. Inside a room, a triangle up or down
 marks a way up or down, and a dot an exit off the compass. A room to avoid
-is struck through in red, and a locked exit is red. Zoomed in far enough,
+is struck through in red, and an exit kept off routes is red. Zoomed in far enough,
 each room's name is written under it. When you move, the view glides to
 the new room. Where the area has rooms on more than one level, the levels
 are over the map's top right corner, one above another: ▲ goes up, ▼ down.
@@ -598,8 +598,8 @@ so a keypad that walks in the game moves on the map instead. Nothing is
 sent until you press Enter on a room or go back to the command line. Which way a place lies is said in the palette and by **What the map knows of…**
 too, when it is in your area and level.
 
-A room marked to avoid is never walked through, and a locked exit is never
-used. Both are kept when the server reports the room again.
+A room marked to avoid is never walked through, and an exit kept off routes
+is never used. Both are kept when the server reports the room again.
 
 **Appearance…**, in the map's menu, chooses the colour and shape (square,
 circle, diamond or hexagon) rooms are drawn in, and in a room's menu, its

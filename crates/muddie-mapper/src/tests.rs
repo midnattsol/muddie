@@ -256,24 +256,24 @@ fn exit_cost_lock_and_command_shape_the_route() {
     map.edit_exit(1, "n", |exit| exit.cost = 5).unwrap();
     assert_eq!(commands(&map).unwrap(), ["e", "n", "w"]);
     map.edit_exit(1, "n", |exit| exit.cost = 0).unwrap();
-    map.edit_exit(1, "n", |exit| exit.locked = true).unwrap();
+    map.edit_exit(1, "n", |exit| exit.blocked = true).unwrap();
     assert_eq!(commands(&map).unwrap(), ["e", "n", "w"]);
-    map.edit_exit(3, "n", |exit| exit.locked = true).unwrap();
+    map.edit_exit(3, "n", |exit| exit.blocked = true).unwrap();
     assert_eq!(commands(&map), None);
-    assert!(!map.edit_exit(1, "up", |exit| exit.locked = true).unwrap());
-    assert!(!map.edit_exit(99, "n", |exit| exit.locked = true).unwrap());
+    assert!(!map.edit_exit(1, "up", |exit| exit.blocked = true).unwrap());
+    assert!(!map.edit_exit(99, "n", |exit| exit.blocked = true).unwrap());
 }
 
 #[test]
 fn server_reports_keep_what_the_user_set_on_exits() {
     let mut map = Map::in_memory();
     map.visit(info(1, "Hall", &[("n", 2), ("e", 3)])).unwrap();
-    map.edit_exit(1, "n", |exit| exit.locked = true).unwrap();
+    map.edit_exit(1, "n", |exit| exit.blocked = true).unwrap();
     map.set_exit(1, "enter portal", 9).unwrap();
     // The server now says north leads elsewhere and east is gone.
     map.visit(info(1, "Hall", &[("n", 5)])).unwrap();
     let hall = map.room(1).unwrap();
-    assert_eq!((hall.exits["n"].to, hall.exits["n"].locked), (5, true));
+    assert_eq!((hall.exits["n"].to, hall.exits["n"].blocked), (5, true));
     assert!(!hall.exits.contains_key("e"));
     assert_eq!(
         (
@@ -443,7 +443,7 @@ fn map_survives_reopening() {
         let door = |exit: &mut Exit| {
             *exit = Exit {
                 cost: 4,
-                locked: true,
+                blocked: true,
                 command: Some("open door;n".into()),
                 ..exit.clone()
             }
@@ -474,7 +474,7 @@ fn map_survives_reopening() {
     let expected = Exit {
         to: 2,
         cost: 4,
-        locked: true,
+        blocked: true,
         command: Some("open door;n".into()),
         custom: false,
         door: None,

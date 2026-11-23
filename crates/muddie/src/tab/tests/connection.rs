@@ -141,7 +141,7 @@ fn session_is_logged_when_asked() {
     let mut harness = window(Some(Profiles::at(dir.clone())));
     let app = harness.state_mut().tab_mut();
     app.host = "mud.example.org".into();
-    assert!(app.do_client_command("/log"));
+    app.toggle_log();
     let (events, _sent) = fake_connection(app);
     events
         .send(Event::Line(
@@ -151,7 +151,7 @@ fn session_is_logged_when_asked() {
     harness.run_steps(2);
     let app = harness.state_mut().tab_mut();
     let path = app.log.as_ref().unwrap().path().to_owned();
-    assert!(app.do_client_command("/log"));
+    app.toggle_log();
     assert!(app.log.is_none());
     let log = std::fs::read_to_string(path).unwrap();
     assert!(log.contains("An orc arrives"), "{log}");

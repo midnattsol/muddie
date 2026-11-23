@@ -201,7 +201,7 @@ impl Tab {
     pub(super) fn tidy_chosen(&mut self, area: &str) {
         match self.too_many_to_tidy(area) {
             Some(_) => self.tidy_asked = Some(area.to_owned()),
-            None => self.tidy(area, false),
+            None => self.tidy(area),
         }
     }
 
@@ -225,21 +225,15 @@ impl Tab {
             });
         });
         if tidy {
-            self.tidy(&area, true);
+            self.tidy(&area);
         }
         if !open || tidy || cancel {
             self.tidy_asked = None;
         }
     }
 
-    /// Draws an area again from scratch; a large one only if `all`.
-    pub(super) fn tidy(&mut self, area: &str, all: bool) {
-        if let (Some(rooms), false) = (self.too_many_to_tidy(area), all) {
-            return self.refuse(&trf(
-                "{0} has {1} rooms: tidying it would draw them all again, and what was drawn by hand would be lost.",
-                &[area, &rooms.to_string()],
-            ));
-        }
+    /// Draws an area again from scratch, if that draws it better.
+    pub(super) fn tidy(&mut self, area: &str) {
         let tidied = self.map.borrow_mut().relayout(area);
         match self.map_saved(tidied) {
             Some(Tidied::Moved(0)) => self.note(tr("The map is as tidy as it gets.")),
@@ -374,40 +368,27 @@ impl Tab {
 
     /// Lets routes use an exit of the room the player is in, or keeps
     /// them from it.
-    pub(super) fn toggle_lock(&mut self, direction: &str) {
+    pub(super) fn toggle_blocked(&mut self, direction: &str) {
         let toggled = {
             let mut map = self.map.borrow_mut();
             let here = map.current().map(|room| room.id);
             let direction = map.direction(direction);
             let exit = here.and_then(|id| map.room(id)?.exits.get(&direction).cloned());
             here.zip(exit).map(|(id, exit)| {
-                let locked = !exit.locked;
+                let blocked = !exit.blocked;
                 (
-                    map.edit_exit(id, &direction, |exit| exit.locked = locked),
-                    locked,
+                    map.edit_exit(id, &direction, |exit| exit.blocked = blocked),
+                    blocked,
                 )
             })
         };
-        let Some((saved, locked)) = toggled else {
+        let Some((saved, blocked)) = toggled else {
             return self.refuse(tr("This room has no such exit."));
         };
         match self.map_saved(saved) {
-            Some(_) if locked => self.note(tr("Routes will not use that exit.")),
+            Some(_) if blocked => self.note(tr("Routes will not use that exit.")),
             Some(_) => self.note(tr("Routes may use that exit again.")),
             None => {}
-        }
-    }
-
-    /// Draws the area the player is in again from scratch; a large one
-    /// only if told "all".
-    pub(super) fn tidy_here(&mut self, argument: &str) {
-        let area = self.map.borrow().current().map(|room| room.area.clone());
-        match area {
-            Some(area) => self.tidy(&area, argument.trim().eq_ignore_ascii_case("all")),
-            None => {
-                let said = self.unknown_whereabouts();
-                self.refuse(&said);
-            }
         }
     }
 
