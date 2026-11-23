@@ -223,3 +223,25 @@ fn a_script_is_run_again_without_the_others_starting_over() {
     assert_eq!(engine.take_actions(), [Action::Unloaded(owner)]);
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// A name the API no longer has says, called, what does it now.
+#[test]
+fn a_retired_name_says_what_to_use_instead() {
+    let mut engine = Engine::new(Rc::default()).unwrap();
+    engine.exec("old", r#"supports("Comm 1")"#);
+    engine.exec("old map", "map.relayout()");
+    let errors: Vec<String> = (engine.take_actions().into_iter())
+        .filter_map(|action| match action {
+            Action::Error(error) => Some(error),
+            _ => None,
+        })
+        .collect();
+    assert!(
+        errors[0].contains("supports is no longer: use support_gmcp(module, ...)"),
+        "{errors:?}"
+    );
+    assert!(
+        errors[1].contains("map.relayout is no longer: use map.tidy(area)"),
+        "{errors:?}"
+    );
+}

@@ -182,6 +182,9 @@ Each `on_` function takes, last, options with `tags`: while one of its tags
 is off, it is told nothing. An option a function does not take is an error,
 rather than left out without a word.
 
+A function the API had once and has no longer, called by an old script, is
+an error that says what to use instead: `supports` is `support_gmcp` now.
+
 ## The map
 
 The **Standard GMCP and MSDP** plugin maps from GMCP `Room.Info` and MSDP
