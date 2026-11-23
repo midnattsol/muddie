@@ -1,17 +1,65 @@
 name: CI
 
+# What a change can break is checked, and only that: the code on each
+# system, the dependencies, the workflows. A change to the manual or the
+# README runs none of it. "CI ok" sums up every commit, whatever ran, and
+# is what a release waits for (see release.yml).
 on:
   push:
     branches: [main]
   pull_request:
+  # Vulnerabilities are found in what does not change.
+  schedule:
+    - cron: "41 5 * * *"
+  # Everything, by hand.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # What changed, by what it can break.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+      dependencies: ${{ steps.filter.outputs.dependencies }}
+      workflows: ${{ steps.filter.outputs.workflows }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: filter
+        uses: dorny/paths-filter@v4
+        with:
+          # What the tests build and read: the crates, and the examples
+          # and the assets outside them. A change to this file runs all.
+          filters: |
+            code:
+              - 'crates/**'
+              - 'examples/**'
+              - 'assets/**'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+              - 'rust-toolchain.toml'
+              - '.github/workflows/ci.yml'
+            dependencies:
+              - '**/Cargo.toml'
+              - 'Cargo.lock'
+              - 'deny.toml'
+              - '.github/workflows/ci.yml'
+            workflows:
+              - '.github/**'
+
   # Formatting, lints and every test, on each system: what is different
   # on each (paths, speech, keys) is tried where it runs.
   test:
+    needs: changes
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || (github.event_name != 'schedule' && needs.changes.outputs.code == 'true')
     strategy:
       fail-fast: false
       matrix:
@@ -32,156 +80,43 @@ jobs:
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
 
-  # Known vulnerabilities, and licences that let Muddie be shared as it is.
+  # Known vulnerabilities, and licences that let Muddie be shared as it
+  # is: when the dependencies change, and every day.
   dependencies:
+    needs: changes
+    if: >-
+      github.event_name == 'schedule'
+      || github.event_name == 'workflow_dispatch'
+      || needs.changes.outputs.dependencies == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: EmbarkStudios/cargo-deny-action@v2
 
-  # Built and packaged only once the tests and the dependencies pass: what
-  # would be built of code that fails is of no use. For Linux, built on
-  # an older system than the runner's, as manylinux does: a program needs
-  # the C library it was built against or a newer one, so built on Debian 12
-  # it runs on it and on every system since, Ubuntu 24.04 among them.
-  build:
-    needs: [test, dependencies]
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            container: debian:12
-            name: linux-x86_64
-            binary: muddie
-          - os: windows-latest
-            name: windows-x86_64
-            binary: muddie.exe
-          - os: macos-latest
-            name: macos-aarch64
-            binary: muddie
-    runs-on: ${{ matrix.os }}
-    container: ${{ matrix.container }}
-    permissions:
-      contents: read
-      id-token: write
-      attestations: write
-    steps:
-      # The container has nothing: what building and fetching Rust need.
-      - if: matrix.os == 'ubuntu-latest'
-        run: |
-          apt-get update
-          apt-get install -y build-essential ca-certificates cmake curl git pkg-config libdbus-1-dev libspeechd-dev
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - id: version
-        shell: bash
-        run: echo "version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)" >> "$GITHUB_OUTPUT"
-      - run: cargo build --release -p muddie
-      # What to unpack and run as it is, on every system.
-      - name: Archive
-        shell: bash
-        run: |
-          mkdir -p dist muddie-${{ matrix.name }}
-          cp target/release/${{ matrix.binary }} README.md README.es.md LICENSE-MIT LICENSE-APACHE muddie-${{ matrix.name }}/
-          cp -r docs examples muddie-${{ matrix.name }}/
-          # On Linux, what install.sh puts in the menu: ./install.sh --no-build
-          if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
-            mkdir -p muddie-${{ matrix.name }}/target/release
-            mv muddie-${{ matrix.name }}/muddie muddie-${{ matrix.name }}/target/release/
-            cp install.sh uninstall.sh muddie-${{ matrix.name }}/
-            cp -r assets muddie-${{ matrix.name }}/
-          fi
-          if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            7z a dist/muddie-${{ matrix.name }}.zip muddie-${{ matrix.name }}
-          else
-            tar czf dist/muddie-${{ matrix.name }}.tar.gz muddie-${{ matrix.name }}
-          fi
-      # What installs it as programs are installed on each system.
-      - name: Debian package
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          cargo install cargo-deb --locked
-          cargo deb -p muddie --no-build --output dist/
-      - name: Windows installer
-        if: matrix.os == 'windows-latest'
-        shell: pwsh
-        run: |
-          choco install innosetup -y --no-progress
-          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=${{ steps.version.outputs.version }}" packaging\windows\muddie.iss
-      - name: macOS disk image
-        if: matrix.os == 'macos-latest'
-        run: packaging/macos/make-dmg.sh "${{ steps.version.outputs.version }}" dist/muddie-${{ matrix.name }}.dmg
-      # A signed statement that these files were built here, from this
-      # commit: `gh attestation verify FILE -R midnattsol/muddie`. Made for
-      # every push to main, as a release publishes the files built then.
-      - if: github.event_name == 'push'
-        uses: actions/attest-build-provenance@v4
-        with:
-          subject-path: dist/*
-      - uses: actions/upload-artifact@v7
-        with:
-          name: muddie-${{ matrix.name }}
-          path: dist/*
-
-  # Each installer installs, and what it installs starts and has the
-  # screen readers of its system built in.
-  debian-package:
-    needs: build
-    strategy:
-      fail-fast: false
-      matrix:
-        image: ["debian:13", "ubuntu:24.04"]
+  # The workflows themselves: their syntax, expressions and scripts.
+  workflows:
+    needs: changes
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || needs.changes.outputs.workflows == 'true'
     runs-on: ubuntu-latest
-    container: ${{ matrix.image }}
     steps:
-      - uses: actions/download-artifact@v8
-        with:
-          name: muddie-linux-x86_64
-      - run: |
-          apt-get update
-          apt-get install -y ./muddie_*.deb
-          muddie --version | tee version.txt
-          grep -q Orca version.txt
+      - uses: actions/checkout@v7
+      - uses: raven-actions/actionlint@v2
 
-  installers:
-    needs: build
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: windows-latest
-            artifact: muddie-windows-x86_64
-            speech: NVDA
-          - os: macos-latest
-            artifact: muddie-macos-aarch64
-            speech: VoiceOver
-    runs-on: ${{ matrix.os }}
+  # Whatever applied, passed; what did not apply was skipped, and that is
+  # no failure. The one check to require, and what a release waits for.
+  ok:
+    name: CI ok
+    if: always()
+    needs: [changes, test, dependencies, workflows]
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v8
-        with:
-          name: ${{ matrix.artifact }}
-      - name: Windows installer
-        if: matrix.os == 'windows-latest'
-        shell: pwsh
+      - env:
+          RESULTS: ${{ toJSON(needs) }}
         run: |
-          $setup = Get-ChildItem muddie-*-setup.exe | Select-Object -First 1
-          Start-Process -Wait -FilePath $setup.FullName -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/CURRENTUSER', '/NORESTART'
-          $exe = Join-Path $env:LOCALAPPDATA 'Programs\Muddie\muddie.exe'
-          if (-not (Test-Path $exe)) { throw "not installed in $exe" }
-          $menu = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs'
-          if (-not (Get-ChildItem $menu -Recurse -Filter 'Muddie.lnk')) { throw 'not in the Start menu' }
-          & $exe --version | Out-File -Encoding utf8 version.txt
-          Get-Content version.txt
-      - name: macOS disk image
-        if: matrix.os == 'macos-latest'
-        run: |
-          hdiutil attach muddie-*.dmg -mountpoint /Volumes/Muddie -nobrowse
-          cp -R /Volumes/Muddie/Muddie.app "$RUNNER_TEMP/"
-          hdiutil detach /Volumes/Muddie
-          codesign --verify --deep "$RUNNER_TEMP/Muddie.app"
-          "$RUNNER_TEMP/Muddie.app/Contents/MacOS/muddie" --version | tee version.txt
-      - name: The screen readers of the system are built in
-        shell: bash
-        run: grep -q "${{ matrix.speech }}" version.txt
+          echo "$RESULTS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          if echo "$RESULTS" | jq -e 'any(.[]; .result == "failure" or .result == "cancelled")' > /dev/null; then
+            echo "::error::A check failed"
+            exit 1
+          fi
