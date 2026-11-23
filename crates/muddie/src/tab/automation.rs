@@ -35,28 +35,61 @@ use scripts::EXAMPLES;
 use tags::*;
 use values::*;
 
-/// The sections of the window, in the order of the sidebar.
-pub(super) const TRIGGERS: usize = 0;
-pub(super) const ALIASES: usize = 1;
-pub(super) const MACROS: usize = 2;
-pub(super) const TIMERS: usize = 3;
-pub(super) const GAUGES: usize = 4;
-pub(super) const VARIABLES: usize = 5;
-pub(super) const SCRIPTS: usize = 6;
-/// What the MUD sends besides text: not rules, but what they are made from.
-pub(super) const DATA: usize = 7;
+/// The sections of the editor, in the order of the sidebar.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Section {
+    Triggers,
+    Aliases,
+    Macros,
+    Timers,
+    Gauges,
+    Variables,
+    Scripts,
+    /// What the MUD sends besides text: not rules, but what they are
+    /// made from.
+    Data,
+}
 
-/// The kind of thing a section holds, for those that are kept in folders
-/// and switched by their place.
-pub(super) fn section_kind(section: usize) -> Option<Kind> {
-    match section {
-        TRIGGERS => Some(Kind::Trigger),
-        ALIASES => Some(Kind::Alias),
-        MACROS => Some(Kind::Macro),
-        TIMERS => Some(Kind::Timer),
-        GAUGES => Some(Kind::Gauge),
-        SCRIPTS => Some(Kind::Script),
-        _ => None,
+pub(super) use Section::{
+    Aliases as ALIASES, Data as DATA, Gauges as GAUGES, Macros as MACROS, Scripts as SCRIPTS,
+    Timers as TIMERS, Triggers as TRIGGERS, Variables as VARIABLES,
+};
+
+impl Section {
+    /// Every section, in the order of the sidebar.
+    pub const ALL: [Section; 8] = [
+        TRIGGERS, ALIASES, MACROS, TIMERS, GAUGES, VARIABLES, SCRIPTS, DATA,
+    ];
+
+    /// The kind of thing it holds, for those that are kept in folders and
+    /// switched by their place.
+    pub fn kind(self) -> Option<Kind> {
+        match self {
+            TRIGGERS => Some(Kind::Trigger),
+            ALIASES => Some(Kind::Alias),
+            MACROS => Some(Kind::Macro),
+            TIMERS => Some(Kind::Timer),
+            GAUGES => Some(Kind::Gauge),
+            SCRIPTS => Some(Kind::Script),
+            VARIABLES | DATA => None,
+        }
+    }
+}
+
+/// What is chosen in each section, by the section.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(super) struct Selected([usize; 8]);
+
+impl std::ops::Index<Section> for Selected {
+    type Output = usize;
+    fn index(&self, section: Section) -> &usize {
+        &self.0[section as usize]
+    }
+}
+
+impl std::ops::IndexMut<Section> for Selected {
+    fn index_mut(&mut self, section: Section) -> &mut usize {
+        &mut self.0[section as usize]
     }
 }
 
@@ -68,7 +101,7 @@ pub(super) fn typing_in(ctx: &egui::Context) -> Option<egui::Id> {
 
 impl Tab {
     /// Opens the automation window on one of its sections.
-    pub fn open_automation(&mut self, section: usize) {
+    pub fn open_automation(&mut self, section: Section) {
         self.layout_view.open = false;
         if !self.editor.open {
             self.editor.draft = self.rules.clone();
@@ -86,7 +119,7 @@ impl Tab {
     }
 
     /// Chooses one of the rules of a section.
-    pub(super) fn select_rule(&mut self, section: usize, index: usize) {
+    pub(super) fn select_rule(&mut self, section: Section, index: usize) {
         self.editor.selected[section] = index;
         self.editor.marked.clear();
     }
@@ -141,7 +174,7 @@ pub(super) struct Editor {
     pub(super) seen: Rules,
     pub(super) open: bool,
     /// The rule selected in each section of the automation window.
-    pub(super) selected: [usize; 8],
+    pub(super) selected: Selected,
     /// The rows of the current section chosen together, when several are;
     /// the one selected is among them.
     pub(super) marked: Vec<usize>,
@@ -170,7 +203,7 @@ pub(super) struct Editor {
     /// A sample line or command to try the selected rule on.
     pub(super) sample: String,
     /// Which of triggers, aliases and keys the rules window shows.
-    pub(super) section: usize,
+    pub(super) section: Section,
     /// The script files that can be edited, and the one being edited:
     /// its file, its name as typed, its text, and that text as saved.
     pub(super) script_files: Vec<PathBuf>,
@@ -246,7 +279,7 @@ impl Default for Editor {
             draft: Rules::default(),
             seen: Rules::default(),
             open: false,
-            selected: [0; 8],
+            selected: Selected::default(),
             marked: Vec::new(),
             visible: Vec::new(),
             folder: None,
@@ -257,7 +290,7 @@ impl Default for Editor {
             filter: String::new(),
             settle: Default::default(),
             sample: String::new(),
-            section: 0,
+            section: TRIGGERS,
             script_files: Vec::new(),
             script_loaded: None,
             script_name: String::new(),

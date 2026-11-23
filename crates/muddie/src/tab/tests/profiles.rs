@@ -549,7 +549,7 @@ fn a_plugin_downloaded_is_installed_and_removed_as_any_other() {
         app.take_app_request(),
         Some(AppRequest::InstallPlugin { .. })
     ));
-    app.plugin_installed(&format!("{} combat", source.display()));
+    app.install_plugin(&format!("{} combat", source.display()));
     for _ in 0..300 {
         harness.run_steps(1);
         if harness.state().tab().plugin_jobs.is_empty() {
@@ -615,9 +615,13 @@ fn a_profile_s_plugins_are_its_own_whatever_is_played() {
     );
     let app = harness.state_mut();
     let edited = app.session_of(Some("Edited"));
-    edited.plugin_command("/plugin enable reinos-de-leyenda");
-    let (said, _) = edited.plugin_answers();
-    assert_eq!(said, ["Plugin Reinos de Leyenda enabled."]);
+    let before = edited.said_count();
+    assert!(edited.do_client_command("/plugin enable reinos-de-leyenda"));
+    let said = edited.said_since(before);
+    assert_eq!(
+        said,
+        [("Plugin Reinos de Leyenda enabled.".to_owned(), false)]
+    );
     let on = |name: &str| profiles.load(name).unwrap().plugins_on;
     assert_eq!(on("Edited"), ["reinos-de-leyenda"]);
     assert!(on("Played").is_empty());

@@ -69,6 +69,8 @@ pub struct App {
     /// what is done with that profile from the Profiles window: its
     /// plugins installed and removed. It never connects.
     profile_session: Option<Tab>,
+    /// How many of its messages were said again in the session on screen.
+    profile_session_said: u64,
     ctx: egui::Context,
     /// Keypad keys noted by the window layer, waiting for the next frame.
     keypad: keypad::Pressed,
@@ -131,6 +133,7 @@ impl App {
             settings_error,
             profile_error: None,
             profile_session: None,
+            profile_session_said: 0,
             ctx: cc.egui_ctx.clone(),
             keypad,
         }
@@ -204,6 +207,7 @@ impl App {
             };
             let mut tab = Tab::new(&self.ctx, startup, &self.settings);
             tab.play_quietly(name);
+            self.profile_session_said = tab.said_count();
             self.profile_session = Some(tab);
         }
         self.profile_session.as_mut().expect("made above")
@@ -460,6 +464,14 @@ impl eframe::App for App {
             tab.poll(ui.ctx(), false);
             tab.take_app_request()
         });
+        // What it says is said where it is heard: in the session on screen.
+        if let Some(tab) = &self.profile_session {
+            let said = tab.said_since(self.profile_session_said);
+            self.profile_session_said = tab.said_count();
+            for (text, problem) in said {
+                self.tabs[self.active].say_again(&text, problem);
+            }
+        }
         if let Some(request) = kept {
             self.carry_out(request, ui.ctx());
         }

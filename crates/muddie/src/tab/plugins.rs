@@ -329,7 +329,7 @@ impl Tab {
     /// Removes a plugin from this profile: what it installed goes, its
     /// scripts and its gauges, and one downloaded is deleted too once no
     /// profile has it installed.
-    pub(super) fn remove_plugin(&mut self, name: &str) {
+    pub fn remove_plugin(&mut self, name: &str) {
         let Some(plugin) = self.plugin(name).filter(|plugin| plugin.downloaded) else {
             return self.refuse(tr("No such plugin is installed."));
         };
@@ -408,7 +408,7 @@ impl Tab {
 
     /// Downloads a plugin from a git repository and switches it on: the
     /// address, then a name for it if the address does not give one.
-    pub(super) fn install_plugin(&mut self, argument: &str) {
+    pub fn install_plugin(&mut self, argument: &str) {
         let (address, given) = argument.split_once(' ').unwrap_or((argument, ""));
         let name = match given.trim() {
             "" => plugins::git::name_from_address(address),
@@ -432,7 +432,7 @@ impl Tab {
 
     /// Brings a plugin downloaded up to date, and installs it again where
     /// it is installed.
-    pub(super) fn update_plugin(&mut self, name: &str) {
+    pub fn update_plugin(&mut self, name: &str) {
         let Some(plugin) = self.plugin(name).filter(|plugin| plugin.downloaded) else {
             return self.refuse(tr("No such plugin is installed."));
         };

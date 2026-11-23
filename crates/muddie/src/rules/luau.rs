@@ -18,6 +18,16 @@ fn script(code: &str) -> String {
     format!("\tdo\n{code}\n\tend\n")
 }
 
+/// The options that say what a rule is switched by: its place and its
+/// tags, as a Luau table's fields.
+fn belonging(place: &str, tags: &[String]) -> String {
+    let tags: Vec<String> = (tags.iter())
+        .filter(|tag| !tag.trim().is_empty())
+        .map(|tag| quoted(tag.trim()))
+        .collect();
+    format!("place = {}, tags = {{{}}}", quoted(place), tags.join(", "))
+}
+
 /// What a rule is called in errors: its kind and its name, or else
 /// what it is made of.
 fn titled(kind: &str, name: &str, fallback: &str) -> String {
@@ -48,15 +58,7 @@ impl<T: Luau> Rule<T> {
     /// The rule as Luau, switched by its place, and what to call it in
     /// errors.
     pub(super) fn chunk(&self, place: &str) -> (String, String) {
-        let tags: Vec<String> = (self.tags.iter())
-            .filter(|tag| !tag.trim().is_empty())
-            .map(|tag| quoted(tag.trim()))
-            .collect();
-        let options = format!(
-            "{{place = {}, tags = {{{}}}}}",
-            quoted(place),
-            tags.join(", ")
-        );
+        let options = format!("{{{}}}", belonging(place, &self.tags));
         let title = self.reported_as();
         (title, T::code(self, &options))
     }
@@ -230,11 +232,7 @@ impl Gauge {
     /// What it is switched by, its place and its tags, and the panel it
     /// is shown in, if it was put in one.
     fn belonging(&self, place: &str) -> String {
-        let tags: Vec<String> = (self.tags.iter())
-            .filter(|tag| !tag.trim().is_empty())
-            .map(|tag| quoted(tag.trim()))
-            .collect();
-        let mut said = format!("place = {}, tags = {{{}}}", quoted(place), tags.join(", "));
+        let mut said = belonging(place, &self.tags);
         if !self.panel.trim().is_empty() {
             said.push_str(&format!(", panel = {}", quoted(self.panel.trim())));
         }

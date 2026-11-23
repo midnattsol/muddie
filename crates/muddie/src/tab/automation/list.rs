@@ -103,7 +103,7 @@ impl Tab {
 
     /// The tag the list is narrowed to, where things carry tags.
     fn tag_filter(&self) -> Option<&str> {
-        let tagged = section_kind(self.editor.section).is_some();
+        let tagged = self.editor.section.kind().is_some();
         self.editor.tag_filter.as_deref().filter(|_| tagged)
     }
 
@@ -120,7 +120,7 @@ impl Tab {
         if self.editor.section == DATA {
             return self.data_list(ui);
         }
-        let kind = section_kind(self.editor.section);
+        let kind = self.editor.section.kind();
         // Found once a frame, for the toolbar and the tree: a folder made or
         // folded from the toolbar is shown the frame after.
         let folders = kind
@@ -469,7 +469,7 @@ impl Tab {
     /// Opens the folders the one chosen in the section is in, for it to be
     /// seen where it is: the others stay as they were.
     pub(in crate::tab) fn reveal_chosen(&mut self) {
-        let Some(kind) = section_kind(self.editor.section) else {
+        let Some(kind) = self.editor.section.kind() else {
             return;
         };
         let folder = match self.current_spot() {
@@ -624,7 +624,7 @@ impl Tab {
         let section = self.editor.section;
         let chosen = self.chosen().contains(&index);
         let spot = Spot::Row(index);
-        let tree = section_kind(section).is_some();
+        let tree = section.kind().is_some();
         let line = widgets::ListRow {
             title: &row.title,
             detail: &row.detail,
@@ -682,7 +682,7 @@ impl Tab {
         if !(up || down || out) {
             return;
         }
-        let kind = section_kind(section);
+        let kind = section.kind();
         if let (Some(path), Some(kind)) = (self.editor.folder.clone(), kind) {
             return self.folder_moved_by_keys(ui, kind, &path, folders, (up, down, out));
         }
@@ -790,7 +790,7 @@ impl Tab {
             } else if add.clicked() {
                 self.add_rule();
             }
-            if let Some(kind) = section_kind(self.editor.section) {
+            if let Some(kind) = self.editor.section.kind() {
                 let icon = widgets::Icon::NewFolder;
                 if widgets::icon_button(ui, icon, tr("New folder"), false).clicked() {
                     let folder = self.chosen_folder();
@@ -836,7 +836,10 @@ impl Tab {
     pub(in crate::tab) fn add_rule(&mut self) {
         let section = self.editor.section;
         let folder = self.chosen_folder();
-        let index = match section_kind(section).and_then(|kind| self.editor.draft.list_mut(kind)) {
+        let index = match section
+            .kind()
+            .and_then(|kind| self.editor.draft.list_mut(kind))
+        {
             Some(list) => list.add(&folder),
             None if section == VARIABLES => return self.add_variable(),
             None => return self.add_script(None),
@@ -885,7 +888,7 @@ impl TreeItem {
 
 /// The id of a line of the list, the same every frame, for the keyboard
 /// to be put on it.
-pub(in crate::tab) fn item_id(section: usize, spot: &Spot) -> egui::Id {
+pub(in crate::tab) fn item_id(section: Section, spot: &Spot) -> egui::Id {
     egui::Id::unique("automation item").with((section, spot))
 }
 

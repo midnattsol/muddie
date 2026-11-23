@@ -375,7 +375,7 @@ impl Rules {
         let gauges = &self.gauges;
         chunks.extend(
             (0..gauges.len())
-                .filter(|&index| !gauges[index].value.trim().is_empty())
+                .filter(|&index| gauges[index].complete())
                 .map(|index| gauges[index].chunk(&RuleList::place(gauges, index))),
         );
         chunks

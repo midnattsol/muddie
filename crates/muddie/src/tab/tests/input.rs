@@ -315,7 +315,7 @@ fn bound_keypad_key_sends_its_command_and_types_nothing() {
 fn macro_key_is_recorded_from_the_next_key_pressed() {
     let mut harness = window(None);
     let app = harness.state_mut().tab_mut();
-    app.open_automation(2);
+    app.open_automation(automation::MACROS);
     app.editor.draft.macros.push(Macro {
         send: "look".into(),
         ..Macro::default()

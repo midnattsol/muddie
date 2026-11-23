@@ -59,7 +59,7 @@ fn plugin_row(ui: &mut Ui, plugin: &Plugin, draft: &mut Profile) -> Option<Plugi
 impl App {
     /// The plugins, each with its switch in this profile and its menu;
     /// downloading another and updating those downloaded, beside their
-    /// caption; and what the last commands about plugins said.
+    /// caption. What is done says how it went over the corner.
     pub(in crate::app) fn plugins_groups(&mut self, ui: &mut Ui) {
         // All is done in the profile being edited, by a session of it.
         let Some(name) = self.editing.as_ref().map(|edit| edit.name.clone()) else {
@@ -69,29 +69,23 @@ impl App {
         let downloaded: Vec<&Plugin> = (plugins.iter())
             .filter(|plugin| plugin.downloaded)
             .collect();
-        let (mut commands, mut install) = (Vec::new(), false);
+        let (mut updating, mut install) = (Vec::new(), false);
         widgets::section_caption_with(ui, tr("Plugins"), |ui| {
             install = widgets::button(ui, tr("Install a plugin…")).clicked();
             if !downloaded.is_empty() && widgets::button(ui, tr("Update all")).clicked() {
-                commands.extend(
-                    (downloaded.iter()).map(|plugin| format!("/plugin update {}", plugin.name)),
-                );
+                updating.extend(downloaded.iter().map(|plugin| plugin.name.clone()));
             }
         });
         let Some(edit) = self.editing.as_mut() else {
             return;
         };
-        let mut again = None;
+        let (mut again, mut removing) = (None, None);
         widgets::group(ui, |ui| {
             for plugin in &plugins {
                 match plugin_row(ui, plugin, &mut edit.draft) {
                     Some(PluginAsk::Again) => again = Some(plugin.clone()),
-                    Some(PluginAsk::Update) => {
-                        commands.push(format!("/plugin update {}", plugin.name));
-                    }
-                    Some(PluginAsk::Remove) => {
-                        commands.push(format!("/plugin remove {}", plugin.name));
-                    }
+                    Some(PluginAsk::Update) => updating.push(plugin.name.clone()),
+                    Some(PluginAsk::Remove) => removing = Some(plugin.name.clone()),
                     None => {}
                 }
             }
@@ -106,28 +100,16 @@ impl App {
             });
             self.ask_error = None;
         }
-        for command in commands {
-            self.session_of(Some(&name)).plugin_command(&command);
-        }
-        self.plugin_answers(ui, &name);
-    }
-
-    /// What the last commands about plugins said, under their card, and
-    /// whether one is still at work.
-    fn plugin_answers(&mut self, ui: &mut Ui, name: &str) {
-        let (said, busy) = self.session_of(Some(name)).plugin_answers();
-        if !busy && said.is_empty() {
-            return;
-        }
-        ui.add_space(size::GAP_S);
-        if busy {
-            ui.horizontal(|ui| {
-                ui.spinner();
-                widgets::page_note(ui, tr("Working…"));
+        // Taking one away, files and all, is asked once more.
+        if let Some(plugin) = removing {
+            self.asking = Some(Ask::RemovePlugin {
+                name: plugin,
+                profile: Some(name.clone()),
             });
+            self.ask_error = None;
         }
-        for line in said {
-            widgets::page_note(ui, &line);
+        for plugin in updating {
+            self.session_of(Some(&name)).update_plugin(&plugin);
         }
     }
 

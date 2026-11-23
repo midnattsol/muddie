@@ -46,7 +46,7 @@ fn a_variable_is_edited_as_its_type() {
     app.scripts
         .set_variable("bag", Some(serde_json::json!({"gold": 5})))
         .unwrap();
-    app.open_automation(5);
+    app.open_automation(automation::VARIABLES);
     harness.run_steps(3);
     // A table: a key and a value a row, added to and typed over.
     harness.get_by_label("Add a field").click();
@@ -324,7 +324,10 @@ fn rules_made_in_the_window_are_saved_and_take_effect() {
     let dir = std::env::temp_dir().join(format!("muddie-app-rules-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     let mut harness = window(Some(Profiles::at(dir.clone())));
-    harness.state_mut().tab_mut().open_automation(0);
+    harness
+        .state_mut()
+        .tab_mut()
+        .open_automation(automation::TRIGGERS);
     harness.run_steps(4);
     harness.get_by_label("Add").click();
     harness.run_steps(2);

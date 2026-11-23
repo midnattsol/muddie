@@ -400,7 +400,7 @@ fn frame_costs() {
                 rule.tags = vec![format!("tag {}", n % 4)];
             }));
     }
-    app.open_automation(0);
+    app.open_automation(automation::TRIGGERS);
     cost(&mut harness, "editor with 300 triggers");
     let app = harness.state_mut().tab_mut();
     for n in 0..120 {
@@ -428,7 +428,10 @@ fn what_is_said_out_of_sight_of_the_game_is_shown_over_the_corner() {
         "said twice"
     );
     // In the editor, a notice says it, moving nothing, and goes.
-    harness.state_mut().tab_mut().open_automation(0);
+    harness
+        .state_mut()
+        .tab_mut()
+        .open_automation(automation::TRIGGERS);
     harness.run_steps(2);
     harness.state_mut().tab_mut().note("Said in the editor.");
     harness.run_steps(2);
@@ -449,7 +452,7 @@ fn an_idle_window_draws_nothing() {
         ("editor", |harness| {
             let app = harness.state_mut().tab_mut();
             (app.rules.triggers).push(trigger("x", |rule| rule.folder = "F".into()));
-            app.open_automation(0);
+            app.open_automation(automation::TRIGGERS);
         }),
         ("incoming data", |harness| {
             harness.state_mut().tab_mut().set_view(View::Data)
@@ -661,10 +664,10 @@ fn every_control_has_a_name() {
     app.saw_data("Char.Vitals", false, r#"{"hp": 80, "maxhp": 100}"#);
     harness.run_steps(3);
     let mut missing = unnamed(&harness, "game");
-    for section in 0..=automation::DATA {
+    for section in automation::Section::ALL {
         harness.state_mut().tab_mut().open_automation(section);
         harness.run_steps(3);
-        missing.extend(unnamed(&harness, &format!("editor section {section}")));
+        missing.extend(unnamed(&harness, &format!("editor section {section:?}")));
     }
     harness
         .state_mut()

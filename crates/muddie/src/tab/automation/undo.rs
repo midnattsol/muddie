@@ -6,7 +6,7 @@ use super::*;
 pub(in crate::tab) struct Undo {
     /// What it was called, or how many there were.
     pub(in crate::tab) title: String,
-    pub(in crate::tab) section: usize,
+    pub(in crate::tab) section: Section,
     pub(in crate::tab) index: usize,
     pub(in crate::tab) what: Undone,
     pub(in crate::tab) since: Instant,
@@ -156,7 +156,7 @@ impl Tab {
     }
 
     /// Keeps what is about to be deleted, to have it back for a while.
-    fn keep_for_undo(&mut self, section: usize, indices: &[usize]) {
+    fn keep_for_undo(&mut self, section: Section, indices: &[usize]) {
         let rows = self.automation_rows();
         let title = match indices {
             [index] => (rows.get(*index))
@@ -196,9 +196,9 @@ impl Tab {
     }
 
     /// Deletes one entry of a section.
-    fn remove_entry(&mut self, section: usize, index: usize) {
+    fn remove_entry(&mut self, section: Section, index: usize) {
         let draft = &mut self.editor.draft;
-        if let Some(list) = section_kind(section).and_then(|kind| draft.list_mut(kind)) {
+        if let Some(list) = section.kind().and_then(|kind| draft.list_mut(kind)) {
             return list.remove(index);
         }
         match section {

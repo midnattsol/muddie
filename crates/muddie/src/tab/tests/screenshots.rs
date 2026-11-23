@@ -269,8 +269,8 @@ fn shows_editor() {
         send: "north".into(),
         ..Macro::default()
     });
-    app.open_automation(0);
-    app.editor.selected[0] = 1;
+    app.open_automation(automation::TRIGGERS);
+    app.editor.selected[automation::TRIGGERS] = 1;
     app.editor.sample = "Orc attacks you with a rusty axe!".into();
     rules.run_steps(4);
     save(&mut rules, "automation");
@@ -306,7 +306,7 @@ fn shows_editor() {
     rules.state_mut().tab_mut().editor.code.expanded = false;
     rules.run_steps(3);
     let app = rules.state_mut().tab_mut();
-    app.editor.section = 2;
+    app.editor.section = automation::MACROS;
     rules.run_steps(3);
     save(&mut rules, "macros");
     let app = rules.state_mut().tab_mut();
@@ -319,13 +319,13 @@ fn shows_editor() {
         send: "save".into(),
         ..Timer::default()
     });
-    app.editor.section = 3;
+    app.editor.section = automation::TIMERS;
     rules.run_steps(3);
     save(&mut rules, "timers");
     // Several triggers chosen at once, and a folder being named.
     let app = rules.state_mut().tab_mut();
-    app.editor.section = 0;
-    app.editor.selected[0] = 0;
+    app.editor.section = automation::TRIGGERS;
+    app.editor.selected[automation::TRIGGERS] = 0;
     app.editor.marked = vec![0, 1];
     rules.run_steps(3);
     save(&mut rules, "chosen");
@@ -396,14 +396,14 @@ fn shows_editor() {
     app.editor.folder = None;
     // A new alias in a tall window: its editor takes the room under it,
     // with its example on its first line.
-    app.editor.section = 1;
+    app.editor.section = automation::ALIASES;
     app.add_rule();
     rules.set_size(egui::vec2(1500.0, 1200.0));
     rules.run_steps(6);
     save(&mut rules, "room");
     rules.set_size(egui::vec2(1500.0, 900.0));
     let app = rules.state_mut().tab_mut();
-    app.editor.section = 0;
+    app.editor.section = automation::TRIGGERS;
     let app = rules.state_mut().tab_mut();
     app.scripts
         .set_variable("objetivo", Some(serde_json::json!("orco jefe")))
@@ -420,11 +420,11 @@ fn shows_editor() {
     app.scripts
         .set_variable("ruta", Some(serde_json::json!(["norte", "norte", "este"])))
         .unwrap();
-    app.editor.section = 5;
-    app.editor.selected[5] = 0;
+    app.editor.section = automation::VARIABLES;
+    app.editor.selected[automation::VARIABLES] = 0;
     rules.run_steps(3);
     save(&mut rules, "variables");
-    rules.state_mut().tab_mut().editor.selected[5] = 3;
+    rules.state_mut().tab_mut().editor.selected[automation::VARIABLES] = 3;
     rules.run_steps(3);
     save(&mut rules, "variable-array");
     let app = rules.state_mut().tab_mut();
@@ -610,10 +610,10 @@ fn shows_panels() {
         off_colour: "green".into(),
         ..crate::rules::Gauge::starter()
     });
-    app.editor.selected[4] = 0;
+    app.editor.selected[automation::GAUGES] = 0;
     layout.run_steps(4);
     save(&mut layout, "gauges");
-    layout.state_mut().tab_mut().editor.selected[4] = 1;
+    layout.state_mut().tab_mut().editor.selected[automation::GAUGES] = 1;
     layout.run_steps(4);
     save(&mut layout, "gauge-light");
 }

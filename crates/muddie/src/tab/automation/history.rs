@@ -14,7 +14,7 @@ const TYPING: Duration = Duration::from_millis(1500);
 /// The rules as they were before a change, and where the editor was.
 pub(in crate::tab) struct Step {
     rules: Rules,
-    section: usize,
+    section: Section,
     selected: usize,
     folder: Option<String>,
     /// The field typed in, when the change was typing: what is typed in it
@@ -150,11 +150,11 @@ impl Tab {
 }
 
 /// A folder there is in `b` and not in `a`, with the section it is of.
-fn folder_back(a: &Rules, b: &Rules) -> Option<(usize, String)> {
+fn folder_back(a: &Rules, b: &Rules) -> Option<(Section, String)> {
     [TRIGGERS, ALIASES, MACROS, TIMERS]
         .into_iter()
         .find_map(|section| {
-            let kind = section_kind(section)?;
+            let kind = section.kind()?;
             let known = a.folder_paths(kind);
             let path = b
                 .folder_paths(kind)
@@ -167,7 +167,7 @@ fn folder_back(a: &Rules, b: &Rules) -> Option<(usize, String)> {
 /// The section and the place of the first rule that differs between two
 /// versions of the rules, if one does: one added or taken away, or
 /// changed.
-fn changed_rule(a: &Rules, b: &Rules) -> Option<(usize, usize)> {
+fn changed_rule(a: &Rules, b: &Rules) -> Option<(Section, usize)> {
     fn first<T: PartialEq>(a: &[T], b: &[T]) -> Option<usize> {
         let differs = (0..a.len().min(b.len())).find(|&index| a[index] != b[index]);
         match differs {

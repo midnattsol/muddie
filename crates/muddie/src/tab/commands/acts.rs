@@ -411,13 +411,17 @@ fn views() -> Vec<Item> {
         item(tr("Layout"), go, Act::View(View::Layout)),
         item(tr("Incoming data"), go, Act::View(View::Data)),
     ];
-    acts.extend((automation::TRIGGERS..=automation::SCRIPTS).map(|section| {
-        item(
-            automation::section_name(section),
-            tr("Editor"),
-            Act::Section(section),
-        )
-    }));
+    acts.extend(
+        (automation::Section::ALL.into_iter())
+            .filter(|section| *section != automation::DATA)
+            .map(|section| {
+                item(
+                    automation::section_name(section),
+                    tr("Editor"),
+                    Act::Section(section),
+                )
+            }),
+    );
     acts
 }
 

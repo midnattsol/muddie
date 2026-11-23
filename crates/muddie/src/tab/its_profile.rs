@@ -144,38 +144,23 @@ impl Tab {
         self.save_profile();
     }
 
-    /// Runs a command about the plugins, whose answers are then shown
-    /// where it was asked.
-    pub fn plugin_command(&mut self, command: &str) {
-        self.plugin_said = Some(self.notices.said);
-        self.do_client_command(command);
+    /// What the client said since the message of this number, to be
+    /// said again elsewhere: as that of a session kept for a profile.
+    pub fn said_since(&self, since: u64) -> Vec<(String, bool)> {
+        (self.notices.list.iter())
+            .filter(|notice| notice.serial > since)
+            .map(|notice| (notice.text.clone(), notice.problem))
+            .collect()
     }
 
-    /// Downloads a plugin, once the user said so, as a command about
-    /// plugins.
-    pub fn plugin_installed(&mut self, address: &str) {
-        self.plugin_said = Some(self.notices.said);
-        self.install_plugin(address);
+    /// How many messages the client said in this session.
+    pub fn said_count(&self) -> u64 {
+        self.notices.said
     }
 
-    /// Removes a plugin, once the user said so, as a command about plugins.
-    pub fn plugin_removed(&mut self, name: &str) {
-        self.plugin_said = Some(self.notices.said);
-        self.remove_plugin(name);
-    }
-
-    /// What the plugin commands asked for last have said, and whether
-    /// one is still at work.
-    pub fn plugin_answers(&self) -> (Vec<String>, bool) {
-        let busy = !self.plugin_jobs.is_empty();
-        let said = match self.plugin_said {
-            Some(since) => (self.notices.list.iter())
-                .filter(|notice| notice.serial > since)
-                .map(|notice| notice.text.clone())
-                .collect(),
-            None => Vec::new(),
-        };
-        (said, busy)
+    /// Says again what another session said.
+    pub fn say_again(&mut self, text: &str, problem: bool) {
+        self.say(text, problem);
     }
 }
 

@@ -10,7 +10,7 @@ impl Tab {
     /// How many things the current section holds.
     pub(in crate::tab) fn section_len(&self) -> usize {
         let section = self.editor.section;
-        if let Some(list) = section_kind(section).and_then(|kind| self.editor.draft.list(kind)) {
+        if let Some(list) = section.kind().and_then(|kind| self.editor.draft.list(kind)) {
             return list.len();
         }
         match section {
@@ -149,7 +149,7 @@ impl Tab {
         if back {
             self.editor.marked.clear();
         }
-        let kind = section_kind(section);
+        let kind = section.kind();
         if let (Some(Spot::Folder(path)), Some(kind)) = (&current, kind) {
             if delete {
                 return self.delete_folder(kind, path);
@@ -240,7 +240,10 @@ impl Tab {
     pub(in crate::tab) fn move_rows(&mut self, moving: &[usize], to: usize) {
         let section = self.editor.section;
         let order = moved_order(self.section_len(), moving, to);
-        match section_kind(section).and_then(|kind| self.editor.draft.list_mut(kind)) {
+        match section
+            .kind()
+            .and_then(|kind| self.editor.draft.list_mut(kind))
+        {
             Some(list) => list.reorder(&order),
             None => return,
         }
@@ -259,7 +262,7 @@ impl Tab {
         let draft = &self.editor.draft;
         match self.editor.section {
             SCRIPTS => self.script_entry(index).is_some_and(|entry| entry.enabled),
-            section => (section_kind(section).and_then(|kind| draft.list(kind)))
+            section => (section.kind().and_then(|kind| draft.list(kind)))
                 .is_some_and(|list| index < list.len() && list.enabled(index)),
         }
     }
@@ -286,8 +289,9 @@ impl Tab {
                     }
                 }
                 section => {
-                    if let Some(list) =
-                        section_kind(section).and_then(|kind| self.editor.draft.list_mut(kind))
+                    if let Some(list) = section
+                        .kind()
+                        .and_then(|kind| self.editor.draft.list_mut(kind))
                     {
                         *list.head_mut(index).enabled = on;
                     }
@@ -329,7 +333,9 @@ impl Tab {
             self.editor.marked.clear();
             return;
         }
-        if let Some(list) = section_kind(section).and_then(|kind| self.editor.draft.list_mut(kind))
+        if let Some(list) = section
+            .kind()
+            .and_then(|kind| self.editor.draft.list_mut(kind))
         {
             for index in chosen {
                 *list.head_mut(index).folder = folder.to_owned();
@@ -356,8 +362,9 @@ impl Tab {
                     }
                 }
                 section => {
-                    if let Some(list) =
-                        section_kind(section).and_then(|kind| self.editor.draft.list_mut(kind))
+                    if let Some(list) = section
+                        .kind()
+                        .and_then(|kind| self.editor.draft.list_mut(kind))
                     {
                         retag(list.head_mut(index).tags);
                     }
@@ -389,7 +396,7 @@ impl Tab {
                 ui.close();
             }
         }
-        if let Some(kind) = section_kind(self.editor.section) {
+        if let Some(kind) = self.editor.section.kind() {
             widgets::menu_separator(ui);
             widgets::menu_heading(ui, tr("Move to folder"));
             let places = std::iter::once(String::new()).chain(self.section_folders(kind));
@@ -449,7 +456,7 @@ impl Tab {
         if switched {
             self.switch_chosen(on);
         }
-        if let Some(kind) = section_kind(section) {
+        if let Some(kind) = section.kind() {
             self.bulk_filing(ui, kind, &chosen);
         }
         note(ui, tr("Changes apply to every selected item."));

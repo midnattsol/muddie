@@ -650,9 +650,6 @@ msgstr "Quitar"
 msgid "Install"
 msgstr "Instalar"
 
-msgid "Working…"
-msgstr "Procesando…"
-
 msgid "Editor"
 msgstr "Editor"
 

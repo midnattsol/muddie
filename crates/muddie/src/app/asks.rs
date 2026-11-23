@@ -181,11 +181,11 @@ impl App {
             Ask::Delete(name) => self.delete_profile(&profiles, name),
             Ask::Install { address, profile } => {
                 self.session_of(profile.as_deref())
-                    .plugin_installed(address.trim());
+                    .install_plugin(address.trim());
                 Ok(None)
             }
             Ask::RemovePlugin { name, profile } => {
-                self.session_of(profile.as_deref()).plugin_removed(name);
+                self.session_of(profile.as_deref()).remove_plugin(name);
                 Ok(None)
             }
         };

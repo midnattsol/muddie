@@ -8,7 +8,7 @@ use super::*;
 const DETAIL_WIDTH: f32 = 760.0;
 
 /// A section of the editor by its name.
-pub(in crate::tab) fn section_name(section: usize) -> &'static str {
+pub(in crate::tab) fn section_name(section: Section) -> &'static str {
     match section {
         TRIGGERS => tr("Triggers"),
         ALIASES => tr("Aliases"),
@@ -232,8 +232,8 @@ impl Tab {
             self.editor.script_files.len(),
         ];
         let data = (DATA, section_name(DATA), self.data_view.seen.len());
-        let rules =
-            (0..counts.len()).map(|section| (section, section_name(section), counts[section]));
+        let rules = (Section::ALL.into_iter().zip(counts))
+            .map(|(section, count)| (section, section_name(section), count));
         for (section, name, count) in rules.chain([data]) {
             // What the rules are made from stands apart from them.
             if section == DATA {

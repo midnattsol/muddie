@@ -412,6 +412,12 @@ impl Gauge {
         }
     }
 
+    /// Whether there is enough of it to run, as for any rule: what it
+    /// follows.
+    pub fn complete(&self) -> bool {
+        !self.value.trim().is_empty()
+    }
+
     /// What the gauge is called on screen: its name, or failing that
     /// where its value is.
     pub fn shown_name(&self) -> &str {

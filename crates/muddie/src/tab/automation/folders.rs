@@ -516,7 +516,7 @@ impl Tab {
             self.editor.dragged = None;
             return;
         }
-        let kind = section_kind(self.editor.section);
+        let kind = self.editor.section.kind();
         let list = ui.clip_rect();
         let Some(pointer) = ui.ctx().pointer_latest_pos() else {
             return;
@@ -650,7 +650,7 @@ impl Tab {
     fn drop_dragged(&mut self, dragged: Dragged, drop: Landing, rows: &[Row]) {
         let section = self.editor.section;
         let folder = drop.folder(rows).to_owned();
-        match (dragged, section_kind(section)) {
+        match (dragged, section.kind()) {
             (Dragged::Folder(path), Some(kind)) => {
                 let beside = match &drop {
                     Landing::Beside(beside, after) => Some((beside.as_str(), *after)),
@@ -674,7 +674,7 @@ impl Tab {
                 };
                 self.editor.selected[section] = from;
                 let folder_differs = moving.iter().any(|&index| rows[index].folder != folder);
-                if section_kind(section).is_some() && folder_differs {
+                if section.kind().is_some() && folder_differs {
                     self.file_chosen(&folder);
                 }
                 // Into a folder they keep their order; before or after one

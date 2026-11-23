@@ -534,7 +534,7 @@ impl Tab {
         }
         let section = self.editor.section;
         let index = self.editor.selected[section];
-        if let (Some(path), Some(kind)) = (self.editor.folder.clone(), section_kind(section)) {
+        if let (Some(path), Some(kind)) = (self.editor.folder.clone(), section.kind()) {
             return self.folder_detail(ui, kind, &path);
         }
         if self.chosen().len() > 1 {
@@ -564,7 +564,7 @@ impl Tab {
 }
 
 /// What a section is for, said while nothing in it is chosen.
-fn empty_hint(section: usize) -> &'static str {
+fn empty_hint(section: Section) -> &'static str {
     match section {
         TRIGGERS => tr(
             "A trigger reacts to what the MUD sends:\nit can answer, speak, play a sound, colour or hide the line.",

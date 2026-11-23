@@ -36,7 +36,7 @@ pub enum Act {
     /// One of the session's views.
     View(View),
     /// A section of the editor.
-    Section(usize),
+    Section(crate::tab::automation::Section),
     /// Something the window does rather than the session.
     App(AppRequest),
     Reconnect,
