@@ -40,6 +40,11 @@ pub trait Luau: When {
 }
 
 impl<T: Luau> Rule<T> {
+    /// What it is called in its errors.
+    pub fn reported_as(&self) -> String {
+        titled(T::WORD, &self.name, &self.when.made_of())
+    }
+
     /// The rule as Luau, switched by its place, and what to call it in
     /// errors.
     pub(super) fn chunk(&self, place: &str) -> (String, String) {
@@ -52,7 +57,7 @@ impl<T: Luau> Rule<T> {
             quoted(place),
             tags.join(", ")
         );
-        let title = titled(T::WORD, &self.name, &self.when.made_of());
+        let title = self.reported_as();
         (title, T::code(self, &options))
     }
 
@@ -119,7 +124,10 @@ impl Luau for OnKey {
     /// Its key bound to what it does.
     fn code(rule: &Rule<Self>, options: &str) -> String {
         let key = quoted(rule.when.key.trim());
-        format!("bind({key}, function()\n{}end, {options})\n", rule.action())
+        format!(
+            "macro({key}, function()\n{}end, {options})\n",
+            rule.action()
+        )
     }
 }
 
@@ -136,6 +144,11 @@ impl Luau for OnTime {
 }
 
 impl Gauge {
+    /// What it is called in its errors.
+    pub fn reported_as(&self) -> String {
+        titled("gauge", self.shown_name(), "")
+    }
+
     /// A gauge: shown again whenever what it follows is reported, over
     /// GMCP or MSDP, or changes, as a variable, and at once, from what is
     /// there: as it is saved, not when the MUD next says something.
@@ -152,7 +165,7 @@ impl Gauge {
             root = quoted(root),
             variable = quoted(self.value.trim()),
         );
-        (titled("gauge", name, ""), code)
+        (self.reported_as(), code)
     }
 
     /// How it is shown, by its kind: lit or not, as text, or as a value

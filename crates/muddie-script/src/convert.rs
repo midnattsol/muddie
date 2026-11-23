@@ -41,7 +41,7 @@ pub(super) fn valid_module_name(name: &str) -> bool {
     name.split('/').all(plain)
 }
 
-/// The name `bind` and [`Engine::on_key`] know a key by: lower case, with
+/// The name `macro` and [`Engine::on_key`] know a key by: lower case, with
 /// its modifiers in the order ctrl, alt, shift, as in `ctrl+shift+f5`.
 pub fn key_name(key: &str) -> String {
     let lower = key.to_lowercase();

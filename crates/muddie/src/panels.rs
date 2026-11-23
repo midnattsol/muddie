@@ -631,8 +631,9 @@ fn colour_for(name: &str) -> Color32 {
     }
 }
 
-/// The names a gauge's colour can be chosen by.
-pub const GAUGE_COLOURS: [&str; 7] = ["red", "green", "yellow", "blue", "magenta", "cyan", "white"];
+/// The colours offered to choose from, as a gauge's or a match's, by name.
+pub const COLOUR_CHOICES: [&str; 7] =
+    ["red", "green", "yellow", "blue", "magenta", "cyan", "white"];
 
 /// A colour given as text, read as scripts read one: the sixteen of the
 /// palette in the theme's colours.

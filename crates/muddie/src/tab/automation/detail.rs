@@ -518,7 +518,7 @@ pub(in crate::tab) fn swatches(ui: &mut egui::Ui, colour: &mut String) {
     let theme = theme::current();
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing.x = 4.0;
-        for name in crate::panels::GAUGE_COLOURS {
+        for name in crate::panels::COLOUR_CHOICES {
             let shown = crate::panels::colour_named(name).unwrap_or(theme.accent);
             if widgets::swatch(ui, shown, *colour == name, tr(name)).clicked() {
                 *colour = name.to_owned();

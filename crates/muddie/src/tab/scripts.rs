@@ -153,6 +153,11 @@ impl Tab {
         // a rule.
         let mut failed: Vec<String> = (self.script_errors.iter())
             .map(|error| {
+                // After what kind of error it is, if it says.
+                let error = ["syntax error: ", "runtime error: "]
+                    .iter()
+                    .find_map(|kind| error.strip_prefix(kind))
+                    .unwrap_or(error);
                 error
                     .split(':')
                     .next()

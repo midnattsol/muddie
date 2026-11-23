@@ -113,7 +113,7 @@ fn colours(ui: &mut egui::Ui, rule: &mut Gauge) {
                 light_colours(ui, rule);
             }
             if rule.kind.has_level() {
-                levels(ui, rule);
+                steps(ui, rule);
             }
         },
     );
@@ -140,11 +140,11 @@ fn light_colours(ui: &mut egui::Ui, rule: &mut Gauge) {
     );
 }
 
-/// The colours it turns as it gets low, each under a level, kept in order
+/// The colours it turns as it gets low, each under a step, kept in order
 /// highest first; and the way to add one.
-fn levels(ui: &mut egui::Ui, rule: &mut Gauge) {
+fn steps(ui: &mut egui::Ui, rule: &mut Gauge) {
     ui.add_space(6.0);
-    widgets::sub_label(ui, tr("Colour by level"));
+    widgets::sub_label(ui, tr("Colour steps"));
     if rule.steps.is_empty() {
         note(
             ui,
@@ -177,7 +177,7 @@ fn levels(ui: &mut egui::Ui, rule: &mut Gauge) {
     if !busy {
         rule.steps.sort_by_key(|step| std::cmp::Reverse(step.under));
     }
-    if widgets::add_button(ui, tr("Add a level")).clicked() {
+    if widgets::add_button(ui, tr("Add a step")).clicked() {
         // Under the lowest there is, or a first one at 60 %.
         let (under, colour) = match rule.steps.iter().map(|step| step.under).min() {
             None => (60, "yellow"),

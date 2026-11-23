@@ -90,8 +90,8 @@ after(5, function() cancel(id) end)
 | `triggers`, `aliases`, `macros`, `timers`, `gauges`, `scripts` | Switch one thing of that kind by its place, or a folder with all it holds: `triggers.disable("Combat")`, `macros.enable("Combat/Kick")`, `scripts.toggle("Mapping")`. Each has `enable(place)`, `disable(place)`, `toggle(place)` (which returns whether it is now on), `enabled(place)` and `list()`, the places there are. Whether made in a script or in the editor; for the session, as what is saved is what the editor says. |
 | `tags` | The same for tags: `tags.disable("combat")` switches off everything that carries the tag, of every kind. |
 | `after(seconds, fn, options)`, `every(seconds, fn, options)` | Timers. Switched off, one lets its turns pass. |
-| `cancel(id)` | Takes away what the id belongs to, and says whether there was something: `trigger`, `alias`, `after`, `every`, `bind`, `on_gmcp`, `on_msdp`, `on_var` and `on_event` each return one. |
-| `bind(key, action, options)` | Runs a command or a function when a key is pressed: `bind("f5", "look")`, `bind("ctrl+shift+k", fn)`. A key bound again under another `place` does that while it is on and those bound before are not: the first bound that is on is the one that runs. Bound again under the same place, it does the new thing instead. |
+| `cancel(id)` | Takes away what the id belongs to, and says whether there was something: `trigger`, `alias`, `after`, `every`, `macro`, `on_gmcp`, `on_msdp`, `on_var` and `on_event` each return one. |
+| `macro(key, action, options)` | Runs a command or a function when a key is pressed: `macro("f5", "look")`, `macro("ctrl+shift+k", fn)`. A key bound again under another `place` does that while it is on and those bound before are not: the first bound that is on is the one that runs. Bound again under the same place, it does the new thing instead. |
 | `separator(text)` | The text that separates commands typed on one line (`;` by default; doubled, it is typed literally). `separator(false)` turns splitting off, and `separator()` gives back `;`. |
 | `vars` | The variables, as a table: `vars.target = "orc"` keeps a value, `vars.target` reads it, `vars.target = nil` forgets it, and `for name, value in vars do` goes through them. They are those of the editor, kept with the session's profile. A table kept in one must be assigned whole to be kept: `local bag = vars.bag; bag.gold = 5; vars.bag = bag`. |
 | `expand(text)` | `text` with each `$name` replaced by that variable's value, `$name.key` by a field of a table and `$name.1` by an item of an array, as the commands of rules are. |
@@ -122,13 +122,13 @@ with it on, or do one thing in each. A bound keypad key no
 longer types its digit, which makes the keypad a good place for movement:
 
 ```lua
-bind("numpad8", "north")
-bind("numpad2", "south")
-bind("numpad4", "west")
-bind("numpad6", "east")
-bind("numpad9", "up")
-bind("numpad3", "down")
-bind("numpad5", "look")
+macro("numpad8", "north")
+macro("numpad2", "south")
+macro("numpad4", "west")
+macro("numpad6", "east")
+macro("numpad9", "up")
+macro("numpad3", "down")
+macro("numpad5", "look")
 ```
 
 ## Data from the server

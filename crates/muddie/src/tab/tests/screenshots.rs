@@ -624,7 +624,7 @@ fn shows_palette() {
     let app = palette.state_mut().tab_mut();
     app.scripts.exec(
         "t",
-        r#"bind("f9", "kick", {tags = {"combate"}}) bind("f8", "hi", {tags = {"social"}})"#,
+        r#"macro("f9", "kick", {tags = {"combate"}}) macro("f8", "hi", {tags = {"social"}})"#,
     );
     app.toggle_palette();
     palette.run_steps(8);

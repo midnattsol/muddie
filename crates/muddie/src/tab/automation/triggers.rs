@@ -230,9 +230,7 @@ fn extra_row(
                     Extra::Sound => {
                         widgets::text_box(ui, &mut rule.when.sound, "alert.ogg");
                     }
-                    Extra::Highlight => {
-                        widgets::text_box(ui, &mut rule.when.highlight, "yellow, #ffcc00");
-                    }
+                    Extra::Highlight => super::detail::swatches(ui, &mut rule.when.highlight),
                     Extra::Gag => {
                         let text =
                             RichText::new(tr("The line is not shown.")).color(theme.text_dim);

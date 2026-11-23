@@ -90,7 +90,7 @@ fn a_script_is_run_from_its_button_and_says_how_it_went() {
     app.add_script(None);
     harness.run_steps(3);
     // Typed, and run at once from its button: it takes effect...
-    harness.state_mut().tab_mut().editor.script_text = r#"bind("f9", "kick")"#.into();
+    harness.state_mut().tab_mut().editor.script_text = r#"macro("f9", "kick")"#.into();
     harness.run_steps(2);
     harness.get_by_label("Run").click();
     harness.run_steps(3);
@@ -100,7 +100,7 @@ fn a_script_is_run_from_its_button_and_says_how_it_went() {
         "{:?}",
         app.editor.script_ran
     );
-    assert_eq!(app.editor.script_saved, r#"bind("f9", "kick")"#);
+    assert_eq!(app.editor.script_saved, r#"macro("f9", "kick")"#);
     harness.get_by_label_contains("Last run: ");
     // ...and one that fails says why, there, not among the lines of
     // the game.
@@ -130,7 +130,7 @@ fn a_script_switched_off_is_kept_and_not_run() {
     std::fs::create_dir_all(&scripts).unwrap();
     std::fs::write(
         scripts.join("keys.luau"),
-        r#"bind("f9", "kick", {tags = {"Combat"}})"#,
+        r#"macro("f9", "kick", {tags = {"Combat"}})"#,
     )
     .unwrap();
     let mut harness = window(Some(profiles));
@@ -390,7 +390,7 @@ fn folders_and_tags_file_what_there_is_and_switch_it() {
         .unwrap();
     let scripts = profiles.scripts_dir("Test");
     std::fs::create_dir_all(&scripts).unwrap();
-    std::fs::write(scripts.join("hunt.luau"), r#"bind("f9", "kick")"#).unwrap();
+    std::fs::write(scripts.join("hunt.luau"), r#"macro("f9", "kick")"#).unwrap();
     let mut harness = window(Some(profiles));
     harness.set_size(egui::vec2(1400.0, 800.0));
     let app = harness.state_mut().tab_mut();
@@ -656,7 +656,7 @@ fn restarting_the_scripts_says_when_and_which_failed() {
     assert_eq!(app.editor.failed, ["broken.luau"]);
     // In the foot of the sections: how many failed, and when.
     let at = harness.state().tab().editor.restarted.clone().unwrap();
-    harness.get_by_label("1 script failed");
+    harness.get_by_label("1 failed");
     harness.get_by_label(&format!("Restarted at {at}"));
     // Said over the corner, as the lines of the game are not in sight,
     // and kept as something that could not be done.
@@ -1458,4 +1458,27 @@ fn folders_are_closed_at_first_but_where_the_one_chosen_is() {
         .cloned()
         .unwrap_or_default();
     assert!(kept.contains(&(Kind::Alias, "Chat".to_owned())), "{kept:?}");
+}
+
+/// A rule that fails is marked in the list as a script that fails is.
+#[test]
+fn a_rule_that_fails_is_marked_in_its_list() {
+    let mut harness = window(None);
+    let app = harness.state_mut().tab_mut();
+    let mut rules = app.rules.clone();
+    rules.triggers.push(trigger("hello", |rule| {
+        rule.name = "Broken".into();
+        rule.lua = true;
+        rule.script = "this is not luau".into();
+    }));
+    rules
+        .triggers
+        .push(trigger("bye", |rule| rule.name = "Fine".into()));
+    app.reload_rules(Some(rules));
+    app.restart_scripts();
+    app.open_automation(automation::TRIGGERS);
+    let marked: Vec<(String, bool)> = (app.automation_rows().into_iter())
+        .map(|row| (row.title, row.problem))
+        .collect();
+    assert_eq!(marked, [("Broken".into(), true), ("Fine".into(), false)]);
 }

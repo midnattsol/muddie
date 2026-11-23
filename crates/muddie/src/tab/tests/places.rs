@@ -768,7 +768,7 @@ fn the_map_explored_is_searched_named_noted_and_gone_back_along() {
     desert(app);
     app.scripts.exec(
         "t",
-        r#"map.directions({e = {"este"}, w = {"oeste"}, n = {"norte"}, s = {"sur"}}) map.names({exits = "[]"}) bind("numpad6", "este") bind("numpadhome", "noroeste")"#,
+        r#"map.directions({e = {"este"}, w = {"oeste"}, n = {"norte"}, s = {"sur"}}) map.names({exits = "[]"}) macro("numpad6", "este") macro("numpadhome", "noroeste")"#,
     );
     app.run_actions();
     assert!(app.map.borrow_mut().set_current(1));

@@ -99,7 +99,7 @@ impl Tab {
                     if widgets::swatch_none(ui, look.colour.is_none(), usual_colour).clicked() {
                         look.colour = None;
                     }
-                    for name in crate::panels::GAUGE_COLOURS {
+                    for name in crate::panels::COLOUR_CHOICES {
                         let Some(shown) = crate::panels::colour_named(name) else {
                             continue;
                         };

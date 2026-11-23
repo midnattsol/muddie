@@ -406,25 +406,29 @@ impl Gauge {
     }
 }
 
+/// The regular expression a pattern is: itself if it is one, else what
+/// `literal` makes of the words it is.
+fn pattern_source(regex: bool, pattern: &str, literal: impl Fn(&str) -> String) -> String {
+    match regex {
+        true => pattern.to_owned(),
+        false => literal(pattern),
+    }
+}
+
 impl OnLine {
-    /// The regular expression the trigger matches lines with.
+    /// The regular expression the trigger matches lines with: the words
+    /// anywhere in the line.
     pub fn regex_source(&self) -> String {
-        if self.regex {
-            self.pattern.clone()
-        } else {
-            regex_escape(&self.pattern)
-        }
+        pattern_source(self.regex, &self.pattern, regex_escape)
     }
 }
 
 impl OnTyped {
-    /// The regular expression the alias matches typed commands with.
+    /// The regular expression the alias matches typed commands with: the
+    /// word alone, or followed by arguments, which are %1.
     pub fn regex_source(&self) -> String {
-        if self.regex {
-            self.pattern.clone()
-        } else {
-            // The word alone, or followed by arguments, which are %1.
-            format!("^{}(?:\\s+(.*))?$", regex_escape(self.pattern.trim()))
-        }
+        pattern_source(self.regex, &self.pattern, |word| {
+            format!("^{}(?:\\s+(.*))?$", regex_escape(word.trim()))
+        })
     }
 }

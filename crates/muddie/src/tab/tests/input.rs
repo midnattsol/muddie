@@ -109,7 +109,7 @@ fn client_commands_are_carried_out_and_the_rest_is_the_mud_s() {
     );
     // Tags, switched for the session by name.
     app.scripts
-        .exec("t", r#"bind("f9", "kick", {tags = {"Combat"}})"#);
+        .exec("t", r#"macro("f9", "kick", {tags = {"Combat"}})"#);
     let tag_on = |app: &Tab| app.scripts.switches().tag_on("combat");
     assert!(app.do_client_command("/tag Combat off") && !tag_on(app));
     assert!(app.do_client_command("/tag combat on") && tag_on(app));
@@ -164,7 +164,7 @@ fn the_palette_does_what_is_chosen_and_asks_in_its_field_for_what_it_needs() {
     // the palette, not over the corner nor among the lines of the game.
     let app = harness.state_mut().tab_mut();
     app.scripts
-        .exec("t", r#"bind("f9", "kick", {tags = {"Combat"}})"#);
+        .exec("t", r#"macro("f9", "kick", {tags = {"Combat"}})"#);
     app.toggle_palette();
     app.palette.query = "tag combat".into();
     harness.run_steps(2);
@@ -279,7 +279,7 @@ fn bound_function_key_sends_its_command() {
     let mut harness = window(None);
     let app = harness.state_mut().tab_mut();
     app.scripts
-        .exec("test", r#"bind("f5", "look") bind("ctrl+k", "kick")"#);
+        .exec("test", r#"macro("f5", "look") macro("ctrl+k", "kick")"#);
     let (_events, mut sent) = fake_connection(app);
     harness.key_press(Key::F5);
     harness.run_steps(2);
@@ -296,7 +296,7 @@ fn bound_function_key_sends_its_command() {
 fn bound_keypad_key_sends_its_command_and_types_nothing() {
     let mut harness = window(None);
     let app = harness.state_mut().tab_mut();
-    app.scripts.exec("test", r#"bind("numpad8", "north")"#);
+    app.scripts.exec("test", r#"macro("numpad8", "north")"#);
     let (_events, mut sent) = fake_connection(app);
     // What the window layer and egui each make of one press of keypad 8.
     app.keypad_pressed = vec!["numpad8", "numpad2"];

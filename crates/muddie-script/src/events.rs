@@ -18,19 +18,19 @@ impl Engine {
         self.dispatch_line(&line.text(), Some(line.clone()))
     }
 
-    /// Handles a key press, named as in `bind` (see [`key_name`]). Returns
+    /// Handles a key press, named as in `macro` (see [`key_name`]). Returns
     /// whether the key was bound, in which case nothing else should use it.
     pub fn on_key(&mut self, key: &str) -> bool {
         // A key bound several times does what the first that is on does.
         let action = {
             let state = self.state.borrow();
-            let bound = state.bindings.get(&key_name(key));
+            let bound = state.macros.get(&key_name(key));
             let live = (bound.into_iter().flatten())
-                .find(|bound| state.switches.active(Kind::Macro, &bound.belongs));
-            match live.map(|bound| (&bound.owner, &bound.binding)) {
-                Some((_, Binding::Command(command))) => Ok(state.expand(command)),
+                .find(|made| state.switches.active(Kind::Macro, &made.belongs));
+            match live.map(|made| (&made.owner, &made.action)) {
+                Some((_, MacroAction::Command(command))) => Ok(state.expand(command)),
                 // Whose it is, for what it makes when it runs.
-                Some((owner, Binding::Function(function))) => {
+                Some((owner, MacroAction::Function(function))) => {
                     Err((owner.clone(), function.clone()))
                 }
                 None => return false,

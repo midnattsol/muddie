@@ -424,7 +424,7 @@ field inside one), which a trigger or a script sets: for MUDs that only say
 it in their text. **Incoming data** and **Variables**, in the editor, show
 what there is. Choose its colour, and for
 those with a maximum the colours it takes as it gets low: yellow under 60 %,
-red under 30 %, as many levels as wanted, kept in order. A light can have a
+red under 30 %, as many steps (`step` in a `rules.toml`) as wanted, kept in order. A light can have a
 colour for when it is off as well, to say which of two things is so: red for
 poisoned, green for not. Alt+0 reads the gauges aloud.
 

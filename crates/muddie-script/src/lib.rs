@@ -168,7 +168,7 @@ impl State {
                 .iter()
                 .map(|matcher| &matcher.belongs)
                 .collect(),
-            Kind::Macro => (self.bindings.values().flatten())
+            Kind::Macro => (self.macros.values().flatten())
                 .map(|bound| &bound.belongs)
                 .collect(),
             Kind::Timer => self.timers.iter().map(|timer| &timer.belongs).collect(),
@@ -323,7 +323,7 @@ impl Engine {
     }
 
     /// Takes away what `owner` made: its triggers, aliases, timers, key
-    /// bindings and handlers, and what it set for all: the packages it
+    /// macros and handlers, and what it set for all: the packages it
     /// merges, the separator, the built-in map loader turned off. What the other scripts made and what they
     /// keep is left as it is, so that one script can be run again without
     /// the rest starting over.
@@ -352,7 +352,7 @@ impl Engine {
         if state.map_native_off.as_deref() == Some(owner) {
             state.map_native_off = None;
         }
-        state.bindings.retain(|_, bound| {
+        state.macros.retain(|_, bound| {
             bound.retain(|bound| bound.owner != owner);
             !bound.is_empty()
         });

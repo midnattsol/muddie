@@ -57,7 +57,7 @@ pub(super) struct Matcher {
     pub(crate) once: bool,
 }
 
-pub(super) enum Binding {
+pub(super) enum MacroAction {
     Command(String),
     Function(Function),
 }
@@ -72,12 +72,12 @@ pub(crate) struct Shown {
     pub(crate) belongs: Belongs,
 }
 
-pub(super) struct Bound {
+pub(super) struct Macro {
     /// What `cancel` takes it away by.
     pub(crate) id: u64,
     pub(crate) owner: String,
     pub(crate) belongs: Belongs,
-    pub(crate) binding: Binding,
+    pub(crate) action: MacroAction,
 }
 
 pub(super) struct Timer {
@@ -201,7 +201,7 @@ pub(super) struct State {
     /// The gauges the scripts show, by what they are switched by.
     pub(crate) gauges: Vec<Shown>,
     /// What each key does, by its normalised name.
-    pub(crate) bindings: HashMap<String, Vec<Bound>>,
+    pub(crate) macros: HashMap<String, Vec<Macro>>,
     /// Values kept between sessions, and the file they are saved in.
     pub(crate) memory: serde_json::Map<String, serde_json::Value>,
     pub(crate) memory_file: Option<PathBuf>,

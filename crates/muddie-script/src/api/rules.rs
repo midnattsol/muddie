@@ -6,7 +6,7 @@ use super::*;
 pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     install_triggers_and_aliases(lua, state)?;
     install_switches(lua, state)?;
-    install_bind(lua, state)?;
+    install_macro(lua, state)?;
     install_timers(lua, state)?;
     install_cancel(lua, state)?;
     Ok(())
@@ -131,31 +131,31 @@ fn install_switches(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     Ok(())
 }
 
-fn install_bind(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
+fn install_macro(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     let globals = lua.globals();
     let add = |name: &str, function: Function| globals.set(name, function);
     let shared = Rc::clone(state);
     add(
-        "bind",
+        "macro",
         lua.create_function(
             move |_, (key, action, options): (String, Value, Option<mlua::Table>)| {
-                let binding = match action {
-                    Value::String(command) => Binding::Command(command.to_string_lossy()),
-                    Value::Function(function) => Binding::Function(function),
-                    _ => return Err(mlua::Error::runtime("bind needs a command or a function")),
+                let action = match action {
+                    Value::String(command) => MacroAction::Command(command.to_string_lossy()),
+                    Value::Function(function) => MacroAction::Function(function),
+                    _ => return Err(mlua::Error::runtime("macro needs a command or a function")),
                 };
                 let belongs = belongs(options.as_ref())?;
                 let mut state = shared.borrow_mut();
                 let id = state.next_id();
                 let owner = state.owner.clone();
-                let bound = state.bindings.entry(key_name(&key)).or_default();
-                // Binding a key again under the same name replaces it.
+                let bound = state.macros.entry(key_name(&key)).or_default();
+                // A key made a macro again under the same name is replaced.
                 bound.retain(|known| known.belongs.place != belongs.place);
-                bound.push(Bound {
+                bound.push(Macro {
                     id,
                     owner,
                     belongs,
-                    binding,
+                    action,
                 });
                 Ok(id)
             },
@@ -209,15 +209,15 @@ fn install_cancel(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
                     + state.aliases.len()
                     + state.timers.len()
                     + state.data_handlers.len()
-                    + state.bindings.values().map(Vec::len).sum::<usize>()
+                    + state.macros.values().map(Vec::len).sum::<usize>()
             };
             let before = count(&state);
             state.triggers.retain(|trigger| trigger.id != id);
             state.aliases.retain(|alias| alias.id != id);
             state.timers.retain(|timer| timer.id != id);
             state.data_handlers.retain(|handler| handler.id != id);
-            state.bindings.retain(|_, bound| {
-                bound.retain(|bound| bound.id != id);
+            state.macros.retain(|_, bound| {
+                bound.retain(|made| made.id != id);
                 !bound.is_empty()
             });
             Ok(count(&state) < before)

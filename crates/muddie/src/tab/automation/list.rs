@@ -33,15 +33,17 @@ pub(in crate::tab) enum Spot {
 impl Tab {
     /// What the list shows of each thing of the current section, in order.
     pub(in crate::tab) fn automation_rows(&self) -> Vec<Row> {
-        let draft = &self.editor.draft;
+        let (draft, failed) = (&self.editor.draft, &self.editor.failed);
         match self.editor.section {
-            TRIGGERS => rule_rows(&draft.triggers, crate::rules::Rule::summary),
-            ALIASES => rule_rows(&draft.aliases, |rule| rule.does().into_iter().collect()),
-            MACROS => rule_rows(&draft.macros, |rule| {
+            TRIGGERS => rule_rows(&draft.triggers, failed, crate::rules::Rule::summary),
+            ALIASES => rule_rows(&draft.aliases, failed, |rule| {
+                rule.does().into_iter().collect()
+            }),
+            MACROS => rule_rows(&draft.macros, failed, |rule| {
                 let key = (Part::Key, rule.when.key.trim().to_uppercase());
                 std::iter::once(key).chain(rule.does()).collect()
             }),
-            TIMERS => rule_rows(&draft.timers, |rule| {
+            TIMERS => rule_rows(&draft.timers, failed, |rule| {
                 let how = if rule.when.repeat {
                     tr("every")
                 } else {
@@ -50,7 +52,9 @@ impl Tab {
                 let time = (Part::Time, format!("{how} {}", rule.when.interval()));
                 std::iter::once(time).chain(rule.does()).collect()
             }),
-            GAUGES => draft.gauges.iter().map(gauge_row).collect(),
+            GAUGES => (draft.gauges.iter())
+                .map(|rule| gauge_row(rule, failed))
+                .collect(),
             VARIABLES => (self.scripts.variables().into_iter())
                 .map(variable_row)
                 .collect(),
@@ -990,8 +994,9 @@ pub(in crate::tab) fn rule_title<T: crate::rules::When>(
 }
 
 /// The rows of rules of one kind, with what each does in a line.
-fn rule_rows<T: crate::rules::When>(
+fn rule_rows<T: crate::rules::Luau>(
     rules: &Vec<crate::rules::Rule<T>>,
+    failed: &[String],
     detail: impl Fn(&crate::rules::Rule<T>) -> Vec<(Part, String)>,
 ) -> Vec<Row> {
     (0..rules.len())
@@ -1012,13 +1017,14 @@ fn rule_rows<T: crate::rules::When>(
                 on: rule.enabled,
                 folder: rule.folder.trim().to_owned(),
                 tags: rule.tags.clone(),
-                problem: false,
+                // Its errors say they are its by what it is called in them.
+                problem: failed.contains(&rule.reported_as()),
             }
         })
         .collect()
 }
 
-fn gauge_row(rule: &crate::rules::Gauge) -> Row {
+fn gauge_row(rule: &crate::rules::Gauge, failed: &[String]) -> Row {
     let kind = crate::rules::KindName::shown(rule.kind);
     let title = match rule.shown_name() {
         "" => tr("New gauge").to_owned(),
@@ -1031,7 +1037,7 @@ fn gauge_row(rule: &crate::rules::Gauge) -> Row {
         on: rule.enabled,
         folder: rule.folder.trim().to_owned(),
         tags: rule.tags.clone(),
-        problem: false,
+        problem: failed.contains(&rule.reported_as()),
     }
 }
 

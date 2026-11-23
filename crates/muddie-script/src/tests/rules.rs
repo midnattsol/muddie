@@ -224,8 +224,8 @@ fn trigger_can_recolour_its_match_or_gag_the_line() {
 #[test]
 fn keys_run_their_binding() {
     let mut engine = engine(
-        r#"f5 = bind("F5", "look;inventory")
-        bind("Shift + CTRL+k", function() send("kick") end)"#,
+        r#"f5 = macro("F5", "look;inventory")
+        macro("Shift + CTRL+k", function() send("kick") end)"#,
     );
     assert!(engine.on_key("f5"));
     assert!(engine.on_key("ctrl+shift+k"));
@@ -245,9 +245,9 @@ fn switches_cover_keys_and_timers_and_are_told_about() {
     let mut engine = engine(
         r#"
         trigger("hit", function() send("flee") end, {tags = {"combat"}})
-        bind("f1", "kick", {place = "Fighting", tags = {"combat"}})
-        bind("f1", "look", {place = "Exploring"})
-        bind("f2", "score")
+        macro("f1", "kick", {place = "Fighting", tags = {"combat"}})
+        macro("f1", "look", {place = "Exploring"})
+        macro("f2", "score")
         every(1, function() send("tick") end, {place = "Pulse", tags = {"combat"}})
         tags.disable("combat")
         "#,
@@ -276,8 +276,8 @@ fn switches_cover_keys_and_timers_and_are_told_about() {
     assert_eq!(engine.take_actions(), [send("tick")]);
     assert!(engine.on_key("f1"));
     assert_eq!(engine.take_actions(), [send("kick")]);
-    // Bound again under the same name, a key does the new thing instead.
-    engine.exec("t", r#"bind("f1", "bash", {place = "Fighting"})"#);
+    // Macro again under the same name, a key does the new thing instead.
+    engine.exec("t", r#"macro("f1", "bash", {place = "Fighting"})"#);
     assert!(engine.on_key("f1"));
     assert_eq!(engine.take_actions(), [send("bash")]);
 }

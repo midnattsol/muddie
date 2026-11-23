@@ -277,10 +277,7 @@ impl Tab {
         let failed = self.editor.failed.len();
         let (state, colour) = match failed {
             0 => (tr("Scripts running").to_owned(), theme.good),
-            count => (
-                trn("{0} script failed", "{0} scripts failed", count as u64),
-                theme.danger,
-            ),
+            count => (trn("{0} failed", "{0} failed", count as u64), theme.danger),
         };
         let when = (self.editor.restarted.as_ref()).map(|at| trf("Restarted at {0}", &[at]));
         let mut restart = false;

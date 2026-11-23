@@ -12,6 +12,7 @@ mod luau;
 mod tests;
 
 pub use kinds::*;
+pub use luau::Luau;
 pub use muddie_script::{Kind, Switches, tag_key};
 
 /// Puts a match's groups into a template: `%1`... become the groups.

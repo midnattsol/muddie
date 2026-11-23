@@ -819,8 +819,6 @@ msgstr "ninguno"
 msgid "It is on when the value is true, a number other than 0, or words other than no, false or off."
 msgstr "Se enciende si el valor es true, un número distinto de 0 o un texto distinto de no, false u off."
 
-msgid "Colour by level"
-msgstr "Color según el nivel"
 
 msgid "It can turn another colour as it gets low: yellow under 60 %, red under 30 %."
 msgstr "Puede cambiar de color al bajar de un umbral: por ejemplo, amarillo por debajo del 60 % y rojo por debajo del 30 %."
@@ -828,8 +826,6 @@ msgstr "Puede cambiar de color al bajar de un umbral: por ejemplo, amarillo por 
 msgid "Under"
 msgstr "Por debajo de"
 
-msgid "Add a level"
-msgstr "Añadir un nivel"
 
 msgid "standing"
 msgstr "de pie"
@@ -1624,10 +1620,10 @@ msgstr "Añadir una acción"
 msgid "The line is not shown."
 msgstr "La línea no se muestra."
 
-msgid "{0} script failed"
-msgid_plural "{0} scripts failed"
-msgstr[0] "{0} script ha fallado"
-msgstr[1] "{0} scripts han fallado"
+msgid "{0} failed"
+msgid_plural "{0} failed"
+msgstr[0] "{0} ha fallado"
+msgstr[1] "{0} han fallado"
 
 msgid "Scripts running"
 msgstr "Scripts en marcha"
@@ -2830,3 +2826,9 @@ msgstr "¿Quitar {0}? Sus scripts e indicadores se van de este perfil, y lo desc
 
 msgid "Views"
 msgstr "Vistas"
+
+msgid "Colour steps"
+msgstr "Pasos de color"
+
+msgid "Add a step"
+msgstr "Añadir un paso"

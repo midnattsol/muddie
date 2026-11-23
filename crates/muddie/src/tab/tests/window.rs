@@ -11,7 +11,7 @@ fn what_the_client_says_can_be_read_again() {
     app.note("Connected.");
     // An answer said in the command line for a moment is kept too.
     app.scripts
-        .exec("t", r#"bind("f9", "kick", {tags = {"Combat"}})"#);
+        .exec("t", r#"macro("f9", "kick", {tags = {"Combat"}})"#);
     app.run_command("/tag Combat off");
     app.run_command("/map find nowhere");
     harness.run_steps(3);

@@ -113,7 +113,7 @@ fn variables_are_a_table_that_is_kept_and_go_into_commands() {
         r#"
         vars.target = "orc"
         vars.kills = (vars.kills or 0) + 2
-        bind("f1", "kill $target; say $kills down, $5 left, $nothing")
+        macro("f1", "kill $target; say $kills down, $5 left, $nothing")
         local names = {}
         for name, value in vars do table.insert(names, name .. "=" .. tostring(value)) end
         table.sort(names)
@@ -183,7 +183,7 @@ fn a_script_is_run_again_without_the_others_starting_over() {
     std::fs::write(
         &edited,
         r#"trigger("orc", function() send("flee v1") end)
-        bind("f9", function() after(0.01, function() send("late v1") end) end)
+        macro("f9", function() after(0.01, function() send("late v1") end) end)
         every(0.01, function() send("tick v1") end)"#,
     )
     .unwrap();
@@ -209,7 +209,7 @@ fn a_script_is_run_again_without_the_others_starting_over() {
     // What a script makes later, from what it made, is its own too.
     std::fs::write(
         &edited,
-        r#"bind("f9", function() trigger("troll", function() send("run") end) end)"#,
+        r#"macro("f9", function() trigger("troll", function() send("run") end) end)"#,
     )
     .unwrap();
     engine.reload_file(&edited);
