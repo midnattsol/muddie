@@ -143,7 +143,7 @@ msgstr ""
 msgid "The map added it where you went: the map taken from elsewhere does not have it."
 msgstr ""
 
-msgid "Routes avoid it."
+msgid "Kept off routes."
 msgstr ""
 
 #, python-brace-format
@@ -197,7 +197,7 @@ msgstr ""
 msgid "Note…"
 msgstr ""
 
-msgid "Avoid in routes"
+msgid "Keep routes off"
 msgstr ""
 
 msgid "Room appearance…"
@@ -236,7 +236,7 @@ msgstr ""
 msgid "Find"
 msgstr ""
 
-msgid "Install from git"
+msgid "Install a plugin…"
 msgstr ""
 
 msgid "New folder"
@@ -304,10 +304,6 @@ msgstr ""
 msgid "Going to {0}: {1}."
 msgstr ""
 
-#, python-brace-format
-msgid "The nearest of {0} rooms of that name."
-msgstr ""
-
 msgid "Escape stops it."
 msgstr ""
 
@@ -334,7 +330,7 @@ msgid "The map is as tidy as it gets."
 msgstr ""
 
 #, python-brace-format
-msgid "Tidied the map: {0} rooms moved."
+msgid "Tidied the map: {0} room moved."
 msgstr ""
 
 #, python-brace-format
@@ -342,7 +338,7 @@ msgid "Not tidied: drawn again, {0} exits would point the wrong way and {1} room
 msgstr ""
 
 #, python-brace-format
-msgid "Walking to {1}: {0} step left."
+msgid "Walking to {1}: {0} move left."
 msgstr ""
 
 msgid "No room matches."
@@ -351,7 +347,7 @@ msgstr ""
 msgid "This room has no such exit."
 msgstr ""
 
-msgid "Routes will not use that exit."
+msgid "That exit is kept off routes."
 msgstr ""
 
 msgid "Routes may use that exit again."
@@ -578,10 +574,6 @@ msgstr ""
 msgid "Remove this panel"
 msgstr ""
 
-#, python-brace-format
-msgid "{0} removed."
-msgstr ""
-
 msgid "Picture of the window's panels"
 msgstr ""
 
@@ -659,6 +651,10 @@ msgstr ""
 
 #, python-brace-format
 msgid "Could not load the panels: {0}"
+msgstr ""
+
+#, python-brace-format
+msgid "{0} removed."
 msgstr ""
 
 #, python-brace-format
@@ -769,7 +765,7 @@ msgid "somewhere not yet mapped"
 msgstr ""
 
 #, python-brace-format
-msgid "{0} (routes do not use it)"
+msgid "{0} (kept off routes)"
 msgstr ""
 
 msgid "This room has no exits on the map."
@@ -794,7 +790,7 @@ msgid "Could not save the map: {0}"
 msgstr ""
 
 #, python-brace-format
-msgid "Routes will avoid {0}."
+msgid "{0} is kept off routes."
 msgstr ""
 
 #, python-brace-format
@@ -857,7 +853,7 @@ msgid "The map was brought up to date: {0}, {1}."
 msgstr ""
 
 #, python-brace-format
-msgid "The name you gave {0} room was kept."
+msgid "{0} room you renamed kept its name."
 msgstr ""
 
 #, python-brace-format
@@ -869,6 +865,10 @@ msgid "{0} room the map added, which the map taken does not have, was kept."
 msgstr ""
 
 msgid "Places"
+msgstr ""
+
+#, python-brace-format
+msgid "The nearest of {0} rooms that match."
 msgstr ""
 
 #, python-brace-format
@@ -1122,7 +1122,7 @@ msgstr ""
 msgid "Find rooms…"
 msgstr ""
 
-msgid "Find rooms called"
+msgid "Find rooms with"
 msgstr ""
 
 msgid "What the map knows of…"
@@ -1161,6 +1161,9 @@ msgstr ""
 msgid "Which room am I in"
 msgstr ""
 
+msgid "Map appearance…"
+msgstr ""
+
 #, python-brace-format
 msgid "Mark {0}…"
 msgstr ""
@@ -1182,7 +1185,11 @@ msgid "Take the note off {0}"
 msgstr ""
 
 #, python-brace-format
-msgid "Avoid {0} in routes"
+msgid "Appearance of {0}…"
+msgstr ""
+
+#, python-brace-format
+msgid "Keep routes off {0}"
 msgstr ""
 
 msgid "Keep routes off an exit…"
@@ -1223,10 +1230,7 @@ msgstr ""
 msgid "Plugin {0}"
 msgstr ""
 
-msgid "Install a plugin…"
-msgstr ""
-
-msgid "Git address of the plugin"
+msgid "Install the plugin at"
 msgstr ""
 
 msgid "Update a plugin…"
@@ -1252,7 +1256,7 @@ msgstr ""
 msgid "The {0} channel is no longer read aloud."
 msgstr ""
 
-msgid "Output copied."
+msgid "Copied."
 msgstr ""
 
 msgid "Editor"
@@ -1888,9 +1892,6 @@ msgstr ""
 msgid "Function keys, keys with Ctrl or Alt, and the numeric keypad can be used."
 msgstr ""
 
-msgid "One command per line, sent as if you had typed them."
-msgstr ""
-
 msgid "Run when the key is pressed."
 msgstr ""
 
@@ -2047,9 +2048,6 @@ msgstr ""
 msgid "{0} options"
 msgstr ""
 
-msgid "Map appearance…"
-msgstr ""
-
 #, python-brace-format
 msgid "Remove {0}"
 msgstr ""
@@ -2074,9 +2072,6 @@ msgstr ""
 
 #, python-brace-format
 msgid "Move {0}"
-msgstr ""
-
-msgid "Copied."
 msgstr ""
 
 #, python-brace-format
@@ -2144,7 +2139,7 @@ msgstr ""
 msgid "Classic terminal"
 msgstr ""
 
-msgid "Bundled"
+msgid "Included fonts"
 msgstr ""
 
 msgid "System fonts"
@@ -2214,9 +2209,6 @@ msgstr ""
 msgid "Voice language"
 msgstr ""
 
-msgid "The system's"
-msgstr ""
-
 msgid "Rename profile"
 msgstr ""
 
@@ -2245,13 +2237,6 @@ msgid "Install"
 msgstr ""
 
 msgid "Address of its git repository"
-msgstr ""
-
-#, python-brace-format
-msgid "There is a profile called {0} already."
-msgstr ""
-
-msgid "A profile name may only have letters, digits, spaces, - and _."
 msgstr ""
 
 msgid "Another, filled in by hand"
@@ -2424,13 +2409,13 @@ msgstr ""
 msgid "Complete the word being typed"
 msgstr ""
 
-msgid "Search the output"
-msgstr ""
-
 msgid "Silence speech"
 msgstr ""
 
 msgid "Read the previous and next line"
+msgstr ""
+
+msgid "Read the first and last line"
 msgstr ""
 
 msgid "Read the most recent lines"
@@ -2669,9 +2654,16 @@ msgstr ""
 msgid "added by the map"
 msgstr ""
 
-msgid "avoided"
+msgid "kept off routes"
 msgstr ""
 
 msgid "weight"
+msgstr ""
+
+msgid "A profile name may only have letters, digits, spaces, - and _."
+msgstr ""
+
+#, python-brace-format
+msgid "There is a profile called {0} already."
 msgstr ""
 
