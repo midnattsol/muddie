@@ -94,6 +94,9 @@ pub struct Voice {
     /// How many times what was being said was silenced, in tests.
     #[cfg(test)]
     pub stopped: usize,
+    /// A screen reader is taken to be running, in tests.
+    #[cfg(test)]
+    pub pretend_reader: bool,
 }
 
 impl Voice {
@@ -192,6 +195,10 @@ impl Voice {
 
     /// Whether a screen reader is what speaks: the MUD is told of one.
     pub fn screen_reader(&self) -> bool {
+        #[cfg(test)]
+        if self.pretend_reader {
+            return true;
+        }
         (self.speech.as_ref()).is_some_and(|speech| speech.status().screen_reader)
     }
 

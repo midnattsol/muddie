@@ -123,6 +123,27 @@ impl Tab {
             },
         );
         self.next_zone(ui);
+        if ui.input_mut(|input| input.consume_key(Modifiers::NONE, Key::F1)) {
+            let keys = self.keys_help();
+            self.voice.say_now(&keys);
+        }
+    }
+
+    /// The keys to know, said with F1 while playing: those that read and
+    /// go where things are, and the palette for all else.
+    pub(super) fn keys_help(&self) -> String {
+        use crate::shortcuts::{EXPLORE, GAUGES, MESSAGES, PALETTE, WHERE, with_arrows};
+        trf(
+            "Tab, with nothing typed, reads the output as text, and F6 goes to each panel. {0} read the lines one by one. {1}: the messages. {2}: the gauges. {3}: where you are. {4}: explore the map. {5}: the palette, for all else. Ctrl silences speech.",
+            &[
+                with_arrows!("↑ ↓"),
+                MESSAGES.written(),
+                GAUGES.written(),
+                WHERE.written(),
+                EXPLORE.written(),
+                PALETTE.written(),
+            ],
+        )
     }
 
     /// F6 and Shift+F6 go from the command line to the output and to each

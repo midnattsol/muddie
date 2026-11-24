@@ -23,6 +23,11 @@ are never shown: neither what is typed while the server hides it or right
 after it asks for one, nor what the profile logs in with, nor a password
 sent by GMCP. What is said on the channels is, so mind whom you give it to.
 
+With a screen reader running, the welcome screen says what to do first:
+write an address and press Enter, Tab to the profiles, or make a profile
+for a game Muddie knows with **New profile**, in the palette. Once
+playing, **F1** says the keys to know.
+
 ## The window
 
 At the top, at the left the views of a session, **Game**, **Editor**
@@ -151,6 +156,7 @@ ne = ["nord-est", "ne"]
 | Ctrl+R | Searches the history for what is typed; again goes further back |
 | Tab | Completes the word being typed from recent output; with nothing typed, goes to the output as text |
 | Ctrl+F | Searches the scrollback; Enter goes to the previous match, Shift+Enter to the next |
+| F1 | Says the keys to know |
 | F6, Shift+F6 | Goes to the output, to each panel and back to the command line, without going through all in them |
 
 With nothing typed, Tab goes to the output as a read-only text, as in

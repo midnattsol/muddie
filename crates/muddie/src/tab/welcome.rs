@@ -67,6 +67,15 @@ impl Tab {
     /// The welcome screen: the name, the field for an address, and the
     /// saved profiles as cards.
     pub(super) fn welcome(&mut self, ui: &mut egui::Ui) {
+        // To a screen reader, once, what to do first: there is no seeing
+        // it at a glance. It may be found a moment after the window opens.
+        if !self.welcomed && self.voice.screen_reader() {
+            self.welcomed = true;
+            self.voice.say(&trf(
+                "Welcome to Muddie. Write the address of a MUD and press Enter to play, or Tab to your profiles. For a game Muddie knows, such as Reinos de Leyenda, New profile, in the palette, {0}, sets everything up. Once playing, F1 says the keys.",
+                &[crate::shortcuts::PALETTE.written()],
+            ));
+        }
         let profiles = self.listed_profiles();
         let (mut chosen, mut connect) = (None, false);
         let frame = egui::Frame::new().fill(theme::current().surface);

@@ -22,7 +22,10 @@ impl App {
                             ("Tab", tr("Complete the word being typed")),
                             ("Tab", tr("With nothing typed, read the output as text")),
                             ("F6  Shift+F6", tr("Go to the output and each panel")),
-                            (crate::shortcuts::MESSAGES.written(), tr("Open the messages")),
+                            (
+                                crate::shortcuts::MESSAGES.written(),
+                                tr("Open the messages"),
+                            ),
                             (crate::shortcuts::FIND.written(), tr("Find in the output")),
                         ],
                     ),

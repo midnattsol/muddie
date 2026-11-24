@@ -997,3 +997,32 @@ fn the_output_is_a_text_to_read_reached_with_tab() {
     assert_eq!(harness.state().tab().input, "n");
     assert!(harness.query_by_role_and_label(text, "Output").is_none());
 }
+
+/// With a screen reader, the welcome screen says what to do first, once;
+/// and while playing, F1 says the keys to know.
+#[test]
+fn what_to_do_is_said_on_welcome_and_with_f1() {
+    let mut harness = window(None);
+    let app = harness.state_mut().tab_mut();
+    app.voice.force_voice();
+    app.voice.pretend_reader = true;
+    // On the welcome screen, as a new session opens.
+    app.started = false;
+    harness.run_steps(3);
+    harness.run_steps(3);
+    let said = |harness: &Harness<App>| harness.state().tab().voice.said.clone();
+    let welcome = said(&harness)
+        .iter()
+        .filter(|said| said.starts_with("Welcome to Muddie."))
+        .count();
+    assert_eq!(welcome, 1, "{:?}", said(&harness));
+    harness.state_mut().tab_mut().started = true;
+    harness.run_steps(3);
+    harness.key_press(Key::F1);
+    harness.run_steps(2);
+    let last = said(&harness).last().cloned().unwrap_or_default();
+    assert!(
+        last.starts_with("Tab, with nothing typed, reads the output"),
+        "{last}"
+    );
+}

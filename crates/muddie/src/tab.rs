@@ -191,6 +191,8 @@ pub struct Tab {
     reader: reader::Reader,
     /// The command line is to take the keyboard.
     focus_line: bool,
+    /// What to do first was said to a screen reader on the welcome screen.
+    welcomed: bool,
     /// The view of what the MUD sends: what was seen, which is chosen, how it
     /// is filtered, and whether it is kept outside the view.
     data_view: data::DataView,
@@ -332,6 +334,7 @@ impl Tab {
             cursor_to_end: false,
             reader: reader::Reader::default(),
             focus_line: false,
+            welcomed: false,
             data_view: data::DataView::default(),
             variables_passing: false,
             kept_input: None,

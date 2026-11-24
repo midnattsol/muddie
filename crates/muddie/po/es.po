@@ -3160,3 +3160,9 @@ msgstr "Ir a la salida y a cada panel"
 
 msgid "Open the messages"
 msgstr "Abrir los mensajes"
+
+msgid "Tab, with nothing typed, reads the output as text, and F6 goes to each panel. {0} read the lines one by one. {1}: the messages. {2}: the gauges. {3}: where you are. {4}: explore the map. {5}: the palette, for all else. Ctrl silences speech."
+msgstr "Tab, sin nada escrito, lee la salida como texto, y F6 va a cada panel. {0} leen las líneas una a una. {1}: los mensajes. {2}: los indicadores. {3}: dónde estás. {4}: explorar el mapa. {5}: la paleta, para todo lo demás. Ctrl calla la voz."
+
+msgid "Welcome to Muddie. Write the address of a MUD and press Enter to play, or Tab to your profiles. For a game Muddie knows, such as Reinos de Leyenda, New profile, in the palette, {0}, sets everything up. Once playing, F1 says the keys."
+msgstr "Bienvenido a Muddie. Escribe la dirección de un MUD y pulsa Intro para jugar, o Tab para ir a tus perfiles. Para un juego que Muddie conoce, como Reinos de Leyenda, Nuevo perfil, en la paleta, {0}, lo prepara todo. Ya jugando, F1 dice las teclas."
