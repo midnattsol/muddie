@@ -2821,9 +2821,6 @@ msgstr "Buscar un comando escrito antes"
 msgid "Staying connected"
 msgstr "Mantener la conexión"
 
-msgid "Enter names it again."
-msgstr "Intro le cambia el nombre."
-
 msgid "Opened in the browser."
 msgstr "Abierto en el navegador."
 
@@ -3154,3 +3151,12 @@ msgstr "{0} actualizado."
 
 msgid "Changes made to a plugin's scripts are kept beside them, in files ending in .before-update."
 msgstr "Los cambios hechos a los scripts de un plugin se guardan al lado, en ficheros terminados en .before-update."
+
+msgid "With nothing typed, read the output as text"
+msgstr "Sin nada escrito, leer la salida como texto"
+
+msgid "Go to the output and each panel"
+msgstr "Ir a la salida y a cada panel"
+
+msgid "Open the messages"
+msgstr "Abrir los mensajes"

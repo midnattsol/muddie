@@ -81,6 +81,7 @@ impl Tab {
         surrender(ui, egui::SurrenderFocusOn::Clicks);
         self.place_cursor(ui, id, &mut output, completing);
         let response = output.response;
+        self.panels.zone_line = Some(response.id);
         ui.ctx()
             .accesskit_node_builder(response.id, |node| node.set_label(tr("Command")));
         if response.has_focus() {

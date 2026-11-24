@@ -269,7 +269,10 @@ impl Tab {
         let id = ui.make_persistent_id(("panel edge", self.layout.panels[lead].id));
         let names = [lead, next].map(|index| self.layout.panels[index].shown_name());
         let label = trf("Between {0} and {1}", &[&names[0], &names[1]]);
-        let moved = widgets::edge(ui, edge, id, &label, !along.stacked);
+        // With a screen reader, a stop between every two panels is more in
+        // the way than of use: their room is changed from Layout, too.
+        let reachable = !self.voice.screen_reader();
+        let moved = widgets::edge(ui, edge, id, &label, !along.stacked, reachable);
         if moved.moved != 0.0 {
             let least = 48.0 * scale;
             let give = (moved.moved * scale)
@@ -460,23 +463,19 @@ impl Tab {
                     };
                     ui.add_space(2.0);
                     widgets::glyph(ui, glyph, 11.5, theme.text_faint);
-                    let caption = RichText::new(name)
+                    let caption = RichText::new(name.as_str())
                         .font(theme::font(Weight::Semibold, 12.5))
                         .color(theme.text_dim);
                     let id = spec.id;
+                    // A heading, not a stop of the keyboard: named again with
+                    // a double click, or Rename… in its menu.
                     let caption = ui.add(
                         Label::new(caption)
                             .selectable(false)
-                            .sense(egui::Sense::click()),
+                            .sense(egui::Sense::CLICK),
                     );
-                    // Named again with a double click, or Enter on it, as
-                    // it says to a screen reader.
-                    let enter = caption.has_focus()
-                        && ui.input(|input| input.key_pressed(egui::Key::Enter));
-                    (ui.ctx()).accesskit_node_builder(caption.id, |node| {
-                        node.set_description(tr("Enter names it again."));
-                    });
-                    if caption.double_clicked() || enter {
+                    widgets::heading_role(ui, &caption, &name);
+                    if caption.double_clicked() {
                         this.rename_panel(id);
                     }
                 }

@@ -151,6 +151,7 @@ ne = ["nord-est", "ne"]
 | Ctrl+R | Searches the history for what is typed; again goes further back |
 | Tab | Completes the word being typed from recent output; with nothing typed, goes to the output as text |
 | Ctrl+F | Searches the scrollback; Enter goes to the previous match, Shift+Enter to the next |
+| F6, Shift+F6 | Goes to the output, to each panel and back to the command line, without going through all in them |
 
 With nothing typed, Tab goes to the output as a read-only text, as in
 other clients made for screen readers: the newest line is where the
@@ -379,7 +380,10 @@ another side, saying where it is now. Escape goes back to the game.
   panel: on its upper or lower half (left or right, above and below the
   output) to go before or after it, on its middle to share its place as a
   tab. Drag the edge between two panels, or between a panel and the output,
-  to size them.
+  to size them; the keyboard reaches the edge too, with its arrows, unless
+  a screen reader is running, where it would be one more stop between
+  every two panels. With the keyboard, a panel is reached by its menu
+  button, and **F6** goes from one to the next.
 - Its **menu** has **Rename…**, **Move in Layout…**, where the keyboard
   moves it, what goes with its kind (the channels for one of text, and
   whether what is put in it is read aloud; editing the gauges; for the map, its appearance, showing every area or another, undoing

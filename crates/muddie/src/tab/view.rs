@@ -97,6 +97,7 @@ impl Tab {
         // The command line is at the bottom, under any panel, and is
         // reached last with the keyboard, as it is read.
         let id = ui.make_persistent_id("command line");
+        self.panels.zones.clear();
         crate::widgets::below_last(
             ui,
             id,
@@ -121,6 +122,38 @@ impl Tab {
                     .height()
             },
         );
+        self.next_zone(ui);
+    }
+
+    /// F6 and Shift+F6 go from the command line to the output and to each
+    /// panel and round, as in other programs: not through all there is,
+    /// as Tab does.
+    fn next_zone(&mut self, ui: &mut egui::Ui) {
+        // Shift first: F6 alone would take Shift+F6 too.
+        let (back, on) = ui.input_mut(|input| {
+            (
+                input.consume_key(Modifiers::SHIFT, Key::F6),
+                input.consume_key(Modifiers::NONE, Key::F6),
+            )
+        });
+        let panels = &self.panels;
+        let zones: Vec<egui::Id> = [panels.zone_line, panels.zone_output]
+            .into_iter()
+            .flatten()
+            .chain(panels.zones.iter().copied())
+            .collect();
+        if !(on || back) || zones.is_empty() {
+            return;
+        }
+        let focused = ui.memory(|memory| memory.focused());
+        let at = zones.iter().position(|zone| Some(*zone) == focused);
+        let count = zones.len();
+        let to = match (at, back) {
+            (Some(at), false) => (at + 1) % count,
+            (Some(at), true) => (at + count - 1) % count,
+            (None, _) => 0,
+        };
+        ui.memory_mut(|memory| memory.request_focus(zones[to]));
     }
 
     /// The output, which takes what the panels leave.

@@ -76,6 +76,7 @@ impl Tab {
         let label = tr("Output");
         ui.ctx()
             .accesskit_node_builder(way.id, |node| node.set_label(label));
+        self.panels.zone_output = Some(way.id);
         if way.has_focus() {
             self.open_reader();
         }
@@ -108,6 +109,7 @@ impl Tab {
             })
             .inner;
         let response = shown.response;
+        self.panels.zone_output = Some(response.id);
         let label = tr("Output");
         ui.ctx()
             .accesskit_node_builder(response.id, |node| node.set_label(label));

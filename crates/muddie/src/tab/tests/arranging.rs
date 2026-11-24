@@ -827,14 +827,39 @@ fn a_panel_is_renamed_in_its_header() {
     harness.key_press(Key::Escape);
     harness.run_steps(2);
     assert_eq!(name(&harness), "Mundo");
-    // Enter on its name, reached with the keyboard, names it again too.
-    harness
-        .get_by_role_and_label(egui::accesskit::Role::Label, "Mundo")
-        .focus();
-    harness.run_steps(1);
-    harness.key_press(Key::Enter);
-    harness.run_steps(2);
-    assert!(harness.state().tab().panels.renaming.is_some());
+    // Its name is a heading, not a stop of the keyboard: Rename…, in its
+    // menu, is the way to it then.
+    let heading = harness.get_by_role_and_label(egui::accesskit::Role::Heading, "Mundo");
+    let focus = egui::accesskit::Action::Focus;
+    assert!(!heading.accesskit_node().data().supports_action(focus));
+}
+
+/// F6 goes from the command line to the output and to each panel, and
+/// Shift+F6 back: not through all there is, as Tab does.
+#[test]
+fn f6_goes_from_place_to_place() {
+    let mut harness = window(None);
+    let (events, _sent) = fake_connection(harness.state_mut().tab_mut());
+    events
+        .send(Event::Line(panels::styled_lines("The Temple.").remove(0)))
+        .unwrap();
+    harness.run_steps(3);
+    assert!(harness.get_by_label("Command").is_focused());
+    harness.key_press(Key::F6);
+    harness.run_steps(3);
+    let text = egui::accesskit::Role::MultilineTextInput;
+    assert!(harness.get_by_role_and_label(text, "Output").is_focused());
+    harness.key_press(Key::F6);
+    harness.run_steps(3);
+    let first = harness.state().tab().layout.panels[0].shown_name();
+    assert!(
+        harness
+            .get_by_label(&format!("{first} options"))
+            .is_focused()
+    );
+    harness.key_press_modifiers(egui::Modifiers::SHIFT, Key::F6);
+    harness.run_steps(3);
+    assert!(harness.get_by_role_and_label(text, "Output").is_focused());
 }
 
 /// A panel is named again as typed, in its header or in Layout alike: a

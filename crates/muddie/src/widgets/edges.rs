@@ -17,12 +17,24 @@ pub struct Moved {
 /// An edge over `rect`, named `label` for what it sizes, dragged with the
 /// pointer or moved with the arrows while it has the keyboard: left and
 /// right when it stands, up and down when it lies.
-pub fn edge(ui: &mut Ui, rect: egui::Rect, id: egui::Id, label: &str, standing: bool) -> Moved {
+pub fn edge(
+    ui: &mut Ui,
+    rect: egui::Rect,
+    id: egui::Id,
+    label: &str,
+    standing: bool,
+    reachable: bool,
+) -> Moved {
     let cursor = match standing {
         true => egui::CursorIcon::ResizeHorizontal,
         false => egui::CursorIcon::ResizeVertical,
     };
-    let response = ui.interact(rect, id, Sense::drag()).on_hover_cursor(cursor);
+    // Reached with Tab, unless it is in the way of more than it helps.
+    let sense = match reachable {
+        true => Sense::drag(),
+        false => Sense::DRAG,
+    };
+    let response = ui.interact(rect, id, sense).on_hover_cursor(cursor);
     response.widget_info(|| WidgetInfo::labeled(Role::Splitter, true, label));
     ui.ctx().accesskit_node_builder(response.id, |node| {
         node.set_orientation(match standing {

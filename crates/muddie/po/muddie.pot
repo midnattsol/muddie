@@ -178,7 +178,7 @@ msgstr ""
 msgid "{0}, {1}"
 msgstr ""
 
-msgid "The map does not know where you are: moving tells it, or I am in…, in the palette."
+msgid "The map does not know where you are: tell it with I am in…, in the palette. Looking at the room, or connecting again, may tell it too."
 msgstr ""
 
 #, python-brace-format
@@ -347,7 +347,7 @@ msgstr ""
 msgid "Copy all output"
 msgstr ""
 
-msgid "Install a plugin…"
+msgid "Install from git…"
 msgstr ""
 
 msgid "New folder"
@@ -1245,6 +1245,9 @@ msgstr ""
 msgid "Plugin {0}"
 msgstr ""
 
+msgid "Install a plugin…"
+msgstr ""
+
 msgid "Update a plugin…"
 msgstr ""
 
@@ -1390,6 +1393,14 @@ msgid "Apply"
 msgstr ""
 
 #, python-brace-format
+msgid "{0} is on. For the MUD to send what it sends on logging in, such as where you are and your gauges, reconnect: {1}."
+msgstr ""
+
+#, python-brace-format
+msgid "{0} is on, made for this MUD: {1} It can be switched off in the profile's plugins."
+msgstr ""
+
+#, python-brace-format
 msgid "{0} could not be installed: {1}"
 msgstr ""
 
@@ -1402,7 +1413,10 @@ msgid "{0} installed again."
 msgstr ""
 
 #, python-brace-format
-msgid "{0} has changed since it was installed. To have the changes, install it again, from its menu in the profile's plugins: what it installed is put back as it comes, and what you added is kept."
+msgid "{0} brought up to date."
+msgstr ""
+
+msgid "Changes made to a plugin's scripts are kept beside them, in files ending in .before-update."
 msgstr ""
 
 #, python-brace-format
@@ -2159,9 +2173,6 @@ msgstr ""
 msgid "Move {0}"
 msgstr ""
 
-msgid "Enter names it again."
-msgstr ""
-
 #, python-brace-format
 msgid "The MUD asks to go on at {0}, port {1}."
 msgstr ""
@@ -2632,7 +2643,21 @@ msgstr ""
 msgid "Remove…"
 msgstr ""
 
+#, python-brace-format
+msgid "{0} Comes with Muddie: on, it sets itself up when you connect."
+msgstr ""
+
+#, python-brace-format
+msgid "{0} Downloaded from git: on, it sets itself up when you connect."
+msgstr ""
+
+msgid "Switch a plugin on to use it: there is nothing else to install."
+msgstr ""
+
 msgid "Update all"
+msgstr ""
+
+msgid "For plugins others make, from the address of their git repository."
 msgstr ""
 
 msgid "Profiles need a configuration folder, and none was found."
@@ -2660,6 +2685,15 @@ msgid "Find a command typed before"
 msgstr ""
 
 msgid "Complete the word being typed"
+msgstr ""
+
+msgid "With nothing typed, read the output as text"
+msgstr ""
+
+msgid "Go to the output and each panel"
+msgstr ""
+
+msgid "Open the messages"
 msgstr ""
 
 msgid "Silence speech"

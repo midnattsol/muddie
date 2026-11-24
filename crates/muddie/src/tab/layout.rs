@@ -449,4 +449,9 @@ pub(super) struct Panels {
     pub(super) renaming: Option<(u32, String, bool)>,
     /// Stands in for the channels when no panel shows them.
     pub(super) no_chat: Output,
+    /// Where F6 goes, as drawn this frame: the command line, the output,
+    /// and each panel, by its menu button.
+    pub(super) zone_line: Option<egui::Id>,
+    pub(super) zone_output: Option<egui::Id>,
+    pub(super) zones: Vec<egui::Id>,
 }

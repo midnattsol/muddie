@@ -390,7 +390,14 @@ pub fn sizable_code_editor(
     };
     let shown = shown_rows as f32 * line + CODE_EDGE;
     let (rect, _) = ui.allocate_exact_size(vec2(ui.available_width(), 12.0), Sense::hover());
-    let grip = super::edge(ui, rect, grip_id, crate::i18n::tr("Editor height"), false);
+    let grip = super::edge(
+        ui,
+        rect,
+        grip_id,
+        crate::i18n::tr("Editor height"),
+        false,
+        true,
+    );
     let mut said = None;
     if grip.moved != 0.0 {
         let by = match grip.by_keys {
