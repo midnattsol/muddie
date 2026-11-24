@@ -627,3 +627,36 @@ fn a_profile_s_plugins_are_its_own_whatever_is_played() {
     assert!(on("Played").is_empty());
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// Made with the keyboard alone, as with a screen reader: it starts on
+/// the game, which fills in the rest, and Tab goes on to the name and to
+/// Create, never held in a field.
+#[test]
+fn a_new_profile_is_made_with_the_keyboard_alone() {
+    let dir = std::env::temp_dir().join(format!("muddie-keys-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let profiles = Profiles::at(dir.clone());
+    let mut harness = window(Some(profiles.clone()));
+    harness.set_size(egui::vec2(1300.0, 860.0));
+    harness.state_mut().open_profiles(None);
+    harness.run_steps(2);
+    harness
+        .get_all_by_label("New profile")
+        .next()
+        .unwrap()
+        .click();
+    harness.run_steps(3);
+    let game = || egui::accesskit::Role::ComboBox;
+    assert!(harness.get_by_role_and_label(game(), "Game").is_focused());
+    harness.key_press(Key::Tab);
+    harness.run_steps(2);
+    let field = egui::accesskit::Role::TextInput;
+    assert!(harness.get_by_role_and_label(field, "Name").is_focused());
+    harness.key_press(Key::Tab);
+    harness.run_steps(2);
+    assert!(harness.get_by_label("Create").is_focused());
+    harness.key_press(Key::Enter);
+    harness.run_steps(3);
+    assert!(profiles.load("New profile").is_ok());
+    std::fs::remove_dir_all(&dir).unwrap();
+}

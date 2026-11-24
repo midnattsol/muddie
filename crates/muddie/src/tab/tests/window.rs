@@ -916,3 +916,27 @@ fn a_shortcut_is_pressed_with_other_keys_chosen_in_the_settings() {
     assert!(harness.state().settings().shortcuts.is_empty());
     assert_eq!(crate::shortcuts::PALETTE.written(), own);
 }
+
+/// The messages open with their shortcut, with the keyboard on the newest,
+/// read whole; Enter copies it, and the arrows go to the others.
+#[test]
+fn the_messages_are_read_and_copied_with_the_keyboard() {
+    let mut harness = window(None);
+    harness.state_mut().tab_mut().voice.force_voice();
+    let app = harness.state_mut().tab_mut();
+    app.note("First of all.");
+    app.note("Then this.");
+    harness.run_steps(2);
+    harness.key_press_modifiers(crate::shortcuts::WITH_KEY, Key::N);
+    harness.run_steps(3);
+    // Shown over the corner too: the one in the list is an item of it.
+    let item = egui::accesskit::Role::ListItem;
+    assert!(harness.get_by_role_and_label(item, "Then this.").is_focused());
+    harness.key_press(Key::ArrowDown);
+    harness.run_steps(2);
+    assert!(harness.get_by_role_and_label(item, "First of all.").is_focused());
+    harness.key_press(Key::Enter);
+    harness.run_steps(2);
+    let said = harness.state().tab().voice.said.last().cloned();
+    assert_eq!(said.as_deref(), Some("Copied."));
+}

@@ -30,7 +30,10 @@ At the top, at the left the views of a session, **Game**, **Editor**
 the **menu** (the three lines): a new session, the settings, the profiles,
 the keyboard shortcuts and what Muddie is. At the bottom, the sessions as tabs, what the
 one on screen is doing, and the **bell** of the messages the client has given
-in it, marked while some are new: all it said can be read there again. What
+in it, marked while some are new: all it said can be read there again.
+Alt+N opens it with the keyboard on the newest message; the arrows go
+through them, and Enter copies one. A plugin offered for the MUD is at its
+top, with its Enable button. What
 the client says (connected, the map imported, a plugin installed...) is shown
 for a few seconds over the bottom right corner, where it moves nothing, and
 read aloud; it is never put among the lines of the game, which are the
@@ -722,6 +725,7 @@ is read; others are read again when they are shown.
 | Alt+C | Copies the line read last |
 | Alt+O | Does what the link of the line read last does |
 | Alt+0 | Reads the gauges |
+| Alt+N | Opens the messages |
 | Alt+M | Says where you are by the map, and how far a walk has left |
 | Alt+E | Explores the map with the keys, from where you are, without moving |
 | Left, Right, Home, End | In a row of tabs, shows the one beside, the first or the last: Tab reaches only the one shown |

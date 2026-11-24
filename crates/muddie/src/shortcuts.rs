@@ -138,6 +138,8 @@ macro_rules! with_key_shortcut {
 pub const WHERE: Shortcut = with_key_shortcut!("where", M, "M");
 /// Explores the map with the keys.
 pub const EXPLORE: Shortcut = with_key_shortcut!("explore", E, "E");
+/// Opens the messages: what Muddie said, and a plugin offered.
+pub const MESSAGES: Shortcut = with_key_shortcut!("messages", N, "N");
 /// Reads the gauges aloud.
 pub const GAUGES: Shortcut = with_key_shortcut!("gauges", Num0, "0");
 
@@ -166,7 +168,7 @@ pub const HISTORY_SEARCH: Shortcut = Shortcut {
 
 /// The shortcuts that can be pressed with other keys, and what each does.
 /// Copying, selecting, undoing and redoing are the system's, and stay.
-pub fn bindable() -> [(Shortcut, &'static str); 17] {
+pub fn bindable() -> [(Shortcut, &'static str); 18] {
     [
         (PALETTE, tr("Palette")),
         (SETTINGS, tr("Settings")),
@@ -177,6 +179,7 @@ pub fn bindable() -> [(Shortcut, &'static str); 17] {
         (DATA_VIEW, tr("Between the game and the incoming data")),
         (FIND, tr("Find")),
         (HISTORY_SEARCH, tr("Search the commands typed before")),
+        (MESSAGES, tr("Messages")),
         (GAUGES, tr("Read the gauges")),
         (WHERE, tr("Where am I")),
         (EXPLORE, tr("Explore the map")),

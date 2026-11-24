@@ -287,6 +287,9 @@ msgstr ""
 msgid "Search the commands typed before"
 msgstr ""
 
+msgid "Messages"
+msgstr ""
+
 msgid "Read the gauges"
 msgstr ""
 
@@ -1403,7 +1406,7 @@ msgid "{0} has changed since it was installed. To have the changes, install it a
 msgstr ""
 
 #, python-brace-format
-msgid "There is a plugin for {0}: {1} Enable it from its message, or with Plugin {0}, in the palette."
+msgid "There is a plugin for {0}: {1} To enable it, open the messages with {2}, or write Plugin {0} in the palette."
 msgstr ""
 
 #, python-brace-format
@@ -2498,6 +2501,9 @@ msgstr ""
 msgid "Another, filled in by hand"
 msgstr ""
 
+msgid "Choosing a game fills in its address and turns on its plugin."
+msgstr ""
+
 #, python-brace-format
 msgid "Ready to play {0}: its address, and its plugins, which install what they bring the first time you connect."
 msgstr ""
@@ -2801,14 +2807,18 @@ msgstr ""
 msgid "Menu"
 msgstr ""
 
-msgid "Messages"
-msgstr ""
-
 #, python-brace-format
 msgid "Messages, {0} new"
 msgstr ""
 
+#, python-brace-format
+msgid "Enable: {0}"
+msgstr ""
+
 msgid "No messages."
+msgstr ""
+
+msgid "Enter copies it."
 msgstr ""
 
 #, python-brace-format

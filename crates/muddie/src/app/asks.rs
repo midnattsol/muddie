@@ -115,9 +115,15 @@ impl App {
 
     /// The question being asked, if any, over the window.
     pub(super) fn ask_window(&mut self, ctx: &egui::Context) {
+        // The keyboard is put in it once, as it opens; after that, Tab
+        // goes where it is pressed to.
+        let placed = egui::Id::unique("question keyboard placed");
         let Some(mut ask) = self.asking.clone() else {
+            ctx.data_mut(|data| data.remove_temp::<bool>(placed));
             return;
         };
+        let place = !ctx.data(|data| data.get_temp::<bool>(placed).unwrap_or(false));
+        ctx.data_mut(|data| data.insert_temp(placed, true));
         let in_use = match &ask {
             Ask::Delete(name) => self.tabs.iter().any(|tab| tab.uses_profile(name)),
             _ => false,
@@ -152,6 +158,7 @@ impl App {
                 answer = ask_body(
                     ui,
                     &mut ask,
+                    place,
                     in_use,
                     self.ask_error.as_deref(),
                     &templates,
@@ -283,6 +290,7 @@ impl App {
 /// could not be read are said too.
 fn choose_game(
     ui: &mut Ui,
+    place: bool,
     name: &mut String,
     game: &mut Option<String>,
     (templates, problems): &(Vec<String>, Vec<String>),
@@ -302,6 +310,13 @@ fn choose_game(
         game.unwrap_or_else(|| by_hand.to_owned())
     });
     widgets::named_by(ui, &chosen, &label, tr("Game"));
+    // The first thing to choose, and what fills in the rest: where the
+    // keyboard starts, and said so.
+    let about = tr("Choosing a game fills in its address and turns on its plugin.");
+    (ui.ctx()).accesskit_node_builder(chosen.id, |node| node.set_description(about));
+    if place {
+        chosen.request_focus();
+    }
     if *game != before {
         // Named after the game, unless named otherwise already.
         let default = |game: &Option<String>| unused(game.as_deref().unwrap_or(tr("New profile")));
@@ -331,14 +346,16 @@ fn choose_game(
 fn ask_body(
     ui: &mut Ui,
     ask: &mut Ask,
+    place: bool,
     in_use: bool,
     error: Option<&str>,
     templates: &(Vec<String>, Vec<String>),
     unused: &dyn Fn(&str) -> String,
 ) -> Option<bool> {
     let verb = ask.verb();
+    let new = matches!(ask, Ask::New { .. });
     if let Ask::New { name, game } = ask {
-        choose_game(ui, name, game, templates, unused);
+        choose_game(ui, place, name, game, templates, unused);
     }
     let mut ready = true;
     let mut entered = false;
@@ -365,7 +382,9 @@ fn ask_body(
         _ => {
             if let Some((typed, label, example)) = ask.typed_mut() {
                 let field = widgets::field(ui, label, typed, example);
-                field.request_focus();
+                if place && !new {
+                    field.request_focus();
+                }
                 ready = !typed.trim().is_empty();
                 entered =
                     field.lost_focus() && ui.input(|input| input.key_pressed(egui::Key::Enter));

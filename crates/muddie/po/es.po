@@ -2908,8 +2908,6 @@ msgstr "dice «{0}»"
 msgid "The pattern is not valid: {0}"
 msgstr "El patrón no es válido: {0}"
 
-msgid "There is a plugin for {0}: {1} Enable it from its message, or with Plugin {0}, in the palette."
-msgstr "Hay un plugin para {0}: {1} Actívalo desde su mensaje, o con Plugin {0}, en la paleta."
 
 msgid "Press to edit {0}"
 msgstr "Pulsa para editar {0}"
@@ -3114,3 +3112,15 @@ msgstr "{0} ya se usa: {1}."
 
 msgid "{0}: {1}."
 msgstr "{0}: {1}."
+
+msgid "There is a plugin for {0}: {1} To enable it, open the messages with {2}, or write Plugin {0} in the palette."
+msgstr "Hay un plugin para {0}: {1} Para activarlo, abre los mensajes con {2} o escribe Plugin {0} en la paleta."
+
+msgid "Choosing a game fills in its address and turns on its plugin."
+msgstr "Al elegir un juego se rellena su dirección y se activa su plugin."
+
+msgid "Enable: {0}"
+msgstr "Activar: {0}"
+
+msgid "Enter copies it."
+msgstr "Intro lo copia."

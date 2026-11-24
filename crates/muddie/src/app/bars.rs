@@ -249,8 +249,10 @@ fn session_menu(ui: &mut Ui, connected: bool, profile: Option<&str>) -> Option<S
 }
 
 /// The bell of what the client said in a session, marked while some have
-/// not been looked at; pressed, the list of them, each with when it was
-/// said, to read again or copy.
+/// not been looked at; pressed, or with its shortcut, the list of them,
+/// each with when it was said, to read again or copy, and the plugin
+/// offered for the MUD, to turn on there. Opened with the keyboard, the
+/// keyboard goes to the first of them.
 fn messages(ui: &mut Ui, tab: &mut Tab) {
     let theme = theme::current();
     let (said, unread) = tab.messages();
@@ -263,58 +265,148 @@ fn messages(ui: &mut Ui, tab: &mut Tab) {
         let at = bell.rect.right_top() + egui::vec2(-7.0, 7.0);
         ui.painter().circle_filled(at, 3.5, theme.accent);
     }
+    let popup = egui::Popup::default_response_id(&bell);
+    let was_open = egui::Popup::is_id_open(ui.ctx(), popup);
+    if ui.input_mut(|input| crate::shortcuts::MESSAGES.pressed(input)) {
+        egui::Popup::toggle_id(ui.ctx(), popup);
+    }
     let said: Vec<_> = said.iter().rev().take(60).cloned().collect();
-    let mut clear = false;
+    let offered = tab.plugin_offered();
+    let mut asked = Asked::default();
     let shown = crate::widgets::menu_of(&bell).width(420.0).show(|ui| {
-        clear = messages_list(ui, &said);
+        asked = messages_list(ui, &said, offered.as_ref());
     });
     if shown.is_some() {
         tab.messages_read();
+        if !was_open
+            && widgets::keyboard_in_use(ui.ctx())
+            && let Some(first) = asked.first
+        {
+            ui.memory_mut(|memory| memory.request_focus(first));
+        }
     }
-    if clear {
+    if asked.clear {
         tab.clear_notices();
+    }
+    if let Some(text) = asked.copy {
+        ui.ctx().copy_text(text);
+        tab.say_aside(tr("Copied."));
+    }
+    if let Some(enable) = asked.offer {
+        tab.answer_plugin_offer(enable);
     }
 }
 
-/// The messages, newest first, with the way to clear them. Returns
-/// whether clearing was asked for.
-fn messages_list(ui: &mut Ui, said: &[crate::tab::Message]) -> bool {
+/// What was done in the list of messages.
+#[derive(Default)]
+struct Asked {
+    /// What the keyboard goes to as it opens.
+    first: Option<egui::Id>,
+    clear: bool,
+    /// A message to copy.
+    copy: Option<String>,
+    /// The plugin offered, turned on or declined.
+    offer: Option<bool>,
+}
+
+/// The plugin offered for the MUD, with its buttons; then the messages,
+/// newest first, each one a row to reach with Tab or the arrows that
+/// Enter copies; and the way to clear them.
+fn messages_list(
+    ui: &mut Ui,
+    said: &[crate::tab::Message],
+    offered: Option<&(String, String)>,
+) -> Asked {
     let theme = theme::current();
-    let mut clear = false;
+    let mut asked = Asked::default();
     ui.horizontal(|ui| {
         widgets::menu_heading(ui, tr("Messages"));
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             if !said.is_empty() {
-                clear = widgets::quiet_button(ui, tr("Clear")).clicked();
+                asked.clear = widgets::quiet_button(ui, tr("Clear")).clicked();
             }
         });
     });
+    if let Some((what, about)) = offered {
+        widgets::toast(
+            ui,
+            &format!("{what} {about}"),
+            false,
+            Some(&mut |ui: &mut Ui| {
+                let enable = widgets::primary_button(ui, tr("Enable"));
+                let label = trf("Enable: {0}", &[what]);
+                (ui.ctx()).accesskit_node_builder(enable.id, |node| node.set_label(label));
+                asked.first.get_or_insert(enable.id);
+                if enable.clicked() {
+                    asked.offer = Some(true);
+                }
+                if widgets::quiet_button(ui, tr("Not now")).clicked() {
+                    asked.offer = Some(false);
+                }
+            }),
+        );
+    }
     if said.is_empty() {
         widgets::menu_heading(ui, tr("No messages."));
-        return false;
+        return asked;
     }
+    let copy_hint = tr("Enter copies it.");
     egui::ScrollArea::vertical()
         .max_height(360.0)
         .show(ui, |ui| {
             widgets::keep_clear_of_bar(ui);
-            for message in said {
-                ui.horizontal_top(|ui| {
-                    let time = RichText::new(&message.time)
-                        .font(egui::FontId::monospace(11.5))
-                        .color(theme.text_faint);
-                    ui.add(egui::Label::new(time).selectable(false));
-                    let colour = if message.problem {
-                        theme.danger
-                    } else {
-                        theme.text
-                    };
-                    ui.add(
-                        egui::Label::new(RichText::new(&message.text).color(colour))
-                            .wrap()
-                            .selectable(true),
+            let list = egui::UiBuilder::new().accessibility_role(egui::accesskit::Role::List);
+            ui.scope_builder(list, |ui| {
+                for (index, message) in said.iter().enumerate() {
+                    let shown = ui.horizontal_top(|ui| {
+                        let time = RichText::new(&message.time)
+                            .font(egui::FontId::monospace(11.5))
+                            .color(theme.text_faint);
+                        let time = ui.add(egui::Label::new(time).selectable(false));
+                        let colour = if message.problem {
+                            theme.danger
+                        } else {
+                            theme.text
+                        };
+                        let text = ui.add(
+                            egui::Label::new(RichText::new(&message.text).color(colour))
+                                .wrap()
+                                .selectable(false),
+                        );
+                        // Read once, as the row.
+                        for part in [time.id, text.id] {
+                            (ui.ctx()).accesskit_node_builder(part, |node| node.set_hidden());
+                        }
+                    });
+                    // The row, as one: reached with Tab and the arrows,
+                    // read whole, and copied with Enter or a click.
+                    let row = ui.interact(
+                        shown.response.rect,
+                        ui.scope_id().with(("message", index)),
+                        egui::Sense::click(),
                     );
-                });
-            }
+                    let said = message.text.clone();
+                    let time = message.time.clone();
+                    (ui.ctx()).accesskit_node_builder(row.id, |node| {
+                        node.set_role(egui::accesskit::Role::ListItem);
+                        node.set_label(said);
+                        node.set_description(format!("{time}. {copy_hint}"));
+                    });
+                    if row.has_focus() || row.hovered() {
+                        let stroke = egui::Stroke::new(1.0, theme.accent);
+                        ui.painter().rect_stroke(
+                            row.rect.expand(2.0),
+                            egui::CornerRadius::same(4),
+                            stroke,
+                            egui::StrokeKind::Outside,
+                        );
+                    }
+                    asked.first.get_or_insert(row.id);
+                    if row.clicked() {
+                        asked.copy = Some(message.text.clone());
+                    }
+                }
+            });
         });
-    clear
+    asked
 }

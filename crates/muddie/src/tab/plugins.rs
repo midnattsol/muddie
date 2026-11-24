@@ -270,8 +270,12 @@ impl Tab {
         // Said, and kept under the bell, with a way to it from the
         // keyboard: the palette has it as it has every plugin.
         let said = trf(
-            "There is a plugin for {0}: {1} Enable it from its message, or with Plugin {0}, in the palette.",
-            &[&plugin.shown_name(), &plugin.about()],
+            "There is a plugin for {0}: {1} To enable it, open the messages with {2}, or write Plugin {0} in the palette.",
+            &[
+                &plugin.shown_name(),
+                &plugin.about(),
+                crate::shortcuts::MESSAGES.written(),
+            ],
         );
         self.keep_message(&said, false, false);
         self.voice.say(&said);
