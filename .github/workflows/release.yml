@@ -34,20 +34,34 @@ jobs:
       tag: ${{ steps.released.outputs.tag }}
       version: ${{ steps.released.outputs.version }}
     steps:
+      # On main, as release-plz works on a branch.
       - uses: actions/checkout@v7
         with:
-          ref: ${{ env.SHA }}
+          ref: main
           fetch-depth: 0
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@stable
+      # If main moved on past the commit CI passed for, the newer commit's
+      # CI runs this again: nothing is done here.
+      - id: current
+        run: |
+          if [ "$(git rev-parse HEAD)" = "$SHA" ]; then
+            echo "current=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "main moved on past $SHA: its own run will do this."
+            echo "current=false" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.current.outputs.current == 'true'
+        uses: dtolnay/rust-toolchain@stable
       # The release PR merged: the tag, and the release as a draft.
       - id: release
+        if: steps.current.outputs.current == 'true'
         uses: release-plz/action@v0.5
         with:
           command: release
         env:
           GITHUB_TOKEN: ${{ github.token }}
       - id: released
+        if: steps.current.outputs.current == 'true'
         env:
           RELEASES: ${{ steps.release.outputs.releases }}
         run: |
@@ -56,7 +70,7 @@ jobs:
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
       # Otherwise the release PR, brought up to date.
-      - if: steps.released.outputs.tag == ''
+      - if: steps.current.outputs.current == 'true' && steps.released.outputs.tag == ''
         uses: release-plz/action@v0.5
         with:
           command: release-pr
