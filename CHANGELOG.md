@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0](https://github.com/midnattsol/muddie/compare/v0.2.0...v0.3.0) - 2026-11-24
+
+### Added
+
+- *(scripts)* tell scripts whether a screen reader reads
+- *(a11y)* say first steps on welcome, keys with F1
+- *(a11y)* fewer stops in panels, F6 between places
+- *(plugins)* bring included plugins up to date
+- *(a11y)* read the output as a text, reached with tab
+
+### Fixed
+
+- *(a11y)* tab goes between line and output
+- *(plugins)* on before connecting, clear when switched
+- *(a11y)* reach Create, read messages by keyboard
+
 ## [0.2.0](https://github.com/midnattsol/muddie/compare/v0.1.0...v0.2.0) - 2026-11-23
 
 ### Added
