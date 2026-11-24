@@ -129,7 +129,10 @@ impl Tab {
         };
         self.place_gauges(&mut theirs.gauges, again);
         self.change_rules(|rules| rules.bring(&theirs, again));
-        (self.plugins_installed).insert(plugin.id.clone(), plugin.fingerprint());
+        // What it is, and what its scripts were as they were written: to
+        // tell later whether they were changed since.
+        let mark = format!("{}:{}", plugin.fingerprint(), scripts_mark(plugin, &folder));
+        (self.plugins_installed).insert(plugin.id.clone(), mark);
         self.keep_plugins();
         true
     }
@@ -240,22 +243,61 @@ impl Tab {
             .filter(|plugin| self.plugin_on(plugin))
             .cloned()
             .collect();
-        let (mut installed, mut changed) = (false, Vec::new());
+        let (mut installed, mut updated, mut kept) = (false, Vec::new(), false);
         for plugin in on {
-            match self.plugins_installed.get(&plugin.id) {
-                None => installed |= self.install_plugin_files(&plugin, false),
-                Some(mark) if *mark != plugin.fingerprint() => changed.push(plugin.shown_name()),
-                Some(_) => {}
+            let Some(mark) = self.plugins_installed.get(&plugin.id).cloned() else {
+                installed |= self.install_plugin_files(&plugin, false);
+                continue;
+            };
+            let (made, written) = match mark.split_once(':') {
+                Some((made, written)) => (made, Some(written)),
+                None => (mark.as_str(), None),
+            };
+            if made == plugin.fingerprint() {
+                continue;
+            }
+            // Another version than the one installed: installed again, as
+            // it comes. Scripts of it changed since it was installed, or not
+            // known to be as they were, are kept beside, so nothing is lost.
+            kept |= self.keep_changed_scripts(&plugin, written);
+            if self.install_plugin_files(&plugin, true) {
+                installed = true;
+                updated.push(plugin.shown_name());
             }
         }
-        if !changed.is_empty() && !self.plugin_changes_told {
-            self.plugin_changes_told = true;
-            self.note(&trf(
-                "{0} has changed since it was installed. To have the changes, install it again, from its menu in the profile's plugins: what it installed is put back as it comes, and what you added is kept.",
-                &[&changed.join(", ")],
+        if !updated.is_empty() {
+            self.note(&trf("{0} brought up to date.", &[&updated.join(", ")]));
+        }
+        if kept {
+            self.note(tr(
+                "Changes made to a plugin's scripts are kept beside them, in files ending in .before-update.",
             ));
         }
         installed
+    }
+
+    /// Keeps a copy of each script of `plugin` in the profile that is not
+    /// as it was installed (`written`, a mark of them then; none, not
+    /// known) and not as the plugin has it now. Returns whether any was.
+    fn keep_changed_scripts(&mut self, plugin: &Plugin, written: Option<&str>) -> bool {
+        let Some(folder) = self.own_scripts_dir().map(|dir| dir.join(plugin.folder())) else {
+            return false;
+        };
+        if written == Some(scripts_mark(plugin, &folder).as_str()) {
+            return false;
+        }
+        let mut kept = false;
+        for (name, code) in &plugin.scripts {
+            let path = folder.join(name);
+            let Ok(now) = std::fs::read_to_string(&path) else {
+                continue;
+            };
+            if now != *code {
+                let copy = folder.join(format!("{name}.before-update"));
+                kept |= std::fs::write(copy, now).is_ok();
+            }
+        }
+        kept
     }
 
     /// Changes the rules as saved, and in the editor if it is open, and
@@ -513,4 +555,17 @@ fn as_it_comes(plugin: &Plugin, script: &str) -> String {
 /// Whether a gauge is in the folder of a plugin, or in one inside it.
 fn brought_by(gauge: &crate::rules::Gauge, plugin: &Plugin) -> bool {
     gauge.folder.split('/').next() == Some(plugin.folder())
+}
+
+/// A mark of the scripts of `plugin` as they are in `folder`: FNV-1a, the
+/// same on every build, as [`Plugin::fingerprint`].
+fn scripts_mark(plugin: &Plugin, folder: &std::path::Path) -> String {
+    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+    for (name, _) in &plugin.scripts {
+        let code = std::fs::read(folder.join(name)).unwrap_or_default();
+        for byte in name.bytes().chain([0]).chain(code).chain([0]) {
+            hash = (hash ^ u64::from(byte)).wrapping_mul(0x0000_0100_0000_01b3);
+        }
+    }
+    format!("{hash:016x}")
 }

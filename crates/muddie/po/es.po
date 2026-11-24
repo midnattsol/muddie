@@ -2727,8 +2727,6 @@ msgstr "Ya hay un panel llamado {0}."
 msgid "costs {0} more to enter"
 msgstr "entrar cuesta {0} más"
 
-msgid "{0} has changed since it was installed. To have the changes, install it again, from its menu in the profile's plugins: what it installed is put back as it comes, and what you added is kept."
-msgstr "{0} ha cambiado desde que se instaló. Para tener los cambios, instálalo de nuevo desde su menú en los plugins del perfil: lo que instaló vuelve a quedar como viene y lo que hayas añadido se conserva."
 
 msgid "Downloaded from a git repository."
 msgstr "Descargado de un repositorio git."
@@ -3150,3 +3148,9 @@ msgstr "Para plugins de otros, desde la dirección de su repositorio git."
 
 msgid "Install a plugin…"
 msgstr "Instalar un plugin…"
+
+msgid "{0} brought up to date."
+msgstr "{0} actualizado."
+
+msgid "Changes made to a plugin's scripts are kept beside them, in files ending in .before-update."
+msgstr "Los cambios hechos a los scripts de un plugin se guardan al lado, en ficheros terminados en .before-update."

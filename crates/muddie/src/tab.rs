@@ -225,9 +225,6 @@ pub struct Tab {
     /// The plugins that come with Muddie installed in the profile, each
     /// with the mark of what it was made of.
     plugins_installed: std::collections::BTreeMap<String, String>,
-    /// Whether it was said that some installed differ from those that
-    /// come with this version.
-    plugin_changes_told: bool,
     plugin_offer: Option<crate::plugins::Plugin>,
     /// The plugins there are, as last looked for.
     plugins: Vec<crate::plugins::Plugin>,
@@ -350,7 +347,6 @@ impl Tab {
             plugins_off: Vec::new(),
             plugins_declined: Vec::new(),
             plugins_installed: Default::default(),
-            plugin_changes_told: false,
             plugin_offer: None,
             plugins: crate::plugins::all(None),
             plugin_jobs: Vec::new(),

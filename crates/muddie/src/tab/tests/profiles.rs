@@ -337,7 +337,7 @@ fn a_plugin_that_comes_with_muddie_is_installed_in_sight_and_the_profiles() {
     };
     assert_eq!(gauges(&rules()), all(true));
     let saved = profiles.load("Reinos").unwrap();
-    assert_eq!(saved.plugins_installed[&plugin.id], plugin.fingerprint());
+    assert!(saved.plugins_installed[&plugin.id].starts_with(&format!("{}:", plugin.fingerprint())));
     // Changed by the player: theirs.
     let mine = "-- mine\n";
     std::fs::write(&script, mine).unwrap();
@@ -370,21 +370,41 @@ fn a_plugin_that_comes_with_muddie_is_installed_in_sight_and_the_profiles() {
     assert_eq!(std::fs::read_to_string(&script).unwrap(), mine);
     assert_eq!(rules().gauges[0].colour, "#ffffff");
 
-    // Installed with another version of it: said, once.
-    let mut saved = profiles.load("Reinos").unwrap();
-    saved
-        .plugins_installed
-        .insert(plugin.id.clone(), "older".into());
-    profiles.save("Reinos", &saved).unwrap();
+    // Installed with another version of it: brought up to date by
+    // itself, once, and the script the player changed kept beside it.
+    let older = |app: &mut Tab, mark: &str| {
+        let mut saved = profiles.load("Reinos").unwrap();
+        saved
+            .plugins_installed
+            .insert(plugin.id.clone(), mark.into());
+        profiles.save("Reinos", &saved).unwrap();
+        app.plugins_installed.insert(plugin.id.clone(), mark.into());
+    };
     let app = harness.state_mut().tab_mut();
-    app.plugins_installed
-        .insert(plugin.id.clone(), "older".into());
+    older(app, "older");
     app.load_scripts();
     app.load_scripts();
-    let changed = (notes(app).iter())
-        .filter(|said| said.contains("has changed since it was installed"))
+    let updated = (notes(app).iter())
+        .filter(|said| said.contains("brought up to date"))
         .count();
-    assert_eq!(changed, 1);
+    assert_eq!(updated, 1);
+    assert_eq!(
+        std::fs::read_to_string(&script).unwrap(),
+        plugin.scripts[0].1
+    );
+    let kept = script.with_file_name(format!("{}.before-update", plugin.scripts[0].0));
+    assert_eq!(std::fs::read_to_string(&kept).unwrap(), mine);
+    // Scripts as they were installed are not kept: there is nothing of
+    // the player's in them.
+    std::fs::remove_file(&kept).unwrap();
+    let written = app.plugins_installed[&plugin.id]
+        .split_once(':')
+        .unwrap()
+        .1
+        .to_owned();
+    older(app, &format!("older:{written}"));
+    app.load_scripts();
+    assert!(!kept.exists());
     // Installed again from its menu in the profile's plugins: what it
     // installed is as it came, what was added is kept.
     app.change_rules(|rules| rules.gauges.push(Default::default()));
@@ -408,7 +428,7 @@ fn a_plugin_that_comes_with_muddie_is_installed_in_sight_and_the_profiles() {
     assert_eq!(after.gauges.len(), 5);
     assert_eq!(after.gauges[0].colour, "#5fb85f");
     let saved = profiles.load("Reinos").unwrap();
-    assert_eq!(saved.plugins_installed[&plugin.id], plugin.fingerprint());
+    assert!(saved.plugins_installed[&plugin.id].starts_with(&format!("{}:", plugin.fingerprint())));
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
@@ -679,9 +699,16 @@ fn the_plugin_of_the_mud_is_on_before_connecting_to_it() {
     let reinos = &crate::plugins::included("reinos-de-leyenda").unwrap();
     app.switch_on_plugin_for("rlmud.org");
     assert!(app.plugin_on(reinos));
-    assert!(app.wanted_modules().iter().any(|module| module.starts_with("Room")));
+    assert!(
+        app.wanted_modules()
+            .iter()
+            .any(|module| module.starts_with("Room"))
+    );
     let said = app.messages().0.last().map(|message| message.text.clone());
     assert!(said.is_some_and(|said| said.starts_with("Reinos de Leyenda is on")));
-    assert_eq!(profiles.load("Mine").unwrap().plugins_on, ["reinos-de-leyenda"]);
+    assert_eq!(
+        profiles.load("Mine").unwrap().plugins_on,
+        ["reinos-de-leyenda"]
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }
