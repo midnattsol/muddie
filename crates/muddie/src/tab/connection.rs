@@ -112,6 +112,10 @@ impl Tab {
     /// session: it may send less of what is drawn rather than said.
     pub(super) fn tell_screen_reader(&mut self) {
         let now = self.voice.screen_reader();
+        // The scripts are told too, when it changes.
+        if self.scripts.set_screen_reader(now) {
+            self.run_actions();
+        }
         if now == self.told_screen_reader {
             return;
         }

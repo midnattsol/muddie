@@ -6,6 +6,7 @@ pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()>
     install_data_handlers(lua, state)?;
     install_send_msdp(lua, state)?;
     install_mssp(lua, state)?;
+    install_screen_reader(lua, state)?;
     install_send_gmcp(lua, state)?;
     install_on_event(lua, state)?;
     install_supports(lua, state)?;
@@ -92,6 +93,14 @@ fn install_mssp(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
         })?,
     )?;
     Ok(())
+}
+
+fn install_screen_reader(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
+    let shared = Rc::clone(state);
+    lua.globals().set(
+        "screen_reader",
+        lua.create_function(move |_, ()| Ok(shared.borrow().screen_reader))?,
+    )
 }
 
 fn install_send_gmcp(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {

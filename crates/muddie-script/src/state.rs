@@ -210,6 +210,8 @@ pub(super) struct State {
     pub(crate) merged: Vec<(String, String)>,
     /// The server's MSSP status, as `(name, value)` pairs.
     pub(crate) mssp: Vec<(String, String)>,
+    /// A screen reader is reading the client: for `screen_reader()`.
+    pub(crate) screen_reader: bool,
     pub(crate) actions: Vec<Action>,
     /// Set by `map.native(false)`, with the script that did.
     pub(crate) map_native_off: Option<String>,

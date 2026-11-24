@@ -71,6 +71,8 @@ impl Tab {
         let passing = std::mem::take(&mut self.variables_passing).then(|| self.scripts.variables());
         self.scripts =
             Engine::new(Rc::clone(&self.map)).expect("failed to start the script runtime");
+        // Known as the scripts run, not a frame later.
+        let _ = self.scripts.set_screen_reader(self.voice.screen_reader());
         self.retell_panel_sizes();
         match (&self.profiles, &self.profile) {
             (Some(profiles), Some(profile)) => self

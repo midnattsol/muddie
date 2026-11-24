@@ -434,3 +434,27 @@ fn what_a_script_set_of_the_map_and_the_session_goes_with_it() {
         ]
     );
 }
+
+#[test]
+fn scripts_know_whether_a_screen_reader_reads() {
+    let mut engine =
+        engine(r#"on_event("screen_reader", function(on) echo(`now {on} {screen_reader()}`) end)"#);
+    engine.exec("t", "echo(`at first {screen_reader()}`)");
+    assert_eq!(
+        engine.take_actions(),
+        [Action::Echo("at first false".into())]
+    );
+    // Told when it changes, and only then.
+    assert!(engine.set_screen_reader(true));
+    assert_eq!(
+        engine.take_actions(),
+        [Action::Echo("now true true".into())]
+    );
+    assert!(!engine.set_screen_reader(true));
+    assert!(engine.take_actions().is_empty());
+    assert!(engine.set_screen_reader(false));
+    assert_eq!(
+        engine.take_actions(),
+        [Action::Echo("now false false".into())]
+    );
+}
