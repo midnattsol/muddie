@@ -154,7 +154,7 @@ ne = ["nord-est", "ne"]
 | Enter | Sends the line. Several commands can be separated by `;`. With **Keep the sent command**, in the settings, the line stays, selected: Enter sends it again, and typing replaces it |
 | Up, Down | Earlier and later lines; with something typed, only those starting with it |
 | Ctrl+R | Searches the history for what is typed; again goes further back |
-| Tab | Completes the word being typed from recent output; with nothing typed, goes to the output as text |
+| Tab | Completes the word being typed from recent output; with nothing typed, goes to the output as text, and from there back. Shift+Tab, from the output, goes on to the panels and the bar above; F6 goes to each panel |
 | Ctrl+F | Searches the scrollback; Enter goes to the previous match, Shift+Enter to the next |
 | F1 | Says the keys to know |
 | F6, Shift+F6 | Goes to the output, to each panel and back to the command line, without going through all in them |

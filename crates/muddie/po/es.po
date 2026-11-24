@@ -3166,3 +3166,6 @@ msgstr "Tab, sin nada escrito, lee la salida como texto, y F6 va a cada panel. {
 
 msgid "Welcome to Muddie. Write the address of a MUD and press Enter to play, or Tab to your profiles. For a game Muddie knows, such as Reinos de Leyenda, New profile, in the palette, {0}, sets everything up. Once playing, F1 says the keys."
 msgstr "Bienvenido a Muddie. Escribe la dirección de un MUD y pulsa Intro para jugar, o Tab para ir a tus perfiles. Para un juego que Muddie conoce, como Reinos de Leyenda, Nuevo perfil, en la paleta, {0}, lo prepara todo. Ya jugando, F1 dice las teclas."
+
+msgid "Close {0}"
+msgstr "Cerrar {0}"

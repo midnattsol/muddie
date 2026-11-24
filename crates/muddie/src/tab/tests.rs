@@ -32,6 +32,7 @@ mod connection;
 mod data;
 mod editor;
 mod input;
+mod keyboard;
 mod media;
 mod places;
 mod profiles;

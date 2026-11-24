@@ -92,6 +92,11 @@ impl Tab {
     pub(super) fn show_reader(&mut self, ui: &mut egui::Ui) {
         self.reader.grow(&self.output);
         let id = ui.make_persistent_id("output reader");
+        // Its keys, before the text takes them: Tab would go on to what
+        // comes after it otherwise.
+        if !self.reader.place && ui.memory(|memory| memory.has_focus(id)) && self.reader_keys(ui) {
+            return;
+        }
         let theme = theme::current();
         let mut text: &str = &self.reader.text;
         let shown = egui::ScrollArea::vertical()
@@ -124,42 +129,38 @@ impl Tab {
             response.scroll_to_me(Some(egui::Align::BOTTOM));
             return;
         }
-        if response.has_focus() {
-            self.reader_keys(ui);
-        } else {
+        if !response.has_focus() {
             // Gone elsewhere: the output is drawn again, and with nowhere
             // else, the command line takes the keyboard.
             self.reader.open = false;
         }
     }
 
-    /// In the text: Tab, Shift+Tab, Escape and Enter go back to the
-    /// command line; typing goes there too, with what was typed.
-    fn reader_keys(&mut self, ui: &mut egui::Ui) {
+    /// In the text: Tab, Escape and Enter go back to the command line;
+    /// typing goes there too, with what was typed. Shift+Tab goes on back,
+    /// to what is before the output. Returns whether it left.
+    fn reader_keys(&mut self, ui: &mut egui::Ui) -> bool {
         let (back, typed) = ui.input_mut(|input| {
-            let back = [
-                (Modifiers::NONE, Key::Tab),
-                (Modifiers::SHIFT, Key::Tab),
-                (Modifiers::NONE, Key::Escape),
-                (Modifiers::NONE, Key::Enter),
-            ]
-            .into_iter()
-            .fold(false, |back, (held, key)| {
-                input.consume_key(held, key) || back
-            });
+            let tab = !input.modifiers.shift && input.consume_key(Modifiers::NONE, Key::Tab);
+            let escape = input.consume_key(Modifiers::NONE, Key::Escape);
+            let enter = input.consume_key(Modifiers::NONE, Key::Enter);
             let typed: String = (input.events.iter())
                 .filter_map(|event| match event {
                     egui::Event::Text(text) => Some(text.as_str()),
                     _ => None,
                 })
                 .collect();
-            (back, typed)
+            (tab || escape || enter, typed)
         });
-        if back || !typed.is_empty() {
-            self.input.push_str(&typed);
-            self.cursor_to_end = true;
-            self.reader.open = false;
-            self.focus_line = true;
+        if !back && typed.is_empty() {
+            return false;
         }
+        self.input.push_str(&typed);
+        self.cursor_to_end = true;
+        self.reader.open = false;
+        self.focus_line = true;
+        // Not on to what is next, as Tab was going to.
+        ui.memory_mut(|memory| memory.move_focus(egui::FocusDirection::None));
+        true
     }
 }

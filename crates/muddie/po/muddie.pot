@@ -381,6 +381,10 @@ msgid "That line has no link."
 msgstr ""
 
 #, python-brace-format
+msgid "Tab, with nothing typed, reads the output as text, and F6 goes to each panel. {0} read the lines one by one. {1}: the messages. {2}: the gauges. {3}: where you are. {4}: explore the map. {5}: the palette, for all else. Ctrl silences speech."
+msgstr ""
+
+#, python-brace-format
 msgid "No exit {0}."
 msgstr ""
 
@@ -1293,6 +1297,10 @@ msgid "{0} (off)"
 msgstr ""
 
 msgid "Where do you want to play?"
+msgstr ""
+
+#, python-brace-format
+msgid "Welcome to Muddie. Write the address of a MUD and press Enter to play, or Tab to your profiles. For a game Muddie knows, such as Reinos de Leyenda, New profile, in the palette, {0}, sets everything up. Once playing, F1 says the keys."
 msgstr ""
 
 msgid "Address"
@@ -2842,6 +2850,10 @@ msgid "Free software, under the MIT or Apache 2.0 licence."
 msgstr ""
 
 msgid "Menu"
+msgstr ""
+
+#, python-brace-format
+msgid "Close {0}"
 msgstr ""
 
 #, python-brace-format

@@ -144,7 +144,7 @@ impl App {
             crate::widgets::context_menu_of(&name, |ui| {
                 asked = session_menu(ui, connected, profile.as_deref())
             });
-            let closing = format!("{} {title}", tr("Close session"));
+            let closing = trf("Close {0}", &[&title]);
             if widgets::close_button(ui, &closing, 18.0).clicked() {
                 asked = Some(SessionAction::Close);
             }
