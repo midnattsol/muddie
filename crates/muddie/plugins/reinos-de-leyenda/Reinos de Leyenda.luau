@@ -248,7 +248,7 @@ end
 local function step(seen)
     -- A line the game wrote whose brackets hold anything but directions
     -- was not a room: the move alone is followed.
-    if seen.written and not all_directions(seen.exits or {}) then
+    if seen.written and seen.exits and not all_directions(seen.exits) then
         seen.name, seen.exits = nil, nil
     end
     -- A move with no room written to check it by, by an exit the map has
@@ -272,20 +272,23 @@ local function step(seen)
     log(`Reinos: name={seen.name} exits={table.concat(seen.exits or {}, ",")} came={seen.came} -> {now}`)
 end
 
--- The room as the game writes it. The prompt ends in no new line, so with
--- lag the room comes after it on its line, as "] Anduar: Arco Este
--- [s,e,n,o]": what is before the name is let go, up to a name the map has
--- a room of, or else up to the last prompt.
-trigger([[^(.*?) \[([A-Za-z|,\-]+)\]\s*$]], function(m)
-    local name = m[1]
-    while #map.find(name, { exact = true }) == 0 do
-        local rest = name:match("^.-[%]>]%s+(.+)$")
-        if not rest then
-            break
+-- The room as the game writes it. Each player sets what the prompt says
+-- and how a room is shown, so neither is counted on: the prompt ends in no
+-- new line, and with lag the room comes after it on its line, as "[PV 90]
+-- Anduar: Arco Este [s,e,n,o]"; what is before the name is let go a word
+-- at a time, up to a name the map has a room of.
+local function known_room(text)
+    local rest = text
+    while rest do
+        if #map.find(rest, { exact = true }) > 0 then
+            return rest
         end
-        name = rest
+        rest = rest:match("^%S+%s+(.+)$")
     end
-    local this = { name = name, exits = exits_of(m[2]), written = true }
+    return nil
+end
+
+local function written(this)
     shown = this
     after(0.2, function()
         if shown == this then
@@ -293,7 +296,28 @@ trigger([[^(.*?) \[([A-Za-z|,\-]+)\]\s*$]], function(m)
             step(this)
         end
     end)
+end
+
+-- With its exits after it, as most show it.
+trigger([[^(.*?) \[([A-Za-z|,\-]+)\]\s*$]], function(m)
+    local name = known_room(m[1]) or m[1]:match("^.-[%]>]%s+(.+)$") or m[1]
+    written({ name = name, exits = exits_of(m[2]), written = true })
 end, { place = "Reinos de Leyenda/Sala escrita" })
+
+-- Or by its name alone, as some show it: only a name the map has.
+trigger([[^(.*\S: \S.*?)\s*$]], function(m)
+    if m[1]:match("%[[^%]]*%]%s*$") then
+        return
+    end
+    local name = known_room(m[1])
+    if name then
+        written({ name = name, written = true })
+    end
+end, { place = "Reinos de Leyenda/Sala escrita sin salidas" })
+
+-- Moves come, but the map does not know where from: said once, with what
+-- tells it, as moving alone does not.
+local lost_told = false
 
 on_gmcp("Room.Movimiento", function(way)
     heard = true
@@ -301,6 +325,13 @@ on_gmcp("Room.Movimiento", function(way)
     shown = nil
     seen.came = text_of(way)
     step(seen)
+    if not map.room() and not lost_told then
+        lost_told = true
+        notify(tr({
+            en = "The map does not know where you are. Reinos de Leyenda says it on logging in: reconnect, or say it with “I am in…”, in the palette.",
+            es = "El mapa no sabe dónde estás. Reinos de Leyenda lo dice al entrar: reconecta, o díselo con «Estoy en…», en la paleta.",
+        }))
+    end
 end)
 
 -- A move that could not be made: it did not happen, and a walk stops.
@@ -322,6 +353,7 @@ end)
 -- Once per connection: the map, and whether GMCP comes.
 on_event("connect", function()
     heard = false
+    lost_told = false
     shown = nil
     if map.count() == 0 then
         map.import(MAP)

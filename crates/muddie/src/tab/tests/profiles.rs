@@ -103,12 +103,13 @@ fn a_plugin_for_the_mud_is_offered_and_switched_on_without_the_rest_starting_ove
     );
     app.run_actions();
     assert!(app.panels.channels.is_empty());
-    // Declined instead, it is not offered again in this profile either.
+    // Switched off, it is as declined: neither offered again nor switched
+    // on by itself on connecting to its MUD.
     app.offer_plugin_for("rlmud.org", "");
-    assert!(app.plugin_offer.is_some());
-    app.decline_plugin();
     app.offer_plugin_for("", "Reinos de Leyenda");
     assert!(app.plugin_offer.is_none());
+    app.switch_on_plugin_for("rlmud.org");
+    assert!(!app.plugin_on(reinos));
     assert_eq!(
         profiles.load("Reinos").unwrap().plugins_declined,
         ["reinos-de-leyenda"]
@@ -658,5 +659,29 @@ fn a_new_profile_is_made_with_the_keyboard_alone() {
     harness.key_press(Key::Enter);
     harness.run_steps(3);
     assert!(profiles.load("New profile").is_ok());
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// Connecting to a MUD that has a plugin switches it on first, in a
+/// profile filled in by hand too: what it asks the MUD for is asked for
+/// from the start, as some MUDs send what they send once only then.
+#[test]
+fn the_plugin_of_the_mud_is_on_before_connecting_to_it() {
+    let dir = std::env::temp_dir().join(format!("muddie-before-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let profiles = Profiles::at(dir.clone());
+    profiles
+        .save("Mine", &crate::profile::Profile::default())
+        .unwrap();
+    let mut harness = window(Some(profiles.clone()));
+    let app = harness.state_mut().tab_mut();
+    assert!(app.select_profile(Some("Mine".into())));
+    let reinos = &crate::plugins::included("reinos-de-leyenda").unwrap();
+    app.switch_on_plugin_for("rlmud.org");
+    assert!(app.plugin_on(reinos));
+    assert!(app.wanted_modules().iter().any(|module| module.starts_with("Room")));
+    let said = app.messages().0.last().map(|message| message.text.clone());
+    assert!(said.is_some_and(|said| said.starts_with("Reinos de Leyenda is on")));
+    assert_eq!(profiles.load("Mine").unwrap().plugins_on, ["reinos-de-leyenda"]);
     std::fs::remove_dir_all(&dir).unwrap();
 }

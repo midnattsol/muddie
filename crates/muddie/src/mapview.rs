@@ -389,7 +389,7 @@ impl Default for MapView {
 pub fn unknown_whereabouts(map: &Map) -> String {
     match map.candidates().len() {
         0 => {
-            tr("The map does not know where you are: moving tells it, or I am in…, in the palette.")
+            tr("The map does not know where you are: tell it with I am in…, in the palette. Looking at the room, or connecting again, may tell it too.")
                 .to_owned()
         }
         several => crate::i18n::trn(

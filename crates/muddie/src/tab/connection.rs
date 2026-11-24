@@ -39,6 +39,8 @@ impl Tab {
         let mut map = self.map_for(&host, port);
         map.take_settings_from(&self.map.borrow());
         *self.map.borrow_mut() = map;
+        // Its plugin, on before the MUD is told what is wanted of it.
+        self.switch_on_plugin_for(&host);
         let target = Target {
             host,
             port,

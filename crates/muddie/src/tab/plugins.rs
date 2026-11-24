@@ -34,8 +34,43 @@ impl Tab {
     /// without one, it is run as it comes, for the session.
     pub(super) fn set_plugin(&mut self, plugin: &Plugin, on: bool) {
         plugin.switch(&mut self.plugins_on, &mut self.plugins_off, on);
+        // Switched off, it is not switched on again by itself on
+        // connecting to its MUD.
+        self.plugins_declined.retain(|id| *id != plugin.id);
+        if !on {
+            self.plugins_declined.push(plugin.id.clone());
+        }
         self.run_plugin(plugin, on);
         self.keep_plugins();
+        // What a MUD sends once, on logging in (where the player is, the
+        // gauges whole), it does not send again for a plugin that asks
+        // for it later.
+        if on && self.is_connected() {
+            self.note(&trf(
+                "{0} is on. For the MUD to send what it sends on logging in, such as where you are and your gauges, reconnect: {1}.",
+                &[&plugin.shown_name(), crate::shortcuts::RECONNECT.written()],
+            ));
+        }
+    }
+
+    /// Switches on the plugin made for the MUD at `host` before connecting
+    /// to it, unless it was switched off or declined in this profile: what
+    /// it asks the MUD for has to be asked for from the start. Said, with
+    /// how to switch it off.
+    pub(super) fn switch_on_plugin_for(&mut self, host: &str) {
+        let Some(plugin) = plugins::for_mud(&self.plugins, host, "").cloned() else {
+            return;
+        };
+        if self.plugin_on(&plugin) || self.plugins_declined.contains(&plugin.id) {
+            return;
+        }
+        plugin.switch(&mut self.plugins_on, &mut self.plugins_off, true);
+        self.run_plugin(&plugin, true);
+        self.keep_plugins();
+        self.note(&trf(
+            "{0} is on, made for this MUD: {1} It can be switched off in the profile's plugins.",
+            &[&plugin.shown_name(), &plugin.about()],
+        ));
     }
 
     /// Starts or stops a plugin in this session: installed in the profile

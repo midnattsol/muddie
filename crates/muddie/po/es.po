@@ -2626,8 +2626,6 @@ msgstr "Etiqueta {0}"
 msgid "Plugin {0}"
 msgstr "Plugin {0}"
 
-msgid "Install a plugin…"
-msgstr "Instalar un plugin…"
 
 msgid "Update a plugin…"
 msgstr "Actualizar un plugin…"
@@ -2644,8 +2642,6 @@ msgstr "Plugin que quitar"
 msgid "Back to the search."
 msgstr "De vuelta a la búsqueda."
 
-msgid "The map does not know where you are: moving tells it, or I am in…, in the palette."
-msgstr "El mapa no sabe dónde estás: moverte se lo dice, o En esta sala estoy…, en la paleta."
 
 msgid "{0} To undo the last: Undo the map's last change, in the palette."
 msgstr "{0} Para deshacer el último: Deshacer el último cambio del mapa, en la paleta."
@@ -3127,3 +3123,30 @@ msgstr "Intro lo copia."
 
 msgid "Output"
 msgstr "Salida"
+
+msgid "The map does not know where you are: tell it with I am in…, in the palette. Looking at the room, or connecting again, may tell it too."
+msgstr "El mapa no sabe dónde estás: díselo con «Estoy en…», en la paleta. Mirar la sala, o volver a conectar, también puede decírselo."
+
+msgid "{0} is on. For the MUD to send what it sends on logging in, such as where you are and your gauges, reconnect: {1}."
+msgstr "{0} está activado. Para que el MUD mande lo que manda al entrar, como dónde estás y tus indicadores, reconecta: {1}."
+
+msgid "{0} is on, made for this MUD: {1} It can be switched off in the profile's plugins."
+msgstr "{0} está activado, hecho para este MUD: {1} Se puede desactivar en los plugins del perfil."
+
+msgid "{0} Comes with Muddie: on, it sets itself up when you connect."
+msgstr "{0} Viene con Muddie: activado, se prepara solo al conectar."
+
+msgid "{0} Downloaded from git: on, it sets itself up when you connect."
+msgstr "{0} Descargado de git: activado, se prepara solo al conectar."
+
+msgid "Switch a plugin on to use it: there is nothing else to install."
+msgstr "Activa un plugin para usarlo: no hay que instalar nada más."
+
+msgid "Install from git…"
+msgstr "Instalar desde git…"
+
+msgid "For plugins others make, from the address of their git repository."
+msgstr "Para plugins de otros, desde la dirección de su repositorio git."
+
+msgid "Install a plugin…"
+msgstr "Instalar un plugin…"

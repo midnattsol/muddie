@@ -50,8 +50,26 @@ fn plugin_row(ui: &mut Ui, plugin: &Plugin, draft: &mut Profile) -> Option<Plugi
         }
         switch
     });
+    // That on is all it takes is said: there is nothing else to install.
+    let said = match downloaded {
+        false => trf(
+            "{0} Comes with Muddie: on, it sets itself up when you connect.",
+            &[&about],
+        ),
+        true => trf(
+            "{0} Downloaded from git: on, it sets itself up when you connect.",
+            &[&about],
+        ),
+    };
+    (ui.ctx()).accesskit_node_builder(switch.id, |node| node.set_description(said));
     if switch.changed() {
         plugin.switch(&mut draft.plugins_on, &mut draft.plugins_off, on);
+        // Switched off, it is not switched on again by itself on
+        // connecting to its MUD.
+        draft.plugins_declined.retain(|id| *id != plugin.id);
+        if !on {
+            draft.plugins_declined.push(plugin.id.clone());
+        }
     }
     asked
 }
@@ -70,12 +88,11 @@ impl App {
             .filter(|plugin| plugin.downloaded)
             .collect();
         let (mut updating, mut install) = (Vec::new(), false);
-        widgets::section_caption_with(ui, tr("Plugins"), |ui| {
-            install = widgets::button(ui, tr("Install a plugin…")).clicked();
-            if !downloaded.is_empty() && widgets::button(ui, tr("Update all")).clicked() {
-                updating.extend(downloaded.iter().map(|plugin| plugin.name.clone()));
-            }
-        });
+        widgets::section_caption(ui, tr("Plugins"));
+        widgets::page_note(
+            ui,
+            tr("Switch a plugin on to use it: there is nothing else to install."),
+        );
         let Some(edit) = self.editing.as_mut() else {
             return;
         };
@@ -90,6 +107,18 @@ impl App {
                 }
             }
         });
+        // Those others make, after: what is seldom wanted, last.
+        ui.add_space(size::GAP_S);
+        ui.horizontal(|ui| {
+            install = widgets::button(ui, tr("Install from git…")).clicked();
+            if !downloaded.is_empty() && widgets::button(ui, tr("Update all")).clicked() {
+                updating.extend(downloaded.iter().map(|plugin| plugin.name.clone()));
+            }
+        });
+        widgets::page_note(
+            ui,
+            tr("For plugins others make, from the address of their git repository."),
+        );
         if let Some(plugin) = again {
             self.install_again(&plugin);
         }
