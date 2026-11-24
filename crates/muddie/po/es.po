@@ -3124,3 +3124,6 @@ msgstr "Activar: {0}"
 
 msgid "Enter copies it."
 msgstr "Intro lo copia."
+
+msgid "Output"
+msgstr "Salida"

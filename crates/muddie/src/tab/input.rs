@@ -58,6 +58,14 @@ impl Tab {
             ui.memory_mut(|memory| memory.request_focus(id));
         }
         let completing = self.complete_word(ui, focused);
+        // With nothing typed, Tab goes to the output, to read it as text.
+        if focused
+            && self.input.is_empty()
+            && ui.input_mut(|input| input.consume_key(Modifiers::NONE, Key::Tab))
+        {
+            self.open_reader();
+            ui.ctx().request_repaint();
+        }
         // A click on what takes no keyboard (the output, to choose text in
         // it; a button) leaves the keyboard here: given up and taken back,
         // the line would be drawn a frame without it, and its choice
@@ -85,6 +93,9 @@ impl Tab {
         // The input owns the keyboard unless the user moved focus elsewhere,
         // or a dialog over it has it.
         let dialog = ui.memory(|memory| memory.top_modal_layer().is_some());
+        if std::mem::take(&mut self.focus_line) {
+            response.request_focus();
+        }
         if !self.palette.open
             && !dialog
             && (submitted || ui.memory(|memory| memory.focused().is_none()))

@@ -138,7 +138,14 @@ impl Tab {
             // place of the scroll bar.
             let room = ui.available_size() - egui::vec2(12.0, 0.0);
             self.sizes.window = Self::cells(ui, room);
-            self.output.show(ui, "output")
+            if self.reader.open {
+                self.show_reader(ui);
+                return None;
+            }
+            let rect = ui.available_rect_before_wrap();
+            let clicked = self.output.show(ui, "output");
+            self.reader_way_in(ui, rect);
+            clicked
         });
         self.report_window(ui.ctx());
         // A link the server marked as a command was clicked.

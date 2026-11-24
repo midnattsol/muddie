@@ -2170,6 +2170,9 @@ msgstr ""
 msgid "A sound could not be fetched: {0}"
 msgstr ""
 
+msgid "Output"
+msgstr ""
+
 msgid "Classic"
 msgstr ""
 

@@ -149,8 +149,15 @@ ne = ["nord-est", "ne"]
 | Enter | Sends the line. Several commands can be separated by `;`. With **Keep the sent command**, in the settings, the line stays, selected: Enter sends it again, and typing replaces it |
 | Up, Down | Earlier and later lines; with something typed, only those starting with it |
 | Ctrl+R | Searches the history for what is typed; again goes further back |
-| Tab | Completes the word being typed from recent output |
+| Tab | Completes the word being typed from recent output; with nothing typed, goes to the output as text |
 | Ctrl+F | Searches the scrollback; Enter goes to the previous match, Shift+Enter to the next |
+
+With nothing typed, Tab goes to the output as a read-only text, as in
+other clients made for screen readers: the newest line is where the
+keyboard starts, the screen reader's keys read it by line, word or
+character, and Shift with the arrows chooses text to copy with Ctrl+C. It
+holds the latest thousand lines, and grows as lines come. Tab, Escape,
+Enter or typing goes back to the command line, with what was typed.
 
 Text is chosen in the output by dragging over it, and Ctrl+C copies it; the
 keyboard stays in the command line meanwhile, and the output holds still

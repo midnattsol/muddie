@@ -931,12 +931,69 @@ fn the_messages_are_read_and_copied_with_the_keyboard() {
     harness.run_steps(3);
     // Shown over the corner too: the one in the list is an item of it.
     let item = egui::accesskit::Role::ListItem;
-    assert!(harness.get_by_role_and_label(item, "Then this.").is_focused());
+    assert!(
+        harness
+            .get_by_role_and_label(item, "Then this.")
+            .is_focused()
+    );
     harness.key_press(Key::ArrowDown);
     harness.run_steps(2);
-    assert!(harness.get_by_role_and_label(item, "First of all.").is_focused());
+    assert!(
+        harness
+            .get_by_role_and_label(item, "First of all.")
+            .is_focused()
+    );
     harness.key_press(Key::Enter);
     harness.run_steps(2);
     let said = harness.state().tab().voice.said.last().cloned();
     assert_eq!(said.as_deref(), Some("Copied."));
+}
+
+/// The output as a text a screen reader reads as it reads a document:
+/// Tab from the empty command line goes to it, with the keyboard on the
+/// newest line; what comes is added to it; typing goes back to the line.
+#[test]
+fn the_output_is_a_text_to_read_reached_with_tab() {
+    let mut harness = window(None);
+    let app = harness.state_mut().tab_mut();
+    let (events, _sent) = fake_connection(app);
+    for line in ["The Temple.", "An orc is here."] {
+        events
+            .send(Event::Line(panels::styled_lines(line).remove(0)))
+            .unwrap();
+    }
+    harness.run_steps(3);
+    let text = egui::accesskit::Role::MultilineTextInput;
+    harness.key_press(Key::Tab);
+    harness.run_steps(3);
+    let output = harness.get_by_role_and_label(text, "Output");
+    assert!(output.is_focused());
+    assert!(output.accesskit_node().is_read_only());
+    assert_eq!(
+        harness.state().tab().reader.text(),
+        "The Temple.\nAn orc is here."
+    );
+    // What comes is added, and the place read stays.
+    events
+        .send(Event::Line(
+            panels::styled_lines("The orc leaves.").remove(0),
+        ))
+        .unwrap();
+    harness.run_steps(3);
+    assert!(
+        harness
+            .state()
+            .tab()
+            .reader
+            .text()
+            .ends_with("\nThe orc leaves.")
+    );
+    assert!(harness.get_by_role_and_label(text, "Output").is_focused());
+    // Typing goes back to the command line, with what was typed.
+    harness.event(egui::Event::Text("n".into()));
+    harness.run_steps(3);
+    let line = harness.get_by_label("Command");
+    assert!(line.is_focused());
+    assert_eq!(harness.state().tab().input, "n");
+    assert!(harness.query_by_role_and_label(text, "Output").is_none());
 }

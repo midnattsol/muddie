@@ -49,6 +49,7 @@ mod mxp;
 mod panel_sizes;
 mod places;
 mod plugins;
+mod reader;
 mod reviewing;
 mod scripts;
 mod switching;
@@ -186,6 +187,10 @@ pub struct Tab {
     /// Whether the command line's cursor is to go to the end of what was
     /// put in it.
     cursor_to_end: bool,
+    /// The output as a read-only text, while the keyboard is in it.
+    reader: reader::Reader,
+    /// The command line is to take the keyboard.
+    focus_line: bool,
     /// The view of what the MUD sends: what was seen, which is chosen, how it
     /// is filtered, and whether it is kept outside the view.
     data_view: data::DataView,
@@ -328,6 +333,8 @@ impl Tab {
             app_request: None,
             unprofiled_seen: false,
             cursor_to_end: false,
+            reader: reader::Reader::default(),
+            focus_line: false,
             data_view: data::DataView::default(),
             variables_passing: false,
             kept_input: None,
