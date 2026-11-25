@@ -1853,19 +1853,6 @@ msgstr ""
 msgid "Commands"
 msgstr ""
 
-#, python-brace-format
-msgid "The pattern is not valid: {0}"
-msgstr ""
-
-msgid "Try it"
-msgstr ""
-
-msgid "Does not match."
-msgstr ""
-
-msgid "Matches:"
-msgstr ""
-
 msgid "Name"
 msgstr ""
 
@@ -1986,42 +1973,6 @@ msgstr ""
 msgid "Move to the top level"
 msgstr ""
 
-#, python-brace-format
-msgid "Move into {0}"
-msgstr ""
-
-msgid "every"
-msgstr ""
-
-msgid "after"
-msgstr ""
-
-msgid "In this profile"
-msgstr ""
-
-msgid "In every session"
-msgstr ""
-
-msgid "Collapse all folders"
-msgstr ""
-
-msgid "Expand all folders"
-msgstr ""
-
-msgid "All folders collapsed."
-msgstr ""
-
-msgid "All folders expanded."
-msgstr ""
-
-#, python-brace-format
-msgid "Moved up, {0} of {1}."
-msgstr ""
-
-#, python-brace-format
-msgid "Moved down, {0} of {1}."
-msgstr ""
-
 msgid "Add"
 msgstr ""
 
@@ -2055,10 +2006,46 @@ msgstr ""
 msgid "Nothing here yet."
 msgstr ""
 
+#, python-brace-format
+msgid "Move into {0}"
+msgstr ""
+
+msgid "every"
+msgstr ""
+
+msgid "after"
+msgstr ""
+
+msgid "In this profile"
+msgstr ""
+
+msgid "In every session"
+msgstr ""
+
 msgid "hides the line"
 msgstr ""
 
 msgid "does not read it aloud"
+msgstr ""
+
+#, python-brace-format
+msgid "Moved up, {0} of {1}."
+msgstr ""
+
+#, python-brace-format
+msgid "Moved down, {0} of {1}."
+msgstr ""
+
+msgid "Collapse all folders"
+msgstr ""
+
+msgid "Expand all folders"
+msgstr ""
+
+msgid "All folders collapsed."
+msgstr ""
+
+msgid "All folders expanded."
 msgstr ""
 
 #, python-brace-format
@@ -2073,6 +2060,19 @@ msgid "Tags"
 msgstr ""
 
 msgid "Several folders"
+msgstr ""
+
+#, python-brace-format
+msgid "The pattern is not valid: {0}"
+msgstr ""
+
+msgid "Try it"
+msgstr ""
+
+msgid "Does not match."
+msgstr ""
+
+msgid "Matches:"
 msgstr ""
 
 msgid "No gauges here yet."
