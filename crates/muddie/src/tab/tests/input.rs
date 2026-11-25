@@ -92,6 +92,38 @@ fn unmarked_prompt_fires_triggers_once_it_settles() {
     assert_eq!(output_lines(harness.state().tab()), ["Name: "]);
 }
 
+/// A prompt with no end comes again with each packet of data that arrives
+/// while it waits: kept from being read once, it is not read then, and of
+/// what comes after it on its line only that is read.
+#[test]
+fn a_silenced_prompt_is_not_read_when_data_comes_after_it() {
+    let mut harness = window(None);
+    let app = harness.state_mut().tab_mut();
+    (app.scripts).exec("test", r#"trigger("^HP .*> $", function() silence() end)"#);
+    app.on_screen = true;
+    let (events, _sent) = fake_connection(app);
+    let partial = |text: &str| Event::Partial(panels::styled_lines(text).remove(0));
+    let settle = |harness: &mut Harness<'_, App>| {
+        harness.run_steps(2);
+        std::thread::sleep(PARTIAL_SETTLE + Duration::from_millis(50));
+        harness.run_steps(2);
+    };
+    harness.state_mut().tab_mut().voice.said.clear();
+    for _ in 0..3 {
+        events.send(partial("HP 10> ")).unwrap();
+        settle(&mut harness);
+    }
+    assert_eq!(harness.state().tab().voice.said, [] as [String; 0]);
+    let line = panels::styled_lines("HP 10> A goblin arrives.").remove(0);
+    events.send(Event::Line(line)).unwrap();
+    harness.run_steps(2);
+    assert_eq!(harness.state().tab().voice.said, ["A goblin arrives."]);
+    // Read as any other once it says something else.
+    events.send(partial("Name: ")).unwrap();
+    settle(&mut harness);
+    assert_eq!(harness.state().tab().voice.said[1..], ["Name:"]);
+}
+
 #[test]
 fn client_commands_are_carried_out_and_the_rest_is_the_mud_s() {
     let mut harness = window(None);

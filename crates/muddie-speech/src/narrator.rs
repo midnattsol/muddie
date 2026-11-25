@@ -34,6 +34,13 @@ impl Narrator {
         }
     }
 
+    /// The unterminated text is taken as spoken, without speaking it: the
+    /// same again says nothing, and of what comes after it only that.
+    pub fn taken(&mut self, text: &str) {
+        self.pending = None;
+        text.clone_into(&mut self.spoken);
+    }
+
     /// Returns unterminated text that has settled and should be spoken now.
     pub fn poll(&mut self, now: Instant) -> Option<String> {
         if self.deadline()? > now {

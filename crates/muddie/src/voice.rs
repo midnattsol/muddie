@@ -324,10 +324,10 @@ impl Voice {
         }
     }
 
-    /// The unterminated text was hidden by a script, so it is not spoken.
+    /// The unterminated text was hidden by a script, or kept from being
+    /// read, so it is not spoken, however many times it comes.
     pub fn skip_partial(&mut self, text: &str) {
-        self.narrator.partial(text, Instant::now());
-        self.narrator.line(text);
+        self.narrator.taken(text);
     }
 
     /// A line was completed but hidden by a script, so it is not spoken.
