@@ -42,70 +42,21 @@ impl Tab {
     /// chosen and Tab completes it. Home and End are the field's. Returns
     /// whether it is done with for this frame.
     fn palette_keys(&mut self, ctx: &egui::Context, items: &[Item]) -> bool {
-        let pressed = |modifiers: Modifiers, key: Key| {
-            ctx.input_mut(|input| input.consume_key(modifiers, key))
-        };
-        // Those with Ctrl first: without it, the plain ones would take
-        // them too.
-        let (first, last) = (
-            pressed(Modifiers::COMMAND, Key::Home),
-            pressed(Modifiers::COMMAND, Key::End),
-        );
-        let (up, down) = (
-            pressed(Modifiers::NONE, Key::ArrowUp),
-            pressed(Modifiers::NONE, Key::ArrowDown),
-        );
-        let (page_up, page_down) = (
-            pressed(Modifiers::NONE, Key::PageUp),
-            pressed(Modifiers::NONE, Key::PageDown),
-        );
-        // With Shift first: without it, the plain one would take it too.
-        let way = pressed(Modifiers::SHIFT, Key::Enter);
-        let (tab, escape, enter) = (
-            pressed(Modifiers::NONE, Key::Tab),
-            pressed(Modifiers::NONE, Key::Escape),
-            pressed(Modifiers::NONE, Key::Enter),
-        );
+        let keys = Pressed::consume(ctx);
         // Escape stops asking, back to the search; else it closes.
-        if escape {
+        if keys.escape {
             match self.palette.asking.is_some() {
                 true => self.stop_asking(),
                 false => self.close_palette(),
             }
             return true;
         }
-        let step = match (up, down, page_up, page_down, first, last) {
-            (true, ..) => Some(Step::One(true)),
-            (_, true, ..) => Some(Step::One(false)),
-            (_, _, true, ..) => Some(Step::Page(true)),
-            (_, _, _, true, ..) => Some(Step::Page(false)),
-            (_, _, _, _, true, _) => Some(Step::End(true)),
-            (_, _, _, _, _, true) => Some(Step::End(false)),
-            _ => None,
-        };
-        if let (Some(step), false) = (step, items.is_empty()) {
+        let (tab, enter, way) = (keys.tab, keys.enter, keys.way);
+        if let (Some(step), false) = (keys.step, items.is_empty()) {
             self.move_choice(items, step);
         }
         let Some(chosen) = items.get(self.palette.chosen).cloned() else {
-            // While asking, what is typed is the answer; with nothing typed,
-            // what is asked is said again.
-            if let (true, Some(asking)) = (enter, self.palette.asking.clone()) {
-                match self.palette.query.trim().is_empty() {
-                    true => self
-                        .voice
-                        .say_now(&trf("{0}: write it, then Enter.", &[&asking.title])),
-                    false => {
-                        let answer = self.palette.query.clone();
-                        self.answer(&answer);
-                    }
-                }
-                return true;
-            }
-            // Nothing to do: it is said, and nothing moves.
-            if enter || way {
-                self.voice.say_now(tr("No matches."));
-            }
-            return false;
+            return self.keys_with_nothing_chosen(enter, way);
         };
         // Shift and Enter on a place says the way there, without going.
         if way && let Some(Act::Place(name)) = &chosen.act {
@@ -123,6 +74,33 @@ impl Tab {
             self.palette.query.clone_from(&chosen.usage);
             self.palette.chosen = 0;
             self.palette.cursor_end = true;
+        }
+        false
+    }
+
+    /// Enter with nothing in the list to choose: while asking, what is
+    /// typed is the answer, and with nothing typed what is asked is said
+    /// again; else it says there are no matches. Returns whether the
+    /// palette is done with for this frame, which is when Enter answered
+    /// or said what is asked.
+    fn keys_with_nothing_chosen(&mut self, enter: bool, way: bool) -> bool {
+        // While asking, what is typed is the answer; with nothing typed,
+        // what is asked is said again.
+        if let (true, Some(asking)) = (enter, self.palette.asking.clone()) {
+            match self.palette.query.trim().is_empty() {
+                true => self
+                    .voice
+                    .say_now(&trf("{0}: write it, then Enter.", &[&asking.title])),
+                false => {
+                    let answer = self.palette.query.clone();
+                    self.answer(&answer);
+                }
+            }
+            return true;
+        }
+        // Nothing to do: it is said, and nothing moves.
+        if enter || way {
+            self.voice.say_now(tr("No matches."));
         }
         false
     }
@@ -227,84 +205,17 @@ impl Tab {
                     ui.set_width(width - 12.0);
                     ui.spacing_mut().item_spacing.y = 0.0;
                     self.palette_field(ui);
-                    let rule = |ui: &mut egui::Ui| {
-                        let line = ui.available_rect_before_wrap();
-                        let stroke = egui::Stroke::new(1.0, theme.border);
-                        ui.painter().hline(line.x_range(), line.top(), stroke);
-                    };
-                    rule(ui);
+                    rule(ui, theme.border);
                     ui.add_space(6.0);
                     // As tall whatever it shows, a list or a line: it does
                     // not jump as it changes.
                     let body = egui::vec2(ui.available_width(), most);
                     let top = egui::Layout::top_down(egui::Align::Min);
                     ui.allocate_ui_with_layout(body, top, |ui| {
-                        ui.set_min_height(most);
-                        if let Some((text, problem)) = self.palette.message.clone() {
-                            answered(ui, &text, problem);
-                        }
-                        // What is asked stays in sight over what may answer
-                        // it, typed or not.
-                        let asked = self.palette.asking.as_ref().map(|a| a.title.clone());
-                        if let Some(title) = asked.clone().or_else(|| self.palette.title.clone()) {
-                            group_heading(ui, &title, true);
-                        }
-                        if items.is_empty() && self.palette.message.is_none() {
-                            let note = match &asked {
-                                Some(_) => tr("Write it, then Enter."),
-                                None => tr("No matches."),
-                            };
-                            ui.horizontal(|ui| {
-                                ui.add_space(14.0);
-                                widgets::page_note(ui, note);
-                            });
-                            ui.add_space(10.0);
-                        }
-                        if !items.is_empty() {
-                            // A list to scroll, by the wheel or its bar too, as
-                            // tall as a page of it at most.
-                            let reveal = std::mem::take(&mut self.palette.reveal);
-                            let grouped =
-                                self.palette.title.is_none() && self.palette.asking.is_none();
-                            egui::ScrollArea::vertical()
-                                .id_salt("palette list")
-                                .max_height(most)
-                                .auto_shrink([false, true])
-                                .show(ui, |ui| {
-                                    crate::widgets::keep_clear_of_bar(ui);
-                                    // How long it is, told to a screen reader.
-                                    let found =
-                                        trn("{0} result", "{0} results", items.len() as u64);
-                                    let list = egui::UiBuilder::new()
-                                        .accessibility_role(egui::accesskit::Role::List)
-                                        .accessibility_label(found);
-                                    ui.scope_builder(list, |ui| {
-                                        ui.spacing_mut().item_spacing.y = 0.0;
-                                        let mut group = None;
-                                        for (index, item) in items.iter().enumerate() {
-                                            let this = item.group.clone();
-                                            if grouped
-                                                && !this.is_empty()
-                                                && group.as_ref() != Some(&this)
-                                            {
-                                                group_heading(ui, &this, false);
-                                                group = Some(this);
-                                            }
-                                            let chosen = index == self.palette.chosen;
-                                            let row = palette_row(ui, item, chosen);
-                                            if row.clicked() {
-                                                clicked = Some(index);
-                                            }
-                                            if chosen && reveal {
-                                                row.scroll_to_me(None);
-                                            }
-                                        }
-                                    });
-                                });
-                        }
+                        clicked = self.palette_body(ui, items, most);
                     });
                     ui.add_space(4.0);
-                    rule(ui);
+                    rule(ui, theme.border);
                     keys_at_the_foot(
                         ui,
                         items.get(self.palette.chosen),
@@ -313,6 +224,79 @@ impl Tab {
                 });
             });
         (area.response, clicked)
+    }
+
+    /// What the card holds between its rules, as tall as `most` at least:
+    /// what a command answered, what is asked, the note of no matches, and
+    /// the list. Returns the row clicked.
+    fn palette_body(&mut self, ui: &mut egui::Ui, items: &[Item], most: f32) -> Option<usize> {
+        let mut clicked = None;
+        ui.set_min_height(most);
+        if let Some((text, problem)) = self.palette.message.clone() {
+            answered(ui, &text, problem);
+        }
+        // What is asked stays in sight over what may answer
+        // it, typed or not.
+        let asked = self.palette.asking.as_ref().map(|a| a.title.clone());
+        if let Some(title) = asked.clone().or_else(|| self.palette.title.clone()) {
+            group_heading(ui, &title, true);
+        }
+        if items.is_empty() && self.palette.message.is_none() {
+            let note = match &asked {
+                Some(_) => tr("Write it, then Enter."),
+                None => tr("No matches."),
+            };
+            ui.horizontal(|ui| {
+                ui.add_space(14.0);
+                widgets::page_note(ui, note);
+            });
+            ui.add_space(10.0);
+        }
+        if !items.is_empty() {
+            clicked = self.palette_list(ui, items, most);
+        }
+        clicked
+    }
+
+    /// The list to scroll, by the wheel or its bar too, as tall as a page
+    /// of it at most, in groups when it is not an answer or a question.
+    /// Returns the row clicked.
+    fn palette_list(&mut self, ui: &mut egui::Ui, items: &[Item], most: f32) -> Option<usize> {
+        let mut clicked = None;
+        let reveal = std::mem::take(&mut self.palette.reveal);
+        let grouped = self.palette.title.is_none() && self.palette.asking.is_none();
+        egui::ScrollArea::vertical()
+            .id_salt("palette list")
+            .max_height(most)
+            .auto_shrink([false, true])
+            .show(ui, |ui| {
+                crate::widgets::keep_clear_of_bar(ui);
+                // How long it is, told to a screen reader.
+                let found = trn("{0} result", "{0} results", items.len() as u64);
+                let list = egui::UiBuilder::new()
+                    .accessibility_role(egui::accesskit::Role::List)
+                    .accessibility_label(found);
+                ui.scope_builder(list, |ui| {
+                    ui.spacing_mut().item_spacing.y = 0.0;
+                    let mut group = None;
+                    for (index, item) in items.iter().enumerate() {
+                        let this = item.group.clone();
+                        if grouped && !this.is_empty() && group.as_ref() != Some(&this) {
+                            group_heading(ui, &this, false);
+                            group = Some(this);
+                        }
+                        let chosen = index == self.palette.chosen;
+                        let row = palette_row(ui, item, chosen);
+                        if row.clicked() {
+                            clicked = Some(index);
+                        }
+                        if chosen && reveal {
+                            row.scroll_to_me(None);
+                        }
+                    }
+                });
+            });
+        clicked
     }
 
     /// What to look for: the field, after the picture of looking, which
@@ -393,4 +377,70 @@ enum Step {
     Page(bool),
     /// The first, or the last.
     End(bool),
+}
+
+/// A line across the card, in the colour of its border.
+fn rule(ui: &mut egui::Ui, border: egui::Color32) {
+    let line = ui.available_rect_before_wrap();
+    let stroke = egui::Stroke::new(1.0, border);
+    ui.painter().hline(line.x_range(), line.top(), stroke);
+}
+
+/// The keys of the palette, taken from the frame's input.
+struct Pressed {
+    /// How the arrows, Page Up and Page Down, or Ctrl+Home and Ctrl+End
+    /// move the choice.
+    step: Option<Step>,
+    /// Shift and Enter.
+    way: bool,
+    tab: bool,
+    escape: bool,
+    enter: bool,
+}
+
+impl Pressed {
+    /// Takes the keys of the palette out of the input, those with Ctrl and
+    /// Shift before the plain ones that would take them too.
+    fn consume(ctx: &egui::Context) -> Self {
+        let pressed = |modifiers: Modifiers, key: Key| {
+            ctx.input_mut(|input| input.consume_key(modifiers, key))
+        };
+        // Those with Ctrl first: without it, the plain ones would take
+        // them too.
+        let (first, last) = (
+            pressed(Modifiers::COMMAND, Key::Home),
+            pressed(Modifiers::COMMAND, Key::End),
+        );
+        let (up, down) = (
+            pressed(Modifiers::NONE, Key::ArrowUp),
+            pressed(Modifiers::NONE, Key::ArrowDown),
+        );
+        let (page_up, page_down) = (
+            pressed(Modifiers::NONE, Key::PageUp),
+            pressed(Modifiers::NONE, Key::PageDown),
+        );
+        // With Shift first: without it, the plain one would take it too.
+        let way = pressed(Modifiers::SHIFT, Key::Enter);
+        let (tab, escape, enter) = (
+            pressed(Modifiers::NONE, Key::Tab),
+            pressed(Modifiers::NONE, Key::Escape),
+            pressed(Modifiers::NONE, Key::Enter),
+        );
+        let step = match (up, down, page_up, page_down, first, last) {
+            (true, ..) => Some(Step::One(true)),
+            (_, true, ..) => Some(Step::One(false)),
+            (_, _, true, ..) => Some(Step::Page(true)),
+            (_, _, _, true, ..) => Some(Step::Page(false)),
+            (_, _, _, _, true, _) => Some(Step::End(true)),
+            (_, _, _, _, _, true) => Some(Step::End(false)),
+            _ => None,
+        };
+        Self {
+            step,
+            way,
+            tab,
+            escape,
+            enter,
+        }
+    }
 }
