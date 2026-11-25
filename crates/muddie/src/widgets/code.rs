@@ -60,17 +60,7 @@ fn code_body(
             id,
             (language, wrap_width.to_bits()),
             text.as_str(),
-            || {
-                let source = text.as_str();
-                let mut job = match language {
-                    Language::Luau => crate::luau::highlight(source, &font, &theme),
-                    Language::Commands => {
-                        crate::syntax::layout(&crate::syntax::command_tokens(source), &font, &theme)
-                    }
-                };
-                job.wrap.max_width = wrap_width;
-                job
-            },
+            || highlighted(language, text.as_str(), &font, &theme, wrap_width),
         )
     };
     let margin = Margin {
@@ -86,14 +76,7 @@ fn code_body(
     let escaped_id = id.with("escaped");
     let escaped = ui.data(|data| data.get_temp::<bool>(escaped_id)) == Some(true);
     // How many lines are shown, and whether it scrolls past them.
-    let (rows, most) = match height {
-        CodeHeight::Auto { fewest, most } => ((lines + 1).clamp(fewest, most), Some(most)),
-        CodeHeight::Fixed(points) => {
-            let rows = (((points - edge) / line).floor() as usize).max(1);
-            (rows, Some(rows))
-        }
-        CodeHeight::Fill(rows) => (rows.max(lines + 1), None),
-    };
+    let (rows, most) = editor_rows(height, lines, line);
     let mut editor = |ui: &mut Ui| {
         let output = TextEdit::multiline(value)
             .id(id)
@@ -109,16 +92,7 @@ fn code_body(
         // While it is empty, an example in its place, where the first line
         // is: on the line numbered 1.
         if value.is_empty() {
-            let mut job = egui::text::LayoutJob::simple(
-                hint.to_owned(),
-                font.clone(),
-                theme.text_faint,
-                output.galley.rect.width().max(1.0),
-            );
-            job.wrap.max_width = output.response.response.rect.width() - gutter - 12.0;
-            let example = ui.fonts_mut(|fonts| fonts.layout_job(job));
-            let painter = ui.painter().with_clip_rect(output.response.response.rect);
-            painter.galley(output.galley_pos, example, theme.text_faint);
+            show_example(ui, &output, hint, (&font, &theme), gutter);
         }
         output
     };
@@ -137,6 +111,65 @@ fn code_body(
         _ => editor(ui),
     };
     let response = output.response.response.clone();
+    keep_tab_given_back(ui, &response, escaped_id, escaped);
+    name_editor(ui, &response, label, hint);
+    response
+}
+
+/// How `source` is coloured as `language` is, laid out to `wrap_width`.
+fn highlighted(
+    language: Language,
+    source: &str,
+    font: &egui::FontId,
+    theme: &theme::Theme,
+    wrap_width: f32,
+) -> egui::text::LayoutJob {
+    let mut job = match language {
+        Language::Luau => crate::luau::highlight(source, font, theme),
+        Language::Commands => {
+            crate::syntax::layout(&crate::syntax::command_tokens(source), font, theme)
+        }
+    };
+    job.wrap.max_width = wrap_width;
+    job
+}
+
+/// How many lines an editor of `lines` lines is tall, and at most how many
+/// it shows before it scrolls, if it does, with lines `line` points tall.
+fn editor_rows(height: CodeHeight, lines: usize, line: f32) -> (usize, Option<usize>) {
+    match height {
+        CodeHeight::Auto { fewest, most } => ((lines + 1).clamp(fewest, most), Some(most)),
+        CodeHeight::Fixed(points) => {
+            let rows = (((points - CODE_EDGE) / line).floor() as usize).max(1);
+            (rows, Some(rows))
+        }
+        CodeHeight::Fill(rows) => (rows.max(lines + 1), None),
+    }
+}
+
+/// The example `hint` in an empty editor, where its first line is.
+fn show_example(
+    ui: &mut Ui,
+    output: &egui::text_edit::TextEditOutput,
+    hint: &str,
+    (font, theme): (&egui::FontId, &theme::Theme),
+    gutter: f32,
+) {
+    let mut job = egui::text::LayoutJob::simple(
+        hint.to_owned(),
+        font.clone(),
+        theme.text_faint,
+        output.galley.rect.width().max(1.0),
+    );
+    job.wrap.max_width = output.response.response.rect.width() - gutter - 12.0;
+    let example = ui.fonts_mut(|fonts| fonts.layout_job(job));
+    let painter = ui.painter().with_clip_rect(output.response.response.rect);
+    painter.galley(output.galley_pos, example, theme.text_faint);
+}
+
+/// Keeps whether the editor has given Tab back after Escape, and which
+/// editor it is, for the one in it to know.
+fn keep_tab_given_back(ui: &mut Ui, response: &Response, escaped_id: egui::Id, escaped: bool) {
     let escape = ui.input(|input| input.key_pressed(egui::Key::Escape));
     let now_escaped = match escaped {
         false if response.lost_focus() && escape => {
@@ -160,6 +193,11 @@ fn code_body(
     } else if known == Some(response.id) {
         ui.data_mut(|data| data.insert_temp::<Option<egui::Id>>(freed, None));
     }
+}
+
+/// Tells a screen reader the editor's name, how Tab works in it and its
+/// example.
+fn name_editor(ui: &Ui, response: &Response, label: &str, hint: &str) {
     let how = crate::i18n::tr(
         "Tab inserts a tab. To move to the next control, press Escape and then Tab.",
     );
@@ -168,7 +206,6 @@ fn code_body(
         node.set_description(how);
         node.set_placeholder(hint);
     });
-    response
 }
 
 /// The editor of code which has the keyboard but has given Tab back,
@@ -206,6 +243,90 @@ fn mistake_line(ui: &mut Ui, mistake: Option<&(usize, String)>) {
     }
 }
 
+/// How many lines tall `points` is, lines `line` points tall.
+fn rows_in(points: f32, line: f32) -> usize {
+    (((points - CODE_EDGE) / line).floor() as usize).max(1)
+}
+
+/// The height an editor of `lines` lines, `fewest` at least, has of its
+/// own, and the size it is given: `height` if it was made that tall.
+/// Asks for the frame again when the room under the page changed it.
+fn own_size(
+    ui: &Ui,
+    grip_id: egui::Id,
+    (lines, fewest, line): (usize, usize, f32),
+    spare: f32,
+    height: f32,
+) -> (usize, CodeHeight) {
+    // Its own height: what it holds, or the room it had and what was left
+    // empty under the page, whichever is more.
+    let fit = (lines + 1).clamp(fewest, MOST_LINES);
+    let had = ui.data(|data| data.get_temp::<usize>(grip_id.with("shown")));
+    // Half a point over, so that a page which just fits is not taken for
+    // one a line short.
+    let room = had.map_or(0, |had| {
+        rows_in(had as f32 * line + CODE_EDGE + spare + 0.5, line)
+    });
+    let own = fit.max(room);
+    if had.is_some_and(|had| had != own) && height <= 0.0 {
+        ui.ctx()
+            .request_discard("an editor of code took the room under it");
+    }
+    ui.data_mut(|data| data.insert_temp(grip_id.with("shown"), own));
+    let size = match height > 0.0 {
+        true => CodeHeight::Fixed(height),
+        false => CodeHeight::Auto {
+            fewest: own,
+            most: own.max(MOST_LINES),
+        },
+    };
+    (own, size)
+}
+
+/// Makes the editor taller or shorter by what the grip was moved, or
+/// gives it back its own height. Says what changed when the keyboard
+/// did it.
+fn grip_changes(ui: &Ui, grip: &Moved, height: &mut f32, line: f32, shown: f32) -> Option<String> {
+    let mut said = None;
+    if grip.moved != 0.0 {
+        let by = match grip.by_keys {
+            true => grip.moved.signum() * line,
+            false => grip.moved,
+        };
+        let lowest = 3.0 * line + CODE_EDGE;
+        *height = (shown + by).clamp(lowest, TALLEST as f32 * line + CODE_EDGE);
+        if grip.by_keys {
+            let count = rows_in(*height, line).to_string();
+            said = Some(crate::i18n::trf("{0} lines", &[&count]));
+        }
+    }
+    let home = grip.response.has_focus()
+        && ui.input_mut(|input| input.consume_key(egui::Modifiers::NONE, egui::Key::Home));
+    if (grip.response.double_clicked() || home) && *height > 0.0 {
+        *height = 0.0;
+        said = home.then(|| crate::i18n::tr("Fits its contents").to_owned());
+    }
+    said
+}
+
+/// Tells a screen reader how tall the editor is, and draws the grip.
+fn show_grip(ui: &Ui, grip: &Moved, rect: egui::Rect, count: usize) {
+    // How tall it is, in words: a number alone, as a value, would be read
+    // as a percentage of the most it can be, which means nothing here.
+    let words = crate::i18n::trf("{0} lines", &[&count.to_string()]);
+    ui.ctx()
+        .accesskit_node_builder(grip.response.id, |node| node.set_description(words));
+    // A short bar in the middle, which stands out while it can be taken.
+    let theme = theme::current();
+    let active = grip.response.hovered() || grip.response.dragged() || grip.response.has_focus();
+    let colour = match active {
+        true => theme.accent,
+        false => theme.border,
+    };
+    let bar = egui::Rect::from_center_size(rect.center(), vec2(36.0, 4.0));
+    ui.painter().rect_filled(bar, CornerRadius::same(2), colour);
+}
+
 /// A [`code_editor`] which fits what it holds, from `language`'s fewest
 /// lines to [`MOST_LINES`], and takes the room `spare` under the page it is
 /// on, which is what was left empty the frame before: what it holds is seen
@@ -228,31 +349,11 @@ pub fn sizable_code_editor(
     let fewest = language.fewest_lines();
     let line = code_line(ui);
     let lines = value.split('\n').count();
-    let rows = |points: f32| (((points - CODE_EDGE) / line).floor() as usize).max(1);
     let grip_id = ui.make_persistent_id(("code grip", label));
-    // Its own height: what it holds, or the room it had and what was left
-    // empty under the page, whichever is more.
-    let fit = (lines + 1).clamp(fewest, MOST_LINES);
-    let had = ui.data(|data| data.get_temp::<usize>(grip_id.with("shown")));
-    // Half a point over, so that a page which just fits is not taken for
-    // one a line short.
-    let room = had.map_or(0, |had| rows(had as f32 * line + CODE_EDGE + spare + 0.5));
-    let own = fit.max(room);
-    if had.is_some_and(|had| had != own) && *height <= 0.0 {
-        ui.ctx()
-            .request_discard("an editor of code took the room under it");
-    }
-    ui.data_mut(|data| data.insert_temp(grip_id.with("shown"), own));
-    let size = match *height > 0.0 {
-        true => CodeHeight::Fixed(*height),
-        false => CodeHeight::Auto {
-            fewest: own,
-            most: own.max(MOST_LINES),
-        },
-    };
+    let (own, size) = own_size(ui, grip_id, (lines, fewest, line), spare, *height);
     let response = code_body(ui, label, value, hint, language, size, mistake);
     let shown_rows = match *height > 0.0 {
-        true => rows(*height),
+        true => rows_in(*height, line),
         false => (lines + 1).clamp(own, own.max(MOST_LINES)),
     };
     let shown = shown_rows as f32 * line + CODE_EDGE;
@@ -265,43 +366,12 @@ pub fn sizable_code_editor(
         false,
         true,
     );
-    let mut said = None;
-    if grip.moved != 0.0 {
-        let by = match grip.by_keys {
-            true => grip.moved.signum() * line,
-            false => grip.moved,
-        };
-        let lowest = 3.0 * line + CODE_EDGE;
-        *height = (shown + by).clamp(lowest, TALLEST as f32 * line + CODE_EDGE);
-        if grip.by_keys {
-            let count = rows(*height).to_string();
-            said = Some(crate::i18n::trf("{0} lines", &[&count]));
-        }
-    }
-    let home = grip.response.has_focus()
-        && ui.input_mut(|input| input.consume_key(egui::Modifiers::NONE, egui::Key::Home));
-    if (grip.response.double_clicked() || home) && *height > 0.0 {
-        *height = 0.0;
-        said = home.then(|| crate::i18n::tr("Fits its contents").to_owned());
-    }
+    let said = grip_changes(ui, &grip, height, line, shown);
     let count = match *height > 0.0 {
-        true => rows(*height),
+        true => rows_in(*height, line),
         false => shown_rows,
     };
-    // How tall it is, in words: a number alone, as a value, would be read
-    // as a percentage of the most it can be, which means nothing here.
-    let words = crate::i18n::trf("{0} lines", &[&count.to_string()]);
-    ui.ctx()
-        .accesskit_node_builder(grip.response.id, |node| node.set_description(words));
-    // A short bar in the middle, which stands out while it can be taken.
-    let theme = theme::current();
-    let active = grip.response.hovered() || grip.response.dragged() || grip.response.has_focus();
-    let colour = match active {
-        true => theme.accent,
-        false => theme.border,
-    };
-    let bar = egui::Rect::from_center_size(rect.center(), vec2(36.0, 4.0));
-    ui.painter().rect_filled(bar, CornerRadius::same(2), colour);
+    show_grip(ui, &grip, rect, count);
     mistake_line(ui, mistake);
     (response, said)
 }
