@@ -84,6 +84,19 @@ pub(super) struct ExitOptions {
     pub(crate) command: Option<String>,
 }
 
+impl ExitOptions {
+    fn read(options: Option<Table>) -> mlua::Result<Self> {
+        let Some(options) = options else {
+            return Ok(Self::default());
+        };
+        Ok(Self {
+            cost: options.get("cost")?,
+            blocked: options.get("blocked")?,
+            command: options.get("command")?,
+        })
+    }
+}
+
 /// Describes a room to a script, in the shape [`room_info`] reads.
 pub(super) fn room_table(lua: &Lua, room: &Room) -> mlua::Result<Table> {
     let table = lua.create_table()?;

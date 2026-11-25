@@ -299,3 +299,160 @@ pub(crate) struct TriggerSet {
     /// The set being made of the triggers' patterns, as they now are.
     pub(crate) making: Option<std::sync::mpsc::Receiver<(Vec<String>, Option<regex::RegexSet>)>>,
 }
+
+impl DataHandler {
+    pub(super) fn covers(&self, key: &str) -> bool {
+        match key.strip_prefix(self.key.as_str()) {
+            Some(rest) => rest.is_empty() || rest.starts_with('.'),
+            None => false,
+        }
+    }
+}
+
+impl State {
+    /// Notes that a variable changed, for its handlers to be told.
+    pub(super) fn var_changed(&mut self, name: &str) {
+        if !self.vars_changed.iter().any(|known| known == name) {
+            self.vars_changed.push(name.to_owned());
+        }
+    }
+
+    pub(super) fn next_id(&mut self) -> u64 {
+        self.last_id += 1;
+        self.last_id
+    }
+
+    /// Writes the remembered values to their file, if they have one.
+    pub(super) fn save_memory(&self) -> Result<(), String> {
+        let Some(file) = &self.memory_file else {
+            return Ok(());
+        };
+        // Written to a temporary file first, so a crash cannot leave the
+        // real one half written.
+        let text = serde_json::to_string_pretty(&self.memory).map_err(|error| error.to_string())?;
+        let temporary = file.with_extension("json.tmp");
+        std::fs::write(&temporary, text)
+            .and_then(|()| std::fs::rename(&temporary, file))
+            .map_err(|error| format!("could not save {}: {error}", file.display()))
+    }
+
+    /// `text` with each `$name` that is a remembered value replaced by
+    /// it. A `$` before anything else is left as it is.
+    pub(super) fn expand(&self, text: &str) -> String {
+        let mut expanded = String::with_capacity(text.len());
+        let mut rest = text;
+        while let Some(at) = rest.find('$') {
+            expanded.push_str(&rest[..at]);
+            let after = &rest[at + 1..];
+            let end = after
+                .find(|ch: char| !(ch.is_ascii_alphanumeric() || ch == '_'))
+                .unwrap_or(after.len());
+            let name = &after[..end];
+            let starts_as_a_name =
+                name.starts_with(|ch: char| ch.is_ascii_alphabetic() || ch == '_');
+            let Some(mut value) = self.memory.get(name).filter(|_| starts_as_a_name) else {
+                expanded.push('$');
+                expanded.push_str(name);
+                rest = &after[end..];
+                continue;
+            };
+            // `$name.key` goes into a table, and `$name.2` into a list,
+            // for as long as there is something of that name in it.
+            let mut used = end;
+            while let Some(inside) = after[used..].strip_prefix('.') {
+                let key_end = inside
+                    .find(|ch: char| !(ch.is_alphanumeric() || ch == '_'))
+                    .unwrap_or(inside.len());
+                let key = &inside[..key_end];
+                let found = match value {
+                    serde_json::Value::Object(fields) => fields.get(key),
+                    serde_json::Value::Array(items) => key
+                        .parse::<usize>()
+                        .ok()
+                        .and_then(|place| items.get(place.checked_sub(1)?)),
+                    _ => None,
+                };
+                let Some(found) = found.filter(|_| !key.is_empty()) else {
+                    break;
+                };
+                value = found;
+                used += 1 + key_end;
+            }
+            match value {
+                serde_json::Value::String(text) => expanded.push_str(text),
+                // A list as its items, one after another.
+                serde_json::Value::Array(items) => {
+                    let shown: Vec<String> = (items.iter())
+                        .map(|item| {
+                            item.as_str()
+                                .map_or_else(|| item.to_string(), str::to_owned)
+                        })
+                        .collect();
+                    expanded.push_str(&shown.join(" "));
+                }
+                other => expanded.push_str(&other.to_string()),
+            }
+            rest = &after[used..];
+        }
+        expanded.push_str(rest);
+        expanded
+    }
+
+    /// What there is of a kind, by what it is switched by: those made by
+    /// the scripts, and for scripts, those the frontend told of.
+    fn belongings(&self, kind: Kind) -> Vec<&Belongs> {
+        match kind {
+            Kind::Trigger => self
+                .triggers
+                .iter()
+                .map(|matcher| &matcher.belongs)
+                .collect(),
+            Kind::Alias => self
+                .aliases
+                .iter()
+                .map(|matcher| &matcher.belongs)
+                .collect(),
+            Kind::Macro => (self.macros.values().flatten())
+                .map(|bound| &bound.belongs)
+                .collect(),
+            Kind::Timer => self.timers.iter().map(|timer| &timer.belongs).collect(),
+            Kind::Gauge => self.gauges.iter().map(|gauge| &gauge.belongs).collect(),
+            Kind::Script => self.scripts.iter().collect(),
+        }
+    }
+
+    /// The places there are of a kind, with the folders they are in, in
+    /// alphabetical order.
+    pub(super) fn place_names(&self, kind: Kind) -> Vec<String> {
+        let places = (self.belongings(kind).into_iter())
+            .filter_map(|belongs| belongs.place.as_deref())
+            .flat_map(switches::places_up);
+        let mut names: Vec<String> = places.map(str::to_owned).collect();
+        names.sort();
+        names.dedup();
+        names
+    }
+
+    /// The tags there are, those anything carries and those switched off,
+    /// in alphabetical order.
+    pub(super) fn tag_names(&self) -> Vec<String> {
+        let handlers = self
+            .data_handlers
+            .iter()
+            .flat_map(|handler| handler.tags.iter());
+        let carried = (Kind::ALL.iter())
+            .flat_map(|&kind| self.belongings(kind))
+            .flat_map(|belongs| belongs.tags.iter())
+            .chain(handlers)
+            .map(|tag| tag_key(tag))
+            .collect::<Vec<String>>();
+        let mut names: Vec<String> = carried
+            .into_iter()
+            .chain(self.switches.tags.iter().cloned())
+            .collect();
+        names.retain(|name| !name.is_empty());
+        names.sort();
+        names.dedup();
+        names
+    }
+}
