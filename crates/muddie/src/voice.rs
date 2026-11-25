@@ -273,6 +273,14 @@ impl Voice {
         self.ctrl_was_down = ctrl_down;
     }
 
+    /// Silences it as a script asks: in the session on screen only, for it
+    /// is what that one says.
+    pub fn hush(&mut self) {
+        if !self.away {
+            self.stop();
+        }
+    }
+
     /// Silences what is being said and all that is waiting.
     pub fn stop(&mut self) {
         #[cfg(test)]

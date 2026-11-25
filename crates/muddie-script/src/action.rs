@@ -80,6 +80,34 @@ pub struct Aloud {
     pub always: bool,
 }
 
+/// How a script plays a sound.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Playing {
+    /// From 0 to 1.
+    pub volume: f32,
+    /// Again and again, until stopped.
+    pub looped: bool,
+    /// Where in it to start, and to end if before its own end, and how long
+    /// it takes to come up and to die away, in seconds.
+    pub start: f32,
+    pub finish: Option<f32>,
+    pub fade_in: f32,
+    pub fade_out: f32,
+}
+
+impl Default for Playing {
+    fn default() -> Self {
+        Self {
+            volume: 1.0,
+            looped: false,
+            start: 0.0,
+            finish: None,
+            fade_in: 0.0,
+            fade_out: 0.0,
+        }
+    }
+}
+
 /// Something said, and how it is heard.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Saying {
@@ -251,19 +279,23 @@ pub enum Action {
         variable: String,
         values: Vec<String>,
     },
-    /// Play a sound file at `volume` (0 to 1), repeating if `looped`;
-    /// `owner` is the script that asked, whose sounds stop with it.
+    /// Play a sound file; `owner` is the script that asked, whose sounds stop with it.
     PlaySound {
         /// What the script stops it by.
         id: u64,
         file: String,
-        volume: f32,
-        looped: bool,
+        how: Playing,
         owner: String,
     },
     StopSounds,
     /// Stop the sound played with this id.
     StopSound(u64),
+    /// Silence what is being read.
+    Hush,
+    /// Put this in the command line.
+    Input(String),
+    /// Take this as if the MUD had sent it.
+    Feed(String),
     /// A script failed; the message is for the user.
     Error(String),
     /// Something a script shows on the standard output of a run started

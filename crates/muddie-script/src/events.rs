@@ -142,6 +142,59 @@ impl Engine {
         }
     }
 
+    /// Tells who listens what another script said.
+    pub(super) fn tell_emitted(&self, emitted: Vec<(String, Value)>) {
+        for (name, data) in emitted {
+            let listeners = self.state.borrow().listeners(&emit_key(&name));
+            for (id, owner, callback) in listeners {
+                if self.state.borrow().runs(id) {
+                    self.as_owner(&owner, || {
+                        self.call(&callback, (data.clone(), name.as_str()))
+                    });
+                }
+            }
+        }
+    }
+
+    /// Whether the player has the session in front: the window, and it in
+    /// the window. When that changes, scripts are told.
+    pub fn set_focused(&mut self, focused: bool) {
+        let before = self.state.borrow_mut().focused.replace(focused);
+        if before.is_some_and(|before| before != focused) {
+            self.on_event("focus", if focused { "true" } else { "false" });
+        }
+    }
+
+    /// Tells scripts of a line of the game, for `output.last`.
+    pub fn know_line(&mut self, text: &str) {
+        /// How many are kept.
+        const MOST: usize = 1000;
+        let seen = &mut self.state.borrow_mut().seen;
+        if seen.len() >= MOST {
+            seen.pop_front();
+        }
+        seen.push_back(text.to_owned());
+    }
+
+    /// Tells scripts what is typed in the command line, for
+    /// `session.input`; none, while it is not to be told, as a password.
+    pub fn know_input(&mut self, text: Option<&str>) {
+        let input = &mut self.state.borrow_mut().input;
+        if input.as_deref() != text {
+            *input = text.map(str::to_owned);
+        }
+    }
+
+    /// Whether scripts play any sound, as far as they know.
+    pub fn has_sounds(&self) -> bool {
+        !self.state.borrow().sounds.is_empty()
+    }
+
+    /// Tells scripts which of their sounds are playing.
+    pub fn know_sounds(&mut self, playing: impl Fn(u64) -> bool) {
+        (self.state.borrow_mut().sounds).retain(|id| playing(*id));
+    }
+
     /// Records a GMCP message and runs the handlers for its package.
     /// `json` is the message's payload, empty if it had none.
     pub fn on_gmcp(&mut self, package: &str, json: &str) {

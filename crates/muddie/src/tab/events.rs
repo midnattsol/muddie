@@ -161,7 +161,7 @@ impl Tab {
 
     /// A whole line, or a prompt: a sound asked for is played, anything
     /// else goes through the triggers and is shown as they leave it.
-    fn on_line(&mut self, line: Line, prompt: bool, recording: bool) {
+    pub(super) fn on_line(&mut self, line: Line, prompt: bool, recording: bool) {
         let text = line.text();
         if let Some(request) = sound::parse_msp(&text) {
             if recording {
@@ -375,6 +375,7 @@ impl Tab {
             return self.add_to_panel(&frame.clone(), line, Aloud::default());
         }
         self.output.push(line);
+        self.scripts.know_line(&line.text());
         let time = self.output.time(self.output.len() - 1).to_owned();
         self.logged(|log| log.line(&time, line));
     }

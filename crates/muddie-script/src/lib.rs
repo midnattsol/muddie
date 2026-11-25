@@ -35,7 +35,7 @@ mod retired;
 mod state;
 mod switches;
 
-pub use action::{Action, Aloud, Effect, GaugeKind, GaugeLook, How, Saying};
+pub use action::{Action, Aloud, Effect, GaugeKind, GaugeLook, How, Playing, Saying};
 pub use convert::{bindable, colour_named, split_commands};
 pub use line::Heard;
 
@@ -401,7 +401,7 @@ impl Engine {
     }
 
     /// Tells who listens what changed: the variables, the gauges, what was
-    /// said on the channels. A
+    /// said on the channels and by other scripts. A
     /// handler that changes one has it told in turn, a few rounds at most,
     /// so two that change each other do not go on forever.
     fn tell_changes(&self) {
@@ -416,18 +416,21 @@ impl Engine {
             let vars = std::mem::take(&mut state.vars_changed);
             let gauges = std::mem::take(&mut state.gauges_changed);
             let said = std::mem::take(&mut state.said);
+            let emitted = std::mem::take(&mut state.emitted);
             drop(state);
-            if vars.is_empty() && gauges.is_empty() && said.is_empty() {
+            if vars.is_empty() && gauges.is_empty() && said.is_empty() && emitted.is_empty() {
                 break;
             }
             self.tell_vars_changed(vars);
             self.tell_gauges_changed(gauges);
             self.tell_said(said);
+            self.tell_emitted(emitted);
         }
         let mut state = self.state.borrow_mut();
         state.vars_changed.clear();
         state.gauges_changed.clear();
         state.said.clear();
+        state.emitted.clear();
         state.telling = false;
     }
 

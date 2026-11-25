@@ -186,6 +186,11 @@ pub(super) const GAUGES: &str = "gauge ";
 /// The same, of who listens to a channel.
 pub(super) const CHANNELS: &str = "channel ";
 
+/// Store key of what a script says to others.
+pub(super) fn emit_key(name: &str) -> String {
+    format!("emit {name}")
+}
+
 /// What scripts are told of the session, as the frontend knows it.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Session {
@@ -271,6 +276,16 @@ pub(super) struct State {
     pub(crate) said: Vec<(String, String)>,
     /// The channels there are, as they were first named.
     pub(crate) channels: Vec<String>,
+    /// What scripts said to others, since who listens was last told.
+    pub(crate) emitted: Vec<(String, Value)>,
+    /// The sounds scripts played that are playing.
+    pub(crate) sounds: std::collections::HashSet<u64>,
+    /// The last lines of the game, the newest last.
+    pub(crate) seen: std::collections::VecDeque<String>,
+    /// What is typed in the command line, if it may be told.
+    pub(crate) input: Option<String>,
+    /// Whether the player has the session in front; not known at first.
+    pub(crate) focused: Option<bool>,
     /// Who listens to what is sent is being told of it.
     pub(crate) passing: bool,
     /// How deep in script code the engine is: handlers of variables are

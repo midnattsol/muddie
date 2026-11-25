@@ -111,6 +111,8 @@ pub struct Tab {
     /// The line the triggers were last given, for those that show it in
     /// a panel.
     dispatched: Option<Line>,
+    /// What scripts fed as if the MUD had sent it, to be taken.
+    fed: Vec<String>,
     /// Shared with the script engine, which reads and edits it. No borrow
     /// may be held while calling into `scripts`.
     map: Rc<RefCell<Map>>,
@@ -351,6 +353,7 @@ impl Tab {
             layout: layout::Layout::default(),
             panels: layout::Panels::default(),
             dispatched: None,
+            fed: Vec::new(),
             map,
             map_view: MapView::default(),
             walk: None,
@@ -458,9 +461,11 @@ impl Tab {
         self.voice.hush_on_ctrl(ctx);
         let lines_before = self.output.total_pushed();
         self.tell_session(self.connection.is_some());
-        if self.handle_events() {
+        self.tell_scripts(on_screen && ctx.input(|input| input.focused));
+        if self.handle_events() || !self.fed.is_empty() {
             ctx.request_repaint();
         }
+        self.take_fed();
         let now = Instant::now();
         self.scripts.tick(now);
         self.run_actions();

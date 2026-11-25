@@ -153,6 +153,7 @@ impl UserData for Given {
                 });
             })
         });
+        add_link(methods);
         // In place of what matched. Whether it could: not over what another
         // trigger replaced.
         methods.add_method("replace", |_, line, text: Text| {
@@ -181,12 +182,41 @@ impl UserData for Given {
                 match strings.contains_key(name.as_str())? {
                     true => format!("there is no line:{name}: use line.text:{name}"),
                     false => format!(
-                        "there is no line.{name}; there are text, spans, prompt, hide, mute, read, replace, paint and to_panel"
+                        "there is no line.{name}; there are text, spans, prompt, hide, mute, read, replace, paint, link and to_panel"
                     ),
                 },
             ))
         });
     }
+}
+
+/// What matched sends a command when it is pressed, as one the MUD marks.
+/// Whether it could: not over what another trigger replaced.
+fn add_link<M: UserDataMethods<Given>>(methods: &mut M) {
+    methods.add_method(
+        "link",
+        |_, line, (command, options): (String, Option<Table>)| {
+            only(options.as_ref(), &["hint"])?;
+            let hint = match options {
+                Some(options) => options.get::<Option<String>>("hint")?,
+                None => None,
+            };
+            line.with("link", |looked| {
+                let Some(range) = looked.matched_now().filter(|range| !range.is_empty()) else {
+                    return false;
+                };
+                let links = &mut looked.line.links;
+                links.retain(|link| link.range.end <= range.start || link.range.start >= range.end);
+                links.push(muddie_core::LineLink {
+                    range,
+                    target: muddie_core::LinkTarget::Send(command),
+                    hint: hint.unwrap_or_default(),
+                    name: String::new(),
+                });
+                true
+            })
+        },
+    );
 }
 
 /// A line is not a text, where one is wanted.

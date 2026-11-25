@@ -4,11 +4,27 @@
 use super::*;
 
 /// What there is to ask of the session.
-const FIELDS: [&str; 5] = ["connected", "host", "profile", "reader", "separator"];
+const FIELDS: [&str; 7] = [
+    "connected",
+    "host",
+    "profile",
+    "reader",
+    "focused",
+    "separator",
+    "input",
+];
 
 pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     let session = super::group(lua, "session")?;
     install_completions(lua, state, &session)?;
+    let shared = Rc::clone(state);
+    session.set(
+        "feed",
+        lua.create_function(move |_, text: Text| {
+            shared.borrow_mut().actions.push(Action::Feed(text.0));
+            Ok(())
+        })?,
+    )?;
     let meta = lua.create_table()?;
     let shared = Rc::clone(state);
     meta.set(
@@ -23,6 +39,11 @@ pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()>
                     None => Value::Nil,
                 },
                 "reader" => Value::Boolean(state.screen_reader),
+                "focused" => Value::Boolean(state.focused.unwrap_or(false)),
+                "input" => match &state.input {
+                    Some(text) => Value::String(lua.create_string(text)?),
+                    None => Value::Nil,
+                },
                 "separator" => match &state.separator {
                     None => Value::String(lua.create_string(";")?),
                     Some((_, None)) => Value::Boolean(false),
@@ -30,7 +51,7 @@ pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()>
                 },
                 other => {
                     return Err(mlua::Error::runtime(format!(
-                        "there is no session.{other}; there are {} and completions",
+                        "there is no session.{other}; there are {} feed and completions",
                         FIELDS.join(", ")
                     )));
                 }
@@ -41,12 +62,13 @@ pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()>
     meta.set(
         "__newindex",
         lua.create_function(move |_, (_, field, value): (Table, String, Value)| {
-            if field != "separator" {
-                return Err(mlua::Error::runtime(format!(
+            match field.as_str() {
+                "separator" => set_separator(&shared, value),
+                "input" => set_input(&shared, &value),
+                _ => Err(mlua::Error::runtime(format!(
                     "session.{field} is asked for, not set"
-                )));
+                ))),
             }
-            set_separator(&shared, value)
         })?,
     )?;
     session.set_metatable(Some(meta))
@@ -75,6 +97,22 @@ fn install_completions(lua: &Lua, state: &Rc<RefCell<State>>, session: &Table) -
             Ok(())
         })?,
     )
+}
+
+/// Puts a text in the command line, unless what is typed there is not to be
+/// told.
+fn set_input(state: &Rc<RefCell<State>>, text: &Value) -> mlua::Result<()> {
+    let text = match text {
+        Value::Nil => String::new(),
+        Value::String(text) => text.to_str()?.to_owned(),
+        _ => return Err(mlua::Error::runtime("session.input is a text")),
+    };
+    let mut state = state.borrow_mut();
+    if state.input.is_some() {
+        state.input = Some(text.clone());
+        state.actions.push(Action::Input(text));
+    }
+    Ok(())
 }
 
 /// Sets what separates the commands typed on one line: a text; `false`, for

@@ -534,3 +534,47 @@ fn what_is_sent_goes_as_who_listens_leaves_it() {
     }
     assert_eq!(lines, ["NORTH", "told north", "LOOK", "told look", "ana"]);
 }
+
+/// What a script feeds is taken as what the MUD sends, and one that feeds
+/// itself does not stop the rest.
+#[test]
+fn what_a_script_feeds_is_taken_as_the_mud_s() {
+    let mut harness = window(None);
+    let app = harness.state_mut().tab_mut();
+    app.scripts.exec(
+        "t",
+        r#"trigger("^An (orc)", function(m, line) line:link("kill " .. m[1]) speak("seen") end)
+        trigger("^again$", function() session.feed("again") end)"#,
+    );
+    app.voice.said.clear();
+    app.scripts.exec(
+        "t",
+        r#"session.feed("\27[31mAn orc\27[0m attacks!\nIt hits you.") session.feed("again")"#,
+    );
+    app.run_actions();
+    harness.run_steps(3);
+    let app = harness.state_mut().tab_mut();
+    let lines = output_lines(app);
+    assert_eq!(lines[..2], ["An orc attacks!", "It hits you."]);
+    assert!(lines.len() > 3 && lines.len() < 20, "{lines:?}");
+    assert!(app.voice.said.contains(&"seen".to_owned()));
+    app.scripts.unload("t");
+    harness.run_steps(2);
+    let app = harness.state_mut().tab_mut();
+    // Told of what is typed, but not of a password.
+    app.scripts.exec("t", r#"session.input = "look" hush()"#);
+    let stopped = app.voice.stopped;
+    app.run_actions();
+    assert_eq!(
+        (app.input.as_str(), app.voice.stopped),
+        ("look", stopped + 1)
+    );
+    app.input_hidden = true;
+    app.scripts.exec("t", r#"session.input = "x""#);
+    app.run_actions();
+    assert_eq!(app.input, "look");
+    app.voice.away = true;
+    app.scripts.exec("t", "hush()");
+    app.run_actions();
+    assert_eq!(app.voice.stopped, stopped + 1);
+}

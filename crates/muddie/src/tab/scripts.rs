@@ -2,7 +2,7 @@
 //! and doing what they ask.
 
 use super::*;
-use muddie_script::{Aloud, Saying};
+use muddie_script::{Aloud, Playing, Saying};
 
 /// What the rules made in the interface are run as: one owner, to take
 /// them away together when they are run again.
@@ -292,11 +292,13 @@ impl Tab {
                 Action::PlaySound {
                     id,
                     file,
-                    volume,
-                    looped,
+                    how,
                     owner,
-                } => self.play_for_script(&file, volume, looped, (owner, id)),
+                } => self.play_for_script(&file, how, (owner, id)),
                 Action::StopSounds => self.sound.stop_all(),
+                Action::Hush => self.voice.hush(),
+                Action::Input(text) => self.input_from_script(text),
+                Action::Feed(text) => self.fed.push(text),
                 Action::StopSound(id) => self.stop_for_script(id),
                 Action::Log(text) => crate::debug::show(&self.title(), "LOG", &text),
                 Action::Error(message) => self.script_failed(message),
@@ -352,7 +354,7 @@ impl Tab {
     }
 
     /// Plays a sound as a script asked.
-    fn play_for_script(&mut self, file: &str, volume: f32, looped: bool, by: (String, u64)) {
+    fn play_for_script(&mut self, file: &str, how: Playing, by: (String, u64)) {
         let path = self.sound_file(file);
         // Known by the script that asked, to stop with it.
         let (owner, id) = by;
@@ -361,8 +363,16 @@ impl Tab {
             tag: script_sound(id),
             ..Default::default()
         };
-        let times = (!looped).then_some(1);
-        if let Err(error) = self.sound.play_as(&path, volume, times, label) {
+        let milliseconds = |seconds: f32| (seconds * 1000.0) as u32;
+        let options = muddie_sound::Options {
+            volume: how.volume,
+            times: (!how.looped).then_some(1),
+            start: milliseconds(how.start),
+            finish: how.finish.map(milliseconds),
+            fade_in: milliseconds(how.fade_in),
+            fade_out: milliseconds(how.fade_out),
+        };
+        if let Err(error) = self.sound.play_with(&path, options, label) {
             self.refuse(&trf("Could not play the sound: {0}", &[&error]));
         }
     }
@@ -371,6 +381,43 @@ impl Tab {
     fn stop_for_script(&mut self, id: u64) {
         let tag = script_sound(id);
         self.sound.stop_where(|label| label.tag == tag);
+    }
+
+    /// Puts what a script says in the command line, unless a password is
+    /// being typed there.
+    fn input_from_script(&mut self, text: String) {
+        if !self.typing_secret() {
+            self.input = text;
+            self.kept_input = None;
+            self.cursor_to_end = true;
+        }
+    }
+
+    /// Takes what scripts fed as if the MUD had sent it: what is fed
+    /// meanwhile, the next time, so that one that feeds itself does not
+    /// stop the rest.
+    pub(super) fn take_fed(&mut self) {
+        for text in std::mem::take(&mut self.fed) {
+            for line in panels::styled_lines(&text) {
+                self.on_line(line, false, false);
+            }
+        }
+    }
+
+    /// Tells the scripts what changes with no event of its own: what is
+    /// typed, who has the session in front, and which of their sounds are
+    /// playing.
+    pub(super) fn tell_scripts(&mut self, focused: bool) {
+        let typed = (!self.typing_secret()).then_some(self.input.as_str());
+        self.scripts.know_input(typed);
+        self.scripts.set_focused(focused);
+        if self.scripts.has_sounds() {
+            let sound = &self.sound;
+            (self.scripts).know_sounds(|id| {
+                let tag = script_sound(id);
+                sound.is_playing(|label| label.tag == tag)
+            });
+        }
     }
 
     /// Tells the scripts of the session, as it is now.

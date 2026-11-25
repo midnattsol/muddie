@@ -279,8 +279,11 @@ fn sounds_are_requested_with_their_options() {
     let sound = |id, file: &str, volume, looped| Action::PlaySound {
         id,
         file: file.into(),
-        volume,
-        looped,
+        how: crate::Playing {
+            volume,
+            looped,
+            ..Default::default()
+        },
         owner: "test".into(),
     };
     assert_eq!(

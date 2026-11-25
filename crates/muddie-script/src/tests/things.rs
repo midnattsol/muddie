@@ -38,7 +38,7 @@ fn everything_is_listened_to_with_one_function() {
     for (code, said) in [
         (
             r#"on("conect", function() end)"#,
-            "there is no conect to listen to; there are gmcp, msdp, var, gauge, channel, send, connect, disconnect, reader, panel, mxp",
+            "there is no conect to listen to; there are gmcp, msdp, var, gauge, channel, emit, send, connect, disconnect, focus, reader, panel, mxp",
         ),
         (
             r#"on("gmcp", function() end)"#,
@@ -151,4 +151,37 @@ fn a_sound_is_stopped_by_what_playing_it_gave() {
     };
     engine.exec("t", "rain:stop()");
     assert_eq!(engine.take_actions(), [Action::StopSound(id)]);
+}
+
+#[test]
+fn a_sound_is_played_in_part_and_asked_whether_it_plays() {
+    let mut engine = engine("");
+    engine.exec(
+        "t",
+        "rain = sounds.play('rain.ogg', {fade_in = 2, fade_out = 0.5, start = 1, finish = 9})",
+    );
+    let id = match engine.take_actions().remove(0) {
+        Action::PlaySound { id, how, .. } => {
+            assert_eq!((how.fade_in, how.fade_out), (2.0, 0.5));
+            assert_eq!((how.start, how.finish), (1.0, Some(9.0)));
+            id
+        }
+        other => panic!("{other:?}"),
+    };
+    let playing = |engine: &mut Engine| {
+        engine.exec("t", "echo(tostring(rain:playing()))");
+        engine.take_actions()
+    };
+    assert_eq!(playing(&mut engine), [Action::Echo("true".into())]);
+    engine.know_sounds(|known| known == id);
+    assert_eq!(playing(&mut engine), [Action::Echo("true".into())]);
+    engine.know_sounds(|_| false);
+    assert_eq!(playing(&mut engine), [Action::Echo("false".into())]);
+    for code in [
+        "sounds.play('x', {fade_in = -1})",
+        "sounds.play('x', {start = 0/0})",
+    ] {
+        engine.exec("t", code);
+        assert!(error_text(&engine.take_actions()).contains("is a number of seconds"));
+    }
 }

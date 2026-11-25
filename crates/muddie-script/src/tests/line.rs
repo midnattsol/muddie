@@ -254,3 +254,25 @@ fn what_gsub_returns_is_given_as_it_comes() {
         assert!(!matches!(action, Action::Error(_)), "{action:?}");
     }
 }
+
+/// What matched is made a link, in the line as it is shown, in place of one
+/// there was over it.
+#[test]
+fn a_part_of_a_line_is_made_a_link() {
+    let mut engine = engine(
+        r#"trigger("north", function(m, line) echo(tostring(line:link("n", {hint = "Go north"}))) end)
+        trigger("An", function(m, line) line:replace("A big") end)"#,
+    );
+    let mut line = Line::default();
+    "An exit north"
+        .chars()
+        .for_each(|ch| line.push(ch, Style::default()));
+    let shown = engine.on_styled_line(&line, false).unwrap();
+    assert_eq!(shown.text(), "A big exit north");
+    let link = &shown.links[0];
+    assert_eq!(&shown.text()[link.range.clone()], "north");
+    assert_eq!(link.target, muddie_core::LinkTarget::Send("n".into()));
+    assert_eq!((link.hint.as_str(), shown.links.len()), ("Go north", 1));
+    let again = engine.on_styled_line(&shown, false).unwrap();
+    assert_eq!(again.links.len(), 1);
+}

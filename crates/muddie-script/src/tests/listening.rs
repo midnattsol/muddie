@@ -89,3 +89,59 @@ fn who_listens_to_what_is_sent_stops_it_or_changes_it() {
             .contains("returns false, to send nothing")
     );
 }
+
+#[test]
+fn scripts_say_things_to_each_other() {
+    let mut engine = engine(
+        r#"on("emit", "fight", function(data, name) echo(`{name} {data.with}`) end)
+        on("emit", "fight/end", function() echo("end") end)
+        on("emit", "ping", function() emit("pong") end)
+        on("emit", "pong", function() emit("ping") end)"#,
+    );
+    engine.exec("other", r#"emit("fight", {with = "orc"}) echo("said")"#);
+    // Once the script that said it is done.
+    assert_eq!(said(&mut engine), ["said", "fight orc"]);
+    engine.exec("other", r#"emit("nobody") emit("fight/end")"#);
+    assert_eq!(said(&mut engine), ["end"]);
+    // Two that answer each other end.
+    engine.exec("other", r#"emit("ping")"#);
+    assert_eq!(said(&mut engine), [] as [String; 0]);
+    engine.exec("other", r#"on("emit", function() end)"#);
+    assert!(said(&mut engine)[0].contains("needs the name of what is said"));
+}
+
+#[test]
+fn what_is_in_front_and_typed_and_said_last_can_be_asked_for() {
+    let mut engine = engine(r#"on("focus", function(on) echo(`focus {on}`) end)"#);
+    let ask = r#"echo(`{session.focused} {session.input} {table.concat(output.last(2), "|")}`)"#;
+    assert_eq!(echoes(&mut engine, ask), ["false nil "]);
+    // As it starts is not news.
+    engine.set_focused(true);
+    engine.know_input(Some("kill"));
+    for line in ["one", "two", "three"] {
+        engine.know_line(line);
+    }
+    assert_eq!(echoes(&mut engine, ask), ["true kill two|three"]);
+    engine.set_focused(true);
+    engine.set_focused(false);
+    assert_eq!(said(&mut engine), ["focus false"]);
+    assert_eq!(echoes(&mut engine, "echo(output.last()[1])"), ["three"]);
+    // Set, it is at once.
+    engine.exec("t", r#"session.input = "say hi" echo(session.input)"#);
+    assert_eq!(
+        engine.take_actions(),
+        [
+            Action::Input("say hi".into()),
+            Action::Echo("say hi".into())
+        ]
+    );
+    // Not over a password, nor is one told.
+    engine.know_input(None);
+    engine.exec("t", r#"session.input = "x" echo(tostring(session.input))"#);
+    assert_eq!(engine.take_actions(), [Action::Echo("nil".into())]);
+    engine.exec("t", r#"hush() session.feed("An orc attacks!")"#);
+    assert_eq!(
+        engine.take_actions(),
+        [Action::Hush, Action::Feed("An orc attacks!".into())]
+    );
+}

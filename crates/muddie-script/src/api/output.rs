@@ -4,6 +4,7 @@ use super::*;
 
 pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     install_send(lua, state)?;
+    install_output(lua, state)?;
     install_saying(lua, state)
 }
 
@@ -24,6 +25,28 @@ fn install_send(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
         })?,
     )?;
     Ok(())
+}
+
+/// `output`, what the game said last, and `hush`.
+fn install_output(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
+    let output = super::group(lua, "output")?;
+    let shared = Rc::clone(state);
+    output.set(
+        "last",
+        lua.create_function(move |_, count: Option<usize>| {
+            let state = shared.borrow();
+            let from = state.seen.len().saturating_sub(count.unwrap_or(1));
+            Ok(state.seen.range(from..).cloned().collect::<Vec<String>>())
+        })?,
+    )?;
+    let shared = Rc::clone(state);
+    lua.globals().set(
+        "hush",
+        lua.create_function(move |_, ()| {
+            shared.borrow_mut().actions.push(Action::Hush);
+            Ok(())
+        })?,
+    )
 }
 
 /// `echo`, `notify`, `speak` and `log`: what a script shows and says.

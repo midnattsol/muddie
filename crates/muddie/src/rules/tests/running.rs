@@ -45,8 +45,7 @@ fn triggers_do_what_their_fields_say() {
             Action::PlaySound {
                 id,
                 file: "tell.ogg".into(),
-                volume: 1.0,
-                looped: false,
+                how: muddie_script::Playing::default(),
                 owner: "rules".into()
             },
         ]

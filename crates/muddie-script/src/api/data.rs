@@ -2,26 +2,36 @@
 
 use super::*;
 use crate::gauges::Levels;
-use crate::state::{CHANNELS, GAUGES};
+use crate::state::{CHANNELS, GAUGES, emit_key};
 
 pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     install_on(lua, state)?;
+    install_emit(lua, state)?;
     install_gmcp(lua, state)?;
     install_msdp(lua, state)?;
     install_mssp(lua, state)
 }
 
 /// What there is to listen to by a name of its own, and what that name is.
-const NAMED: [(&str, &str); 5] = [
+const NAMED: [(&str, &str); 6] = [
     ("gmcp", "a package"),
     ("msdp", "a variable"),
     ("var", "a variable"),
     ("gauge", "a gauge"),
     ("channel", "a channel"),
+    ("emit", "what is said"),
 ];
 
 /// What happens in the client that there is to listen to.
-const EVENTS: [&str; 6] = ["send", "connect", "disconnect", "reader", "panel", "mxp"];
+const EVENTS: [&str; 7] = [
+    "send",
+    "connect",
+    "disconnect",
+    "focus",
+    "reader",
+    "panel",
+    "mxp",
+];
 
 /// The key of what `what` and `name` say to listen to, as its data is kept.
 fn listened(what: &str, name: Option<&str>) -> mlua::Result<String> {
@@ -31,6 +41,7 @@ fn listened(what: &str, name: Option<&str>) -> mlua::Result<String> {
             "gmcp" => name.to_lowercase(),
             "msdp" => msdp_key(name),
             "gauge" => format!("{GAUGES}{name}"),
+            "emit" => emit_key(name),
             "channel" => format!("{CHANNELS}{}", name.trim().to_lowercase()),
             _ => var_key(name),
         }),
@@ -95,6 +106,19 @@ fn install_on(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
                 Ok(Made::new(id, &shared))
             },
         )?,
+    )
+}
+
+/// `emit(name, data)`: says something to the other scripts, which listen to
+/// it with `on("emit", name, ...)`.
+fn install_emit(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
+    let shared = Rc::clone(state);
+    lua.globals().set(
+        "emit",
+        lua.create_function(move |_, (name, data): (String, Value)| {
+            shared.borrow_mut().emitted.push((name, data));
+            Ok(())
+        })?,
     )
 }
 
