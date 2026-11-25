@@ -118,18 +118,7 @@ impl Tab {
             return (None, strip);
         };
         let id = ui.make_persistent_id(("dock", side as u8));
-        let (left, right, least) = match side {
-            Side::Left => (8, 4, 160.0),
-            Side::Right => (4, 8, 160.0),
-            // Room for the header and a row of gauges under it.
-            Side::Top | Side::Bottom => (8, 8, 92.0),
-        };
-        let around = egui::Frame::new().inner_margin(egui::Margin {
-            left,
-            right,
-            top: 4,
-            bottom: 4,
-        });
+        let (around, least) = side_frame(side);
         // With a screen reader the edge is only for the pointer, not one
         // more stop: the size is changed from Layout too.
         let reader = self.voice.screen_reader();
@@ -137,25 +126,41 @@ impl Tab {
         // The arrows move the edge while it has the keyboard.
         let handle = ui.scope_id().with(id).with("__resize");
         let resized = size_by_keys(ui, side, handle);
-        let strip = match side {
-            Side::Left => Panel::left(id),
-            Side::Right => Panel::right(id),
-            Side::Top => Panel::top(id),
-            Side::Bottom => Panel::bottom(id),
-        };
-        let strip = match reader {
-            true => strip.resizable(false).exact_size(size.max(least)),
-            false => strip.resizable(true).default_size(size).min_size(least),
-        };
+        let strip = side_panel(side, id, (size, least), reader);
         let shown = strip
             .frame(around)
             .show_separator_line(false)
             .show(ui, |ui| self.strip(ui, side, &members));
         let asked = shown.inner;
-        // The edge to drag is named for what it sizes, and described by
-        // its share of the window, in words: as a number a screen reader
-        // reads it as a fraction, and then as a share of how far it can
-        // move, which is two numbers that say little.
+        self.name_edge(ui, side, handle, (reader, resized));
+        // As it was left, to be the same the next time.
+        let rect = shown.response.rect;
+        let size = if side.is_beside() {
+            rect.width()
+        } else {
+            rect.height()
+        };
+        let size = match reader {
+            true => drag_edge(ui, side, rect, id),
+            false => size.round(),
+        };
+        for index in members {
+            self.layout.panels[index].size = size;
+        }
+        (asked, Some(rect))
+    }
+
+    /// Names the edge to drag for what it sizes, and describes it by its
+    /// share of the window, in words: as a number a screen reader reads it
+    /// as a fraction, and then as a share of how far it can move, which is
+    /// two numbers that say little. Says the share when `resized` by keys.
+    fn name_edge(
+        &mut self,
+        ui: &egui::Ui,
+        side: Side,
+        handle: egui::Id,
+        (reader, resized): (bool, bool),
+    ) {
         let mut share = None;
         let name_edge = |node: &mut egui::accesskit::Node| {
             node.set_label(side.size_label());
@@ -179,21 +184,6 @@ impl Tab {
         if let (true, Some(share)) = (resized, share) {
             self.voice.say_now(&share);
         }
-        // As it was left, to be the same the next time.
-        let rect = shown.response.rect;
-        let size = if side.is_beside() {
-            rect.width()
-        } else {
-            rect.height()
-        };
-        let size = match reader {
-            true => drag_edge(ui, side, rect, id),
-            false => size.round(),
-        };
-        for index in members {
-            self.layout.panels[index].size = size;
-        }
-        (asked, Some(rect))
     }
 
     /// The panels of one side, sharing its length by their weights, with
@@ -422,6 +412,74 @@ impl Tab {
         }
     }
 
+    /// Six dots: the panel can be taken by them and moved. Dragged, and not
+    /// a stop of the keyboard, which moves a panel from its menu, in
+    /// Layout. Returns whether it was taken.
+    fn drag_handle(&self, ui: &mut egui::Ui, name: &str, theme: &theme::Theme) -> bool {
+        let (grip, handle) = ui.allocate_exact_size(egui::vec2(12.0, 22.0), egui::Sense::DRAG);
+        let handle = handle.on_hover_cursor(egui::CursorIcon::Grab);
+        // Not a button: it is only dragged. The keyboard moves a
+        // panel from its menu, or in Layout.
+        handle.widget_info(|| {
+            egui::WidgetInfo::labeled(egui::Role::Image, true, trf("Move {0}", &[name]))
+        });
+        if self.voice.screen_reader() {
+            (ui.ctx()).accesskit_node_builder(handle.id, |node| node.set_hidden());
+        }
+        let dots = if handle.hovered() || handle.dragged() {
+            theme.text
+        } else {
+            theme.text_faint
+        };
+        for (column, row) in [(0, 0), (1, 0), (0, 1), (1, 1), (0, 2), (1, 2)] {
+            let dot =
+                grip.center() + egui::vec2(-2.5 + 5.0 * column as f32, -5.0 + 5.0 * row as f32);
+            ui.painter().circle_filled(dot, 1.2, dots);
+        }
+        handle.drag_started()
+    }
+
+    /// What follows the handle in a header: the field the panel is named
+    /// again in, the tabs of those that share its place, or its glyph and
+    /// name. Sets the panel on show.
+    fn header_title(
+        &mut self,
+        ui: &mut egui::Ui,
+        place: &[usize],
+        shown: &mut usize,
+        (name, theme): (&str, &theme::Theme),
+    ) {
+        let renaming = self.panels.renaming.as_ref().map(|(id, ..)| *id);
+        let renamed =
+            (place.iter().copied()).find(|&index| Some(self.layout.panels[index].id) == renaming);
+        if let Some(index) = renamed {
+            *shown = index;
+            self.rename_field(ui);
+        } else if place.len() > 1 {
+            *shown = self.tab_bar(ui, place);
+        } else {
+            let spec = &self.layout.panels[*shown];
+            let glyph = match spec.kind {
+                Kind::Map => widgets::Glyph::Map,
+                Kind::Gauges => widgets::Glyph::Gauge,
+                Kind::Text if spec.channels => widgets::Glyph::Channels,
+                Kind::Text => widgets::Glyph::Text,
+            };
+            ui.add_space(2.0);
+            widgets::glyph(ui, glyph, 11.5, theme.text_faint);
+            let caption = RichText::new(name)
+                .font(theme::font(Weight::Semibold, 12.5))
+                .color(theme.text_dim);
+            let id = spec.id;
+            // Named again with a double click, or Rename… in its menu.
+            let caption = panel_name(ui, caption, id, name);
+            self.panels.zones.push(caption.id);
+            if caption.double_clicked() {
+                self.rename_panel(id);
+            }
+        }
+    }
+
     /// The header every panel has: a handle to drag it to another place,
     /// its name, or the names of those that share its place as tabs; the
     /// tools of its kind, and its menu. Returns the panel on show.
@@ -438,61 +496,9 @@ impl Tab {
             &mut state,
             |(this, shown, dragged), ui| {
                 ui.set_min_height(24.0);
-                // Six dots: this can be taken and moved.
                 let name = this.layout.panels[**shown].shown_name();
-                // Dragged, and not a stop of the keyboard, which moves a
-                // panel from its menu, in Layout.
-                let (grip, handle) =
-                    ui.allocate_exact_size(egui::vec2(12.0, 22.0), egui::Sense::DRAG);
-                let handle = handle.on_hover_cursor(egui::CursorIcon::Grab);
-                // Not a button: it is only dragged. The keyboard moves a
-                // panel from its menu, or in Layout.
-                handle.widget_info(|| {
-                    egui::WidgetInfo::labeled(egui::Role::Image, true, trf("Move {0}", &[&name]))
-                });
-                if this.voice.screen_reader() {
-                    (ui.ctx()).accesskit_node_builder(handle.id, |node| node.set_hidden());
-                }
-                let dots = if handle.hovered() || handle.dragged() {
-                    theme.text
-                } else {
-                    theme.text_faint
-                };
-                for (column, row) in [(0, 0), (1, 0), (0, 1), (1, 1), (0, 2), (1, 2)] {
-                    let dot = grip.center()
-                        + egui::vec2(-2.5 + 5.0 * column as f32, -5.0 + 5.0 * row as f32);
-                    ui.painter().circle_filled(dot, 1.2, dots);
-                }
-                **dragged = handle.drag_started();
-                let renaming = this.panels.renaming.as_ref().map(|(id, ..)| *id);
-                let renamed = (place.iter().copied())
-                    .find(|&index| Some(this.layout.panels[index].id) == renaming);
-                if let Some(index) = renamed {
-                    **shown = index;
-                    this.rename_field(ui);
-                } else if place.len() > 1 {
-                    **shown = this.tab_bar(ui, place);
-                } else {
-                    let spec = &this.layout.panels[**shown];
-                    let glyph = match spec.kind {
-                        Kind::Map => widgets::Glyph::Map,
-                        Kind::Gauges => widgets::Glyph::Gauge,
-                        Kind::Text if spec.channels => widgets::Glyph::Channels,
-                        Kind::Text => widgets::Glyph::Text,
-                    };
-                    ui.add_space(2.0);
-                    widgets::glyph(ui, glyph, 11.5, theme.text_faint);
-                    let caption = RichText::new(name.as_str())
-                        .font(theme::font(Weight::Semibold, 12.5))
-                        .color(theme.text_dim);
-                    let id = spec.id;
-                    // Named again with a double click, or Rename… in its menu.
-                    let caption = panel_name(ui, caption, id, &name);
-                    this.panels.zones.push(caption.id);
-                    if caption.double_clicked() {
-                        this.rename_panel(id);
-                    }
-                }
+                **dragged = this.drag_handle(ui, &name, &theme);
+                this.header_title(ui, place, shown, (&name, &theme));
             },
             |(this, shown, _), ui| {
                 let kind = this.layout.panels[**shown].kind;
@@ -509,6 +515,38 @@ impl Tab {
         }
         ui.add_space(2.0);
         shown
+    }
+}
+
+/// The frame around the strip of a side, and the least size it has.
+fn side_frame(side: Side) -> (egui::Frame, f32) {
+    let (left, right, least) = match side {
+        Side::Left => (8, 4, 160.0),
+        Side::Right => (4, 8, 160.0),
+        // Room for the header and a row of gauges under it.
+        Side::Top | Side::Bottom => (8, 8, 92.0),
+    };
+    let around = egui::Frame::new().inner_margin(egui::Margin {
+        left,
+        right,
+        top: 4,
+        bottom: 4,
+    });
+    (around, least)
+}
+
+/// The panel of a side: of a fixed size with a screen reader, else to
+/// resize from the size it had.
+fn side_panel(side: Side, id: egui::Id, (size, least): (f32, f32), reader: bool) -> Panel {
+    let strip = match side {
+        Side::Left => Panel::left(id),
+        Side::Right => Panel::right(id),
+        Side::Top => Panel::top(id),
+        Side::Bottom => Panel::bottom(id),
+    };
+    match reader {
+        true => strip.resizable(false).exact_size(size.max(least)),
+        false => strip.resizable(true).default_size(size).min_size(least),
     }
 }
 
