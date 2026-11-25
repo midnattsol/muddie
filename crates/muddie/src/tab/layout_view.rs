@@ -205,139 +205,67 @@ impl Tab {
             .cloned()
             .collect();
         let place = beside.iter().position(|other| other.id == id).unwrap_or(0);
-        let mut name = match &self.layout_view.naming {
+        let name = match &self.layout_view.naming {
             Some((naming, typed)) if *naming == id => typed.clone(),
             _ => panel.name.clone(),
         };
-        let (mut visible, mut side) = (panel.visible, panel.side);
-        let (mut named, mut typing) = (false, false);
+        let was_away = self.layout.collapsed.contains(&panel.side);
+        let mut edit = PanelEdit {
+            name,
+            visible: panel.visible,
+            side: panel.side,
+            named: false,
+            typing: false,
+            away: was_away,
+            size: panel.size,
+            sharing: (beside.iter())
+                .find(|other| other.id != id && panel.stack != 0 && other.stack == panel.stack)
+                .map_or(0, |other| other.id),
+            channels: panel.channels,
+            moved: None,
+            edit_gauges: false,
+            remove: false,
+        };
         // Escape, as it was pressed before anything on the page took it.
         let escape = self.layout_view.escape;
-        let was_away = self.layout.collapsed.contains(&panel.side);
-        let mut away = was_away;
-        let mut size = panel.size;
-        let mut sharing = (beside.iter())
-            .find(|other| other.id != id && panel.stack != 0 && other.stack == panel.stack)
-            .map_or(0, |other| other.id);
-        let (mut channels, mut moved, mut edit_gauges, mut remove) =
-            (panel.channels, None, false, false);
         let shown = panel.shown_name();
         let title = match shown == kind_name(panel.kind) {
             true => shown,
             false => format!("{shown} · {}", kind_name(panel.kind)),
         };
         widgets::section(ui, &title, |ui| {
-            widgets::setting_row(ui, tr("Name"), None, &mut |ui| {
-                let field = widgets::row_field(ui, &mut name, tr("Name"), 220.0);
-                typing = field.has_focus() || field.lost_focus();
-                // Given on leaving the field, as in the panel's header;
-                // Escape keeps the name it had.
-                if field.lost_focus() {
-                    match escape {
-                        true => name = panel.name.clone(),
-                        false => named = true,
-                    }
-                }
-                field
-            });
-            widgets::switch_setting(ui, &mut visible, tr("Shown"), None);
-            widgets::switch_setting(
-                ui,
-                &mut away,
-                tr("Its side collapsed"),
-                Some(tr(
-                    "The whole side is kept as a thin strip, to expand as it was.",
-                )),
-            );
-            let sides: Vec<(Side, String)> = SIDES
-                .iter()
-                .map(|side| (*side, side_name(*side).to_owned()))
-                .collect();
-            widgets::setting_row(ui, tr("Side"), None, &mut |ui| {
-                widgets::choose(ui, "layout side", &mut side, &sides, |side| {
-                    side_name(side).to_owned()
-                })
-            });
-            let mut at = place;
-            let places: Vec<(usize, String)> = (0..beside.len())
-                .map(|at| {
-                    (
-                        at,
-                        trf(
-                            "{0} of {1}",
-                            &[&(at + 1).to_string(), &beside.len().to_string()],
-                        ),
-                    )
-                })
-                .collect();
-            widgets::setting_row(ui, tr("Place on its side"), None, &mut |ui| {
-                widgets::choose(ui, "layout place", &mut at, &places, |at| {
-                    (at + 1).to_string()
-                })
-            });
-            if at != place {
-                moved = Some(at);
-            }
-            let measure = match side {
-                Side::Left | Side::Right => tr("Width"),
-                Side::Top | Side::Bottom => tr("Height"),
-            };
-            widgets::setting_row(
-                ui,
-                measure,
-                Some(tr("The same for every panel of its side.")),
-                &mut |ui| {
-                    ui.add(
-                        widgets::number(&mut size)
-                            .range(80.0..=1600.0)
-                            .speed(2.0)
-                            .suffix(" pt"),
-                    )
-                },
-            );
-            let mut others: Vec<(u32, String)> = vec![(0, tr("None").to_owned())];
-            others.extend(
-                (beside.iter())
-                    .filter(|other| other.id != id)
-                    .map(|other| (other.id, other.shown_name())),
-            );
-            widgets::setting_row(
-                ui,
-                tr("A tab with"),
-                Some(tr(
-                    "Panels that share a place show their names as tabs, to choose between them.",
-                )),
-                &mut |ui| {
-                    widgets::choose(ui, "layout tabs", &mut sharing, &others, |_| {
-                        tr("None").to_owned()
-                    })
-                },
-            );
-            match panel.kind {
-                layout::Kind::Text => drop(widgets::switch_setting(
-                    ui,
-                    &mut channels,
-                    tr("Show the MUD's channels here"),
-                    None,
-                )),
-                layout::Kind::Gauges => {
-                    let edit = widgets::setting_row(ui, tr("Gauges"), None, &mut |ui| {
-                        widgets::button(ui, tr("Edit the gauges"))
-                    });
-                    edit_gauges = edit.clicked();
-                }
-                layout::Kind::Map => {}
-            }
-            let gone = widgets::setting_row(
-                ui,
-                tr("Remove"),
-                Some(tr("What it shows is lost with it.")),
-                &mut |ui| widgets::quiet_button(ui, tr("Remove this panel")),
-            );
-            remove = gone.clicked();
+            edit.name_rows(ui, &panel, escape);
+            edit.place_rows(ui, &beside, place);
+            edit.tab_and_kind_rows(ui, &beside, &panel);
         });
+        self.put_detail_in_place(id, &panel, &beside, (place, was_away), edit);
+    }
+
+    /// Puts what was changed in the details of a panel in place, now that
+    /// nothing is borrowed.
+    fn put_detail_in_place(
+        &mut self,
+        id: u32,
+        panel: &PanelSpec,
+        beside: &[PanelSpec],
+        (place, was_away): (usize, bool),
+        edit: PanelEdit,
+    ) {
+        let PanelEdit {
+            name,
+            visible,
+            side,
+            named,
+            typing,
+            away,
+            size,
+            sharing,
+            channels,
+            moved,
+            edit_gauges,
+            remove,
+        } = edit;
         self.layout_view.typing = typing;
-        // What was changed, put in place now that nothing is borrowed.
         // Given once typed, as in the panel's header.
         if named {
             self.layout_view.naming = None;
@@ -383,6 +311,151 @@ impl Tab {
             // What had the keyboard is gone: it goes back to the list.
             self.layout_view.focus = true;
         }
+    }
+}
+
+/// What the details of a panel have been changed to while they were
+/// shown, put in place after: the same as the panel's own until changed.
+struct PanelEdit {
+    name: String,
+    visible: bool,
+    side: Side,
+    /// The name was given, by leaving its field.
+    named: bool,
+    /// The name's field had the keyboard.
+    typing: bool,
+    /// Whether its side is collapsed.
+    away: bool,
+    size: f32,
+    /// The panel it shares a place with, or none.
+    sharing: u32,
+    channels: bool,
+    /// The place on its side it was moved to.
+    moved: Option<usize>,
+    edit_gauges: bool,
+    remove: bool,
+}
+
+impl PanelEdit {
+    /// The rows of its name, whether it is shown, and its side collapsed.
+    fn name_rows(&mut self, ui: &mut egui::Ui, panel: &PanelSpec, escape: bool) {
+        widgets::setting_row(ui, tr("Name"), None, &mut |ui| {
+            let field = widgets::row_field(ui, &mut self.name, tr("Name"), 220.0);
+            self.typing = field.has_focus() || field.lost_focus();
+            // Given on leaving the field, as in the panel's header;
+            // Escape keeps the name it had.
+            if field.lost_focus() {
+                match escape {
+                    true => self.name = panel.name.clone(),
+                    false => self.named = true,
+                }
+            }
+            field
+        });
+        widgets::switch_setting(ui, &mut self.visible, tr("Shown"), None);
+        widgets::switch_setting(
+            ui,
+            &mut self.away,
+            tr("Its side collapsed"),
+            Some(tr(
+                "The whole side is kept as a thin strip, to expand as it was.",
+            )),
+        );
+    }
+
+    /// The rows of its side, its place there, and its size.
+    fn place_rows(&mut self, ui: &mut egui::Ui, beside: &[PanelSpec], place: usize) {
+        let sides: Vec<(Side, String)> = SIDES
+            .iter()
+            .map(|side| (*side, side_name(*side).to_owned()))
+            .collect();
+        widgets::setting_row(ui, tr("Side"), None, &mut |ui| {
+            widgets::choose(ui, "layout side", &mut self.side, &sides, |side| {
+                side_name(side).to_owned()
+            })
+        });
+        let mut at = place;
+        let places: Vec<(usize, String)> = (0..beside.len())
+            .map(|at| {
+                (
+                    at,
+                    trf(
+                        "{0} of {1}",
+                        &[&(at + 1).to_string(), &beside.len().to_string()],
+                    ),
+                )
+            })
+            .collect();
+        widgets::setting_row(ui, tr("Place on its side"), None, &mut |ui| {
+            widgets::choose(ui, "layout place", &mut at, &places, |at| {
+                (at + 1).to_string()
+            })
+        });
+        if at != place {
+            self.moved = Some(at);
+        }
+        let measure = match self.side {
+            Side::Left | Side::Right => tr("Width"),
+            Side::Top | Side::Bottom => tr("Height"),
+        };
+        widgets::setting_row(
+            ui,
+            measure,
+            Some(tr("The same for every panel of its side.")),
+            &mut |ui| {
+                ui.add(
+                    widgets::number(&mut self.size)
+                        .range(80.0..=1600.0)
+                        .speed(2.0)
+                        .suffix(" pt"),
+                )
+            },
+        );
+    }
+
+    /// The rows of the panel it shares a place with, what goes with its
+    /// kind, and removing it.
+    fn tab_and_kind_rows(&mut self, ui: &mut egui::Ui, beside: &[PanelSpec], panel: &PanelSpec) {
+        let mut others: Vec<(u32, String)> = vec![(0, tr("None").to_owned())];
+        others.extend(
+            (beside.iter())
+                .filter(|other| other.id != panel.id)
+                .map(|other| (other.id, other.shown_name())),
+        );
+        widgets::setting_row(
+            ui,
+            tr("A tab with"),
+            Some(tr(
+                "Panels that share a place show their names as tabs, to choose between them.",
+            )),
+            &mut |ui| {
+                widgets::choose(ui, "layout tabs", &mut self.sharing, &others, |_| {
+                    tr("None").to_owned()
+                })
+            },
+        );
+        match panel.kind {
+            layout::Kind::Text => drop(widgets::switch_setting(
+                ui,
+                &mut self.channels,
+                tr("Show the MUD's channels here"),
+                None,
+            )),
+            layout::Kind::Gauges => {
+                let edit = widgets::setting_row(ui, tr("Gauges"), None, &mut |ui| {
+                    widgets::button(ui, tr("Edit the gauges"))
+                });
+                self.edit_gauges = edit.clicked();
+            }
+            layout::Kind::Map => {}
+        }
+        let gone = widgets::setting_row(
+            ui,
+            tr("Remove"),
+            Some(tr("What it shows is lost with it.")),
+            &mut |ui| widgets::quiet_button(ui, tr("Remove this panel")),
+        );
+        self.remove = gone.clicked();
     }
 }
 
