@@ -236,10 +236,7 @@ impl Tab {
             match action {
                 Action::Send(text) => self.send(text),
                 Action::Echo(text) => text.lines().for_each(|line| self.echo(line)),
-                Action::Speak { text, interrupt } => match interrupt {
-                    true => self.voice.say_now(&text),
-                    false => self.voice.say(&text),
-                },
+                Action::Speak { text, interrupt } => self.voice.say_for_script(&text, interrupt),
                 Action::Gmcp { package, data } => self.tell_server(Command::Gmcp { package, data }),
                 Action::Msdp { variable, values } => {
                     self.tell_server(Command::Msdp { variable, values })

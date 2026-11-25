@@ -124,6 +124,24 @@ fn a_silenced_prompt_is_not_read_when_data_comes_after_it() {
     assert_eq!(harness.state().tab().voice.said[1..], ["Name:"]);
 }
 
+/// What a script says is of the game: not said while the game is not read.
+#[test]
+fn a_script_says_nothing_while_the_game_is_not_read() {
+    let mut harness = window(None);
+    let app = harness.state_mut().tab_mut();
+    app.voice.said.clear();
+    let say = |app: &mut Tab| {
+        app.scripts
+            .exec("test", r#"speak("one") speak("two", {interrupt = true})"#);
+        app.run_actions();
+    };
+    say(app);
+    assert_eq!(app.voice.said, ["one", "two"]);
+    app.voice.set_muted(true);
+    say(app);
+    assert_eq!(app.voice.said, ["one", "two"]);
+}
+
 #[test]
 fn client_commands_are_carried_out_and_the_rest_is_the_mud_s() {
     let mut harness = window(None);

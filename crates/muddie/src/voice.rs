@@ -226,6 +226,14 @@ impl Voice {
         self.speak(text, true);
     }
 
+    /// Says what a script says, unless the game is not read: it speaks for
+    /// the game.
+    pub fn say_for_script(&mut self, text: &str, interrupt: bool) {
+        if !self.muted {
+            self.speak(text, interrupt);
+        }
+    }
+
     fn speak(&mut self, text: &str, interrupt: bool) {
         #[cfg(test)]
         if self.wanted().is_some() {
