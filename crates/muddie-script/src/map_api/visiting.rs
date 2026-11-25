@@ -9,6 +9,18 @@ pub(super) fn install_visiting(
     map: &Rc<RefCell<Map>>,
     api: &Table,
 ) -> mlua::Result<()> {
+    install_entering(lua, state, map, api)?;
+    install_following(lua, state, map, api)?;
+    install_teaching(lua, state, map, api)
+}
+
+/// Entering a room: visited, arrived at as the server shows it, or added.
+fn install_entering(
+    lua: &Lua,
+    state: &Rc<RefCell<State>>,
+    map: &Rc<RefCell<Map>>,
+    api: &Table,
+) -> mlua::Result<()> {
     let (shared, world) = (Rc::clone(state), Rc::clone(map));
     api.set(
         "visit",
@@ -69,7 +81,17 @@ pub(super) fn install_visiting(
             Ok((id, said))
         })?,
     )?;
+    Ok(())
+}
 
+/// Following the player: the language, learning, the rooms they may be in,
+/// and putting them in one.
+fn install_following(
+    lua: &Lua,
+    state: &Rc<RefCell<State>>,
+    map: &Rc<RefCell<Map>>,
+    api: &Table,
+) -> mlua::Result<()> {
     let shared = Rc::clone(state);
     api.set(
         "language",
@@ -109,7 +131,16 @@ pub(super) fn install_visiting(
             Ok(found)
         })?,
     )?;
+    Ok(())
+}
 
+/// Teaching the map the words of the MUD, and setting a room.
+fn install_teaching(
+    lua: &Lua,
+    state: &Rc<RefCell<State>>,
+    map: &Rc<RefCell<Map>>,
+    api: &Table,
+) -> mlua::Result<()> {
     let (shared, world) = (Rc::clone(state), Rc::clone(map));
     api.set(
         "directions",

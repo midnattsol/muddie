@@ -286,6 +286,11 @@ pub(super) fn install_exits(lua: &Lua, map: &Rc<RefCell<Map>>, api: &Table) -> m
         })?,
     )?;
 
+    install_tidying(lua, map, api)
+}
+
+/// Tidying an area, undoing a change, and removing exits.
+fn install_tidying(lua: &Lua, map: &Rc<RefCell<Map>>, api: &Table) -> mlua::Result<()> {
     let world = Rc::clone(map);
     api.set(
         "tidy",
