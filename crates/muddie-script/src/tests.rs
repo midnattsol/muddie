@@ -7,6 +7,7 @@ mod loading;
 mod map;
 mod rules;
 mod sandbox;
+mod things;
 
 fn engine(code: &str) -> Engine {
     let mut engine = Engine::new(Rc::default()).unwrap();
