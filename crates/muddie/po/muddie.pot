@@ -112,6 +112,26 @@ msgid "Could not save the settings: {0}"
 msgstr ""
 
 #, python-brace-format
+msgid "Could not save the profile in {0}: {1}"
+msgstr ""
+
+#, python-brace-format
+msgid "Could not rename the profile: {0}"
+msgstr ""
+
+#, python-brace-format
+msgid "Could not copy the profile: {0}"
+msgstr ""
+
+#, python-brace-format
+msgid "Could not delete the profile: {0}"
+msgstr ""
+
+#, python-brace-format
+msgid "There is a profile called {0} already."
+msgstr ""
+
+#, python-brace-format
 msgid "to the {0}"
 msgstr ""
 
@@ -3032,25 +3052,5 @@ msgid "Downloaded from a git repository."
 msgstr ""
 
 msgid "A profile name may only have letters, digits, spaces, - and _."
-msgstr ""
-
-#, python-brace-format
-msgid "Could not save the profile in {0}: {1}"
-msgstr ""
-
-#, python-brace-format
-msgid "Could not rename the profile: {0}"
-msgstr ""
-
-#, python-brace-format
-msgid "Could not copy the profile: {0}"
-msgstr ""
-
-#, python-brace-format
-msgid "Could not delete the profile: {0}"
-msgstr ""
-
-#, python-brace-format
-msgid "There is a profile called {0} already."
 msgstr ""
 
