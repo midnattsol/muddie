@@ -77,67 +77,45 @@ impl Tab {
         ui.add_space(2.0);
         let carrying = self.carrying();
         for name in names {
-            let chosen = (self.editor.tag_filter.as_deref())
-                .is_some_and(|chosen| tag_key(chosen) == tag_key(&name));
-            let mut on = self.editor.draft.tag_on(&name);
-            let (rect, row) = ui
-                .allocate_exact_size(egui::vec2(ui.available_width(), 34.0), egui::Sense::click());
-            row.widget_info(|| {
-                egui::WidgetInfo::selected(egui::Role::Tab, true, chosen, name.as_str())
-            });
-            let fill = match (chosen, row.hovered()) {
-                (true, _) => theme.raised,
-                (false, true) => theme.raised.gamma_multiply(0.6),
-                (false, false) => egui::Color32::TRANSPARENT,
-            };
-            ui.painter()
-                .rect_filled(rect, egui::CornerRadius::same(7), fill);
-            let text = ui
-                .painter()
-                .with_clip_rect(rect.with_max_x(rect.right() - 76.0));
-            let colour = match (chosen, on) {
-                (true, _) => theme.text,
-                (false, true) => theme.text_dim,
-                (false, false) => theme.text_faint,
-            };
-            // Its colour, as its chips have it.
-            let dot = widgets::tag_colour(&name).gamma_multiply(if on { 1.0 } else { 0.4 });
-            ui.painter()
-                .circle_filled(rect.left_center() + egui::vec2(16.0, 0.0), 3.5, dot);
-            text.text(
-                rect.left_center() + egui::vec2(28.0, 0.0),
-                egui::Align2::LEFT_CENTER,
-                &name,
-                theme::font(Weight::Regular, 13.5),
-                colour,
-            );
-            ui.painter().text(
-                rect.right_center() - egui::vec2(48.0, 0.0),
-                egui::Align2::RIGHT_CENTER,
-                carrying
-                    .get(&tag_key(&name))
-                    .copied()
-                    .unwrap_or(0)
-                    .to_string(),
-                theme::font(Weight::Regular, 12.0),
-                theme.text_faint,
-            );
-            if row.clicked() {
-                self.editor.tag_filter = (!chosen).then(|| name.clone());
-            }
-            // The switch, over the right end of the row.
-            let place = egui::Rect::from_center_size(
-                rect.right_center() - egui::vec2(21.0, 0.0),
-                egui::vec2(30.0, 17.0),
-            );
-            let mut slot = ui.new_child(
-                egui::UiBuilder::new()
-                    .id_salt(("tag switch", name.as_str()))
-                    .max_rect(place),
-            );
-            if widgets::small_switch(&mut slot, &mut on, &name).changed() {
-                self.editor.draft.set_tag_on(&name, on);
-            }
+            self.tag_row(ui, name, &carrying, &theme);
+        }
+    }
+
+    /// A tag's row: its colour, its name, how many things carry it and its
+    /// switch, which is saved. Clicking it narrows every list to what
+    /// carries it, or back to all.
+    fn tag_row(
+        &mut self,
+        ui: &mut egui::Ui,
+        name: String,
+        carrying: &std::collections::HashMap<String, usize>,
+        theme: &theme::Theme,
+    ) {
+        let chosen = (self.editor.tag_filter.as_deref())
+            .is_some_and(|chosen| tag_key(chosen) == tag_key(&name));
+        let mut on = self.editor.draft.tag_on(&name);
+        let (rect, row) =
+            ui.allocate_exact_size(egui::vec2(ui.available_width(), 34.0), egui::Sense::click());
+        row.widget_info(|| {
+            egui::WidgetInfo::selected(egui::Role::Tab, true, chosen, name.as_str())
+        });
+        let count = carrying.get(&tag_key(&name)).copied().unwrap_or(0);
+        paint_tag(ui, (rect, &row), &name, (chosen, on), count, theme);
+        if row.clicked() {
+            self.editor.tag_filter = (!chosen).then(|| name.clone());
+        }
+        // The switch, over the right end of the row.
+        let place = egui::Rect::from_center_size(
+            rect.right_center() - egui::vec2(21.0, 0.0),
+            egui::vec2(30.0, 17.0),
+        );
+        let mut slot = ui.new_child(
+            egui::UiBuilder::new()
+                .id_salt(("tag switch", name.as_str()))
+                .max_rect(place),
+        );
+        if widgets::small_switch(&mut slot, &mut on, &name).changed() {
+            self.editor.draft.set_tag_on(&name, on);
         }
     }
 
@@ -229,4 +207,50 @@ fn filing_line(ui: &mut egui::Ui, label: &str, control: impl FnOnce(&mut egui::U
 /// The folder a place is in, for a script.
 pub(in crate::tab) fn folder_of(place: &str) -> String {
     parent_of(place).to_owned()
+}
+
+/// The row of a tag as it is drawn: filled when chosen or hovered, with
+/// its colour, its name, and how many things carry it.
+fn paint_tag(
+    ui: &mut egui::Ui,
+    place: (egui::Rect, &egui::Response),
+    name: &str,
+    state: (bool, bool),
+    count: usize,
+    theme: &theme::Theme,
+) {
+    let ((rect, row), (chosen, on)) = (place, state);
+    let fill = match (chosen, row.hovered()) {
+        (true, _) => theme.raised,
+        (false, true) => theme.raised.gamma_multiply(0.6),
+        (false, false) => egui::Color32::TRANSPARENT,
+    };
+    ui.painter()
+        .rect_filled(rect, egui::CornerRadius::same(7), fill);
+    let text = ui
+        .painter()
+        .with_clip_rect(rect.with_max_x(rect.right() - 76.0));
+    let colour = match (chosen, on) {
+        (true, _) => theme.text,
+        (false, true) => theme.text_dim,
+        (false, false) => theme.text_faint,
+    };
+    // Its colour, as its chips have it.
+    let dot = widgets::tag_colour(name).gamma_multiply(if on { 1.0 } else { 0.4 });
+    ui.painter()
+        .circle_filled(rect.left_center() + egui::vec2(16.0, 0.0), 3.5, dot);
+    text.text(
+        rect.left_center() + egui::vec2(28.0, 0.0),
+        egui::Align2::LEFT_CENTER,
+        name,
+        theme::font(Weight::Regular, 13.5),
+        colour,
+    );
+    ui.painter().text(
+        rect.right_center() - egui::vec2(48.0, 0.0),
+        egui::Align2::RIGHT_CENTER,
+        count.to_string(),
+        theme::font(Weight::Regular, 12.0),
+        theme.text_faint,
+    );
 }
