@@ -5,6 +5,48 @@
 
 use super::*;
 use crate::plugins::Plugin;
+use crate::rules::Rules;
+use std::collections::BTreeMap;
+use std::path::Path;
+
+/// What a plugin installed in a profile, to tell later what of it was
+/// changed since, and to take away what it no longer has.
+#[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+pub(super) struct Installed {
+    /// A mark of each of its scripts as it was written, by its file's name.
+    scripts: BTreeMap<String, String>,
+    /// Its rules, each by its kind and its place.
+    rules: Vec<(Kind, String)>,
+}
+
+impl Installed {
+    /// What `plugin` installs: its scripts as they are in `folder`, and the
+    /// rules it brings.
+    pub(super) fn of(plugin: &Plugin, folder: &Path, rules: &Rules) -> Self {
+        Self {
+            scripts: (plugin.scripts.iter())
+                .map(|(name, _)| (name.clone(), mark_of(&folder.join(name))))
+                .collect(),
+            rules: rules.brought(),
+        }
+    }
+
+    /// The mark a profile keeps of it, with what the plugin was then.
+    pub(super) fn mark(&self, plugin: &Plugin) -> String {
+        let said = serde_json::to_string(self).unwrap_or_default();
+        format!("{}:{said}", plugin.fingerprint())
+    }
+
+    /// What a mark says: what the plugin was then, and what it installed,
+    /// if that was noted.
+    fn read(mark: &str) -> (&str, Option<Self>) {
+        match mark.split_once(':') {
+            Some((made, said)) => (made, serde_json::from_str(said).ok()),
+            None => (mark, None),
+        }
+    }
+}
 
 impl Tab {
     /// Installs the plugins that are switched on and not installed yet, as
@@ -27,17 +69,14 @@ impl Tab {
                 installed |= self.install_plugin_files(&plugin, false);
                 continue;
             };
-            let (made, written) = match mark.split_once(':') {
-                Some((made, written)) => (made, Some(written)),
-                None => (mark.as_str(), None),
-            };
+            let (made, before) = Installed::read(&mark);
             if made == plugin.fingerprint() || self.is_connected() {
                 continue;
             }
             // Another version than the one installed: installed again, as
             // it comes. Scripts of it changed since it was installed, or not
             // known to be as they were, are kept beside, so nothing is lost.
-            kept |= self.keep_changed_scripts(&plugin, written);
+            kept |= self.keep_changed_scripts(&plugin, before.as_ref());
             if self.install_plugin_files(&plugin, true) {
                 installed = true;
                 updated.push(plugin.shown_name());
@@ -59,27 +98,73 @@ impl Tab {
     }
 
     /// Keeps a copy of each script of `plugin` in the profile that is not
-    /// as it was installed (`written`, a mark of them then; none, not
-    /// known) and not as the plugin has it now. Returns whether any was.
-    fn keep_changed_scripts(&mut self, plugin: &Plugin, written: Option<&str>) -> bool {
+    /// as it was installed `before`, or not known to be, and not as the
+    /// plugin has it now. Returns whether any was.
+    fn keep_changed_scripts(&mut self, plugin: &Plugin, before: Option<&Installed>) -> bool {
         let Some(folder) = self.own_scripts_dir().map(|dir| dir.join(plugin.folder())) else {
             return false;
         };
-        if written == Some(scripts_mark(plugin, &folder).as_str()) {
-            return false;
-        }
         let mut kept = false;
         for (name, code) in &plugin.scripts {
             let path = folder.join(name);
-            let Ok(now) = std::fs::read_to_string(&path) else {
-                continue;
-            };
-            if now != *code {
-                let copy = folder.join(format!("{name}.before-update"));
-                kept |= std::fs::write(copy, now).is_ok();
+            let as_it_was = before
+                .and_then(|before| before.scripts.get(name))
+                .is_some_and(|mark| *mark == mark_of(&path));
+            match std::fs::read_to_string(&path) {
+                Ok(now) if !as_it_was && now != *code => {
+                    kept |= std::fs::write(put_aside(&path), now).is_ok();
+                }
+                _ => {}
             }
         }
         kept
+    }
+
+    /// Takes away what `plugin` installed before and no longer has, of its
+    /// scripts and of `rules`. A script changed since, or not known to be
+    /// as it was, is put aside: of what was installed with nothing noted,
+    /// all that is in its folder. What the player added stays.
+    pub(super) fn clear_before(&mut self, plugin: &Plugin, folder: &Path, rules: &Rules) {
+        let Some(mark) = self.plugins_installed.get(&plugin.id).cloned() else {
+            return;
+        };
+        let before = Installed::read(&mark).1;
+        let names: Vec<String> = match &before {
+            Some(before) => before.scripts.keys().cloned().collect(),
+            None => scripts_in(folder),
+        };
+        let mut kept = false;
+        for name in names {
+            let path = folder.join(&name);
+            let now = plugin.scripts.iter().any(|(script, _)| *script == name);
+            if now || !path.is_file() {
+                continue;
+            }
+            self.scripts.unload_file(&path);
+            let as_it_was = before
+                .as_ref()
+                .is_some_and(|before| before.scripts.get(&name) == Some(&mark_of(&path)));
+            let gone = match as_it_was {
+                true => std::fs::remove_file(&path),
+                false => std::fs::rename(&path, put_aside(&path)),
+            };
+            kept |= gone.is_ok() && !as_it_was;
+            if let Err(error) = gone {
+                self.refuse(&trf(
+                    "{0} could not be installed: {1}",
+                    &[&plugin.shown_name(), &error.to_string()],
+                ));
+            }
+        }
+        if kept {
+            self.say_changes_kept();
+        }
+        let now = rules.brought();
+        let mut gone = before.map(|before| before.rules).unwrap_or_default();
+        gone.retain(|rule| !now.contains(rule));
+        if !gone.is_empty() {
+            self.change_rules(|rules| rules.take_out(&gone));
+        }
     }
 
     /// A plugin from git was brought up to date: installed again where it
@@ -88,8 +173,8 @@ impl Tab {
         let Some(mark) = self.plugins_installed.get(&plugin.id).cloned() else {
             return;
         };
-        let written = mark.split_once(':').map(|(_, written)| written);
-        if self.keep_changed_scripts(plugin, written) {
+        let before = Installed::read(&mark).1;
+        if self.keep_changed_scripts(plugin, before.as_ref()) {
             self.say_changes_kept();
         }
         self.install_plugin_again(plugin);
@@ -110,15 +195,28 @@ impl Tab {
     }
 }
 
-/// A mark of the scripts of `plugin` as they are in `folder`: FNV-1a, the
-/// same on every build, as [`Plugin::fingerprint`].
-pub(super) fn scripts_mark(plugin: &Plugin, folder: &std::path::Path) -> String {
+/// A mark of a script as it is written: FNV-1a, the same on every build, as
+/// [`Plugin::fingerprint`].
+fn mark_of(path: &Path) -> String {
     let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
-    for (name, _) in &plugin.scripts {
-        let code = std::fs::read(folder.join(name)).unwrap_or_default();
-        for byte in name.bytes().chain([0]).chain(code).chain([0]) {
-            hash = (hash ^ u64::from(byte)).wrapping_mul(0x0000_0100_0000_01b3);
-        }
+    for byte in std::fs::read(path).unwrap_or_default() {
+        hash = (hash ^ u64::from(byte)).wrapping_mul(0x0000_0100_0000_01b3);
     }
     format!("{hash:016x}")
+}
+
+/// Where a script of a plugin is kept when the plugin's takes its place: by
+/// a name that is no script's.
+fn put_aside(path: &Path) -> PathBuf {
+    let mut name = path.file_name().unwrap_or_default().to_owned();
+    name.push(".before-update");
+    path.with_file_name(name)
+}
+
+/// The scripts in a folder, by the names of their files.
+fn scripts_in(folder: &Path) -> Vec<String> {
+    (std::fs::read_dir(folder).into_iter().flatten().flatten())
+        .filter_map(|entry| entry.file_name().into_string().ok())
+        .filter(|name| name.ends_with(".luau"))
+        .collect()
 }

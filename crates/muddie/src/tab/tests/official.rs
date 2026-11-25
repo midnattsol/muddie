@@ -400,3 +400,129 @@ fn what_the_window_is_told_of_an_update_is_said_and_applied() {
     assert_eq!(read(&script_in(&profiles)), "-- two");
     std::fs::remove_dir_all(profiles.official_dir().parent().unwrap()).unwrap();
 }
+
+/// The files of the plugin called Pack with these scripts, and gauges of
+/// these names.
+fn pack_of(scripts: &[(&str, &str)], gauges: &[&str]) -> Files {
+    let mut files = pack("");
+    files.remove("Pack.luau");
+    for (name, code) in scripts {
+        files.insert((*name).to_owned(), code.as_bytes().to_vec());
+    }
+    let rules: Vec<String> = (gauges.iter())
+        .map(|name| format!("[[gauge]]\nname = \"{name}\"\nvalue = \"X.{name}\"\n"))
+        .collect();
+    files.insert("rules.toml".into(), rules.concat().into_bytes());
+    files
+}
+
+/// Updated, a plugin is as it comes: what it installed before and no longer
+/// has goes, scripts and gauges; what the player changed of a script that
+/// goes is kept beside, and what they added, where it is.
+#[test]
+fn an_update_takes_away_what_the_plugin_no_longer_has() {
+    let profiles = temp("clean");
+    let before = [
+        ("a.luau", "vars.a = 1"),
+        ("b.luau", "vars.b = 1"),
+        ("c.luau", "vars.c = 1"),
+    ];
+    keep(&profiles, "pack", &pack_of(&before, &["Life", "Mana"]));
+    let mut harness = playing(&profiles);
+    let file = |name: &str| script_in(&profiles).with_file_name(name);
+    std::fs::write(file("b.luau"), "vars.b = 2").unwrap();
+    std::fs::write(file("mine.luau"), "vars.mine = 1").unwrap();
+    let app = harness.state_mut().tab_mut();
+    app.change_rules(|rules| {
+        let own = crate::rules::Gauge {
+            name: "Own".into(),
+            folder: "Pack".into(),
+            ..Default::default()
+        };
+        rules.gauges.push(own);
+    });
+    keep(
+        &profiles,
+        "pack",
+        &pack_of(
+            &[("c.luau", "vars.c = 2"), ("d.luau", "vars.d = 1")],
+            &["Life", "Moves"],
+        ),
+    );
+    app.official_changed();
+    let there = |app: &Tab| -> Vec<&str> {
+        ["a.luau", "b.luau", "c.luau", "d.luau", "mine.luau"]
+            .into_iter()
+            .filter(|name| file(name).exists() && app.scripts.is_loaded(&file(name)))
+            .collect()
+    };
+    assert_eq!(there(app), ["c.luau", "d.luau", "mine.luau"]);
+    assert!(!file("a.luau.before-update").exists());
+    assert_eq!(read(&file("b.luau.before-update")), "vars.b = 2");
+    let gauges = |app: &Tab| -> Vec<String> {
+        (app.rules.gauges.iter())
+            .filter(|gauge| gauge.folder == "Pack")
+            .map(|gauge| gauge.name.clone())
+            .collect()
+    };
+    assert_eq!(gauges(app), ["Life", "Own", "Moves"]);
+    // And so once more, with what was installed then.
+    keep(
+        &profiles,
+        "pack",
+        &pack_of(&[("d.luau", "vars.d = 1")], &[]),
+    );
+    app.official_changed();
+    assert_eq!(there(app), ["d.luau", "mine.luau"]);
+    assert_eq!(gauges(app), ["Own"]);
+    clean_up(harness, &profiles);
+}
+
+/// What was installed with nothing noted of what it was is taken as the
+/// plugin's: what it no longer has is put aside.
+#[test]
+fn an_update_puts_aside_what_is_not_known_to_be_the_players() {
+    let profiles = temp("unknown");
+    keep(&profiles, "pack", &pack("-- one"));
+    let mut harness = playing(&profiles);
+    let old = script_in(&profiles);
+    let app = harness.state_mut().tab_mut();
+    app.plugins_installed.insert("pack".into(), "older".into());
+    app.keep_plugins();
+    keep(&profiles, "pack", &pack_of(&[("new.luau", "")], &[]));
+    app.official_changed();
+    assert!(!old.exists() && !app.scripts.is_loaded(&old));
+    assert!(app.scripts.is_loaded(&old.with_file_name("new.luau")));
+    assert_eq!(read(&old.with_extension("luau.before-update")), "-- one");
+    clean_up(harness, &profiles);
+}
+
+/// One from git, updated while it runs: what it no longer has stops, and
+/// what it has anew runs.
+#[test]
+fn a_plugin_from_git_updated_runs_as_it_now_is() {
+    let profiles = temp("git-clean");
+    let folder = profiles.plugins_dir().join("gitpack");
+    std::fs::create_dir_all(&folder).unwrap();
+    std::fs::write(
+        folder.join("plugin.toml"),
+        "name = \"Pack\"\ndefault_on = true\n",
+    )
+    .unwrap();
+    std::fs::write(folder.join("old.luau"), "").unwrap();
+    let mut harness = playing(&profiles);
+    let app = harness.state_mut().tab_mut();
+    let (old, new) = (
+        script_in(&profiles).with_file_name("old.luau"),
+        script_in(&profiles).with_file_name("new.luau"),
+    );
+    assert!(app.scripts.is_loaded(&old));
+    std::fs::remove_file(folder.join("old.luau")).unwrap();
+    std::fs::write(folder.join("new.luau"), "").unwrap();
+    app.find_plugins();
+    let plugin = app.plugin("gitpack").unwrap();
+    app.git_plugin_updated(&plugin);
+    assert!(!old.exists() && !app.scripts.is_loaded(&old));
+    assert!(app.scripts.is_loaded(&new));
+    clean_up(harness, &profiles);
+}

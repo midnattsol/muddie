@@ -546,9 +546,9 @@ name: one of that name, the panel of gauges the profile came with if
 nothing is shown in it, or a new one. They are the
 profile's to change, as any of yours; switching the plugin off switches
 them off. When a new version of it comes, with Muddie or downloaded, it is
-brought up to date by itself as the profile is opened, keeping what you
-added; a script of it you changed is kept beside it, in a file ending in
-`.before-update`. **Install again**, in its menu, puts back what it
+brought up to date by itself as the profile is opened: what it installed
+before and no longer has goes, and what you added stays; a script of it you
+changed is kept beside it, in a file ending in `.before-update`. **Install again**, in its menu, puts back what it
 installed as it comes at any time. Connecting to a MUD that has a plugin
 switches it on first, unless it was switched off in the profile.
 In a session without a profile there is nowhere to install it: it runs as

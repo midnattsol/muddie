@@ -1,7 +1,7 @@
 //! The plugins of a session: switched on and off, installed in its
 //! profile, offered for the MUD connected to, downloaded and removed.
 
-use super::plugin_sync::scripts_mark;
+use super::plugin_sync::Installed;
 use super::*;
 use crate::plugins::{self, Plugin};
 
@@ -109,6 +109,10 @@ impl Tab {
         let Some(folder) = self.own_scripts_dir().map(|dir| dir.join(plugin.folder())) else {
             return false;
         };
+        let Some(mut theirs) = self.plugin_rules(plugin) else {
+            return false;
+        };
+        self.clear_before(plugin, &folder, &theirs);
         let written = std::fs::create_dir_all(&folder).and_then(|()| {
             for (name, code) in &plugin.scripts {
                 let path = folder.join(name);
@@ -125,14 +129,11 @@ impl Tab {
             ));
             return false;
         }
-        let Some(mut theirs) = self.plugin_rules(plugin) else {
-            return false;
-        };
         self.place_gauges(&mut theirs.gauges, again);
         self.change_rules(|rules| rules.bring(&theirs, again));
-        // What it is, and what its scripts were as they were written: to
-        // tell later whether they were changed since.
-        let mark = format!("{}:{}", plugin.fingerprint(), scripts_mark(plugin, &folder));
+        // What it is and what it installed: to tell later what was changed
+        // since, and what it no longer has.
+        let mark = Installed::of(plugin, &folder, &theirs).mark(plugin);
         (self.plugins_installed).insert(plugin.id.clone(), mark);
         self.keep_plugins();
         true
@@ -185,6 +186,9 @@ impl Tab {
                 }
             }
         }
+        // Those it has anew, too.
+        self.scripts_synced = None;
+        self.sync_scripts();
         self.run_actions();
         self.note(&trf("{0} installed again.", &[&plugin.shown_name()]));
     }

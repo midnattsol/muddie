@@ -275,6 +275,10 @@ msgstr ""
 msgid "Changes made to a plugin's scripts are kept beside them, in files ending in .before-update."
 msgstr ""
 
+#, python-brace-format
+msgid "{0} could not be installed: {1}"
+msgstr ""
+
 msgid "Install from git…"
 msgstr ""
 
@@ -1405,10 +1409,6 @@ msgstr ""
 
 #, python-brace-format
 msgid "{0} is on, made for this MUD: {1} It can be switched off in the profile's plugins."
-msgstr ""
-
-#, python-brace-format
-msgid "{0} could not be installed: {1}"
 msgstr ""
 
 #, python-brace-format

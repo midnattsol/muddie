@@ -17,6 +17,30 @@ impl Rules {
         bring(&mut self.gauges, &theirs.gauges, again, same_gauge);
     }
 
+    /// Every rule there is, by its kind and its place.
+    pub fn brought(&self) -> Vec<(Kind, String)> {
+        let mut all = Vec::new();
+        for kind in Kind::ALL {
+            if let Some(list) = self.list(kind) {
+                all.extend((0..list.len()).map(|index| (kind, list.place(index))));
+            }
+        }
+        all
+    }
+
+    /// Takes out the rules of these kinds and places.
+    pub fn take_out(&mut self, gone: &[(Kind, String)]) {
+        for kind in Kind::ALL {
+            if let Some(list) = self.list_mut(kind) {
+                for index in (0..list.len()).rev() {
+                    if gone.contains(&(kind, list.place(index))) {
+                        list.remove(index);
+                    }
+                }
+            }
+        }
+    }
+
     /// Takes out a folder and all in it, of every kind: what a plugin
     /// brought, as it is removed.
     pub fn drop_folder(&mut self, top: &str) {
