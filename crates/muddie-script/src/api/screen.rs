@@ -190,10 +190,9 @@ fn install_panel_size(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()>
     let globals = lua.globals();
     let add = |name: &str, function: Function| globals.set(name, function);
     let shared = Rc::clone(state);
-    let made = lua.clone();
     add(
         "panel_size",
-        lua.create_function(move |_, name: Option<String>| {
+        lua.create_function(move |lua, name: Option<String>| {
             let name = name
                 .unwrap_or_else(|| "map".to_owned())
                 .trim()
@@ -201,7 +200,7 @@ fn install_panel_size(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()>
             let Some((columns, rows)) = shared.borrow().panel_sizes.get(&name).copied() else {
                 return Ok(Value::Nil);
             };
-            let size = made.create_table()?;
+            let size = lua.create_table()?;
             size.set("columns", columns)?;
             size.set("rows", rows)?;
             Ok(Value::Table(size))

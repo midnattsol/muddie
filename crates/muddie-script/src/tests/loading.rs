@@ -245,3 +245,23 @@ fn a_retired_name_says_what_to_use_instead() {
         "{errors:?}"
     );
 }
+
+/// Nothing a script made, nor the API itself, keeps the runtime once the
+/// engine is gone: the map it read is let go, with the file it is kept in.
+#[test]
+fn an_engine_gone_lets_go_of_its_map() {
+    let map = Rc::new(RefCell::new(Map::in_memory()));
+    let mut engine = Engine::new(Rc::clone(&map)).unwrap();
+    engine.exec(
+        "test",
+        r#"
+        trigger("^x$", function() send("y") end)
+        alias("^a$", function() send("b") end)
+        every(5, function() send("c") end)
+        kept = { panel_size, send }
+        "#,
+    );
+    assert_eq!(engine.take_actions(), [], "setup script failed");
+    drop(engine);
+    assert_eq!(Rc::strong_count(&map), 1);
+}
