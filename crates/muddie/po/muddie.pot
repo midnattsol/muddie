@@ -266,6 +266,75 @@ msgstr ""
 msgid "New folder"
 msgstr ""
 
+msgid "Classic"
+msgstr ""
+
+msgid "Wide screen"
+msgstr ""
+
+msgid "The game alone"
+msgstr ""
+
+msgid "The map and the panels of text at the right, the gauges below."
+msgstr ""
+
+msgid "The map at the left, the panels of text at the right, the gauges below."
+msgstr ""
+
+msgid "Every panel hidden; they are kept, to show again."
+msgstr ""
+
+#, python-brace-format
+msgid "Moved: {0}."
+msgstr ""
+
+msgid "It is the first already."
+msgstr ""
+
+msgid "It is the last already."
+msgstr ""
+
+msgid "Picture of the window's panels"
+msgstr ""
+
+msgid "Not moved."
+msgstr ""
+
+msgid "Game"
+msgstr ""
+
+msgid "Layout"
+msgstr ""
+
+msgid "New panel"
+msgstr ""
+
+msgid "Panel of text"
+msgstr ""
+
+msgid "Gauges"
+msgstr ""
+
+msgid "There are no panels: + adds one."
+msgstr ""
+
+msgid "Panels"
+msgstr ""
+
+#, python-brace-format
+msgid "{0}, collapsed"
+msgstr ""
+
+msgid "the MUD's channels"
+msgstr ""
+
+#, python-brace-format
+msgid "a tab with {0}"
+msgstr ""
+
+msgid "hidden"
+msgstr ""
+
 msgid "No map yet"
 msgstr ""
 
@@ -572,9 +641,6 @@ msgid "Size of the panels at the top"
 msgstr ""
 
 msgid "Size of the panels at the bottom"
-msgstr ""
-
-msgid "Gauges"
 msgstr ""
 
 msgid "Panel"
@@ -1037,9 +1103,6 @@ msgstr ""
 msgid "Read the {0} channel aloud"
 msgstr ""
 
-msgid "Panels"
-msgstr ""
-
 #, python-brace-format
 msgid "Show {0}"
 msgstr ""
@@ -1203,13 +1266,7 @@ msgstr ""
 msgid "Views"
 msgstr ""
 
-msgid "Game"
-msgstr ""
-
 msgid "Editor"
-msgstr ""
-
-msgid "Layout"
 msgstr ""
 
 msgid "Incoming data"
@@ -2112,24 +2169,6 @@ msgstr ""
 msgid "Output"
 msgstr ""
 
-msgid "Classic"
-msgstr ""
-
-msgid "Wide screen"
-msgstr ""
-
-msgid "The game alone"
-msgstr ""
-
-msgid "The map and the panels of text at the right, the gauges below."
-msgstr ""
-
-msgid "The map at the left, the panels of text at the right, the gauges below."
-msgstr ""
-
-msgid "Every panel hidden; they are kept, to show again."
-msgstr ""
-
 msgid "At the left"
 msgstr ""
 
@@ -2140,39 +2179,6 @@ msgid "At the bottom"
 msgstr ""
 
 msgid "At the right"
-msgstr ""
-
-msgid "New panel"
-msgstr ""
-
-msgid "Panel of text"
-msgstr ""
-
-msgid "There are no panels: + adds one."
-msgstr ""
-
-#, python-brace-format
-msgid "{0}, collapsed"
-msgstr ""
-
-msgid "the MUD's channels"
-msgstr ""
-
-#, python-brace-format
-msgid "a tab with {0}"
-msgstr ""
-
-msgid "hidden"
-msgstr ""
-
-#, python-brace-format
-msgid "Moved: {0}."
-msgstr ""
-
-msgid "It is the first already."
-msgstr ""
-
-msgid "It is the last already."
 msgstr ""
 
 msgid "Arrangements"
@@ -2225,12 +2231,6 @@ msgid "What it shows is lost with it."
 msgstr ""
 
 msgid "Remove this panel"
-msgstr ""
-
-msgid "Picture of the window's panels"
-msgstr ""
-
-msgid "Not moved."
 msgstr ""
 
 msgid "General"
