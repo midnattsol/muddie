@@ -173,6 +173,15 @@ pub(super) fn effects_said(name: &str, items: &[muddie_script::Effect]) -> Strin
     trf("{0}: {1}", &[name, &names.join(", ")])
 }
 
+/// The names of the effects that are on, or that none is.
+pub(super) fn effects_named(name: &str, items: &[muddie_script::Effect]) -> String {
+    if items.is_empty() {
+        return trf("{0}: none", &[name]);
+    }
+    let names: Vec<&str> = items.iter().map(|item| item.name.as_str()).collect();
+    trf("{0}: {1}", &[name, &names.join(", ")])
+}
+
 /// How tall a label of an effect is.
 const EFFECT_HEIGHT: f32 = 24.0;
 /// The room between the labels of effects.

@@ -100,3 +100,30 @@ fn gauges_update_in_place_and_summarise() {
     gauges.set("XP", None);
     assert_eq!(gauges.summary(), "MP 5 of 50");
 }
+
+/// Asked for all together, effects are said by their names; where each is
+/// shown, with what it is.
+#[test]
+fn all_the_gauges_are_said_without_what_each_effect_is() {
+    let mut gauges = Gauges::default();
+    let look = GaugeLook {
+        kind: GaugeKind::Effects,
+        items: vec![muddie_script::Effect {
+            name: "Poisoned".into(),
+            about: "1 damage a second".into(),
+            ..Default::default()
+        }],
+        ..GaugeLook::default()
+    };
+    let level = Some((0.0, 0.0));
+    gauges.set_by(
+        "Effects",
+        level,
+        Some(look),
+        None,
+        Belongs::default(),
+        String::new(),
+    );
+    assert_eq!(gauges.summary(), "Effects: Poisoned");
+    assert_eq!(gauges.0[0].said(), "Effects: Poisoned (1 damage a second)");
+}

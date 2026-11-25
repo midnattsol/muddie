@@ -443,6 +443,7 @@ follows something the MUD reports, or a variable, and is one of these kinds:
   many as fit in the panel are shown, and the rest under one more, **+3**,
   that lists them; what each is shows on hovering it, and is read after
   its name.
+  Read all together, with Alt+0, effects are read by their names alone.
 
 Say where the value is, and the maximum for those that have one: a GMCP
 package and the fields inside it (`Char.Vitals.health.current`), the name

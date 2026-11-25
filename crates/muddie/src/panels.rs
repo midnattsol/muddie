@@ -12,7 +12,7 @@ use crate::theme;
 mod drawing;
 
 pub use drawing::{BAR_WIDTH, draw_gauge};
-use drawing::{GAP, bar_width, effects_said};
+use drawing::{GAP, bar_width, effects_named, effects_said};
 
 /// A gauge shown: what a script or a rule set it to, and how it looks.
 pub struct Gauge {
@@ -113,6 +113,14 @@ impl Gauge {
     /// What it is, said aloud.
     fn said(&self) -> String {
         said_of(&self.name, self.value, self.max, &self.look)
+    }
+
+    /// The same, among the others: of effects, their names alone.
+    fn said_shortly(&self) -> String {
+        match self.look.kind {
+            GaugeKind::Effects => effects_named(&self.name, &self.look.items),
+            _ => self.said(),
+        }
     }
 }
 
@@ -262,7 +270,7 @@ impl Gauges {
     pub fn summary_of(&self, shown: impl Fn(&Gauge) -> bool) -> String {
         let parts: Vec<String> = (self.0.iter())
             .filter(|gauge| shown(gauge))
-            .map(Gauge::said)
+            .map(Gauge::said_shortly)
             .collect();
         parts.join(", ")
     }
