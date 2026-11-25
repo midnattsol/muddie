@@ -224,7 +224,7 @@ fn a_plugin_that_comes_with_muddie_is_installed_in_sight_and_the_profiles() {
         .join("Reinos de Leyenda.luau");
     assert_eq!(
         std::fs::read_to_string(&script).unwrap(),
-        plugin.scripts[0].1
+        crate::plugins::fixture::SCRIPT
     );
     assert!(app.scripts.is_loaded(&script));
     let rules = || Rules::load(&profiles.rules_path(Some("Reinos"))).unwrap();
@@ -293,9 +293,12 @@ fn a_plugin_that_comes_with_muddie_is_installed_in_sight_and_the_profiles() {
     assert_eq!(updated, 1);
     assert_eq!(
         std::fs::read_to_string(&script).unwrap(),
-        plugin.scripts[0].1
+        crate::plugins::fixture::SCRIPT
     );
-    let kept = script.with_file_name(format!("{}.before-update", plugin.scripts[0].0));
+    let kept = script.with_file_name(format!(
+        "{}.before-update",
+        crate::plugins::fixture::SCRIPT_NAME
+    ));
     assert_eq!(std::fs::read_to_string(&kept).unwrap(), mine);
     // Scripts as they were installed are not kept: there is nothing of
     // the player's in them.
@@ -325,7 +328,7 @@ fn a_plugin_that_comes_with_muddie_is_installed_in_sight_and_the_profiles() {
     harness.run_steps(4);
     assert_eq!(
         std::fs::read_to_string(&script).unwrap(),
-        plugin.scripts[0].1
+        crate::plugins::fixture::SCRIPT
     );
     let after = rules();
     assert_eq!(after.gauges.len(), 5);

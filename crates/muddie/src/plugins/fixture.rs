@@ -12,6 +12,7 @@ pub const MANIFEST: &str = include_str!("../tab/tests/fixtures/reinos-de-leyenda
 pub const SCRIPT_NAME: &str = "Reinos de Leyenda.luau";
 pub const SCRIPT: &str =
     include_str!("../tab/tests/fixtures/reinos-de-leyenda/Reinos de Leyenda.luau");
+pub const READING: &str = include_str!("../tab/tests/fixtures/reinos-de-leyenda/Lectura.luau");
 pub const RULES: &str = include_str!("../tab/tests/fixtures/reinos-de-leyenda/rules.toml");
 pub const TEMPLATE: &str = include_str!("../tab/tests/fixtures/reinos-de-leyenda/template.toml");
 
@@ -24,7 +25,10 @@ pub fn reinos() -> Plugin {
     Plugin::made(
         FOLDER,
         MANIFEST,
-        vec![(SCRIPT_NAME.to_owned(), SCRIPT.to_owned())],
+        vec![
+            ("Lectura.luau".to_owned(), READING.to_owned()),
+            (SCRIPT_NAME.to_owned(), SCRIPT.to_owned()),
+        ],
         RULES.to_owned(),
         Origin::Official,
     )

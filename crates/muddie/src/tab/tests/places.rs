@@ -7,6 +7,7 @@ use muddie_mapper::{Exit, Room};
 mod drawing;
 mod exploring;
 mod prompts;
+mod reading;
 mod reinos;
 
 /// A desert of dunes alike, 1 - 2 - 3 from west to east, with a well
