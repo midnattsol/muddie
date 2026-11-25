@@ -126,7 +126,7 @@ impl Tab {
         &mut self,
         name: &str,
         text: Option<&str>,
-        panel: &str,
+        (panel, quiet): (&str, bool),
         said: &mut Vec<(String, String, String)>,
     ) {
         if let Some(text) = text {
@@ -141,7 +141,7 @@ impl Tab {
             said.push(key);
         }
         let lines = text.map(panels::styled_lines).unwrap_or_default();
-        self.channel_said(name, panel, lines);
+        self.channel_said(name, panel, lines, quiet);
     }
 
     /// Runs every script and rule again, as when a session starts, keeping
@@ -276,9 +276,12 @@ impl Tab {
                 Action::Panel { name, text } => self.show_in_panel(&name, text.as_deref()),
                 Action::PanelAdd { name, text } => self.add_text_to_panel(&name, &text),
                 Action::ToPanel(name) => self.add_dispatched_to_panel(&name),
-                Action::Channel { name, text, panel } => {
-                    self.channel_from_script(&name, text.as_deref(), &panel, &mut said);
-                }
+                Action::Channel {
+                    name,
+                    text,
+                    panel,
+                    quiet,
+                } => self.channel_from_script(&name, text.as_deref(), (&panel, quiet), &mut said),
                 Action::ChannelClosed(name) => self.close_channel(&name),
                 Action::Notify(text) => self.note(&text),
                 Action::PlaySound {

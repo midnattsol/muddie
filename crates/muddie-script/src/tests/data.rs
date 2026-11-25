@@ -436,6 +436,21 @@ fn what_a_script_set_of_the_map_and_the_session_goes_with_it() {
 }
 
 #[test]
+fn a_script_says_what_of_a_channel_is_not_read() {
+    let mut engine = engine("");
+    let mut look = |code: &str| {
+        engine.exec("t", code);
+        engine.take_actions().remove(0)
+    };
+    for (told, quiet) in [("", false), (", {quiet = true}", true)] {
+        match look(&format!(r#"channel("chat", "hi"{told})"#)) {
+            Action::Channel { quiet: said, .. } => assert_eq!(said, quiet),
+            other => panic!("{other:?}"),
+        }
+    }
+}
+
+#[test]
 fn scripts_know_whether_a_screen_reader_reads() {
     let mut engine =
         engine(r#"on_event("screen_reader", function(on) echo(`now {on} {screen_reader()}`) end)"#);

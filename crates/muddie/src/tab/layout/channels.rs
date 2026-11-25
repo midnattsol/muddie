@@ -21,8 +21,15 @@ impl Tab {
 
     /// Takes lines said on a channel of the MUD's: they go with the rest
     /// of what is said, and under the channel's own tab. With no lines,
-    /// the channel is made known, to have its tab.
-    pub(in crate::tab) fn channel_said(&mut self, name: &str, panel: &str, lines: Vec<Line>) {
+    /// the channel is made known, to have its tab. `quiet`, they are not
+    /// read aloud.
+    pub(in crate::tab) fn channel_said(
+        &mut self,
+        name: &str,
+        panel: &str,
+        lines: Vec<Line>,
+        quiet: bool,
+    ) {
         let name = name.trim();
         if panel.trim().is_empty() {
             self.ensure_channels_panel();
@@ -52,7 +59,9 @@ impl Tab {
         if let Some(index) = index {
             self.panels.channels[index].unread |= !seen;
         }
-        self.read_channel(name, &lines);
+        if !quiet {
+            self.read_channel(name, &lines);
+        }
     }
 
     /// Says aloud what was said on a channel, after its name, unless the

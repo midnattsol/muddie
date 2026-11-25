@@ -352,6 +352,32 @@ fn the_tabs_of_channels_are_one_stop_and_the_arrows_go_among_them() {
     }
 }
 
+/// What was said before the player came is kept in its tab, not read.
+#[test]
+fn what_is_said_quietly_on_a_channel_is_kept_and_not_read() {
+    let mut harness = window(None);
+    let app = harness.state_mut().tab_mut();
+    app.on_screen = true;
+    app.voice.said.clear();
+    for panel in ["", ", panel = \"Guild\""] {
+        app.scripts.exec(
+            "t",
+            &format!(
+                r#"channel("chat", "Ana: yesterday", {{quiet = true{panel}}})
+                channel("chat", "Luis: today", {{quiet = false{panel}}})"#
+            ),
+        );
+        app.run_actions();
+        assert_eq!(app.voice.said.len(), 1, "{:?}", app.voice.said);
+        assert!(app.voice.said[0].ends_with("Luis: today"));
+        app.voice.said.clear();
+    }
+    for channel in &app.panels.channels {
+        assert_eq!(channel.log.len(), 2, "{}", channel.name);
+    }
+    assert_eq!(app.panels.channels.len(), 2);
+}
+
 /// Said on a channel with a panel of its own, a message is read once.
 #[test]
 fn a_message_of_a_channel_in_its_own_panel_is_read_once() {

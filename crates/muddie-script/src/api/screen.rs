@@ -34,7 +34,8 @@ fn install_gauge(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
                 };
                 let mut look = GaugeLook::default();
                 let known = [
-                    "kind", "colour", "off_colour", "text", "step", "items", "panel", "place", "tags",
+                    "kind", "colour", "off_colour", "text", "step", "items", "panel", "place",
+                    "tags",
                 ];
                 super::rules::only(options.as_ref(), &known)?;
                 let belongs = super::rules::belongs(options.as_ref())?;
@@ -217,10 +218,13 @@ fn install_channel(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
         "channel",
         lua.create_function(
             move |_, (name, text, options): (String, Option<String>, Option<mlua::Table>)| {
-                super::rules::only(options.as_ref(), &["panel"])?;
-                let panel = match options {
-                    Some(options) => options.get::<Option<String>>("panel")?,
-                    None => None,
+                super::rules::only(options.as_ref(), &["panel", "quiet"])?;
+                let (panel, quiet) = match options {
+                    Some(options) => (
+                        options.get::<Option<String>>("panel")?,
+                        options.get::<Option<bool>>("quiet")?,
+                    ),
+                    None => (None, None),
                 };
                 let mut state = shared.borrow_mut();
                 state.set(crate::state::Set::Channel(name.to_lowercase()));
@@ -228,6 +232,7 @@ fn install_channel(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
                     name,
                     text,
                     panel: panel.unwrap_or_default(),
+                    quiet: quiet.unwrap_or_default(),
                 });
                 Ok(())
             },

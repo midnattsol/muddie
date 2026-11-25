@@ -130,6 +130,8 @@ pub enum Action {
         name: String,
         text: Option<String>,
         panel: String,
+        /// It is not read aloud, as what was said before the player came.
+        quiet: bool,
     },
     /// Add lines to the end of a panel of text.
     PanelAdd {
