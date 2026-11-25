@@ -1,7 +1,7 @@
 //! The status strip of gauges and the helpers that feed the panels from
 //! GMCP.
 
-use eframe::egui::{Align2, Color32, Id, Rect, Role, Sense, Ui, WidgetInfo, vec2};
+use eframe::egui::{Align2, Color32, Rect, Response, Role, Sense, Ui, WidgetInfo, vec2};
 use muddie_core::Line;
 use muddie_core::ansi::Assembler;
 use muddie_script::{Aloud, Belongs, GaugeKind, GaugeLook, How, Saying};
@@ -327,18 +327,20 @@ impl Gauges {
                 // its own, as its "+3": made before it, where it was drawn
                 // the frame before.
                 let editable = editable(gauge);
-                let last = ui.data(|data| data.get_temp::<eframe::egui::Rect>(id));
+                let last = ui.data(|data| data.get_temp::<Rect>(id));
                 let press = last
                     .filter(|_| editable)
                     .map(|rect| ui.interact(rect, id, Sense::click()));
-                let drawn = ui.scope(|ui| {
-                    draw_gauge(ui, &gauge.name, gauge.value, gauge.max, &gauge.look, width)
-                });
-                if editable && last != Some(drawn.response.rect) {
-                    ui.data_mut(|data| data.insert_temp(id, drawn.response.rect));
+                let drawn = draw_gauge(ui, &gauge.name, gauge.value, gauge.max, &gauge.look, width);
+                let rect = drawn.as_ref().map(|drawn| drawn.rect);
+                if editable && last != rect {
+                    ui.data_mut(|data| match rect {
+                        Some(rect) => drop(data.insert_temp(id, rect)),
+                        None => data.remove::<Rect>(id),
+                    });
                     ui.ctx().request_repaint();
                 }
-                let Some(press) = press else {
+                let (Some(press), Some(drawn)) = (press, drawn) else {
                     continue;
                 };
                 // Named by what it is, as it is reached with Tab; what
@@ -348,12 +350,10 @@ impl Gauges {
                 let about = crate::i18n::trf("Press to edit {0}", &[&gauge.name]);
                 (ui.ctx()).accesskit_node_builder(press.id, |node| node.set_description(about));
                 // What presses it tells it: not its drawing too.
-                if let Some(told) = drawn.inner {
-                    (ui.ctx()).accesskit_node_builder(told, |node| node.set_hidden());
-                }
+                (ui.ctx()).accesskit_node_builder(drawn.id, |node| node.set_hidden());
                 if press.hovered() {
                     ui.painter().rect_stroke(
-                        drawn.response.rect.expand(4.0),
+                        drawn.rect.expand(4.0),
                         6.0,
                         eframe::egui::Stroke::new(1.0, theme::current().border),
                         eframe::egui::StrokeKind::Outside,

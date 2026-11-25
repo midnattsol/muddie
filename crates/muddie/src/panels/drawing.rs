@@ -28,8 +28,9 @@ pub(super) fn bar_width(room: f32, count: usize) -> f32 {
 
 /// Draws one gauge as its look says: a bar or a row of cells under its
 /// name and numbers, a number alone, a light that is on or off, or a few
-/// words. Returns what tells it to a screen reader; nothing with nothing to
-/// draw.
+/// words, in one piece, so that it goes on to another line where it does not
+/// fit. Returns it, which tells it to a screen reader; nothing with nothing
+/// to draw.
 pub fn draw_gauge(
     ui: &mut Ui,
     name: &str,
@@ -37,7 +38,7 @@ pub fn draw_gauge(
     max: f64,
     look: &GaugeLook,
     bar: f32,
-) -> Option<Id> {
+) -> Option<Response> {
     let shade = Shade::of(name, value, max, look);
     let heard = said_of(name, value, max, look);
     match look.kind {
@@ -116,7 +117,7 @@ fn draw_light(
     shade: &Shade,
     look: &GaugeLook,
     heard: &str,
-) -> Id {
+) -> Response {
     let theme = theme::current();
     let small = theme::font(theme::Weight::Medium, 11.5);
     let width = 18.0 + measure(ui, name, &small);
@@ -154,7 +155,7 @@ fn draw_light(
         small,
         text,
     );
-    response.id
+    response
 }
 
 /// What a gauge of effects says: its name and what is on, or that nothing
@@ -231,7 +232,7 @@ fn draw_effects(
     name: &str,
     items: &[muddie_script::Effect],
     shade: &Shade,
-) -> Option<Id> {
+) -> Option<Response> {
     if items.is_empty() {
         return None;
     }
@@ -269,7 +270,7 @@ fn draw_effects(
     if !left.is_empty() {
         draw_more_effects(ui, &painter, name, left, (rect, x), (font, &theme));
     }
-    Some(response.id)
+    Some(response)
 }
 
 /// The rest of the effects, under one more, "+3": listed with what each
@@ -329,7 +330,7 @@ fn draw_words(
     shade: &Shade,
     number: bool,
     heard: &str,
-) -> Id {
+) -> Response {
     let theme = theme::current();
     let (small, large) = (
         theme::font(theme::Weight::Medium, 11.5),
@@ -360,7 +361,7 @@ fn draw_words(
         large,
         figures,
     );
-    response.id
+    response
 }
 
 /// A bar, or a row of cells, under the gauge's name and its numbers.
@@ -374,7 +375,7 @@ fn draw_bar(
     cells: bool,
     width: f32,
     heard: &str,
-) -> Id {
+) -> Response {
     let theme = theme::current();
     let small = theme::font(theme::Weight::Medium, 11.5);
     let numbers = format!("{} / {}", plain(value), plain(max));
@@ -410,7 +411,7 @@ fn draw_bar(
         );
         painter.rect_filled(filled, 4.5, shade.colour);
     }
-    response.id
+    response
 }
 
 /// Leaning cells along the bottom, like the ▰ of a terminal's status line:

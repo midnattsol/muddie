@@ -228,3 +228,47 @@ fn collapsing_and_hiding_are_said_and_keep_the_keyboard() {
         ))
     );
 }
+
+/// A panel of gauges put beside the output keeps the width of the side,
+/// with the gauges one under another, and the output keeps its own.
+#[test]
+fn gauges_beside_the_output_go_one_under_another() {
+    for reader in [false, true] {
+        let mut harness = connected_demo_window();
+        let app = harness.state_mut().tab_mut();
+        app.voice.pretend_reader = reader;
+        let of_gauges = |panel: &&layout::PanelSpec| panel.kind == layout::Kind::Gauges;
+        let id = app.layout.panels.iter().find(of_gauges).unwrap().id;
+        harness.run_steps(6);
+        let before = harness.state().tab().sizes.window;
+        harness
+            .state_mut()
+            .tab_mut()
+            .drop_panel(id, None, layout::Side::Right);
+        harness.run_steps(6);
+        let app = harness.state().tab();
+        let (_, rect) = *app
+            .panels
+            .rects
+            .iter()
+            .find(|(known, _)| *known == id)
+            .unwrap();
+        assert!(rect.width() < 350.0, "{reader}: {rect:?}");
+        assert!(
+            app.sizes.window.0.abs_diff(before.0) < 2,
+            "{reader}: {:?}",
+            app.sizes.window
+        );
+        let bars = ["HP 80 of 100", "MP 20 of 50", "MV 140 of 150"]
+            .map(|bar| harness.get_by_label(bar).rect());
+        assert!(
+            bars.iter()
+                .all(|bar| rect.x_range().contains(bar.center().x)),
+            "{bars:?}"
+        );
+        assert!(
+            bars.windows(2).all(|two| two[1].top() >= two[0].bottom()),
+            "{bars:?}"
+        );
+    }
+}
