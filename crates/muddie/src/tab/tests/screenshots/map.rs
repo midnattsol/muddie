@@ -73,10 +73,11 @@ pub(super) fn shows_map() {
         assert!(added.is_some());
         map.set_current(here);
         // Rooms drawn in shapes of their own, one with a symbol, and doors.
-        let others: Vec<RoomId> = (map.rooms())
+        let mut others: Vec<RoomId> = (map.rooms())
             .map(|room| room.id)
             .filter(|id| *id != here && *id < muddie_mapper::ADDED_FROM)
             .collect();
+        others.sort_unstable();
         let shapes = [
             (muddie_mapper::Shape::Circle, "$"),
             (muddie_mapper::Shape::Diamond, ""),
