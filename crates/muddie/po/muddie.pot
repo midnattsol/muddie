@@ -770,58 +770,6 @@ msgstr ""
 msgid "The map has no areas yet."
 msgstr ""
 
-msgid "Say which map made with Mudlet to take: a file or an address."
-msgstr ""
-
-msgid "A map is being imported already."
-msgstr ""
-
-#, python-brace-format
-msgid "Looking for a newer map at {0}…"
-msgstr ""
-
-#, python-brace-format
-msgid "Importing the map from {0}…"
-msgstr ""
-
-msgid "it stopped half way"
-msgstr ""
-
-msgid "The map is up to date already."
-msgstr ""
-
-#, python-brace-format
-msgid "The map was imported: {0}."
-msgstr ""
-
-#, python-brace-format
-msgid "Could not bring the server's map up to date: {0}"
-msgstr ""
-
-#, python-brace-format
-msgid "Could not import the map: {0}"
-msgstr ""
-
-#, python-brace-format
-msgid "{0} new"
-msgstr ""
-
-#, python-brace-format
-msgid "The map was brought up to date: {0}, {1}."
-msgstr ""
-
-#, python-brace-format
-msgid "{0} room you renamed kept its name."
-msgstr ""
-
-#, python-brace-format
-msgid "{0} room the map had added is the map's now."
-msgstr ""
-
-#, python-brace-format
-msgid "{0} room the map added, which the map imported does not have, was kept."
-msgstr ""
-
 msgid "Places"
 msgstr ""
 
@@ -952,6 +900,58 @@ msgstr ""
 
 #, python-brace-format
 msgid "And {0} more."
+msgstr ""
+
+msgid "Say which map made with Mudlet to take: a file or an address."
+msgstr ""
+
+msgid "A map is being imported already."
+msgstr ""
+
+#, python-brace-format
+msgid "Looking for a newer map at {0}…"
+msgstr ""
+
+#, python-brace-format
+msgid "Importing the map from {0}…"
+msgstr ""
+
+msgid "it stopped half way"
+msgstr ""
+
+msgid "The map is up to date already."
+msgstr ""
+
+#, python-brace-format
+msgid "The map was imported: {0}."
+msgstr ""
+
+#, python-brace-format
+msgid "Could not bring the server's map up to date: {0}"
+msgstr ""
+
+#, python-brace-format
+msgid "Could not import the map: {0}"
+msgstr ""
+
+#, python-brace-format
+msgid "{0} new"
+msgstr ""
+
+#, python-brace-format
+msgid "The map was brought up to date: {0}, {1}."
+msgstr ""
+
+#, python-brace-format
+msgid "{0} room you renamed kept its name."
+msgstr ""
+
+#, python-brace-format
+msgid "{0} room the map had added is the map's now."
+msgstr ""
+
+#, python-brace-format
+msgid "{0} room the map added, which the map imported does not have, was kept."
 msgstr ""
 
 msgid "No matches."
