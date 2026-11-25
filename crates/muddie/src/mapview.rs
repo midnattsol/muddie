@@ -1,9 +1,12 @@
 //! Draws the map and lets the user browse it, pick a room to walk to, and
 //! mark or move rooms.
 
+use std::sync::Arc;
+
 use eframe::egui;
 use eframe::egui::{
-    Color32, Painter, Pos2, Rect, Response, RichText, Sense, Stroke, StrokeKind, Ui, Vec2, vec2,
+    Color32, Galley, Painter, Pos2, Rect, Response, RichText, Sense, Stroke, StrokeKind, Ui, Vec2,
+    vec2,
 };
 use muddie_mapper::{Map, Pos, Room, RoomId, Walk, direction_offset};
 
@@ -202,7 +205,243 @@ impl Default for MapView {
     }
 }
 
+/// The rooms under `point`: the nearest, all of them if several are in
+/// one place.
+fn rooms_at<'a>(visible: &[&'a Room], grid: &Grid, point: Pos2) -> Vec<&'a Room> {
+    let distance = |room: &&Room| grid.on_screen(room.pos).distance(point);
+    let near = (visible.iter()).filter(|room| distance(room) <= grid.half() * 1.5);
+    let Some(nearest) = near.clone().map(distance).reduce(f32::min) else {
+        return Vec::new();
+    };
+    near.filter(|room| distance(room) <= nearest + 0.5)
+        .copied()
+        .collect()
+}
+
+/// Whether a room is on the level shown: of the area shown, or of any if
+/// all of them are, and at the height shown.
+fn level_test(all_areas: bool, area: &str, level: i32) -> impl Fn(&Room) -> bool {
+    move |room| (all_areas || room.area == area) && room.pos.z == level
+}
+
+/// The line over the map: where the player is, or that it is not known.
+fn show_head(ui: &mut Ui, map: &Map, current: &Room, unsure: bool) {
+    if unsure {
+        ui.label(unknown_whereabouts(map));
+    } else {
+        heading(ui, map, current);
+    }
+}
+
+/// Shows under the map what is told of the room chosen, and its exits.
+fn show_told(ui: &mut Ui, told_text: Option<Arc<Galley>>, told_exits: Option<Chips>) {
+    if let Some(galley) = told_text {
+        ui.add(egui::Label::new(galley));
+    }
+    if let Some(chips) = told_exits {
+        show_chips(ui, chips);
+    }
+}
+
+/// What is told of the room chosen, under the map, and its exits under
+/// that, and the height they take together.
+fn told_footer(
+    ui: &Ui,
+    map: &Map,
+    told: Option<&String>,
+    chosen_room: Option<&Room>,
+) -> (Option<Arc<Galley>>, Option<Chips>, f32) {
+    // The room chosen is told under the map, its exits under it: in as
+    // many lines as it takes at this width, room kept for them.
+    let width = ui.available_width();
+    let told_text = told.map(|told| {
+        let font = egui::TextStyle::Body.resolve(ui.style());
+        let colour = theme::current().text_dim;
+        ui.painter().layout(told.clone(), font, colour, width)
+    });
+    let told_exits = chosen_room.map(|room| exit_chips(ui, map, room, width));
+    let gap = ui.spacing().item_spacing.y;
+    let footer = told_text
+        .as_ref()
+        .map_or(0.0, |galley| galley.size().y + gap)
+        + told_exits.as_ref().map_or(0.0, |chips| chips.size.y + gap);
+    (told_text, told_exits, footer)
+}
+
 impl MapView {
+    /// The grid the rooms are drawn on, and the rooms of the level that
+    /// are in sight on it.
+    fn grid_and_visible<'a>(
+        &mut self,
+        ui: &Ui,
+        response: &Response,
+        map: &'a Map,
+        current: &Room,
+        area: &str,
+        level: i32,
+    ) -> (Grid, Vec<&'a Room>) {
+        let gliding = self.glide_offset(ui);
+        let all_areas = self.all_areas;
+        let on_level = level_test(all_areas, area, level);
+        let shown: Shown = (map.revision(), area.to_owned(), level, all_areas);
+        self.keep_places_on_level(map, shown, &on_level);
+        // Where the rooms on the level are, kept: of a map of thousands,
+        // only those on the screen are looked up.
+        let places: &[(Pos, RoomId)] = self.on_level.as_ref().map_or(&[], |(_, places)| places);
+        // The player's own area is centred on the player whatever the
+        // level, so going up and down keeps the place; any other area is
+        // centred on the middle of what is drawn.
+        let origin = if area == current.area || all_areas {
+            (current.pos.x, current.pos.y)
+        } else {
+            middle_of(places.iter().map(|(pos, _)| *pos))
+        };
+        let grid = Grid {
+            centre: response.rect.center() + self.pan + gliding,
+            origin,
+            cell: self.cell,
+            level,
+        };
+        let around = response.rect.expand(grid.cell);
+        let visible: Vec<&Room> = (places.iter())
+            .filter(|(pos, _)| around.contains(grid.on_screen(*pos)))
+            .filter_map(|(_, id)| map.room(*id))
+            .collect();
+        (grid, visible)
+    }
+
+    /// The map's own place in the panel, under what a line over it
+    /// takes: its room, its corner controls and its interaction. Gives
+    /// the interaction, and the area and level the controls left.
+    fn allocate_map(
+        &mut self,
+        ui: &mut Ui,
+        map: &Map,
+        (area, level, home): (String, i32, (String, i32)),
+        footer: f32,
+    ) -> (Response, String, i32) {
+        let size = ui.available_size() - vec2(0.0, footer);
+        // An id of its own, not one counted from what is drawn before it,
+        // which a line over the map changes: the keyboard stays with it.
+        let (rect, _) = ui.allocate_exact_size(size, Sense::hover());
+        // Over its corners, before it, to be reached with Tab before it.
+        let (area, level) = self.corner_controls(ui, map, (area, level), home, rect);
+        let response = ui.interact(
+            rect,
+            ui.make_persistent_id("map view"),
+            Sense::click_and_drag(),
+        );
+        (response, area, level)
+    }
+
+    /// Sets the room whose menu is to open: the one pointed at, or, when
+    /// the keys open it, the one being explored.
+    fn choose_menu_room(
+        &mut self,
+        ui: &Ui,
+        response: &Response,
+        current: &Room,
+        pointed: Option<&Room>,
+    ) {
+        if crate::widgets::menu_pressed(response) {
+            self.menu_room = pointed.map(|room| room.id);
+        }
+        // Opened with the keys, the menu is of the room being explored.
+        let by_keys = response.has_focus()
+            && ui.input(|input| {
+                (input.modifiers.shift && input.key_pressed(egui::Key::F10))
+                    || input.key_pressed(egui::Key::Menu)
+            });
+        if by_keys {
+            self.menu_room = Some(self.selected.unwrap_or(current.id));
+        }
+    }
+
+    /// Carries out a double click or a click on the map: a double click
+    /// asks to walk, if `chosen` is nothing yet; a click chooses the room
+    /// pointed at. Gives `chosen` with what they ask for.
+    fn clicked<'a>(
+        &mut self,
+        response: &Response,
+        map: &Map,
+        current: &Room,
+        rooms_at: &dyn Fn(Pos2) -> Vec<&'a Room>,
+        pointed: Option<&Room>,
+        mut chosen: Option<MapAsk>,
+    ) -> Option<MapAsk> {
+        // Twice, so that a click to look is not a walk.
+        // Of several in one place, one there is a way to.
+        if chosen.is_none() && response.double_clicked() {
+            let there = response.hover_pos().map(rooms_at).unwrap_or_default();
+            let reached = |room: &&&Room| map.moves_between(current.id, room.id).is_some();
+            let walked = there.iter().find(reached).or(there.first());
+            chosen = walked.map(|room| MapAsk::Walk(room.id));
+        }
+        // A click chooses the room to look at, or none; not Enter, which
+        // egui takes for a click of what has the keyboard.
+        if response.clicked_by(egui::PointerButton::Primary) {
+            response.request_focus();
+            let before = self.selected;
+            self.selected = pointed.map(|room| room.id);
+            if let Some(id) = self.selected.filter(|id| before != Some(*id)) {
+                chosen = chosen.or(Some(MapAsk::Selected(id, None)));
+            }
+        }
+        chosen
+    }
+
+    /// Gives `chosen` with what the keys, and then the level buttons, ask
+    /// for, if it is nothing yet.
+    fn keyed_or_said(
+        &mut self,
+        ui: &Ui,
+        response: &Response,
+        map: &Map,
+        current: &Room,
+        mut chosen: Option<MapAsk>,
+    ) -> Option<MapAsk> {
+        if let Some(keyed) = self.keys(ui, response, map, current) {
+            chosen = chosen.or(Some(keyed));
+        }
+        if let Some(said) = self.level_said.take() {
+            chosen = chosen.or(Some(MapAsk::Say(said)));
+        }
+        chosen
+    }
+
+    /// Names the map for a screen reader, and gives it the keyboard if it
+    /// is wanted to have it.
+    fn name_and_focus(&mut self, ui: &Ui, response: &Response) {
+        // Named once, the same always: the room chosen is said by the
+        // keys as they choose it, not again as the map's name changes.
+        let hint = explore::keys_hint();
+        ui.ctx().accesskit_node_builder(response.id, |node| {
+            node.set_role(egui::accesskit::Role::Group);
+            node.set_label(tr("Map"));
+            node.set_description(hint);
+        });
+        if std::mem::take(&mut self.focus_wanted) {
+            response.request_focus();
+        }
+    }
+
+    /// Keeps where the rooms on the level are, anew when the map, the area
+    /// or the level changed.
+    fn keep_places_on_level(&mut self, map: &Map, shown: Shown, on_level: &dyn Fn(&Room) -> bool) {
+        if self
+            .on_level
+            .as_ref()
+            .is_none_or(|(known, _)| *known != shown)
+        {
+            // Rooms left over are not drawn: their place is another's.
+            let places = map
+                .rooms()
+                .filter(|room| on_level(room) && !map.is_ghost(room.id))
+                .map(|room| (room.pos, room.id));
+            self.on_level = Some((shown, places.collect()));
+        }
+    }
+
     /// The map's tools, on its panel's header: where am I, tidy, and stop
     /// while walking. What they ask for is done when the map is drawn.
     pub fn tools(&mut self, ui: &mut Ui, walking: bool) {
@@ -243,11 +482,7 @@ impl MapView {
         self.drawn = true;
         self.walking = walk.is_some();
         let tools = std::mem::take(&mut self.asked);
-        if unsure {
-            ui.label(unknown_whereabouts(map));
-        } else {
-            heading(ui, map, current);
-        }
+        show_head(ui, map, current, unsure);
         let (area, level, home) = self.place(ui, map, current, tools.locate);
         let here_id = (!unsure).then_some(current.id);
         let prompted = self.prompt_line(ui, map, here_id);
@@ -257,82 +492,13 @@ impl MapView {
             .filter(|id| map.room(*id).is_some() && !map.is_ghost(*id));
         let told = self.told_of_selected(map);
         let chosen_room = self.selected.and_then(|id| map.room(id));
-        // The room chosen is told under the map, its exits under it: in as
-        // many lines as it takes at this width, room kept for them.
-        let width = ui.available_width();
-        let told_text = told.as_ref().map(|told| {
-            let font = egui::TextStyle::Body.resolve(ui.style());
-            let colour = theme::current().text_dim;
-            ui.painter().layout(told.clone(), font, colour, width)
-        });
-        let told_exits = chosen_room.map(|room| exit_chips(ui, map, room, width));
-        let gap = ui.spacing().item_spacing.y;
-        let footer = told_text
-            .as_ref()
-            .map_or(0.0, |galley| galley.size().y + gap)
-            + told_exits.as_ref().map_or(0.0, |chips| chips.size.y + gap);
-        let size = ui.available_size() - vec2(0.0, footer);
-        // An id of its own, not one counted from what is drawn before it,
-        // which a line over the map changes: the keyboard stays with it.
-        let (rect, _) = ui.allocate_exact_size(size, Sense::hover());
-        // Over its corners, before it, to be reached with Tab before it.
-        let (area, level) = self.corner_controls(ui, map, (area, level), home, rect);
-        let response = ui.interact(
-            rect,
-            ui.make_persistent_id("map view"),
-            Sense::click_and_drag(),
-        );
-        let painter = ui.painter_at(rect);
-        // Named once, the same always: the room chosen is said by the
-        // keys as they choose it, not again as the map's name changes.
-        let hint = explore::keys_hint();
-        ui.ctx().accesskit_node_builder(response.id, |node| {
-            node.set_role(egui::accesskit::Role::Group);
-            node.set_label(tr("Map"));
-            node.set_description(hint);
-        });
-        if std::mem::take(&mut self.focus_wanted) {
-            response.request_focus();
-        }
+        let (told_text, told_exits, footer) = told_footer(ui, map, told.as_ref(), chosen_room);
+        let (response, area, level) = self.allocate_map(ui, map, (area, level, home), footer);
+        let painter = ui.painter_at(response.rect);
+        self.name_and_focus(ui, &response);
         self.zoom_and_pan(ui, &response);
-        let gliding = self.glide_offset(ui);
-        let all_areas = self.all_areas;
-        let on_level = |room: &Room| (all_areas || room.area == area) && room.pos.z == level;
-        let shown: Shown = (map.revision(), area.clone(), level, all_areas);
-        if self
-            .on_level
-            .as_ref()
-            .is_none_or(|(known, _)| *known != shown)
-        {
-            // Rooms left over are not drawn: their place is another's.
-            let places = map
-                .rooms()
-                .filter(|room| on_level(room) && !map.is_ghost(room.id))
-                .map(|room| (room.pos, room.id));
-            self.on_level = Some((shown, places.collect()));
-        }
-        // Where the rooms on the level are, kept: of a map of thousands,
-        // only those on the screen are looked up.
-        let places: &[(Pos, RoomId)] = self.on_level.as_ref().map_or(&[], |(_, places)| places);
-        // The player's own area is centred on the player whatever the
-        // level, so going up and down keeps the place; any other area is
-        // centred on the middle of what is drawn.
-        let origin = if area == current.area || all_areas {
-            (current.pos.x, current.pos.y)
-        } else {
-            middle_of(places.iter().map(|(pos, _)| *pos))
-        };
-        let grid = Grid {
-            centre: response.rect.center() + self.pan + gliding,
-            origin,
-            cell: self.cell,
-            level,
-        };
-        let around = response.rect.expand(grid.cell);
-        let visible: Vec<&Room> = (places.iter())
-            .filter(|(pos, _)| around.contains(grid.on_screen(*pos)))
-            .filter_map(|(_, id)| map.room(*id))
-            .collect();
+        let (grid, visible) = self.grid_and_visible(ui, &response, map, current, &area, level);
+        let on_level = level_test(self.all_areas, &area, level);
         let colours = Colours::of(theme::current());
         draw_exits(&painter, map, &visible, &grid, &colours, &on_level);
         if let Some(walk) = walk {
@@ -354,71 +520,22 @@ impl MapView {
             map.appearance(),
         );
         draw_names(&painter, &visible, &grid, &colours);
-        // The rooms under the pointer: the nearest, all of them if several
-        // are in one place.
-        let rooms_at = |point: Pos2| -> Vec<&Room> {
-            let distance = |room: &&Room| grid.on_screen(room.pos).distance(point);
-            let near = (visible.iter()).filter(|room| distance(room) <= grid.half() * 1.5);
-            let Some(nearest) = near.clone().map(distance).reduce(f32::min) else {
-                return Vec::new();
-            };
-            near.filter(|room| distance(room) <= nearest + 0.5)
-                .copied()
-                .collect()
-        };
+        let rooms_at = |point: Pos2| rooms_at(&visible, &grid, point);
         let room_at = |point: Pos2| rooms_at(point).first().copied();
         if let Some(moved) = self.move_room(ui, &response, &painter, &grid, &room_at, &colours) {
             return Some(moved);
         }
         let pointed = response.hover_pos().and_then(room_at);
-        if crate::widgets::menu_pressed(&response) {
-            self.menu_room = pointed.map(|room| room.id);
-        }
-        // Opened with the keys, the menu is of the room being explored.
-        let by_keys = response.has_focus()
-            && ui.input(|input| {
-                (input.modifiers.shift && input.key_pressed(egui::Key::F10))
-                    || input.key_pressed(egui::Key::Menu)
-            });
-        if by_keys {
-            self.menu_room = Some(self.selected.unwrap_or(current.id));
-        }
+        self.choose_menu_room(ui, &response, current, pointed);
         let mut chosen = tools.action(&area).or(prompted);
         if let Some(asked) = self.room_menu(&response, map, &area) {
             chosen = Some(asked);
         }
-        // Twice, so that a click to look is not a walk.
-        // Of several in one place, one there is a way to.
-        if chosen.is_none() && response.double_clicked() {
-            let there = response.hover_pos().map(rooms_at).unwrap_or_default();
-            let reached = |room: &&&Room| map.moves_between(current.id, room.id).is_some();
-            let walked = there.iter().find(reached).or(there.first());
-            chosen = walked.map(|room| MapAsk::Walk(room.id));
-        }
-        // A click chooses the room to look at, or none; not Enter, which
-        // egui takes for a click of what has the keyboard.
-        if response.clicked_by(egui::PointerButton::Primary) {
-            response.request_focus();
-            let before = self.selected;
-            self.selected = pointed.map(|room| room.id);
-            if let Some(id) = self.selected.filter(|id| before != Some(*id)) {
-                chosen = chosen.or(Some(MapAsk::Selected(id, None)));
-            }
-        }
-        if let Some(keyed) = self.keys(ui, &response, map, current) {
-            chosen = chosen.or(Some(keyed));
-        }
-        if let Some(said) = self.level_said.take() {
-            chosen = chosen.or(Some(MapAsk::Say(said)));
-        }
+        let chosen = self.clicked(&response, map, current, &rooms_at, pointed, chosen);
+        let chosen = self.keyed_or_said(ui, &response, map, current, chosen);
         self.bring_into_sight(ui, &response, map, &grid, (&area, level));
         room_tip(response, map, pointed);
-        if let Some(galley) = told_text {
-            ui.add(egui::Label::new(galley));
-        }
-        if let Some(chips) = told_exits {
-            show_chips(ui, chips);
-        }
+        show_told(ui, told_text, told_exits);
         chosen
     }
 }
