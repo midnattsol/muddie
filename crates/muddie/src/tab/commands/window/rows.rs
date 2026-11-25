@@ -122,6 +122,36 @@ pub(super) fn palette_row(ui: &mut egui::Ui, item: &Item, chosen: bool) -> egui:
     let (glyph, keys) = look_of(item);
     let painter = ui.painter().with_clip_rect(inside);
     // The keys first, at the right, for the rest to know its room.
+    let end = paint_keys(&painter, inside, keys, &theme);
+    widgets::paint_glyph(
+        &painter,
+        inside.left_center() + egui::vec2(8.0, 0.0),
+        egui::Align2::CENTER_CENTER,
+        glyph,
+        13.0,
+        if chosen {
+            theme.accent
+        } else {
+            theme.text_faint
+        },
+    );
+    let (start, width) = paint_usage(ui, item, inside, end, &theme);
+    // What it is for, in what room is left, cut short with an ellipsis.
+    let room = end - (start + width + 14.0);
+    if !about.is_empty() && room > 40.0 {
+        paint_about(ui, about, inside, (start + width + 14.0, room), &theme);
+    }
+    row
+}
+
+/// The keys that do the same, in a chip at the right of `inside`. Returns
+/// where the rest of the row must end.
+fn paint_keys(
+    painter: &egui::Painter,
+    inside: egui::Rect,
+    keys: &str,
+    theme: &theme::Theme,
+) -> f32 {
     let mut end = inside.right();
     if !keys.is_empty() {
         let shown = painter.text(
@@ -140,18 +170,18 @@ pub(super) fn palette_row(ui: &mut egui::Ui, item: &Item, chosen: bool) -> egui:
         );
         end = chip.left() - 12.0;
     }
-    widgets::paint_glyph(
-        &painter,
-        inside.left_center() + egui::vec2(8.0, 0.0),
-        egui::Align2::CENTER_CENTER,
-        glyph,
-        13.0,
-        if chosen {
-            theme.accent
-        } else {
-            theme.text_faint
-        },
-    );
+    end
+}
+
+/// What the row is, whole, after its picture, up to `end`. Returns where
+/// it starts and how wide it is.
+fn paint_usage(
+    ui: &mut egui::Ui,
+    item: &Item,
+    inside: egui::Rect,
+    end: f32,
+    theme: &theme::Theme,
+) -> (f32, f32) {
     // What it is, whole: the words of a command typed as they are, and
     // what it is given dimmer.
     let start = inside.left() + 28.0;
@@ -176,27 +206,31 @@ pub(super) fn palette_row(ui: &mut egui::Ui, item: &Item, chosen: bool) -> egui:
     ui.painter()
         .with_clip_rect(inside.with_max_x(end))
         .galley(at, usage, theme.text);
-    // What it is for, in what room is left, cut short with an ellipsis.
-    let room = end - (start + width + 14.0);
-    if !about.is_empty() && room > 40.0 {
-        let mut job = egui::text::LayoutJob::single_section(
-            about.to_owned(),
-            egui::TextFormat::simple(theme::font(Weight::Regular, 13.0), theme.text_faint),
-        );
-        job.wrap = egui::text::TextWrapping {
-            max_width: room,
-            max_rows: 1,
-            break_anywhere: true,
-            overflow_character: Some('…'),
-        };
-        let about = ui.fonts_mut(|fonts| fonts.layout_job(job));
-        let at = egui::pos2(
-            start + width + 14.0,
-            inside.center().y - about.size().y / 2.0,
-        );
-        ui.painter().galley(at, about, theme.text_faint);
-    }
-    row
+    (start, width)
+}
+
+/// What the row is for, from `x` in `room`, cut short with an ellipsis.
+fn paint_about(
+    ui: &mut egui::Ui,
+    about: &str,
+    inside: egui::Rect,
+    place: (f32, f32),
+    theme: &theme::Theme,
+) {
+    let (x, room) = place;
+    let mut job = egui::text::LayoutJob::single_section(
+        about.to_owned(),
+        egui::TextFormat::simple(theme::font(Weight::Regular, 13.0), theme.text_faint),
+    );
+    job.wrap = egui::text::TextWrapping {
+        max_width: room,
+        max_rows: 1,
+        break_anywhere: true,
+        overflow_character: Some('…'),
+    };
+    let about = ui.fonts_mut(|fonts| fonts.layout_job(job));
+    let at = egui::pos2(x, inside.center().y - about.size().y / 2.0);
+    ui.painter().galley(at, about, theme.text_faint);
 }
 
 /// The picture of something the palette lists, by what it does, and the
