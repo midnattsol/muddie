@@ -31,7 +31,7 @@ mod retired;
 mod state;
 mod switches;
 
-pub use action::{Action, Effect, GaugeKind, GaugeLook};
+pub use action::{Action, Announce, Effect, GaugeKind, GaugeLook};
 pub use convert::{colour_named, split_commands};
 
 /// Something a script offers to do with the map, as the user is shown it.

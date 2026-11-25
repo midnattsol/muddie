@@ -242,8 +242,8 @@ impl Gauge {
         said
     }
 
-    /// How it looks, named as the rule names it: its kind, its colours,
-    /// and its steps.
+    /// How it looks and is announced, named as the rule names it: its
+    /// kind, its colours, its steps, and how its changes are said.
     fn look(&self) -> String {
         let steps: Vec<String> = (self.steps.iter())
             .filter(|step| !step.colour.trim().is_empty())
@@ -253,11 +253,12 @@ impl Gauge {
             })
             .collect();
         format!(
-            "kind = {}, colour = {}, off_colour = {}, step = {{{}}}",
+            "kind = {}, colour = {}, off_colour = {}, step = {{{}}}, announce = {}",
             quoted(self.kind.key()),
             quoted(self.colour.trim()),
             quoted(self.off_colour.trim()),
-            steps.join(", ")
+            steps.join(", "),
+            quoted(self.announce.key())
         )
     }
 }

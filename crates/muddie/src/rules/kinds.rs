@@ -305,7 +305,7 @@ pub struct ScriptEntry {
     pub tags: Vec<String>,
 }
 
-pub use muddie_script::GaugeKind;
+pub use muddie_script::{Announce, GaugeKind};
 
 /// A colour a gauge takes while it is under a percentage of its maximum.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -342,6 +342,9 @@ pub struct Gauge {
     /// The colour it takes under each percentage of its maximum.
     #[serde(rename = "step")]
     pub steps: Vec<Step>,
+    /// How its changes are said aloud.
+    #[serde(skip_serializing_if = "Announce::is_usual")]
+    pub announce: Announce,
     /// The panel of gauges it is shown in, by the panel's name; none shows
     /// it in the first there is.
     #[serde(
@@ -403,6 +406,25 @@ impl KindName for GaugeKind {
             Self::Light => tr("Light"),
             Self::Text => tr("Text"),
             Self::Effects => tr("Effects"),
+        }
+    }
+}
+
+/// How a gauge is announced, as the interface names it.
+pub trait AnnounceName {
+    /// Its name, as shown.
+    fn shown(self) -> &'static str;
+}
+
+impl AnnounceName for Announce {
+    fn shown(self) -> &'static str {
+        use crate::i18n::tr;
+        match self {
+            Self::Usual => tr("As usual for its kind"),
+            Self::Never => tr("Never"),
+            Self::Wait => tr("After what is being read"),
+            Self::Lowest => tr("Cutting in only under the lowest step"),
+            Self::Cut => tr("Cutting in on what is being read"),
         }
     }
 }

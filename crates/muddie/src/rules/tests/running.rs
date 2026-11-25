@@ -405,3 +405,31 @@ fn gauges_come_in_kinds_and_change_colour_by_level() {
         assert_eq!(level, Some((0.0, 1.0)), "{off}");
     }
 }
+
+/// How a gauge is announced is kept with it, unless it is as usual, and
+/// told to the engine.
+#[test]
+fn how_a_gauge_is_announced_is_kept_and_told() {
+    let mut gauge = Gauge {
+        name: "HP".into(),
+        value: "Char.hp".into(),
+        max: "10".into(),
+        ..Gauge::starter()
+    };
+    assert!(!toml::to_string(&gauge).unwrap().contains("announce"));
+    gauge.announce = Announce::Lowest;
+    let written = toml::to_string(&gauge).unwrap();
+    assert!(written.contains("announce = \"lowest\""), "{written}");
+    assert_eq!(toml::from_str::<Gauge>(&written).unwrap(), gauge);
+    let mut engine = run(&Rules {
+        gauges: vec![gauge],
+        ..Rules::default()
+    });
+    engine.on_gmcp("Char", r#"{"hp": 4}"#);
+    match engine.take_actions().remove(0) {
+        Action::Gauge { look, .. } => {
+            assert_eq!(look.announce, muddie_script::Announce::Lowest)
+        }
+        other => panic!("{other:?}"),
+    }
+}

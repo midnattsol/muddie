@@ -1,7 +1,7 @@
 //! The details of a gauge.
 
 use super::*;
-use crate::rules::{Gauge, GaugeKind, KindName, Step};
+use crate::rules::{Announce, AnnounceName, Gauge, GaugeKind, KindName, Step};
 
 impl Tab {
     pub(in crate::tab) fn gauge_detail(&mut self, ui: &mut egui::Ui, index: usize) -> bool {
@@ -14,6 +14,7 @@ impl Tab {
         kind_row(ui, rule);
         follows(ui, rule);
         colours(ui, rule);
+        read_aloud(ui, rule);
         let add_panel = shown_in(ui, rule, &panels);
         preview(ui, rule);
         if add_panel {
@@ -190,6 +191,32 @@ fn steps(ui: &mut egui::Ui, rule: &mut Gauge) {
     }
 }
 
+/// How its changes are said aloud; only one with a level has a lowest step.
+fn read_aloud(ui: &mut egui::Ui, rule: &mut Gauge) {
+    widgets::card(
+        ui,
+        Some(widgets::Glyph::Say),
+        tr("Read aloud"),
+        |_| {},
+        |ui| {
+            let ways: Vec<(Announce, String)> = (Announce::ALL.into_iter())
+                .filter(|way| rule.kind.has_level() || *way != Announce::Lowest)
+                .map(|way| (way, way.shown().to_owned()))
+                .collect();
+            let chosen =
+                crate::widgets::choose(ui, "gauge announced", &mut rule.announce, &ways, |way| {
+                    way.shown().to_owned()
+                });
+            (ui.ctx()).accesskit_node_builder(chosen.id, |node| node.set_label(tr("Read aloud")));
+            let about = match rule.kind.has_level() {
+                true => tr("It is said as it falls under a step: as usual, cutting in."),
+                false => tr("It is said when it changes: as usual, after what is being read."),
+            };
+            note(ui, about);
+        },
+    );
+}
+
 /// Which panel of gauges it is shown in. Returns whether a panel was asked
 /// for, there being none.
 fn shown_in(ui: &mut egui::Ui, rule: &mut Gauge, panels: &[(String, String)]) -> bool {
@@ -311,5 +338,6 @@ fn look_of(rule: &Gauge, text: &str) -> muddie_script::GaugeLook {
             .collect(),
         text: text.to_owned(),
         off_colour: rule.off_colour.clone(),
+        announce: rule.announce,
     }
 }

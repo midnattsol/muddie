@@ -103,6 +103,21 @@ msgstr ""
 msgid "Effects"
 msgstr ""
 
+msgid "As usual for its kind"
+msgstr ""
+
+msgid "Never"
+msgstr ""
+
+msgid "After what is being read"
+msgstr ""
+
+msgid "Cutting in only under the lowest step"
+msgstr ""
+
+msgid "Cutting in on what is being read"
+msgstr ""
+
 #, python-brace-format
 msgid "Could not load the settings: {0}"
 msgstr ""
@@ -1562,6 +1577,15 @@ msgstr ""
 msgid "Add a step"
 msgstr ""
 
+msgid "Read aloud"
+msgstr ""
+
+msgid "It is said as it falls under a step: as usual, cutting in."
+msgstr ""
+
+msgid "It is said when it changes: as usual, after what is being read."
+msgstr ""
+
 msgid "Shown in"
 msgstr ""
 
@@ -2096,9 +2120,6 @@ msgid "All"
 msgstr ""
 
 msgid "Shift+F10 opens its menu."
-msgstr ""
-
-msgid "Read aloud"
 msgstr ""
 
 #, python-brace-format

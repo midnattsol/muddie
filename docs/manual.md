@@ -445,6 +445,10 @@ follows something the MUD reports, or a variable, and is one of these kinds:
   its name.
   Read all together, with Alt+0, effects are read by their names alone.
 
+**Read aloud** says how its changes are read: as usual for its kind, never,
+after what is being read, cutting in on it, or cutting in only under the
+lowest of its colour steps.
+
 Say where the value is, and the maximum for those that have one: a GMCP
 package and the fields inside it (`Char.Vitals.health.current`), the name
 of a MSDP variable, or a variable of the editor's (`hp`, or `bag.gold` for a

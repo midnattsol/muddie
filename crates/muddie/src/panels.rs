@@ -4,7 +4,7 @@
 use eframe::egui::{Align2, Color32, Id, Rect, Role, Sense, Ui, WidgetInfo, vec2};
 use muddie_core::Line;
 use muddie_core::ansi::Assembler;
-use muddie_script::{Belongs, GaugeKind, GaugeLook};
+use muddie_script::{Announce, Belongs, GaugeKind, GaugeLook};
 
 use crate::i18n::{tr, trf};
 use crate::theme;
@@ -65,17 +65,32 @@ impl Gauge {
     /// now, if that changed. A level: falling under one of its warnings,
     /// as it turns colour, said again only once it has risen clear of it,
     /// so that one that wavers there is not said each time; and under
-    /// one, each tenth more it falls.
+    /// one, each tenth more it falls. It cuts short what is being said as
+    /// the gauge is told to be announced.
     fn warning(&mut self, was: &str) -> Option<Warning> {
+        let news = self.news(was)?;
+        let lowest = || {
+            let steps = self.look.steps.iter().map(|(under, _)| *under);
+            self.under() == steps.min_by(f64::total_cmp)
+        };
+        let urgent = match self.look.announce {
+            Announce::Usual => self.look.kind.has_level(),
+            Announce::Never => return None,
+            Announce::Wait => false,
+            Announce::Lowest => self.look.kind.has_level() && lowest(),
+            Announce::Cut => true,
+        };
+        Some(Warning { said: news, urgent })
+    }
+
+    /// What there is to say of it now that it changed from `was`.
+    fn news(&mut self, was: &str) -> Option<String> {
         if matches!(
             self.look.kind,
             GaugeKind::Light | GaugeKind::Text | GaugeKind::Effects
         ) {
             let now = self.said();
-            return (now != was).then_some(Warning {
-                said: now,
-                urgent: false,
-            });
+            return (now != was).then_some(now);
         }
         if self.max <= 0.0 {
             return None;
@@ -104,10 +119,7 @@ impl Gauge {
             self.under = now;
         }
         self.said_at = Some(percent);
-        Some(Warning {
-            said: self.said(),
-            urgent: true,
-        })
+        Some(self.said())
     }
 
     /// What it is, said aloud.

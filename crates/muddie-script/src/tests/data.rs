@@ -436,6 +436,33 @@ fn what_a_script_set_of_the_map_and_the_session_goes_with_it() {
 }
 
 #[test]
+fn a_script_says_how_a_gauge_is_announced() {
+    let mut engine = engine("");
+    let mut look = |code: &str| {
+        engine.exec("t", code);
+        engine.take_actions().remove(0)
+    };
+    for (told, announce) in [
+        ("{}", Announce::Usual),
+        (r#"{announce = "usual"}"#, Announce::Usual),
+        (r#"{announce = "never"}"#, Announce::Never),
+        (r#"{announce = "wait"}"#, Announce::Wait),
+        (r#"{announce = "lowest"}"#, Announce::Lowest),
+        (r#"{announce = "cut"}"#, Announce::Cut),
+    ] {
+        match look(&format!(r#"gauge("HP", 1, 2, {told})"#)) {
+            Action::Gauge { look, .. } => assert_eq!(look.announce, announce, "{told}"),
+            other => panic!("{other:?}"),
+        }
+    }
+    let wrong = look(r#"gauge("HP", 1, 2, {announce = "shout"})"#);
+    assert!(
+        matches!(&wrong, Action::Error(said) if said.contains("usual, never, wait, lowest or cut")),
+        "{wrong:?}"
+    );
+}
+
+#[test]
 fn a_script_says_what_of_a_channel_is_not_read() {
     let mut engine = engine("");
     let mut look = |code: &str| {

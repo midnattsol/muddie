@@ -34,7 +34,7 @@ fn install_gauge(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
                 };
                 let mut look = GaugeLook::default();
                 let known = [
-                    "kind", "colour", "off_colour", "text", "step", "items", "panel", "place",
+                    "kind", "colour", "off_colour", "text", "step", "items", "announce", "panel", "place",
                     "tags",
                 ];
                 super::rules::only(options.as_ref(), &known)?;
@@ -66,6 +66,7 @@ fn install_gauge(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
                         }
                     }
                     look.items = effects_of(options.get("items")?)?;
+                    look.announce = announce_of(&text("announce")?)?;
                 }
                 let mut state = shared.borrow_mut();
                 let owner = state.owner.clone();
@@ -90,6 +91,18 @@ fn install_gauge(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
         )?,
     )?;
     Ok(())
+}
+
+/// How a gauge is announced, as it is written; as usual if it is not.
+fn announce_of(key: &str) -> mlua::Result<Announce> {
+    match key.trim() {
+        "" => Ok(Announce::Usual),
+        key => Announce::from_key(key).ok_or_else(|| {
+            mlua::Error::runtime(format!(
+                "a gauge's announce is usual, never, wait, lowest or cut, not {key}"
+            ))
+        }),
+    }
 }
 
 /// The effects a gauge is given: a list, or a table by name; each a name,

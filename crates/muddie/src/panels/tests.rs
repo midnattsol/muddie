@@ -101,6 +101,79 @@ fn gauges_update_in_place_and_summarise() {
     assert_eq!(gauges.summary(), "MP 5 of 50");
 }
 
+/// What a gauge says as it falls, and whether it cuts in, as it is told.
+#[test]
+fn a_gauge_is_announced_as_it_is_told() {
+    let falls = |announce: Announce| -> Vec<(String, bool)> {
+        let mut gauges = Gauges::default();
+        let look = GaugeLook {
+            steps: vec![(60.0, "yellow".into()), (30.0, "red".into())],
+            announce,
+            ..GaugeLook::default()
+        };
+        [80.0, 55.0, 42.0, 25.0, 12.0]
+            .into_iter()
+            .filter_map(|value| {
+                gauges.set_by(
+                    "HP",
+                    Some((value, 100.0)),
+                    Some(look.clone()),
+                    None,
+                    Belongs::default(),
+                    String::new(),
+                )
+            })
+            .map(|warning| (warning.said, warning.urgent))
+            .collect()
+    };
+    let said = |urgent: [bool; 4]| -> Vec<(String, bool)> {
+        [55, 42, 25, 12]
+            .into_iter()
+            .zip(urgent)
+            .map(|(value, urgent)| (format!("HP {value} of 100"), urgent))
+            .collect()
+    };
+    assert_eq!(falls(Announce::Usual), said([true; 4]));
+    assert_eq!(falls(Announce::Cut), said([true; 4]));
+    assert_eq!(falls(Announce::Wait), said([false; 4]));
+    assert_eq!(falls(Announce::Lowest), said([false, false, true, true]));
+    assert_eq!(falls(Announce::Never), []);
+}
+
+/// One of words, with no steps, waits unless it is told to cut in.
+#[test]
+fn a_gauge_of_words_is_announced_as_it_is_told() {
+    let changes = |announce: Announce| -> Vec<bool> {
+        let mut gauges = Gauges::default();
+        ["a", "b"]
+            .into_iter()
+            .filter_map(|text| {
+                let look = GaugeLook {
+                    kind: GaugeKind::Text,
+                    text: text.into(),
+                    announce,
+                    ..GaugeLook::default()
+                };
+                let level = Some((0.0, 0.0));
+                gauges.set_by(
+                    "T",
+                    level,
+                    Some(look),
+                    None,
+                    Belongs::default(),
+                    String::new(),
+                )
+            })
+            .map(|warning| warning.urgent)
+            .collect()
+    };
+    assert_eq!(changes(Announce::Usual), [false]);
+    assert_eq!(changes(Announce::Wait), [false]);
+    assert_eq!(changes(Announce::Lowest), [false]);
+    assert_eq!(changes(Announce::Cut), [true]);
+    assert_eq!(changes(Announce::Never), [] as [bool; 0]);
+}
+
 /// Asked for all together, effects are said by their names; where each is
 /// shown, with what it is.
 #[test]

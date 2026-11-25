@@ -1389,6 +1389,27 @@ msgstr "Hablando con {0}."
 msgid "Read aloud"
 msgstr "Leer en voz alta"
 
+msgid "As usual for its kind"
+msgstr "Lo normal en su tipo"
+
+msgid "Never"
+msgstr "Nunca"
+
+msgid "After what is being read"
+msgstr "Después de lo que se está leyendo"
+
+msgid "Cutting in only under the lowest step"
+msgstr "Interrumpiendo solo bajo el paso más bajo"
+
+msgid "Cutting in on what is being read"
+msgstr "Interrumpiendo lo que se está leyendo"
+
+msgid "It is said as it falls under a step: as usual, cutting in."
+msgstr "Se dice cuando baja de un paso: lo normal es interrumpir."
+
+msgid "It is said when it changes: as usual, after what is being read."
+msgstr "Se dice cuando cambia: lo normal es esperar a lo que se está leyendo."
+
 #, python-brace-format
 msgid "Active voice: {0}."
 msgstr "Voz activa: {0}."

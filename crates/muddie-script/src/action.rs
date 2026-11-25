@@ -17,6 +17,59 @@ pub struct GaugeLook {
     pub off_colour: String,
     /// What a gauge of the `effects` kind shows, in order.
     pub items: Vec<Effect>,
+    /// How its changes are said aloud.
+    pub announce: Announce,
+}
+
+/// How the changes of a gauge are said aloud.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Announce {
+    /// As its kind is: a level that falls under a step cuts short what is
+    /// being said, and the rest wait their turn.
+    #[default]
+    Usual,
+    /// Not at all.
+    Never,
+    /// After what is being said.
+    Wait,
+    /// After what is being said, but cutting it short under the lowest of
+    /// its steps.
+    Lowest,
+    /// Cutting short what is being said.
+    Cut,
+}
+
+impl Announce {
+    /// Every way, in the order the editor offers them.
+    pub const ALL: [Self; 5] = [
+        Self::Usual,
+        Self::Never,
+        Self::Wait,
+        Self::Lowest,
+        Self::Cut,
+    ];
+
+    /// The way of this name, as rules and scripts write it.
+    pub fn from_key(key: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|way| way.key() == key.trim())
+    }
+
+    /// Its name, as rules and scripts write it.
+    pub fn key(self) -> &'static str {
+        match self {
+            Self::Usual => "usual",
+            Self::Never => "never",
+            Self::Wait => "wait",
+            Self::Lowest => "lowest",
+            Self::Cut => "cut",
+        }
+    }
+
+    /// Whether it is the one there is if none is told.
+    pub fn is_usual(&self) -> bool {
+        *self == Self::Usual
+    }
 }
 
 /// What a gauge is drawn as.
