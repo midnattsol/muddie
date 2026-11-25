@@ -284,7 +284,7 @@ local function step(seen)
     if seen.came then
         stray_told = stray
     end
-    local now = map.arrive(seen)
+    local now = map.arrive({ name = seen.name, exits = seen.exits, came = seen.came })
     -- Shown when Muddie is started with --debug.
     log(`Reinos: name={seen.name} exits={table.concat(seen.exits or {}, ",")} came={seen.came} -> {now}`)
 end

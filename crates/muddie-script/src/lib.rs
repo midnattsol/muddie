@@ -34,7 +34,7 @@ mod state;
 mod switches;
 
 pub use action::{Action, Announce, Effect, GaugeKind, GaugeLook};
-pub use convert::{colour_named, split_commands};
+pub use convert::{bindable, colour_named, split_commands};
 
 /// Something a script offers to do with the map, as the user is shown it.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -47,7 +47,7 @@ pub struct OfferedTool {
     pub checked: Option<bool>,
 }
 pub use api::{in_interface_language, set_interface_language};
-use api::{install_api, texts_of};
+use api::{install_api, only, texts_of};
 use convert::*;
 use made::Made;
 use map_api::*;

@@ -57,6 +57,53 @@ pub fn key_name(key: &str) -> String {
     name + key
 }
 
+/// The keys of the main block that have a name of several letters, as the
+/// frontend gives it, in lower case.
+const NAMED_KEYS: &str = "down left right up escape tab backspace enter insert delete home end pageup \
+    pagedown copy cut paste space colon comma minus period plus equals semicolon \
+    backslash slash pipe questionmark exclamationmark openbracket closebracket \
+    opencurlybracket closecurlybracket backtick quote browserback browserforward \
+    browserrefresh browsersearch browserhome browserfavorites browserstop \
+    mediaplaypause mediatracknext mediatrackprevious mediastop audiovolumemute \
+    audiovolumedown audiovolumeup launchmail launchapp1 launchapp2 shiftleft \
+    shiftright controlleft controlright altleft altright superleft superright \
+    intlbackslash capslock numlock scrolllock printscreen pause menu fn eject help \
+    power sleep clear";
+
+/// The keys of the numeric keypad, after `numpad`.
+const KEYPAD: &str = "0 1 2 3 4 5 6 7 8 9 add subtract multiply divide decimal enter up down left \
+    right home end pageup pagedown clear insert delete";
+
+/// Whether a key, named as in `macro`, can do something when it is pressed:
+/// what is wrong with it if not.
+pub fn bindable(key: &str) -> Result<(), String> {
+    let lower = key.to_lowercase();
+    let mut parts: Vec<&str> = lower.split('+').map(str::trim).collect();
+    let base = parts.pop().unwrap_or_default();
+    if let Some(wrong) = (parts.iter()).find(|part| !["ctrl", "alt", "shift"].contains(part)) {
+        return Err(format!(
+            "{key}: there is no {wrong} to hold; there are ctrl, alt and shift"
+        ));
+    }
+    let among = |names: &str, name: &str| names.split_whitespace().any(|known| known == name);
+    let function = (base.strip_prefix('f').and_then(|n| n.parse::<u8>().ok()))
+        .is_some_and(|n| (1..=35).contains(&n));
+    let keypad = (base.strip_prefix("numpad")).is_some_and(|name| among(KEYPAD, name));
+    if function || keypad {
+        return Ok(());
+    }
+    let letter = base.chars().count() == 1;
+    if !letter && !among(NAMED_KEYS, base) {
+        return Err(format!("there is no key {base}, in {key}"));
+    }
+    match parts.contains(&"ctrl") || parts.contains(&"alt") {
+        true => Ok(()),
+        false => Err(format!(
+            "{key} would be typed: but for f1 to f35 and the keypad, a key needs ctrl or alt"
+        )),
+    }
+}
+
 /// The names of the sixteen colours of the palette, each also `bright`.
 pub const COLOUR_NAMES: [&str; 8] = [
     "black", "red", "green", "yellow", "blue", "magenta", "cyan", "white",

@@ -63,6 +63,7 @@ fn install_speak(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     add(
         "speak",
         lua.create_function(move |_, (text, options): (String, Option<Table>)| {
+            super::rules::only(options.as_ref(), &["interrupt"])?;
             let interrupt = match options {
                 Some(options) => options.get::<Option<bool>>("interrupt")?.unwrap_or(false),
                 None => false,

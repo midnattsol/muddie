@@ -489,3 +489,51 @@ fn a_timer_says_how_long_it_has_left() {
         ["true", "nil", "nil"].map(|said| Action::Echo(said.into()))
     );
 }
+
+/// What is misspelt or makes no sense is an error that says what there is.
+#[test]
+fn what_is_not_understood_is_said() {
+    for (code, said) in [
+        (r#"speak("x", {interupt = true})"#, "no option interupt"),
+        (r#"map.find("x", {exacto = true})"#, "no option exacto"),
+        (r#"map.arrive({nombre = "x"})"#, "no option nombre"),
+        (r#"map.names({regions = ":"})"#, "no option regions"),
+        (r#"map.edit_room(1, {nombre = "x"})"#, "no option nombre"),
+        (
+            r#"map.set_exit(1, "n", 2, {block = true})"#,
+            "no option block",
+        ),
+        (
+            r#"map.action("x", function() end, {chequed = true})"#,
+            "no option chequed",
+        ),
+        (r#"macro("f99", "x")"#, "there is no key f99"),
+        (r#"macro("ctrl+nokey", "x")"#, "there is no key nokey"),
+        (r#"macro("ctrl+arrowup", "x")"#, "there is no key arrowup"),
+        (r#"macro("meta+k", "x")"#, "there is no meta to hold"),
+        (r#"macro("a", "x")"#, "a would be typed"),
+        (
+            r#"gauges.set("G", {value = 1, max = 2, colour = "nope"})"#,
+            "there is no colour nope",
+        ),
+        (
+            r#"gauges.set("G", {value = 1, max = 2, step = {{under = 3, color = "red"}}})"#,
+            "no option color",
+        ),
+    ] {
+        let mut engine = engine("");
+        engine.exec("t", code);
+        let actions = engine.take_actions();
+        assert!(error_text(&actions).contains(said), "{code}: {actions:?}");
+    }
+    for key in [
+        "f1",
+        "F35",
+        "ctrl+k",
+        "Alt + Shift+Up",
+        "numpad8",
+        "ctrl+numpadenter",
+    ] {
+        assert_eq!(bindable(key), Ok(()), "{key}");
+    }
+}

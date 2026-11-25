@@ -4,6 +4,7 @@ use super::*;
 
 pub(crate) use language::texts_of;
 pub use language::{in_interface_language, set_interface_language};
+pub(crate) use rules::only;
 
 mod data;
 mod language;

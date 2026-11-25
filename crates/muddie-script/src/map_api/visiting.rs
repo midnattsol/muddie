@@ -38,6 +38,7 @@ fn install_entering(
     api.set(
         "arrive",
         lua.create_function(move |_, seen: Table| {
+            only(Some(&seen), &["name", "exits", "came"])?;
             let name: Option<String> = seen.get("name")?;
             let exits: Option<Vec<String>> = seen.get("exits")?;
             let came: Option<String> = seen.get("came")?;
@@ -59,6 +60,7 @@ fn install_entering(
     api.set(
         "add",
         lua.create_function(move |_, seen: Table| {
+            only(Some(&seen), &["name", "exits", "came"])?;
             let name: Option<String> = seen.get("name")?;
             let exits: Option<Vec<String>> = seen.get("exits")?;
             let came: Option<String> = seen.get("came")?;
@@ -170,6 +172,7 @@ fn install_teaching(
     api.set(
         "names",
         lua.create_function(move |_, ways: Option<Table>| {
+            only(ways.as_ref(), &["region", "exits"])?;
             shared.borrow_mut().set(crate::state::Set::Naming);
             let naming = match ways {
                 None => Naming::default(),

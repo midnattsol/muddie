@@ -24,6 +24,7 @@ pub(super) fn install_finding(lua: &Lua, map: &Rc<RefCell<Map>>, api: &Table) ->
         // note or name, the nearest first; or, exact, those called just so
         // as the MUD names them, by number.
         lua.create_function(move |_, (text, options): (String, Option<Table>)| {
+            only(options.as_ref(), &["exact"])?;
             let exact = match options {
                 Some(options) => options.get::<Option<bool>>("exact")?.unwrap_or(false),
                 None => false,
@@ -136,6 +137,12 @@ struct RoomEdit {
 
 impl RoomEdit {
     fn read(options: &Table) -> mlua::Result<Self> {
+        only(
+            Some(options),
+            &[
+                "name", "note", "cost", "avoid", "colour", "shape", "symbol", "x", "y", "z",
+            ],
+        )?;
         let given = |key: &str| -> mlua::Result<Option<Value>> {
             Ok(match options.get::<Value>(key)? {
                 Value::Nil => None,

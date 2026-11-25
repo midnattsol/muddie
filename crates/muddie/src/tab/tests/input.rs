@@ -432,3 +432,16 @@ fn the_palette_is_a_list_to_page_through_that_says_how_long_it_is() {
     harness.run_steps(2);
     assert_eq!(chosen(&harness), 0);
 }
+
+/// Every key there is can be bound, held with Ctrl: the engine knows them
+/// all by the names they have here.
+#[test]
+fn every_key_is_known_to_scripts() {
+    for key in Key::ALL {
+        let name = format!("ctrl+{}", key.name().to_lowercase());
+        assert_eq!(muddie_script::bindable(&name), Ok(()));
+    }
+    for name in crate::keypad::names() {
+        assert_eq!(muddie_script::bindable(name), Ok(()));
+    }
+}

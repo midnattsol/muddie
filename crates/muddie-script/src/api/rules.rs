@@ -54,7 +54,7 @@ fn install_triggers_and_aliases(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::
 
 /// That `options` give nothing but what is `known`: one misspelt, or of
 /// another function, would be left out without a word.
-pub(super) fn only(options: Option<&Table>, known: &[&str]) -> mlua::Result<()> {
+pub(crate) fn only(options: Option<&Table>, known: &[&str]) -> mlua::Result<()> {
     let Some(options) = options else {
         return Ok(());
     };
@@ -165,6 +165,7 @@ fn install_macro(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
                     _ => return Err(mlua::Error::runtime("macro needs a command or a function")),
                 };
                 only(options.as_ref(), &["place", "tags"])?;
+                bindable(&key).map_err(mlua::Error::runtime)?;
                 let belongs = belongs(options.as_ref())?;
                 let mut state = shared.borrow_mut();
                 let id = state.next_id();

@@ -134,7 +134,7 @@ place is where it is among the profile's scripts, with no extension:
 every tag it carries are switched on.
 
 Keys are named in lower case with their modifiers in the order `ctrl`, `alt`,
-`shift`: `f1`...`f35`, `ctrl+k`, `alt+shift+arrowup`. Of the main block, only
+`shift`: `f1`...`f35`, `ctrl+k`, `alt+shift+up`. Of the main block, only
 function keys and keys pressed with Ctrl or Alt can be bound, so typing is
 never intercepted.
 

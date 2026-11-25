@@ -129,6 +129,7 @@ pub(super) fn install_actions(
         "action",
         lua.create_function(
             move |_, (label, callback, options): (Value, Option<Function>, Option<Table>)| {
+                only(options.as_ref(), &["checked"])?;
                 let label = texts_of(label)?;
                 if label.is_empty() {
                     return Err(mlua::Error::runtime(

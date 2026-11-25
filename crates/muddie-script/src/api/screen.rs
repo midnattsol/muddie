@@ -124,7 +124,7 @@ fn look_of(given: &Table) -> mlua::Result<GaugeLook> {
     };
     let kind = text("kind")?;
     let mut look = GaugeLook {
-        colour: text("colour")?,
+        colour: colour_of(text("colour")?)?,
         kind: match kind.trim() {
             "" => GaugeKind::Bar,
             key => GaugeKind::from_key(key).ok_or_else(|| {
@@ -133,7 +133,7 @@ fn look_of(given: &Table) -> mlua::Result<GaugeLook> {
                 ))
             })?,
         },
-        off_colour: text("off_colour")?,
+        off_colour: colour_of(text("off_colour")?)?,
         text: text("text")?,
         items: effects_of(given.get("items")?)?,
         announce: announce_of(&text("announce")?)?,
@@ -141,10 +141,23 @@ fn look_of(given: &Table) -> mlua::Result<GaugeLook> {
     };
     if let Some(steps) = given.get::<Option<Vec<Table>>>("step")? {
         for step in steps {
-            look.steps.push((step.get("under")?, step.get("colour")?));
+            super::rules::only(Some(&step), &["under", "colour"])?;
+            let colour = colour_of(step.get("colour")?)?;
+            look.steps.push((step.get("under")?, colour));
         }
     }
     Ok(look)
+}
+
+/// A colour a gauge is given, if it is one; none leaves the choice to the
+/// client.
+fn colour_of(text: String) -> mlua::Result<String> {
+    match text.trim().is_empty() || colour_named(&text).is_some() {
+        true => Ok(text),
+        false => Err(mlua::Error::runtime(format!(
+            "there is no colour {text}: a colour is a name such as red or bright blue, #rrggbb or a number of the palette"
+        ))),
+    }
 }
 
 /// How a gauge is announced, as it is written; as usual if it is not.

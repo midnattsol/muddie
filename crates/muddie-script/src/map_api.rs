@@ -86,6 +86,7 @@ pub(super) struct ExitOptions {
 
 impl ExitOptions {
     fn read(options: Option<Table>) -> mlua::Result<Self> {
+        only(options.as_ref(), &["cost", "blocked", "command"])?;
         let Some(options) = options else {
             return Ok(Self::default());
         };
