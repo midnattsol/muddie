@@ -6,6 +6,10 @@
 use super::*;
 use crate::rules::{joined, moved_order};
 
+mod keys;
+
+use keys::*;
+
 impl Tab {
     /// How many things the current section holds.
     pub(in crate::tab) fn section_len(&self) -> usize {
@@ -121,24 +125,19 @@ impl Tab {
         if keyboard && !ours {
             return;
         }
-        // Those with Shift first: without it, the plain ones would take
-        // them too.
-        let (wider_up, wider_down) = ui.input_mut(|input| {
-            (
-                input.consume_key(Modifiers::SHIFT, Key::ArrowUp),
-                input.consume_key(Modifiers::SHIFT, Key::ArrowDown),
-            )
-        });
-        let pressed = |key: Key| ui.input_mut(|input| input.consume_key(Modifiers::NONE, key));
-        let (up, down, home, end) = (
-            pressed(Key::ArrowUp),
-            pressed(Key::ArrowDown),
-            pressed(Key::Home),
-            pressed(Key::End),
-        );
-        let (left, right) = (pressed(Key::ArrowLeft), pressed(Key::ArrowRight));
-        let (delete, rename) = (pressed(Key::Delete), pressed(Key::F2));
-        let all = ui.input_mut(|input| input.consume_key(Modifiers::COMMAND, Key::A));
+        let ListKeys {
+            wider_up,
+            wider_down,
+            up,
+            down,
+            home,
+            end,
+            left,
+            right,
+            delete,
+            rename,
+            all,
+        } = ListKeys::take(ui);
         let back = self.editor.marked.len() > 1 && widgets::take_escape(ui);
         let visible = self.editor.visible.clone();
         let rows = list::rows_in(&visible);
@@ -172,33 +171,7 @@ impl Tab {
         // Left and right: a folder closed or opened, or the one around, or
         // the first in it.
         if left || right {
-            let Some(at) = at else { return };
-            let item = &items[at];
-            match (&item.spot, kind) {
-                (Spot::Folder(path), Some(kind)) if left && item.open && !self.narrowed() => {
-                    self.fold(kind, path, true)
-                }
-                (Spot::Folder(path), Some(kind)) if right && !item.open => {
-                    self.fold(kind, path, false)
-                }
-                (Spot::Folder(_), _) if right => {
-                    if let Some(next) = items.get(at + 1).filter(|next| next.depth > item.depth) {
-                        let spot = next.spot.clone();
-                        self.go_to_line(ui, &spot, keyboard);
-                    }
-                }
-                _ if left => {
-                    let around = items[..at]
-                        .iter()
-                        .rev()
-                        .find(|before| before.depth < item.depth);
-                    if let Some(around) = around {
-                        let spot = around.spot.clone();
-                        self.go_to_line(ui, &spot, keyboard);
-                    }
-                }
-                _ => {}
-            }
+            self.step_in_tree(ui, items, at, (left, right), keyboard);
             return;
         }
         // Going: to the one above or below the one chosen, or to an end.
@@ -214,8 +187,53 @@ impl Tab {
             self.go_to_line(ui, spot, keyboard);
             return;
         }
-        // Widening: what is chosen, and the one above or below it, of the
-        // things, not the folders.
+        self.widen_choice(wider_up, wider_down, &rows);
+    }
+
+    /// Left and right in the list: a folder closed or opened, or the one
+    /// around, or the first in it. `at` is where the one chosen is in the
+    /// list, `keys` which of the two were pressed.
+    fn step_in_tree(
+        &mut self,
+        ui: &mut egui::Ui,
+        items: &[list::TreeItem],
+        at: Option<usize>,
+        keys: (bool, bool),
+        keyboard: bool,
+    ) {
+        let (left, right) = keys;
+        let kind = self.editor.section.kind();
+        let Some(at) = at else { return };
+        let item = &items[at];
+        match (&item.spot, kind) {
+            (Spot::Folder(path), Some(kind)) if left && item.open && !self.narrowed() => {
+                self.fold(kind, path, true)
+            }
+            (Spot::Folder(path), Some(kind)) if right && !item.open => self.fold(kind, path, false),
+            (Spot::Folder(_), _) if right => {
+                if let Some(next) = items.get(at + 1).filter(|next| next.depth > item.depth) {
+                    let spot = next.spot.clone();
+                    self.go_to_line(ui, &spot, keyboard);
+                }
+            }
+            _ if left => {
+                let around = items[..at]
+                    .iter()
+                    .rev()
+                    .find(|before| before.depth < item.depth);
+                if let Some(around) = around {
+                    let spot = around.spot.clone();
+                    self.go_to_line(ui, &spot, keyboard);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    /// Shift and the arrows: what is chosen, and the one above or below
+    /// it, of the things, not the folders. `rows` are the things, in the
+    /// order they are shown.
+    fn widen_choice(&mut self, wider_up: bool, wider_down: bool, rows: &[usize]) {
         if self.editor.folder.is_some() {
             return;
         }
