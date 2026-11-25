@@ -243,7 +243,7 @@ impl Gauge {
         said
     }
 
-    /// How it looks and is announced, named as the rule names it: its
+    /// How it looks and is heard, named as the rule names it: its
     /// kind, its colours, its steps, and how its changes are said.
     fn look(&self) -> String {
         let steps: Vec<String> = (self.steps.iter())
@@ -254,12 +254,13 @@ impl Gauge {
             })
             .collect();
         format!(
-            "kind = {}, colour = {}, off_colour = {}, step = {{{}}}, announce = {}",
+            "kind = {}, colour = {}, off_colour = {}, step = {{{}}}, aloud = {}, always = {}",
             quoted(self.kind.key()),
             quoted(self.colour.trim()),
             quoted(self.off_colour.trim()),
             steps.join(", "),
-            quoted(self.announce.key())
+            quoted(self.aloud.key()),
+            self.always
         )
     }
 }

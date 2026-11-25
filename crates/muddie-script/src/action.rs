@@ -17,15 +17,15 @@ pub struct GaugeLook {
     pub off_colour: String,
     /// What a gauge of the `effects` kind shows, in order.
     pub items: Vec<Effect>,
-    /// How its changes are said aloud.
-    pub announce: Announce,
+    /// How its changes are heard.
+    pub aloud: Aloud,
 }
 
-/// How the changes of a gauge are said aloud.
+/// When what a script says is heard.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
-pub enum Announce {
-    /// As its kind is: a level that falls under a step cuts short what is
+pub enum How {
+    /// As what it is: a level that falls under a step cuts short what is
     /// being said, and the rest wait their turn.
     #[default]
     Usual,
@@ -33,14 +33,14 @@ pub enum Announce {
     Never,
     /// After what is being said.
     Wait,
-    /// After what is being said, but cutting it short under the lowest of
-    /// its steps.
+    /// Of a gauge: after what is being said, but cutting it short under the
+    /// lowest of its steps.
     Lowest,
     /// Cutting short what is being said.
     Cut,
 }
 
-impl Announce {
+impl How {
     /// Every way, in the order the editor offers them.
     pub const ALL: [Self; 5] = [
         Self::Usual,
@@ -69,6 +69,30 @@ impl Announce {
     /// Whether it is the one there is if none is told.
     pub fn is_usual(&self) -> bool {
         *self == Self::Usual
+    }
+}
+
+/// How what a script says is heard.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct Aloud {
+    pub how: How,
+    /// While the game is not read aloud too.
+    pub always: bool,
+}
+
+/// Something said, and how it is heard.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Saying {
+    pub text: String,
+    pub aloud: Aloud,
+}
+
+impl<T: Into<String>> From<T> for Saying {
+    fn from(text: T) -> Self {
+        Self {
+            text: text.into(),
+            aloud: Aloud::default(),
+        }
     }
 }
 
@@ -141,11 +165,8 @@ pub struct Effect {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Action {
     Send(String),
-    Echo(String),
-    Speak {
-        text: String,
-        interrupt: bool,
-    },
+    Echo(Saying),
+    Speak(Saying),
     /// Send a GMCP message; `data` is JSON, or empty for none.
     Gmcp {
         package: String,
@@ -173,7 +194,7 @@ pub enum Action {
     ChannelClosed(String),
     /// Something a script tells the user, as the client tells its own:
     /// over the corner, aloud, and under the bell.
-    Notify(String),
+    Notify(Saying),
     /// A line said on a channel of the MUD's, by the channel's name; or
     /// with no text, a channel there is, to have its tab before anyone
     /// speaks on it.
@@ -183,13 +204,12 @@ pub enum Action {
         name: String,
         text: Option<String>,
         panel: String,
-        /// It is not read aloud, as what was said before the player came.
-        quiet: bool,
+        aloud: Aloud,
     },
     /// Add lines to the end of a panel of text.
     PanelAdd {
         name: String,
-        text: String,
+        text: Saying,
     },
     /// Add the line a trigger is looking at to a panel, colours and all.
     ToPanel(String),

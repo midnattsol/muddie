@@ -43,7 +43,7 @@ fn a_gauge_is_said_when_it_falls_under_a_warning_and_not_when_it_rises() {
             Belongs::default(),
             String::new(),
         ))
-        .map(|warning| warning.said)
+        .map(|said| said.text)
     };
     // As it starts is not news; above every warning, nothing either.
     assert_eq!(set(50.0), None);
@@ -81,7 +81,7 @@ fn a_light_words_and_effects_are_said_when_they_change() {
             Belongs::default(),
             String::new(),
         ))
-        .map(|warning| (warning.said, warning.urgent))
+        .map(|said| (said.text, said.aloud.how == How::Cut))
     };
     assert_eq!(set(0.0), None);
     assert_eq!(set(1.0), Some(("Poisoned on".to_owned(), false)));
@@ -103,12 +103,12 @@ fn gauges_update_in_place_and_summarise() {
 
 /// What a gauge says as it falls, and whether it cuts in, as it is told.
 #[test]
-fn a_gauge_is_announced_as_it_is_told() {
-    let falls = |announce: Announce| -> Vec<(String, bool)> {
+fn a_gauge_is_heard_as_it_is_told() {
+    let falls = |how: How| -> Vec<(String, bool)> {
         let mut gauges = Gauges::default();
         let look = GaugeLook {
             steps: vec![(60.0, "yellow".into()), (30.0, "red".into())],
-            announce,
+            aloud: Aloud { how, always: false },
             ..GaugeLook::default()
         };
         [80.0, 55.0, 42.0, 25.0, 12.0]
@@ -123,7 +123,7 @@ fn a_gauge_is_announced_as_it_is_told() {
                     String::new(),
                 )
             })
-            .map(|warning| (warning.said, warning.urgent))
+            .map(|said| (said.text, said.aloud.how == How::Cut))
             .collect()
     };
     let said = |urgent: [bool; 4]| -> Vec<(String, bool)> {
@@ -133,17 +133,17 @@ fn a_gauge_is_announced_as_it_is_told() {
             .map(|(value, urgent)| (format!("HP {value} of 100"), urgent))
             .collect()
     };
-    assert_eq!(falls(Announce::Usual), said([true; 4]));
-    assert_eq!(falls(Announce::Cut), said([true; 4]));
-    assert_eq!(falls(Announce::Wait), said([false; 4]));
-    assert_eq!(falls(Announce::Lowest), said([false, false, true, true]));
-    assert_eq!(falls(Announce::Never), []);
+    assert_eq!(falls(How::Usual), said([true; 4]));
+    assert_eq!(falls(How::Cut), said([true; 4]));
+    assert_eq!(falls(How::Wait), said([false; 4]));
+    assert_eq!(falls(How::Lowest), said([false, false, true, true]));
+    assert_eq!(falls(How::Never), []);
 }
 
 /// One of words, with no steps, waits unless it is told to cut in.
 #[test]
-fn a_gauge_of_words_is_announced_as_it_is_told() {
-    let changes = |announce: Announce| -> Vec<bool> {
+fn a_gauge_of_words_is_heard_as_it_is_told() {
+    let changes = |how: How| -> Vec<bool> {
         let mut gauges = Gauges::default();
         ["a", "b"]
             .into_iter()
@@ -151,7 +151,7 @@ fn a_gauge_of_words_is_announced_as_it_is_told() {
                 let look = GaugeLook {
                     kind: GaugeKind::Text,
                     text: text.into(),
-                    announce,
+                    aloud: Aloud { how, always: false },
                     ..GaugeLook::default()
                 };
                 let level = Some((0.0, 0.0));
@@ -164,14 +164,14 @@ fn a_gauge_of_words_is_announced_as_it_is_told() {
                     String::new(),
                 )
             })
-            .map(|warning| warning.urgent)
+            .map(|said| said.aloud.how == How::Cut)
             .collect()
     };
-    assert_eq!(changes(Announce::Usual), [false]);
-    assert_eq!(changes(Announce::Wait), [false]);
-    assert_eq!(changes(Announce::Lowest), [false]);
-    assert_eq!(changes(Announce::Cut), [true]);
-    assert_eq!(changes(Announce::Never), [] as [bool; 0]);
+    assert_eq!(changes(How::Usual), [false]);
+    assert_eq!(changes(How::Wait), [false]);
+    assert_eq!(changes(How::Lowest), [false]);
+    assert_eq!(changes(How::Cut), [true]);
+    assert_eq!(changes(How::Never), [] as [bool; 0]);
 }
 
 /// Asked for all together, effects are said by their names; where each is

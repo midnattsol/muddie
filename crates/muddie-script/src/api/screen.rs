@@ -11,7 +11,7 @@ pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()>
 
 /// What a gauge is given, as a gauge of the rules is written, and its
 /// value.
-const GAUGE: [&str; 12] = [
+const GAUGE: [&str; 13] = [
     "value",
     "max",
     "kind",
@@ -20,7 +20,8 @@ const GAUGE: [&str; 12] = [
     "text",
     "step",
     "items",
-    "announce",
+    "aloud",
+    "always",
     "panel",
     "place",
     "tags",
@@ -116,7 +117,7 @@ fn level_of(given: &Table, kind: GaugeKind) -> mlua::Result<(f64, f64)> {
     }
 }
 
-/// How a gauge looks and is announced.
+/// How a gauge looks and is heard.
 fn look_of(given: &Table) -> mlua::Result<GaugeLook> {
     let text = |key: &str| -> mlua::Result<String> {
         Ok(given.get::<Option<String>>(key)?.unwrap_or_default())
@@ -135,7 +136,7 @@ fn look_of(given: &Table) -> mlua::Result<GaugeLook> {
         off_colour: colour_of(text("off_colour")?)?,
         text: text("text")?,
         items: effects_of(given.get("items")?)?,
-        announce: announce_of(&text("announce")?)?,
+        aloud: aloud_of(Some(given), true)?,
         steps: Vec::new(),
     };
     if let Some(steps) = given.get::<Option<Vec<Table>>>("step")? {
@@ -156,18 +157,6 @@ fn colour_of(text: String) -> mlua::Result<String> {
         false => Err(mlua::Error::runtime(format!(
             "there is no colour {text}: a colour is a name such as red or bright blue, #rrggbb or a number of the palette"
         ))),
-    }
-}
-
-/// How a gauge is announced, as it is written; as usual if it is not.
-fn announce_of(key: &str) -> mlua::Result<Announce> {
-    match key.trim() {
-        "" => Ok(Announce::Usual),
-        key => Announce::from_key(key).ok_or_else(|| {
-            mlua::Error::runtime(format!(
-                "a gauge's announce is usual, never, wait, lowest or cut, not {key}"
-            ))
-        }),
     }
 }
 
@@ -248,8 +237,13 @@ fn install_panels(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     let shared = Rc::clone(state);
     panels.set(
         "add",
-        lua.create_function(move |_, (name, text): (String, Text)| {
-            let text = text.0;
+        lua.create_function(move |_, (name, text, options): (String, Text, AfterText)| {
+            let options = options.0;
+            super::only(options.as_ref(), &["aloud", "always"])?;
+            let text = Saying {
+                text: text.0,
+                aloud: aloud_of(options.as_ref(), false)?,
+            };
             (shared.borrow_mut().actions).push(Action::PanelAdd { name, text });
             Ok(())
         })?,
@@ -283,27 +277,24 @@ fn install_channels(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     let shared = Rc::clone(state);
     channels.set(
         "say",
-        lua.create_function(
-            move |_, (name, text, options): (String, Text, Option<Table>)| {
-                super::rules::only(options.as_ref(), &["panel", "quiet"])?;
-                let (panel, quiet) = match options {
-                    Some(options) => (
-                        options.get::<Option<String>>("panel")?,
-                        options.get::<Option<bool>>("quiet")?,
-                    ),
-                    None => (None, None),
-                };
-                let mut state = shared.borrow_mut();
-                state.set(crate::state::Set::Channel(name.to_lowercase()));
-                state.actions.push(Action::Channel {
-                    name,
-                    text: Some(text.0),
-                    panel: panel.unwrap_or_default(),
-                    quiet: quiet.unwrap_or_default(),
-                });
-                Ok(())
-            },
-        )?,
+        lua.create_function(move |_, (name, text, options): (String, Text, AfterText)| {
+            let options = options.0;
+            super::rules::only(options.as_ref(), &["panel", "aloud", "always"])?;
+            let aloud = aloud_of(options.as_ref(), false)?;
+            let panel = match options {
+                Some(options) => options.get::<Option<String>>("panel")?,
+                None => None,
+            };
+            let mut state = shared.borrow_mut();
+            state.set(crate::state::Set::Channel(name.to_lowercase()));
+            state.actions.push(Action::Channel {
+                name,
+                text: Some(text.0),
+                panel: panel.unwrap_or_default(),
+                aloud,
+            });
+            Ok(())
+        })?,
     )?;
     let shared = Rc::clone(state);
     channels.set(
@@ -320,7 +311,7 @@ fn install_channels(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
                 name,
                 text: None,
                 panel: panel.unwrap_or_default(),
-                quiet: false,
+                aloud: Aloud::default(),
             });
             Ok(())
         })?,

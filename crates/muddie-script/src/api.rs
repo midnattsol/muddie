@@ -2,10 +2,12 @@
 
 use super::*;
 
+pub(crate) use aloud::{AfterText, aloud_of};
 pub(crate) use language::texts_of;
 pub use language::{in_interface_language, set_interface_language};
 pub(crate) use rules::only;
 
+mod aloud;
 mod data;
 mod language;
 mod memory;

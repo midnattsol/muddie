@@ -4,6 +4,7 @@
 //! answers is shown where it was asked for (see `commands::answers`).
 
 use super::*;
+use muddie_script::{Aloud, How, Saying};
 
 /// Something the client said: when, what, and whether it was that
 /// something could not be done.
@@ -33,14 +34,20 @@ impl Tab {
     /// be done if it is a `problem`: over the corner and aloud, or, while
     /// a command is answering, as part of what it answers.
     pub(super) fn say(&mut self, text: &str, problem: bool) {
-        crate::debug::show(&self.title(), "NOTE", text);
         let problem = problem || (self.palette.answering && self.palette.answer_failed);
+        // A problem is said at once, not after the game queued before it.
+        let how = match problem && !self.palette.answering {
+            true => How::Cut,
+            false => How::Wait,
+        };
+        self.tell(text, problem, how);
+    }
+
+    /// Tells the user something, heard as told.
+    pub(super) fn tell(&mut self, text: &str, problem: bool, how: How) {
+        crate::debug::show(&self.title(), "NOTE", text);
         let answering = self.palette.answering;
         self.keep_message(text, problem, !answering);
-        // A problem is said at once, not after the game queued before it.
-        if problem && !answering {
-            return self.voice.say_now(text);
-        }
         if answering {
             self.palette.answer.push(commands::Said {
                 text: text.to_owned(),
@@ -48,18 +55,25 @@ impl Tab {
                 run: None,
             });
         }
-        self.voice.say(text);
+        match how {
+            How::Never => {}
+            How::Cut => self.voice.say_now(text),
+            _ => self.voice.say(text),
+        }
     }
 
     /// A line a script shows among the lines of the game, and says: what
     /// it asks for. Run from the palette (Run Lua…), it is what it
     /// answers.
-    pub(super) fn echo(&mut self, text: &str) {
+    pub(super) fn echo(&mut self, text: &str, aloud: Aloud) {
         if self.palette.answering {
-            return self.note(text);
+            return self.tell(text, false, aloud.how);
         }
         self.show_local(text);
-        self.voice.say(text);
+        self.voice.say_of_game(&Saying {
+            text: text.to_owned(),
+            aloud,
+        });
     }
 
     /// Keeps something the client said, to be read again, and to show over

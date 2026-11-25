@@ -54,6 +54,21 @@ pub(crate) fn texts_of(value: Value) -> mlua::Result<Vec<(String, String)>> {
     Ok(texts)
 }
 
+/// A text a script tells the user: one, a line, or the texts by language,
+/// which is the one in the language of the interface.
+pub(super) struct Told(pub(super) String);
+
+impl mlua::FromLua for Told {
+    fn from_lua(value: Value, lua: &Lua) -> mlua::Result<Self> {
+        match value {
+            Value::Table(_) => in_interface_language(&texts_of(value)?)
+                .map(Self)
+                .ok_or_else(|| mlua::Error::runtime("there is no text in any language")),
+            value => Text::from_lua(value, lua).map(|text| Self(text.0)),
+        }
+    }
+}
+
 pub(crate) fn install(lua: &Lua) -> mlua::Result<()> {
     lua.globals().set(
         "tr",

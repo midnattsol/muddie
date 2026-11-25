@@ -103,7 +103,7 @@ fn a_silenced_prompt_is_not_read_when_data_comes_after_it() {
         "test",
         r#"trigger("^HP .*> $", function(m, line) line:mute() end)"#,
     );
-    app.on_screen = true;
+    app.voice.away = false;
     let (events, _sent) = fake_connection(app);
     let partial = |text: &str| Event::Partial(panels::styled_lines(text).remove(0));
     let settle = |harness: &mut Harness<'_, App>| {
@@ -188,7 +188,7 @@ fn a_script_says_nothing_while_the_game_is_not_read() {
     app.voice.said.clear();
     let say = |app: &mut Tab| {
         app.scripts
-            .exec("test", r#"speak("one") speak("two", {interrupt = true})"#);
+            .exec("test", r#"speak("one") speak("two", {aloud = "cut"})"#);
         app.run_actions();
     };
     say(app);

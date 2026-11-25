@@ -249,7 +249,11 @@ fn a_panel_already_called_channels_is_where_the_channels_go() {
     let app = harness.state_mut().tab_mut();
     // Made by a script that sent to it by name, so not marked as the
     // panel of channels.
-    app.add_to_panel("Channels", &panels::styled_lines("hola").remove(0));
+    app.add_to_panel(
+        "Channels",
+        &panels::styled_lines("hola").remove(0),
+        Default::default(),
+    );
     app.scripts
         .exec("t", r#"channels.say("chat", "Ana: hola")"#);
     app.run_actions();
@@ -362,14 +366,14 @@ fn the_tabs_of_channels_are_one_stop_and_the_arrows_go_among_them() {
 fn what_is_said_quietly_on_a_channel_is_kept_and_not_read() {
     let mut harness = window(None);
     let app = harness.state_mut().tab_mut();
-    app.on_screen = true;
+    app.voice.away = false;
     app.voice.said.clear();
     for panel in ["", ", panel = \"Guild\""] {
         app.scripts.exec(
             "t",
             &format!(
-                r#"channels.say("chat", "Ana: yesterday", {{quiet = true{panel}}})
-                channels.say("chat", "Luis: today", {{quiet = false{panel}}})"#
+                r#"channels.say("chat", "Ana: yesterday", {{aloud = "never"{panel}}})
+                channels.say("chat", "Luis: today", {{aloud = "wait"{panel}}})"#
             ),
         );
         app.run_actions();
@@ -388,7 +392,7 @@ fn what_is_said_quietly_on_a_channel_is_kept_and_not_read() {
 fn a_message_of_a_channel_in_its_own_panel_is_read_once() {
     let mut harness = window(None);
     let app = harness.state_mut().tab_mut();
-    app.on_screen = true;
+    app.voice.away = false;
     app.voice.said.clear();
     app.scripts.exec(
         "t",

@@ -173,7 +173,7 @@ fn a_line_is_used_as_the_text_it_says() {
     engine.on_line("an orc");
     let said: Vec<String> = (engine.take_actions().into_iter())
         .map(|action| match action {
-            Action::Echo(text) | Action::PanelAdd { text, .. } => text,
+            Action::Echo(said) | Action::PanelAdd { text: said, .. } => said.text,
             Action::Channel { text, .. } => text.unwrap(),
             other => panic!("{other:?}"),
         })
@@ -234,4 +234,25 @@ fn a_line_kept_is_over() {
     assert!(error_text(&engine.take_actions()).contains("there is no line.txt; there are text"));
     engine.exec("t", "gag()");
     assert!(error_text(&engine.take_actions()).contains("gag is no longer: use line:hide()"));
+}
+
+/// What `gsub` returns, the text and how many times it replaced, is given
+/// as it comes to whatever says a text.
+#[test]
+fn what_gsub_returns_is_given_as_it_comes() {
+    let mut engine = engine("");
+    engine.exec(
+        "t",
+        r#"local text = "an orc"
+        echo(text:gsub("orc", "elf"))
+        speak(text:gsub("orc", "elf"))
+        notify(text:gsub("orc", "elf"))
+        panels.add("p", text:gsub("orc", "elf"))
+        channels.say("c", text:gsub("orc", "elf"))"#,
+    );
+    let actions = engine.take_actions();
+    assert_eq!(actions.len(), 5, "{actions:?}");
+    for action in &actions {
+        assert!(!matches!(action, Action::Error(_)), "{action:?}");
+    }
 }

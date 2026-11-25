@@ -1,6 +1,7 @@
 //! The MUD's channels: each in its tab, in the panel that shows them.
 
 use super::*;
+use muddie_script::Aloud;
 
 /// How many channels are kept apart; what is said on more goes with the
 /// rest only.
@@ -21,14 +22,14 @@ impl Tab {
 
     /// Takes lines said on a channel of the MUD's: they go with the rest
     /// of what is said, and under the channel's own tab. With no lines,
-    /// the channel is made known, to have its tab. `quiet`, they are not
-    /// read aloud.
+    /// the channel is made known, to have its tab. They are heard as
+    /// `aloud` says.
     pub(in crate::tab) fn channel_said(
         &mut self,
         name: &str,
         panel: &str,
         lines: Vec<Line>,
-        quiet: bool,
+        aloud: Aloud,
     ) {
         let name = name.trim();
         if panel.trim().is_empty() {
@@ -59,22 +60,20 @@ impl Tab {
         if let Some(index) = index {
             self.panels.channels[index].unread |= !seen;
         }
-        if !quiet {
-            self.read_channel(name, &lines);
-        }
+        self.read_channel(name, &lines, aloud);
     }
 
     /// Says aloud what was said on a channel, after its name, unless the
     /// channels are not read or this one is kept quiet.
-    fn read_channel(&mut self, name: &str, lines: &[Line]) {
-        if !self.settings.speech_channels || self.channel_quiet(name) || !self.on_screen {
+    fn read_channel(&mut self, name: &str, lines: &[Line], aloud: Aloud) {
+        if !self.settings.speech_channels || self.channel_quiet(name) {
             return;
         }
         for line in lines {
             let text = line.text();
             if !text.trim().is_empty() {
                 let said = crate::i18n::trf("{0}: {1}", &[name, text.trim()]);
-                self.voice.read(&said, &text);
+                self.voice.read(&said, &text, aloud);
             }
         }
     }

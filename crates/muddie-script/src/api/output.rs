@@ -4,9 +4,7 @@ use super::*;
 
 pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     install_send(lua, state)?;
-    install_echo(lua, state)?;
-    install_speak(lua, state)?;
-    Ok(())
+    install_saying(lua, state)
 }
 
 fn install_send(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
@@ -23,52 +21,39 @@ fn install_send(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     Ok(())
 }
 
-fn install_echo(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
-    let globals = lua.globals();
-    let add = |name: &str, function: Function| globals.set(name, function);
+/// `echo`, `notify`, `speak` and `log`: what a script shows and says.
+fn install_saying(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
+    type Make = fn(Saying) -> Action;
+    let made: [(&str, &[&str], Make); 3] = [
+        ("echo", &["aloud", "always"], Action::Echo),
+        ("speak", &["aloud", "always"], Action::Speak),
+        ("notify", &["aloud"], Action::Notify),
+    ];
+    for (name, known, make) in made {
+        let shared = Rc::clone(state);
+        lua.globals().set(
+            name,
+            lua.create_function(
+                move |_, (text, options): (super::language::Told, AfterText)| {
+                    let options = options.0;
+                    super::only(options.as_ref(), known)?;
+                    let aloud = aloud_of(options.as_ref(), false)?;
+                    let said = Saying {
+                        text: text.0,
+                        aloud,
+                    };
+                    shared.borrow_mut().actions.push(make(said));
+                    Ok(())
+                },
+            )?,
+        )?;
+    }
     let shared = Rc::clone(state);
-    add(
-        "echo",
-        lua.create_function(move |_, text: Text| {
-            shared.borrow_mut().actions.push(Action::Echo(text.0));
-            Ok(())
-        })?,
-    )?;
-    let shared = Rc::clone(state);
-    add(
-        "notify",
-        lua.create_function(move |_, text: Text| {
-            shared.borrow_mut().actions.push(Action::Notify(text.0));
-            Ok(())
-        })?,
-    )?;
-    let shared = Rc::clone(state);
-    add(
+    lua.globals().set(
         "log",
         lua.create_function(move |_, text: Text| {
             shared.borrow_mut().actions.push(Action::Log(text.0));
             Ok(())
         })?,
-    )?;
-    Ok(())
-}
-
-fn install_speak(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
-    let globals = lua.globals();
-    let add = |name: &str, function: Function| globals.set(name, function);
-    let shared = Rc::clone(state);
-    add(
-        "speak",
-        lua.create_function(move |_, (text, options): (Text, Option<Table>)| {
-            super::rules::only(options.as_ref(), &["interrupt"])?;
-            let interrupt = match options {
-                Some(options) => options.get::<Option<bool>>("interrupt")?.unwrap_or(false),
-                None => false,
-            };
-            let text = text.0;
-            (shared.borrow_mut().actions).push(Action::Speak { text, interrupt });
-            Ok(())
-        })?,
-    )?;
-    Ok(())
+    )
 }

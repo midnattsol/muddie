@@ -447,7 +447,8 @@ follows something the MUD reports, or a variable, and is one of these kinds:
 
 **Read aloud** says how its changes are read: as usual for its kind, never,
 after what is being read, cutting in on it, or cutting in only under the
-lowest of its colour steps.
+lowest of its colour steps. They are not while the game is not read
+aloud, unless they are told to be.
 
 Say where the value is, and the maximum for those that have one: a GMCP
 package and the fields inside it (`Char.Vitals.health.current`), the name

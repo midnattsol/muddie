@@ -1,7 +1,7 @@
 //! The details of a gauge.
 
 use super::*;
-use crate::rules::{Announce, AnnounceName, Gauge, GaugeKind, KindName, Step};
+use crate::rules::{Gauge, GaugeKind, How, HowName, KindName, Step};
 
 impl Tab {
     pub(in crate::tab) fn gauge_detail(&mut self, ui: &mut egui::Ui, index: usize) -> bool {
@@ -199,20 +199,27 @@ fn read_aloud(ui: &mut egui::Ui, rule: &mut Gauge) {
         tr("Read aloud"),
         |_| {},
         |ui| {
-            let ways: Vec<(Announce, String)> = (Announce::ALL.into_iter())
-                .filter(|way| rule.kind.has_level() || *way != Announce::Lowest)
+            let ways: Vec<(How, String)> = (How::ALL.into_iter())
+                .filter(|way| rule.kind.has_level() || *way != How::Lowest)
                 .map(|way| (way, way.shown().to_owned()))
                 .collect();
-            let chosen =
-                crate::widgets::choose(ui, "gauge announced", &mut rule.announce, &ways, |way| {
-                    way.shown().to_owned()
-                });
+            let chosen = crate::widgets::choose(ui, "gauge aloud", &mut rule.aloud, &ways, |way| {
+                way.shown().to_owned()
+            });
             (ui.ctx()).accesskit_node_builder(chosen.id, |node| node.set_label(tr("Read aloud")));
             let about = match rule.kind.has_level() {
                 true => tr("It is said as it falls under a step: as usual, cutting in."),
                 false => tr("It is said when it changes: as usual, after what is being read."),
             };
             note(ui, about);
+            if rule.aloud != How::Never {
+                crate::widgets::switch_setting(
+                    ui,
+                    &mut rule.always,
+                    tr("Also while the game is not read aloud"),
+                    None,
+                );
+            }
         },
     );
 }
@@ -338,6 +345,9 @@ fn look_of(rule: &Gauge, text: &str) -> muddie_script::GaugeLook {
             .collect(),
         text: text.to_owned(),
         off_colour: rule.off_colour.clone(),
-        announce: rule.announce,
+        aloud: muddie_script::Aloud {
+            how: rule.aloud,
+            always: rule.always,
+        },
     }
 }

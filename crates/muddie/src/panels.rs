@@ -4,7 +4,7 @@
 use eframe::egui::{Align2, Color32, Id, Rect, Role, Sense, Ui, WidgetInfo, vec2};
 use muddie_core::Line;
 use muddie_core::ansi::Assembler;
-use muddie_script::{Announce, Belongs, GaugeKind, GaugeLook};
+use muddie_script::{Aloud, Belongs, GaugeKind, GaugeLook, How, Saying};
 
 use crate::i18n::{tr, trf};
 use crate::theme;
@@ -66,21 +66,25 @@ impl Gauge {
     /// as it turns colour, said again only once it has risen clear of it,
     /// so that one that wavers there is not said each time; and under
     /// one, each tenth more it falls. It cuts short what is being said as
-    /// the gauge is told to be announced.
-    fn warning(&mut self, was: &str) -> Option<Warning> {
+    /// the gauge is told to be heard.
+    fn warning(&mut self, was: &str) -> Option<Saying> {
         let news = self.news(was)?;
         let lowest = || {
             let steps = self.look.steps.iter().map(|(under, _)| *under);
             self.under() == steps.min_by(f64::total_cmp)
         };
-        let urgent = match self.look.announce {
-            Announce::Usual => self.look.kind.has_level(),
-            Announce::Never => return None,
-            Announce::Wait => false,
-            Announce::Lowest => self.look.kind.has_level() && lowest(),
-            Announce::Cut => true,
+        let cut = match self.look.aloud.how {
+            How::Usual => self.look.kind.has_level(),
+            How::Never => return None,
+            How::Wait => false,
+            How::Lowest => self.look.kind.has_level() && lowest(),
+            How::Cut => true,
         };
-        Some(Warning { said: news, urgent })
+        let aloud = Aloud {
+            how: if cut { How::Cut } else { How::Wait },
+            ..self.look.aloud
+        };
+        Some(Saying { text: news, aloud })
     }
 
     /// What there is to say of it now that it changed from `was`.
@@ -149,13 +153,6 @@ fn said_of(name: &str, value: f64, max: f64, look: &GaugeLook) -> String {
     }
 }
 
-/// What to say of a gauge that changed: `urgent` cuts short what is said.
-#[derive(Debug, Clone, PartialEq)]
-pub struct Warning {
-    pub said: String,
-    pub urgent: bool,
-}
-
 /// Named bars such as health and mana, in the order they were first set.
 #[derive(Default)]
 pub struct Gauges(Vec<Gauge>);
@@ -167,7 +164,7 @@ impl Gauges {
     /// to a warning colour: what is seen at a glance is heard.
     pub fn set(&mut self, name: &str, level: Option<(f64, f64)>) -> Option<String> {
         (self.set_by(name, level, None, None, Belongs::default(), String::new()))
-            .map(|warning| warning.said)
+            .map(|said| said.text)
     }
 
     /// The same, also saying how the gauge is drawn, and set by `owner`, a
@@ -182,7 +179,7 @@ impl Gauges {
         owner: Option<&str>,
         belongs: Belongs,
         panel: String,
-    ) -> Option<Warning> {
+    ) -> Option<Saying> {
         let key = belongs.place.clone().unwrap_or_else(|| name.to_owned());
         let index = self.0.iter().position(|gauge| gauge.key == key);
         let was;

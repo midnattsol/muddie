@@ -208,6 +208,7 @@ fn panels_are_kept_fed_by_triggers_and_moved_about() {
         app.add_to_panel(
             "Tells",
             &panels::styled_lines("Luis tells you: eh").remove(0),
+            Default::default(),
         );
         assert_eq!(app.panels.unread_tabs, [tells.id]);
         harness.get_by_label("Tells").click();

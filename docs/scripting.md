@@ -73,17 +73,45 @@ session (`map.learn`, `map.directions`, `map.names`, `map.native`,
 | Function | What it does |
 |---|---|
 | `send(text)` | Sends a command to the MUD. Aliases are not applied. |
-| `echo(text)` | Shows a line in the output, and speaks it if speech is on. |
-| `notify(text)` | Tells the user something of the script's, as the client tells its own: for a few seconds over the bottom right corner, and under the bell after; never in the output. |
+| `echo(text, options)` | Shows a line in the output, and reads it aloud. |
+| `notify(text, options)` | Tells the user something of the script's, as the client tells its own: for a few seconds over the bottom right corner, and under the bell after; never in the output. Said aloud always, as what the client tells is, unless it is `{aloud = "never"}`. |
 | `tr{en = "Map", es = "Mapa"}` | The text in the language of the interface, of those given by language code: else that of its language without the country (`es` for `es_AR`), else English, else the first by code. For what a script shows the user, as a plugin that is shared does. |
 | `log(text)` | Shows something on the standard output of a run started with `--debug` (see the manual); nothing otherwise. |
-| `speak(text, {interrupt = true})` | Says something through speech, unless the player has the game not read aloud. |
+| `speak(text, options)` | Says something aloud, and shows nothing. |
 | `panels.set(name, text)` | Puts `text` in a panel, in place of what it showed; `panels.clear(name)` clears it. For anything the server sends ready to display, such as a map it draws. The panel is made, as one of text, if there is none of that name; `"map"` means the map's panel whatever it is called, and `"channels"` the one of the channels. |
-| `panels.add(name, text)` | Adds `text` at the end of a panel, which keeps what it had. In a trigger, `line:to_panel(name)` adds the line being looked at, with its colours. |
-| `channels.say(name, text, options)` | Adds `text` as said on the channel `name` of the MUD, which has a tab of its own in a panel. `options.panel` names that panel: the one of that name is used as it is, and one is made if there is none; with no panel named, it is the panel of channels. With `options.quiet`, it is not read aloud, as what was said before the player came. `channels.open(name)` makes the tab before anyone speaks, and `channels.close(name)` takes it away, as when the character leaves the channel. |
-| `gauges.set(name, {value = 80, max = 100, ...})` | Shows or updates a gauge; `gauges.remove(name)` removes it. What it is given is named as a gauge's in the editor's rules: `value` and `max`, its level; `kind` (`"bar"`, `"cells"`, `"number"`, `"light"`, which is on when `value` is true or not 0, `"text"`, which shows `text`, or `"effects"`, which shows `items`: a list, or a table by name, of what the character is in, each a name or `{name = "Poisoned", about = "1 damage a second", colour = "red"}`), `colour` (a name or `#rrggbb`), `off_colour`, a light's while it is off, and `step`, the colours it takes under each percentage, `{{under = 60, colour = "yellow"}, {under = 30, colour = "red"}}`. `announce` says how its changes are read aloud: `"usual"`, as its kind is, a level cutting short what is being read as it falls under a step and the rest waiting their turn; `"never"`; `"wait"`, after what is being read; `"lowest"`, the same, but cutting in under the lowest of its steps; or `"cut"`, cutting in. Also `panel`, the panel of gauges it is shown in, by its name (made if there is none; the first there is if none is named), and `place` and `tags`, which switch it as they do a trigger. |
+| `panels.add(name, text, options)` | Adds `text` at the end of a panel, which keeps what it had, and reads it aloud after the panel's name. In a trigger, `line:to_panel(name)` adds the line being looked at, with its colours. |
+| `channels.say(name, text, options)` | Adds `text` as said on the channel `name` of the MUD, which has a tab of its own in a panel. `options.panel` names that panel: the one of that name is used as it is, and one is made if there is none; with no panel named, it is the panel of channels. It is read aloud after the channel's name; with `aloud = "never"`, it is not, as what was said before the player came. `channels.open(name)` makes the tab before anyone speaks, and `channels.close(name)` takes it away, as when the character leaves the channel. |
+| `gauges.set(name, {value = 80, max = 100, ...})` | Shows or updates a gauge; `gauges.remove(name)` removes it. What it is given is named as a gauge's in the editor's rules: `value` and `max`, its level; `kind` (`"bar"`, `"cells"`, `"number"`, `"light"`, which is on when `value` is true or not 0, `"text"`, which shows `text`, or `"effects"`, which shows `items`: a list, or a table by name, of what the character is in, each a name or `{name = "Poisoned", about = "1 damage a second", colour = "red"}`), `colour` (a name or `#rrggbb`), `off_colour`, a light's while it is off, and `step`, the colours it takes under each percentage, `{{under = 60, colour = "yellow"}, {under = 30, colour = "red"}}`. `aloud` and `always` say how its changes are heard (see below): `"usual"`, as its kind is, a level cutting short what is being read as it falls under a step and the rest waiting their turn; or `"lowest"`, waiting its turn, but cutting in under the lowest of its steps. Also `panel`, the panel of gauges it is shown in, by its name (made if there is none; the first there is if none is named), and `place` and `tags`, which switch it as they do a trigger. |
 | `sounds.play(file, {volume = 0.8, loop = false})` | Plays a sound, by path or by name in the profile's `sounds` folder. Returns it, to stop it alone: `sound:stop()`. |
 | `sounds.stop()` | Stops every sound. |
+
+`echo`, `notify` and `speak` take the texts by language too, as `tr` does:
+`speak{en = "You are dying", es = "Te mueres"}`.
+
+### What is heard
+
+`speak`, `echo`, `line:read`, `panels.add`, `channels.say` and `gauges.set`
+say in the same way how they are heard, in their options:
+
+| | |
+|---|---|
+| `aloud = "usual"` | As it is if nothing is said: after what is being read, but for `line:read`, which is read as the line would be, and a gauge, as above. |
+| `aloud = "never"` | Not at all. |
+| `aloud = "wait"` | After what is being read. |
+| `aloud = "cut"` | Cutting short what is being read. |
+| `aloud = "lowest"` | Of a gauge only, as above. |
+| `always = true` | While the player has the game not read aloud too. |
+
+```lua
+speak("You are dying!", {aloud = "cut", always = true})
+```
+
+All of it is of the game, as its lines are: it is heard in the session on
+screen only, not while the player has the game not read aloud (unless it is
+`always`), and not if the settings, the panel or the channel are told not to be
+read. The same words just read as a line or of a channel are not read again;
+a script's are, if they are to cut in. What `notify` says is not of the game: it is
+heard in any session.
 
 ## Triggers, aliases and timers
 
@@ -92,7 +120,7 @@ session (`map.learn`, `map.directions`, `map.names`, `map.native`,
 -- groups, and named groups are also m.name.
 trigger("^(?<who>\\w+) tells you: (.*)$", function(m, line)
     line:paint("bright yellow")             -- recolour what matched
-    speak(`{m.who} says {m[2]}`, {interrupt = true})
+    speak(`{m.who} says {m[2]}`, {aloud = "cut"})
 end)
 
 trigger("^You are hungry", function() send("eat bread") end,
@@ -131,7 +159,7 @@ looks at it; kept for later, it can only be asked what it said.
 | `line.spans` | The line as runs of text with `fg`, `bg`, `bold`, `italic`, `underline` and `inverse`. |
 | `line:hide()` | It is neither shown nor read. |
 | `line:mute()` | It is shown, and kept to be read back with the review keys, but not read aloud as it comes. |
-| `line:read(text)` | That is read in its place, as the line would be. |
+| `line:read(text, options)` | That is read in its place, as the line would be, or as the options say (see *What is heard*). |
 | `line:replace(text)` | Puts `text` in place of what matched, shown and, unless told otherwise, read. Returns whether it could: not over what another trigger replaced. |
 | `line:paint(fg, bg)` | Recolours what matched. A colour is a name (`"red"`, `"bright blue"`), `"#rrggbb"` or a palette number. |
 | `line:to_panel(name)` | Adds it to a panel, with its colours. |

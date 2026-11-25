@@ -13,7 +13,7 @@ pub enum Heard {
     /// Nothing.
     Not,
     /// This, in its place.
-    Instead(String),
+    Instead(Saying),
 }
 
 /// The line the triggers are run on, and what they have done with it.
@@ -50,7 +50,7 @@ impl Looked {
         self.open = false;
         // What is shown in its place is what is read, unless told otherwise.
         if !self.replaced.is_empty() && self.heard == Heard::AsIs {
-            self.heard = Heard::Instead(self.line.text());
+            self.heard = Heard::Instead(self.line.text().into());
         }
         (!self.hidden).then(|| std::mem::take(&mut self.line))
     }
@@ -126,11 +126,18 @@ impl UserData for Given {
         methods.add_method("mute", |_, line, ()| {
             line.with("mute", |looked| looked.heard = Heard::Not)
         });
-        methods.add_method("read", |_, line, text: Text| {
+        methods.add_method("read", |_, line, (text, options): (Text, AfterText)| {
+            let options = options.0;
+            only(options.as_ref(), &["aloud", "always"])?;
+            let aloud = aloud_of(options.as_ref(), false)?;
             line.with("read", |looked| {
-                looked.heard = match text.0.trim().is_empty() {
+                let nothing = text.0.trim().is_empty() || aloud.how == How::Never;
+                looked.heard = match nothing {
                     true => Heard::Not,
-                    false => Heard::Instead(text.0),
+                    false => Heard::Instead(Saying {
+                        text: text.0,
+                        aloud,
+                    }),
                 };
             })
         });

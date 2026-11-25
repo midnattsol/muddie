@@ -68,6 +68,11 @@ const RETIRED: &[(&str, &str)] = &[
     ("map.relayout", "map.tidy(area)"),
 ];
 
+/// What to use instead of an option that is gone.
+pub(crate) fn option(name: &str) -> Option<&'static str> {
+    (name == "interrupt").then_some("aloud = \"cut\"")
+}
+
 /// Puts each retired name in place, as a function that fails saying what
 /// to use instead.
 pub(crate) fn install_retired(lua: &Lua) -> mlua::Result<()> {

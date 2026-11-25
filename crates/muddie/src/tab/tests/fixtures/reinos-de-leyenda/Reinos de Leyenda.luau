@@ -131,7 +131,7 @@ end)
 local function said(data, before)
     heard = true
     if type(data) == "table" and data.canal and data.mensaje then
-        channels.say(data.canal, data.mensaje, { quiet = before })
+        channels.say(data.canal, data.mensaje, { aloud = if before then "never" else "usual" })
     end
 end
 

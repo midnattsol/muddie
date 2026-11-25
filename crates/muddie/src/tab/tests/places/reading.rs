@@ -14,7 +14,7 @@ impl Heard {
         let mut harness = window(None);
         let app = harness.state_mut().tab_mut();
         let (events, _sent) = fake_connection(app);
-        app.on_screen = true;
+        app.voice.away = false;
         reinos(app);
         app.voice.said.clear();
         Self { harness, events }

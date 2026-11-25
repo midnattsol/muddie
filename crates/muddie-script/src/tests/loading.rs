@@ -138,7 +138,7 @@ fn variables_are_a_table_that_is_kept_and_go_into_commands() {
         "#,
     );
     let said = engine.take_actions();
-    let Action::Echo(said) = &said[0] else {
+    let Action::Echo(Saying { text: said, .. }) = &said[0] else {
         panic!("{said:?}")
     };
     assert!(

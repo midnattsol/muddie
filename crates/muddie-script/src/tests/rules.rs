@@ -376,7 +376,7 @@ fn what_a_script_makes_is_switched_and_taken_away_by_itself() {
         engine.exec("t", &format!("all(\"{what}\")"));
         engine.take_actions()
     };
-    let said = |one: &str| [Action::Echo([one; 7].join(" "))];
+    let said = |one: &str| [Action::Echo([one; 7].join(" ").into())];
     assert_eq!(go(&mut engine), everything);
     assert_eq!(all(&mut engine, "disable"), said("false"));
     assert_eq!(all(&mut engine, "enabled"), said("false"));
@@ -414,6 +414,17 @@ fn a_timer_says_how_long_it_has_left() {
 fn what_is_not_understood_is_said() {
     for (code, said) in [
         (r#"speak("x", {interupt = true})"#, "no option interupt"),
+        (
+            r#"speak("x", {interrupt = true})"#,
+            r#"no option interrupt any more: use aloud = "cut""#,
+        ),
+        (r#"speak("x", {aloud = "shout"})"#, "not shout"),
+        (
+            r#"speak("x", {aloud = "lowest"})"#,
+            "usual, never, wait or cut",
+        ),
+        (r#"notify("x", {always = true})"#, "no option always"),
+        (r#"notify({})"#, "no text in any language"),
         (r#"map.find("x", {exacto = true})"#, "no option exacto"),
         (r#"map.arrive({nombre = "x"})"#, "no option nombre"),
         (r#"map.names({regions = ":"})"#, "no option regions"),

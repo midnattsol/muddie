@@ -1586,6 +1586,9 @@ msgstr ""
 msgid "It is said when it changes: as usual, after what is being read."
 msgstr ""
 
+msgid "Also while the game is not read aloud"
+msgstr ""
+
 msgid "Shown in"
 msgstr ""
 

@@ -160,7 +160,7 @@ fn frame_costs() {
     for n in 0..2000 {
         let line = panels::styled_lines(&format!("[ooc] someone says thing {n}")).remove(0);
         app.channel_line(&line);
-        app.add_to_panel("Combat", &line);
+        app.add_to_panel("Combat", &line, Default::default());
     }
     app.gauges.set("HP", Some((80.0, 100.0)));
     cost(&mut harness, "with panels of 2000 lines and gauges");

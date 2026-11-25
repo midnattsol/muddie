@@ -388,9 +388,7 @@ impl Tab {
             (true, Heard::AsIs) => {}
             (true, Heard::Instead(said)) => {
                 self.voice.skip_partial(&text);
-                if self.on_screen {
-                    self.voice.instead(&said, true);
-                }
+                self.voice.instead(&said, true);
             }
             _ => self.voice.skip_partial(&text),
         }

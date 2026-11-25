@@ -1,6 +1,7 @@
 //! Panels of text: what they are given, and how they show it.
 
 use super::*;
+use muddie_script::Aloud;
 
 /// The frame of a panel: a rounded well on the window's chrome.
 pub(in crate::tab) fn well(left: i8, right: i8) -> egui::Frame {
@@ -83,16 +84,16 @@ impl Tab {
     /// Adds a line at the end of a panel.
     /// Read aloud after the panel's name, unless the panel is kept
     /// quiet, or the line was just read as it came.
-    pub(in crate::tab) fn add_to_panel(&mut self, name: &str, line: &Line) {
+    pub(in crate::tab) fn add_to_panel(&mut self, name: &str, line: &Line, aloud: Aloud) {
         self.put_in_panel(name, line);
         let id = self.panel_called(name);
         let Some(panel) = self.layout.panel(id) else {
             return;
         };
         let text = line.text();
-        if !panel.quiet && !text.trim().is_empty() && self.on_screen {
+        if !panel.quiet && !text.trim().is_empty() {
             let said = trf("{0}: {1}", &[&panel.shown_name(), text.trim()]);
-            self.voice.read(&said, &text);
+            self.voice.read(&said, &text, aloud);
         }
     }
 

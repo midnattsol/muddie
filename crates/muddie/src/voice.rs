@@ -8,6 +8,7 @@ use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
 use eframe::egui::{Key, Modifiers, Ui};
+use muddie_script::{Aloud, How, Saying};
 use muddie_speech::{Narrator, Speech, Through};
 
 use crate::i18n::tr;
@@ -58,6 +59,8 @@ pub struct Voice {
     silent: bool,
     /// Prompts are not read.
     quiet_prompts: bool,
+    /// The session is not the one on screen: only that one is heard.
+    pub away: bool,
     /// When a line of the game was last read: the start of a burst
     /// interrupts, the rest of it waits.
     last_read: Option<Instant>,
@@ -226,12 +229,25 @@ impl Voice {
         self.speak(text, true);
     }
 
-    /// Says what a script says, unless the game is not read: it speaks for
-    /// the game.
-    pub fn say_for_script(&mut self, text: &str, interrupt: bool) {
-        if !self.muted {
-            self.speak(text, interrupt);
+    /// Says what is of the game and not a line of it, as a script or a
+    /// gauge, as it is to be heard. The very words just read are not said
+    /// again, unless they are to cut in.
+    pub fn say_of_game(&mut self, said: &Saying) {
+        let cut = said.aloud.how == How::Cut;
+        if self.hears(said.aloud) && (cut || !self.just_read(&said.text)) {
+            self.speak(&said.text, cut);
         }
+    }
+
+    /// Whether something of the game is heard at all: what all of it goes
+    /// through.
+    fn hears(&self, aloud: Aloud) -> bool {
+        !self.away && aloud.how != How::Never && (!self.muted || aloud.always)
+    }
+
+    /// Whether those very words were read lately, of a line or a channel.
+    fn just_read(&self, text: &str) -> bool {
+        (self.recent.iter()).any(|(read, at, _)| read == text.trim() && at.elapsed() < ALREADY_READ)
     }
 
     fn speak(&mut self, text: &str, interrupt: bool) {
@@ -271,7 +287,7 @@ impl Voice {
     /// A line from the server was completed.
     pub fn line(&mut self, text: &str) {
         if let Some(text) = self.narrator.line(text) {
-            self.read_game(&text);
+            self.read_game(&text, Aloud::default());
         }
     }
 
@@ -285,10 +301,10 @@ impl Voice {
     }
 
     /// Reads `text` in place of a line, or of a prompt, as it would be.
-    pub fn instead(&mut self, text: &str, prompt: bool) {
-        let text = text.trim();
+    pub fn instead(&mut self, said: &Saying, prompt: bool) {
+        let text = said.text.trim();
         if !text.is_empty() && !(prompt && self.quiet_prompts) {
-            self.read_game(text);
+            self.read_game(text, said.aloud);
         }
     }
 
@@ -296,8 +312,8 @@ impl Voice {
     /// short what is said only at the start of a burst, so that a room
     /// that comes in many lines is read whole. What was just read as said
     /// on a channel is not read again.
-    fn read_game(&mut self, text: &str) {
-        if self.muted || self.read_lately(text, false) {
+    fn read_game(&mut self, text: &str, aloud: Aloud) {
+        if !self.hears(aloud) || self.read_lately(text, false) {
             return;
         }
         let now = Instant::now();
@@ -306,18 +322,23 @@ impl Voice {
             .is_none_or(|at| now.duration_since(at) > BURST);
         self.last_read = Some(now);
         self.keep_read(text, true);
-        self.speak(text, self.interrupts && first);
+        let cut = match aloud.how {
+            How::Cut => true,
+            How::Wait => false,
+            _ => self.interrupts && first,
+        };
+        self.speak(text, cut);
     }
 
     /// Reads what was said on a channel or put in a panel, after what is
     /// being said, unless the game is not read or it was just read as a
     /// line.
-    pub fn read(&mut self, text: &str, line: &str) {
-        if self.muted || self.read_lately(line, true) {
+    pub fn read(&mut self, text: &str, line: &str, aloud: Aloud) {
+        if !self.hears(aloud) || self.read_lately(line, true) {
             return;
         }
         self.keep_read(line, false);
-        self.say(text);
+        self.speak(text, aloud.how == How::Cut);
     }
 
     /// Whether `text` was read lately the other way: as a line, if it
@@ -376,7 +397,7 @@ impl Voice {
         if let Some(text) = self.narrator.poll(now)
             && !self.quiet_prompts
         {
-            self.read_game(&text);
+            self.read_game(&text, Aloud::default());
         }
         if let Some(deadline) = self.narrator.deadline() {
             ui.ctx()

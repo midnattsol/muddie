@@ -26,6 +26,7 @@ fn alias(pattern: &str, with: impl FnOnce(&mut Alias)) -> Alias {
     rule
 }
 
+mod aloud;
 mod arranging;
 mod channels;
 mod connection;

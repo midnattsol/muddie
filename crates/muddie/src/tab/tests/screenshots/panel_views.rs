@@ -56,10 +56,12 @@ pub(super) fn shows_panels() {
     app.add_to_panel(
         "Combate",
         &panels::styled_lines("\x1b[31mUn orco te ataca\x1b[0m con su hacha.").remove(0),
+        Default::default(),
     );
     app.add_to_panel(
         "Tells",
         &panels::styled_lines("\x1b[33mAna te dice: ¿vienes?\x1b[0m").remove(0),
+        Default::default(),
     );
     for panel in &mut app.layout.panels {
         if panel.kind == layout::Kind::Text {

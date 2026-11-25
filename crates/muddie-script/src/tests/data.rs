@@ -437,28 +437,28 @@ fn what_a_script_set_of_the_map_and_the_session_goes_with_it() {
 }
 
 #[test]
-fn a_script_says_how_a_gauge_is_announced() {
+fn a_script_says_how_a_gauge_is_heard() {
     let mut engine = engine("");
     let mut look = |code: &str| {
         engine.exec("t", code);
         engine.take_actions().remove(0)
     };
-    for (told, announce) in [
-        ("", Announce::Usual),
-        (r#", announce = "usual""#, Announce::Usual),
-        (r#", announce = "never""#, Announce::Never),
-        (r#", announce = "wait""#, Announce::Wait),
-        (r#", announce = "lowest""#, Announce::Lowest),
-        (r#", announce = "cut""#, Announce::Cut),
+    for (told, how) in [
+        ("", How::Usual),
+        (r#", aloud = "usual""#, How::Usual),
+        (r#", aloud = "never""#, How::Never),
+        (r#", aloud = "wait""#, How::Wait),
+        (r#", aloud = "lowest""#, How::Lowest),
+        (r#", aloud = "cut""#, How::Cut),
     ] {
         match look(&format!(
             r#"gauges.set("HP", {{value = 1, max = 2{told}}})"#
         )) {
-            Action::Gauge { look, .. } => assert_eq!(look.announce, announce, "{told}"),
+            Action::Gauge { look, .. } => assert_eq!(look.aloud.how, how, "{told}"),
             other => panic!("{other:?}"),
         }
     }
-    let wrong = look(r#"gauges.set("HP", {value = 1, max = 2, announce = "shout"})"#);
+    let wrong = look(r#"gauges.set("HP", {value = 1, max = 2, aloud = "shout"})"#);
     assert!(
         matches!(&wrong, Action::Error(said) if said.contains("usual, never, wait, lowest or cut")),
         "{wrong:?}"
@@ -472,9 +472,9 @@ fn a_script_says_what_of_a_channel_is_not_read() {
         engine.exec("t", code);
         engine.take_actions().remove(0)
     };
-    for (told, quiet) in [("", false), (", {quiet = true}", true)] {
+    for (told, how) in [("", How::Usual), (r#", {aloud = "never"}"#, How::Never)] {
         match look(&format!(r#"channels.say("chat", "hi"{told})"#)) {
-            Action::Channel { quiet: said, .. } => assert_eq!(said, quiet),
+            Action::Channel { aloud, .. } => assert_eq!(aloud.how, how),
             other => panic!("{other:?}"),
         }
     }

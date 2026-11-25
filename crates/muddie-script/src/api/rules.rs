@@ -67,6 +67,11 @@ pub(crate) fn only(options: Option<&Table>, known: &[&str]) -> mlua::Result<()> 
         let (key, _) = pair?;
         let key = key.to_string().unwrap_or_default();
         if !known.contains(&key.as_str()) {
+            if let Some(now) = crate::retired::option(&key) {
+                return Err(mlua::Error::runtime(format!(
+                    "there is no option {key} any more: use {now}"
+                )));
+            }
             return Err(mlua::Error::runtime(format!(
                 "there is no option {key} here; there are {}",
                 known.join(", ")

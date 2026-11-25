@@ -130,7 +130,7 @@ fn script_can_edit_and_query_the_map() {
     let actions = engine.take_actions();
     let echoes: Vec<&str> = (actions.iter())
         .filter_map(|action| match action {
-            Action::Echo(text) => Some(text.as_str()),
+            Action::Echo(said) => Some(said.text.as_str()),
             _ => None,
         })
         .collect();
@@ -245,7 +245,7 @@ fn script_can_choose_how_rooms_look() {
     );
     let echoes: Vec<String> = (engine.take_actions().into_iter())
         .filter_map(|action| match action {
-            Action::Echo(text) => Some(text),
+            Action::Echo(said) => Some(said.text),
             _ => None,
         })
         .collect();
@@ -371,7 +371,7 @@ fn script_adds_the_room_the_map_has_not_where_the_player_went() {
             Action::Echo("nil lost".into()),
             Action::Entered(1),
             Action::Entered(made),
-            Action::Echo(format!("{made} made")),
+            Action::Echo(format!("{made} made").into()),
             Action::Entered(1),
             Action::Echo("1 found".into()),
             Action::Echo("nil known".into()),

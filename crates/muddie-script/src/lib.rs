@@ -34,7 +34,7 @@ mod retired;
 mod state;
 mod switches;
 
-pub use action::{Action, Announce, Effect, GaugeKind, GaugeLook};
+pub use action::{Action, Aloud, Effect, GaugeKind, GaugeLook, How, Saying};
 pub use convert::{bindable, colour_named, split_commands};
 pub use line::Heard;
 
@@ -48,8 +48,8 @@ pub struct OfferedTool {
     /// For one that switches something on or off, whether it is on.
     pub checked: Option<bool>,
 }
+use api::{AfterText, aloud_of, install_api, only, texts_of};
 pub use api::{in_interface_language, set_interface_language};
-use api::{install_api, only, texts_of};
 use convert::*;
 use line::{Given, Looked, Text};
 use made::Made;

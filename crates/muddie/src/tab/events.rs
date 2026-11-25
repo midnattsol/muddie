@@ -1,7 +1,7 @@
 //! What arrives from the connection, and the session's log.
 
 use super::*;
-use muddie_script::Heard;
+use muddie_script::{Aloud, Heard};
 
 /// How long a frame spends on what arrived, at most: enough for hundreds
 /// of lines, little enough for the window to keep moving.
@@ -191,10 +191,8 @@ impl Tab {
         match shown {
             Some(shown) => {
                 self.show_line(&shown);
-                // Read unless a trigger asked not to, or the session is
-                // not the one on screen: only that one is heard.
+                // Read unless a trigger asked not to.
                 match self.scripts.line_heard() {
-                    _ if !self.on_screen => self.voice.skip_line(&text),
                     Heard::AsIs if prompt => self.voice.prompt(&text),
                     Heard::AsIs => self.voice.line(&text),
                     Heard::Instead(said) if !heard => {
@@ -273,11 +271,8 @@ impl Tab {
         if !panel.trim().is_empty() {
             self.gauges_panel_named(&panel);
         }
-        let warning = (self.gauges).set_by(name, level, look, owner, belongs, panel);
-        match warning {
-            Some(warning) if warning.urgent => self.voice.say_now(&warning.said),
-            Some(warning) => self.voice.say(&warning.said),
-            None => {}
+        if let Some(said) = (self.gauges).set_by(name, level, look, owner, belongs, panel) {
+            self.voice.say_of_game(&said);
         }
     }
 
@@ -366,7 +361,7 @@ impl Tab {
     pub(super) fn show_line(&mut self, line: &Line) {
         // What the server sent to a frame goes to the panel of its name.
         if let Some(frame) = &line.dest {
-            return self.add_to_panel(&frame.clone(), line);
+            return self.add_to_panel(&frame.clone(), line, Aloud::default());
         }
         self.output.push(line);
         let time = self.output.time(self.output.len() - 1).to_owned();

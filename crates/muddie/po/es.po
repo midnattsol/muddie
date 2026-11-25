@@ -1410,6 +1410,9 @@ msgstr "Se dice cuando baja de un paso: lo normal es interrumpir."
 msgid "It is said when it changes: as usual, after what is being read."
 msgstr "Se dice cuando cambia: lo normal es esperar a lo que se está leyendo."
 
+msgid "Also while the game is not read aloud"
+msgstr "También mientras el juego no se lee en voz alta"
+
 #, python-brace-format
 msgid "Active voice: {0}."
 msgstr "Voz activa: {0}."

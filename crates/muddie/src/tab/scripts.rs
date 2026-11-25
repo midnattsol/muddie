@@ -2,6 +2,7 @@
 //! and doing what they ask.
 
 use super::*;
+use muddie_script::{Aloud, Saying};
 
 /// What the rules made in the interface are run as: one owner, to take
 /// them away together when they are run again.
@@ -127,7 +128,7 @@ impl Tab {
         &mut self,
         name: &str,
         text: Option<&str>,
-        (panel, quiet): (&str, bool),
+        (panel, aloud): (&str, Aloud),
         said: &mut Vec<(String, String, String)>,
     ) {
         if let Some(text) = text {
@@ -142,7 +143,7 @@ impl Tab {
             said.push(key);
         }
         let lines = text.map(panels::styled_lines).unwrap_or_default();
-        self.channel_said(name, panel, lines, quiet);
+        self.channel_said(name, panel, lines, aloud);
     }
 
     /// Runs every script and rule again, as when a session starts, keeping
@@ -236,8 +237,10 @@ impl Tab {
         for action in self.scripts.take_actions() {
             match action {
                 Action::Send(text) => self.send(text),
-                Action::Echo(text) => text.lines().for_each(|line| self.echo(line)),
-                Action::Speak { text, interrupt } => self.voice.say_for_script(&text, interrupt),
+                Action::Echo(said) => {
+                    (said.text.lines()).for_each(|line| self.echo(line, said.aloud));
+                }
+                Action::Speak(said) => self.voice.say_of_game(&said),
                 Action::Gmcp { package, data } => self.tell_server(Command::Gmcp { package, data }),
                 Action::Msdp { variable, values } => {
                     self.tell_server(Command::Msdp { variable, values })
@@ -281,10 +284,10 @@ impl Tab {
                     name,
                     text,
                     panel,
-                    quiet,
-                } => self.channel_from_script(&name, text.as_deref(), (&panel, quiet), &mut said),
+                    aloud,
+                } => self.channel_from_script(&name, text.as_deref(), (&panel, aloud), &mut said),
                 Action::ChannelClosed(name) => self.close_channel(&name),
-                Action::Notify(text) => self.note(&text),
+                Action::Notify(said) => self.tell(&said.text, false, said.aloud.how),
                 Action::PlaySound {
                     id,
                     file,
@@ -332,9 +335,9 @@ impl Tab {
     }
 
     /// Adds the lines of a text, styled, to the end of a panel.
-    fn add_text_to_panel(&mut self, name: &str, text: &str) {
-        for line in panels::styled_lines(text) {
-            self.add_to_panel(name, &line);
+    fn add_text_to_panel(&mut self, name: &str, said: &Saying) {
+        for line in panels::styled_lines(&said.text) {
+            self.add_to_panel(name, &line, said.aloud);
         }
     }
 
@@ -342,7 +345,7 @@ impl Tab {
     /// one.
     fn add_dispatched_to_panel(&mut self, name: &str) {
         if let Some(line) = self.dispatched.take() {
-            self.add_to_panel(name, &line);
+            self.add_to_panel(name, &line, Aloud::default());
             self.dispatched = Some(line);
         }
     }

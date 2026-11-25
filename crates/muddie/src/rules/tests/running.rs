@@ -41,10 +41,7 @@ fn triggers_do_what_their_fields_say() {
         [
             send("smile"),
             send("say \"hi\" \\o/"),
-            Action::Speak {
-                text: "a tell".into(),
-                interrupt: false
-            },
+            Action::Speak("a tell".into()),
             Action::PlaySound {
                 id,
                 file: "tell.ogg".into(),
@@ -57,13 +54,7 @@ fn triggers_do_what_their_fields_say() {
     assert!(engine.on_line("Orc attacks Ana!"));
     assert_eq!(
         engine.take_actions(),
-        [
-            send("kill Orc"),
-            Action::Speak {
-                text: "Orc hits Ana".into(),
-                interrupt: false
-            }
-        ]
+        [send("kill Orc"), Action::Speak("Orc hits Ana".into())]
     );
     assert!(!engine.on_line("buy spam today"));
     assert_eq!(engine.take_actions(), []);
@@ -413,20 +404,21 @@ fn gauges_come_in_kinds_and_change_colour_by_level() {
     }
 }
 
-/// How a gauge is announced is kept with it, unless it is as usual, and
+/// How a gauge is heard is kept with it, unless it is as usual, and
 /// told to the engine.
 #[test]
-fn how_a_gauge_is_announced_is_kept_and_told() {
+fn how_a_gauge_is_heard_is_kept_and_told() {
     let mut gauge = Gauge {
         name: "HP".into(),
         value: "Char.hp".into(),
         max: "10".into(),
         ..Gauge::starter()
     };
-    assert!(!toml::to_string(&gauge).unwrap().contains("announce"));
-    gauge.announce = Announce::Lowest;
+    assert!(!toml::to_string(&gauge).unwrap().contains("aloud"));
+    gauge.aloud = How::Lowest;
+    gauge.always = true;
     let written = toml::to_string(&gauge).unwrap();
-    assert!(written.contains("announce = \"lowest\""), "{written}");
+    assert!(written.contains("aloud = \"lowest\""), "{written}");
     assert_eq!(toml::from_str::<Gauge>(&written).unwrap(), gauge);
     let mut engine = run(&Rules {
         gauges: vec![gauge],
@@ -435,7 +427,7 @@ fn how_a_gauge_is_announced_is_kept_and_told() {
     engine.on_gmcp("Char", r#"{"hp": 4}"#);
     match engine.take_actions().remove(0) {
         Action::Gauge { look, .. } => {
-            assert_eq!(look.announce, muddie_script::Announce::Lowest)
+            assert_eq!((look.aloud.how, look.aloud.always), (How::Lowest, true))
         }
         other => panic!("{other:?}"),
     }

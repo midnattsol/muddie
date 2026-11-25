@@ -15,7 +15,7 @@ max = "Char.Status.pvs.max"
 colour = "#5fb85f"
 kind = "bar"
 step = [{ under = 60, colour = "#e0c040" }, { under = 30, colour = "#e05050" }]
-announce = "lowest"
+aloud = "lowest"
 panel = "Puntos"
 
 [[gauge]]
@@ -25,7 +25,7 @@ max = "Char.Status.pe.max"
 colour = "#5fb85f"
 kind = "bar"
 step = [{ under = 60, colour = "#e0c040" }, { under = 30, colour = "#e05050" }]
-announce = "wait"
+aloud = "wait"
 panel = "Puntos"
 
 [[gauge]]
@@ -35,7 +35,7 @@ max = "Char.Status.fe.max"
 colour = "#5fb85f"
 kind = "bar"
 step = [{ under = 60, colour = "#e0c040" }, { under = 30, colour = "#e05050" }]
-announce = "wait"
+aloud = "wait"
 panel = "Puntos"
 
 [[gauge]]
@@ -43,5 +43,5 @@ name = "Efectos"
 value = "estados"
 colour = "#8a9bb8"
 kind = "effects"
-announce = "never"
+aloud = "never"
 panel = "Efectos"
