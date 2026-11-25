@@ -174,20 +174,12 @@ fn worker(
         Ok(prism) => prism,
         Err(error) => return eprintln!("muddie: speech unavailable: {error}"),
     };
-    let (mut rate, mut language, mut announce) = (0, String::new(), String::new());
+    let mut settings = Settings::default();
     let mut backend = choose(&prism, through);
-    tune(backend.as_ref(), rate, &language);
+    tune(backend.as_ref(), settings.rate, &settings.language);
     report(backend.as_ref(), told);
     loop {
-        let request = match backend {
-            Some(_) => requests.recv().ok(),
-            None => match requests.recv_timeout(LOOK_AGAIN) {
-                Ok(request) => Some(request),
-                Err(RecvTimeoutError::Timeout) => Some(Request::Changed),
-                Err(RecvTimeoutError::Disconnected) => None,
-            },
-        };
-        let Some(request) = request else {
+        let Some(request) = next_request(requests, backend.is_some()) else {
             return;
         };
         let Some(chosen) = &backend else {
@@ -196,55 +188,94 @@ fn worker(
                     &prism,
                     through,
                     &mut backend,
-                    (rate, &language, &announce),
+                    (settings.rate, &settings.language, &settings.announce),
                     told,
                 ),
-                Request::Rate(wanted) => rate = wanted,
-                Request::Language(wanted) => language = wanted,
-                // Said of the first found, when it is found.
-                Request::Announce { template, .. } => announce = template,
-                Request::Say { .. } | Request::Stop => {}
+                other => settings.keep_unheard(other),
             }
             continue;
         };
         match request {
-            Request::Say { at, .. } if at.elapsed() > STALE => {}
-            Request::Say {
-                text, interrupt, ..
-            } => {
-                let said = match chosen.supports(Features::OUTPUT) {
-                    // Spoken, and on the braille display too.
-                    true => chosen.output(&text, interrupt),
-                    false => chosen.speak(&text, interrupt),
-                };
-                if let Err(error) = said {
-                    eprintln!("muddie: speech failed: {error}");
-                }
-            }
-            // Not speaking is no error here.
-            Request::Stop => drop(chosen.stop()),
-            Request::Rate(wanted) => {
-                rate = wanted;
-                tune(backend.as_ref(), rate, &language);
-            }
-            Request::Language(wanted) => {
-                language = wanted;
-                tune(backend.as_ref(), rate, &language);
-            }
-            Request::Announce { template, now } => {
-                if now {
-                    let _ = chosen.speak(&template.replace("{0}", &chosen.name()), false);
-                }
-                announce = template;
-            }
             Request::Changed => switch(
                 &prism,
                 through,
                 &mut backend,
-                (rate, &language, &announce),
+                (settings.rate, &settings.language, &settings.announce),
                 told,
             ),
+            other => hear(other, chosen, &mut settings),
         }
+    }
+}
+
+/// What the user chose for speech, kept to give to what is found.
+#[derive(Default)]
+struct Settings {
+    rate: i32,
+    language: String,
+    announce: String,
+}
+
+impl Settings {
+    /// Keeps what was asked while nothing is found to speak through.
+    fn keep_unheard(&mut self, request: Request) {
+        match request {
+            Request::Rate(wanted) => self.rate = wanted,
+            Request::Language(wanted) => self.language = wanted,
+            // Said of the first found, when it is found.
+            Request::Announce { template, .. } => self.announce = template,
+            Request::Say { .. } | Request::Stop | Request::Changed => {}
+        }
+    }
+}
+
+/// Waits for the next request: for good if something to speak through
+/// is found, otherwise looking again every so often. `None` when there
+/// will be no more.
+fn next_request(requests: &Receiver<Request>, found: bool) -> Option<Request> {
+    match found {
+        true => requests.recv().ok(),
+        false => match requests.recv_timeout(LOOK_AGAIN) {
+            Ok(request) => Some(request),
+            Err(RecvTimeoutError::Timeout) => Some(Request::Changed),
+            Err(RecvTimeoutError::Disconnected) => None,
+        },
+    }
+}
+
+/// Does a request other than looking again, through `chosen`.
+fn hear(request: Request, chosen: &Backend<'_>, settings: &mut Settings) {
+    match request {
+        Request::Say { at, .. } if at.elapsed() > STALE => {}
+        Request::Say {
+            text, interrupt, ..
+        } => {
+            let said = match chosen.supports(Features::OUTPUT) {
+                // Spoken, and on the braille display too.
+                true => chosen.output(&text, interrupt),
+                false => chosen.speak(&text, interrupt),
+            };
+            if let Err(error) = said {
+                eprintln!("muddie: speech failed: {error}");
+            }
+        }
+        // Not speaking is no error here.
+        Request::Stop => drop(chosen.stop()),
+        Request::Rate(wanted) => {
+            settings.rate = wanted;
+            tune(Some(chosen), settings.rate, &settings.language);
+        }
+        Request::Language(wanted) => {
+            settings.language = wanted;
+            tune(Some(chosen), settings.rate, &settings.language);
+        }
+        Request::Announce { template, now } => {
+            if now {
+                let _ = chosen.speak(&template.replace("{0}", &chosen.name()), false);
+            }
+            settings.announce = template;
+        }
+        Request::Changed => {}
     }
 }
 
