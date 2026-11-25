@@ -243,3 +243,66 @@ fn an_engine_gone_lets_go_of_its_map() {
     drop(engine);
     assert_eq!(Rc::strong_count(&map), 1);
 }
+
+/// A module is that of the folder of the script that asks for it, though
+/// there are others of its name; scripts of one folder share it.
+#[test]
+fn a_module_is_looked_for_beside_the_script_that_asks() {
+    let dir = std::env::temp_dir().join(format!("muddie-beside-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let mut engine = engine("");
+    for folder in ["one", "two"] {
+        let folder = dir.join(folder);
+        std::fs::create_dir_all(&folder).unwrap();
+        let name = folder.file_name().unwrap().to_string_lossy().into_owned();
+        std::fs::write(
+            folder.join("util.luau"),
+            format!("return {{name = '{name}'}}"),
+        )
+        .unwrap();
+        for script in ["a.luau", "b.luau"] {
+            std::fs::write(
+                folder.join(script),
+                "local util = require('util') util.n = (util.n or 0) + 1 echo(`{util.name} {util.n}`)",
+            )
+            .unwrap();
+        }
+    }
+    for (folder, script) in [("one", "a"), ("two", "a"), ("one", "b"), ("two", "b")] {
+        engine.load_file(&dir.join(folder).join(format!("{script}.luau")));
+    }
+    let said = ["one 1", "two 1", "one 2", "two 2"].map(|said| Action::Echo(said.into()));
+    assert_eq!(engine.take_actions(), said);
+    // Run again, it is asked for afresh.
+    engine.unload_file(&dir.join("one").join("util.luau"));
+    engine.reload_file(&dir.join("one").join("a.luau"));
+    assert!(
+        engine
+            .take_actions()
+            .contains(&Action::Echo("one 1".into()))
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// Scripts run as they come, with no file, have theirs; one with no folder
+/// has nothing of the folder Muddie was started in.
+#[test]
+fn a_module_with_no_file_is_offered() {
+    let mut engine = engine("");
+    engine.offer_module("Pack/util.luau", "return 7");
+    engine.exec_owned("Pack/a.luau", "a", "echo(tostring(require('util')))");
+    assert_eq!(engine.take_actions(), [Action::Echo("7".into())]);
+    engine.exec_owned("Other/a.luau", "a", "require('util')");
+    assert!(error_text(&engine.take_actions()).contains("module not found: util"));
+    engine.unload("Pack/util.luau");
+    engine.exec_owned("Pack/a.luau", "a", "require('util')");
+    assert!(error_text(&engine.take_actions()).contains("module not found: util"));
+    let here = std::env::current_dir()
+        .unwrap()
+        .join("muddie_test_module.luau");
+    std::fs::write(&here, "return 1").unwrap();
+    engine.exec("rules", "require('muddie_test_module')");
+    let actions = engine.take_actions();
+    std::fs::remove_file(&here).unwrap();
+    assert!(error_text(&actions).contains("module not found"));
+}

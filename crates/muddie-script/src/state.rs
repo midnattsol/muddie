@@ -306,7 +306,9 @@ pub(super) struct State {
     pub(crate) separator: Option<(String, Option<String>)>,
     /// Folders `require` looks in: those scripts were loaded from.
     pub(crate) module_dirs: Vec<PathBuf>,
-    /// What each required module returned.
+    /// The modules with no file, by where each would be.
+    pub(crate) offered: HashMap<String, String>,
+    /// What each required module returned, by where it is.
     pub(crate) modules: HashMap<String, Value>,
     /// Modules being loaded, to refuse circular requires.
     pub(crate) loading: Vec<String>,

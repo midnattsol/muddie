@@ -21,8 +21,8 @@ In the palette (Ctrl+K), **Restart scripts** starts the scripts afresh
 after editing them, and **Run Luau…** runs a line of Luau on the spot.
 
 A script can be split into modules: `require("name")` loads `name.luau` or
-`name/init.luau` from the folder of any loaded script, once, and returns what
-the module returns.
+`name/init.luau` from the folder of the script that asks, or else of any other
+loaded, once, and returns what the module returns.
 
 A plugin is a git repository with its `.luau` scripts at the top; a
 `rules.toml`, written as a profile's, with the rules it brings, of any kind,

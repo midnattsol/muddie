@@ -148,6 +148,13 @@ impl Engine {
         }
     }
 
+    /// Offers the code of a module that has no file, as that of a plugin run
+    /// as it comes: to the scripts beside `owner`, until that is unloaded.
+    pub fn offer_module(&mut self, owner: &str, code: &str) {
+        let offered = &mut self.state.borrow_mut().offered;
+        offered.insert(crate::owner_of(Path::new(owner)), code.to_owned());
+    }
+
     /// Says whether `code` is Luau that could be run, without running it:
     /// the line and the message of its first mistake if it is not.
     pub fn check(&self, code: &str) -> Option<(usize, String)> {
@@ -256,12 +263,9 @@ impl Engine {
         });
         state.tidy_paused();
         // A module it is asks for it afresh next time.
-        let stem = Path::new(owner)
-            .file_stem()
-            .map(|stem| stem.to_string_lossy().into_owned());
-        if let Some(stem) = stem {
-            state.modules.remove(&stem);
-        }
+        let path = crate::owner_of(Path::new(owner));
+        state.modules.remove(&path);
+        state.offered.remove(&path);
     }
 
     /// Runs a script file again by itself: what it made before is taken

@@ -197,9 +197,14 @@ impl Tab {
     /// it in: its scripts as they are, its gauges among the session's
     /// rules, unsaved.
     pub(super) fn run_as_it_comes(&mut self, plugin: &Plugin) {
+        // Each may ask for another as a module.
         for (name, code) in &plugin.scripts {
             let owner = as_it_comes(plugin, name);
             self.scripts.unload(&owner);
+            self.scripts.offer_module(&owner, code);
+        }
+        for (name, code) in &plugin.scripts {
+            let owner = as_it_comes(plugin, name);
             self.scripts.exec_owned(&owner, &owner, code);
         }
         let Some(mut theirs) = self.plugin_rules(plugin) else {
