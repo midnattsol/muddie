@@ -1,7 +1,8 @@
 -- Reinos de Leyenda (rlmud.org), as it is played: the character's states,
 -- what is said on its channels, each in its tab, and the map, which the
--- MUD publishes made with Mudlet, following the player on it. Its gauges
--- are among those of the editor.
+-- MUD publishes made with Mudlet, following the player on it. Its gauges of
+-- life, energy and faith are among those of the editor. What is said aloud is
+-- in aloud.luau.
 -- All by GMCP, in packages of the MUD's own; this is what it sends, as a
 -- session shows:
 --
@@ -19,7 +20,7 @@
 -- If nothing has come a while after connecting, this says so.
 --
 -- What it shows is in the language of the interface, English or Spanish,
--- each text given in both with tr.
+-- each text given in both.
 
 gmcp.support("Char 1")
 gmcp.support("Comm 1")
@@ -54,10 +55,9 @@ on("gmcp", "Char", function()
 end)
 
 ---------------------------------------------------------------------------
--- States: kept in the variable estados, which the gauge Efectos of the
--- editor follows, each a label with what it is; the worst kinds first, in
--- their colour. A state is {nombre, corto, tipo, ayuda}. What changes of
--- them is said by Lectura.
+-- States: each a label of the gauge Efectos, with what it is; the worst
+-- kinds first, in their colour. A state is {nombre, corto, tipo, ayuda}. What
+-- changes of them is said by aloud.luau.
 
 -- The colour of each kind of state, the worst first.
 local KINDS = {
@@ -81,46 +81,64 @@ local function shown(state)
     }
 end
 
-local function keep(states)
+-- Those the character is in.
+local states = {}
+
+local function show()
     table.sort(states, function(a, b)
         if a.order ~= b.order then
             return a.order < b.order
         end
         return a.name < b.name
     end)
-    vars.estados = states
+    local items = {}
+    for _, state in states do
+        table.insert(items, { name = state.name, about = state.about, colour = state.colour })
+    end
+    gauges.set("Efectos", {
+        kind = "effects",
+        items = items,
+        colour = "#8a9bb8",
+        aloud = "never",
+        panel = "Efectos",
+        place = "Reinos de Leyenda/Efectos",
+    })
 end
 
--- Those kept but the one known by `id`.
-local function all_but(id)
-    local left = {}
-    for _, known in vars.estados or {} do
-        if known.id ~= id then
-            table.insert(left, known)
+-- Takes out the state known by `id`.
+local function leave(id)
+    for index, known in states do
+        if known.id == id then
+            table.remove(states, index)
+            return
         end
     end
-    return left
 end
 
 on("gmcp", "Char.Status.Estados.set", function(data)
-    local states = {}
+    states = {}
     if type(data) == "table" then
         for key, state in pairs(data) do
             table.insert(states, shown(type(state) == "table" and state or key))
         end
     end
-    keep(states)
+    show()
 end)
 
 on("gmcp", "Char.Status.Estados.add", function(state)
     local new = shown(state)
-    local states = all_but(new.id)
+    leave(new.id)
     table.insert(states, new)
-    keep(states)
+    show()
 end)
 
 on("gmcp", "Char.Status.Estados.remove", function(state)
-    keep(all_but(text_of(state)))
+    leave(text_of(state))
+    show()
+end)
+
+on("disconnect", function()
+    states = {}
 end)
 
 ---------------------------------------------------------------------------
@@ -179,7 +197,7 @@ local SYNC = { en = "Sync with the official map", es = "Sincronizar con el mapa 
 
 -- The month a newer map was last told of, kept in the profile: told at each
 -- connection, it would be noise.
-local NEWER_TOLD = "Reinos de Leyenda: mapa nuevo avisado"
+local NEWER_TOLD = "reinos_newer_map_told"
 
 map.action(SYNC, function()
     vars[NEWER_TOLD] = nil
@@ -231,7 +249,7 @@ end
 -- can be undone. On unless switched off, from the map's menu or the
 -- palette, and remembered in the profile.
 
-local LEARNING = "Reinos de Leyenda: mantener el mapa"
+local LEARNING = "reinos_learning"
 local LEARNING_ACTION = { en = "Keep the map up to date as you go", es = "Mantener el mapa al día sobre la marcha" }
 local learning = vars[LEARNING] ~= false
 map.learn(learning)
@@ -376,7 +394,7 @@ end
 trigger([[^(.*?) \[([A-Za-z|,\-]+)\]\s*$]], function(m)
     local name, unknown = room_written(m[1])
     written({ name = name, unknown = unknown, exits = exits_of(m[2]), written = true })
-end, { place = "Reinos de Leyenda/Sala escrita" })
+end, { place = "Reinos de Leyenda/Room written" })
 
 -- Or by its name alone, as some show it: only a name the map has.
 trigger([[^(.*\S: \S.*?)\s*$]], function(m)
@@ -387,7 +405,7 @@ trigger([[^(.*\S: \S.*?)\s*$]], function(m)
     if name then
         written({ name = name, written = true })
     end
-end, { place = "Reinos de Leyenda/Sala escrita sin salidas" })
+end, { place = "Reinos de Leyenda/Room written without exits" })
 
 on("gmcp", "Room.Movimiento", function(way)
     heard = true

@@ -88,10 +88,11 @@ impl Tab {
         let offered = self.scripts.map_actions();
         let mut by = None;
         for tool in offered {
-            if by.as_ref() != Some(&tool.by) {
+            let name = self.offered_by(&tool.owner);
+            if by.as_ref() != Some(&name) {
                 widgets::menu_separator(ui);
-                widgets::menu_heading(ui, &tool.by);
-                by = Some(tool.by.clone());
+                widgets::menu_heading(ui, &name);
+                by = Some(name);
             }
             let chosen = match tool.checked {
                 Some(mut on) => widgets::menu_check(ui, &mut on, &tool.label),

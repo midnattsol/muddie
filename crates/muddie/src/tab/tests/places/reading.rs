@@ -67,10 +67,24 @@ fn of_the_states_only_what_changes_is_said() {
     );
     // After connecting again, they are not news either.
     let app = heard.harness.state_mut().tab_mut();
-    app.gauges.start();
-    app.scripts.start_gauges();
+    app.scripts.on_event("disconnect", "");
+    app.run_actions();
     let set = format!(r#"{{"sangrado":{BLEEDING}}}"#);
     assert_eq!(heard.gmcp(SET, &set).0, [] as [String; 0]);
+}
+
+/// They are said whatever there is to show them: with the gauge switched
+/// off, and its panel gone.
+#[test]
+fn the_states_are_said_with_no_gauge_of_them() {
+    let mut heard = Heard::start();
+    heard.gmcp(SET, "{}");
+    let app = heard.harness.state_mut().tab_mut();
+    app.scripts
+        .exec("t", r#"gauges.disable("Reinos de Leyenda")"#);
+    app.layout.panels.clear();
+    assert_eq!(heard.gmcp(ADD, STUNNED).0, ["Aturdido."]);
+    assert_eq!(heard.harness.state().tab().gauges_said(), "");
 }
 
 /// With the reading switched off, nothing is said of the states, which are
@@ -84,7 +98,7 @@ fn the_reading_can_be_switched_off_alone() {
         .state_mut()
         .tab_mut()
         .scripts
-        .unload("Lectura.luau");
+        .unload("Reinos de Leyenda/aloud.luau");
     assert_eq!(heard.gmcp(ADD, STUNNED).0, [] as [String; 0]);
     let summary = heard.harness.state().tab().gauges_said();
     assert_eq!(summary, "Efectos: Aturdido");

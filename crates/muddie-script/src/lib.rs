@@ -44,8 +44,8 @@ pub use line::Heard;
 pub struct OfferedTool {
     /// What the user chooses it by.
     pub label: String,
-    /// The script that offers it, by its name: a plugin's is the plugin's.
-    pub by: String,
+    /// The script that offers it.
+    pub owner: String,
     /// For one that switches something on or off, whether it is on.
     pub checked: Option<bool>,
 }
@@ -315,10 +315,7 @@ impl Engine {
         (self.state.borrow().map_actions.iter())
             .map(|tool| OfferedTool {
                 label: in_interface_language(&tool.label).unwrap_or_default(),
-                by: (Path::new(&tool.owner).file_stem()).map_or_else(
-                    || tool.owner.clone(),
-                    |stem| stem.to_string_lossy().into_owned(),
-                ),
+                owner: tool.owner.clone(),
                 checked: tool.checked,
             })
             .collect()

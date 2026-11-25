@@ -17,9 +17,6 @@ pub(crate) struct Shown {
     /// It was of a session that ended: there to be switched, but with
     /// nothing to say.
     pub(crate) over: bool,
-    /// It is what it was before the session started: what it is said to
-    /// be next is how it starts.
-    pub(crate) before: bool,
 }
 
 impl Shown {
@@ -149,7 +146,7 @@ impl State {
             gauge.look = self.gauges[at].look.clone();
         }
         let was = std::mem::replace(&mut self.gauges[at], gauge);
-        if was.over || was.before {
+        if was.over {
             return;
         }
         let key = was.key().to_owned();
@@ -220,7 +217,6 @@ impl Engine {
             max,
             look,
             over: false,
-            before: false,
         });
         self.tell_changes();
     }
@@ -230,16 +226,6 @@ impl Engine {
     pub fn forget_gauges(&mut self) {
         let mut state = self.state.borrow_mut();
         state.gauges.iter_mut().for_each(|gauge| gauge.over = true);
-        state.forget_changes();
-    }
-
-    /// A session starts: how each gauge comes to be in it is not news.
-    pub fn start_gauges(&mut self) {
-        let mut state = self.state.borrow_mut();
-        state
-            .gauges
-            .iter_mut()
-            .for_each(|gauge| gauge.before = true);
         state.forget_changes();
     }
 

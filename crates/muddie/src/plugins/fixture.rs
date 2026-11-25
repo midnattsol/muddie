@@ -9,10 +9,9 @@ use super::{Origin, Plugin};
 
 const FOLDER: &str = "reinos-de-leyenda";
 pub const MANIFEST: &str = include_str!("../tab/tests/fixtures/reinos-de-leyenda/plugin.toml");
-pub const SCRIPT_NAME: &str = "Reinos de Leyenda.luau";
-pub const SCRIPT: &str =
-    include_str!("../tab/tests/fixtures/reinos-de-leyenda/Reinos de Leyenda.luau");
-pub const READING: &str = include_str!("../tab/tests/fixtures/reinos-de-leyenda/Lectura.luau");
+pub const SCRIPT_NAME: &str = "reinos.luau";
+pub const SCRIPT: &str = include_str!("../tab/tests/fixtures/reinos-de-leyenda/reinos.luau");
+pub const ALOUD: &str = include_str!("../tab/tests/fixtures/reinos-de-leyenda/aloud.luau");
 pub const RULES: &str = include_str!("../tab/tests/fixtures/reinos-de-leyenda/rules.toml");
 pub const TEMPLATE: &str = include_str!("../tab/tests/fixtures/reinos-de-leyenda/template.toml");
 
@@ -26,7 +25,7 @@ pub fn reinos() -> Plugin {
         FOLDER,
         MANIFEST,
         vec![
-            ("Lectura.luau".to_owned(), READING.to_owned()),
+            ("aloud.luau".to_owned(), ALOUD.to_owned()),
             (SCRIPT_NAME.to_owned(), SCRIPT.to_owned()),
         ],
         RULES.to_owned(),

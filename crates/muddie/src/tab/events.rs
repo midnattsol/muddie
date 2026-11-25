@@ -134,7 +134,7 @@ impl Tab {
 
     /// The connection is made: start afresh, log if asked, tell the
     /// scripts, and get ready to log in.
-    pub(super) fn on_connected(&mut self) {
+    fn on_connected(&mut self) {
         self.offer_plugin_for(&self.host.clone(), "");
         self.protocols.clear();
         // A new connection passes over what the last was told to say.
@@ -150,8 +150,6 @@ impl Tab {
         self.panels_untold();
         self.sizes.window_reported = None;
         self.tell_session(true);
-        self.gauges.start();
-        self.scripts.start_gauges();
         self.scripts.on_event("connect", "");
         self.run_actions();
         self.login = if self.character.trim().is_empty() {

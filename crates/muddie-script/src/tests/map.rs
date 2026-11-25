@@ -293,7 +293,7 @@ fn script_offers_to_do_things_with_the_map_and_is_told_when_its_map_changed() {
     // Each with the script that offers it; one that switches, whether on.
     let offered = |label: &str, checked| crate::OfferedTool {
         label: label.into(),
-        by: "plugin".into(),
+        owner: "plugin".into(),
         checked,
     };
     assert_eq!(

@@ -185,9 +185,12 @@ fn a_plugin_puts_its_gauges_in_the_panels_they_name() {
         let id = app.gauges_panel_of(named).unwrap();
         app.layout.panel(id).unwrap().name.clone()
     };
-    for (gauge, panel) in [("Vida", "Puntos"), ("Fe", "Puntos"), ("Efectos", "Efectos")] {
+    for (gauge, panel) in [("Vida", "Puntos"), ("Fe", "Puntos")] {
         assert_eq!(panel_of(app, gauge), panel, "{gauge}");
     }
+    // The one of the states, made by its script once there are some.
+    (app.scripts).on_gmcp("Char.Status.Estados.set", r#"{"sangrado": {}}"#);
+    app.run_actions();
     let of_gauges: Vec<&str> = (app.layout.panels.iter())
         .filter(|panel| panel.kind == crate::tab::layout::Kind::Gauges)
         .map(|panel| panel.name.as_str())
@@ -221,7 +224,7 @@ fn a_plugin_that_comes_with_muddie_is_installed_in_sight_and_the_profiles() {
     app.set_plugin(plugin, true);
     let script = (profiles.scripts_dir("Reinos"))
         .join("Reinos de Leyenda")
-        .join("Reinos de Leyenda.luau");
+        .join("reinos.luau");
     assert_eq!(
         std::fs::read_to_string(&script).unwrap(),
         crate::plugins::fixture::SCRIPT
@@ -234,7 +237,7 @@ fn a_plugin_that_comes_with_muddie_is_installed_in_sight_and_the_profiles() {
             .collect()
     };
     let all = |on: bool| -> Vec<(String, bool)> {
-        ["Vida", "Energía", "Fe", "Efectos"]
+        ["Vida", "Energía", "Fe"]
             .map(|name| (name.to_owned(), on))
             .to_vec()
     };
@@ -331,7 +334,7 @@ fn a_plugin_that_comes_with_muddie_is_installed_in_sight_and_the_profiles() {
         crate::plugins::fixture::SCRIPT
     );
     let after = rules();
-    assert_eq!(after.gauges.len(), 5);
+    assert_eq!(after.gauges.len(), 4);
     assert_eq!(after.gauges[0].colour, "#5fb85f");
     let saved = profiles.load("Reinos").unwrap();
     assert!(saved.plugins_installed[&plugin.id].starts_with(&format!("{}:", plugin.fingerprint())));
@@ -352,7 +355,7 @@ fn a_plugin_that_comes_with_muddie_runs_as_it_comes_without_a_profile() {
             .filter(|gauge| gauge.folder == "Reinos de Leyenda")
             .count()
     };
-    assert_eq!(theirs(app), 4);
+    assert_eq!(theirs(app), 3);
     assert!(app.scripts.supports().contains(&"Comm 1".to_owned()));
     app.set_plugin(plugin, false);
     assert_eq!(theirs(app), 0);

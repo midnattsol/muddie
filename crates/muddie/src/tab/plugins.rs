@@ -125,6 +125,7 @@ impl Tab {
             ));
             return false;
         }
+        self.put_replaced_aside(plugin, &folder);
         let Some(mut theirs) = self.plugin_rules(plugin) else {
             return false;
         };
@@ -136,6 +137,43 @@ impl Tab {
         (self.plugins_installed).insert(plugin.id.clone(), mark);
         self.keep_plugins();
         true
+    }
+
+    /// Puts aside the scripts a plugin had by other names, which would run
+    /// beside those it has now. They may be the player's, changed: they are
+    /// kept, by a name that is not a script's.
+    fn put_replaced_aside(&mut self, plugin: &Plugin, folder: &std::path::Path) {
+        for name in &plugin.manifest.replaces {
+            // A file of the folder, and not one of its own now.
+            let is_file = std::path::Path::new(name).file_name() == Some(name.as_ref());
+            let path = folder.join(name);
+            let now = plugin.scripts.iter().any(|(script, _)| script == name);
+            if !is_file || now || !path.is_file() {
+                continue;
+            }
+            self.scripts.unload_file(&path);
+            let aside = folder.join(format!("{name}.before-update"));
+            if let Err(error) = std::fs::rename(&path, aside) {
+                self.refuse(&trf(
+                    "{0} could not be installed: {1}",
+                    &[&plugin.shown_name(), &error.to_string()],
+                ));
+            }
+        }
+    }
+
+    /// What offers something to do with the map: the plugin whose script it
+    /// is, by its name, or the script, by its own.
+    pub(super) fn offered_by(&self, owner: &str) -> String {
+        let path = std::path::Path::new(owner);
+        let folder = path.parent().and_then(std::path::Path::file_name);
+        let plugin = (self.plugins.iter())
+            .find(|plugin| folder.is_some_and(|folder| folder == plugin.folder()));
+        match (plugin, path.file_stem()) {
+            (Some(plugin), _) => plugin.shown_name(),
+            (None, Some(stem)) => stem.to_string_lossy().into_owned(),
+            (None, None) => owner.to_owned(),
+        }
     }
 
     /// What a plugin brings to the rules, in a folder of its name, as its

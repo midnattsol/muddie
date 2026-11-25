@@ -279,7 +279,7 @@ fn profiles_of_before_keep_working_until_the_plugin_is_downloaded_and_update_aft
             .all(|plugin| plugin.id != "reinos-de-leyenda")
     );
     assert!(app.scripts.is_loaded(&script));
-    // The four gauges of the plugin, in the folder of its name.
+    // The gauges of the plugin, in the folder of its name.
     let ours = || {
         let rules = crate::rules::Rules::load(&profiles.rules_path(Some("P"))).unwrap();
         let ours: Vec<_> = (rules.gauges.into_iter())
@@ -287,7 +287,7 @@ fn profiles_of_before_keep_working_until_the_plugin_is_downloaded_and_update_aft
             .collect();
         ours
     };
-    assert_eq!(ours().len(), 4);
+    assert_eq!(ours().len(), 3);
     assert!(ours().iter().all(|gauge| gauge.enabled));
     // Saved again, it lists them as it did.
     app.keep_plugins();
@@ -297,7 +297,7 @@ fn profiles_of_before_keep_working_until_the_plugin_is_downloaded_and_update_aft
     assert!(script.is_file());
     app.official_changed();
     assert!(app.scripts.is_loaded(&script) && script.is_file());
-    assert_eq!(ours().len(), 4);
+    assert_eq!(ours().len(), 3);
 
     // Downloaded, it is updated as any other, and what the player wrote
     // in its script is kept.
@@ -315,7 +315,7 @@ fn profiles_of_before_keep_working_until_the_plugin_is_downloaded_and_update_aft
         read(&script.with_extension("luau.before-update")),
         "-- mine"
     );
-    assert_eq!(ours().len(), 4);
+    assert_eq!(ours().len(), 3);
     assert!(app.plugins_installed.contains_key("reinos-de-leyenda"));
     std::fs::remove_dir_all(profiles.official_dir().parent().unwrap()).unwrap();
 }
@@ -399,4 +399,44 @@ fn what_the_window_is_told_of_an_update_is_said_and_applied() {
     );
     assert_eq!(read(&script_in(&profiles)), "-- two");
     std::fs::remove_dir_all(profiles.official_dir().parent().unwrap()).unwrap();
+}
+
+/// A plugin that has a script by another name than it had: the one there
+/// was is put aside, with what the player changed, and does not run beside
+/// it; a script of the player's in the folder is left as it is.
+#[test]
+fn a_script_of_a_plugin_by_another_name_takes_the_place_of_the_one_there_was() {
+    let profiles = temp("renamed");
+    keep(&profiles, "pack", &pack("vars.old = 1"));
+    let mut harness = playing(&profiles);
+    let old = script_in(&profiles);
+    let (new, theirs) = (
+        old.with_file_name("new.luau"),
+        old.with_file_name("mine.luau"),
+    );
+    std::fs::write(&old, "vars.old = 2").unwrap();
+    std::fs::write(&theirs, "vars.mine = 1").unwrap();
+    let mut files = pack("");
+    files.remove("Pack.luau");
+    files.insert("new.luau".into(), b"vars.new = 1".to_vec());
+    let manifest =
+        "name = \"Pack\"\ndefault_on = true\nreplaces = [\"Pack.luau\", \"../mine.luau\"]\n";
+    files.insert("plugin.toml".into(), manifest.as_bytes().to_vec());
+    keep(&profiles, "pack", &files);
+    let app = harness.state_mut().tab_mut();
+    app.official_changed();
+    assert!(!old.exists() && !app.scripts.is_loaded(&old));
+    assert_eq!(
+        read(&old.with_extension("luau.before-update")),
+        "vars.old = 2"
+    );
+    assert!(app.scripts.is_loaded(&new) && app.scripts.is_loaded(&theirs));
+    // While it is loaded too, as one from git is when it is updated.
+    std::fs::write(&old, "vars.old = 3").unwrap();
+    app.load_scripts();
+    assert!(app.scripts.is_loaded(&old));
+    let plugin = app.plugin("pack").unwrap();
+    app.git_plugin_updated(&plugin);
+    assert!(!old.exists() && !app.scripts.is_loaded(&old));
+    clean_up(harness, &profiles);
 }

@@ -50,7 +50,6 @@ fn install_gauges(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
                 max: level.1,
                 look: look.clone(),
                 over: false,
-                before: false,
             });
             (state.actions).push(Action::Gauge {
                 name,

@@ -98,7 +98,8 @@ fn sent_lines(sent: &mut tokio::sync::mpsc::UnboundedReceiver<Command>) -> Vec<S
 fn reinos(app: &mut Tab) {
     let plugin = &crate::plugins::fixture::reinos();
     for (name, code) in &plugin.scripts {
-        app.scripts.exec(name, code);
+        app.scripts
+            .exec_owned(&format!("{}/{name}", plugin.folder()), name, code);
     }
     app.rules.gauges.extend(plugin.read_rules().unwrap().gauges);
     app.run_rules();

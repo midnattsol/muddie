@@ -39,9 +39,6 @@ pub struct Gauge {
     /// Whether its owner is being run again and has not set it since:
     /// it goes if it does not (see [`Gauges::drop_unset`]).
     unset: bool,
-    /// It is what it was before the session started: what it is said to
-    /// be next is how it starts.
-    before: bool,
 }
 
 impl Gauge {
@@ -207,10 +204,6 @@ impl Gauges {
                     gauge.owner = Some(owner.to_owned());
                 }
                 gauge.unset = false;
-                if std::mem::take(&mut gauge.before) {
-                    gauge.starts();
-                    return None;
-                }
                 index
             }
             (None, Some((value, max))) => {
@@ -226,7 +219,6 @@ impl Gauges {
                     said_at: None,
                     owner: owner.map(str::to_owned),
                     unset: false,
-                    before: false,
                 };
                 gauge.starts();
                 self.0.push(gauge);
@@ -245,11 +237,6 @@ impl Gauges {
     /// The gauge of this key: its place, or else its name.
     pub fn get(&self, key: &str) -> Option<&Gauge> {
         self.0.iter().find(|gauge| gauge.key == key)
-    }
-
-    /// A session starts: how each comes to be in it is not news.
-    pub fn start(&mut self) {
-        self.0.iter_mut().for_each(|gauge| gauge.before = true);
     }
 
     pub fn clear(&mut self) {

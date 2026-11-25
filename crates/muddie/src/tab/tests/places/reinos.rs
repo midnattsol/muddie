@@ -138,7 +138,10 @@ fn the_plugin_leaves_a_map_there_is_and_brings_it_up_to_date_when_asked() {
     // Offered in the palette, under the map, and in the map's menu.
     let sync = "Sync with the official map";
     assert_eq!(app.scripts.map_actions()[0].label, sync);
-    assert_eq!(app.scripts.map_actions()[0].by, "Reinos de Leyenda");
+    let owner = app.scripts.map_actions()[0].owner.clone();
+    assert_eq!(app.offered_by(&owner), "Reinos de Leyenda");
+    // One of the player's, by its own name.
+    assert_eq!(app.offered_by("scripts/Mapping/rooms.luau"), "rooms");
     app.palette.query = "official map".into();
     let offered = app.palette_items();
     assert_eq!(
@@ -149,7 +152,7 @@ fn the_plugin_leaves_a_map_there_is_and_brings_it_up_to_date_when_asked() {
     assert!(app.map_source.importing.is_some());
     assert!(last_said(app).starts_with("Importing the map from https://"));
     // Taken away with the plugin.
-    app.scripts.unload("Reinos de Leyenda.luau");
+    app.scripts.unload("Reinos de Leyenda/reinos.luau");
     app.run_actions();
     assert!(app.scripts.map_actions().is_empty());
 }

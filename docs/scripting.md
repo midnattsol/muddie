@@ -35,7 +35,8 @@ about = { en = "Its gauges and its map.", es = "Sus indicadores y su mapa." }
 default_on = false              # on in every profile until switched off
 hosts = ["mymud.example.org"]   # offered when connecting to these…
 names = ["my mud"]              # …or to a MUD that says it is called so
-muddie = "0.4.0"                # the least version of Muddie it is made for
+muddie = "0.5.0"                # the least version of Muddie it is made for
+replaces = ["Old name.luau"]    # scripts it had by other names: put aside
 ```
 
 `name` and `about` are a text, or one by language as for `tr`; with no
@@ -123,7 +124,7 @@ it: a panel is only one of the ways to have it.
 |---|---|
 | `gauges.get(name)` | What the gauge is now, by its name or its place, or `nil`: a table with `name`, `place` and `kind`, and by its kind, `value`, `max` and `percent`; `on`; `text`; or `items`, a list of `{name, about, colour}`. One switched off is as if it were not there. |
 | `gauges.all()` | All of them, each by its name. |
-| `on("gauge", name, fn, options)` | Calls `fn(gauge, change)` when it changes, as it is now: once the script that changed it is done. With no name, for every gauge. `change.was` is what it was, and for effects `change.came` and `change.gone` are lists of those that came and those gone. What a gauge is at first, in each session, is not a change. |
+| `on("gauge", name, fn, options)` | Calls `fn(gauge, change)` when it changes, as it is now: once the script that changed it is done. With no name, for every gauge. `change.was` is what it was, and for effects `change.came` and `change.gone` are lists of those that came and those gone. What it is as it is made is not a change. |
 | `on("gauge", name, fn, {under = 30})` | The same, only as it falls under 30 %: once, until it comes back clear of it, 5 % over. `{over = 90}`, as it reaches 90 %. |
 
 ```lua
