@@ -132,6 +132,14 @@ fn about_to_connect(name: &str) -> (Harness<'static, App>, Profiles, Download) {
     (harness, profiles, download)
 }
 
+/// Closes the window and deletes what it kept: not while it is open, for
+/// the map of a session that connected is a file in use, which Windows does
+/// not let be deleted.
+fn clean_up(harness: Harness<'_, App>, profiles: &Profiles) {
+    drop(harness);
+    std::fs::remove_dir_all(profiles.official_dir().parent().unwrap()).unwrap();
+}
+
 #[test]
 fn the_first_connection_waits_for_the_plugins_and_goes_on_when_they_come() {
     let runtime = tokio::runtime::Runtime::new().unwrap();
@@ -152,7 +160,7 @@ fn the_first_connection_waits_for_the_plugins_and_goes_on_when_they_come() {
     app.check_plugin_wait(&ctx);
     assert!(app.is_connected() && app.plugin_wait.is_none());
     assert!(app.plugins().iter().any(|plugin| plugin.id == "pack"));
-    std::fs::remove_dir_all(profiles.official_dir().parent().unwrap()).unwrap();
+    clean_up(harness, &profiles);
 }
 
 #[test]
@@ -166,7 +174,7 @@ fn the_first_connection_waits_no_longer_than_five_seconds() {
     app.plugin_wait = Instant::now().checked_sub(Duration::from_secs(6));
     app.check_plugin_wait(&ctx);
     assert!(app.is_connected() && app.plugin_wait.is_none());
-    std::fs::remove_dir_all(profiles.official_dir().parent().unwrap()).unwrap();
+    clean_up(harness, &profiles);
 }
 
 #[test]
@@ -182,7 +190,7 @@ fn disconnecting_while_waiting_cancels_connecting() {
     download.set(false);
     app.check_plugin_wait(&ctx);
     assert!(!app.is_connected());
-    std::fs::remove_dir_all(profiles.official_dir().parent().unwrap()).unwrap();
+    clean_up(harness, &profiles);
 }
 
 #[test]
@@ -200,7 +208,7 @@ fn what_arrives_while_waiting_is_taken_before_connecting() {
     download.set(false);
     app.check_plugin_wait(&ctx);
     assert!(app.is_connected() && app.scripts.is_loaded(&script_in(&profiles)));
-    std::fs::remove_dir_all(profiles.official_dir().parent().unwrap()).unwrap();
+    clean_up(harness, &profiles);
 }
 
 #[test]
@@ -216,7 +224,7 @@ fn choosing_another_profile_while_waiting_does_not_connect_to_it() {
     download.set(false);
     app.check_plugin_wait(&ctx);
     assert!(!app.is_connected() && !app.can_disconnect());
-    std::fs::remove_dir_all(profiles.official_dir().parent().unwrap()).unwrap();
+    clean_up(harness, &profiles);
 }
 
 #[test]
@@ -224,10 +232,10 @@ fn with_plugins_on_disk_or_none_on_the_way_it_connects_at_once() {
     let runtime = tokio::runtime::Runtime::new().unwrap();
     let _inside = runtime.enter();
     // Something was downloaded before.
-    let (mut harness, profiles, _download) = about_to_connect("disk");
+    let (mut first, profiles, _download) = about_to_connect("disk");
     keep(&profiles, "pack", &pack("-- one"));
-    let ctx = harness.ctx.clone();
-    let app = harness.state_mut().tab_mut();
+    let ctx = first.ctx.clone();
+    let app = first.state_mut().tab_mut();
     app.connect(&ctx);
     assert!(app.is_connected() && app.plugin_wait.is_none());
     // Nothing was, and nothing is on its way, as with the setting off.
@@ -236,9 +244,8 @@ fn with_plugins_on_disk_or_none_on_the_way_it_connects_at_once() {
     let app = harness.state_mut().tab_mut();
     app.connect(&ctx);
     assert!(app.is_connected() && app.plugin_wait.is_none());
-    for profiles in [profiles, profiles2] {
-        std::fs::remove_dir_all(profiles.official_dir().parent().unwrap()).unwrap();
-    }
+    clean_up(first, &profiles);
+    clean_up(harness, &profiles2);
 }
 
 /// A profile of the version before plugins were downloaded: Reinos was on
