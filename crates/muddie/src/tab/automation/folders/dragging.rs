@@ -71,6 +71,44 @@ impl Tab {
             ui.scroll_with_delta(egui::vec2(0.0, scroll));
             ui.ctx().request_repaint();
         }
+        let (landing, spring) = self.landing_at(ui, pointer, spots, rows, top);
+        // A closed folder held over opens.
+        match (&spring, &self.editor.drag_hover) {
+            (Some(path), Some((held, since))) if held == path => {
+                if since.elapsed() >= SPRING {
+                    self.fold(kind.unwrap_or(Kind::Trigger), path, false);
+                } else {
+                    ui.ctx().request_repaint_after(SPRING - since.elapsed());
+                }
+            }
+            (Some(path), _) => self.editor.drag_hover = Some((path.clone(), Instant::now())),
+            (None, _) => self.editor.drag_hover = None,
+        }
+        let landing = landing.filter(|landing| self.drop_changes(&dragged, landing, rows));
+        drop_hint(ui, landing.as_ref(), pointer, spots, rows);
+        if ui.input(|input| input.pointer.any_down()) {
+            return;
+        }
+        self.editor.dragged = None;
+        self.editor.drag_hover = None;
+        if let Some(landing) = landing {
+            self.drop_dragged(dragged, landing, rows);
+        }
+    }
+
+    /// Where what is dragged would land with the pointer at `pointer`:
+    /// the line that marks it is drawn here. Returns it, and the closed
+    /// folder the pointer is held over, if one.
+    fn landing_at(
+        &self,
+        ui: &egui::Ui,
+        pointer: egui::Pos2,
+        spots: &[(Spot, egui::Rect)],
+        rows: &[Row],
+        top: Option<egui::Rect>,
+    ) -> (Option<Landing>, Option<String>) {
+        let kind = self.editor.section.kind();
+        let list = ui.clip_rect();
         let accent = theme::current().accent;
         let line = |y: f32, rect: egui::Rect, depth: usize| {
             let left = rect.left() + widgets::INDENT * depth as f32;
@@ -124,52 +162,7 @@ impl Tab {
             _ if list.contains(pointer) => Some(Landing::Into(String::new())),
             _ => None,
         };
-        // A closed folder held over opens.
-        match (&spring, &self.editor.drag_hover) {
-            (Some(path), Some((held, since))) if held == path => {
-                if since.elapsed() >= SPRING {
-                    self.fold(kind.unwrap_or(Kind::Trigger), path, false);
-                } else {
-                    ui.ctx().request_repaint_after(SPRING - since.elapsed());
-                }
-            }
-            (Some(path), _) => self.editor.drag_hover = Some((path.clone(), Instant::now())),
-            (None, _) => self.editor.drag_hover = None,
-        }
-        let landing = landing.filter(|landing| self.drop_changes(&dragged, landing, rows));
-        // What it would do, by the pointer; nothing where it can not go.
-        match &landing {
-            Some(landing) => {
-                if let Landing::Into(path) = landing
-                    && let Some((_, rect)) = spots
-                        .iter()
-                        .find(|(spot, _)| *spot == Spot::Folder(path.clone()))
-                {
-                    widgets::target_ring(ui, *rect);
-                }
-                ui.ctx().set_cursor_icon(egui::CursorIcon::Grabbing);
-                let said = match landing.folder(rows) {
-                    "" => tr("Move to the top level").to_owned(),
-                    folder => trf("Move into {0}", &[name_of(folder)]),
-                };
-                egui::Area::new(egui::Id::unique("drop hint"))
-                    .order(egui::Order::Tooltip)
-                    .interactable(false)
-                    .fixed_pos(pointer + egui::vec2(16.0, 18.0))
-                    .show(ui.ctx(), |ui| {
-                        egui::Frame::popup(ui.style()).show(ui, |ui| ui.label(said));
-                    });
-            }
-            None => ui.ctx().set_cursor_icon(egui::CursorIcon::NotAllowed),
-        }
-        if ui.input(|input| input.pointer.any_down()) {
-            return;
-        }
-        self.editor.dragged = None;
-        self.editor.drag_hover = None;
-        if let Some(landing) = landing {
-            self.drop_dragged(dragged, landing, rows);
-        }
+        (landing, spring)
     }
 
     /// Whether letting what is dragged go there would change anything it
@@ -234,5 +227,40 @@ impl Tab {
         // What was moved is seen where it went, in a folder that was
         // closed too.
         self.reveal_chosen();
+    }
+}
+
+/// What dropping it there would do, by the pointer: the ring on the folder
+/// it goes into, the cursor and what it says; nothing where it can not go.
+fn drop_hint(
+    ui: &egui::Ui,
+    landing: Option<&Landing>,
+    pointer: egui::Pos2,
+    spots: &[(Spot, egui::Rect)],
+    rows: &[Row],
+) {
+    match landing {
+        Some(landing) => {
+            if let Landing::Into(path) = landing
+                && let Some((_, rect)) = spots
+                    .iter()
+                    .find(|(spot, _)| *spot == Spot::Folder(path.clone()))
+            {
+                widgets::target_ring(ui, *rect);
+            }
+            ui.ctx().set_cursor_icon(egui::CursorIcon::Grabbing);
+            let said = match landing.folder(rows) {
+                "" => tr("Move to the top level").to_owned(),
+                folder => trf("Move into {0}", &[name_of(folder)]),
+            };
+            egui::Area::new(egui::Id::unique("drop hint"))
+                .order(egui::Order::Tooltip)
+                .interactable(false)
+                .fixed_pos(pointer + egui::vec2(16.0, 18.0))
+                .show(ui.ctx(), |ui| {
+                    egui::Frame::popup(ui.style()).show(ui, |ui| ui.label(said));
+                });
+        }
+        None => ui.ctx().set_cursor_icon(egui::CursorIcon::NotAllowed),
     }
 }
