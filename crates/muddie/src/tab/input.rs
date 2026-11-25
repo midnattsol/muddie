@@ -58,12 +58,14 @@ impl Tab {
             self.stop_walking();
             ui.memory_mut(|memory| memory.request_focus(id));
         }
+        // Back, as from any field: one with words to complete keeps Tab, and
+        // this with it.
+        if focused && ui.input_mut(|input| input.consume_key(Modifiers::SHIFT, Key::Tab)) {
+            ui.memory_mut(|memory| memory.move_focus(egui::FocusDirection::Previous));
+        }
         let completing = self.complete_word(ui, focused);
         // With nothing typed, Tab goes to the output, to read it as text.
-        if focused
-            && self.input.is_empty()
-            && ui.input_mut(|input| input.consume_key(Modifiers::NONE, Key::Tab))
-        {
+        if focused && self.input.is_empty() && ui.input_mut(crate::shortcuts::take_tab) {
             self.open_reader();
             // Not on to what is next meanwhile, which would be said.
             ui.memory_mut(|memory| memory.move_focus(egui::FocusDirection::None));
@@ -122,7 +124,7 @@ impl Tab {
         let completing = focused
             && !self.input.is_empty()
             && !self.typing_secret()
-            && ui.input_mut(|input| input.consume_key(Modifiers::NONE, Key::Tab));
+            && ui.input_mut(crate::shortcuts::take_tab);
         if !completing {
             return false;
         }

@@ -434,3 +434,49 @@ fn in_the_other_windows_nothing_for_the_pointer_or_said_twice_is_come_to() {
     std::fs::remove_dir_all(&dir).unwrap();
     assert!(problems.is_empty(), "{}", problems.join("\n"));
 }
+
+/// From the command line, Shift+Tab goes back through the window as it is
+/// seen: the panels below, the output, and those beside and above it, with
+/// something typed or not; and F6 goes to each.
+#[test]
+fn every_panel_is_come_to_whatever_side_it_is_on() {
+    use layout::Side;
+    for (side, reader) in [Side::Top, Side::Left, Side::Right, Side::Bottom]
+        .into_iter()
+        .flat_map(|side| [(side, false), (side, true)])
+    {
+        let mut harness = connected_demo_window();
+        harness.state_mut().tab_mut().voice.pretend_reader = reader;
+        let app = harness.state_mut().tab_mut();
+        let is_text = |panel: &&layout::PanelSpec| panel.kind == layout::Kind::Text;
+        let id = app.layout.panels.iter().find(is_text).unwrap().id;
+        app.layout.panels.retain(|panel| panel.id == id);
+        app.drop_panel(id, None, side);
+        harness.run_steps(6);
+        for typed in ["", "look"] {
+            to_the_line(&mut harness);
+            harness.state_mut().tab_mut().input = typed.into();
+            let mut met = Vec::new();
+            for _ in 0..16 {
+                harness.key_press_modifiers(Modifiers::SHIFT, Key::Tab);
+                harness.run_steps(3);
+                met.extend(said(&harness).map(|said| said.2));
+            }
+            let at = |name: &str| met.iter().position(|met| met.contains(name));
+            let (panel, output) = (at("Minimapa options"), at("Output"));
+            let case = format!("{side:?}, reader {reader}, {typed:?}: {met:?}");
+            assert!(panel.is_some() && output.is_some(), "{case}");
+            // As it is seen, from the bottom up.
+            assert_eq!(panel < output, side == Side::Bottom, "{case}");
+            assert_eq!(harness.state().tab().input, typed, "{case}");
+        }
+        to_the_line(&mut harness);
+        let mut met = Vec::new();
+        for _ in 0..3 {
+            harness.key_press(Key::F6);
+            harness.run_steps(3);
+            met.extend(said(&harness).map(|said| said.2));
+        }
+        assert!(met.contains(&"Minimapa".to_owned()), "{side:?}: {met:?}");
+    }
+}

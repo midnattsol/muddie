@@ -21,6 +21,12 @@ pub const WITH_KEY: Modifiers = if MAC { Modifiers::CTRL } else { Modifiers::ALT
 /// Ctrl and the arrows are the system's.
 pub const WITH_ARROWS: Modifiers = Modifiers::ALT;
 
+/// Takes Tab, if it was pressed alone: with Shift it goes back, which taking
+/// it with nothing held would take too.
+pub fn take_tab(input: &mut eframe::egui::InputState) -> bool {
+    !input.modifiers.shift && input.consume_key(Modifiers::NONE, Key::Tab)
+}
+
 /// How Command and a key are written: Cmd on a Mac, Ctrl elsewhere.
 macro_rules! command {
     ($key:literal) => {

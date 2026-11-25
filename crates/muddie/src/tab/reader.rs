@@ -145,7 +145,7 @@ impl Tab {
     /// to what is before the output. Returns whether it left.
     fn reader_keys(&mut self, ui: &mut egui::Ui) -> bool {
         let (back, typed) = ui.input_mut(|input| {
-            let tab = !input.modifiers.shift && input.consume_key(Modifiers::NONE, Key::Tab);
+            let tab = crate::shortcuts::take_tab(input);
             let escape = input.consume_key(Modifiers::NONE, Key::Escape);
             let enter = input.consume_key(Modifiers::NONE, Key::Enter);
             let typed: String = (input.events.iter())
