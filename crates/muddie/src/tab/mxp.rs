@@ -139,7 +139,7 @@ impl Tab {
     fn mxp_user(&mut self) {
         let name = self.character.trim().to_owned();
         if !name.is_empty() {
-            self.send(name);
+            self.send_as_is(name);
             self.login = Login::Password(Instant::now());
         }
     }

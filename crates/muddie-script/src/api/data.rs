@@ -2,7 +2,7 @@
 
 use super::*;
 use crate::gauges::Levels;
-use crate::state::GAUGES;
+use crate::state::{CHANNELS, GAUGES};
 
 pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     install_on(lua, state)?;
@@ -12,15 +12,16 @@ pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()>
 }
 
 /// What there is to listen to by a name of its own, and what that name is.
-const NAMED: [(&str, &str); 4] = [
+const NAMED: [(&str, &str); 5] = [
     ("gmcp", "a package"),
     ("msdp", "a variable"),
     ("var", "a variable"),
     ("gauge", "a gauge"),
+    ("channel", "a channel"),
 ];
 
 /// What happens in the client that there is to listen to.
-const EVENTS: [&str; 5] = ["connect", "disconnect", "reader", "panel", "mxp"];
+const EVENTS: [&str; 6] = ["send", "connect", "disconnect", "reader", "panel", "mxp"];
 
 /// The key of what `what` and `name` say to listen to, as its data is kept.
 fn listened(what: &str, name: Option<&str>) -> mlua::Result<String> {
@@ -30,9 +31,11 @@ fn listened(what: &str, name: Option<&str>) -> mlua::Result<String> {
             "gmcp" => name.to_lowercase(),
             "msdp" => msdp_key(name),
             "gauge" => format!("{GAUGES}{name}"),
+            "channel" => format!("{CHANNELS}{}", name.trim().to_lowercase()),
             _ => var_key(name),
         }),
         (Some(("gauge", _)), None) => Ok(GAUGES.to_owned()),
+        (Some(("channel", _)), None) => Ok(CHANNELS.to_owned()),
         (Some((_, of)), None) => Err(mlua::Error::runtime(format!(
             "on(\"{what}\", ...) needs the name of {of} before the function"
         ))),

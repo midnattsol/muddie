@@ -183,6 +183,9 @@ pub(super) fn var_key(name: &str) -> String {
 /// or nothing, for all. The space cannot occur in a GMCP package name.
 pub(super) const GAUGES: &str = "gauge ";
 
+/// The same, of who listens to a channel.
+pub(super) const CHANNELS: &str = "channel ";
+
 /// What scripts are told of the session, as the frontend knows it.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Session {
@@ -258,6 +261,13 @@ pub(super) struct State {
     /// The variables changed since their handlers were last told, in the
     /// order they changed.
     pub(crate) vars_changed: Vec<String>,
+    /// What was said on channels since who listens was last told, as
+    /// `(channel, text)`.
+    pub(crate) said: Vec<(String, String)>,
+    /// The channels there are, as they were first named.
+    pub(crate) channels: Vec<String>,
+    /// Who listens to what is sent is being told of it.
+    pub(crate) passing: bool,
     /// How deep in script code the engine is: handlers of variables are
     /// told when it comes out, so a script sees all its changes made.
     pub(crate) running: u32,
@@ -330,6 +340,54 @@ impl State {
         if !self.vars_changed.iter().any(|known| known == name) {
             self.vars_changed.push(name.to_owned());
         }
+    }
+
+    /// Notes a channel there is.
+    pub(super) fn channel_open(&mut self, name: &str) {
+        let known = |known: &String| known.to_lowercase() == name.trim().to_lowercase();
+        if !self.channels.iter().any(known) {
+            self.channels.push(name.trim().to_owned());
+        }
+    }
+
+    pub(super) fn channel_closed(&mut self, name: &str) {
+        let name = name.trim().to_lowercase();
+        self.channels.retain(|known| known.to_lowercase() != name);
+    }
+
+    /// Notes what was said on a channel, for who listens to it. The same
+    /// twice in one round of actions is one message, which two scripts
+    /// made of the same of the MUD's.
+    pub(super) fn channel_said(&mut self, name: &str, text: &str) {
+        let same = |action: &Action| match action {
+            Action::Channel {
+                name: channel,
+                text: Some(said),
+                ..
+            } => channel.trim().to_lowercase() == name.trim().to_lowercase() && said == text,
+            _ => false,
+        };
+        if !self.actions.iter().any(same) {
+            let mut lines = Vec::new();
+            let mut assembler = muddie_core::ansi::Assembler::new();
+            assembler.feed(text, &mut lines);
+            lines.extend(assembler.take_partial());
+            let lines: Vec<String> = lines.iter().map(Line::text).collect();
+            (self.said).push((name.trim().to_owned(), lines.join("\n")));
+        }
+    }
+
+    /// Who listens to the channel of this name, in lower case, or to all.
+    pub(super) fn listeners_to_channel(&self, name: &str) -> Vec<Listener> {
+        let listens = |handler: &&DataHandler| {
+            let of = handler.key.strip_prefix(CHANNELS);
+            of.is_some_and(|of| of.is_empty() || of == name)
+        };
+        (self.data_handlers.iter())
+            .filter(listens)
+            .filter(|handler| !self.paused.contains(&handler.id) && handler.on(&self.switches))
+            .map(DataHandler::listener)
+            .collect()
     }
 
     /// Who is told what comes under `key`.

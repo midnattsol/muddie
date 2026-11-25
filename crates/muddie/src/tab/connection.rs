@@ -166,7 +166,20 @@ impl Tab {
         }
     }
 
+    /// Sends a command, as who listens to what is sent leaves it.
     pub(super) fn send(&mut self, line: String) {
+        if self.connection.is_none() {
+            return self.send_as_is(line);
+        }
+        if let Some(line) = self.scripts.on_send(&line) {
+            self.send_as_is(line);
+        }
+        // What they do of it comes after it.
+        self.run_actions();
+    }
+
+    /// Sends a command as it is.
+    pub(super) fn send_as_is(&mut self, line: String) {
         match &self.connection {
             Some(connection) => {
                 // A move: the map takes the next room shown as its end.
@@ -204,7 +217,7 @@ impl Tab {
             return;
         }
         self.login = Login::Password(Instant::now());
-        self.send(self.character.trim().to_owned());
+        self.send_as_is(self.character.trim().to_owned());
     }
 
     /// Answers a hidden prompt after the name with the password kept in

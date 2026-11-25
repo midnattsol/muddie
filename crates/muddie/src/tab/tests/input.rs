@@ -501,3 +501,36 @@ fn every_key_is_known_to_scripts() {
         assert_eq!(muddie_script::bindable(name), Ok(()));
     }
 }
+
+/// What is sent is stopped or changed by who listens to it, wherever it
+/// comes from; not what is told of no one.
+#[test]
+fn what_is_sent_goes_as_who_listens_leaves_it() {
+    let mut harness = window(None);
+    let app = harness.state_mut().tab_mut();
+    let (_events, mut sent) = fake_connection(app);
+    app.scripts.exec(
+        "t",
+        r#"on("send", function(text)
+            if text == "quit" then return false end
+            send("told " .. text)
+            return text:upper()
+        end)
+        alias("^go$", function() send("north") send("quit") end)"#,
+    );
+    app.input = "go".into();
+    app.submit();
+    app.input = "look".into();
+    app.submit();
+    app.character = "ana".into();
+    app.login = Login::Name(Instant::now());
+    app.settled_partial = Some(("Name: ".into(), None));
+    app.login_name();
+    let mut lines = Vec::new();
+    while let Ok(command) = sent.try_recv() {
+        if let Command::Send(line) = command {
+            lines.push(line);
+        }
+    }
+    assert_eq!(lines, ["NORTH", "told north", "LOOK", "told look", "ana"]);
+}

@@ -165,6 +165,8 @@ pub struct Effect {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Action {
     Send(String),
+    /// The same, not told to who listens to what is sent: it is of theirs.
+    SendAsIs(String),
     Echo(Saying),
     Speak(Saying),
     /// Send a GMCP message; `data` is JSON, or empty for none.

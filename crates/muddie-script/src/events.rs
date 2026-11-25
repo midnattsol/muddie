@@ -94,6 +94,54 @@ impl Engine {
         }
     }
 
+    /// Asks who listens to what is sent about `command`, on its way to the
+    /// MUD: what is sent instead, or nothing if one stops it.
+    pub fn on_send(&mut self, command: &str) -> Option<String> {
+        let listeners = self.state.borrow().listeners(&event_key("send"));
+        let mut command = command.to_owned();
+        let before = std::mem::replace(&mut self.state.borrow_mut().passing, true);
+        let mut stopped = false;
+        for (id, owner, callback) in listeners {
+            if stopped || !self.state.borrow().runs(id) {
+                continue;
+            }
+            self.as_owner(&owner, || {
+                match callback.call::<Value>(command.as_str())? {
+                    Value::Nil | Value::Boolean(true) => {}
+                    Value::Boolean(false) => stopped = true,
+                    Value::String(text) => command = text.to_str()?.to_owned(),
+                    other => {
+                        return Err(mlua::Error::runtime(format!(
+                            "on(\"send\", ...) returns false, to send nothing, or what to send, not {}",
+                            other.type_name()
+                        )));
+                    }
+                }
+                Ok(())
+            });
+        }
+        self.state.borrow_mut().passing = before;
+        (!stopped).then_some(command)
+    }
+
+    /// Tells who listens to each channel what was said on it.
+    pub(super) fn tell_said(&self, said: Vec<(String, String)>) {
+        for (channel, text) in said {
+            let called = channel.to_lowercase();
+            let listeners = self.state.borrow().listeners_to_channel(&called);
+            for (id, owner, callback) in listeners {
+                if self.state.borrow().runs(id) {
+                    self.as_owner(&owner, || {
+                        let message = self.lua.create_table()?;
+                        message.set("channel", channel.as_str())?;
+                        message.set("text", text.as_str())?;
+                        callback.call::<()>(message)
+                    });
+                }
+            }
+        }
+    }
+
     /// Records a GMCP message and runs the handlers for its package.
     /// `json` is the message's payload, empty if it had none.
     pub fn on_gmcp(&mut self, package: &str, json: &str) {

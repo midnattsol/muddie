@@ -311,6 +311,8 @@ fn install_channels(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
             };
             let mut state = shared.borrow_mut();
             state.set(crate::state::Set::Channel(name.to_lowercase()));
+            state.channel_open(&name);
+            state.channel_said(&name, &text.0);
             state.actions.push(Action::Channel {
                 name,
                 text: Some(text.0),
@@ -331,6 +333,7 @@ fn install_channels(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
             };
             let mut state = shared.borrow_mut();
             state.set(crate::state::Set::Channel(name.to_lowercase()));
+            state.channel_open(&name);
             state.actions.push(Action::Channel {
                 name,
                 text: None,
@@ -344,8 +347,15 @@ fn install_channels(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     channels.set(
         "close",
         lua.create_function(move |_, name: String| {
-            (shared.borrow_mut().actions).push(Action::ChannelClosed(name));
+            let mut state = shared.borrow_mut();
+            state.channel_closed(&name);
+            state.actions.push(Action::ChannelClosed(name));
             Ok(())
         })?,
+    )?;
+    let shared = Rc::clone(state);
+    channels.set(
+        "all",
+        lua.create_function(move |_, ()| Ok(shared.borrow().channels.clone()))?,
     )
 }

@@ -233,6 +233,7 @@ impl Engine {
                     state.actions.push(Action::Panel { name, text: None });
                 }
                 crate::state::Set::Channel(name) => {
+                    state.channel_closed(&name);
                     state.actions.push(Action::ChannelClosed(name));
                 }
             }
@@ -388,7 +389,8 @@ impl Engine {
         ok
     }
 
-    /// Tells who listens what changed: the variables, the gauges. A
+    /// Tells who listens what changed: the variables, the gauges, what was
+    /// said on the channels. A
     /// handler that changes one has it told in turn, a few rounds at most,
     /// so two that change each other do not go on forever.
     fn tell_changes(&self) {
@@ -402,16 +404,19 @@ impl Engine {
             let mut state = self.state.borrow_mut();
             let vars = std::mem::take(&mut state.vars_changed);
             let gauges = std::mem::take(&mut state.gauges_changed);
+            let said = std::mem::take(&mut state.said);
             drop(state);
-            if vars.is_empty() && gauges.is_empty() {
+            if vars.is_empty() && gauges.is_empty() && said.is_empty() {
                 break;
             }
             self.tell_vars_changed(vars);
             self.tell_gauges_changed(gauges);
+            self.tell_said(said);
         }
         let mut state = self.state.borrow_mut();
         state.vars_changed.clear();
         state.gauges_changed.clear();
+        state.said.clear();
         state.telling = false;
     }
 

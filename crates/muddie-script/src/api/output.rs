@@ -14,7 +14,12 @@ fn install_send(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     add(
         "send",
         lua.create_function(move |_, text: Text| {
-            shared.borrow_mut().actions.push(Action::Send(text.0));
+            let mut state = shared.borrow_mut();
+            let action = match state.passing {
+                true => Action::SendAsIs(text.0),
+                false => Action::Send(text.0),
+            };
+            state.actions.push(action);
             Ok(())
         })?,
     )?;

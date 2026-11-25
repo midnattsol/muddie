@@ -237,6 +237,7 @@ impl Tab {
         for action in self.scripts.take_actions() {
             match action {
                 Action::Send(text) => self.send(text),
+                Action::SendAsIs(text) => self.send_as_is(text),
                 Action::Echo(said) => {
                     (said.text.lines()).for_each(|line| self.echo(line, said.aloud));
                 }
