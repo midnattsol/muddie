@@ -97,54 +97,18 @@ impl MapView {
         current: &Room,
     ) -> Option<MapAsk> {
         let had_focus = std::mem::replace(&mut self.had_focus, response.has_focus());
-        // Reached with Tab rather than started: started all the same,
-        // from the room chosen or the player's. Given back by a menu that
-        // closed, it goes on as it was.
-        let arrived = response.has_focus() && !had_focus;
-        let started = arrived && std::mem::take(&mut self.explore_started);
-        if arrived && !started && ui.input(|input| input.key_pressed(egui::Key::Tab)) {
-            let from = self.selected.and_then(|id| map.room(id)).unwrap_or(current);
-            return Some(MapAsk::Say(self.explore(map, from)));
-        }
-        // Escape, or anything typed but the digits that move: back to the
-        // command line, with what was typed.
-        // While walking, Escape stops the walk first, as it says; then it
-        // leaves.
-        if had_focus && ui.input(|input| input.key_pressed(egui::Key::Escape)) {
-            if self.walking {
-                // egui took the keyboard away on Escape: it stays here.
-                response.request_focus();
-                self.had_focus = true;
-                return Some(MapAsk::Command("/map stop"));
-            }
-            return Some(self.leave(ui, response, String::new()));
+        if let Some(ask) = self.arrived_or_escaped(ui, response, map, current, had_focus) {
+            return Some(ask);
         }
         if !response.has_focus() {
             return None;
         }
-        let typed: String = ui.input(|input| {
-            (input.events.iter())
-                .filter_map(|event| match event {
-                    egui::Event::Text(text) => Some(text.as_str()),
-                    _ => None,
-                })
-                .collect()
-        });
-        if typed
-            .chars()
-            .any(|c| !c.is_ascii_digit() && !c.is_whitespace())
-        {
-            return Some(self.leave(ui, response, typed));
+        if let Some(ask) = self.typed_leaves(ui, response) {
+            return Some(ask);
         }
         // The arrows are the map's while it has the keyboard, not to move
         // to another widget.
-        let filter = egui::EventFilter {
-            horizontal_arrows: true,
-            vertical_arrows: true,
-            ..Default::default()
-        };
-        ui.memory_mut(|memory| memory.set_focus_lock_filter(response.id, filter));
-        let pressed = |modifiers, key| ui.input_mut(|input| input.consume_key(modifiers, key));
+        lock_arrows(ui, response.id);
         let chosen = self.selected.unwrap_or(current.id);
         // The keypad first, by where its keys are: what egui made of them,
         // Home for 7 with Num Lock off, was taken away.
@@ -153,6 +117,20 @@ impl MapView {
                 return Some(action);
             }
         }
+        self.keys_pressed(ui, map, current, chosen)
+    }
+
+    /// What the keys that are not the keypad's ask for, with `chosen` the
+    /// room they work from: the keys that say, search, name and note, go
+    /// back or leave, and the ones that move along the exits.
+    fn keys_pressed(
+        &mut self,
+        ui: &Ui,
+        map: &Map,
+        current: &Room,
+        chosen: RoomId,
+    ) -> Option<MapAsk> {
+        let pressed = |modifiers, key| ui.input_mut(|input| input.consume_key(modifiers, key));
         if pressed(egui::Modifiers::NONE, egui::Key::F1) {
             return Some(MapAsk::Say(all_keys()));
         }
@@ -205,6 +183,61 @@ impl MapView {
         Some(self.step(map, chosen, way))
     }
 
+    /// What arriving on the map with Tab, or Escape pressed on it, asks
+    /// for; none if it is neither.
+    fn arrived_or_escaped(
+        &mut self,
+        ui: &Ui,
+        response: &Response,
+        map: &Map,
+        current: &Room,
+        had_focus: bool,
+    ) -> Option<MapAsk> {
+        // Reached with Tab rather than started: started all the same,
+        // from the room chosen or the player's. Given back by a menu that
+        // closed, it goes on as it was.
+        let arrived = response.has_focus() && !had_focus;
+        let started = arrived && std::mem::take(&mut self.explore_started);
+        if arrived && !started && ui.input(|input| input.key_pressed(egui::Key::Tab)) {
+            let from = self.selected.and_then(|id| map.room(id)).unwrap_or(current);
+            return Some(MapAsk::Say(self.explore(map, from)));
+        }
+        // Escape, or anything typed but the digits that move: back to the
+        // command line, with what was typed.
+        // While walking, Escape stops the walk first, as it says; then it
+        // leaves.
+        if had_focus && ui.input(|input| input.key_pressed(egui::Key::Escape)) {
+            if self.walking {
+                // egui took the keyboard away on Escape: it stays here.
+                response.request_focus();
+                self.had_focus = true;
+                return Some(MapAsk::Command("/map stop"));
+            }
+            return Some(self.leave(ui, response, String::new()));
+        }
+        None
+    }
+
+    /// Leaves the map for the command line, with what was typed, if
+    /// anything but the digits that move was.
+    fn typed_leaves(&mut self, ui: &Ui, response: &Response) -> Option<MapAsk> {
+        let typed: String = ui.input(|input| {
+            (input.events.iter())
+                .filter_map(|event| match event {
+                    egui::Event::Text(text) => Some(text.as_str()),
+                    _ => None,
+                })
+                .collect()
+        });
+        if typed
+            .chars()
+            .any(|c| !c.is_ascii_digit() && !c.is_whitespace())
+        {
+            return Some(self.leave(ui, response, typed));
+        }
+        None
+    }
+
     /// The line over the map while it asks for some words: what to look
     /// for, with the arrows through what was found and Enter to go to one;
     /// a name for the room chosen; or a note on it. Enter takes the words,
@@ -222,64 +255,24 @@ impl MapView {
         let mut said = None;
         let searched = prompt.searched.as_deref() == Some(prompt.text.trim());
         if focused && searched && !prompt.found.is_empty() {
-            let (up, down) = ui.input_mut(|input| {
-                (
-                    input.consume_key(egui::Modifiers::NONE, egui::Key::ArrowUp),
-                    input.consume_key(egui::Modifiers::NONE, egui::Key::ArrowDown),
-                )
-            });
-            let last = prompt.found.len() - 1;
-            if up || down {
-                prompt.at = match down {
-                    true => (prompt.at + 1).min(last),
-                    false => prompt.at.saturating_sub(1),
-                };
-                said = Some(MapAsk::Say(found_line(map, here, prompt)));
-            }
+            said = found_arrows(ui, map, here, prompt);
         }
-        let room = (map.room(prompt.room))
-            .map_or_else(String::new, |room| map.short_name(room).to_owned());
-        let label = match prompt.asked {
-            Asked::Search => tr("Find on the map").to_owned(),
-            Asked::Mark => trf("Mark for {0}", &[&room]),
-            Asked::Note => trf("Note on {0}", &[&room]),
-        };
-        let field = ui
-            .horizontal(|ui| {
-                let words = ui.label(&label);
-                let edit = egui::TextEdit::singleline(&mut prompt.text)
-                    .id(id)
-                    .desired_width(f32::INFINITY);
-                let field = ui.add(edit);
-                // Named by its words, which are not read again on their own.
-                widgets::named_by(ui, &field, &words, &label);
-                field
-            })
-            .inner;
+        let (field, label) = prompt_field(ui, map, prompt, id);
         // Opened, what it asks is said for whoever has no screen reader to
         // say where the keyboard went.
         if prompt.focus == 2 {
             said = said.or(Some(MapAsk::Asking(label.clone())));
         }
         // What was found, shown as it is said, for whoever sees it.
-        if searched && let Some(searched) = &prompt.searched {
-            let shown = match prompt.found.is_empty() {
-                true => trf("Nothing on the map has {0}.", &[searched]),
-                false => found_line(map, here, prompt),
-            };
-            ui.label(RichText::new(shown).color(theme::current().text_dim));
+        if searched {
+            show_found(ui, map, here, prompt);
         }
         if prompt.focus > 0 {
             prompt.focus -= 1;
             field.request_focus();
         }
         // The arrows go through what was found, not to another control.
-        let filter = egui::EventFilter {
-            horizontal_arrows: true,
-            vertical_arrows: true,
-            ..Default::default()
-        };
-        ui.memory_mut(|memory| memory.set_focus_lock_filter(id, filter));
+        lock_arrows(ui, id);
         if !field.lost_focus() {
             return said;
         }
@@ -306,20 +299,7 @@ impl MapView {
                 self.choose(to);
                 Some(MapAsk::Selected(to, None))
             }
-            Asked::Search => {
-                prompt.found = map.search(&text, here);
-                prompt.at = 0;
-                prompt.searched = Some(text.clone());
-                // The keyboard stays, for the arrows and Enter.
-                field.request_focus();
-                Some(MapAsk::Say(match prompt.found.is_empty() {
-                    true => trf("Nothing on the map has {0}.", &[&text]),
-                    false => {
-                        let count = trn("{0} found", "{0} found", prompt.found.len() as u64);
-                        sentences([count, found_line(map, here, prompt)])
-                    }
-                }))
-            }
+            Asked::Search => Some(search_for(map, here, prompt, &text, &field)),
             asked => {
                 self.prompt = None;
                 self.focus_wanted = true;
@@ -345,6 +325,95 @@ impl MapView {
             focus: 2,
         });
     }
+}
+
+/// Keeps the arrows for the control `id`, not to move to another one.
+fn lock_arrows(ui: &Ui, id: egui::Id) {
+    let filter = egui::EventFilter {
+        horizontal_arrows: true,
+        vertical_arrows: true,
+        ..Default::default()
+    };
+    ui.memory_mut(|memory| memory.set_focus_lock_filter(id, filter));
+}
+
+/// Moves the arrows' place among what was found by the arrow keys
+/// pressed. Gives what to say of the new place, if it moved.
+fn found_arrows(ui: &Ui, map: &Map, here: Option<RoomId>, prompt: &mut Prompt) -> Option<MapAsk> {
+    let (up, down) = ui.input_mut(|input| {
+        (
+            input.consume_key(egui::Modifiers::NONE, egui::Key::ArrowUp),
+            input.consume_key(egui::Modifiers::NONE, egui::Key::ArrowDown),
+        )
+    });
+    let last = prompt.found.len() - 1;
+    if up || down {
+        prompt.at = match down {
+            true => (prompt.at + 1).min(last),
+            false => prompt.at.saturating_sub(1),
+        };
+        return Some(MapAsk::Say(found_line(map, here, prompt)));
+    }
+    None
+}
+
+/// The text field of the line over the map, with its label beside it.
+/// Gives the field and the label.
+fn prompt_field(ui: &mut Ui, map: &Map, prompt: &mut Prompt, id: egui::Id) -> (Response, String) {
+    let room =
+        (map.room(prompt.room)).map_or_else(String::new, |room| map.short_name(room).to_owned());
+    let label = match prompt.asked {
+        Asked::Search => tr("Find on the map").to_owned(),
+        Asked::Mark => trf("Mark for {0}", &[&room]),
+        Asked::Note => trf("Note on {0}", &[&room]),
+    };
+    let field = ui
+        .horizontal(|ui| {
+            let words = ui.label(&label);
+            let edit = egui::TextEdit::singleline(&mut prompt.text)
+                .id(id)
+                .desired_width(f32::INFINITY);
+            let field = ui.add(edit);
+            // Named by its words, which are not read again on their own.
+            widgets::named_by(ui, &field, &words, &label);
+            field
+        })
+        .inner;
+    (field, label)
+}
+
+/// Shows what was found by the search, as it is said.
+fn show_found(ui: &mut Ui, map: &Map, here: Option<RoomId>, prompt: &Prompt) {
+    if let Some(searched) = &prompt.searched {
+        let shown = match prompt.found.is_empty() {
+            true => trf("Nothing on the map has {0}.", &[searched]),
+            false => found_line(map, here, prompt),
+        };
+        ui.label(RichText::new(shown).color(theme::current().text_dim));
+    }
+}
+
+/// Looks for `text`, keeping the keyboard in the field, and says
+/// what was found.
+fn search_for(
+    map: &Map,
+    here: Option<RoomId>,
+    prompt: &mut Prompt,
+    text: &str,
+    field: &Response,
+) -> MapAsk {
+    prompt.found = map.search(text, here);
+    prompt.at = 0;
+    prompt.searched = Some(text.to_owned());
+    // The keyboard stays, for the arrows and Enter.
+    field.request_focus();
+    MapAsk::Say(match prompt.found.is_empty() {
+        true => trf("Nothing on the map has {0}.", &[text]),
+        false => {
+            let count = trn("{0} found", "{0} found", prompt.found.len() as u64);
+            sentences([count, found_line(map, here, prompt)])
+        }
+    })
 }
 
 /// The place the arrows are on among those found, said with where it is
