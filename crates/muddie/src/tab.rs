@@ -284,16 +284,56 @@ pub struct Startup {
 
 impl Tab {
     pub fn new(ctx: &egui::Context, startup: Startup, settings: &Settings) -> Self {
+        let mut app = Self::blank(
+            startup.profiles,
+            startup.scripts,
+            startup.download,
+            settings,
+        );
+        app.share_layout(settings);
+        // Speech first: what is said from here on, connecting included, is
+        // heard.
+        app.voice.configure(settings);
+        if startup.speech {
+            app.voice.force_voice();
+        }
+        match startup.profile {
+            Some(name) => {
+                if app.select_profile(Some(name)) {
+                    app.connect(ctx);
+                }
+            }
+            None => app.load_scripts(),
+        }
+        if let Some(target) = startup.target {
+            app.host = target.host;
+            app.port = target.port.to_string();
+            app.tls = target.tls;
+            app.verify_certificate = target.verify_certificate;
+            app.connect(ctx);
+        }
+        app.load_layout();
+        app.settings_changed(settings);
+        app
+    }
+
+    /// A session as it is before anything is opened in it.
+    fn blank(
+        profiles: Option<Profiles>,
+        scripts: Vec<PathBuf>,
+        download: crate::plugins::official::Download,
+        settings: &Settings,
+    ) -> Self {
         let map = Rc::new(RefCell::new(Map::in_memory()));
-        let mut app = Self {
+        Self {
             host: String::new(),
             port: "23".into(),
             tls: false,
             verify_certificate: true,
-            profiles: startup.profiles.clone(),
+            profiles: profiles.clone(),
             profile: None,
             profile_name: String::new(),
-            extra_scripts: startup.scripts,
+            extra_scripts: scripts,
             pending_partial: None,
             settled_partial: None,
             connection: None,
@@ -361,9 +401,9 @@ impl Tab {
             plugins_declined: Vec::new(),
             plugins_installed: Default::default(),
             plugin_offer: None,
-            plugins: crate::plugins::all(startup.profiles.as_ref()),
+            plugins: crate::plugins::all(profiles.as_ref()),
             plugin_jobs: Vec::new(),
-            plugin_download: startup.download,
+            plugin_download: download,
             plugin_wait: None,
             waited: false,
             fetching: media::Fetching::default(),
@@ -373,32 +413,7 @@ impl Tab {
             login: Login::Idle,
             keypad_pressed: Vec::new(),
             told_screen_reader: false,
-        };
-        app.share_layout(settings);
-        // Speech first: what is said from here on, connecting included, is
-        // heard.
-        app.voice.configure(settings);
-        if startup.speech {
-            app.voice.force_voice();
         }
-        match startup.profile {
-            Some(name) => {
-                if app.select_profile(Some(name)) {
-                    app.connect(ctx);
-                }
-            }
-            None => app.load_scripts(),
-        }
-        if let Some(target) = startup.target {
-            app.host = target.host;
-            app.port = target.port.to_string();
-            app.tls = target.tls;
-            app.verify_certificate = target.verify_certificate;
-            app.connect(ctx);
-        }
-        app.load_layout();
-        app.settings_changed(settings);
-        app
     }
 
     /// What the session's tab is called: its profile, else its server.
