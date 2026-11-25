@@ -4,7 +4,7 @@
 map.native(false)
 map.persist(false)
 
-on_gmcp("Area.Map", function(area)
+on("gmcp", "Area.Map", function(area)
     map.clear()
     for _, room in area.rooms do
         map.set_room({
@@ -14,10 +14,10 @@ on_gmcp("Area.Map", function(area)
     end
 end)
 
-on_gmcp("Area.Position", function(id)
+on("gmcp", "Area.Position", function(id)
     local room = map.room(id)
     if room then map.visit(room) end
 end)
 
 -- A MUD that draws its own map in text can simply be shown as it comes.
-on_gmcp("Area.Ascii", function(text) panel("Map", text) end)
+on("gmcp", "Area.Ascii", function(text) panel("Map", text) end)

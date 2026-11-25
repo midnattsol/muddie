@@ -62,14 +62,14 @@ fn script_can_take_the_whole_map_from_the_server() {
     let mut engine = engine(
         r#"map.native(false)
         map.persist(false)
-        on_gmcp("Area.Map", function(area)
+        on("gmcp", "Area.Map", function(area)
             map.clear()
             for _, room in area.rooms do
                 map.set_room({id = room.id, name = room.name, area = area.name,
                               x = room.x, y = room.y, exits = room.exits})
             end
         end)
-        on_gmcp("Area.Position", function(id) map.visit(map.room(id)) end)"#,
+        on("gmcp", "Area.Position", function(id) map.visit(map.room(id)) end)"#,
     );
     assert!(!engine.persist_map());
     engine.on_gmcp(
@@ -188,8 +188,8 @@ fn script_can_follow_a_server_that_shows_rooms_by_name_only() {
         for _, room in {{1, "Dune", {e = 2}}, {2, "Dune", {o = 1, norte = 3}}, {3, "Oasis", {sur = 2}}} do
             map.set_room({id = room[1], name = room[2], area = "desert", exits = room[3]})
         end
-        on_gmcp("Room.Actual", function(seen) map.arrive(seen) end)
-        on_gmcp("Room.Fallido", function() map.failed() end)"#,
+        on("gmcp", "Room.Actual", function(seen) map.arrive(seen) end)
+        on("gmcp", "Room.Fallido", function() map.failed() end)"#,
     );
     engine.exec("test", r#"map.import("https://mud.example.org/map.zip")"#);
     assert_eq!(
@@ -338,7 +338,7 @@ fn script_adds_the_room_the_map_has_not_where_the_player_went() {
         r#"map.directions({n = {"norte", "n"}, s = {"sur", "s"}})
         map.set_room({id = 1, name = "Gate", area = "town", exits = {}})
         local function tell(id, how) echo(tostring(id) .. " " .. how) end
-        on_gmcp("Room.Nueva", function(seen) tell(map.add(seen)) end)"#,
+        on("gmcp", "Room.Nueva", function(seen) tell(map.add(seen)) end)"#,
     );
     // Not knowing where the player is, nothing is added.
     engine.on_gmcp(

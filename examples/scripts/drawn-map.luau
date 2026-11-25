@@ -7,7 +7,7 @@ map.native(false)
 support_gmcp("Map.Render 1")
 
 -- The size in characters of the map's panel, whenever it changes.
-on_event("panel", function(size)
+on("panel", function(size)
     if not size.map then
         return
     end
@@ -17,6 +17,6 @@ on_event("panel", function(size)
     })
 end)
 
-on_gmcp("Map.Render", function(render)
+on("gmcp", "Map.Render", function(render)
     panel("Map", table.concat(render.lines, "\n"))
 end)

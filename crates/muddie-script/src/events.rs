@@ -121,12 +121,12 @@ impl Engine {
 
     /// Whether a screen reader is reading the client, for
     /// `screen_reader()`; when it changes, scripts are told with the
-    /// `screen_reader` event, with whether one is. Returns whether it
+    /// `reader` event, with whether one is. Returns whether it
     /// changed.
     pub fn set_screen_reader(&mut self, on: bool) -> bool {
         let changed = std::mem::replace(&mut self.state.borrow_mut().screen_reader, on) != on;
         if changed {
-            self.on_event("screen_reader", if on { "true" } else { "false" });
+            self.on_event("reader", if on { "true" } else { "false" });
         }
         changed
     }

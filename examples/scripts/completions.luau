@@ -5,6 +5,6 @@
 support_gmcp("Dev 1")
 
 -- Each package keeps its own list; a new one replaces the one before.
-on_gmcp("Dev.Completions", function(data, package)
+on("gmcp", "Dev.Completions", function(data, package)
     completions(package, data.words)
 end)

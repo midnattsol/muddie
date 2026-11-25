@@ -124,18 +124,15 @@ pub(super) struct DataHandler {
     /// also matches packages under it.
     pub(crate) key: String,
     pub(crate) callback: Function,
-    /// The tags it carries: it is told nothing while one is off.
-    pub(crate) tags: Vec<String>,
+    /// What it is switched by: it is told nothing while it is off.
+    pub(crate) belongs: Belongs,
 }
 
 impl DataHandler {
-    /// Whether it is told what comes: none of its tags is switched off.
+    /// Whether it is told what comes: switched as a trigger is, by its
+    /// place, the folders above it and its tags.
     pub(crate) fn on(&self, switches: &Switches) -> bool {
-        let belongs = Belongs {
-            place: None,
-            tags: self.tags.clone(),
-        };
-        switches.active(Kind::Script, &belongs)
+        switches.active(Kind::Trigger, &self.belongs)
     }
 }
 
@@ -403,10 +400,8 @@ impl State {
     /// the scripts, and for scripts, those the frontend told of.
     fn belongings(&self, kind: Kind) -> Vec<&Belongs> {
         match kind {
-            Kind::Trigger => self
-                .triggers
-                .iter()
-                .map(|matcher| &matcher.belongs)
+            Kind::Trigger => (self.triggers.iter().map(|matcher| &matcher.belongs))
+                .chain(self.data_handlers.iter().map(|handler| &handler.belongs))
                 .collect(),
             Kind::Alias => self
                 .aliases
@@ -437,14 +432,9 @@ impl State {
     /// The tags there are, those anything carries and those switched off,
     /// in alphabetical order.
     pub(super) fn tag_names(&self) -> Vec<String> {
-        let handlers = self
-            .data_handlers
-            .iter()
-            .flat_map(|handler| handler.tags.iter());
         let carried = (Kind::ALL.iter())
             .flat_map(|&kind| self.belongings(kind))
             .flat_map(|belongs| belongs.tags.iter())
-            .chain(handlers)
             .map(|tag| tag_key(tag))
             .collect::<Vec<String>>();
         let mut names: Vec<String> = carried

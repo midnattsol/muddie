@@ -12,11 +12,11 @@ local function arrived(room)
         map.visit(room)
     end
 end
-on_gmcp("Room.Info", arrived)
-on_msdp("ROOM", arrived)
+on("gmcp", "Room.Info", arrived)
+on("msdp", "ROOM", arrived)
 
 -- What is said on a channel, in its tab.
-on_gmcp("Comm.Channel.Text", function(said)
+on("gmcp", "Comm.Channel.Text", function(said)
     if type(said) == "table" and said.text then
         channel(said.channel or "", said.text)
     end

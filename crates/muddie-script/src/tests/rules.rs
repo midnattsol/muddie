@@ -393,9 +393,9 @@ fn an_option_that_is_none_is_said() {
         said.contains("there is no option name here; there are place, tags, once"),
         "{said}"
     );
-    engine.exec("t", r#"on_gmcp("Char", function() end, {place = "A"})"#);
+    engine.exec("t", r#"on("gmcp", "Char", function() end, {once = true})"#);
     let actions = engine.take_actions();
-    assert!(error_text(&actions).contains("there is no option place"));
+    assert!(error_text(&actions).contains("there is no option once"));
 }
 
 #[test]
@@ -425,9 +425,9 @@ fn what_a_script_makes_is_switched_and_taken_away_by_itself() {
             trigger("^go$", function() send("trigger") end),
             alias("^go$", function() send("alias") end),
             macro("f5", function() send("macro") end),
-            on_gmcp("Go", function() send("gmcp") end),
-            on_var("go", function() send("var") end),
-            on_event("connect", function() send("event") end),
+            on("gmcp", "Go", function() send("gmcp") end),
+            on("var", "go", function() send("var") end),
+            on("connect", function() send("event") end),
             every(1, function() send("timer") end),
         }
         function all(what)

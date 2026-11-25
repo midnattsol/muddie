@@ -176,7 +176,7 @@ fn a_script_is_run_again_without_the_others_starting_over() {
     std::fs::write(
         &keeper,
         r#"canvas = canvas or {}
-        on_gmcp("Map.Canvas", function(data) table.insert(canvas, data.cell) end)
+        on("gmcp", "Map.Canvas", function(data) table.insert(canvas, data.cell) end)
         alias("^count$", function() send("kept " .. #canvas) end)"#,
     )
     .unwrap();

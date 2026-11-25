@@ -34,7 +34,7 @@ local function went(name)
     speak(tr({ en = `No longer: {name}.`, es = `Ya no: {name}.` }))
 end
 
-on_gmcp("Char.Status.Estados.set", function(data)
+on("gmcp", "Char.Status.Estados.set", function(data)
     local now = {}
     if type(data) == "table" then
         for key, state in pairs(data) do
@@ -59,7 +59,7 @@ on_gmcp("Char.Status.Estados.set", function(data)
     end
 end)
 
-on_gmcp("Char.Status.Estados.add", function(state)
+on("gmcp", "Char.Status.Estados.add", function(state)
     local id, name = named(state)
     known = known or {}
     if not known[id] then
@@ -68,7 +68,7 @@ on_gmcp("Char.Status.Estados.add", function(state)
     known[id] = name
 end)
 
-on_gmcp("Char.Status.Estados.remove", function(state)
+on("gmcp", "Char.Status.Estados.remove", function(state)
     local id = named(state)
     local name = known and known[id]
     if name then
@@ -77,6 +77,6 @@ on_gmcp("Char.Status.Estados.remove", function(state)
     end
 end)
 
-on_event("disconnect", function()
+on("disconnect", function()
     known = nil
 end)

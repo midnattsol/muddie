@@ -49,7 +49,7 @@ end
 -- merged into what came before, for the gauges to have it whole.
 
 merge_gmcp("Char.Status")
-on_gmcp("Char", function()
+on("gmcp", "Char", function()
     heard = true
 end)
 
@@ -102,7 +102,7 @@ local function all_but(id)
     return left
 end
 
-on_gmcp("Char.Status.Estados.set", function(data)
+on("gmcp", "Char.Status.Estados.set", function(data)
     local states = {}
     if type(data) == "table" then
         for key, state in pairs(data) do
@@ -112,14 +112,14 @@ on_gmcp("Char.Status.Estados.set", function(data)
     keep(states)
 end)
 
-on_gmcp("Char.Status.Estados.add", function(state)
+on("gmcp", "Char.Status.Estados.add", function(state)
     local new = shown(state)
     local states = all_but(new.id)
     table.insert(states, new)
     keep(states)
 end)
 
-on_gmcp("Char.Status.Estados.remove", function(state)
+on("gmcp", "Char.Status.Estados.remove", function(state)
     keep(all_but(text_of(state)))
 end)
 
@@ -135,29 +135,29 @@ local function said(data, before)
     end
 end
 
-on_gmcp("Comm.MensajeCanal", function(data)
+on("gmcp", "Comm.MensajeCanal", function(data)
     said(data, false)
 end)
 -- Kept, and not read aloud: it comes all at once.
-on_gmcp("Comm.MensajeCanalHistorico", function(data)
+on("gmcp", "Comm.MensajeCanalHistorico", function(data)
     said(data, true)
 end)
 
-on_gmcp("Comm.Canales", function(data)
+on("gmcp", "Comm.Canales", function(data)
     heard = true
     for name in pairs(data) do
         channel(name)
     end
 end)
 
-on_gmcp("Comm.EnciendeCanal", function(data)
+on("gmcp", "Comm.EnciendeCanal", function(data)
     local name = text_of(data)
     if name then
         channel(name)
     end
 end)
 
-on_gmcp("Comm.ApagaCanal", function(data)
+on("gmcp", "Comm.ApagaCanal", function(data)
     local name = text_of(data)
     if name then
         close_channel(name)
@@ -389,7 +389,7 @@ trigger([[^(.*\S: \S.*?)\s*$]], function(m)
     end
 end, { place = "Reinos de Leyenda/Sala escrita sin salidas" })
 
-on_gmcp("Room.Movimiento", function(way)
+on("gmcp", "Room.Movimiento", function(way)
     heard = true
     local seen = shown or {}
     shown = nil
@@ -405,12 +405,12 @@ on_gmcp("Room.Movimiento", function(way)
 end)
 
 -- A move that could not be made: it did not happen, and a walk stops.
-on_gmcp("Room.MovimientoErroneo", function()
+on("gmcp", "Room.MovimientoErroneo", function()
     shown = nil
     map.failed()
 end)
 
-on_gmcp("Room.Actual", function(room)
+on("gmcp", "Room.Actual", function(room)
     heard = true
     room = text_of(room)
     if not room then
@@ -421,7 +421,7 @@ on_gmcp("Room.Actual", function(room)
 end)
 
 -- Once per connection: the map, and whether GMCP comes.
-on_event("connect", function()
+on("connect", function()
     heard = false
     stray_told = false
     no_room = {}

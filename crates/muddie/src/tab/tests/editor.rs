@@ -189,7 +189,7 @@ fn saving_a_rule_or_a_script_leaves_what_the_other_scripts_keep() {
     std::fs::write(
         scripts.join("canvas.luau"),
         r#"cells = cells or 0
-            on_gmcp("Map.Canvas", function() cells += 1 end)
+            on("gmcp", "Map.Canvas", function() cells += 1 end)
             alias("^cells$", function() echo("cells " .. cells) end)"#,
     )
     .unwrap();

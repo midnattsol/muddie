@@ -139,11 +139,11 @@ fn a_script_turns_a_muds_own_channel_messages_into_tabs() {
         .retain(|panel| panel.kind != layout::Kind::Text);
     let script = r#"support_gmcp("Comm 1")
 
-on_gmcp("Comm.MensajeCanal", function(data)
+on("gmcp", "Comm.MensajeCanal", function(data)
     channel(data.canal, data.mensaje)
 end)
 
-on_gmcp("Comm.Canales", function(data)
+on("gmcp", "Comm.Canales", function(data)
     for nombre in pairs(data) do
         channel(nombre)
     end
@@ -265,13 +265,13 @@ fn a_channel_handled_by_a_plugin_and_by_a_script_is_one_channel_said_once() {
     // As the Reinos de Leyenda plugin does: to the panel of channels.
     app.scripts.exec(
         "plugin",
-        r#"on_gmcp("Comm.Canales", function(d) for n in pairs(d) do channel(n) end end)
-           on_gmcp("Comm.MensajeCanal", function(d) channel(d.canal, d.mensaje) end)"#,
+        r#"on("gmcp", "Comm.Canales", function(d) for n in pairs(d) do channel(n) end end)
+           on("gmcp", "Comm.MensajeCanal", function(d) channel(d.canal, d.mensaje) end)"#,
     );
     // And a script of the player's that does the same, naming the panel.
     app.scripts.exec(
         "mine",
-        r#"on_gmcp("Comm.MensajeCanal", function(d) channel(d.canal, d.mensaje, {panel = "Channels"}) end)"#,
+        r#"on("gmcp", "Comm.MensajeCanal", function(d) channel(d.canal, d.mensaje, {panel = "Channels"}) end)"#,
     );
     let (events, _sent) = fake_connection(app);
     let gmcp = |package: &str, data: &str| Event::Gmcp {

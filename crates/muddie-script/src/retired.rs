@@ -10,6 +10,13 @@ const RETIRED: &[(&str, &str)] = &[
     ("gmcp_merge", "merge_gmcp(package, ...)"),
     ("bind", "macro(key, action, options)"),
     ("cancel", "what was returned as it was made: made:remove()"),
+    ("on_gmcp", "on(\"gmcp\", package, function)"),
+    ("on_msdp", "on(\"msdp\", variable, function)"),
+    ("on_var", "on(\"var\", name, function)"),
+    (
+        "on_event",
+        "on(event, function), as on(\"connect\", function)",
+    ),
     ("remember", "vars.name = value"),
     ("recall", "vars.name"),
     ("remembered", "vars, as a table"),

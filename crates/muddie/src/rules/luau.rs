@@ -162,9 +162,9 @@ impl Gauge {
         let root = self.value.trim().split('.').next().unwrap_or_default();
         let code = format!(
             "{PRELUDE}local shown = false\nlocal function update()\n{shown}end\n\
-             on_gmcp({root}, update)\n\
-             on_msdp({variable}, update)\n\
-             on_var({root}, update)\n\
+             on(\"gmcp\", {root}, update)\n\
+             on(\"msdp\", {variable}, update)\n\
+             on(\"var\", {root}, update)\n\
              update()\n",
             shown = self.shown(name, &self.belonging(place)),
             root = quoted(root),

@@ -109,7 +109,7 @@ fn what_many_muds_send_alike_is_a_plugin_that_can_be_switched_off() {
     app.panels.channels.clear();
     app.scripts.exec(
         "t",
-        r#"on_gmcp("Char.Vitals", function(data) echo("hp " .. data.hp) end)"#,
+        r#"on("gmcp", "Char.Vitals", function(data) echo("hp " .. data.hp) end)"#,
     );
     events.send(vitals()).unwrap();
     events.send(said()).unwrap();

@@ -5,11 +5,11 @@ use super::*;
 #[test]
 fn gmcp_data_reaches_handlers_and_is_remembered() {
     let mut engine = engine(
-        r#"on_gmcp("char", function(data, package) echo(`{package}: {data.hp}/{data.maxhp}`) end)
-        on_gmcp("Char.Vitals", function(data)
+        r#"on("gmcp", "char", function(data, package) echo(`{package}: {data.hp}/{data.maxhp}`) end)
+        on("gmcp", "Char.Vitals", function(data)
             gauge("HP", data.hp, data.maxhp, {place = "Vitals/HP", tags = "fight", panel = "Puntos"})
         end)
-        on_gmcp("Room.Info", function(data) echo(`{data.name} {#data.exits} {data.area}`) end)"#,
+        on("gmcp", "Room.Info", function(data) echo(`{data.name} {#data.exits} {data.area}`) end)"#,
     );
     engine.on_gmcp("Char.Vitals", r#"{"hp": 80, "maxhp": 100}"#);
     assert_eq!(
@@ -60,9 +60,9 @@ fn gmcp_data_reaches_handlers_and_is_remembered() {
 #[test]
 fn variables_are_followed_when_they_change() {
     let mut engine = engine(
-        r#"on_var("hp", function(value, name) echo(`{name} {value}`) end)
-        on_var("bag", function(bag) echo(`gold {bag and bag.gold}`); vars.told = true end)
-        on_var("told", function(value) echo(`told {value}`) end)"#,
+        r#"on("var", "hp", function(value, name) echo(`{name} {value}`) end)
+        on("var", "bag", function(bag) echo(`gold {bag and bag.gold}`); vars.told = true end)
+        on("var", "told", function(value) echo(`told {value}`) end)"#,
     );
     // Twice in one script: told once, of the last.
     engine.exec("t", "vars.hp = 10 vars.hp = 12 vars.other = 1");
@@ -88,7 +88,7 @@ fn variables_are_followed_when_they_change() {
     // Taken away, it is told no more.
     engine.exec(
         "t",
-        "on_var('hp', function() echo('again') end):remove() vars.hp = 1",
+        "on('var', 'hp', function() echo('again') end):remove() vars.hp = 1",
     );
     assert_eq!(engine.take_actions(), [Action::Echo("hp 1".into())]);
 }
@@ -170,8 +170,8 @@ fn scripts_can_send_gmcp_and_drive_panels() {
 #[test]
 fn msdp_and_mssp_are_available_to_scripts() {
     let mut engine = engine(
-        r#"on_msdp("HEALTH", function(value, name) echo(`{name}={value}`) end)
-        on_gmcp("health", function() echo("wrong kind") end)"#,
+        r#"on("msdp", "HEALTH", function(value, name) echo(`{name}={value}`) end)
+        on("gmcp", "health", function() echo("wrong kind") end)"#,
     );
     engine.on_msdp("HEALTH", r#""80""#);
     engine.on_msdp("ROOM", r#"{"VNUM":"7","EXITS":{"n":"8"}}"#);
@@ -201,8 +201,8 @@ fn client_events_modules_and_completions() {
         "test",
         r#"
         support_gmcp("Map.Render 1", "Dev 1")
-        on_event("panel", function(size) echo(size.columns .. "x" .. size.rows) end)
-        on_event("connect", function() echo("in") end)
+        on("panel", function(size) echo(size.columns .. "x" .. size.rows) end)
+        on("connect", function() echo("in") end)
         completions("cmds", {"north", "look"})
         completions("more", {"west"})
         completions("more")
@@ -316,7 +316,7 @@ fn the_size_of_a_panel_can_be_asked_for() {
 fn a_package_that_sends_only_what_changed_is_merged_when_asked() {
     let mut engine = engine(
         r#"merge_gmcp("Char.Status")
-        on_gmcp("Char.Status", function(data) echo(`came {data.pvs.min} {data.pe}`) end)"#,
+        on("gmcp", "Char.Status", function(data) echo(`came {data.pvs.min} {data.pe}`) end)"#,
     );
     engine.on_gmcp(
         "Char.Status",
@@ -388,8 +388,8 @@ fn scripts_show_their_text_in_the_language_of_the_interface() {
 #[test]
 fn handlers_of_data_are_switched_by_their_tags() {
     let mut engine = engine(
-        r#"on_gmcp("Char.Vitals", function(data) echo(`hp {data.hp}`) end, {tags = "fight"})
-        on_event("connect", function() echo("connected") end, {tags = {"fight"}})"#,
+        r#"on("gmcp", "Char.Vitals", function(data) echo(`hp {data.hp}`) end, {tags = "fight"})
+        on("connect", function() echo("connected") end, {tags = {"fight"}})"#,
     );
     engine.exec("t", r#"echo(table.concat(tags.list(), ","))"#);
     assert_eq!(engine.take_actions(), [Action::Echo("fight".into())]);
@@ -479,8 +479,7 @@ fn a_script_says_what_of_a_channel_is_not_read() {
 
 #[test]
 fn scripts_know_whether_a_screen_reader_reads() {
-    let mut engine =
-        engine(r#"on_event("screen_reader", function(on) echo(`now {on} {screen_reader()}`) end)"#);
+    let mut engine = engine(r#"on("reader", function(on) echo(`now {on} {screen_reader()}`) end)"#);
     engine.exec("t", "echo(`at first {screen_reader()}`)");
     assert_eq!(
         engine.take_actions(),
@@ -499,4 +498,67 @@ fn scripts_know_whether_a_screen_reader_reads() {
         engine.take_actions(),
         [Action::Echo("now false false".into())]
     );
+}
+
+/// One function listens to everything, switched as a trigger is, and says
+/// what there is when it is asked for what there is not.
+#[test]
+fn everything_is_listened_to_with_one_function() {
+    let mut engine = engine(
+        r#"on("gmcp", "Char", function(data, name) send(name .. " " .. data.hp) end, {place = "Fight/Life"})
+        on("msdp", "HEALTH", function(value, name) send(name .. " " .. value) end, {tags = "fight"})
+        on("var", "hp", function(value, name) send(name .. " " .. value) end)
+        on("connect", function() send("connected") end)"#,
+    );
+    let go = |engine: &mut Engine| {
+        engine.on_gmcp("Char.Vitals", r#"{"hp": 3}"#);
+        engine.on_msdp("HEALTH", r#""4""#);
+        engine.exec("t", "vars.hp = (vars.hp or 4) + 1");
+        engine.on_event("connect", "");
+        engine.take_actions()
+    };
+    assert_eq!(
+        go(&mut engine),
+        ["Char.Vitals 3", "HEALTH 4", "hp 5", "connected"].map(send)
+    );
+    // Switched by its place, a folder above it, or a tag.
+    engine.exec("t", r#"triggers.disable("Fight") tags.disable("fight")"#);
+    assert_eq!(go(&mut engine), ["hp 6", "connected"].map(send));
+    engine.exec(
+        "t",
+        r#"triggers.enable("Fight") echo(table.concat(triggers.list(), " "))"#,
+    );
+    assert_eq!(
+        engine.take_actions(),
+        [Action::Echo("Fight Fight/Life".into())]
+    );
+    for (code, said) in [
+        (
+            r#"on("conect", function() end)"#,
+            "there is no conect to listen to; there are gmcp, msdp, var, connect, disconnect, reader, panel, mxp",
+        ),
+        (
+            r#"on("gmcp", function() end)"#,
+            r#"on("gmcp", ...) needs the name of a package before the function"#,
+        ),
+        (
+            r#"on("connect", "x", function() end)"#,
+            r#"on("connect", ...) takes the function next, with no name"#,
+        ),
+        (r#"on("gmcp", "Char")"#, "on needs a function"),
+        (
+            r#"on("connect", function() end, {once = true})"#,
+            "there is no option once here; there are place, tags",
+        ),
+        (
+            r#"on_gmcp("Char", function() end)"#,
+            r#"on_gmcp is no longer: use on("gmcp", package, function)"#,
+        ),
+    ] {
+        engine.exec("t", code);
+        match engine.take_actions().as_slice() {
+            [Action::Error(error)] => assert!(error.contains(said), "{error}"),
+            other => panic!("{code}: {other:?}"),
+        }
+    }
 }

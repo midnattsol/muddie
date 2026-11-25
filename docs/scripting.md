@@ -117,7 +117,7 @@ after(5, function() saving:remove() end)
 | `triggers`, `aliases`, `macros`, `timers`, `gauges`, `scripts` | Switch one thing of that kind by its place, or a folder with all it holds: `triggers.disable("Combat")`, `macros.enable("Combat/Kick")`, `scripts.toggle("Mapping")`. Each has `enable(place)`, `disable(place)`, `toggle(place)` (which returns whether it is now on), `enabled(place)` and `list()`, the places there are. Whether made in a script or in the editor; for the session, as what is saved is what the editor says. |
 | `tags` | The same for tags: `tags.disable("combat")` switches off everything that carries the tag, of every kind. |
 | `after(seconds, fn, options)`, `every(seconds, fn, options)` | Timers. Switched off, one lets its turns pass. |
-| What they return | Each of these, and `macro`, `on_gmcp`, `on_msdp`, `on_var` and `on_event`, returns what it made: `made:disable()`, `made:enable()` and `made:toggle()`, which say whether it is now on; `made:enabled()`; `made:remove()`, which takes it away and says whether it was there; and, of a timer, `made:left()`, the seconds it has left. |
+| What they return | Each of these, and `macro` and `on`, returns what it made: `made:disable()`, `made:enable()` and `made:toggle()`, which say whether it is now on; `made:enabled()`; `made:remove()`, which takes it away and says whether it was there; and, of a timer, `made:left()`, the seconds it has left. |
 | `macro(key, action, options)` | Runs commands or a function when a key is pressed: `macro("f5", "look")`, `macro("ctrl+shift+k", fn)`. Commands are sent as a rule's are: separated by `;`, with `$name` put in, not through aliases. A key bound again under another `place` does that while it is on and those bound before are not: the first bound that is on is the one that runs. Bound again under the same place, it does the new thing instead. |
 | `separator(text)` | The text that separates commands typed on one line (`;` by default; doubled, it is typed literally). `separator(false)` turns splitting off, and `separator()` gives back `;`. |
 | `vars` | The variables, as a table: `vars.target = "orc"` keeps a value, `vars.target` reads it, `vars.target = nil` forgets it, and `for name, value in vars do` goes through them. They are those of the editor, kept with the session's profile. A table kept in one must be assigned whole to be kept: `local bag = vars.bag; bag.gold = 5; vars.bag = bag`. |
@@ -161,33 +161,34 @@ macro("numpad5", "look")
 ## Data from the server
 
 ```lua
-on_gmcp("Char.Vitals", function(vitals)
+on("gmcp", "Char.Vitals", function(vitals)
     gauge("HP", vitals.hp, vitals.maxhp)
 end)
 
-on_msdp("HEALTH", function(value) echo("health " .. value) end)
+on("msdp", "HEALTH", function(value) echo("health " .. value) end)
 send_msdp("REPORT", "HEALTH", "MANA")
 ```
 
 | Function | What it does |
 |---|---|
-| `on_gmcp(package, fn)` | Calls `fn(data, package)` for that package and those under it (`"Char"` covers `Char.Vitals`). |
+| `on("gmcp", package, fn)` | Calls `fn(data, package)` for that package and those under it (`"Char"` covers `Char.Vitals`). |
 | `gmcp(package)` | The data last received for exactly that package. |
 | `send_gmcp(package, data)` | Sends a GMCP message. |
-| `on_msdp(variable, fn)`, `msdp(variable)`, `send_msdp(command, ...)` | The same for MSDP. Values arrive as strings. |
-| `on_var(name, fn)` | Calls `fn(value, name)` when a variable of `vars` changes, by a script, a trigger or the editor: once the script that changed it is done, so it sees all it changed. A gauge can follow a variable the same way. |
+| `on("msdp", variable, fn)`, `msdp(variable)`, `send_msdp(command, ...)` | The same for MSDP. Values arrive as strings. |
+| `on("var", name, fn)` | Calls `fn(value, name)` when a variable of `vars` changes, by a script, a trigger or the editor: once the script that changed it is done, so it sees all it changed. A gauge can follow a variable the same way. |
 | `merge_gmcp(package, ...)` | For packages the server sends only what changed of, as `Char.Status` with only the life that changed: what comes is merged into what `gmcp(package)` and the gauges keep, tables inside merged too. Handlers still get what came. |
 | `report_msdp(variable, ...)` | Asks the server to report MSDP variables as they change: `report_msdp("HEALTH", "HEALTH_MAX")`. Asked for while the script is loaded, as `support_gmcp`. |
 | `support_gmcp(module, ...)` | Announces GMCP modules to the server besides the client's own (`Core` and `Client.Media`), as `"Name version"`: `support_gmcp("Map.Render 1")`. Some servers only send what was announced. They are asked for while the script is loaded: when it is switched off or removed, the server is told it no longer wants them. |
 | `screen_reader()` | Whether a screen reader is reading Muddie: for what a plugin offers to those who use one. |
-| `on_event(name, fn)` | Calls `fn(data, name)` when something happens in the client: `"connect"`, `"disconnect"`, `"screen_reader"` with whether one is reading Muddie, when that changes, `"mxp"` with `{name, value}` when the MUD names a value with MXP (a variable, an entity, or what a flagged element held, such as `RoomName`), or `"panel"` with `{name, map, columns, rows}`: the size in characters of a panel that shows a drawing, once it stops changing, after connecting and after the script is run. `map` is true for the map's panel, whatever it is called. |
+| `on(name, fn)` | Calls `fn(data, name)` when something happens in the client: `"connect"`, `"disconnect"`, `"reader"` with whether a screen reader is reading Muddie, when that changes, `"mxp"` with `{name, value}` when the MUD names a value with MXP (a variable, an entity, or what a flagged element held, such as `RoomName`), or `"panel"` with `{name, map, columns, rows}`: the size in characters of a panel that shows a drawing, once it stops changing, after connecting and after the script is run. `map` is true for the map's panel, whatever it is called. |
 | `panel_size(name)` | The size in characters of a panel, as `{columns, rows}`, at once; `nil` if it has not been on the screen. With no name, the map's panel. |
 | `completions(name, words)` | Words for Tab to offer, besides those seen in the output. Each name keeps its own list; `completions(name)` removes it. |
 | `mssp()` | The server's MSSP status as a table. |
 
-Each `on_` function takes, last, options with `tags`: while one of its tags
-is off, it is told nothing. An option a function does not take is an error,
-rather than left out without a word.
+`on` takes, last, options with `place` and `tags`, and is switched as a
+trigger is: `triggers.disable("Combat")` switches off what listens in that
+folder too. A name it does not know, as an option a function does not take, is
+an error, rather than left out without a word.
 
 A function the API had once and has no longer, called by an old script, is
 an error that says what to use instead: `supports` is `support_gmcp` now.
