@@ -65,28 +65,39 @@ pub(in crate::tab) struct ActionEdit<'a> {
 /// when the editor's height was changed with the keyboard.
 pub(in crate::tab) fn action_block(
     ui: &mut egui::Ui,
-    action: ActionEdit<'_>,
+    mut action: ActionEdit<'_>,
     mistake: Option<&(usize, String)>,
 ) -> Option<String> {
-    let ActionEdit {
-        luau: lua,
-        commands,
-        code: script,
-        matched,
-        commands_hint,
-        script_hint,
-        about_commands,
-        about_script,
-        sizes,
-        name,
-    } = action;
     let mut expand = None;
-    let said = widgets::card(
+    let said = action_card(ui, &mut action, mistake, &mut expand);
+    let expand = expand?;
+    expanded_editor(ui, action, mistake, &expand);
+    said
+}
+
+/// The card of what a rule does: the choice between commands and a Luau
+/// script, and the editor of the one chosen. Leaves in `expand` the
+/// button that opens the editor larger, and returns what to say when the
+/// editor's height was changed with the keyboard.
+fn action_card(
+    ui: &mut egui::Ui,
+    action: &mut ActionEdit<'_>,
+    mistake: Option<&(usize, String)>,
+    expand: &mut Option<egui::Response>,
+) -> Option<String> {
+    let lua = &mut *action.luau;
+    let commands = &mut *action.commands;
+    let script = &mut *action.code;
+    let sizes = &mut *action.sizes;
+    let (matched, commands_hint, script_hint) =
+        (action.matched, action.commands_hint, action.script_hint);
+    let (about_commands, about_script) = (action.about_commands, action.about_script);
+    widgets::card(
         ui,
         Some(widgets::Glyph::Send),
         tr("Do"),
         |ui| {
-            expand = Some(widgets::glyph_button(
+            *expand = Some(widgets::glyph_button(
                 ui,
                 widgets::Glyph::Expand,
                 tr("Expand editor"),
@@ -132,8 +143,28 @@ pub(in crate::tab) fn action_block(
             note(ui, about);
             said
         },
-    );
-    let expand = expand?;
+    )
+}
+
+/// The editor of what a rule does, open larger over the window, from the
+/// card's heading: it takes the keyboard when opened, and gives it back
+/// to `expand` when closed.
+fn expanded_editor(
+    ui: &mut egui::Ui,
+    action: ActionEdit<'_>,
+    mistake: Option<&(usize, String)>,
+    expand: &egui::Response,
+) {
+    let ActionEdit {
+        luau: lua,
+        commands,
+        code: script,
+        commands_hint,
+        script_hint,
+        sizes,
+        name,
+        ..
+    } = action;
     let focus = egui::Id::unique("focus the expanded editor");
     if expand.clicked() {
         sizes.expanded = true;
@@ -194,7 +225,6 @@ pub(in crate::tab) fn action_block(
     }
     let open = sizes.expanded;
     ui.data_mut(|data| data.insert_temp(focus.with("open"), open));
-    said
 }
 
 pub(in crate::tab) fn rule_header(
