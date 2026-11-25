@@ -1892,6 +1892,13 @@ msgstr ""
 msgid "Macro name"
 msgstr ""
 
+msgid "Run when the key is pressed."
+msgstr ""
+
+#, python-brace-format
+msgid "Key: {0}."
+msgstr ""
+
 msgid "Key"
 msgstr ""
 
@@ -1905,13 +1912,6 @@ msgid "Record a key"
 msgstr ""
 
 msgid "Function keys, keys with Ctrl or Alt, and the numeric keypad can be used."
-msgstr ""
-
-msgid "Run when the key is pressed."
-msgstr ""
-
-#, python-brace-format
-msgid "Key: {0}."
 msgstr ""
 
 #, python-brace-format

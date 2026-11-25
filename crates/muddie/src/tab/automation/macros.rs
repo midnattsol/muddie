@@ -4,58 +4,12 @@ use super::*;
 
 impl Tab {
     pub(in crate::tab) fn macro_detail(&mut self, ui: &mut egui::Ui, index: usize) -> bool {
-        let theme = theme::current();
         let recording = self.editor.recording_key;
-        let mut toggle = false;
         let delete = self.rule_head(ui, Kind::Macro, index, tr("Macro name"));
         let name = list::rule_title(&self.editor.draft.macros, index);
         let clashes = key_clashes(&self.editor.draft.macros, index);
         let rule = &mut self.editor.draft.macros[index];
-        widgets::card(
-            ui,
-            Some(widgets::Glyph::Key),
-            tr("Key"),
-            |_| {},
-            |ui| {
-                ui.horizontal(|ui| {
-                    let shown = if recording {
-                        tr("Press the key…").to_owned()
-                    } else if rule.when.key.trim().is_empty() {
-                        tr("None").to_owned()
-                    } else {
-                        key_shown(&rule.when.key)
-                    };
-                    let (colour, edge) = if recording {
-                        (theme.accent, theme.accent)
-                    } else {
-                        (theme.text, theme.border)
-                    };
-                    crate::widgets::inset(theme.surface)
-                        .stroke(egui::Stroke::new(1.0, edge))
-                        .inner_margin(egui::Margin::symmetric(14, 7))
-                        .show(ui, |ui| {
-                            ui.label(
-                                RichText::new(shown)
-                                    .font(theme::font(Weight::Medium, 13.5))
-                                    .color(colour),
-                            );
-                        });
-                    let label = if recording {
-                        tr("Cancel")
-                    } else {
-                        tr("Record a key")
-                    };
-                    toggle = crate::widgets::button(ui, label).clicked();
-                });
-                note(
-                    ui,
-                    tr("Function keys, keys with Ctrl or Alt, and the numeric keypad can be used."),
-                );
-                for clash in &clashes {
-                    note(ui, clash);
-                }
-            },
-        );
+        let toggle = key_card(ui, &rule.when.key, recording, &clashes);
         let mistake = if rule.luau {
             self.editor.checks.of(&self.scripts, &rule.code)
         } else {
@@ -137,6 +91,60 @@ impl Tab {
 /// A macro's key as it is shown: `ALT + F5`.
 fn key_shown(key: &str) -> String {
     key.trim().to_uppercase().replace('+', " + ")
+}
+
+/// The card of a macro's key: the key, or that it is being recorded, with
+/// the way to start or cancel that, and what clashes with it. Returns
+/// whether that was clicked.
+fn key_card(ui: &mut egui::Ui, key: &str, recording: bool, clashes: &[String]) -> bool {
+    let theme = theme::current();
+    let mut toggle = false;
+    widgets::card(
+        ui,
+        Some(widgets::Glyph::Key),
+        tr("Key"),
+        |_| {},
+        |ui| {
+            ui.horizontal(|ui| {
+                let shown = if recording {
+                    tr("Press the key…").to_owned()
+                } else if key.trim().is_empty() {
+                    tr("None").to_owned()
+                } else {
+                    key_shown(key)
+                };
+                let (colour, edge) = if recording {
+                    (theme.accent, theme.accent)
+                } else {
+                    (theme.text, theme.border)
+                };
+                crate::widgets::inset(theme.surface)
+                    .stroke(egui::Stroke::new(1.0, edge))
+                    .inner_margin(egui::Margin::symmetric(14, 7))
+                    .show(ui, |ui| {
+                        ui.label(
+                            RichText::new(shown)
+                                .font(theme::font(Weight::Medium, 13.5))
+                                .color(colour),
+                        );
+                    });
+                let label = if recording {
+                    tr("Cancel")
+                } else {
+                    tr("Record a key")
+                };
+                toggle = crate::widgets::button(ui, label).clicked();
+            });
+            note(
+                ui,
+                tr("Function keys, keys with Ctrl or Alt, and the numeric keypad can be used."),
+            );
+            for clash in clashes {
+                note(ui, clash);
+            }
+        },
+    );
+    toggle
 }
 
 /// What else has the key of the macro at `index`: one of Muddie's
