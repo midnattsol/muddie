@@ -9,29 +9,35 @@ use eframe::egui::{
 use crate::theme::{self, Weight};
 
 mod buttons;
+mod code;
 mod colours;
 mod dialog;
 mod edges;
 mod fields;
+mod folders;
 mod glyphs;
 mod icons;
 mod lists;
 mod menus;
 mod order;
+mod profiles;
 mod rows;
 mod tips;
 mod toggles;
 
 pub use buttons::*;
+pub use code::*;
 pub use colours::*;
 pub use dialog::*;
 pub use edges::*;
 pub use fields::*;
+pub use folders::*;
 pub use glyphs::*;
 pub use icons::*;
 pub use lists::*;
 pub use menus::*;
 pub use order::*;
+pub use profiles::*;
 pub use rows::*;
 pub use tips::*;
 pub use toggles::*;

@@ -99,7 +99,12 @@ pub struct ListRow<'a> {
 /// Makes a line of a list, `height` tall: clicked, and stopped at by Tab
 /// only if it is `current`, as in a tree, where the arrows go through the
 /// rest; with `key` as its id, if given.
-fn list_line(ui: &mut Ui, height: f32, key: Option<egui::Id>, current: bool) -> Response {
+pub(super) fn list_line(
+    ui: &mut Ui,
+    height: f32,
+    key: Option<egui::Id>,
+    current: bool,
+) -> Response {
     let size = vec2(ui.available_width(), height);
     let Some(key) = key else {
         return ui.allocate_exact_size(size, Sense::click()).1;
@@ -142,7 +147,7 @@ pub const LINE_GAP: f32 = 4.0;
 /// Under a line of a list, as it is chosen or pointed at: chosen, a fill in
 /// the accent with a bar at its left; pointed at, a faint fill; the two
 /// never alike, and nothing more where it is chosen.
-fn line_backdrop(ui: &Ui, body: egui::Rect, selected: bool, hovered: bool) {
+pub(super) fn line_backdrop(ui: &Ui, body: egui::Rect, selected: bool, hovered: bool) {
     let theme = theme::current();
     let round = CornerRadius::same(8);
     if selected {
@@ -171,7 +176,7 @@ pub fn target_ring(ui: &Ui, rect: egui::Rect) {
 
 /// Tells a screen reader where a line is in a tree: how deep, and its
 /// place among those beside it.
-fn tree_place(node: &mut egui::accesskit::Node, depth: usize, place: (usize, usize)) {
+pub(super) fn tree_place(node: &mut egui::accesskit::Node, depth: usize, place: (usize, usize)) {
     node.set_level(depth + 1);
     node.set_position_in_set(place.0);
     node.set_size_of_set(place.1);
@@ -185,13 +190,13 @@ const SAID_IN_WORDS: bool = cfg!(target_os = "linux");
 
 /// How deep a line of a tree is, in words, when it is in a folder, where
 /// the screen reader is not told otherwise.
-fn level_words(depth: usize) -> Option<String> {
+pub(super) fn level_words(depth: usize) -> Option<String> {
     (SAID_IN_WORDS && depth > 0).then(|| crate::i18n::trf("level {0}", &[&(depth + 1).to_string()]))
 }
 
 /// Whether a folder is open, in words, where the screen reader is not
 /// told otherwise.
-fn folded_words(open: bool) -> Option<&'static str> {
+pub(super) fn folded_words(open: bool) -> Option<&'static str> {
     SAID_IN_WORDS.then(|| match open {
         true => crate::i18n::tr("expanded"),
         false => crate::i18n::tr("collapsed"),
@@ -319,7 +324,7 @@ impl ListRow<'_> {
 
 /// Draws a line down for each folder a row is in, and returns the part of
 /// the row left for it.
-fn indented(ui: &Ui, rect: egui::Rect, depth: usize) -> egui::Rect {
+pub(super) fn indented(ui: &Ui, rect: egui::Rect, depth: usize) -> egui::Rect {
     let guide = Stroke::new(1.0, theme::current().border);
     for level in 0..depth {
         let x = rect.left() + 14.0 + INDENT * level as f32;
@@ -367,280 +372,4 @@ pub fn tag_pill(
     );
     painter.galley(pill.min + vec2(6.0, 2.0), galley, colour);
     pill
-}
-
-/// Where the arrow of a folder's line ends, given the line and how many
-/// folders in it is: a click before it opens or closes the folder.
-pub fn folder_arrow_end(line: egui::Rect, depth: usize) -> f32 {
-    line.left() + INDENT * depth as f32 + 22.0
-}
-
-/// The field a folder's name is typed in, over its line, where the name
-/// is: in the name's own letters, centred on the line, framed as the other
-/// fields are, in the colour of a mistake if the name cannot be.
-pub fn folder_name_field(
-    ui: &mut Ui,
-    line: egui::Rect,
-    depth: usize,
-    name: &mut String,
-    id: egui::Id,
-    wrong: bool,
-) -> Response {
-    let theme = theme::current();
-    // Clear of the folder drawn before it, with room inside, and short of
-    // the count and the switch.
-    let left = line.left() + INDENT * depth as f32 + 40.0;
-    let place = egui::Rect::from_min_max(
-        egui::pos2(left, line.center().y - 12.0),
-        egui::pos2(line.right() - 70.0, line.center().y + 12.0),
-    );
-    ui.painter()
-        .rect_filled(place, CornerRadius::same(6), theme.surface);
-    // As much room above the text as under it: the text on the line's
-    // middle, where the name was.
-    let font = theme::font(Weight::Medium, 13.0);
-    let tall = ui.fonts_mut(|fonts| fonts.row_height(&font));
-    // Inside the frame: a field without one keeps no margin of its own.
-    let text = egui::Rect::from_center_size(place.center(), vec2(place.width() - 14.0, tall));
-    let mut over = ui.new_child(egui::UiBuilder::new().max_rect(text));
-    over.spacing_mut().interact_size.y = 0.0;
-    let field = over.add(
-        TextEdit::singleline(name)
-            .id(id)
-            .frame(Frame::NONE)
-            .margin(Margin::ZERO)
-            .font(font)
-            .desired_width(text.width()),
-    );
-    let edge = if wrong { theme.danger } else { theme.accent };
-    ui.painter().rect_stroke(
-        place,
-        CornerRadius::same(6),
-        Stroke::new(1.0, edge),
-        egui::StrokeKind::Inside,
-    );
-    field
-}
-
-/// A folder in a list: an arrow that points down when it is open, a folder,
-/// its name and how many it holds, `depth` folders in. Faded unless
-/// `active`; marked as a thing of the list is when `selected`. Room is left
-/// at the right for its switch.
-pub struct FolderRow<'a> {
-    pub name: &'a str,
-    pub depth: usize,
-    pub open: bool,
-    pub active: bool,
-    pub count: usize,
-    pub selected: bool,
-    /// As for a [`ListRow`].
-    pub key: Option<egui::Id>,
-    pub current: bool,
-    pub place: Option<(usize, usize)>,
-}
-
-impl FolderRow<'_> {
-    pub fn show(self, ui: &mut Ui) -> Response {
-        let theme = theme::current();
-        let response = list_line(ui, FOLDER_ROW, self.key, self.current);
-        let rect = response.rect;
-        // Open or closed, not ticked; chosen; how many it holds, and
-        // whether it is off, as it is seen.
-        response.widget_info(|| WidgetInfo::labeled(Role::TreeItem, ui.is_enabled(), self.name));
-        (ui.ctx()).accesskit_node_builder(response.id, |node| {
-            node.set_expanded(self.open);
-            node.set_selected(self.selected);
-            if let Some(place) = self.place {
-                tree_place(node, self.depth, place);
-            }
-            let mut about: Vec<String> = folded_words(self.open)
-                .map(str::to_owned)
-                .into_iter()
-                .collect();
-            about.push(crate::i18n::trn("{0} item", "{0} items", self.count as u64));
-            if !self.active {
-                about.push(crate::i18n::tr("Disabled").to_owned());
-            }
-            about.extend(level_words(self.depth));
-            node.set_description(about.join(", "));
-        });
-        if !ui.is_rect_visible(rect) {
-            return response;
-        }
-        let body = indented(ui, rect, self.depth);
-        line_backdrop(ui, body, self.selected, response.hovered());
-        let fade = if self.active { 1.0 } else { 0.45 };
-        let ink = theme.text_dim.gamma_multiply(fade);
-        let stroke = Stroke::new(1.4, ink);
-        let tip = body.left_center() + vec2(12.0, 0.0);
-        let arrow = match self.open {
-            true => vec![
-                tip + vec2(-4.0, -2.0),
-                tip + vec2(0.0, 2.0),
-                tip + vec2(4.0, -2.0),
-            ],
-            false => vec![
-                tip + vec2(-2.0, -4.0),
-                tip + vec2(2.0, 0.0),
-                tip + vec2(-2.0, 4.0),
-            ],
-        };
-        ui.painter().add(egui::Shape::line(arrow, stroke));
-        draw_folder(ui.painter(), body.left_center() + vec2(30.0, 0.0), stroke);
-        let painter = ui
-            .painter()
-            .with_clip_rect(body.with_max_x(body.right() - 80.0));
-        painter.text(
-            body.left_center() + vec2(42.0, 0.0),
-            egui::Align2::LEFT_CENTER,
-            self.name,
-            theme::font(Weight::Medium, 13.0),
-            theme.text.gamma_multiply(fade),
-        );
-        ui.painter().text(
-            body.right_center() - vec2(58.0, 0.0),
-            egui::Align2::RIGHT_CENTER,
-            self.count.to_string(),
-            theme::font(Weight::Regular, 11.5),
-            theme.text_faint,
-        );
-        response
-    }
-}
-
-/// A saved profile to pick, as a card: a coloured initial, its name,
-/// where it leads.
-pub fn profile_card(ui: &mut Ui, width: f32, name: &str, place: &str) -> Response {
-    let theme = theme::current();
-    let (rect, response) = ui.allocate_exact_size(vec2(width, 68.0), Sense::click());
-    response.widget_info(|| WidgetInfo::labeled(Role::Button, ui.is_enabled(), name));
-    // Where it leads, as it is seen under its name.
-    (ui.ctx()).accesskit_node_builder(response.id, |node| node.set_description(place));
-    if ui.is_rect_visible(rect) {
-        let hovered = response.hovered() || response.has_focus();
-        let lift = ui.ctx().animate_bool_with_time(response.id, hovered, 0.12);
-        let hue = profile_hue(name);
-        let painter = ui.painter();
-        let fill = theme::mix(theme.raised, theme.hover, lift);
-        painter.rect_filled(rect, CornerRadius::same(14), fill);
-        let edge = theme::mix(theme.border, hue, lift * 0.7);
-        painter.rect_stroke(
-            rect,
-            CornerRadius::same(14),
-            Stroke::new(1.0, edge),
-            egui::StrokeKind::Inside,
-        );
-        let tile =
-            egui::Rect::from_center_size(rect.left_center() + vec2(35.0, 0.0), Vec2::splat(40.0));
-        initial_tile(painter, tile, name, fill);
-        let painter = painter.with_clip_rect(rect.shrink2(vec2(12.0, 0.0)));
-        two_lines(
-            &painter,
-            rect.left() + 68.0,
-            rect.center().y,
-            (name, 14.5),
-            (place, 12.5),
-        );
-    }
-    response
-}
-
-/// A saved profile in the list of the Profiles window: its coloured
-/// initial, its name and where it leads, lit up when chosen or under the
-/// pointer, and a dot when a session plays with it.
-pub fn profile_row(ui: &mut Ui, selected: bool, name: &str, place: &str, in_use: bool) -> Response {
-    let theme = theme::current();
-    let (rect, response) = ui.allocate_exact_size(vec2(ui.available_width(), 52.0), Sense::click());
-    let said = match in_use {
-        true => format!("{name}, {place}, {}", crate::i18n::tr("In use")),
-        false => format!("{name}, {place}"),
-    };
-    response.widget_info(|| WidgetInfo::selected(Role::Tab, ui.is_enabled(), selected, &said));
-    if !ui.is_rect_visible(rect) {
-        return response;
-    }
-    let hovered = response.hovered() || response.has_focus();
-    let fill = match (selected, hovered) {
-        (true, _) => theme.raised,
-        (false, true) => theme.raised.gamma_multiply(0.6),
-        (false, false) => Color32::TRANSPARENT,
-    };
-    let painter = ui.painter();
-    painter.rect_filled(rect, CornerRadius::same(8), fill);
-    let tile =
-        egui::Rect::from_center_size(rect.left_center() + vec2(24.0, 0.0), Vec2::splat(32.0));
-    initial_tile(
-        painter,
-        tile,
-        name,
-        theme::mix(theme.surface, fill, fill.a() as f32 / 255.0),
-    );
-    let clip = rect.with_max_x(rect.right() - if in_use { 24.0 } else { 10.0 });
-    two_lines(
-        &painter.with_clip_rect(clip),
-        rect.left() + 50.0,
-        rect.center().y,
-        (name, 13.5),
-        (place, 12.0),
-    );
-    if in_use {
-        painter.circle_filled(rect.right_center() - vec2(14.0, 0.0), 3.5, theme.accent);
-    }
-    response
-}
-
-/// A profile's initial on a tile of its colour, over `ground`.
-pub fn initial_tile(painter: &egui::Painter, tile: egui::Rect, name: &str, ground: Color32) {
-    let hue = profile_hue(name);
-    let radius = CornerRadius::same((tile.height() * 0.28) as u8);
-    painter.rect_filled(tile, radius, theme::mix(ground, hue, 0.22));
-    let initial: String = name.chars().take(1).flat_map(char::to_uppercase).collect();
-    let size = tile.height() * 0.4;
-    painter.text(
-        tile.center(),
-        egui::Align2::CENTER_CENTER,
-        initial,
-        theme::font(Weight::Semibold, size),
-        hue,
-    );
-}
-
-/// The colour of a profile: the same name always gets the same one.
-fn profile_hue(name: &str) -> Color32 {
-    let hues = [12, 10, 11, 13, 14, 9];
-    let sum: usize = name.bytes().map(usize::from).sum();
-    theme::current().terminal[hues[sum % hues.len()]]
-}
-
-/// A name, and a line about it under it, starting at `left` and centred
-/// on `middle`; the sizes of their type are given with them.
-fn two_lines(
-    painter: &egui::Painter,
-    left: f32,
-    middle: f32,
-    (name, big): (&str, f32),
-    (under, small): (&str, f32),
-) {
-    let theme = theme::current();
-    let at = |dy: f32| egui::pos2(left, middle + dy);
-    painter.text(
-        at(-9.0),
-        egui::Align2::LEFT_CENTER,
-        name,
-        theme::font(Weight::Medium, big),
-        theme.text,
-    );
-    painter.text(
-        at(10.0),
-        egui::Align2::LEFT_CENTER,
-        under,
-        theme::font(Weight::Regular, small),
-        theme.text_dim,
-    );
-}
-
-/// A dot that says at a glance how something is doing.
-pub fn status_dot(ui: &mut Ui, colour: Color32) {
-    let (rect, _) = ui.allocate_exact_size(Vec2::splat(8.0), Sense::hover());
-    ui.painter().circle_filled(rect.center(), 3.5, colour);
 }

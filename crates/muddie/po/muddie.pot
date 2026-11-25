@@ -11,22 +11,6 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-msgid "Tab inserts a tab. To move to the next control, press Escape and then Tab."
-msgstr ""
-
-msgid "Line"
-msgstr ""
-
-msgid "Editor height"
-msgstr ""
-
-#, python-brace-format
-msgid "{0} lines"
-msgstr ""
-
-msgid "Fits its contents"
-msgstr ""
-
 msgid "Add a tag"
 msgstr ""
 
@@ -61,9 +45,6 @@ msgstr ""
 msgid "Off"
 msgstr ""
 
-msgid "In use"
-msgstr ""
-
 msgid "Palette"
 msgstr ""
 
@@ -77,6 +58,25 @@ msgid "Copied"
 msgstr ""
 
 msgid "Copy"
+msgstr ""
+
+msgid "In use"
+msgstr ""
+
+msgid "Tab inserts a tab. To move to the next control, press Escape and then Tab."
+msgstr ""
+
+msgid "Line"
+msgstr ""
+
+msgid "Editor height"
+msgstr ""
+
+#, python-brace-format
+msgid "{0} lines"
+msgstr ""
+
+msgid "Fits its contents"
 msgstr ""
 
 msgid "Latest lines"
