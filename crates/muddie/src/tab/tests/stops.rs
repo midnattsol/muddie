@@ -480,3 +480,5 @@ fn every_panel_is_come_to_whatever_side_it_is_on() {
         assert!(met.contains(&"Minimapa".to_owned()), "{side:?}: {met:?}");
     }
 }
+
+mod small;
