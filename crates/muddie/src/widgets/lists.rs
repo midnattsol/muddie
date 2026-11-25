@@ -204,15 +204,9 @@ pub(super) fn folded_words(open: bool) -> Option<&'static str> {
 }
 
 impl ListRow<'_> {
-    pub fn show(self, ui: &mut Ui) -> Response {
-        let theme = theme::current();
-        let height = if self.detail.is_empty() && self.parts.is_empty() {
-            34.0
-        } else {
-            48.0
-        };
-        let response = list_line(ui, height, self.key, self.current);
-        let rect = response.rect;
+    /// Tells a screen reader what the line is, whether it is chosen, and
+    /// what is said under its title.
+    fn describe(&self, ui: &Ui, response: &Response) {
         // Chosen, not ticked; what it does, and whether it is off, as it is
         // seen under its title and faded.
         let role = match self.place {
@@ -236,6 +230,57 @@ impl ListRow<'_> {
                 node.set_description(about.join(", "));
             }
         });
+    }
+
+    /// Draws under the title the parts of the line, or else its detail.
+    fn second_line(
+        &self,
+        painter: &egui::Painter,
+        (left, line_y): (f32, f32),
+        (fade, ink): (f32, Color32),
+        theme: &theme::Theme,
+    ) {
+        if !self.parts.is_empty() {
+            let mut at = left;
+            for (glyph, text) in self.parts {
+                let mark = paint_glyph(
+                    painter,
+                    egui::pos2(at, line_y),
+                    egui::Align2::LEFT_CENTER,
+                    *glyph,
+                    10.5,
+                    theme.text_faint.gamma_multiply(fade),
+                );
+                let words = painter.text(
+                    egui::pos2(mark.right() + 5.0, line_y),
+                    egui::Align2::LEFT_CENTER,
+                    text,
+                    theme::font(Weight::Regular, 12.0),
+                    ink,
+                );
+                at = words.right() + 12.0;
+            }
+        } else if !self.detail.is_empty() {
+            painter.text(
+                egui::pos2(left, line_y),
+                egui::Align2::LEFT_CENTER,
+                self.detail,
+                theme::font(Weight::Regular, 12.0),
+                ink,
+            );
+        }
+    }
+
+    pub fn show(self, ui: &mut Ui) -> Response {
+        let theme = theme::current();
+        let height = if self.detail.is_empty() && self.parts.is_empty() {
+            34.0
+        } else {
+            48.0
+        };
+        let response = list_line(ui, height, self.key, self.current);
+        let rect = response.rect;
+        self.describe(ui, &response);
         if !ui.is_rect_visible(rect) {
             return response;
         }
@@ -267,59 +312,37 @@ impl ListRow<'_> {
         }
         // Off, it says so at the right, besides being faded.
         if !self.active {
-            let galley = painter.layout_no_wrap(
-                crate::i18n::tr("Off").to_owned(),
-                theme::font(Weight::Medium, 10.5),
-                theme.text_faint,
-            );
-            let pill = egui::Rect::from_min_size(
-                egui::pos2(
-                    body.right() - galley.size().x - 22.0,
-                    title_y - galley.size().y / 2.0 - 2.0,
-                ),
-                galley.size() + vec2(12.0, 4.0),
-            );
-            painter.rect_stroke(
-                pill,
-                CornerRadius::same(255),
-                Stroke::new(1.0, theme.border),
-                egui::StrokeKind::Inside,
-            );
-            painter.galley(pill.min + vec2(6.0, 2.0), galley, theme.text_faint);
+            off_pill(&painter, body, title_y, &theme);
         }
         let line_y = body.top() + 33.0;
         let ink = theme.text_dim.gamma_multiply(fade);
-        if !self.parts.is_empty() {
-            let mut at = left;
-            for (glyph, text) in self.parts {
-                let mark = paint_glyph(
-                    &painter,
-                    egui::pos2(at, line_y),
-                    egui::Align2::LEFT_CENTER,
-                    *glyph,
-                    10.5,
-                    theme.text_faint.gamma_multiply(fade),
-                );
-                let words = painter.text(
-                    egui::pos2(mark.right() + 5.0, line_y),
-                    egui::Align2::LEFT_CENTER,
-                    text,
-                    theme::font(Weight::Regular, 12.0),
-                    ink,
-                );
-                at = words.right() + 12.0;
-            }
-        } else if !self.detail.is_empty() {
-            painter.text(
-                egui::pos2(left, line_y),
-                egui::Align2::LEFT_CENTER,
-                self.detail,
-                theme::font(Weight::Regular, 12.0),
-                ink,
-            );
-        }
+        self.second_line(&painter, (left, line_y), (fade, ink), &theme);
         response
     }
+}
+
+/// Draws at the right of a line the pill that says it is off, centred on
+/// `title_y`.
+fn off_pill(painter: &egui::Painter, body: egui::Rect, title_y: f32, theme: &theme::Theme) {
+    let galley = painter.layout_no_wrap(
+        crate::i18n::tr("Off").to_owned(),
+        theme::font(Weight::Medium, 10.5),
+        theme.text_faint,
+    );
+    let pill = egui::Rect::from_min_size(
+        egui::pos2(
+            body.right() - galley.size().x - 22.0,
+            title_y - galley.size().y / 2.0 - 2.0,
+        ),
+        galley.size() + vec2(12.0, 4.0),
+    );
+    painter.rect_stroke(
+        pill,
+        CornerRadius::same(255),
+        Stroke::new(1.0, theme.border),
+        egui::StrokeKind::Inside,
+    );
+    painter.galley(pill.min + vec2(6.0, 2.0), galley, theme.text_faint);
 }
 
 /// Draws a line down for each folder a row is in, and returns the part of
