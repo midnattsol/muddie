@@ -217,3 +217,62 @@ fn doors_areas_and_leaving_the_map_are_said() {
     assert!(!app.map_view.exploring());
     assert_eq!(app.voice.said, ["Left the map."]);
 }
+
+/// A room of the map is said to be where the player is, from its menu: with
+/// the pointer or, exploring, the keys. Nothing is sent, and a walk on its
+/// way from somewhere else stops.
+#[test]
+fn the_player_says_on_the_map_where_they_are() {
+    let mut harness = window(None);
+    harness.set_size(egui::vec2(1300.0, 860.0));
+    let app = harness.state_mut().tab_mut();
+    let (_events, mut sent) = fake_connection(app);
+    desert(app);
+    app.voice.force_voice();
+    assert!(app.map.borrow_mut().set_current(1));
+    harness.run_steps(3);
+    harness.key_press_modifiers(crate::shortcuts::WITH_KEY, Key::E);
+    harness.run_steps(3);
+    // Not of the room they are in.
+    harness.key_press_modifiers(Modifiers::SHIFT, Key::F10);
+    harness.run_steps(3);
+    assert!(harness.query_by_label("Go here").is_some());
+    assert!(harness.query_by_label("I am here").is_none());
+    harness.key_press(Key::Escape);
+    harness.run_steps(3);
+    // Walking, two rooms away.
+    harness.state_mut().tab_mut().walk_to(3);
+    while sent.try_recv().is_ok() {}
+    assert!(harness.state().tab().walk.is_some());
+    harness.key_press(Key::ArrowRight);
+    harness.run_steps(3);
+    harness.key_press_modifiers(Modifiers::SHIFT, Key::F10);
+    harness.run_steps(3);
+    harness.state_mut().tab_mut().voice.said.clear();
+    harness.get_by_label("I am here").click();
+    harness.run_steps(3);
+    let app = harness.state_mut().tab_mut();
+    assert_eq!(app.map.borrow().current().map(|room| room.id), Some(2));
+    assert!(app.walk.is_none());
+    assert!(sent.try_recv().is_err(), "nothing is sent");
+    let said = app.voice.said.join(" | ");
+    assert!(
+        said.contains("Stopped.") && said.contains("Dunas"),
+        "{said}"
+    );
+    // Lost, it is found, and told of once.
+    app.lost_track();
+    app.here("3");
+    let last = notes(app);
+    let told = last
+        .iter()
+        .filter(|note| note.contains("knows where you are again"))
+        .count();
+    assert_eq!(told, 0, "{last:?}");
+    assert!(!app.map_source.lost);
+    // Said in the palette, a walk stops too.
+    app.walk_to(1);
+    while sent.try_recv().is_ok() {}
+    app.here("2");
+    assert!(app.walk.is_none() && sent.try_recv().is_err());
+}

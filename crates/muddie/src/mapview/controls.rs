@@ -130,6 +130,10 @@ impl MapView {
             info,
             MapAsk::Info(room.id),
         );
+        // For a map that has the player in another, or in none.
+        if map.current().map(|room| room.id) != Some(room.id) {
+            item(ui, tr("I am here"), "", MapAsk::Here(room.id));
+        }
         let mut asked = None;
         if widgets::menu_item(ui, tr("Mark…"), crate::shortcuts::MARK.written()).clicked() {
             asked = Some(explore::Asked::Mark);

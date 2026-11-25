@@ -258,6 +258,7 @@ impl Tab {
                     self.voice.say_now(&told);
                 }
             }
+            Some(MapAsk::Here(room)) => self.put_in(room),
             Some(MapAsk::Way(room)) => self.say_route(&room.to_string()),
             Some(MapAsk::NoExit(way)) => {
                 let way = crate::mapview::direction_words(&self.map.borrow(), way);

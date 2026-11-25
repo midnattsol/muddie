@@ -59,6 +59,8 @@ pub enum MapAsk {
     Selected(RoomId, Option<RoomId>),
     /// Say the way to this room, without going.
     Way(RoomId),
+    /// The player is in this room, as they say.
+    Here(RoomId),
     /// The room chosen has no exit this way, as asked with the keys.
     NoExit(&'static str),
     /// Leave the map for the command line, with what was typed on it.

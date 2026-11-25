@@ -2372,6 +2372,9 @@ msgstr "Dejar de ir"
 msgid "Go here"
 msgstr "Ir aquí"
 
+msgid "I am here"
+msgstr "Estoy aquí"
+
 msgid "On the way"
 msgstr "De camino"
 

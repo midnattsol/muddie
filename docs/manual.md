@@ -664,7 +664,7 @@ is what a name begins with, as Anduar in "Anduar: Plaza Mayor".
 | Shift+F10, or the menu key | The room's menu, as a right click: all that is done with it, and each of its exits, in, out and those of a name of their own too, to follow |
 | Escape, or typing | Back to the command line, with what was typed; while walking, Escape stops first |
 | Double-click a room | Goes there, one move at a time, waiting for each to succeed |
-| Right-click a room | Go here, the way there, what the map knows of it, Mark…, Note…, keep routes off, Appearance…, each exit to follow, Tidy this area, Show all areas |
+| Right-click a room | Go here, the way there, what the map knows of it, I am here, which tells the map where you are, Mark…, Note…, keep routes off, Appearance…, each exit to follow, Tidy this area, Show all areas |
 | Drag | Moves the view; the wheel zooms |
 | Shift+drag a room | Moves it to another cell |
 | ▲ and ▼, over the map's top right corner | Look at the level above or below, said; **Back to my position**, at the top left, returns |

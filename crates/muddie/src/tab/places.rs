@@ -26,9 +26,7 @@ impl Tab {
                 Ok(id) => id,
                 Err(why) => return self.refuse(&why),
             };
-            self.map.borrow_mut().set_current(id);
-            self.arrived_in(id);
-            return self.say_where();
+            return self.put_in(id);
         }
         let rooms: Vec<(String, String, String)> = {
             let map = self.map.borrow();
@@ -55,6 +53,18 @@ impl Tab {
         for (text, about, command) in rooms {
             self.offer(&text, &about, &command);
         }
+    }
+
+    /// Puts the player in a room, as they say they are, and says so: what
+    /// they said is not told again as found. A walk stops, for it was on its
+    /// way from somewhere else.
+    pub(super) fn put_in(&mut self, room: RoomId) {
+        if self.walk.take().is_some() {
+            self.note(tr("Stopped."));
+        }
+        self.map.borrow_mut().set_current(room);
+        self.map_source.lost = false;
+        self.say_where();
     }
 
     /// Says the way to a place, without going.
