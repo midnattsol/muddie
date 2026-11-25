@@ -35,11 +35,16 @@ about = { en = "Its gauges and its map.", es = "Sus indicadores y su mapa." }
 default_on = false              # on in every profile until switched off
 hosts = ["mymud.example.org"]   # offered when connecting to these…
 names = ["my mud"]              # …or to a MUD that says it is called so
+muddie = "0.4.0"                # the least version of Muddie it is made for
 ```
 
 `name` and `about` are a text, or one by language as for `tr`; with no
 `plugin.toml`, the plugin is called as its folder. Those that come with
-Muddie are written the same way, in `crates/muddie/plugins`. Installed in a profile, its
+Muddie are written the same way, in `crates/muddie/plugins`; the official
+ones are downloaded from a zip with a folder for each (`<id>/plugin.toml`,
+`<id>/*.luau`, `<id>/rules.toml` and, to bring a template for New profile,
+`<id>/template.toml`). A plugin that asks for a newer `muddie` than the one
+running is kept as it is and not updated. Installed in a profile, its
 scripts go in a folder of its name among the profile's, and its gauges in a
 folder of that name among the profile's gauges.
 

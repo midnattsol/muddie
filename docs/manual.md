@@ -88,12 +88,14 @@ session plays with, and the one chosen at the right. Its page has its name,
   off or every so often, so that an idle connection is not closed; the
   **Session log**, off, as text or as HTML; and **Download sounds** the MUD
   asks for.
-- **Plugins**: those that come with Muddie and those downloaded with
+- **Plugins**: those that come with Muddie, the official ones Muddie
+  downloads and keeps up to date by itself, and those you download with
   **Install a plugin…** and the address of their git repository, all alike.
   Each has a switch that enables it in that profile; its menu installs it
-  again as it comes, and for one downloaded updates it or removes it from the
-  profile; **Update all** updates those downloaded. Only install what you
-  trust: a plugin can send commands as you.
+  again as it comes, and for one from git updates it or removes it from the
+  profile; **Update all** updates those from git, and **Check for plugin
+  updates** looks for newer official ones. Only install what you trust: a
+  plugin can send commands as you.
 
 What is changed there is kept as it is changed, with no button to press, and
 a session playing with that profile takes it. While the session on screen is
@@ -106,18 +108,20 @@ has its own scripts, triggers, map and remembered values, all under
 `profiles/<name>/` in the configuration folder (`~/.config/muddie` on Linux,
 `%APPDATA%\muddie` on Windows).
 
-Muddie comes with a template for Reinos de Leyenda. More are read from the
-`templates` folder of the configuration folder, one TOML file each; one of
-the same name as one that comes takes its place:
+Templates come with the official plugins that bring one, as a
+`template.toml` in their folder, so a game that has one appears in
+**Game** as soon as it is downloaded, with no restart. More are read from
+the `templates` folder of the configuration folder, one TOML file each; one
+of the same name as one that comes takes its place:
 
 ```toml
-name = "Reinos de Leyenda"
-host = "reinosdeleyenda.es"
-port = 5001
+name = "Some Game"
+host = "mud.example.org"
+port = 4000
 tls = false                       # optional
 encoding = "auto"                 # optional
-language = "es"                   # optional: the language the game is played in
-plugins = ["reinos-de-leyenda"]   # optional: plugins that come with Muddie
+language = "en"                   # optional: the language the game is played in
+plugins = ["some-game"]           # optional: the plugins switched on, by id
 ```
 
 With a character name saved, Muddie answers the first prompt with it. The
@@ -212,8 +216,8 @@ What it does, by group:
 - **Panels**: each shown or hidden.
 - **Scripts**: run Lua…, restart scripts, and each tag on or off for the
   session.
-- **Plugins**: each on or off in the profile; install, update or remove
-  one.
+- **Plugins**: each on or off in the profile; check for plugin updates;
+  install, update or remove one from git.
 - **Settings**, each page; **Help**: the keyboard shortcuts and About.
 
 ## The editor: triggers, aliases, macros, timers, gauges, variables and scripts
@@ -461,20 +465,47 @@ gauge made in the editor says what it is, and pressing it opens it.
 
 Muddie itself knows the ways of no MUD in particular: those are plugins, in
 each profile's **Plugins** tab in the Profiles window, switched on and off
-per profile, whether they come with Muddie or were downloaded. A plugin is
-scripts, and a `rules.toml` with the gauges it brings, if any; one
-downloaded is the repository it was downloaded from, kept in the `plugins`
-folder, and is installed in a profile as the others are. What a plugin installs goes in a
-folder of its name, among the scripts and among the gauges: switched off, the
-plugin switches those folders off, and what you switched off in them stays so
-when it is on again. Two come with it.
+per profile, whether they come with Muddie, are official or were downloaded
+from git. A plugin is scripts, and a `rules.toml` with the gauges it brings,
+if any. One from git is the repository it was downloaded from, kept in the
+`plugins` folder; an official one is downloaded by Muddie as a small zip from
+a release of the Muddie plugins on GitHub, and kept in the `official-plugins`
+folder of the configuration folder. Both are installed in a profile as the
+others are; if a plugin from git has the id of an official one, the one from
+git is used. What a plugin installs goes in a folder of its name, among the
+scripts and among the gauges: switched off, the plugin switches those folders
+off, and what you switched off in them stays so when it is on again.
+
+**Official plugins** are looked for each time Muddie starts, unless **Update
+plugins automatically** is off in the General settings, and on demand with
+**Check for plugin updates**, in the palette and in the profile's plugins,
+which says how it went. Nothing is touched unless what arrives is whole and
+right: offline, an error, a damaged zip or a plugin that does not read leave
+what is on disk as it is. A zip with anything unsafe in it, such as a path
+that leaves its folder, a link or an oversized file, is refused whole; what
+this Muddie does not know in it is left out. A
+plugin may ask for a version of Muddie, with `muddie = "0.4.0"` in its
+`plugin.toml`; if this Muddie is older, the copy on disk is kept and Muddie
+says so once.
+
+A profile that is not connected takes a new version at once, as it does when
+opened, keeping what you changed in its scripts beside them as
+`.before-update`. A connected one is never changed in the middle of a game:
+it takes it the next time the profile is opened. If a plugin for the MUD
+arrives while you are connected, it is offered as any other. The first time
+you connect, if nothing was ever downloaded and the download is on its way,
+Muddie says **Downloading plugins…** and waits up to five seconds before
+connecting either way; disconnecting meanwhile cancels connecting.
+
+Included in Muddie is one plugin, and the official ones, such as the one for
+Reinos de Leyenda, are downloaded.
 
 - **Standard GMCP and MSDP** makes something of what many MUDs send the same
   way: `Char.Vitals` and the MSDP vitals as gauges, which are in the editor
   to change like your own, `Room.Info` and MSDP `ROOM` as the map,
   `Comm.Channel.Text` as channels. It is on in a new profile; switched off,
   the client makes nothing of them by itself, and scripts still get them.
-- **Reinos de Leyenda** gives that MUD its gauges, in two panels: **Puntos**,
+- **Reinos de Leyenda**, official, gives that MUD its gauges, in two panels: **Puntos**,
   life, energy, and faith for a character who has it, and **Efectos**, the
   states the character is in, the worst first, each with what it is. It shows
   its channels, each in
@@ -505,7 +536,7 @@ named after it, its gauges among those of **Gauges**, in the panels they
 name: one of that name, the panel of gauges the profile came with if
 nothing is shown in it, or a new one. They are the
 profile's to change, as any of yours; switching the plugin off switches
-them off. When a new version of Muddie brings changes to it, it is
+them off. When a new version of it comes, with Muddie or downloaded, it is
 brought up to date by itself as the profile is opened, keeping what you
 added; a script of it you changed is kept beside it, in a file ending in
 `.before-update`. **Install again**, in its menu, puts back what it
@@ -829,7 +860,8 @@ its pages; each profile's are in the Profiles window. A row says what it
 is at the left, with what it does under it when that needs saying, and has
 its control at the right.
 
-- **General**: the language, and the interface scale.
+- **General**: the language, the interface scale, and whether official
+  plugins are updated automatically.
 - **Appearance**: the theme (Dark, Graphite, Mocha, Dusk, Tokyo Night, Nord,
   Light, High contrast), and for the text of the MUD its colours, its font
   (MesloLGS NF unless another is chosen: JetBrains Mono, which also comes
