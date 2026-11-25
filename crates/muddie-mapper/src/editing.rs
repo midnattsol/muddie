@@ -57,33 +57,7 @@ impl Map {
                 .filter(|id| !self.rooms.contains_key(id))
                 .count(),
         };
-        for (id, old) in &self.rooms {
-            let Some(room) = rooms.get_mut(id) else {
-                continue;
-            };
-            room.avoid |= old.avoid;
-            if old.styled {
-                room.colour = old.colour;
-                room.shape = old.shape;
-                room.symbol.clone_from(&old.symbol);
-                room.styled = true;
-            } else {
-                room.colour = room.colour.or(old.colour);
-            }
-            if room.note.is_empty() {
-                room.note.clone_from(&old.note);
-            }
-            if old.renamed {
-                room.name.clone_from(&old.name);
-                room.renamed = true;
-                replaced.renamed += 1;
-            }
-            for (direction, exit) in old.exits.iter().filter(|(_, exit)| exit.custom) {
-                room.exits
-                    .entry(direction.clone())
-                    .or_insert_with(|| exit.clone());
-            }
-        }
+        self.carry_user_settings(&mut rooms, &mut replaced);
         let carried = self.carry_added(&mut rooms);
         let now = |id: RoomId| carried.joined.get(&id).copied().unwrap_or(id);
         replaced.rooms = rooms.len();
@@ -112,6 +86,38 @@ impl Map {
             self.mark(&name, id)?;
         }
         Ok(replaced)
+    }
+
+    /// Carries over to the new rooms what the user set on the ones they
+    /// replace, counting the names given.
+    fn carry_user_settings(&self, rooms: &mut HashMap<RoomId, Room>, replaced: &mut Replaced) {
+        for (id, old) in &self.rooms {
+            let Some(room) = rooms.get_mut(id) else {
+                continue;
+            };
+            room.avoid |= old.avoid;
+            if old.styled {
+                room.colour = old.colour;
+                room.shape = old.shape;
+                room.symbol.clone_from(&old.symbol);
+                room.styled = true;
+            } else {
+                room.colour = room.colour.or(old.colour);
+            }
+            if room.note.is_empty() {
+                room.note.clone_from(&old.note);
+            }
+            if old.renamed {
+                room.name.clone_from(&old.name);
+                room.renamed = true;
+                replaced.renamed += 1;
+            }
+            for (direction, exit) in old.exits.iter().filter(|(_, exit)| exit.custom) {
+                room.exits
+                    .entry(direction.clone())
+                    .or_insert_with(|| exit.clone());
+            }
+        }
     }
 
     /// Gives a room a name of the user's in place of the one it has, which

@@ -98,77 +98,11 @@ impl Map {
             return Err(Refused::Known(exit.to));
         }
         let exits = self.exit_set(seen.exits);
-        // Called the same, as rooms are found by name, and with the exits
-        // seen, as rooms are recognised: those off the compass are the
-        // user's, and the game does not show them.
-        let called: std::collections::HashSet<RoomId> = self.called(name).into_iter().collect();
-        let alike = |room: &Room| {
-            room.id != here.id && called.contains(&room.id) && self.shows_exits(room.id, &exits)
-        };
+        let found = self.rooms_alike(&here, &came, name, &exits)?;
         let step = direction_offset(&came);
-        let mut found: Vec<RoomId> = match step {
-            Some(step) => {
-                let back = (DIRECTIONS.iter())
-                    .find(|known| known.step == Some((-step.0, -step.1, -step.2)))
-                    .map(|known| known.key);
-                // Its way back, if it has one, leads here or nowhere known.
-                let unclaimed = |room: &Room| {
-                    let back = back.and_then(|back| room.exits.get(back));
-                    back.is_none_or(|exit| exit.to == here.id || !self.rooms.contains_key(&exit.to))
-                };
-                let that_way = |room: &Room| {
-                    room.area == here.area
-                        && (here.pos.steps_to(room.pos, step))
-                            .is_some_and(|steps| steps <= placing::MAX_STRETCH)
-                };
-                (self.rooms.values())
-                    .filter(|room| that_way(room) && alike(room) && unclaimed(room))
-                    .map(|room| room.id)
-                    .collect()
-            }
-            None => {
-                let anywhere: Vec<RoomId> = (self.rooms.values())
-                    .filter(|room| alike(room))
-                    .map(|room| room.id)
-                    .collect();
-                if !anywhere.is_empty() {
-                    let mut anywhere = anywhere;
-                    anywhere.sort_unstable();
-                    return Err(Refused::Alike(anywhere));
-                }
-                anywhere
-            }
-        };
-        found.sort_unstable();
         let (added, made) = match found.as_slice() {
             [] => {
-                let id = self.next_added_id();
-                let pos = match step {
-                    Some(step) => self.free_along(&here.area, here.pos, step, 1),
-                    None => self.free_beside(&here.area, here.pos),
-                };
-                let unexplored = Exit {
-                    to: UNEXPLORED,
-                    ..Exit::default()
-                };
-                let room = Room {
-                    id,
-                    name: name.to_owned(),
-                    area: here.area.clone(),
-                    pos,
-                    exits: (exits.into_iter())
-                        .map(|direction| (direction, unexplored.clone()))
-                        .collect(),
-                    cost: 0,
-                    avoid: false,
-                    colour: None,
-                    note: String::new(),
-                    renamed: false,
-                    added: true,
-                    shape: None,
-                    symbol: String::new(),
-                    styled: false,
-                };
+                let (id, room) = self.new_room(&here, name, step, exits);
                 (Added::Made(id), Some(room))
             }
             [one] => (Added::Found(*one), None),
@@ -204,6 +138,100 @@ impl Map {
         Ok(added)
     }
 
+    /// The rooms that the room shown may be, found going the way `came`
+    /// from `here`; refused if that is no way of the compass and there is
+    /// one like it anywhere.
+    fn rooms_alike(
+        &self,
+        here: &Room,
+        came: &str,
+        name: &str,
+        exits: &BTreeSet<String>,
+    ) -> Result<Vec<RoomId>, Refused> {
+        // Called the same, as rooms are found by name, and with the exits
+        // seen, as rooms are recognised: those off the compass are the
+        // user's, and the game does not show them.
+        let called: std::collections::HashSet<RoomId> = self.called(name).into_iter().collect();
+        let alike = |room: &Room| {
+            room.id != here.id && called.contains(&room.id) && self.shows_exits(room.id, exits)
+        };
+        let step = direction_offset(came);
+        let mut found: Vec<RoomId> = match step {
+            Some(step) => {
+                let back = (DIRECTIONS.iter())
+                    .find(|known| known.step == Some((-step.0, -step.1, -step.2)))
+                    .map(|known| known.key);
+                // Its way back, if it has one, leads here or nowhere known.
+                let unclaimed = |room: &Room| {
+                    let back = back.and_then(|back| room.exits.get(back));
+                    back.is_none_or(|exit| exit.to == here.id || !self.rooms.contains_key(&exit.to))
+                };
+                let that_way = |room: &Room| {
+                    room.area == here.area
+                        && (here.pos.steps_to(room.pos, step))
+                            .is_some_and(|steps| steps <= placing::MAX_STRETCH)
+                };
+                (self.rooms.values())
+                    .filter(|room| that_way(room) && alike(room) && unclaimed(room))
+                    .map(|room| room.id)
+                    .collect()
+            }
+            None => {
+                let anywhere: Vec<RoomId> = (self.rooms.values())
+                    .filter(|room| alike(room))
+                    .map(|room| room.id)
+                    .collect();
+                if !anywhere.is_empty() {
+                    let mut anywhere = anywhere;
+                    anywhere.sort_unstable();
+                    return Err(Refused::Alike(anywhere));
+                }
+                anywhere
+            }
+        };
+        found.sort_unstable();
+        Ok(found)
+    }
+
+    /// A room as the map adds it, new and unexplored, beside `here` in
+    /// the way of `step`, with the exits seen.
+    fn new_room(
+        &self,
+        here: &Room,
+        name: &str,
+        step: Option<(i32, i32, i32)>,
+        exits: BTreeSet<String>,
+    ) -> (RoomId, Room) {
+        let id = self.next_added_id();
+        let pos = match step {
+            Some(step) => self.free_along(&here.area, here.pos, step, 1),
+            None => self.free_beside(&here.area, here.pos),
+        };
+        let unexplored = Exit {
+            to: UNEXPLORED,
+            ..Exit::default()
+        };
+        let room = Room {
+            id,
+            name: name.to_owned(),
+            area: here.area.clone(),
+            pos,
+            exits: (exits.into_iter())
+                .map(|direction| (direction, unexplored.clone()))
+                .collect(),
+            cost: 0,
+            avoid: false,
+            colour: None,
+            note: String::new(),
+            renamed: false,
+            added: true,
+            shape: None,
+            symbol: String::new(),
+            styled: false,
+        };
+        (id, room)
+    }
+
     /// The rooms the map added of itself, in the order they were made.
     pub fn added(&self) -> Vec<&Room> {
         let mut added: Vec<&Room> = self.rooms.values().filter(|room| room.added).collect();
@@ -233,6 +261,36 @@ impl Map {
         if own.is_empty() {
             return Carried::default();
         }
+        let led_from = self.led_from_added(&own);
+        let leading = rooms_leading_to_each(taken);
+        let joined = self.joined_with_taken(&own, taken, &led_from, &leading);
+        merge_into_joined(&own, taken, &joined);
+        let now = |id: RoomId| joined.get(&id).copied().unwrap_or(id);
+        own.retain(|id, _| !joined.contains_key(id));
+        let moved = self.moved_with_their_anchors(&own, taken, &now);
+        for (id, mut room) in own {
+            if let Some((shift, area)) = moved.get(&id) {
+                room.pos = room.pos.offset(*shift, 1);
+                room.area.clone_from(area);
+            }
+            taken.insert(id, room);
+        }
+        for room in taken.values_mut() {
+            for exit in room.exits.values_mut() {
+                exit.to = now(exit.to);
+            }
+        }
+        Carried {
+            kept: taken.values().filter(|room| room.added).count(),
+            joined,
+        }
+    }
+
+    /// The rooms that led to each room of `own`, and by which exit.
+    fn led_from_added(
+        &self,
+        own: &BTreeMap<RoomId, Room>,
+    ) -> HashMap<RoomId, Vec<(RoomId, String)>> {
         // The rooms that led to each added, and by which exit.
         let mut led_from: HashMap<RoomId, Vec<(RoomId, String)>> = HashMap::new();
         for room in self.rooms.values() {
@@ -243,16 +301,19 @@ impl Map {
                 }
             }
         }
-        // The rooms taken that lead to each, by each exit.
-        let mut leading: HashMap<(RoomId, &str), Vec<RoomId>> = HashMap::new();
-        for room in taken.values() {
-            for (direction, exit) in &room.exits {
-                leading
-                    .entry((exit.to, direction.as_str()))
-                    .or_default()
-                    .push(room.id);
-            }
-        }
+        led_from
+    }
+
+    /// Finds which of the rooms of `own` are the same as a room of
+    /// `taken`, by what each is reached from and what it leads to, as
+    /// rooms joined are found, until no more are.
+    fn joined_with_taken(
+        &self,
+        own: &BTreeMap<RoomId, Room>,
+        taken: &HashMap<RoomId, Room>,
+        led_from: &HashMap<RoomId, Vec<(RoomId, String)>>,
+        leading: &HashMap<(RoomId, &str), Vec<RoomId>>,
+    ) -> HashMap<RoomId, RoomId> {
         let compass = |room: &Room| -> BTreeSet<String> {
             (room.exits.keys())
                 .filter(|direction| known_direction(direction).is_some())
@@ -305,53 +366,7 @@ impl Map {
                 claimed.insert(into);
             }
         }
-        let now = |id: RoomId| joined.get(&id).copied().unwrap_or(id);
-        for (id, into) in &joined {
-            let room = &own[id];
-            let Some(other) = taken.get_mut(into) else {
-                continue;
-            };
-            other.avoid |= room.avoid;
-            other.colour = other.colour.or(room.colour);
-            if other.cost == 0 {
-                other.cost = room.cost;
-            }
-            if other.note.is_empty() {
-                other.note.clone_from(&room.note);
-            }
-            if room.renamed {
-                other.name.clone_from(&room.name);
-                other.renamed = true;
-            }
-            for (direction, exit) in &room.exits {
-                if !other.exits.contains_key(direction) && exit.to != UNEXPLORED {
-                    let exit = Exit {
-                        to: now(exit.to),
-                        custom: true,
-                        ..exit.clone()
-                    };
-                    other.exits.insert(direction.clone(), exit);
-                }
-            }
-        }
-        own.retain(|id, _| !joined.contains_key(id));
-        let moved = self.moved_with_their_anchors(&own, taken, &now);
-        for (id, mut room) in own {
-            if let Some((shift, area)) = moved.get(&id) {
-                room.pos = room.pos.offset(*shift, 1);
-                room.area.clone_from(area);
-            }
-            taken.insert(id, room);
-        }
-        for room in taken.values_mut() {
-            for exit in room.exits.values_mut() {
-                exit.to = now(exit.to);
-            }
-        }
-        Carried {
-            kept: taken.values().filter(|room| room.added).count(),
-            joined,
-        }
+        joined
     }
 
     /// How far each part of the rooms `kept` moves, and to which area: as
@@ -415,5 +430,58 @@ impl Map {
             }
         }
         moved
+    }
+}
+
+/// The rooms of `taken` that lead to each room, by each exit.
+fn rooms_leading_to_each(taken: &HashMap<RoomId, Room>) -> HashMap<(RoomId, &str), Vec<RoomId>> {
+    // The rooms taken that lead to each, by each exit.
+    let mut leading: HashMap<(RoomId, &str), Vec<RoomId>> = HashMap::new();
+    for room in taken.values() {
+        for (direction, exit) in &room.exits {
+            leading
+                .entry((exit.to, direction.as_str()))
+                .or_default()
+                .push(room.id);
+        }
+    }
+    leading
+}
+
+/// Puts what was set on each room of `own` joined with a room of
+/// `taken` on that room, and the exits it has that it lacks.
+fn merge_into_joined(
+    own: &BTreeMap<RoomId, Room>,
+    taken: &mut HashMap<RoomId, Room>,
+    joined: &HashMap<RoomId, RoomId>,
+) {
+    let now = |id: RoomId| joined.get(&id).copied().unwrap_or(id);
+    for (id, into) in joined {
+        let room = &own[id];
+        let Some(other) = taken.get_mut(into) else {
+            continue;
+        };
+        other.avoid |= room.avoid;
+        other.colour = other.colour.or(room.colour);
+        if other.cost == 0 {
+            other.cost = room.cost;
+        }
+        if other.note.is_empty() {
+            other.note.clone_from(&room.note);
+        }
+        if room.renamed {
+            other.name.clone_from(&room.name);
+            other.renamed = true;
+        }
+        for (direction, exit) in &room.exits {
+            if !other.exits.contains_key(direction) && exit.to != UNEXPLORED {
+                let exit = Exit {
+                    to: now(exit.to),
+                    custom: true,
+                    ..exit.clone()
+                };
+                other.exits.insert(direction.clone(), exit);
+            }
+        }
     }
 }

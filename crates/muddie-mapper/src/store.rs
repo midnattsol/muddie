@@ -102,6 +102,37 @@ impl Store {
                 "the map file has format {version}, newer than this version understands"
             )));
         }
+        Self::migrate(&connection, version)?;
+
+        let exits = Self::read_exits(&connection)?;
+        let rooms = Self::read_rooms(&connection, exits)?;
+        let pairs = |sql: &str| -> Result<Vec<(String, rusqlite::types::Value)>> {
+            let mut statement = connection.prepare(sql)?;
+            let rows = statement.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?;
+            rows.collect()
+        };
+        let marks = (pairs("SELECT name, room_id FROM marks")?.into_iter())
+            .filter_map(|(name, id)| match id {
+                rusqlite::types::Value::Integer(id) => Some((name, id)),
+                _ => None,
+            })
+            .collect();
+        let about = (pairs("SELECT key, value FROM about")?.into_iter())
+            .filter_map(|(key, value)| match value {
+                rusqlite::types::Value::Text(value) => Some((key, value)),
+                _ => None,
+            })
+            .collect();
+        let stored = Stored {
+            rooms,
+            marks,
+            about,
+        };
+        Ok((Self { connection }, stored))
+    }
+
+    /// Sets the database up for use and brings an older format up to date.
+    fn migrate(connection: &Connection, version: i64) -> Result<()> {
         // A room is saved on every move: write-ahead logging without a sync
         // per write keeps that from stalling the caller on slow disks.
         connection.pragma_update(None, "journal_mode", "WAL")?;
@@ -127,7 +158,11 @@ impl Store {
             connection.execute_batch("UPDATE rooms SET shape = '' WHERE styled = 0;")?;
         }
         connection.pragma_update(None, "user_version", VERSION)?;
+        Ok(())
+    }
 
+    /// Reads the exits of every room, by the room they leave.
+    fn read_exits(connection: &Connection) -> Result<BTreeMap<i64, BTreeMap<String, Exit>>> {
         let mut exits: BTreeMap<i64, BTreeMap<String, Exit>> = BTreeMap::new();
         let mut statement = connection.prepare(
             "SELECT room_id, direction, to_id, cost, locked, command, custom, door FROM exits",
@@ -149,7 +184,14 @@ impl Store {
             exits.entry(room_id).or_default().insert(direction, exit);
         }
         drop(statement);
+        Ok(exits)
+    }
 
+    /// Reads every room, with the exits `exits` has for it.
+    fn read_rooms(
+        connection: &Connection,
+        mut exits: BTreeMap<i64, BTreeMap<String, Exit>>,
+    ) -> Result<Vec<Room>> {
         let mut statement = connection.prepare(
             "SELECT id, name, area, x, y, z, weight, avoid, colour, note, renamed, added, shape, symbol,
              styled FROM rooms",
@@ -181,29 +223,7 @@ impl Store {
             })?
             .collect::<Result<Vec<Room>>>()?;
         drop(statement);
-        let pairs = |sql: &str| -> Result<Vec<(String, rusqlite::types::Value)>> {
-            let mut statement = connection.prepare(sql)?;
-            let rows = statement.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?;
-            rows.collect()
-        };
-        let marks = (pairs("SELECT name, room_id FROM marks")?.into_iter())
-            .filter_map(|(name, id)| match id {
-                rusqlite::types::Value::Integer(id) => Some((name, id)),
-                _ => None,
-            })
-            .collect();
-        let about = (pairs("SELECT key, value FROM about")?.into_iter())
-            .filter_map(|(key, value)| match value {
-                rusqlite::types::Value::Text(value) => Some((key, value)),
-                _ => None,
-            })
-            .collect();
-        let stored = Stored {
-            rooms,
-            marks,
-            about,
-        };
-        Ok((Self { connection }, stored))
+        Ok(rooms)
     }
 
     /// Puts `rooms` in place of every room there was, all or none, with

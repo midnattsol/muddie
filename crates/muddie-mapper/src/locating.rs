@@ -5,6 +5,9 @@
 
 use super::*;
 
+mod search;
+use search::{Found, Search};
+
 /// What the map keeps of the room the player was last known to be in.
 const LAST_ROOM: &str = "last room";
 
@@ -127,19 +130,6 @@ impl Map {
         // the name shown there until it is put right, or the player is lost.
         let pending = std::mem::take(&mut self.pending);
         let was_sure = std::mem::take(&mut self.sure);
-        let named = |id: RoomId| {
-            (key.as_ref()).is_none_or(|key| {
-                let called = |name: &str| self.name_key(name) == *key;
-                (self.rooms.get(&id)).is_some_and(|room| called(&room.name))
-                    || (pending.iter()).any(|(room, name)| *room == id && called(name))
-            })
-        };
-        let like = |id: RoomId| {
-            named(id)
-                && exits
-                    .as_ref()
-                    .is_none_or(|exits| self.shows_exits(id, exits))
-        };
         let before: Vec<RoomId> = match self.current {
             Some(id) => vec![id],
             None => self.candidates.clone(),
@@ -149,104 +139,24 @@ impl Map {
             .current
             .and_then(|id| self.rooms.get(&id))
             .map(|room| (room.area.clone(), room.pos));
-        let led_by = |way: &str| -> Vec<RoomId> {
-            let mut led: Vec<RoomId> = (before.iter())
-                .filter_map(|id| Some(self.rooms.get(id)?.exits.get(way)?.to))
-                .filter(|id| self.rooms.contains_key(id))
-                .collect();
-            led.sort_unstable();
-            led.dedup();
-            led
+        let search = Search {
+            map: self,
+            seen,
+            came: came.as_deref(),
+            key: &key,
+            exits: &exits,
+            pending: &pending,
+            before: &before,
         };
-        // A room of that name the exit leads to, though its exits are not
-        // those shown, is taken only if no room of that name has them: else
-        // the map is not trusted there, and the player is looked for.
-        let fits_elsewhere = || {
-            exits.is_some()
-                && (seen.name).is_some_and(|name| self.called(name).into_iter().any(like))
-        };
-        let moved: Vec<RoomId> = match &came {
-            Some(way) => {
-                let led_to: Vec<RoomId> = led_by(way).into_iter().filter(|id| named(*id)).collect();
-                let fitting: Vec<RoomId> = led_to.iter().copied().filter(|id| like(*id)).collect();
-                if !fitting.is_empty() {
-                    fitting
-                } else if fits_elsewhere() {
-                    Vec::new()
-                } else {
-                    led_to
-                }
-            }
-            None => Vec::new(),
-        };
-        // The rooms up to two moves from where the player was that are as
-        // the server shows: where a map that is wrong in a place, or a move
-        // it did not follow, most likely left the player.
-        let around_within = |moves: usize| {
-            let mut near: Vec<RoomId> = Vec::new();
-            let mut seen: HashSet<RoomId> = before.iter().copied().collect();
-            let mut ring = before.clone();
-            for _ in 0..moves {
-                let next: Vec<RoomId> = (ring.iter())
-                    .filter_map(|id| self.rooms.get(id))
-                    .flat_map(|room| room.exits.values().map(|exit| exit.to))
-                    .filter(|id| seen.insert(*id))
-                    .collect();
-                near.extend(next.iter().copied().filter(|id| like(*id)));
-                if !near.is_empty() {
-                    break;
-                }
-                ring = next;
-            }
-            near
-        };
-        let around = || around_within(2);
-        // By the way the server says was taken and the exits shown, though
-        // not the name: the one room it leads to with just those exits.
-        let shaped = || -> Option<RoomId> {
-            let (Some(way), Some(exits), Some(_)) = (seen.came.and(came.as_ref()), &exits, &key)
-            else {
-                return None;
-            };
-            match led_by(way).as_slice() {
-                [one] if self.shows_exits(*one, exits) && !exits.is_empty() => Some(*one),
-                _ => None,
-            }
-        };
-        let mut followed = None;
-        let mut beside = false;
-        let mut found = if !moved.is_empty() {
-            moved
-        } else if key.is_none() && exits.is_none() {
+        let Some(Found {
+            rooms: mut found,
+            followed,
+            beside,
+        }) = search.find()
+        else {
             self.pending = pending;
             self.sure = was_sure;
             return self.whereabouts();
-        } else if seen.came.is_some() {
-            // A move the server says was made, which the map's exits do not
-            // lead to such a room by: one next to where the player was, as
-            // the map has the exit wrong; else the one the way and the
-            // exits lead to, by whatever name; else one further.
-            let next_to = around_within(1);
-            match shaped() {
-                Some(room) if next_to.is_empty() => {
-                    followed = Some(room);
-                    vec![room]
-                }
-                _ if !next_to.is_empty() => {
-                    beside = true;
-                    next_to
-                }
-                _ => around(),
-            }
-        } else {
-            // No move, or only one sent, which may not have been made:
-            // still there, as after looking; else one around.
-            let staying: Vec<RoomId> = before.iter().copied().filter(|id| like(*id)).collect();
-            if staying.is_empty() {
-                around()
-            } else {
-                staying
-            }
         };
         found.sort_unstable();
         found.dedup();

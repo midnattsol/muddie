@@ -7,6 +7,9 @@
 use crate::{Colour, Door, Exit, Pos, Room, RoomId, STANDARD_COLOURS};
 use std::collections::{BTreeMap, HashMap};
 
+mod exits;
+use exits::{add_special_exits, compass_exits, read_named_numbers};
+
 /// Which reader of Mudlet's maps this is: raise it when the reader reads
 /// more of Mudlet's maps, so that maps read before are taken again. A map
 /// with none noted is taken again too.
@@ -160,6 +163,20 @@ impl Environments {
     }
 }
 
+/// The room's symbol: a character of old, kept also, as Mudlet does
+/// now, with what it knows of the room.
+fn read_symbol(stream: &mut Stream<'_>) -> Result<String, String> {
+    let character = stream.i8()?;
+    let known = stream.map(Stream::string, Stream::string)?;
+    let symbol = (known.into_iter())
+        .find(|(key, _)| key.as_deref() == Some("system.fallback_symbol"))
+        .and_then(|(_, symbol)| symbol)
+        .or_else(|| (character > b' ' as i8).then(|| char::from(character as u8).to_string()))
+        .map(|symbol| symbol.trim().to_owned())
+        .unwrap_or_default();
+    Ok(symbol)
+}
+
 /// One room, made a room of this map: its place, its colour, its exits,
 /// the special ones by their command, which are locked and what they cost.
 fn read_room(
@@ -184,16 +201,7 @@ fn read_room(
     let name = stream.string()?.unwrap_or_default();
     let avoid = stream.bool()?;
     let special = stream.map(Stream::i32, Stream::string)?;
-    // The room's symbol: a character of old, kept also, as Mudlet does
-    // now, with what it knows of the room.
-    let character = stream.i8()?;
-    let known = stream.map(Stream::string, Stream::string)?;
-    let symbol = (known.into_iter())
-        .find(|(key, _)| key.as_deref() == Some("system.fallback_symbol"))
-        .and_then(|(_, symbol)| symbol)
-        .or_else(|| (character > b' ' as i8).then(|| char::from(character as u8).to_string()))
-        .map(|symbol| symbol.trim().to_owned())
-        .unwrap_or_default();
+    let symbol = read_symbol(stream)?;
     let points = |stream: &mut Stream<'_>| stream.list(Stream::point);
     stream.map(Stream::string, points)?;
     stream.map(Stream::string, Stream::bool)?;
@@ -201,72 +209,10 @@ fn read_room(
     stream.map(Stream::string, Stream::string)?;
     let locks = stream.list(Stream::i32)?;
     stream.list(Stream::i32)?;
-    let costs: HashMap<String, i32> = match version {
-        16.. => stream
-            .map(Stream::string, Stream::i32)?
-            .into_iter()
-            .map(|(key, cost)| (key.unwrap_or_default(), cost))
-            .collect(),
-        _ => HashMap::new(),
-    };
-    let doors: HashMap<String, i32> = match version {
-        16.. => stream
-            .map(Stream::string, Stream::i32)?
-            .into_iter()
-            .map(|(key, door)| (key.unwrap_or_default(), door))
-            .collect(),
-        _ => HashMap::new(),
-    };
-    let door = |key: &str| match doors.get(key) {
-        Some(1) => Some(Door::Open),
-        Some(2) => Some(Door::Closed),
-        Some(3) => Some(Door::Locked),
-        _ => None,
-    };
-    let locked_number = |direction: &str| {
-        let number = NUMBERED.iter().position(|known| *known == direction);
-        number.is_some_and(|at| locks.contains(&(at as i32 + 1)))
-    };
-    let mut exits = BTreeMap::new();
-    for (direction, to) in STORED.iter().zip(leading) {
-        if to <= 0 {
-            continue;
-        }
-        let key = mudlet_name(direction);
-        exits.insert(
-            (*direction).to_owned(),
-            Exit {
-                to: RoomId::from(to),
-                cost: costs.get(key).map_or(0, |cost| (*cost).max(0) as u32),
-                blocked: locked_number(direction) || door(key) == Some(Door::Locked),
-                door: door(key),
-                ..Exit::default()
-            },
-        );
-    }
-    // A special exit's command was kept with 1 before it if locked, 0 if not.
-    for (to, command) in special {
-        let Some(command) = command else { continue };
-        let (locked, command) = match command.split_at_checked(1) {
-            Some(("1", rest)) => (true, rest),
-            Some(("0", rest)) => (false, rest),
-            _ => (false, command.as_str()),
-        };
-        let command = command.trim();
-        if to <= 0 || command.is_empty() {
-            continue;
-        }
-        exits.insert(
-            crate::canonical_direction(command),
-            Exit {
-                to: RoomId::from(to),
-                cost: costs.get(command).map_or(0, |cost| (*cost).max(0) as u32),
-                blocked: locked || door(command) == Some(Door::Locked),
-                door: door(command),
-                ..Exit::default()
-            },
-        );
-    }
+    let costs = read_named_numbers(stream, version)?;
+    let doors = read_named_numbers(stream, version)?;
+    let mut exits = compass_exits(leading, &locks, &costs, &doors);
+    add_special_exits(&mut exits, special, &costs, &doors);
     Ok(Room {
         id,
         name,
