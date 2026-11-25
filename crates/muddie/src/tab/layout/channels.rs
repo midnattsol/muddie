@@ -42,7 +42,8 @@ impl Tab {
             // With the rest of what is said there, and under its own tab.
             match panel.is_empty() {
                 true => self.channel_line(line),
-                false => self.add_to_panel(&panel, line),
+                // Read as of its channel, not of the panel too.
+                false => self.put_in_panel(&panel, line),
             }
             if let Some(index) = index {
                 self.panels.channels[index].log.push(line);

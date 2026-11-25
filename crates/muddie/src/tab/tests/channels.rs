@@ -351,3 +351,16 @@ fn the_tabs_of_channels_are_one_stop_and_the_arrows_go_among_them() {
         assert!(!harness.get_by_label(name).is_focused(), "{name}");
     }
 }
+
+/// Said on a channel with a panel of its own, a message is read once.
+#[test]
+fn a_message_of_a_channel_in_its_own_panel_is_read_once() {
+    let mut harness = window(None);
+    let app = harness.state_mut().tab_mut();
+    app.on_screen = true;
+    app.voice.said.clear();
+    app.scripts
+        .exec("t", r#"channel("chat", "Ana: hello", {panel = "Guild"})"#);
+    app.run_actions();
+    assert_eq!(app.voice.said, ["chat: Ana: hello"]);
+}
