@@ -954,22 +954,6 @@ msgstr ""
 msgid "{0} room the map added, which the map imported does not have, was kept."
 msgstr ""
 
-msgid "No matches."
-msgstr ""
-
-msgid "Write it, then Enter."
-msgstr ""
-
-#, python-brace-format
-msgid "{0} result"
-msgstr ""
-
-msgid "Choose one"
-msgstr ""
-
-msgid "Search for something to do, or a place"
-msgstr ""
-
 msgid "choose"
 msgstr ""
 
@@ -995,6 +979,22 @@ msgid "Escape"
 msgstr ""
 
 msgid "close"
+msgstr ""
+
+msgid "No matches."
+msgstr ""
+
+msgid "Write it, then Enter."
+msgstr ""
+
+#, python-brace-format
+msgid "{0} result"
+msgstr ""
+
+msgid "Choose one"
+msgstr ""
+
+msgid "Search for something to do, or a place"
 msgstr ""
 
 msgid "Undo the map's last change"
