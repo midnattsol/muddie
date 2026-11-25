@@ -347,6 +347,13 @@ msgstr ""
 msgid "Copy all output"
 msgstr ""
 
+#, python-brace-format
+msgid "{0} brought up to date."
+msgstr ""
+
+msgid "Changes made to a plugin's scripts are kept beside them, in files ending in .before-update."
+msgstr ""
+
 msgid "Install from git…"
 msgstr ""
 
@@ -405,6 +412,9 @@ msgstr ""
 
 #, python-brace-format
 msgid "Reconnecting in {0} second."
+msgstr ""
+
+msgid "Downloading plugins…"
 msgstr ""
 
 msgid "Not connected"
@@ -1249,6 +1259,9 @@ msgstr ""
 msgid "Plugin {0}"
 msgstr ""
 
+msgid "Check for plugin updates"
+msgstr ""
+
 msgid "Install a plugin…"
 msgstr ""
 
@@ -1300,7 +1313,7 @@ msgid "Where do you want to play?"
 msgstr ""
 
 #, python-brace-format
-msgid "Welcome to Muddie. Write the address of a MUD and press Enter to play, or Tab to your profiles. For a game Muddie knows, such as Reinos de Leyenda, New profile, in the palette, {0}, sets everything up. Once playing, F1 says the keys."
+msgid "Welcome to Muddie. Write the address of a MUD and press Enter to play, or Tab to your profiles. For a game Muddie knows, New profile, in the palette, {0}, sets everything up. Once playing, F1 says the keys."
 msgstr ""
 
 msgid "Address"
@@ -1418,13 +1431,6 @@ msgstr ""
 
 #, python-brace-format
 msgid "{0} installed again."
-msgstr ""
-
-#, python-brace-format
-msgid "{0} brought up to date."
-msgstr ""
-
-msgid "Changes made to a plugin's scripts are kept beside them, in files ending in .before-update."
 msgstr ""
 
 #, python-brace-format
@@ -2369,6 +2375,12 @@ msgstr ""
 msgid "Interface scale"
 msgstr ""
 
+msgid "Update plugins automatically"
+msgstr ""
+
+msgid "Muddie looks for newer official plugins each time it starts."
+msgstr ""
+
 msgid "Interface"
 msgstr ""
 
@@ -2656,6 +2668,10 @@ msgid "{0} Comes with Muddie: on, it sets itself up when you connect."
 msgstr ""
 
 #, python-brace-format
+msgid "{0} Official, kept up to date by Muddie: on, it sets itself up when you connect."
+msgstr ""
+
+#, python-brace-format
 msgid "{0} Downloaded from git: on, it sets itself up when you connect."
 msgstr ""
 
@@ -2665,13 +2681,41 @@ msgstr ""
 msgid "Update all"
 msgstr ""
 
-msgid "For plugins others make, from the address of their git repository."
+msgid "Official plugins are kept up to date by Muddie. For plugins others make, install them from the address of their git repository."
 msgstr ""
 
 msgid "Profiles need a configuration folder, and none was found."
 msgstr ""
 
 msgid "Not now"
+msgstr ""
+
+msgid "Already looking for plugin updates."
+msgstr ""
+
+msgid "Looking for plugin updates…"
+msgstr ""
+
+msgid "it stopped halfway"
+msgstr ""
+
+#, python-brace-format
+msgid "Could not look for plugin updates: {0}"
+msgstr ""
+
+#, python-brace-format
+msgid "Plugins updated: {0}."
+msgstr ""
+
+#, python-brace-format
+msgid "{0} needs Muddie {1} or newer, so it is not updated."
+msgstr ""
+
+#, python-brace-format
+msgid "A plugin could not be installed: {0}"
+msgstr ""
+
+msgid "Plugins are up to date."
 msgstr ""
 
 msgid "Duplicate…"

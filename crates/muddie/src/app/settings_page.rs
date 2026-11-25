@@ -241,6 +241,14 @@ fn general_settings(ui: &mut Ui, settings: &mut Settings, languages: &[(String, 
             }
             response
         });
+        widgets::switch_setting(
+            ui,
+            &mut settings.update_plugins,
+            tr("Update plugins automatically"),
+            Some(tr(
+                "Muddie looks for newer official plugins each time it starts.",
+            )),
+        );
     });
 }
 

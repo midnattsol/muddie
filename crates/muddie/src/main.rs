@@ -29,7 +29,9 @@ mod tab;
 mod templates;
 mod theme;
 mod voice;
+mod webfetch;
 mod widgets;
+mod zipread;
 
 use std::sync::{Arc, Mutex};
 
@@ -57,6 +59,7 @@ fn parse_args(args: &[String]) -> Result<Startup, String> {
         target: None,
         speech: false,
         scripts: Vec::new(),
+        download: Default::default(),
     };
     let (mut tls, mut insecure) = (false, false);
     let mut positional = Vec::new();

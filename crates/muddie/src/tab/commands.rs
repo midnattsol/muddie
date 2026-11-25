@@ -161,6 +161,8 @@ pub enum AppRequest {
     /// Plays with the saved profile of this name: in this session if it
     /// is not connected, else in a new one.
     Play(String),
+    /// Looks for newer official plugins now.
+    UpdatePlugins,
 }
 
 /// What a command said: a line of text, and for a thing that can be
@@ -310,7 +312,7 @@ impl Tab {
                 .map(|name| answer(name.to_owned(), String::new()))
                 .collect(),
             Offers::Plugins => (self.plugins.iter())
-                .filter(|plugin| plugin.downloaded && has(&plugin.name))
+                .filter(|plugin| plugin.is_git() && has(&plugin.name))
                 .map(|plugin| answer(plugin.name.clone(), String::new()))
                 .collect(),
         }

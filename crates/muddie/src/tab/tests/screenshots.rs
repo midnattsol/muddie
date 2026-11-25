@@ -848,7 +848,7 @@ fn shows_map_menu() {
     let mut harness = connected_drawn_demo_window();
     harness.set_size(egui::vec2(1500.0, 900.0));
     let app = harness.state_mut().tab_mut();
-    let plugin = &crate::plugins::included("reinos-de-leyenda").unwrap();
+    let plugin = &crate::plugins::fixture::reinos();
     for (name, code) in &plugin.scripts {
         app.scripts.exec(name, code);
     }

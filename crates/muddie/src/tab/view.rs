@@ -314,6 +314,9 @@ impl Tab {
                     ),
                 )
             }
+            (None, None) if self.plugin_wait.is_some() => {
+                (theme.terminal[3], tr("Downloading plugins…").to_owned())
+            }
             (None, None) => (theme.text_faint, tr("Not connected").to_owned()),
         }
     }

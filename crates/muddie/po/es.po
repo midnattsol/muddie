@@ -50,7 +50,6 @@ msgstr "Sesiones"
 msgid "Logging stopped: {0}"
 msgstr "Registro detenido: {0}"
 
-
 #, python-brace-format
 msgid "Logging to {0}"
 msgstr "Registrando en {0}"
@@ -201,7 +200,6 @@ msgstr "El mapa no se guardará: no hay carpeta de datos."
 msgid "Could not save the map: {0}"
 msgstr "No se pudo guardar el mapa: {0}"
 
-
 msgid "No room matches."
 msgstr "Ninguna sala coincide."
 
@@ -256,7 +254,6 @@ msgstr "Atajos de teclado"
 msgid "Earlier and later commands"
 msgstr "Navegar por el historial de comandos"
 
-
 msgid "Complete the word being typed"
 msgstr "Autocompletar la palabra"
 
@@ -305,7 +302,6 @@ msgstr "Registrando"
 msgid "Log this session"
 msgstr "Registrar esta sesión"
 
-
 msgid "Server"
 msgstr "Servidor"
 
@@ -343,11 +339,8 @@ msgstr "%1 está aquí"
 msgid "Play a sound"
 msgstr "Reproducir un sonido"
 
-
 msgid "Try it"
 msgstr "Probar"
-
-
 
 msgid "Alias name"
 msgstr "Nombre del alias"
@@ -378,7 +371,6 @@ msgstr "Admite teclas de función, combinaciones con Ctrl o Alt y el teclado num
 
 msgid "Name"
 msgstr "Nombre"
-
 
 msgid "Does not match."
 msgstr "No coincide."
@@ -610,7 +602,6 @@ msgstr "Alias"
 msgid "Macros"
 msgstr "Macros"
 
-
 msgid "General"
 msgstr "General"
 
@@ -703,7 +694,6 @@ msgstr "Valor"
 msgid "About Muddie"
 msgstr "Acerca de Muddie"
 
-
 msgid "No gauges here yet."
 msgstr "Este panel no tiene indicadores."
 
@@ -789,13 +779,11 @@ msgstr "ninguno"
 msgid "It is on when the value is true, a number other than 0, or words other than no, false or off."
 msgstr "Se enciende si el valor es true, un número distinto de 0 o un texto distinto de no, false u off."
 
-
 msgid "It can turn another colour as it gets low: yellow under 60 %, red under 30 %."
 msgstr "Puede cambiar de color al bajar de un umbral: por ejemplo, amarillo por debajo del 60 % y rojo por debajo del 30 %."
 
 msgid "Under"
 msgstr "Por debajo de"
-
 
 msgid "standing"
 msgstr "de pie"
@@ -825,10 +813,8 @@ msgstr "No hay ningún panel de indicadores donde mostrarlo."
 msgid "Shown in"
 msgstr "Se muestra en"
 
-
 msgid "In the order of the list: drag a gauge there, or press Alt+Up or Alt+Down, to move it."
 msgstr "Se muestra en el orden de la lista. Para cambiarlo, arrastra el indicador o usa Alt+Arriba y Alt+Abajo."
-
 
 msgid "Commands"
 msgstr "Comandos"
@@ -857,23 +843,19 @@ msgstr "Historial"
 msgid "Filled: in use. Outlined: offered by the MUD, not used by Muddie. Faint: not offered."
 msgstr "Relleno: en uso. Con borde: ofrecido por el MUD, pero sin usar. Atenuado: no ofrecido."
 
-
 #, python-brace-format
 msgid "A sound could not be fetched: {0}"
 msgstr "No se pudo descargar un sonido: {0}"
 
-
 #, python-brace-format
 msgid "The MUD asks to go on at {0}, port {1}."
 msgstr "El MUD pide continuar en {0}, puerto {1}."
-
 
 msgid "Reconnect"
 msgstr "Reconectar"
 
 msgid "Run"
 msgstr "Ejecutar"
-
 
 msgid "All"
 msgstr "Todos"
@@ -985,7 +967,6 @@ msgstr[1] "Mensajes, {0} nuevos"
 msgid "No messages."
 msgstr "No hay mensajes."
 
-
 msgid "Contains"
 msgstr "Contiene"
 
@@ -1029,7 +1010,6 @@ msgstr "Los cambios se aplican al reconectar."
 
 msgid "Automatic"
 msgstr "Automática"
-
 
 msgid "Edit profile"
 msgstr "Editar perfil"
@@ -1095,7 +1075,6 @@ msgstr "Plugins"
 
 msgid "TLS encryption"
 msgstr "Cifrado TLS"
-
 
 msgid "Soft (follows the theme)"
 msgstr "Suaves (según el tema)"
@@ -1177,7 +1156,6 @@ msgstr "Déjala vacía para conservarla"
 
 msgid "Unencrypted"
 msgstr "Sin cifrar"
-
 
 msgid "Font"
 msgstr "Fuente"
@@ -1265,7 +1243,6 @@ msgstr "Macro nueva"
 msgid "New timer"
 msgstr "Temporizador nuevo"
 
-
 msgid "Disable"
 msgstr "Desactivar"
 
@@ -1287,10 +1264,8 @@ msgid_plural "{0} items"
 msgstr[0] "{0} elemento"
 msgstr[1] "{0} elementos"
 
-
 msgid "Several folders"
 msgstr "Varias carpetas"
-
 
 #, python-brace-format
 
@@ -1323,7 +1298,6 @@ msgstr "Tecla"
 
 msgid "Field name"
 msgstr "Nombre del campo"
-
 
 msgid "Show incoming data"
 msgstr "Mostrar los datos recibidos"
@@ -1361,8 +1335,6 @@ msgstr "Actualizando {0}…"
 msgid "Connecting to {0}:{1}…"
 msgstr "Conectando a {0}:{1}…"
 
-
-
 msgid "Del"
 msgstr "Supr"
 
@@ -1380,7 +1352,6 @@ msgstr "Seleccionar todos los elementos visibles"
 
 msgid "Move up or down"
 msgstr "Mover arriba o abajo"
-
 
 msgid "Restart scripts"
 msgstr "Reiniciar scripts"
@@ -1425,7 +1396,6 @@ msgstr "Voz activa: {0}."
 msgid "No voice is active."
 msgstr "No hay ninguna voz activa."
 
-
 msgid "Speak with"
 msgstr "Hablar con"
 
@@ -1450,7 +1420,6 @@ msgstr "Leer los canales"
 msgid "What is said on the MUD's channels, with the channel's name."
 msgstr "Lee lo que se dice en los canales del MUD, precedido del nombre del canal."
 
-
 msgid "Map"
 msgstr "Mapa"
 
@@ -1466,11 +1435,8 @@ msgstr "Tamaño de los paneles de arriba"
 msgid "Size of the panels at the bottom"
 msgstr "Tamaño de los paneles de abajo"
 
-
 msgid "No matches."
 msgstr "Sin resultados."
-
-
 
 #, python-brace-format
 msgid "Active voice: {0}, with its own speed and voice."
@@ -1479,7 +1445,6 @@ msgstr "Voz activa: {0}, con su propia velocidad y voz."
 #, python-brace-format
 msgid "{0} % of the window"
 msgstr "{0} % de la ventana"
-
 
 #, python-brace-format
 msgid "Read the {0} channel aloud"
@@ -1496,7 +1461,6 @@ msgid_plural "Going to {1}: {0} moves left."
 msgstr[0] "Vas a {1}: queda {0} paso."
 msgstr[1] "Vas a {1}: quedan {0} pasos."
 
-
 #, python-brace-format
 msgid "{0} on"
 msgstr "{0} encendida"
@@ -1508,7 +1472,6 @@ msgstr "{0} apagada"
 #, python-brace-format
 msgid "{0} {1} of {2}"
 msgstr "{0} {1} de {2}"
-
 
 msgid "Width of the list"
 msgstr "Ancho de la lista"
@@ -1543,10 +1506,8 @@ msgstr "Mayús+F10  Tecla de menú"
 msgid "Open the context menu of the focused item"
 msgstr "Abrir el menú contextual del elemento enfocado"
 
-
 msgid "Open the folder"
 msgstr "Abrir la carpeta"
-
 
 msgid "Word"
 msgstr "Palabra"
@@ -1583,7 +1544,6 @@ msgstr "oculta la línea"
 msgid "Find in the output"
 msgstr "Buscar en la salida"
 
-
 msgid "Editor height"
 msgstr "Altura del editor"
 
@@ -1596,7 +1556,6 @@ msgstr "Se ajusta al contenido"
 
 msgid "Expand editor"
 msgstr "Ampliar el editor"
-
 
 msgid "Tab inserts a tab. To move to the next control, press Escape and then Tab."
 msgstr "Tab inserta una tabulación. Para pasar al siguiente control, pulsa Escape y después Tab."
@@ -1612,7 +1571,6 @@ msgstr "Si se desactiva, no se ejecuta nada de su contenido. Si se elimina, su c
 
 msgid "Add here"
 msgstr "Añadir aquí"
-
 
 #, python-brace-format
 msgid "level {0}"
@@ -1636,13 +1594,11 @@ msgstr "Todas las carpetas contraídas."
 msgid "All folders expanded."
 msgstr "Todas las carpetas expandidas."
 
-
 msgid "Copy line"
 msgstr "Copiar la línea"
 
 msgid "Copy all output"
 msgstr "Copiar toda la salida"
-
 
 msgid "Nothing to redo."
 msgstr "No hay nada que rehacer."
@@ -1664,7 +1620,6 @@ msgstr "Deshecho."
 msgid "Redone."
 msgstr "Rehecho."
 
-
 msgid "Collapse or expand a folder"
 msgstr "Contraer o expandir una carpeta"
 
@@ -1685,7 +1640,6 @@ msgstr "Mover a {0}"
 msgid "Move out of its folder"
 msgstr "Sacar de su carpeta"
 
-
 #, python-brace-format
 msgid "Moved up, {0} of {1}."
 msgstr "Movido arriba, {0} de {1}."
@@ -1693,7 +1647,6 @@ msgstr "Movido arriba, {0} de {1}."
 #, python-brace-format
 msgid "Moved down, {0} of {1}."
 msgstr "Movido abajo, {0} de {1}."
-
 
 msgid "Cmd+click  Shift+click"
 msgstr "Cmd+clic  Mayús+clic"
@@ -1737,7 +1690,6 @@ msgid "You are in one of {0} rooms alike:"
 msgid_plural "You are in one of {0} rooms alike:"
 msgstr[0] "Estás en una de {0} salas iguales:"
 msgstr[1] "Estás en una de {0} salas iguales:"
-
 
 #, python-brace-format
 msgid "{0} (kept off routes)"
@@ -1927,7 +1879,6 @@ msgstr "{0} quitado."
 msgid "Picture of the window's panels"
 msgstr "Dibujo de los paneles de la ventana"
 
-
 msgid "Copied"
 msgstr "Copiado"
 
@@ -2054,7 +2005,6 @@ msgstr "al {0}"
 msgid "Arrows follow the exits, Enter goes, Escape goes back. F1 says all the keys."
 msgstr "Las flechas siguen las salidas, Intro va, Escape vuelve. F1 dice todas las teclas."
 
-
 msgid "Into {0}: {1}"
 msgstr "Entras en {0}: {1}"
 
@@ -2075,7 +2025,6 @@ msgstr "nota, {0}"
 #, python-brace-format
 msgid "Note: {0}"
 msgstr "Nota: {0}"
-
 
 #, python-brace-format
 #, python-brace-format
@@ -2139,7 +2088,6 @@ msgstr "Repetir la sala"
 
 msgid "All about the room"
 msgstr "Todo sobre la sala"
-
 
 msgid "Write a note on the room"
 msgstr "Escribir una nota en la sala"
@@ -2352,7 +2300,6 @@ msgstr "Mapa corregido: {0} desde «{1}» lleva ahora a «{2}»."
 msgid "the game has not shown its exit {0} the last {1} times"
 msgstr "el juego no ha mostrado su salida {0} las últimas {1} veces"
 
-
 msgid "Square"
 msgstr "Cuadrado"
 
@@ -2364,8 +2311,6 @@ msgstr "Rombo"
 
 msgid "Hexagon"
 msgstr "Hexágono"
-
-
 
 msgid "Shape"
 msgstr "Forma"
@@ -2408,7 +2353,6 @@ msgstr "De camino"
 
 msgid "Stopped: the map lost track of where you are."
 msgstr "Parado: el mapa ha perdido dónde estás."
-
 
 msgid "Stopped: the last move had no effect."
 msgstr "Parado: el último movimiento no ha tenido efecto."
@@ -2472,7 +2416,6 @@ msgstr "Todo el lado queda como una tira fina, para desplegarlo como estaba."
 
 msgid "The {0} channel is no longer read aloud."
 msgstr "El canal {0} ya no se lee en voz alta."
-
 
 msgid "Map appearance…"
 msgstr "Apariencia del mapa…"
@@ -2618,14 +2561,11 @@ msgstr "Olvidar una marca…"
 msgid "Forget the mark"
 msgstr "Olvidar la marca"
 
-
-
 msgid "Tag {0}"
 msgstr "Etiqueta {0}"
 
 msgid "Plugin {0}"
 msgstr "Plugin {0}"
-
 
 msgid "Update a plugin…"
 msgstr "Actualizar un plugin…"
@@ -2641,7 +2581,6 @@ msgstr "Plugin que quitar"
 
 msgid "Back to the search."
 msgstr "De vuelta a la búsqueda."
-
 
 msgid "{0} To undo the last: Undo the map's last change, in the palette."
 msgstr "{0} Para deshacer el último: Deshacer el último cambio del mapa, en la paleta."
@@ -2727,7 +2666,6 @@ msgstr "Ya hay un panel llamado {0}."
 msgid "costs {0} more to enter"
 msgstr "entrar cuesta {0} más"
 
-
 msgid "Downloaded from a git repository."
 msgstr "Descargado de un repositorio git."
 
@@ -2767,8 +2705,6 @@ msgstr "No se pudo eliminar el perfil: {0}"
 msgid "MUD colours"
 msgstr "Colores del MUD"
 
-
-
 msgid "The rules of {0} could not be read: {1}"
 msgstr "No se pudieron leer las reglas de {0}: {1}"
 
@@ -2804,7 +2740,6 @@ msgstr "sin explorar"
 
 msgid "Note on {0}"
 msgstr "Nota en {0}"
-
 
 msgid "What speaks"
 msgstr "Qué habla"
@@ -2898,7 +2833,6 @@ msgstr "dice «{0}»"
 
 msgid "The pattern is not valid: {0}"
 msgstr "El patrón no es válido: {0}"
-
 
 msgid "Press to edit {0}"
 msgstr "Pulsa para editar {0}"
@@ -3140,9 +3074,6 @@ msgstr "Activa un plugin para usarlo: no hay que instalar nada más."
 msgid "Install from git…"
 msgstr "Instalar desde git…"
 
-msgid "For plugins others make, from the address of their git repository."
-msgstr "Para plugins de otros, desde la dirección de su repositorio git."
-
 msgid "Install a plugin…"
 msgstr "Instalar un plugin…"
 
@@ -3164,8 +3095,50 @@ msgstr "Abrir los mensajes"
 msgid "Tab, with nothing typed, reads the output as text, and F6 goes to each panel. {0} read the lines one by one. {1}: the messages. {2}: the gauges. {3}: where you are. {4}: explore the map. {5}: the palette, for all else. Ctrl silences speech."
 msgstr "Tab, sin nada escrito, lee la salida como texto, y F6 va a cada panel. {0} leen las líneas una a una. {1}: los mensajes. {2}: los indicadores. {3}: dónde estás. {4}: explorar el mapa. {5}: la paleta, para todo lo demás. Ctrl calla la voz."
 
-msgid "Welcome to Muddie. Write the address of a MUD and press Enter to play, or Tab to your profiles. For a game Muddie knows, such as Reinos de Leyenda, New profile, in the palette, {0}, sets everything up. Once playing, F1 says the keys."
-msgstr "Bienvenido a Muddie. Escribe la dirección de un MUD y pulsa Intro para jugar, o Tab para ir a tus perfiles. Para un juego que Muddie conoce, como Reinos de Leyenda, Nuevo perfil, en la paleta, {0}, lo prepara todo. Ya jugando, F1 dice las teclas."
-
 msgid "Close {0}"
 msgstr "Cerrar {0}"
+
+msgid "Downloading plugins…"
+msgstr "Descargando plugins…"
+
+msgid "Check for plugin updates"
+msgstr "Buscar actualizaciones de plugins"
+
+msgid "Welcome to Muddie. Write the address of a MUD and press Enter to play, or Tab to your profiles. For a game Muddie knows, New profile, in the palette, {0}, sets everything up. Once playing, F1 says the keys."
+msgstr "Bienvenido a Muddie. Escribe la dirección de un MUD y pulsa Intro para jugar, o Tab para ir a tus perfiles. Para un juego que Muddie conoce, Perfil nuevo, en la paleta, {0}, lo prepara todo. Ya jugando, F1 dice las teclas."
+
+msgid "Update plugins automatically"
+msgstr "Actualizar los plugins automáticamente"
+
+msgid "Muddie looks for newer official plugins each time it starts."
+msgstr "Muddie busca plugins oficiales más nuevos cada vez que se inicia."
+
+msgid "{0} Official, kept up to date by Muddie: on, it sets itself up when you connect."
+msgstr "{0} Oficial, Muddie lo mantiene al día: activado, se prepara solo al conectar."
+
+msgid "Already looking for plugin updates."
+msgstr "Ya se están buscando actualizaciones de plugins."
+
+msgid "Looking for plugin updates…"
+msgstr "Buscando actualizaciones de plugins…"
+
+msgid "Could not look for plugin updates: {0}"
+msgstr "No se pudieron buscar actualizaciones de plugins: {0}"
+
+msgid "Plugins updated: {0}."
+msgstr "Plugins actualizados: {0}."
+
+msgid "{0} needs Muddie {1} or newer, so it is not updated."
+msgstr "{0} necesita Muddie {1} o posterior, así que no se actualiza."
+
+msgid "A plugin could not be installed: {0}"
+msgstr "No se ha podido instalar un plugin: {0}"
+
+msgid "Plugins are up to date."
+msgstr "Los plugins están al día."
+
+msgid "Official plugins are kept up to date by Muddie. For plugins others make, install them from the address of their git repository."
+msgstr "Muddie mantiene al día los plugins oficiales. Los que hacen otras personas se instalan desde la dirección de su repositorio git."
+
+msgid "it stopped halfway"
+msgstr "se interrumpió a medias"

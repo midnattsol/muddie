@@ -119,6 +119,7 @@ impl App {
         let (title, (dot, state)) = (tab.title(), tab.status());
         let unread = tab.has_unread() && !active;
         let (connected, profile) = (tab.is_connected(), tab.profile_name().map(str::to_owned));
+        let can_disconnect = tab.can_disconnect();
         let fill = if active {
             theme.raised
         } else {
@@ -142,7 +143,7 @@ impl App {
                 self.active = index;
             }
             crate::widgets::context_menu_of(&name, |ui| {
-                asked = session_menu(ui, connected, profile.as_deref())
+                asked = session_menu(ui, (connected, can_disconnect), profile.as_deref())
             });
             let closing = trf("Close {0}", &[&title]);
             if widgets::close_button(ui, &closing, 18.0).clicked() {
@@ -205,7 +206,11 @@ fn session_name(
 }
 
 /// A session's menu: connecting, its profile, and closing it.
-fn session_menu(ui: &mut Ui, connected: bool, profile: Option<&str>) -> Option<SessionAction> {
+fn session_menu(
+    ui: &mut Ui,
+    (connected, can_disconnect): (bool, bool),
+    profile: Option<&str>,
+) -> Option<SessionAction> {
     widgets::menu_width(ui);
     let mut asked = None;
     let mut item = |ui: &mut Ui, label: &str, keys: &str, action: SessionAction| {
@@ -225,7 +230,7 @@ fn session_menu(ui: &mut Ui, connected: bool, profile: Option<&str>) -> Option<S
         crate::shortcuts::RECONNECT.written(),
         SessionAction::Reconnect,
     );
-    if connected {
+    if can_disconnect {
         item(ui, tr("Disconnect"), "", SessionAction::Disconnect);
     }
     widgets::menu_separator(ui);

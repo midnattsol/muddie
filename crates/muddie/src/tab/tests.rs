@@ -34,6 +34,7 @@ mod editor;
 mod input;
 mod keyboard;
 mod media;
+mod official;
 mod places;
 mod profiles;
 mod screenshots;
@@ -57,6 +58,7 @@ fn window<'a>(profiles: Option<Profiles>) -> Harness<'a, App> {
                 target: None,
                 speech: false,
                 scripts: Vec::new(),
+                download: Default::default(),
             };
             english(cc, startup)
         });
@@ -141,6 +143,7 @@ fn demo<'a>(builder: egui_kittest::HarnessBuilder<App>) -> Harness<'a, App> {
                 target: None,
                 speech: false,
                 scripts: Vec::new(),
+                download: Default::default(),
             };
             let app = App::new(cc, startup, Default::default());
             crate::i18n::set_language("en");

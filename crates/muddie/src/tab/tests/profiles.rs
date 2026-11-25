@@ -51,7 +51,7 @@ fn a_plugin_for_the_mud_is_offered_and_switched_on_without_the_rest_starting_ove
     let app = harness.state_mut().tab_mut();
     assert!(app.select_profile(Some("Reinos".into())));
     app.host = "rlmud.org".into();
-    let reinos = &crate::plugins::included("reinos-de-leyenda").unwrap();
+    let reinos = &crate::plugins::fixture::reinos();
     let common = &crate::plugins::included(crate::plugins::STANDARD).unwrap();
     // What many MUDs send the same way is on to begin with; the plugin
     // of one MUD is not.
@@ -164,7 +164,7 @@ fn what_the_mud_is_asked_for_follows_the_plugins_on_and_off() {
     let mut harness = window(Some(profiles));
     let app = harness.state_mut().tab_mut();
     assert!(app.select_profile(Some("Reinos".into())));
-    let reinos = &crate::plugins::included("reinos-de-leyenda").unwrap();
+    let reinos = &crate::plugins::fixture::reinos();
     let common = &crate::plugins::included(crate::plugins::STANDARD).unwrap();
     let (_events, mut sent) = fake_connection(app);
     let mut told = || -> Vec<Vec<String>> {
@@ -211,7 +211,7 @@ fn a_plugin_puts_its_gauges_in_the_panels_they_name() {
     let mut harness = window(Some(profiles));
     let app = harness.state_mut().tab_mut();
     assert!(app.select_profile(Some("Reinos".into())));
-    let reinos = &crate::plugins::included("reinos-de-leyenda").unwrap();
+    let reinos = &crate::plugins::fixture::reinos();
     app.set_plugin(reinos, true);
     let panel_of = |app: &Tab, gauge: &str| -> String {
         let named = &(app.rules.gauges.iter())
@@ -314,7 +314,7 @@ fn a_plugin_that_comes_with_muddie_is_installed_in_sight_and_the_profiles() {
     harness.set_size(egui::vec2(1300.0, 860.0));
     let app = harness.state_mut().tab_mut();
     assert!(app.select_profile(Some("Reinos".into())));
-    let plugin = &crate::plugins::included("reinos-de-leyenda").unwrap();
+    let plugin = &crate::plugins::fixture::reinos();
     app.set_plugin(plugin, true);
     let script = (profiles.scripts_dir("Reinos"))
         .join("Reinos de Leyenda")
@@ -438,7 +438,7 @@ fn a_plugin_that_comes_with_muddie_is_installed_in_sight_and_the_profiles() {
 fn a_plugin_that_comes_with_muddie_runs_as_it_comes_without_a_profile() {
     let mut harness = window(None);
     let app = harness.state_mut().tab_mut();
-    let plugin = &crate::plugins::included("reinos-de-leyenda").unwrap();
+    let plugin = &crate::plugins::fixture::reinos();
     app.set_plugin(plugin, true);
     assert!(app.plugin_on(plugin));
     let theirs = |app: &Tab| {
@@ -493,6 +493,7 @@ fn a_new_profile_is_made_for_a_game_with_its_address_and_plugin() {
     let dir = std::env::temp_dir().join(format!("muddie-game-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     let profiles = Profiles::at(dir.clone());
+    crate::plugins::fixture::download_template(&profiles);
     let mut harness = window(Some(profiles.clone()));
     harness.set_size(egui::vec2(1300.0, 860.0));
     harness.state_mut().open_profiles(None);
@@ -696,7 +697,7 @@ fn the_plugin_of_the_mud_is_on_before_connecting_to_it() {
     let mut harness = window(Some(profiles.clone()));
     let app = harness.state_mut().tab_mut();
     assert!(app.select_profile(Some("Mine".into())));
-    let reinos = &crate::plugins::included("reinos-de-leyenda").unwrap();
+    let reinos = &crate::plugins::fixture::reinos();
     app.switch_on_plugin_for("rlmud.org");
     assert!(app.plugin_on(reinos));
     assert!(

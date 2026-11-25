@@ -1,6 +1,7 @@
 //! The plugins of a session: switched on and off, installed in its
 //! profile, offered for the MUD connected to, downloaded and removed.
 
+use super::plugin_sync::scripts_mark;
 use super::*;
 use crate::plugins::{self, Plugin};
 
@@ -104,7 +105,7 @@ impl Tab {
     /// already is kept; installed `again`, what it installed is put back
     /// as it came. What was added is kept either way. Returns whether it
     /// was.
-    fn install_plugin_files(&mut self, plugin: &Plugin, again: bool) -> bool {
+    pub(super) fn install_plugin_files(&mut self, plugin: &Plugin, again: bool) -> bool {
         let Some(folder) = self.own_scripts_dir().map(|dir| dir.join(plugin.folder())) else {
             return false;
         };
@@ -231,75 +232,6 @@ impl Tab {
         self.sync_scripts();
     }
 
-    /// Installs the plugins that are switched on and not installed yet, as
-    /// those switched on in the profile's settings, and says, once, of
-    /// those installed that are not as they are now. Returns whether one
-    /// was installed.
-    pub(super) fn install_switched_on(&mut self) -> bool {
-        if self.own_scripts_dir().is_none() {
-            return false;
-        }
-        let on: Vec<Plugin> = (self.plugins.iter())
-            .filter(|plugin| self.plugin_on(plugin))
-            .cloned()
-            .collect();
-        let (mut installed, mut updated, mut kept) = (false, Vec::new(), false);
-        for plugin in on {
-            let Some(mark) = self.plugins_installed.get(&plugin.id).cloned() else {
-                installed |= self.install_plugin_files(&plugin, false);
-                continue;
-            };
-            let (made, written) = match mark.split_once(':') {
-                Some((made, written)) => (made, Some(written)),
-                None => (mark.as_str(), None),
-            };
-            if made == plugin.fingerprint() {
-                continue;
-            }
-            // Another version than the one installed: installed again, as
-            // it comes. Scripts of it changed since it was installed, or not
-            // known to be as they were, are kept beside, so nothing is lost.
-            kept |= self.keep_changed_scripts(&plugin, written);
-            if self.install_plugin_files(&plugin, true) {
-                installed = true;
-                updated.push(plugin.shown_name());
-            }
-        }
-        if !updated.is_empty() {
-            self.note(&trf("{0} brought up to date.", &[&updated.join(", ")]));
-        }
-        if kept {
-            self.note(tr(
-                "Changes made to a plugin's scripts are kept beside them, in files ending in .before-update.",
-            ));
-        }
-        installed
-    }
-
-    /// Keeps a copy of each script of `plugin` in the profile that is not
-    /// as it was installed (`written`, a mark of them then; none, not
-    /// known) and not as the plugin has it now. Returns whether any was.
-    fn keep_changed_scripts(&mut self, plugin: &Plugin, written: Option<&str>) -> bool {
-        let Some(folder) = self.own_scripts_dir().map(|dir| dir.join(plugin.folder())) else {
-            return false;
-        };
-        if written == Some(scripts_mark(plugin, &folder).as_str()) {
-            return false;
-        }
-        let mut kept = false;
-        for (name, code) in &plugin.scripts {
-            let path = folder.join(name);
-            let Ok(now) = std::fs::read_to_string(&path) else {
-                continue;
-            };
-            if now != *code {
-                let copy = folder.join(format!("{name}.before-update"));
-                kept |= std::fs::write(copy, now).is_ok();
-            }
-        }
-        kept
-    }
-
     /// Changes the rules as saved, and in the editor if it is open, and
     /// puts them to work.
     pub(super) fn change_rules(&mut self, change: impl Fn(&mut Rules)) {
@@ -415,7 +347,7 @@ impl Tab {
     /// scripts and its gauges, and one downloaded is deleted too once no
     /// profile has it installed.
     pub fn remove_plugin(&mut self, name: &str) {
-        let Some(plugin) = self.plugin(name).filter(|plugin| plugin.downloaded) else {
+        let Some(plugin) = self.plugin(name).filter(|plugin| plugin.is_git()) else {
             return self.refuse(tr("No such plugin is installed."));
         };
         plugin.switch(&mut self.plugins_on, &mut self.plugins_off, false);
@@ -475,9 +407,7 @@ impl Tab {
                 }
                 Ok((Some(plugin), _)) => {
                     self.note(&trf("Plugin {0} updated.", &[&plugin.shown_name()]));
-                    if self.plugins_installed.contains_key(&plugin.id) {
-                        self.install_plugin_again(&plugin);
-                    }
+                    self.git_plugin_updated(&plugin);
                 }
                 Ok((None, name)) => self.refuse(&trf(
                     "The plugin could not be installed or updated: {0}",
@@ -518,7 +448,7 @@ impl Tab {
     /// Brings a plugin downloaded up to date, and installs it again where
     /// it is installed.
     pub fn update_plugin(&mut self, name: &str) {
-        let Some(plugin) = self.plugin(name).filter(|plugin| plugin.downloaded) else {
+        let Some(plugin) = self.plugin(name).filter(|plugin| plugin.is_git()) else {
             return self.refuse(tr("No such plugin is installed."));
         };
         match self.profiles.as_ref().map(Profiles::plugins_dir) {
@@ -555,17 +485,4 @@ fn as_it_comes(plugin: &Plugin, script: &str) -> String {
 /// Whether a gauge is in the folder of a plugin, or in one inside it.
 fn brought_by(gauge: &crate::rules::Gauge, plugin: &Plugin) -> bool {
     gauge.folder.split('/').next() == Some(plugin.folder())
-}
-
-/// A mark of the scripts of `plugin` as they are in `folder`: FNV-1a, the
-/// same on every build, as [`Plugin::fingerprint`].
-fn scripts_mark(plugin: &Plugin, folder: &std::path::Path) -> String {
-    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
-    for (name, _) in &plugin.scripts {
-        let code = std::fs::read(folder.join(name)).unwrap_or_default();
-        for byte in name.bytes().chain([0]).chain(code).chain([0]) {
-            hash = (hash ^ u64::from(byte)).wrapping_mul(0x0000_0100_0000_01b3);
-        }
-    }
-    format!("{hash:016x}")
 }

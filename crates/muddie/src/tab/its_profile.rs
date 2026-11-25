@@ -188,6 +188,8 @@ impl Tab {
                 return false;
             }
         };
+        // What was about to be connected to is not what it is now.
+        self.stop_waiting_for_plugins();
         if let Some(profile) = profile {
             self.host = profile.host;
             self.port = profile.port.to_string();

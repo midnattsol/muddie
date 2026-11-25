@@ -48,6 +48,8 @@ mod messages;
 mod mxp;
 mod panel_sizes;
 mod places;
+mod plugin_sync;
+mod plugin_wait;
 mod plugins;
 mod reader;
 mod reviewing;
@@ -233,6 +235,12 @@ pub struct Tab {
     /// Plugins being downloaded or updated; the flag says it is one being
     /// downloaded, to be switched on when its job ends well.
     plugin_jobs: Vec<(Receiver<crate::plugins::git::Outcome>, bool)>,
+    /// Whether the official plugins are being downloaded, and since when
+    /// the session waits for them before connecting.
+    plugin_download: crate::plugins::official::Download,
+    plugin_wait: Option<Instant>,
+    /// The wait was given up, so that connecting does not begin it again.
+    waited: bool,
     /// The sounds being fetched for the MUD, where it said they are, and those
     /// that could not be had.
     fetching: media::Fetching,
@@ -270,6 +278,8 @@ pub struct Startup {
     pub speech: bool,
     /// Extra script files to run after the profile's, in order.
     pub scripts: Vec<PathBuf>,
+    /// Whether the official plugins are being downloaded.
+    pub download: crate::plugins::official::Download,
 }
 
 impl Tab {
@@ -280,7 +290,7 @@ impl Tab {
             port: "23".into(),
             tls: false,
             verify_certificate: true,
-            profiles: startup.profiles,
+            profiles: startup.profiles.clone(),
             profile: None,
             profile_name: String::new(),
             extra_scripts: startup.scripts,
@@ -351,8 +361,11 @@ impl Tab {
             plugins_declined: Vec::new(),
             plugins_installed: Default::default(),
             plugin_offer: None,
-            plugins: crate::plugins::all(None),
+            plugins: crate::plugins::all(startup.profiles.as_ref()),
             plugin_jobs: Vec::new(),
+            plugin_download: startup.download,
+            plugin_wait: None,
+            waited: false,
             fetching: media::Fetching::default(),
             mxp_state: mxp::MxpState::default(),
             character: String::new(),
@@ -441,6 +454,7 @@ impl Tab {
         self.check_partial(ctx);
         self.check_timers(ctx);
         self.check_plugin_jobs(ctx);
+        self.check_plugin_wait(ctx);
         self.tell_screen_reader();
         if let Some(deadline) = self.scripts.next_deadline() {
             ctx.request_repaint_after(deadline.saturating_duration_since(now));

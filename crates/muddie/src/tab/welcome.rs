@@ -72,7 +72,7 @@ impl Tab {
         if !self.welcomed && self.voice.screen_reader() {
             self.welcomed = true;
             self.voice.say(&trf(
-                "Welcome to Muddie. Write the address of a MUD and press Enter to play, or Tab to your profiles. For a game Muddie knows, such as Reinos de Leyenda, New profile, in the palette, {0}, sets everything up. Once playing, F1 says the keys.",
+                "Welcome to Muddie. Write the address of a MUD and press Enter to play, or Tab to your profiles. For a game Muddie knows, New profile, in the palette, {0}, sets everything up. Once playing, F1 says the keys.",
                 &[crate::shortcuts::PALETTE.written()],
             ));
         }

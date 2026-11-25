@@ -90,7 +90,7 @@ fn sent_lines(sent: &mut tokio::sync::mpsc::UnboundedReceiver<Command>) -> Vec<S
 /// Reinos de Leyenda's plugin, as installed: its script running, and its
 /// rules among the session's.
 fn reinos(app: &mut Tab) {
-    let plugin = &crate::plugins::included("reinos-de-leyenda").unwrap();
+    let plugin = &crate::plugins::fixture::reinos();
     for (name, code) in &plugin.scripts {
         app.scripts.exec(name, code);
     }

@@ -57,7 +57,7 @@ pub fn update(folder: &Path, name: &str) -> Receiver<Outcome> {
 
 /// A repository with no script would install nothing: it is not one.
 fn check_plugin(folder: PathBuf) -> Result<(), String> {
-    match super::Plugin::downloaded(&folder) {
+    match super::Plugin::from_folder(&folder, super::Origin::Git) {
         Some(_) => Ok(()),
         None => {
             let _ = std::fs::remove_dir_all(&folder);

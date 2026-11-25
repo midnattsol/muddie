@@ -1,7 +1,8 @@
 //! Plugins: what makes Muddie know the ways of a MUD, so that the client
-//! itself knows those of none. Some come with Muddie; others are downloaded
-//! from a git repository. Either is the same thing: scripts, and the rules
-//! they bring, so far gauges.
+//! itself knows those of none. Some come with Muddie; some are official,
+//! downloaded by Muddie, which keeps them up to date; others are downloaded
+//! by the player from a git repository. All are the same thing: scripts,
+//! and the rules they bring, so far gauges.
 //!
 //! A plugin is installed in a profile when it is first switched on there:
 //! its scripts in a folder of the profile's named after it, its gauges
@@ -11,13 +12,20 @@
 //! back as it came. One for a MUD is offered when that MUD is connected to.
 
 use std::collections::BTreeMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 
 use crate::profile::Profiles;
 
+#[cfg(test)]
+pub mod fixture;
 pub mod git;
+mod judge;
+pub mod official;
+pub mod store;
+pub mod unpack;
+pub mod version;
 
 /// A text a plugin gives, as one alone or by language code, as
 /// `{ en = "Map", es = "Mapa" }`.
@@ -73,6 +81,9 @@ pub struct Manifest {
     /// gives itself, to be offered when they are connected to.
     pub hosts: Vec<String>,
     pub names: Vec<String>,
+    /// The least version of Muddie it is made for, as `0.4.0`. One that
+    /// needs a newer Muddie than this is kept, and not updated.
+    pub muddie: Option<String>,
 }
 
 /// A plugin that comes with the program: its folder, and its files as
@@ -87,30 +98,29 @@ pub struct Included {
 /// What many MUDs send the same way, after those that did it first.
 pub const STANDARD: &str = "standard";
 
-pub const INCLUDED: [Included; 2] = [
-    Included {
-        id: STANDARD,
-        manifest: include_str!("../plugins/standard/plugin.toml"),
-        scripts: &[(
-            "Standard GMCP and MSDP.luau",
-            include_str!("../plugins/standard/Standard GMCP and MSDP.luau"),
-        )],
-        rules: include_str!("../plugins/standard/rules.toml"),
-    },
-    Included {
-        id: "reinos-de-leyenda",
-        manifest: include_str!("../plugins/reinos-de-leyenda/plugin.toml"),
-        scripts: &[(
-            "Reinos de Leyenda.luau",
-            include_str!("../plugins/reinos-de-leyenda/Reinos de Leyenda.luau"),
-        )],
-        rules: include_str!("../plugins/reinos-de-leyenda/rules.toml"),
-    },
-];
+pub const INCLUDED: [Included; 1] = [Included {
+    id: STANDARD,
+    manifest: include_str!("../plugins/standard/plugin.toml"),
+    scripts: &[(
+        "Standard GMCP and MSDP.luau",
+        include_str!("../plugins/standard/Standard GMCP and MSDP.luau"),
+    )],
+    rules: include_str!("../plugins/standard/rules.toml"),
+}];
 
-/// A plugin, whether it comes with Muddie or was downloaded: what it is
-/// known by, which is the folder it comes in; what it says of itself; and
-/// its scripts and rules.
+/// Where a plugin comes from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Origin {
+    /// With Muddie, in the program itself.
+    Included,
+    /// An official one, downloaded and kept up to date by Muddie.
+    Official,
+    /// Downloaded by the player from a git repository.
+    Git,
+}
+
+/// A plugin, from wherever it comes: what it is known by, which is the
+/// folder it comes in; what it says of itself; and its scripts and rules.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Plugin {
     pub id: String,
@@ -121,15 +131,20 @@ pub struct Plugin {
     pub scripts: Vec<(String, String)>,
     /// Its rules, as in a profile's `rules.toml`.
     pub rules: String,
-    /// Downloaded, to be updated and removed; else it comes with Muddie.
-    pub downloaded: bool,
+    pub origin: Origin,
 }
 
 impl Plugin {
     /// One made of its files: what it says of itself, if it says it, its
     /// scripts and its rules. A manifest that cannot be read is taken as
     /// none, and said by the tests of those that come.
-    fn made(id: &str, manifest: &str, scripts: Vec<(String, String)>, rules: String) -> Self {
+    fn made(
+        id: &str,
+        manifest: &str,
+        scripts: Vec<(String, String)>,
+        rules: String,
+        origin: Origin,
+    ) -> Self {
         let manifest: Manifest = toml::from_str(manifest).unwrap_or_default();
         let name = match manifest.name.english() {
             name if name.trim().is_empty() => id.to_owned(),
@@ -141,13 +156,13 @@ impl Plugin {
             manifest,
             scripts,
             rules,
-            downloaded: false,
+            origin,
         }
     }
 
-    /// One downloaded into `folder`: its `.luau` files, its `plugin.toml`
-    /// and its `rules.toml`, if it has them. `None` if it has no script.
-    pub fn downloaded(folder: &Path) -> Option<Self> {
+    /// One kept in `folder`: its `.luau` files, its `plugin.toml` and its
+    /// `rules.toml`, if it has them. `None` if it has no script.
+    pub fn from_folder(folder: &Path, origin: Origin) -> Option<Self> {
         let id = folder.file_name()?.to_str()?.to_owned();
         let mut scripts: Vec<(String, String)> = (std::fs::read_dir(folder).ok()?.flatten())
             .map(|entry| entry.path())
@@ -165,9 +180,18 @@ impl Plugin {
         }
         scripts.sort();
         let read = |file: &str| std::fs::read_to_string(folder.join(file)).unwrap_or_default();
-        let mut plugin = Self::made(&id, &read("plugin.toml"), scripts, read("rules.toml"));
-        plugin.downloaded = true;
-        Some(plugin)
+        Some(Self::made(
+            &id,
+            &read("plugin.toml"),
+            scripts,
+            read("rules.toml"),
+            origin,
+        ))
+    }
+
+    /// Whether the player downloaded it from git, to update and remove.
+    pub fn is_git(&self) -> bool {
+        self.origin == Origin::Git
     }
 
     /// What it is called, as shown.
@@ -178,11 +202,11 @@ impl Plugin {
         }
     }
 
-    /// What it does, as shown; for one downloaded that says nothing,
-    /// where it came from.
+    /// What it does, as shown; for one from git that says nothing, where
+    /// it came from.
     pub fn about(&self) -> String {
         match self.manifest.about.shown() {
-            about if about.trim().is_empty() && self.downloaded => {
+            about if about.trim().is_empty() && self.is_git() => {
                 crate::i18n::tr("Downloaded from a git repository.").to_owned()
             }
             about => about,
@@ -257,19 +281,43 @@ impl Plugin {
     }
 }
 
-/// Every plugin there is: those that come with Muddie, then those
-/// downloaded, in the order of their names.
+/// What is in `folder` that may be a plugin: not what is hidden, as one
+/// being written, or put aside, is.
+pub fn folders(folder: &Path) -> impl Iterator<Item = PathBuf> {
+    (std::fs::read_dir(folder).into_iter().flatten().flatten())
+        .filter(|entry| !entry.file_name().to_string_lossy().starts_with('.'))
+        .map(|entry| entry.path())
+}
+
+/// The plugins in the folders of `folder`, in the order of their names.
+fn scan(folder: &Path, origin: Origin) -> Vec<Plugin> {
+    let mut found: Vec<Plugin> = folders(folder)
+        .filter_map(|path| Plugin::from_folder(&path, origin))
+        .collect();
+    found.sort_by(|a, b| a.name.cmp(&b.name));
+    found
+}
+
+/// Every plugin there is: those that come with Muddie, then the official
+/// ones, then those the player downloaded from git, each in the order of
+/// their names. Of two with the same id, the one that comes with Muddie
+/// wins, and then the one from git.
 pub fn all(profiles: Option<&Profiles>) -> Vec<Plugin> {
     let mut plugins: Vec<Plugin> = INCLUDED.iter().map(Plugin::from).collect();
-    if let Some(profiles) = profiles {
-        let folder = profiles.plugins_dir();
-        let mut downloaded: Vec<Plugin> =
-            (std::fs::read_dir(&folder).into_iter().flatten().flatten())
-                .filter_map(|entry| Plugin::downloaded(&entry.path()))
-                .filter(|plugin| !plugins.iter().any(|known| known.id == plugin.id))
-                .collect();
-        downloaded.sort_by(|a, b| a.name.cmp(&b.name));
-        plugins.extend(downloaded);
+    let Some(profiles) = profiles else {
+        #[cfg(test)]
+        fixture::add_to(&mut plugins);
+        return plugins;
+    };
+    let git = scan(&profiles.plugins_dir(), Origin::Git);
+    let mut official = scan(&profiles.official_dir(), Origin::Official);
+    #[cfg(test)]
+    fixture::add_to(&mut official);
+    official.retain(|plugin| !git.iter().any(|other| other.id == plugin.id));
+    for plugin in official.into_iter().chain(git) {
+        if !plugins.iter().any(|known| known.id == plugin.id) {
+            plugins.push(plugin);
+        }
     }
     plugins
 }
@@ -292,6 +340,7 @@ impl From<&Included> for Plugin {
             included.manifest,
             scripts,
             included.rules.to_owned(),
+            Origin::Included,
         )
     }
 }
@@ -333,7 +382,7 @@ mod tests {
             assert!(plugin.rules.is_empty() || !rules.gauges.is_empty());
         }
         // What they are made of marks each.
-        let reinos = included("reinos-de-leyenda").unwrap();
+        let reinos = fixture::reinos();
         assert_ne!(
             reinos.fingerprint(),
             included(STANDARD).unwrap().fingerprint()

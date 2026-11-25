@@ -101,6 +101,9 @@ pub struct Settings {
     /// Leave a command in the command line after sending it, selected:
     /// Enter sends it again, and typing replaces it.
     pub keep_command: bool,
+    /// The official plugins are looked for, and brought up to date, each
+    /// time Muddie starts.
+    pub update_plugins: bool,
     /// The widths of the automation view's first two panes.
     pub automation_panes: [f32; 2],
     /// How tall the editors of commands and of scripts were made, in
@@ -135,6 +138,7 @@ impl Default for Settings {
             speech_prompts: true,
             timestamps: false,
             keep_command: false,
+            update_plugins: true,
             automation_panes: [190.0, 320.0],
             code_heights: [0.0; 2],
             open_folders: Default::default(),
@@ -198,6 +202,10 @@ mod tests {
         std::fs::write(&path, "theme = \"light\"\n").unwrap();
         let partial = Settings::load(&path).unwrap();
         assert_eq!((partial.theme, partial.font_size), (ThemeName::Light, 15.0));
+        // Older files, with nothing of it, update the plugins.
+        assert!(partial.update_plugins);
+        std::fs::write(&path, "update_plugins = false\n").unwrap();
+        assert!(!Settings::load(&path).unwrap().update_plugins);
         // The MUD's colours, as they were once kept, are read.
         std::fs::write(&path, "mud_palette = \"classic\"\n").unwrap();
         assert_eq!(

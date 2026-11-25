@@ -19,12 +19,14 @@ mod asks;
 mod bars;
 mod dialogs;
 mod keys;
+mod plugin_updates;
 mod profiles;
 mod settings_page;
 mod toasts;
 
 use asks::Ask;
 use keys::drop_alt_typing;
+use plugin_updates::Updates;
 use profiles::ProfileEdit;
 pub use profiles::{ProfileAction, ProfileTab, profile_menu};
 pub use settings_page::Section;
@@ -75,6 +77,8 @@ pub struct App {
     /// How many of its messages were said again in the session on screen.
     profile_session_said: u64,
     ctx: egui::Context,
+    /// The official plugins being looked for.
+    updates: Updates,
     /// Keypad keys noted by the window layer, waiting for the next frame.
     keypad: keypad::Pressed,
 }
@@ -110,6 +114,12 @@ impl App {
             settings_error = Some(error);
         }
         let extra_scripts = startup.scripts.clone();
+        // Before the first session, which may connect at once.
+        let updates = Updates::at_start(profiles.as_ref(), &settings, &cc.egui_ctx);
+        let startup = Startup {
+            download: updates.download.clone(),
+            ..startup
+        };
         let mut first = Tab::new(&cc.egui_ctx, startup, &settings);
         if let Some(error) = &settings_error {
             first.refuse(error);
@@ -140,6 +150,7 @@ impl App {
             profile_session: None,
             profile_session_said: 0,
             ctx: cc.egui_ctx.clone(),
+            updates,
             keypad,
         }
     }
@@ -221,6 +232,7 @@ impl App {
                 target: None,
                 speech: false,
                 scripts: Vec::new(),
+                download: self.updates.download.clone(),
             };
             let mut tab = Tab::new(&self.ctx, startup, &self.settings);
             tab.play_quietly(name);
@@ -239,6 +251,7 @@ impl App {
             target: None,
             speech: false,
             scripts: self.extra_scripts.clone(),
+            download: self.updates.download.clone(),
         };
         self.tabs.push(Tab::new(ctx, startup, &self.settings));
         self.active = self.tabs.len() - 1;
@@ -270,6 +283,7 @@ impl App {
                 self.asking = Some(asks::Ask::RemovePlugin { name, profile });
                 self.ask_error = None;
             }
+            AppRequest::UpdatePlugins => self.look_for_plugin_updates(),
             AppRequest::Play(name) => self.play(&name, ctx),
             AppRequest::Shortcuts => self.show_shortcuts = true,
             AppRequest::About => self.show_about = true,
@@ -472,6 +486,9 @@ impl eframe::App for App {
         crate::widgets::note_input(ui.ctx());
         // Keys being chosen for a shortcut are for nothing else.
         self.record_shortcut(ui);
+        // What came of looking for plugins is told before the sessions run,
+        // so that one waiting for them goes on with them.
+        self.check_plugin_updates();
         // Every session keeps running; only the one on screen is drawn.
         let mut asked = Vec::new();
         for (index, tab) in self.tabs.iter_mut().enumerate() {

@@ -132,7 +132,7 @@ impl App {
         let profiles = self.profiles.clone();
         let templates = match (&ask, &profiles) {
             (Ask::New { .. }, Some(profiles)) => {
-                let (templates, problems) = crate::templates::all(Some(&profiles.templates_dir()));
+                let (templates, problems) = crate::templates::all(Some(profiles));
                 (
                     templates
                         .into_iter()
@@ -224,7 +224,7 @@ impl App {
             session: Some(SessionPrefs::default()),
             ..Profile::default()
         };
-        let (templates, _) = crate::templates::all(Some(&profiles.templates_dir()));
+        let (templates, _) = crate::templates::all(Some(profiles));
         if let Some(template) =
             (templates.iter()).find(|template| Some(template.name.as_str()) == game)
         {

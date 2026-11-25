@@ -56,7 +56,7 @@ impl Tab {
             false => tr("Connect"),
         };
         let mut acts = vec![item(connect, session, Act::Reconnect)];
-        if self.connection.is_some() {
+        if self.can_disconnect() {
             acts.push(item(tr("Disconnect"), session, Act::Disconnect));
         }
         acts.push(item(
@@ -285,13 +285,18 @@ impl Tab {
                 Act::Run(line),
             ));
         }
+        acts.push(item(
+            tr("Check for plugin updates"),
+            plugins,
+            Act::App(AppRequest::UpdatePlugins),
+        ));
         // Asked in its window, as from the profile's plugins.
         acts.push(item(
             tr("Install a plugin…"),
             plugins,
             run("/plugin install"),
         ));
-        if self.plugins.iter().any(|plugin| plugin.downloaded) {
+        if self.plugins.iter().any(|plugin| plugin.is_git()) {
             acts.push(item(
                 tr("Update a plugin…"),
                 plugins,

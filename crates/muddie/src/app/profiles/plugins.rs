@@ -1,8 +1,8 @@
-//! A profile's plugins: those that come with Muddie and those downloaded,
-//! each switched on and off alike, and downloading one.
+//! A profile's plugins: those that come with Muddie, the official ones and
+//! those from git, each switched on and off alike, and downloading one.
 
 use super::*;
-use crate::plugins::Plugin;
+use crate::plugins::{Origin, Plugin};
 
 /// What a plugin's menu asked for.
 enum PluginAsk {
@@ -15,17 +15,17 @@ enum PluginAsk {
 }
 
 /// A plugin: its switch in the profile, what it does, and its menu: for
-/// one installed, installing it again; for one downloaded, updating and
+/// one installed, installing it again; for one from git, updating and
 /// removing it.
 fn plugin_row(ui: &mut Ui, plugin: &Plugin, draft: &mut Profile) -> Option<PluginAsk> {
     let mut on = plugin.is_on(&draft.plugins_on, &draft.plugins_off);
     let (name, about) = (plugin.shown_name(), plugin.about());
     let installed = draft.plugins_installed.contains_key(&plugin.id);
-    let downloaded = plugin.downloaded;
+    let git = plugin.is_git();
     let mut asked = None;
     let switch = widgets::setting_row(ui, &name, Some(&about), &mut |ui| {
         let switch = widgets::switch(ui, &mut on, &name);
-        if installed || downloaded {
+        if installed || git {
             ui.add_space(size::GAP_S);
             let more = widgets::icon_button(
                 ui,
@@ -37,8 +37,8 @@ fn plugin_row(ui: &mut Ui, plugin: &Plugin, draft: &mut Profile) -> Option<Plugi
                 widgets::menu_width(ui);
                 let items = [
                     (installed, PluginAsk::Again, tr("Install again")),
-                    (downloaded, PluginAsk::Update, tr("Update")),
-                    (downloaded, PluginAsk::Remove, tr("Remove…")),
+                    (git, PluginAsk::Update, tr("Update")),
+                    (git, PluginAsk::Remove, tr("Remove…")),
                 ];
                 for (offered, ask, label) in items {
                     if offered && widgets::menu_item(ui, label, "").clicked() {
@@ -51,12 +51,16 @@ fn plugin_row(ui: &mut Ui, plugin: &Plugin, draft: &mut Profile) -> Option<Plugi
         switch
     });
     // That on is all it takes is said: there is nothing else to install.
-    let said = match downloaded {
-        false => trf(
+    let said = match plugin.origin {
+        Origin::Included => trf(
             "{0} Comes with Muddie: on, it sets itself up when you connect.",
             &[&about],
         ),
-        true => trf(
+        Origin::Official => trf(
+            "{0} Official, kept up to date by Muddie: on, it sets itself up when you connect.",
+            &[&about],
+        ),
+        Origin::Git => trf(
             "{0} Downloaded from git: on, it sets itself up when you connect.",
             &[&about],
         ),
@@ -84,10 +88,8 @@ impl App {
             return;
         };
         let plugins = self.session_of(Some(&name)).plugins().to_vec();
-        let downloaded: Vec<&Plugin> = (plugins.iter())
-            .filter(|plugin| plugin.downloaded)
-            .collect();
-        let (mut updating, mut install) = (Vec::new(), false);
+        let from_git: Vec<&Plugin> = (plugins.iter()).filter(|plugin| plugin.is_git()).collect();
+        let (mut updating, mut install, mut check) = (Vec::new(), false, false);
         widgets::section_caption(ui, tr("Plugins"));
         widgets::page_note(
             ui,
@@ -111,14 +113,20 @@ impl App {
         ui.add_space(size::GAP_S);
         ui.horizontal(|ui| {
             install = widgets::button(ui, tr("Install from git…")).clicked();
-            if !downloaded.is_empty() && widgets::button(ui, tr("Update all")).clicked() {
-                updating.extend(downloaded.iter().map(|plugin| plugin.name.clone()));
+            if !from_git.is_empty() && widgets::button(ui, tr("Update all")).clicked() {
+                updating.extend(from_git.iter().map(|plugin| plugin.name.clone()));
             }
+            check = widgets::button(ui, tr("Check for plugin updates")).clicked();
         });
         widgets::page_note(
             ui,
-            tr("For plugins others make, from the address of their git repository."),
+            tr(
+                "Official plugins are kept up to date by Muddie. For plugins others make, install them from the address of their git repository.",
+            ),
         );
+        if check {
+            self.look_for_plugin_updates();
+        }
         if let Some(plugin) = again {
             self.install_again(&plugin);
         }

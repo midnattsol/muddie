@@ -28,6 +28,10 @@ impl Tab {
         let Some((host, port)) = self.address_to_connect() else {
             return;
         };
+        // The plugins first, if they are on their way and there are none.
+        if self.wait_for_plugins(ctx) {
+            return;
+        }
         self.user_disconnected = false;
         self.reconnect_at = None;
         self.started = true;
@@ -139,6 +143,8 @@ impl Tab {
     }
 
     pub fn disconnect(&mut self) {
+        // Cancels connecting, if it was waiting for the plugins.
+        self.stop_waiting_for_plugins();
         self.user_disconnected = true;
         self.reconnect_at = None;
         if let Some(connection) = &self.connection {
