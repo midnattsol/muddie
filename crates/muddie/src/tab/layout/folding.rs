@@ -110,32 +110,13 @@ fn strip_names(
         true => egui::Rect::from_min_size(card.min, egui::vec2(card.width(), STRIP)),
         false => egui::Rect::from_min_max(egui::pos2(card.max.x - STRIP, card.min.y), card.max),
     };
-    let builder = egui::UiBuilder::new()
-        .max_rect(arrow)
-        .layout(egui::Layout::top_down(egui::Align::Center));
-    let icon = widgets::Icon::Unfold(side.edge());
-    let back = ui.scope_builder(builder, |ui| {
-        widgets::icon_button(ui, icon, side.toggle_label(false), false)
-    });
-    if focus {
-        back.inner.request_focus();
-    }
-    let mut chosen = back.inner.clicked().then_some((0, 0));
+    let mut chosen = strip_arrow(ui, side, arrow, focus);
     let mut at = if side.is_beside() { STRIP + 2.0 } else { 6.0 };
     for (id, stack, name) in panels {
         let galley =
             (ui.painter()).layout_no_wrap(name.to_uppercase(), font.clone(), theme.text_dim);
         let (long, high) = (galley.size().x + 20.0, galley.size().y);
-        let item = match side.is_beside() {
-            true => egui::Rect::from_min_size(
-                card.min + egui::vec2(0.0, at),
-                egui::vec2(card.width(), long),
-            ),
-            false => egui::Rect::from_min_size(
-                card.min + egui::vec2(at, 0.0),
-                egui::vec2(long, card.height()),
-            ),
-        };
+        let item = name_slot(side, card, at, long);
         at += long + 2.0;
         let response = ui.interact(
             item,
@@ -150,24 +131,7 @@ fn strip_names(
                 .rect_filled(item.shrink(3.0), egui::CornerRadius::same(7), theme.hover);
         }
         let ink = if hovered { theme.text } else { theme.text_dim };
-        // Turned a quarter, so that it reads from the top at the right and
-        // from the bottom at the left, as it does in code editors.
-        let (start, angle) = match side {
-            Side::Right => (
-                egui::pos2(item.center().x + high / 2.0, item.top() + 10.0),
-                std::f32::consts::FRAC_PI_2,
-            ),
-            Side::Left => (
-                egui::pos2(item.center().x - high / 2.0, item.bottom() - 10.0),
-                -std::f32::consts::FRAC_PI_2,
-            ),
-            Side::Top | Side::Bottom => (
-                egui::pos2(item.left() + 10.0, item.center().y - high / 2.0),
-                0.0,
-            ),
-        };
-        let text = egui::epaint::TextShape::new(start, galley, ink).with_angle(angle);
-        ui.painter().add(text);
+        paint_name(ui, side, item, galley, (high, ink));
         let response = response
             .on_hover_cursor(egui::CursorIcon::PointingHand)
             .on_hover_text(side.toggle_label(false));
@@ -177,4 +141,68 @@ fn strip_names(
     }
     ui.allocate_rect(card, egui::Sense::hover());
     chosen
+}
+
+/// The arrow of a strip, which brings the side back, in its `arrow` place:
+/// it has the keyboard if asked to. Returns what clicking it chooses, no
+/// panel in particular.
+fn strip_arrow(
+    ui: &mut egui::Ui,
+    side: Side,
+    arrow: egui::Rect,
+    focus: bool,
+) -> Option<(u32, u32)> {
+    let builder = egui::UiBuilder::new()
+        .max_rect(arrow)
+        .layout(egui::Layout::top_down(egui::Align::Center));
+    let icon = widgets::Icon::Unfold(side.edge());
+    let back = ui.scope_builder(builder, |ui| {
+        widgets::icon_button(ui, icon, side.toggle_label(false), false)
+    });
+    if focus {
+        back.inner.request_focus();
+    }
+    back.inner.clicked().then_some((0, 0))
+}
+
+/// The room on the card of a strip for a name `long` at `at` along it.
+fn name_slot(side: Side, card: egui::Rect, at: f32, long: f32) -> egui::Rect {
+    match side.is_beside() {
+        true => egui::Rect::from_min_size(
+            card.min + egui::vec2(0.0, at),
+            egui::vec2(card.width(), long),
+        ),
+        false => egui::Rect::from_min_size(
+            card.min + egui::vec2(at, 0.0),
+            egui::vec2(long, card.height()),
+        ),
+    }
+}
+
+/// Draws a name in its `item`, which is `high` tall, in `ink`: turned a
+/// quarter, so that it reads from the top at the right and from the bottom
+/// at the left, as it does in code editors.
+fn paint_name(
+    ui: &egui::Ui,
+    side: Side,
+    item: egui::Rect,
+    galley: std::sync::Arc<egui::Galley>,
+    (high, ink): (f32, egui::Color32),
+) {
+    let (start, angle) = match side {
+        Side::Right => (
+            egui::pos2(item.center().x + high / 2.0, item.top() + 10.0),
+            std::f32::consts::FRAC_PI_2,
+        ),
+        Side::Left => (
+            egui::pos2(item.center().x - high / 2.0, item.bottom() - 10.0),
+            -std::f32::consts::FRAC_PI_2,
+        ),
+        Side::Top | Side::Bottom => (
+            egui::pos2(item.left() + 10.0, item.center().y - high / 2.0),
+            0.0,
+        ),
+    };
+    let text = egui::epaint::TextShape::new(start, galley, ink).with_angle(angle);
+    ui.painter().add(text);
 }
