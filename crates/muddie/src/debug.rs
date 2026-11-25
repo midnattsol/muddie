@@ -2,7 +2,8 @@
 //! the standard output, as it happens, to read in the terminal or to keep
 //! with `tee`. What goes over the protocols is under its name and way
 //! (`GMCP<` arrived, `GMCP>` sent, and so `MSDP`, `MSSP`, `MXP`, `TELNET`);
-//! the rest under what it is (`TEXT`, `SENT`, `NOTE`, `SCRIPT`, `LOG`,
+//! the rest under what it is (`TEXT`, a line; `PROMPT`, one the MUD marks
+//! as such; `PARTIAL`, what has no end yet; `SENT`, `NOTE`, `SCRIPT`, `LOG`,
 //! `MAP`). Passwords are never shown: what is sent as one is not told, and
 //! a password in what is sent by GMCP is hidden.
 

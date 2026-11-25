@@ -122,7 +122,9 @@ impl Tab {
                 true,
                 &format!("{name} {}", if *on { "in use" } else { "not in use" }),
             ),
-            Event::Line(line) | Event::Prompt(line) => debug(&session, "TEXT", &line.text()),
+            Event::Line(line) => debug(&session, "TEXT", &line.text()),
+            Event::Prompt(line) => debug(&session, "PROMPT", &line.text()),
+            Event::Partial(line) => debug(&session, "PARTIAL", &line.text()),
             Event::Sent(text) => debug(&session, "SENT", text),
             Event::Connected => debug(&session, "CONNECTED", &self.host),
             Event::Disconnected(error) => {
