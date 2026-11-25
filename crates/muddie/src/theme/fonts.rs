@@ -76,6 +76,13 @@ pub fn installed_fonts() -> Option<&'static [InstalledFont]> {
 /// Installs the built-in typefaces, and the output font the settings ask
 /// for, if they ask for one.
 pub(super) fn install_fonts(ctx: &egui::Context, settings: &Settings) -> Result<(), String> {
+    let mut fonts = built_in_fonts();
+    let result = add_output_font(&mut fonts, settings);
+    finish(ctx, fonts, result)
+}
+
+/// The definitions with the built-in typefaces in their families.
+fn built_in_fonts() -> FontDefinitions {
     let mut fonts = FontDefinitions::default();
     let built_in: [(&str, &'static [u8]); 4] = [
         (
@@ -123,7 +130,12 @@ pub(super) fn install_fonts(ctx: &egui::Context, settings: &Settings) -> Result<
             monospace.push(name.clone());
         }
     }
+    fonts
+}
 
+/// Puts the output font the settings ask for first among the monospaced
+/// ones. It gives the error when a font file cannot be read.
+fn add_output_font(fonts: &mut FontDefinitions, settings: &Settings) -> Result<(), String> {
     // One that comes with the program is simply put first.
     let bundled = settings.font_family.strip_prefix("muddie:");
     if let Some((_, bytes)) =
@@ -134,11 +146,11 @@ pub(super) fn install_fonts(ctx: &egui::Context, settings: &Settings) -> Result<
             .insert("output".to_owned(), FontData::from_static(bytes).into());
         let monospace = fonts.families.entry(FontFamily::Monospace).or_default();
         monospace.insert(0, "output".to_owned());
-        return finish(ctx, fonts, Ok(()));
+        return Ok(());
     }
     // One of ours that is no longer there: the default serves.
     if bundled.is_some() {
-        return finish(ctx, fonts, Ok(()));
+        return Ok(());
     }
     // A file: the one an installed font was found in when it was chosen,
     // or one given by hand.
@@ -157,7 +169,7 @@ pub(super) fn install_fonts(ctx: &egui::Context, settings: &Settings) -> Result<
             Err(error) => result = Err(format!("{file}: {error}")),
         }
     }
-    finish(ctx, fonts, result)
+    result
 }
 
 pub(super) fn finish(
