@@ -165,7 +165,8 @@ pub(super) fn shows_map_menu() {
     let app = harness.state_mut().tab_mut();
     let plugin = &crate::plugins::fixture::reinos();
     for (name, code) in &plugin.scripts {
-        app.scripts.exec(name, code);
+        app.scripts
+            .exec_owned(&format!("{}/{name}", plugin.folder()), name, code);
     }
     app.run_actions();
     harness.run_steps(4);
