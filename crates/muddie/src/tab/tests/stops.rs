@@ -115,7 +115,7 @@ fn what_is_only_for_the_pointer_is_not_told_to_a_screen_reader() {
 /// the gauge says, and not its drawing too.
 #[test]
 fn a_gauge_to_edit_is_told_once() {
-    let mut harness = playing();
+    let mut harness = connected_demo_window();
     let app = harness.state_mut().tab_mut();
     for (name, kind) in [
         ("Bar", muddie_script::GaugeKind::Bar),
@@ -148,11 +148,107 @@ fn a_gauge_to_edit_is_told_once() {
     }
 }
 
+/// What a screen reader is told of that says `name`, in the tree as it goes
+/// through it.
+fn told_of(harness: &Harness<'_, App>, name: &str) -> Vec<String> {
+    (harness.query_all(egui_kittest::kittest::by()))
+        .map(|node| node.accesskit_node())
+        // Hidden, with all that is in it.
+        .filter(|node| {
+            std::iter::successors(Some(*node), |node| node.parent()).all(|node| !node.is_hidden())
+        })
+        .map(|node| node.label().unwrap_or_default().to_string())
+        .filter(|label| label.contains(name))
+        .collect()
+}
+
+/// With a screen reader the panels of gauges are drawn, and not there for
+/// it: not told, nor come to with F6 or Tab, alone, as a tab of others or
+/// in a side put away. They are asked for with Alt+0.
+#[test]
+fn a_panel_of_gauges_is_not_there_for_a_screen_reader() {
+    let mut harness = playing();
+    let app = harness.state_mut().tab_mut();
+    app.gauges.set("Vigour", Some((7.0, 10.0)));
+    // Beside the output, where Tab goes by.
+    let is_gauges = |panel: &&layout::PanelSpec| panel.kind == layout::Kind::Gauges;
+    let id = app.layout.panels.iter().find(is_gauges).unwrap().id;
+    app.drop_panel(id, None, layout::Side::Right);
+    assert!(app.gauges_said().contains("Vigour 7 of 10"));
+    harness.run_steps(4);
+    for name in ["Vigour", "Gauges"] {
+        assert_eq!(told_of(&harness, name), [] as [String; 0]);
+    }
+    assert!(!told_of(&harness, "Minimapa").is_empty());
+    to_the_line(&mut harness);
+    // Back from the command line, past every panel.
+    let mut stops = Vec::new();
+    for _ in 0..20 {
+        harness.key_press_modifiers(Modifiers::SHIFT, Key::Tab);
+        harness.run_steps(3);
+        stops.extend(said(&harness).map(|said| said.2));
+    }
+    assert!(stops.contains(&"Minimapa options".to_owned()), "{stops:?}");
+    let of_gauges = |stop: &&String| stop.contains("Gauges") || stop.contains("Vigour");
+    assert_eq!(stops.iter().find(of_gauges), None);
+    // Drawn all the same, and pressed with the pointer.
+    let options = harness.get_by_label("Gauges options").rect();
+    harness.hover_at(options.center());
+    harness.drag_at(options.center());
+    harness.drop_at(options.center());
+    harness.run_steps(4);
+    assert!(harness.query_by_label("Edit the gauges").is_some());
+    harness.key_press(Key::Escape);
+    harness.run_steps(4);
+    // As a tab of another panel, which is what is come to.
+    let app = harness.state_mut().tab_mut();
+    let kind = |app: &Tab, kind: layout::Kind| {
+        let found = app
+            .layout
+            .panels
+            .iter()
+            .position(|panel| panel.kind == kind);
+        found.unwrap()
+    };
+    let (gauges, text) = (
+        kind(app, layout::Kind::Gauges),
+        kind(app, layout::Kind::Text),
+    );
+    let side = app.layout.panels[text].side;
+    for index in [gauges, text] {
+        app.layout.panels[index].stack = 77;
+        app.layout.panels[index].side = side;
+    }
+    let shown = app.layout.panels[gauges].id;
+    app.panels.shown_tabs.push((77, shown));
+    harness.run_steps(4);
+    assert_eq!(told_of(&harness, "Gauges"), [] as [String; 0]);
+    assert!(!told_of(&harness, "Minimapa").is_empty());
+    to_the_line(&mut harness);
+    let mut come = Vec::new();
+    for _ in 0..4 {
+        harness.key_press(Key::F6);
+        harness.run_steps(3);
+        come.extend(said(&harness).map(|said| said.2));
+    }
+    assert!(come.contains(&"Minimapa".to_owned()), "{come:?}");
+    assert!(both_ways(&mut harness, "tabs").is_empty());
+    // With its side put away: the others bring it back.
+    harness.state_mut().tab_mut().toggle_side(side);
+    harness.run_steps(4);
+    assert_eq!(told_of(&harness, "Gauges"), [] as [String; 0]);
+    assert!(!told_of(&harness, "Show Minimapa").is_empty());
+    // It is there again once the reader goes.
+    harness.state_mut().tab_mut().voice.pretend_reader = false;
+    harness.run_steps(4);
+    assert!(!told_of(&harness, "Show Gauges").is_empty());
+}
+
 #[test]
 fn f6_says_which_panel_it_comes_to_and_tab_goes_on_into_it() {
     let mut harness = playing();
     let mut come = Vec::new();
-    for _ in 0..5 {
+    for _ in 0..4 {
         harness.key_press(Key::F6);
         for _ in 0..3 {
             harness.run_steps(1);
@@ -172,18 +268,17 @@ fn f6_says_which_panel_it_comes_to_and_tab_goes_on_into_it() {
             (Role::MultilineTextInput, "Output"),
             (Role::Heading, "Map"),
             (Role::Heading, "Minimapa"),
-            (Role::Heading, "Gauges"),
             (Role::TextInput, "Command"),
         ]
     );
     to_the_line(&mut harness);
-    for _ in 0..4 {
+    for _ in 0..3 {
         harness.key_press(Key::F6);
         harness.run_steps(3);
     }
     harness.key_press(Key::Tab);
     harness.run_steps(3);
-    assert_eq!(said(&harness).unwrap().2, "Gauges options");
+    assert_eq!(said(&harness).unwrap().2, "Minimapa options");
     // The name is not a stop on the way back.
     harness.key_press_modifiers(Modifiers::SHIFT, Key::Tab);
     harness.run_steps(3);

@@ -330,7 +330,7 @@ impl Gauges {
                 let last = ui.data(|data| data.get_temp::<Rect>(id));
                 let press = last
                     .filter(|_| editable)
-                    .map(|rect| ui.interact(rect, id, Sense::click()));
+                    .map(|rect| ui.interact(rect, id, crate::widgets::press_sense(ui)));
                 let drawn = draw_gauge(ui, &gauge.name, gauge.value, gauge.max, &gauge.look, width);
                 let rect = drawn.as_ref().map(|drawn| drawn.rect);
                 if editable && last != rect {

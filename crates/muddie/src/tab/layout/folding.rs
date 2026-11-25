@@ -6,13 +6,27 @@ use super::*;
 /// How thick the strip of a side put away is, card and all.
 const STRIP: f32 = 28.0;
 
+/// A panel named in the strip of a side put away.
+struct StripName {
+    id: u32,
+    stack: u32,
+    name: String,
+    /// It is not there for who listens.
+    unreached: bool,
+}
+
 impl Tab {
     /// The button that puts the side away, in the header of the first
     /// place of the side only: it is the whole side that goes.
     pub(in crate::tab) fn fold_button(&mut self, ui: &mut egui::Ui, place: &[usize]) {
         let side = self.layout.panels[place[0]].side;
-        let first = (self.layout.panels.iter())
-            .position(|panel| self.layout.on_screen(panel) && panel.side == side);
+        // With a screen reader, in the first that is there for it, if any is.
+        let here = |index: &usize| {
+            let panel = &self.layout.panels[*index];
+            self.layout.on_screen(panel) && panel.side == side
+        };
+        let all = || (0..self.layout.panels.len()).filter(here);
+        let first = (all().find(|&index| !self.unreached(index))).or_else(|| all().next());
         if !first.is_some_and(|first| place.contains(&first)) {
             return;
         }
@@ -38,10 +52,17 @@ impl Tab {
         if !self.layout.sides().contains(&(side, false)) {
             return None;
         }
-        let panels: Vec<(u32, u32, String)> = (self.layout.panels.iter())
-            .filter(|panel| panel.visible && panel.side == side)
-            .map(|panel| (panel.id, panel.stack, panel.shown_name()))
+        let panels: Vec<StripName> = (0..self.layout.panels.len())
+            .map(|index| (index, &self.layout.panels[index]))
+            .filter(|(_, panel)| panel.visible && panel.side == side)
+            .map(|(index, panel)| StripName {
+                id: panel.id,
+                stack: panel.stack,
+                name: panel.shown_name(),
+                unreached: self.unreached(index),
+            })
             .collect();
+        let none = panels.iter().all(|panel| panel.unreached);
         let (left, right) = match side {
             Side::Left => (8, 4),
             Side::Right => (4, 8),
@@ -76,7 +97,8 @@ impl Tab {
                     .focus_strip
                     .take_if(|asked| *asked == side)
                     .is_some();
-                strip_names(ui, side, &panels, focus)
+                let part = (none, egui::UiBuilder::new());
+                self.part(ui, part, |_, ui| strip_names(ui, side, &panels, focus))
             });
         if let Some((id, stack)) = shown.inner {
             self.layout.reveal(side);
@@ -97,7 +119,7 @@ impl Tab {
 fn strip_names(
     ui: &mut egui::Ui,
     side: Side,
-    panels: &[(u32, u32, String)],
+    panels: &[StripName],
     focus: bool,
 ) -> Option<(u32, u32)> {
     let theme = theme::current();
@@ -112,7 +134,10 @@ fn strip_names(
     };
     let mut chosen = strip_arrow(ui, side, arrow, focus);
     let mut at = if side.is_beside() { STRIP + 2.0 } else { 6.0 };
-    for (id, stack, name) in panels {
+    for panel in panels {
+        let StripName {
+            id, stack, name, ..
+        } = panel;
         let galley =
             (ui.painter()).layout_no_wrap(name.to_uppercase(), font.clone(), theme.text_dim);
         let (long, high) = (galley.size().x + 20.0, galley.size().y);
@@ -121,8 +146,14 @@ fn strip_names(
         let response = ui.interact(
             item,
             ui.make_persistent_id(("strip name", id)),
-            egui::Sense::click(),
+            match panel.unreached {
+                true => egui::Sense::CLICK,
+                false => widgets::press_sense(ui),
+            },
         );
+        if panel.unreached {
+            (ui.ctx()).accesskit_node_builder(response.id, |node| node.set_hidden());
+        }
         let label = trf("Show {0}", &[name]);
         response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, &label));
         let hovered = response.hovered() || response.has_focus();

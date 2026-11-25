@@ -406,6 +406,12 @@ pub fn fresh_said(text: &str, fresh: bool) -> String {
 /// something in it that has not been looked at stands out, with a dot,
 /// and says so to a screen reader.
 pub fn tab(ui: &mut Ui, text: &str, on: bool, fresh: bool) -> Response {
+    let stop = on && is_reached(ui);
+    tab_stopped_at(ui, text, (on, stop), fresh)
+}
+
+/// The same, the one Tab comes to if it is a `stop`, whichever is shown.
+pub fn tab_stopped_at(ui: &mut Ui, text: &str, (on, stop): (bool, bool), fresh: bool) -> Response {
     let theme = theme::current();
     let weight = if on || fresh {
         Weight::Medium
@@ -424,7 +430,7 @@ pub fn tab(ui: &mut Ui, text: &str, on: bool, fresh: bool) -> Response {
     // Room for the dot beside the name.
     let dot = if fresh { 10.0 } else { 0.0 };
     let size = vec2(galley.size().x + 18.0 + dot, 24.0);
-    let (rect, response) = ui.allocate_exact_size(size, tab_sense(on));
+    let (rect, response) = ui.allocate_exact_size(size, tab_sense(stop));
     response.widget_info(|| {
         WidgetInfo::selected(Role::Tab, ui.is_enabled(), on, fresh_said(text, fresh))
     });
@@ -492,6 +498,10 @@ pub fn tab_keys(ui: &Ui, tabs: &[Response]) -> Option<usize> {
 fn raised(ui: &mut Ui, button: egui::Button<'_>) -> Response {
     let kept = ui.visuals().widgets.clone();
     theme::button_look(&mut ui.visuals_mut().widgets, &theme::current());
+    let button = match is_reached(ui) {
+        true => button,
+        false => button.sense(Sense::CLICK),
+    };
     let response = ui.add(button);
     ui.visuals_mut().widgets = kept;
     response

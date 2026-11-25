@@ -102,6 +102,26 @@ impl Tab {
         (0..gauges.len()).find(|&index| crate::rules::RuleList::place(gauges, index) == key)
     }
 
+    /// Whether a panel is not there for who listens: one of gauges, which
+    /// are asked for, and say what changes, without it.
+    pub(in crate::tab) fn unreached(&self, index: usize) -> bool {
+        self.voice.screen_reader() && self.layout.panels[index].kind == Kind::Gauges
+    }
+
+    /// Draws a part of a place: not there for who listens, if it is
+    /// `unreached`.
+    pub(in crate::tab) fn part<R>(
+        &mut self,
+        ui: &mut egui::Ui,
+        (unreached, builder): (bool, egui::UiBuilder),
+        add: impl FnOnce(&mut Self, &mut egui::Ui) -> R,
+    ) -> R {
+        match unreached {
+            true => widgets::unreached(ui, builder, |ui| add(self, ui)).inner,
+            false => ui.scope_builder(builder, |ui| add(self, ui)).inner,
+        }
+    }
+
     /// The gauges of a panel in a row, or how to get some.
     pub(in crate::tab) fn gauges_body(&mut self, ui: &mut egui::Ui, id: u32) {
         // In the order they have in the editor, whichever the MUD

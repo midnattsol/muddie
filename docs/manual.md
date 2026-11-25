@@ -460,6 +460,9 @@ those with a maximum the colours it takes as it gets low: yellow under 60 %,
 red under 30 %, as many steps (`step` in a `rules.toml`) as wanted, kept in order. A light can have a
 colour for when it is off as well, to say which of two things is so: red for
 poisoned, green for not. Alt+0 reads the gauges aloud.
+With a screen reader, the panels of gauges are drawn and are not there for
+it: neither told, nor come to with F6 or Tab. What they show is read with
+Alt+0, said as it changes, and given to scripts.
 
 A gauge is said as it is seen to change: falling under one of its steps,
 as it turns colour, and once under one, each tenth more it falls; a step

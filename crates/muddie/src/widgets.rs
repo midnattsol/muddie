@@ -24,6 +24,7 @@ mod profiles;
 mod rows;
 mod tips;
 mod toggles;
+mod unreached;
 
 pub use buttons::*;
 pub use code::*;
@@ -41,6 +42,7 @@ pub use profiles::*;
 pub use rows::*;
 pub use tips::*;
 pub use toggles::*;
+pub use unreached::*;
 
 #[cfg(test)]
 mod tests {

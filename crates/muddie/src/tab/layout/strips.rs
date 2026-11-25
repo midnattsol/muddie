@@ -249,13 +249,14 @@ impl Tab {
             .id_salt(("place", self.layout.panels[place[0]].id))
             .max_rect(inner)
             .layout(egui::Layout::top_down(egui::Align::Min));
-        ui.scope_builder(builder, |ui| {
+        let none = place.iter().all(|&index| self.unreached(index));
+        self.part(ui, (none, builder), |this, ui| {
             ui.set_clip_rect(inner.intersect(ui.clip_rect()));
-            let index = self.panel_header(ui, place);
-            let spec = self.layout.panels[index].clone();
-            self.panel_body(ui, &spec)
+            let index = this.panel_header(ui, place);
+            let spec = this.layout.panels[index].clone();
+            let body = (this.unreached(index), egui::UiBuilder::new());
+            this.part(ui, body, |this, ui| this.panel_body(ui, &spec))
         })
-        .inner
     }
 
     /// The edge between two places, dragged to trade room between them;
@@ -322,22 +323,34 @@ impl Tab {
         // A list of tabs, to a screen reader, saying how many and which.
         let list = egui::UiBuilder::new().accessibility_role(egui::accesskit::Role::TabList);
         ui.scope_builder(list, |ui| {
-            let mut tabs = Vec::with_capacity(place.len());
+            let reached: Vec<u32> = (place.iter())
+                .filter(|&&index| !self.unreached(index))
+                .map(|&index| self.layout.panels[index].id)
+                .collect();
+            // Where Tab and F6 come: the one shown, or the first of those
+            // there are for who listens.
+            let on = reached.iter().position(|id| *id == shown).unwrap_or(0);
+            let mut tabs = Vec::with_capacity(reached.len());
             for &index in place {
-                let panel = &self.layout.panels[index];
+                let panel = self.layout.panels[index].clone();
                 let unread = self.panels.unread_tabs.contains(&panel.id);
-                let tab = widgets::tab(ui, &panel.shown_name(), panel.id == shown, unread);
+                let marks = (panel.id == shown, reached.get(on) == Some(&panel.id));
+                let builder = egui::UiBuilder::new();
+                let tab = self.part(ui, (self.unreached(index), builder), |_, ui| {
+                    widgets::tab_stopped_at(ui, &panel.shown_name(), marks, unread)
+                });
                 if tab.clicked() {
                     shown = panel.id;
                 }
-                tabs.push(tab);
+                if reached.contains(&panel.id) {
+                    tabs.push(tab);
+                }
             }
             if let Some(at) = widgets::tab_keys(ui, &tabs) {
-                shown = ids[at];
+                shown = reached[at];
             }
-            // Where F6 comes.
-            let on = ids.iter().position(|id| *id == shown).unwrap_or(0);
-            self.panels.zones.push(tabs[on].id);
+            let on = reached.iter().position(|id| *id == shown).unwrap_or(on);
+            self.panels.zones.extend(tabs.get(on).map(|tab| tab.id));
         });
         self.panels.shown_tabs.retain(|(known, _)| *known != stack);
         self.panels.shown_tabs.push((stack, shown));
@@ -473,7 +486,9 @@ impl Tab {
             let id = spec.id;
             // Named again with a double click, or Rename… in its menu.
             let caption = panel_name(ui, caption, id, name);
-            self.panels.zones.push(caption.id);
+            if widgets::is_reached(ui) {
+                self.panels.zones.push(caption.id);
+            }
             if caption.double_clicked() {
                 self.rename_panel(id);
             }
@@ -506,7 +521,8 @@ impl Tab {
                     let walking = this.walk.is_some();
                     this.map_view.tools(ui, walking);
                 }
-                this.panel_menu(ui, **shown);
+                let menu = (this.unreached(**shown), egui::UiBuilder::new());
+                this.part(ui, menu, |this, ui| this.panel_menu(ui, **shown));
                 this.fold_button(ui, place);
             },
         );

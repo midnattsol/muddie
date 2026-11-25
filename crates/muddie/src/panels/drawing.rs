@@ -294,7 +294,7 @@ fn draw_more_effects(
     let more = ui.interact(
         chip,
         ui.make_persistent_id(("more effects", name)),
-        Sense::click(),
+        crate::widgets::press_sense(ui),
     );
     more.widget_info(|| WidgetInfo::labeled(Role::Button, true, &said));
     let fill = if more.hovered() {

@@ -46,7 +46,8 @@ pub enum Edge {
 /// readers and on hover; `on` shows it as switched on.
 pub fn icon_button(ui: &mut Ui, icon: Icon, label: &str, on: bool) -> Response {
     let theme = theme::current();
-    let (rect, response) = ui.allocate_exact_size(Vec2::splat(28.0), Sense::click());
+    let sense = press_sense(ui);
+    let (rect, response) = ui.allocate_exact_size(Vec2::splat(28.0), sense);
     // `on` only marks it: a button, not a switch.
     response.widget_info(|| WidgetInfo::labeled(Role::Button, ui.is_enabled(), label));
     if ui.is_rect_visible(rect) {
