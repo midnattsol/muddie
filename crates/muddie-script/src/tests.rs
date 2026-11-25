@@ -4,6 +4,7 @@ use super::*;
 
 mod data;
 mod definitions;
+mod explain;
 mod gauges;
 mod line;
 mod listening;

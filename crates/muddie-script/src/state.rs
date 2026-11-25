@@ -306,6 +306,8 @@ pub(super) struct State {
     pub(crate) separator: Option<(String, Option<String>)>,
     /// Folders `require` looks in: those scripts were loaded from.
     pub(crate) module_dirs: Vec<PathBuf>,
+    /// The code of what is run, to say more of its mistakes.
+    pub(crate) sources: crate::explain::Sources,
     /// The modules with no file, by where each would be.
     pub(crate) offered: HashMap<String, String>,
     /// What each required module returned, by where it is.

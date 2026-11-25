@@ -25,6 +25,7 @@ pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()>
                     return Err(mlua::Error::runtime(format!("circular require of {name}")));
                 }
                 state.loading.push(path.clone());
+                state.sources.keep("", &name, &code);
             }
             let loaded = lua.load(code).set_name(format!("@{name}")).eval::<Value>();
             let mut state = shared.borrow_mut();

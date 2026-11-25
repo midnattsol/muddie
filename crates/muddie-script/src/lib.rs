@@ -26,6 +26,7 @@ mod action;
 mod api;
 mod convert;
 mod events;
+mod explain;
 mod gauges;
 mod line;
 mod made;
@@ -184,6 +185,7 @@ impl Engine {
     /// later from what it made, is taken away by [`Self::unload`] of that
     /// owner. `name` identifies the chunk in error messages.
     pub fn exec_owned(&mut self, owner: &str, name: &str, code: &str) {
+        (self.state.borrow_mut().sources).keep(owner, name, code);
         // The "@" makes errors read `name:line: message`.
         let chunk = self.lua.load(code).set_name(format!("@{name}"));
         self.as_owner(owner, || self.call(&chunk.into_function()?, ()));
@@ -264,6 +266,7 @@ impl Engine {
         state.tidy_paused();
         // A module it is asks for it afresh next time.
         let path = crate::owner_of(Path::new(owner));
+        state.sources.forget(owner);
         state.modules.remove(&path);
         state.offered.remove(&path);
     }
@@ -468,7 +471,7 @@ impl Engine {
         match result {
             Ok(()) => true,
             Err(error) => {
-                self.error(describe(&error));
+                self.error(self.explain(describe(&error)));
                 false
             }
         }
