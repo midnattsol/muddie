@@ -10,3 +10,6 @@ description = "Sound playback for the muddie MUD client."
 
 [target.'cfg(not(target_os = "linux"))'.dependencies]
 rodio = "0.23.0"
+
+[lints]
+workspace = true

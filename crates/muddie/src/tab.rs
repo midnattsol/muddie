@@ -318,6 +318,10 @@ impl Tab {
     }
 
     /// A session as it is before anything is opened in it.
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one line for each field of the session"
+    )]
     fn blank(
         profiles: Option<Profiles>,
         scripts: Vec<PathBuf>,

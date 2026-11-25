@@ -1,6 +1,9 @@
 //! The automapper's data: a graph of rooms built from what the server
 //! reports, where to draw each room, routes between rooms, and storage.
 
+// A test may be as long as what it tells.
+#![cfg_attr(test, allow(clippy::too_many_lines))]
+
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, VecDeque};
 use std::path::Path;

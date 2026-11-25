@@ -9,6 +9,10 @@ license = "MIT OR Apache-2.0"
 # Built and released as one program, never published to a registry.
 publish = false
 
+# A function does one thing: see clippy.toml for how long it may be.
+[workspace.lints.clippy]
+too_many_lines = "warn"
+
 # Small, fast binaries for releases.
 [profile.release]
 lto = "thin"

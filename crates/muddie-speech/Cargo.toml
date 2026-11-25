@@ -10,3 +10,6 @@ description = "Speech and braille output for the muddie MUD client."
 # The screen reader in use, or the system's voice, the same on every
 # system; built into the program rather than beside it.
 prismer = { version = "0.1.7", features = ["static"] }
+
+[lints]
+workspace = true

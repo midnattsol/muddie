@@ -1,3 +1,5 @@
+// A test may be as long as what it tells.
+#![cfg_attr(test, allow(clippy::too_many_lines))]
 // A window of its own on Windows, with no console behind it.
 #![cfg_attr(windows, windows_subsystem = "windows")]
 
