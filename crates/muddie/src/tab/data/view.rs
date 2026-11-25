@@ -132,7 +132,7 @@ pub(in crate::tab) fn values_group(ui: &mut egui::Ui, seen: &Seen, all: &[Leaf])
             if !all.is_empty() {
                 ui.add_space(6.0);
                 let how = tr(
-                    "A path is what a gauge follows, and what a script reads after gmcp(\"…\").",
+                    "A path is what a gauge follows, and what a script reads after gmcp.get(\"…\").",
                 );
                 ui.label(
                     RichText::new(how)

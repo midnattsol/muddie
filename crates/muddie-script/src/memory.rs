@@ -104,8 +104,13 @@ impl Engine {
         self.state.borrow().map_memory_only.is_none()
     }
 
+    /// Tells scripts of the session, for `session`.
+    pub fn know_session(&mut self, session: Session) {
+        self.state.borrow_mut().session = session;
+    }
+
     /// Tells scripts how many characters fit across and down the panel
-    /// called `name`, for `panel_size`.
+    /// called `name`, for `panels.size`.
     pub fn set_panel_size(&mut self, name: &str, columns: u32, rows: u32) {
         let sizes = &mut self.state.borrow_mut().panel_sizes;
         sizes.insert(name.trim().to_lowercase(), (columns, rows));

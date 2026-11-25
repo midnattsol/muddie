@@ -148,6 +148,7 @@ impl Tab {
         // of the game.
         self.panels_untold();
         self.sizes.window_reported = None;
+        self.tell_session(true);
         self.scripts.on_event("connect", "");
         self.run_actions();
         self.login = if self.character.trim().is_empty() {
@@ -308,6 +309,7 @@ impl Tab {
     /// The connection is closed: what lasted with it goes, and one lost to
     /// an error is opened again if asked.
     fn on_disconnected(&mut self, error: Option<String>) {
+        self.tell_session(false);
         self.scripts.on_event("disconnect", "");
         self.run_actions();
         self.forget_connection();

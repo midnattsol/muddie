@@ -83,14 +83,14 @@ fn several_commands_on_one_line_each_go_through_aliases() {
     );
     engine.on_input("");
     assert_eq!(engine.take_actions(), [send("")]);
-    engine.exec("lua", "separator('|')");
+    engine.exec("lua", "session.separator('|')");
     engine.on_input("n|s;e");
     assert_eq!(engine.take_actions(), [send("n"), send("s;e")]);
-    engine.exec("lua", "separator(false)");
+    engine.exec("lua", "session.separator(false)");
     engine.on_input("n|s;e");
     assert_eq!(engine.take_actions(), [send("n|s;e")]);
     // Given back, the usual `;`.
-    engine.exec("lua", "separator()");
+    engine.exec("lua", "session.separator()");
     engine.on_input("n|s;e");
     assert_eq!(engine.take_actions(), [send("n|s"), send("e")]);
 }

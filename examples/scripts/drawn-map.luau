@@ -4,19 +4,19 @@
 -- much room there is so the drawing fits.
 
 map.native(false)
-support_gmcp("Map.Render 1")
+gmcp.support("Map.Render 1")
 
 -- The size in characters of the map's panel, whenever it changes.
 on("panel", function(size)
     if not size.map then
         return
     end
-    send_gmcp("Map.Render.Size", {
+    gmcp.send("Map.Render.Size", {
         width = size.columns,
         height = math.clamp(size.rows, 5, 60),
     })
 end)
 
 on("gmcp", "Map.Render", function(render)
-    panel("Map", table.concat(render.lines, "\n"))
+    panels.set("Map", table.concat(render.lines, "\n"))
 end)

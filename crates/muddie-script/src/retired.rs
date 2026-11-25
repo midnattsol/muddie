@@ -6,8 +6,30 @@ use super::*;
 
 /// Each name gone, and what to use instead.
 const RETIRED: &[(&str, &str)] = &[
-    ("supports", "support_gmcp(module, ...)"),
-    ("gmcp_merge", "merge_gmcp(package, ...)"),
+    ("supports", "gmcp.support(module, ...)"),
+    ("support_gmcp", "gmcp.support(module, ...)"),
+    ("gmcp_merge", "gmcp.merge(package, ...)"),
+    ("merge_gmcp", "gmcp.merge(package, ...)"),
+    ("send_gmcp", "gmcp.send(package, data)"),
+    ("send_msdp", "msdp.send(command, ...)"),
+    ("report_msdp", "msdp.report(variable, ...)"),
+    (
+        "gauge",
+        "gauges.set(name, {value = ..., max = ...}) and gauges.remove(name)",
+    ),
+    ("panel", "panels.set(name, text) and panels.clear(name)"),
+    ("add_to_panel", "panels.add(name, text)"),
+    ("panel_size", "panels.size(name)"),
+    (
+        "channel",
+        "channels.say(name, text) and channels.open(name)",
+    ),
+    ("close_channel", "channels.close(name)"),
+    ("play", "sounds.play(file, options)"),
+    ("stop_sounds", "sounds.stop()"),
+    ("screen_reader", "session.reader"),
+    ("completions", "session.completions(name, words)"),
+    ("separator", "session.separator(text)"),
     ("bind", "macro(key, action, options)"),
     ("cancel", "what was returned as it was made: made:remove()"),
     ("on_gmcp", "on(\"gmcp\", package, function)"),

@@ -754,7 +754,7 @@ msgstr ""
 msgid "Make a gauge"
 msgstr ""
 
-msgid "A path is what a gauge follows, and what a script reads after gmcp(\"…\")."
+msgid "A path is what a gauge follows, and what a script reads after gmcp.get(\"…\")."
 msgstr ""
 
 msgid "Raw message"

@@ -120,7 +120,7 @@ impl Engine {
     }
 
     /// Whether a screen reader is reading the client, for
-    /// `screen_reader()`; when it changes, scripts are told with the
+    /// `session.reader`; when it changes, scripts are told with the
     /// `reader` event, with whether one is. Returns whether it
     /// changed.
     pub fn set_screen_reader(&mut self, on: bool) -> bool {
@@ -131,7 +131,7 @@ impl Engine {
         changed
     }
 
-    /// Remembers the server's MSSP status for `mssp()`.
+    /// Remembers the server's MSSP status for `mssp.get()`.
     pub fn on_mssp(&mut self, status: &[(String, String)]) {
         self.state.borrow_mut().mssp = status.to_vec();
     }

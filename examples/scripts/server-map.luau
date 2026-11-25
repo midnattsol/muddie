@@ -20,4 +20,4 @@ on("gmcp", "Area.Position", function(id)
 end)
 
 -- A MUD that draws its own map in text can simply be shown as it comes.
-on("gmcp", "Area.Ascii", function(text) panel("Map", text) end)
+on("gmcp", "Area.Ascii", function(text) panels.set("Map", text) end)

@@ -236,7 +236,8 @@ fn a_gauge_saved_is_shown_at_once_and_one_renamed_or_off_goes() {
     // Nothing reported yet: nothing to show.
     assert_eq!(app.gauges.summary(), "");
     // A script's own gauge, which the rules leave alone.
-    app.scripts.exec("mine", r#"gauge("Oro", 3, 10)"#);
+    app.scripts
+        .exec("mine", r#"gauges.set("Oro", {value = 3, max = 10})"#);
     app.run_actions();
     events.send(status).unwrap();
     harness.run_steps(3);

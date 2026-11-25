@@ -369,7 +369,7 @@ fn a_plugin_downloaded_is_installed_and_removed_as_any_other() {
     let _ = std::fs::remove_dir_all(&dir);
     let source = dir.join("source");
     std::fs::create_dir_all(&source).unwrap();
-    std::fs::write(source.join("main.luau"), "support_gmcp(\"Combat 1\")").unwrap();
+    std::fs::write(source.join("main.luau"), "gmcp.support(\"Combat 1\")").unwrap();
     std::fs::write(
         source.join("plugin.toml"),
         "about = { en = \"Fights.\", es = \"Peleas.\" }\nhosts = [\"combat.example.org\"]\n",

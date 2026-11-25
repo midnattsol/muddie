@@ -7,7 +7,6 @@ pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()>
     install_echo(lua, state)?;
     install_speak(lua, state)?;
     install_gag(lua, state)?;
-    install_separator(lua, state)?;
     install_line_spans(lua, state)?;
     install_highlight(lua, state)?;
     Ok(())
@@ -91,32 +90,6 @@ fn install_gag(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
         "silence",
         lua.create_function(move |_, ()| {
             shared.borrow_mut().silenced = true;
-            Ok(())
-        })?,
-    )?;
-    Ok(())
-}
-
-fn install_separator(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
-    let globals = lua.globals();
-    let add = |name: &str, function: Function| globals.set(name, function);
-    let shared = Rc::clone(state);
-    add(
-        "separator",
-        // A text to split by; `false` for none; nothing for `;` again.
-        lua.create_function(move |_, separator: Value| {
-            let owner = shared.borrow().owner.clone();
-            shared.borrow_mut().separator = match separator {
-                Value::Nil => None,
-                Value::Boolean(false) => Some((owner, None)),
-                Value::String(text) => Some((owner, Some(text.to_str()?.to_owned()))),
-                other => {
-                    return Err(mlua::Error::runtime(format!(
-                        "separator takes a text, or false for none, not {}",
-                        other.type_name()
-                    )));
-                }
-            };
             Ok(())
         })?,
     )?;

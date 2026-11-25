@@ -30,8 +30,14 @@ fn triggers_do_what_their_fields_say() {
     // A plain pattern is literal: "(what?)" is not a group.
     assert!(engine.on_line("Ana tells you (what?) now"));
     assert!(engine.on_line("Ana tells you what now"));
+    let actions = engine.take_actions();
+    let id = (actions.iter()).find_map(|action| match action {
+        Action::PlaySound { id, .. } => Some(*id),
+        _ => None,
+    });
+    let id = id.unwrap();
     assert_eq!(
-        engine.take_actions(),
+        actions,
         [
             send("smile"),
             send("say \"hi\" \\o/"),
@@ -40,6 +46,7 @@ fn triggers_do_what_their_fields_say() {
                 interrupt: false
             },
             Action::PlaySound {
+                id,
                 file: "tell.ogg".into(),
                 volume: 1.0,
                 looped: false,
@@ -101,7 +108,7 @@ fn aliases_and_keys() {
     assert!(engine.on_key("f5"));
     assert!(!engine.on_key("f6"));
     assert_eq!(engine.take_actions(), [send("look")]);
-    engine.exec("t", "separator(false)");
+    engine.exec("t", "session.separator(false)");
     assert!(engine.on_key("f7"));
     assert_eq!(engine.take_actions(), [send("say a;b"), send("look")]);
     // Switched to Luau, a rule starts from what it ran.

@@ -251,7 +251,7 @@ fn the_palette_does_what_is_chosen_and_asks_in_its_field_for_what_it_needs() {
         app.palette.message.clone().expect("an answer")
     };
     assert_eq!(
-        run(&mut harness, r#"support_gmcp("Comm 1")"#),
+        run(&mut harness, r#"gmcp.support("Comm 1")"#),
         ("Done.".to_owned(), false)
     );
     assert!(

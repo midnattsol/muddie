@@ -7,7 +7,7 @@ fn gmcp_data_reaches_handlers_and_is_remembered() {
     let mut engine = engine(
         r#"on("gmcp", "char", function(data, package) echo(`{package}: {data.hp}/{data.maxhp}`) end)
         on("gmcp", "Char.Vitals", function(data)
-            gauge("HP", data.hp, data.maxhp, {place = "Vitals/HP", tags = "fight", panel = "Puntos"})
+            gauges.set("HP", {value = data.hp, max = data.maxhp, place = "Vitals/HP", tags = "fight", panel = "Puntos"})
         end)
         on("gmcp", "Room.Info", function(data) echo(`{data.name} {#data.exits} {data.area}`) end)"#,
     );
@@ -47,7 +47,7 @@ fn gmcp_data_reaches_handlers_and_is_remembered() {
 
     engine.exec(
         "lua",
-        "echo(`{gmcp('char.vitals').hp} {gmcp('Nope')} {gmcp('Core.Ping')}`)",
+        "echo(`{gmcp.get('char.vitals').hp} {gmcp.get('Nope')} {gmcp.get('Core.Ping')}`)",
     );
     assert_eq!(engine.take_actions(), [Action::Echo("80 nil nil".into())]);
     engine.on_gmcp("Char.Vitals", "{not json");
@@ -102,7 +102,7 @@ fn a_gauge_of_effects_takes_them_as_lists_or_tables() {
     let items = |engine: &mut Engine, given: &str| -> Vec<(String, String, String)> {
         engine.exec(
             "t",
-            &format!("gauge('Efectos', 0, 0, {{kind = 'effects', items = {given}}})"),
+            &format!("gauges.set('Efectos', {{kind = 'effects', items = {given}}})"),
         );
         match engine.take_actions().as_slice() {
             [Action::Gauge { look, .. }] => (look.items.iter())
@@ -136,10 +136,10 @@ fn scripts_can_send_gmcp_and_drive_panels() {
     let mut engine = engine("");
     engine.exec(
         "test",
-        r#"send_gmcp("Core.Ping")
-        send_gmcp("Core.Supports.Add", {"Char.Items 1"})
-        send_gmcp("Char.Login", {name = "ana"})
-        gauge("HP")
+        r#"gmcp.send("Core.Ping")
+        gmcp.send("Core.Supports.Add", {"Char.Items 1"})
+        gmcp.send("Char.Login", {name = "ana"})
+        gauges.remove("HP")
         map.go(42)"#,
     );
     let gmcp = |package: &str, data: &str| Action::Gmcp {
@@ -163,7 +163,7 @@ fn scripts_can_send_gmcp_and_drive_panels() {
             Action::Walk(42),
         ]
     );
-    engine.exec("test", r#"gauge("HP", 5)"#);
+    engine.exec("test", r#"gauges.set("HP", {value = 5})"#);
     assert!(error_text(&engine.take_actions()).contains("both a value and a max"));
 }
 
@@ -179,8 +179,8 @@ fn msdp_and_mssp_are_available_to_scripts() {
     assert_eq!(engine.take_actions(), [Action::Echo("HEALTH=80".into())]);
     engine.exec(
         "test",
-        r#"echo(`{msdp("room").EXITS.n} {gmcp("room")} {mssp().NAME} {mssp().PLAYERS}`)
-        send_msdp("REPORT", "HEALTH", "MANA")"#,
+        r#"echo(`{msdp.get("room").EXITS.n} {gmcp.get("room")} {mssp.get().NAME} {mssp.get().PLAYERS}`)
+        msdp.send("REPORT", "HEALTH", "MANA")"#,
     );
     assert_eq!(
         engine.take_actions(),
@@ -200,12 +200,12 @@ fn client_events_modules_and_completions() {
     engine.exec(
         "test",
         r#"
-        support_gmcp("Map.Render 1", "Dev 1")
+        gmcp.support("Map.Render 1", "Dev 1")
         on("panel", function(size) echo(size.columns .. "x" .. size.rows) end)
         on("connect", function() echo("in") end)
-        completions("cmds", {"north", "look"})
-        completions("more", {"west"})
-        completions("more")
+        session.completions("cmds", {"north", "look"})
+        session.completions("more", {"west"})
+        session.completions("more")
         "#,
     );
     assert_eq!(engine.completions(), ["north", "look"]);
@@ -227,11 +227,11 @@ fn client_events_modules_and_completions() {
 #[test]
 fn the_modules_a_script_asks_for_go_with_it() {
     let mut engine = Engine::new(Rc::default()).unwrap();
-    engine.exec_owned("one", "one", r#"support_gmcp("Comm 1", "Room 1")"#);
+    engine.exec_owned("one", "one", r#"gmcp.support("Comm 1", "Room 1")"#);
     engine.exec_owned(
         "two",
         "two",
-        r#"support_gmcp("Room 1") support_gmcp("Room 1")"#,
+        r#"gmcp.support("Room 1") gmcp.support("Room 1")"#,
     );
     assert_eq!(engine.supports(), ["Comm 1", "Room 1"]);
     engine.unload("one");
@@ -246,7 +246,7 @@ fn what_a_script_sets_for_all_goes_with_it() {
     engine.exec_owned(
         "one",
         "one",
-        r#"merge_gmcp("Char.Status") separator(false) map.native(false)"#,
+        r#"gmcp.merge("Char.Status") session.separator(false) map.native(false)"#,
     );
     engine.on_input("say a; b");
     assert_eq!(engine.take_actions(), [Action::Send("say a; b".into())]);
@@ -265,7 +265,7 @@ fn what_a_script_sets_for_all_goes_with_it() {
     // Nor is a package merged any more.
     engine.on_gmcp("Char.Status", r#"{"pe": 5}"#);
     engine.on_gmcp("Char.Status", r#"{"pvs": 7}"#);
-    engine.exec("lua", "echo(`{gmcp('Char.Status').pe}`)");
+    engine.exec("lua", "echo(`{gmcp.get('Char.Status').pe}`)");
     assert_eq!(engine.take_actions(), [Action::Echo("nil".into())]);
 }
 
@@ -274,9 +274,10 @@ fn sounds_are_requested_with_their_options() {
     let mut engine = engine("");
     engine.exec(
         "test",
-        r#"play("alert.ogg") play("rain.ogg", {volume = 4, loop = true}) stop_sounds()"#,
+        r#"sounds.play("alert.ogg") sounds.play("rain.ogg", {volume = 4, loop = true}) sounds.stop()"#,
     );
-    let sound = |file: &str, volume, looped| Action::PlaySound {
+    let sound = |id, file: &str, volume, looped| Action::PlaySound {
+        id,
         file: file.into(),
         volume,
         looped,
@@ -285,8 +286,8 @@ fn sounds_are_requested_with_their_options() {
     assert_eq!(
         engine.take_actions(),
         [
-            sound("alert.ogg", 1.0, false),
-            sound("rain.ogg", 1.0, true),
+            sound(1, "alert.ogg", 1.0, false),
+            sound(2, "rain.ogg", 1.0, true),
             Action::StopSounds
         ]
     );
@@ -296,7 +297,7 @@ fn sounds_are_requested_with_their_options() {
 fn the_size_of_a_panel_can_be_asked_for() {
     let mut engine = engine(
         r#"alias("^size (\\S+)$", function(m)
-            local size = panel_size(m[1] ~= "map" and m[1] or nil)
+            local size = panels.size(m[1] ~= "map" and m[1] or nil)
             send(size and (size.columns .. "x" .. size.rows) or "none")
         end)"#,
     );
@@ -315,7 +316,7 @@ fn the_size_of_a_panel_can_be_asked_for() {
 #[test]
 fn a_package_that_sends_only_what_changed_is_merged_when_asked() {
     let mut engine = engine(
-        r#"merge_gmcp("Char.Status")
+        r#"gmcp.merge("Char.Status")
         on("gmcp", "Char.Status", function(data) echo(`came {data.pvs.min} {data.pe}`) end)"#,
     );
     engine.on_gmcp(
@@ -325,7 +326,7 @@ fn a_package_that_sends_only_what_changed_is_merged_when_asked() {
     engine.on_gmcp("Char.Status", r#"{"pvs": {"min": 70}}"#);
     engine.exec(
         "lua",
-        "local s = gmcp('Char.Status') echo(`{s.pvs.min}/{s.pvs.max} {s.pe}`)",
+        "local s = gmcp.get('Char.Status') echo(`{s.pvs.min}/{s.pvs.max} {s.pe}`)",
     );
     assert_eq!(
         engine.take_actions(),
@@ -339,7 +340,7 @@ fn a_package_that_sends_only_what_changed_is_merged_when_asked() {
     // Others are as they come.
     engine.on_gmcp("Room.Info", r#"{"exits": ["n", "s"]}"#);
     engine.on_gmcp("Room.Info", r#"{"name": "Plaza"}"#);
-    engine.exec("lua", "echo(`{gmcp('Room.Info').exits}`)");
+    engine.exec("lua", "echo(`{gmcp.get('Room.Info').exits}`)");
     assert_eq!(engine.take_actions(), [Action::Echo("nil".into())]);
 }
 
@@ -415,7 +416,7 @@ fn what_a_script_set_of_the_map_and_the_session_goes_with_it() {
     engine.exec_owned(
         "one",
         "one",
-        r#"map.persist(false) map.language("es") panel("Mapa", "x") channel("ooc")
+        r#"map.persist(false) map.language("es") panels.set("Mapa", "x") channels.open("ooc")
         map.names({region = true}) map.directions({n = {"norte"}})"#,
     );
     assert!(!engine.persist_map());
@@ -443,19 +444,21 @@ fn a_script_says_how_a_gauge_is_announced() {
         engine.take_actions().remove(0)
     };
     for (told, announce) in [
-        ("{}", Announce::Usual),
-        (r#"{announce = "usual"}"#, Announce::Usual),
-        (r#"{announce = "never"}"#, Announce::Never),
-        (r#"{announce = "wait"}"#, Announce::Wait),
-        (r#"{announce = "lowest"}"#, Announce::Lowest),
-        (r#"{announce = "cut"}"#, Announce::Cut),
+        ("", Announce::Usual),
+        (r#", announce = "usual""#, Announce::Usual),
+        (r#", announce = "never""#, Announce::Never),
+        (r#", announce = "wait""#, Announce::Wait),
+        (r#", announce = "lowest""#, Announce::Lowest),
+        (r#", announce = "cut""#, Announce::Cut),
     ] {
-        match look(&format!(r#"gauge("HP", 1, 2, {told})"#)) {
+        match look(&format!(
+            r#"gauges.set("HP", {{value = 1, max = 2{told}}})"#
+        )) {
             Action::Gauge { look, .. } => assert_eq!(look.announce, announce, "{told}"),
             other => panic!("{other:?}"),
         }
     }
-    let wrong = look(r#"gauge("HP", 1, 2, {announce = "shout"})"#);
+    let wrong = look(r#"gauges.set("HP", {value = 1, max = 2, announce = "shout"})"#);
     assert!(
         matches!(&wrong, Action::Error(said) if said.contains("usual, never, wait, lowest or cut")),
         "{wrong:?}"
@@ -470,7 +473,7 @@ fn a_script_says_what_of_a_channel_is_not_read() {
         engine.take_actions().remove(0)
     };
     for (told, quiet) in [("", false), (", {quiet = true}", true)] {
-        match look(&format!(r#"channel("chat", "hi"{told})"#)) {
+        match look(&format!(r#"channels.say("chat", "hi"{told})"#)) {
             Action::Channel { quiet: said, .. } => assert_eq!(said, quiet),
             other => panic!("{other:?}"),
         }
@@ -479,8 +482,8 @@ fn a_script_says_what_of_a_channel_is_not_read() {
 
 #[test]
 fn scripts_know_whether_a_screen_reader_reads() {
-    let mut engine = engine(r#"on("reader", function(on) echo(`now {on} {screen_reader()}`) end)"#);
-    engine.exec("t", "echo(`at first {screen_reader()}`)");
+    let mut engine = engine(r#"on("reader", function(on) echo(`now {on} {session.reader}`) end)"#);
+    engine.exec("t", "echo(`at first {session.reader}`)");
     assert_eq!(
         engine.take_actions(),
         [Action::Echo("at first false".into())]
@@ -576,4 +579,76 @@ fn a_variable_is_read_as_it_is_now() {
         engine.on_line("x");
     }
     assert_eq!(engine.take_actions(), ["2", "3", "4"].map(send));
+}
+
+/// What a script reads of the session is as it is now; what there is not
+/// is an error.
+#[test]
+fn a_script_is_told_of_the_session() {
+    let mut engine = engine(
+        r#"alias("^ask$", function()
+            send(`{session.connected} {session.host} {session.profile}`)
+        end)"#,
+    );
+    let mut ask = |session: Session| {
+        engine.know_session(session);
+        engine.on_input("ask");
+        engine.take_actions()
+    };
+    assert_eq!(ask(Session::default()), [send("false  nil")]);
+    let now = Session {
+        connected: true,
+        host: "mud.example.org".into(),
+        profile: Some("Ana".into()),
+    };
+    assert_eq!(ask(now), [send("true mud.example.org Ana")]);
+    for (code, said) in [
+        ("echo(session.hots)", "there is no session.hots; there are"),
+        ("session.host = 'x'", "session.host is asked for, not set"),
+        ("gmcp('Char')", "gmcp(...) is no longer: use gmcp.get(...)"),
+        (
+            "gauges.set('T', {kind = 'text'})",
+            "a gauge of the kind text needs a text",
+        ),
+        ("gauge('T', 1, 2)", "gauge is no longer: use gauges.set"),
+        (
+            "sounds.play('x', {volumen = 1})",
+            "there is no option volumen here; there are volume, loop",
+        ),
+    ] {
+        engine.exec("t", code);
+        let actions = engine.take_actions();
+        assert!(error_text(&actions).contains(said), "{code}: {actions:?}");
+    }
+}
+
+/// Words, effects and a light need no numbers.
+#[test]
+fn a_gauge_takes_what_its_kind_has() {
+    let mut engine = engine("");
+    let mut level = |given: &str| {
+        engine.exec("t", &format!("gauges.set('G', {{{given}}})"));
+        match engine.take_actions().remove(0) {
+            Action::Gauge { level, .. } => level,
+            other => panic!("{other:?}"),
+        }
+    };
+    assert_eq!(level("value = 3, max = 4"), Some((3.0, 4.0)));
+    assert_eq!(level("kind = 'number', value = 3"), Some((3.0, 0.0)));
+    assert_eq!(level("kind = 'light', value = true"), Some((1.0, 1.0)));
+    assert_eq!(level("kind = 'light', value = 0"), Some((0.0, 1.0)));
+    assert_eq!(level("kind = 'text', text = 'hi'"), Some((0.0, 0.0)));
+    assert_eq!(level("kind = 'effects', items = {'a'}"), Some((0.0, 0.0)));
+}
+
+#[test]
+fn a_sound_is_stopped_by_what_playing_it_gave() {
+    let mut engine = engine("");
+    engine.exec("t", "rain = sounds.play('rain.ogg', {loop = true})");
+    let id = match engine.take_actions().remove(0) {
+        Action::PlaySound { id, .. } => id,
+        other => panic!("{other:?}"),
+    };
+    engine.exec("t", "rain:stop()");
+    assert_eq!(engine.take_actions(), [Action::StopSound(id)]);
 }

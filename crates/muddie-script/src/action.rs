@@ -232,12 +232,16 @@ pub enum Action {
     /// Play a sound file at `volume` (0 to 1), repeating if `looped`;
     /// `owner` is the script that asked, whose sounds stop with it.
     PlaySound {
+        /// What the script stops it by.
+        id: u64,
         file: String,
         volume: f32,
         looped: bool,
         owner: String,
     },
     StopSounds,
+    /// Stop the sound played with this id.
+    StopSound(u64),
     /// A script failed; the message is for the user.
     Error(String),
     /// Something a script shows on the standard output of a run started

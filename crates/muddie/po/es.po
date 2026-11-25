@@ -712,8 +712,8 @@ msgstr "Crear un indicador"
 msgid "Copy the path"
 msgstr "Copiar la ruta"
 
-msgid "A path is what a gauge follows, and what a script reads after gmcp(\"…\")."
-msgstr "La ruta identifica el valor que sigue un indicador y el que lee un script con gmcp(\"…\")."
+msgid "A path is what a gauge follows, and what a script reads after gmcp.get(\"…\")."
+msgstr "La ruta identifica el valor que sigue un indicador y el que lee un script con gmcp.get(\"…\")."
 
 msgid ""
 "What the MUD sends besides text, with GMCP or MSDP, appears here as it comes:\n"

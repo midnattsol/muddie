@@ -21,9 +21,9 @@
 -- What it shows is in the language of the interface, English or Spanish,
 -- each text given in both with tr.
 
-support_gmcp("Char 1")
-support_gmcp("Comm 1")
-support_gmcp("Room 1")
+gmcp.support("Char 1")
+gmcp.support("Comm 1")
+gmcp.support("Room 1")
 
 local heard = false
 
@@ -48,7 +48,7 @@ end
 -- max = most}, at first all of them and then only what changed: it is
 -- merged into what came before, for the gauges to have it whole.
 
-merge_gmcp("Char.Status")
+gmcp.merge("Char.Status")
 on("gmcp", "Char", function()
     heard = true
 end)
@@ -131,7 +131,7 @@ end)
 local function said(data, before)
     heard = true
     if type(data) == "table" and data.canal and data.mensaje then
-        channel(data.canal, data.mensaje, { quiet = before })
+        channels.say(data.canal, data.mensaje, { quiet = before })
     end
 end
 
@@ -146,21 +146,21 @@ end)
 on("gmcp", "Comm.Canales", function(data)
     heard = true
     for name in pairs(data) do
-        channel(name)
+        channels.open(name)
     end
 end)
 
 on("gmcp", "Comm.EnciendeCanal", function(data)
     local name = text_of(data)
     if name then
-        channel(name)
+        channels.open(name)
     end
 end)
 
 on("gmcp", "Comm.ApagaCanal", function(data)
     local name = text_of(data)
     if name then
-        close_channel(name)
+        channels.close(name)
     end
 end)
 

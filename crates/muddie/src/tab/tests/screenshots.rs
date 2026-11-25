@@ -104,7 +104,7 @@ fn shows_channels() {
     let app = channels.state_mut().tab_mut();
     app.scripts.exec(
             "t",
-            "channel(\"chat\", \"[Chat] Naylhena: \\27[1mre\\27[0m\") channel(\"mercenario\") channel(\"bando\", \"[Bando] Eva: al norte\") channel(\"chat\", \"[Chat] Luis: buenas\")",
+            "channels.say(\"chat\", \"[Chat] Naylhena: \\27[1mre\\27[0m\") channels.open(\"mercenario\") channels.say(\"bando\", \"[Bando] Eva: al norte\") channels.say(\"chat\", \"[Chat] Luis: buenas\")",
         );
     app.run_actions();
     channels.run_steps(3);
@@ -112,7 +112,7 @@ fn shows_channels() {
     channels.run_steps(3);
     let app = channels.state_mut().tab_mut();
     app.scripts
-        .exec("t", "channel(\"bando\", \"[Bando] Eva: esperad\")");
+        .exec("t", "channels.say(\"bando\", \"[Bando] Eva: esperad\")");
     app.run_actions();
     channels.run_steps(3);
     save(&mut channels, "channels");
@@ -133,13 +133,13 @@ fn shows_script() {
     app.open_automation(automation::SCRIPTS);
     app.add_script(None);
     script.run_steps(3);
-    script.state_mut().tab_mut().editor.script_text = "support_gmcp(\"Comm 1\")\n\non_gmcp(\"Comm.MensajeCanal\", function(data)\n\tpanel_add(data.canal, data.mensaje)\nend)\n".into();
+    script.state_mut().tab_mut().editor.script_text = "gmcp.support(\"Comm 1\")\n\non_gmcp(\"Comm.MensajeCanal\", function(data)\n\tpanel_add(data.canal, data.mensaje)\nend)\n".into();
     script.run_steps(2);
     script.get_by_label("Run").click();
     script.run_steps(4);
     save(&mut script, "script");
     script.state_mut().tab_mut().editor.script_text =
-        "support_gmcp(\"Comm 1\")\nerror(\"boom\")\n".into();
+        "gmcp.support(\"Comm 1\")\nerror(\"boom\")\n".into();
     script.run_steps(2);
     script.get_by_label("Run").click();
     script.run_steps(4);

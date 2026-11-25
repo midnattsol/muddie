@@ -73,9 +73,9 @@ pub(crate) enum Set {
     Naming,
     /// The language the MUD is played in (`map.language`).
     Language,
-    /// A panel's text, by its name (`panel`).
+    /// A panel's text, by its name (`panels.set`).
     Panel(String),
-    /// A channel's tab, by its name (`channel`).
+    /// A channel's tab, by its name (`channels.say`).
     Channel(String),
 }
 
@@ -173,6 +173,15 @@ pub(super) fn var_key(name: &str) -> String {
     format!("var {name}")
 }
 
+/// What scripts are told of the session, as the frontend knows it.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Session {
+    pub connected: bool,
+    pub host: String,
+    /// The profile in use, if any.
+    pub profile: Option<String>,
+}
+
 /// State shared between the engine and the functions scripts call.
 #[derive(Default)]
 pub(super) struct State {
@@ -208,8 +217,10 @@ pub(super) struct State {
     pub(crate) merged: Vec<(String, String)>,
     /// The server's MSSP status, as `(name, value)` pairs.
     pub(crate) mssp: Vec<(String, String)>,
-    /// A screen reader is reading the client: for `screen_reader()`.
+    /// A screen reader is reading the client: for `session.reader`.
     pub(crate) screen_reader: bool,
+    /// What scripts are told of the session.
+    pub(crate) session: Session,
     pub(crate) actions: Vec<Action>,
     /// Set by `map.native(false)`, with the script that did.
     pub(crate) map_native_off: Option<String>,
@@ -254,7 +265,7 @@ pub(super) struct State {
     /// The scripts there are, as the frontend tells: to list them and
     /// their tags, as it is the frontend that runs them.
     pub(crate) scripts: Vec<Belongs>,
-    /// Set by `separator()`, with the script that did: `None` in it turns
+    /// Set by `session.separator()`, with the script that did: `None` in it turns
     /// command splitting off; none set is the usual `;`.
     pub(crate) separator: Option<(String, Option<String>)>,
     /// Folders `require` looks in: those scripts were loaded from.

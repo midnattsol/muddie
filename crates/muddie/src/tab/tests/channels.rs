@@ -11,7 +11,7 @@ fn channels_have_a_tab_each_in_the_panel_of_channels() {
     // can be made known before anyone speaks on it.
     app.scripts.exec(
         "t",
-        r#"channel("chat", "Ana: hola") channel("mercenario") channel("chat", "Luis: buenas")"#,
+        r#"channels.say("chat", "Ana: hola") channels.open("mercenario") channels.say("chat", "Luis: buenas")"#,
     );
     app.run_actions();
     // The usual message of GMCP names its channel too.
@@ -53,7 +53,8 @@ fn channels_have_a_tab_each_in_the_panel_of_channels() {
     assert!(harness.query_by_label("Eva: al norte").is_none());
     // What is said on another meanwhile marks its tab, until looked at.
     let app = harness.state_mut().tab_mut();
-    app.scripts.exec("t", r#"channel("bando", "Eva: esperad")"#);
+    app.scripts
+        .exec("t", r#"channels.say("bando", "Eva: esperad")"#);
     app.run_actions();
     harness.run_steps(2);
     let unread = |app: &Tab, name: &str| {
@@ -79,8 +80,10 @@ fn channels_are_given_a_panel_where_there_is_none_for_them() {
         .panels
         .retain(|panel| panel.kind != layout::Kind::Text);
     assert!(!app.layout.panels.iter().any(|panel| panel.channels));
-    app.scripts
-        .exec("t", r#"channel("chat") channel("chat", "Ana: hola")"#);
+    app.scripts.exec(
+        "t",
+        r#"channels.open("chat") channels.say("chat", "Ana: hola")"#,
+    );
     app.run_actions();
     harness.run_steps(3);
     // A panel was made for them, once, and what was said is in it.
@@ -113,7 +116,8 @@ fn channels_are_given_a_panel_where_there_is_none_for_them() {
         .panels
         .iter_mut()
         .for_each(|panel| panel.visible &= !panel.channels);
-    app.scripts.exec("t", r#"channel("chat", "Luis: buenas")"#);
+    app.scripts
+        .exec("t", r#"channels.say("chat", "Luis: buenas")"#);
     app.run_actions();
     harness.run_steps(3);
     let app = harness.state().tab();
@@ -137,15 +141,15 @@ fn a_script_turns_a_muds_own_channel_messages_into_tabs() {
     app.layout
         .panels
         .retain(|panel| panel.kind != layout::Kind::Text);
-    let script = r#"support_gmcp("Comm 1")
+    let script = r#"gmcp.support("Comm 1")
 
 on("gmcp", "Comm.MensajeCanal", function(data)
-    channel(data.canal, data.mensaje)
+    channels.say(data.canal, data.mensaje)
 end)
 
 on("gmcp", "Comm.Canales", function(data)
     for nombre in pairs(data) do
-        channel(nombre)
+        channels.open(nombre)
     end
 end)"#;
     app.scripts.exec("Channels", script);
@@ -202,9 +206,9 @@ fn a_channel_goes_to_the_panel_a_script_names() {
     // is not there is made.
     app.scripts.exec(
         "t",
-        r#"channel("chat", "Ana: hola", {panel = "conversaciones"})
-            channel("bando", "Eva: al norte", {panel = "Conversaciones"})
-            channel("susurro", "Luis te susurra: ven", {panel = "Privado"})"#,
+        r#"channels.say("chat", "Ana: hola", {panel = "conversaciones"})
+            channels.say("bando", "Eva: al norte", {panel = "Conversaciones"})
+            channels.say("susurro", "Luis te susurra: ven", {panel = "Privado"})"#,
     );
     app.run_actions();
     harness.run_steps(3);
@@ -246,7 +250,8 @@ fn a_panel_already_called_channels_is_where_the_channels_go() {
     // Made by a script that sent to it by name, so not marked as the
     // panel of channels.
     app.add_to_panel("Channels", &panels::styled_lines("hola").remove(0));
-    app.scripts.exec("t", r#"channel("chat", "Ana: hola")"#);
+    app.scripts
+        .exec("t", r#"channels.say("chat", "Ana: hola")"#);
     app.run_actions();
     harness.run_steps(2);
     let app = harness.state().tab();
@@ -265,13 +270,13 @@ fn a_channel_handled_by_a_plugin_and_by_a_script_is_one_channel_said_once() {
     // As the Reinos de Leyenda plugin does: to the panel of channels.
     app.scripts.exec(
         "plugin",
-        r#"on("gmcp", "Comm.Canales", function(d) for n in pairs(d) do channel(n) end end)
-           on("gmcp", "Comm.MensajeCanal", function(d) channel(d.canal, d.mensaje) end)"#,
+        r#"on("gmcp", "Comm.Canales", function(d) for n in pairs(d) do channels.open(n) end end)
+           on("gmcp", "Comm.MensajeCanal", function(d) channels.say(d.canal, d.mensaje) end)"#,
     );
     // And a script of the player's that does the same, naming the panel.
     app.scripts.exec(
         "mine",
-        r#"on("gmcp", "Comm.MensajeCanal", function(d) channel(d.canal, d.mensaje, {panel = "Channels"}) end)"#,
+        r#"on("gmcp", "Comm.MensajeCanal", function(d) channels.say(d.canal, d.mensaje, {panel = "Channels"}) end)"#,
     );
     let (events, _sent) = fake_connection(app);
     let gmcp = |package: &str, data: &str| Event::Gmcp {
@@ -315,7 +320,7 @@ fn the_tabs_of_channels_are_one_stop_and_the_arrows_go_among_them() {
     let app = harness.state_mut().tab_mut();
     app.scripts.exec(
         "t",
-        r#"channel("chat", "Ana: hola") channel("mercenario") channel("bando", "Eva: al norte")"#,
+        r#"channels.say("chat", "Ana: hola") channels.open("mercenario") channels.say("bando", "Eva: al norte")"#,
     );
     app.run_actions();
     harness.run_steps(3);
@@ -363,8 +368,8 @@ fn what_is_said_quietly_on_a_channel_is_kept_and_not_read() {
         app.scripts.exec(
             "t",
             &format!(
-                r#"channel("chat", "Ana: yesterday", {{quiet = true{panel}}})
-                channel("chat", "Luis: today", {{quiet = false{panel}}})"#
+                r#"channels.say("chat", "Ana: yesterday", {{quiet = true{panel}}})
+                channels.say("chat", "Luis: today", {{quiet = false{panel}}})"#
             ),
         );
         app.run_actions();
@@ -385,8 +390,10 @@ fn a_message_of_a_channel_in_its_own_panel_is_read_once() {
     let app = harness.state_mut().tab_mut();
     app.on_screen = true;
     app.voice.said.clear();
-    app.scripts
-        .exec("t", r#"channel("chat", "Ana: hello", {panel = "Guild"})"#);
+    app.scripts.exec(
+        "t",
+        r#"channels.say("chat", "Ana: hello", {panel = "Guild"})"#,
+    );
     app.run_actions();
     assert_eq!(app.voice.said, ["chat: Ana: hello"]);
 }

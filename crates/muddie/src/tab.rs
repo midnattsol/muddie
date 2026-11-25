@@ -460,6 +460,7 @@ impl Tab {
         self.on_screen = on_screen;
         self.voice.hush_on_ctrl(ctx);
         let lines_before = self.output.total_pushed();
+        self.tell_session(self.connection.is_some());
         if self.handle_events() {
             ctx.request_repaint();
         }

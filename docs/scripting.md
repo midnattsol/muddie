@@ -67,8 +67,8 @@ removed, as when it is run again: its triggers, aliases, macros, timers,
 handlers and gauges; the panels it put text in and the channels it opened,
 emptied and closed; its sounds, stopped; and what it set of the map and the
 session (`map.learn`, `map.directions`, `map.names`, `map.native`,
-`map.persist`, `map.language`, `separator`, `merge_gmcp`, `support_gmcp`,
-`report_msdp`, `completions`), back as they were before any script set them.
+`map.persist`, `map.language`, `session.separator`, `session.completions`,
+`gmcp.merge`, `gmcp.support`, `msdp.report`), back as they were before any script set them.
 
 | Function | What it does |
 |---|---|
@@ -78,12 +78,12 @@ session (`map.learn`, `map.directions`, `map.names`, `map.native`,
 | `tr{en = "Map", es = "Mapa"}` | The text in the language of the interface, of those given by language code: else that of its language without the country (`es` for `es_AR`), else English, else the first by code. For what a script shows the user, as a plugin that is shared does. |
 | `log(text)` | Shows something on the standard output of a run started with `--debug` (see the manual); nothing otherwise. |
 | `speak(text, {interrupt = true})` | Says something through speech, unless the player has the game not read aloud. |
-| `panel(name, text)` | Puts `text` in a panel, in place of what it showed; `panel(name)` clears it. For anything the server sends ready to display, such as a map it draws. The panel is made, as one of text, if there is none of that name; `"map"` means the map's panel whatever it is called, and `"channels"` the one of the channels. |
-| `add_to_panel(name, text)` | Adds `text` at the end of a panel, which keeps what it had. In a trigger, `to_panel(name)` adds the line being looked at, with its colours. |
-| `channel(name, text, options)` | Adds `text` as said on the channel `name` of the MUD, which has a tab of its own in a panel. `options.panel` names that panel: the one of that name is used as it is, and one is made if there is none; with no panel named, it is the panel of channels. With `options.quiet`, it is not read aloud, as what was said before the player came. `channel(name)` makes the tab before anyone speaks, and `close_channel(name)` takes it away, as when the character leaves the channel. |
-| `gauge(name, value, max, options)` | Shows or updates a gauge; `gauge(name)` removes it. `options` are named as a gauge's in the editor's rules: `kind` (`"bar"`, `"cells"`, `"number"`, `"light"`, which is on when `value` is not 0, `"text"`, which shows `options.text`, or `"effects"`, which shows `options.items`: a list, or a table by name, of what the character is in, each a name or `{name = "Poisoned", about = "1 damage a second", colour = "red"}`), `colour` (a name or `#rrggbb`), `off_colour`, a light's while it is off, and `step`, the colours it takes under each percentage, `{{under = 60, colour = "yellow"}, {under = 30, colour = "red"}}`. `announce` says how its changes are read aloud: `"usual"`, as its kind is, a level cutting short what is being read as it falls under a step and the rest waiting their turn; `"never"`; `"wait"`, after what is being read; `"lowest"`, the same, but cutting in under the lowest of its steps; or `"cut"`, cutting in. Also `panel`, the panel of gauges it is shown in, by its name (made if there is none; the first there is if none is named), and `place` and `tags`, which switch it as they do a trigger. |
-| `play(file, {volume = 0.8, loop = false})` | Plays a sound, by path or by name in the profile's `sounds` folder. |
-| `stop_sounds()` | Stops every sound. |
+| `panels.set(name, text)` | Puts `text` in a panel, in place of what it showed; `panels.clear(name)` clears it. For anything the server sends ready to display, such as a map it draws. The panel is made, as one of text, if there is none of that name; `"map"` means the map's panel whatever it is called, and `"channels"` the one of the channels. |
+| `panels.add(name, text)` | Adds `text` at the end of a panel, which keeps what it had. In a trigger, `to_panel(name)` adds the line being looked at, with its colours. |
+| `channels.say(name, text, options)` | Adds `text` as said on the channel `name` of the MUD, which has a tab of its own in a panel. `options.panel` names that panel: the one of that name is used as it is, and one is made if there is none; with no panel named, it is the panel of channels. With `options.quiet`, it is not read aloud, as what was said before the player came. `channels.open(name)` makes the tab before anyone speaks, and `channels.close(name)` takes it away, as when the character leaves the channel. |
+| `gauges.set(name, {value = 80, max = 100, ...})` | Shows or updates a gauge; `gauges.remove(name)` removes it. What it is given is named as a gauge's in the editor's rules: `value` and `max`, its level; `kind` (`"bar"`, `"cells"`, `"number"`, `"light"`, which is on when `value` is true or not 0, `"text"`, which shows `text`, or `"effects"`, which shows `items`: a list, or a table by name, of what the character is in, each a name or `{name = "Poisoned", about = "1 damage a second", colour = "red"}`), `colour` (a name or `#rrggbb`), `off_colour`, a light's while it is off, and `step`, the colours it takes under each percentage, `{{under = 60, colour = "yellow"}, {under = 30, colour = "red"}}`. `announce` says how its changes are read aloud: `"usual"`, as its kind is, a level cutting short what is being read as it falls under a step and the rest waiting their turn; `"never"`; `"wait"`, after what is being read; `"lowest"`, the same, but cutting in under the lowest of its steps; or `"cut"`, cutting in. Also `panel`, the panel of gauges it is shown in, by its name (made if there is none; the first there is if none is named), and `place` and `tags`, which switch it as they do a trigger. |
+| `sounds.play(file, {volume = 0.8, loop = false})` | Plays a sound, by path or by name in the profile's `sounds` folder. Returns it, to stop it alone: `sound:stop()`. |
+| `sounds.stop()` | Stops every sound. |
 
 ## Triggers, aliases and timers
 
@@ -119,7 +119,7 @@ after(5, function() saving:remove() end)
 | `after(seconds, fn, options)`, `every(seconds, fn, options)` | Timers. Switched off, one lets its turns pass. |
 | What they return | Each of these, and `macro` and `on`, returns what it made: `made:disable()`, `made:enable()` and `made:toggle()`, which say whether it is now on; `made:enabled()`; `made:remove()`, which takes it away and says whether it was there; and, of a timer, `made:left()`, the seconds it has left. |
 | `macro(key, action, options)` | Runs commands or a function when a key is pressed: `macro("f5", "look")`, `macro("ctrl+shift+k", fn)`. Commands are sent as a rule's are: separated by `;`, with `$name` put in, not through aliases. A key bound again under another `place` does that while it is on and those bound before are not: the first bound that is on is the one that runs. Bound again under the same place, it does the new thing instead. |
-| `separator(text)` | The text that separates commands typed on one line (`;` by default; doubled, it is typed literally). `separator(false)` turns splitting off, and `separator()` gives back `;`. |
+| `session.separator(text)` | The text that separates commands typed on one line (`;` by default; doubled, it is typed literally). `session.separator(false)` turns splitting off, and `session.separator()` gives back `;`. |
 | `vars` | The variables, as a table: `vars.target = "orc"` keeps a value, `vars.target` reads it, `vars.target = nil` forgets it, and `for name, value in vars do` goes through them. They are those of the editor, kept with the session's profile. A table kept in one must be assigned whole to be kept: `local bag = vars.bag; bag.gold = 5; vars.bag = bag`. |
 | `expand(text)` | `text` with each `$name` replaced by that variable's value, `$name.key` by a field of a table and `$name.1` by an item of an array, as the commands of rules are. |
 
@@ -162,28 +162,28 @@ macro("numpad5", "look")
 
 ```lua
 on("gmcp", "Char.Vitals", function(vitals)
-    gauge("HP", vitals.hp, vitals.maxhp)
+    gauges.set("HP", {value = vitals.hp, max = vitals.maxhp})
 end)
 
 on("msdp", "HEALTH", function(value) echo("health " .. value) end)
-send_msdp("REPORT", "HEALTH", "MANA")
+msdp.send("REPORT", "HEALTH", "MANA")
 ```
 
 | Function | What it does |
 |---|---|
 | `on("gmcp", package, fn)` | Calls `fn(data, package)` for that package and those under it (`"Char"` covers `Char.Vitals`). |
-| `gmcp(package)` | The data last received for exactly that package. |
-| `send_gmcp(package, data)` | Sends a GMCP message. |
-| `on("msdp", variable, fn)`, `msdp(variable)`, `send_msdp(command, ...)` | The same for MSDP. Values arrive as strings. |
+| `gmcp.get(package)` | The data last received for exactly that package. |
+| `gmcp.send(package, data)` | Sends a GMCP message. |
+| `on("msdp", variable, fn)`, `msdp.get(variable)`, `msdp.send(command, ...)` | The same for MSDP. Values arrive as strings. |
 | `on("var", name, fn)` | Calls `fn(value, name)` when a variable of `vars` changes, by a script, a trigger or the editor: once the script that changed it is done, so it sees all it changed. A gauge can follow a variable the same way. |
-| `merge_gmcp(package, ...)` | For packages the server sends only what changed of, as `Char.Status` with only the life that changed: what comes is merged into what `gmcp(package)` and the gauges keep, tables inside merged too. Handlers still get what came. |
-| `report_msdp(variable, ...)` | Asks the server to report MSDP variables as they change: `report_msdp("HEALTH", "HEALTH_MAX")`. Asked for while the script is loaded, as `support_gmcp`. |
-| `support_gmcp(module, ...)` | Announces GMCP modules to the server besides the client's own (`Core` and `Client.Media`), as `"Name version"`: `support_gmcp("Map.Render 1")`. Some servers only send what was announced. They are asked for while the script is loaded: when it is switched off or removed, the server is told it no longer wants them. |
-| `screen_reader()` | Whether a screen reader is reading Muddie: for what a plugin offers to those who use one. |
+| `gmcp.merge(package, ...)` | For packages the server sends only what changed of, as `Char.Status` with only the life that changed: what comes is merged into what `gmcp.get(package)` and the gauges keep, tables inside merged too. Handlers still get what came. |
+| `msdp.report(variable, ...)` | Asks the server to report MSDP variables as they change: `msdp.report("HEALTH", "HEALTH_MAX")`. Asked for while the script is loaded, as `gmcp.support`. |
+| `gmcp.support(module, ...)` | Announces GMCP modules to the server besides the client's own (`Core` and `Client.Media`), as `"Name version"`: `gmcp.support("Map.Render 1")`. Some servers only send what was announced. They are asked for while the script is loaded: when it is switched off or removed, the server is told it no longer wants them. |
+| `session.connected`, `session.host`, `session.profile`, `session.reader` | Whether the session is connected; where to; the name of its profile, or `nil`; and whether a screen reader is reading Muddie. |
 | `on(name, fn)` | Calls `fn(data, name)` when something happens in the client: `"connect"`, `"disconnect"`, `"reader"` with whether a screen reader is reading Muddie, when that changes, `"mxp"` with `{name, value}` when the MUD names a value with MXP (a variable, an entity, or what a flagged element held, such as `RoomName`), or `"panel"` with `{name, map, columns, rows}`: the size in characters of a panel that shows a drawing, once it stops changing, after connecting and after the script is run. `map` is true for the map's panel, whatever it is called. |
-| `panel_size(name)` | The size in characters of a panel, as `{columns, rows}`, at once; `nil` if it has not been on the screen. With no name, the map's panel. |
-| `completions(name, words)` | Words for Tab to offer, besides those seen in the output. Each name keeps its own list; `completions(name)` removes it. |
-| `mssp()` | The server's MSSP status as a table. |
+| `panels.size(name)` | The size in characters of a panel, as `{columns, rows}`, at once; `nil` if it has not been on the screen. With no name, the map's panel. |
+| `session.completions(name, words)` | Words for Tab to offer, besides those seen in the output. Each name keeps its own list; `session.completions(name)` removes it. |
+| `mssp.get()` | The server's MSSP status as a table. |
 
 `on` takes, last, options with `place` and `tags`, and is switched as a
 trigger is: `triggers.disable("Combat")` switches off what listens in that
@@ -191,7 +191,7 @@ folder too. A name it does not know, as an option a function does not take, is
 an error, rather than left out without a word.
 
 A function the API had once and has no longer, called by an old script, is
-an error that says what to use instead: `supports` is `support_gmcp` now.
+an error that says what to use instead: `gauge` is `gauges.set` now.
 
 ## The map
 

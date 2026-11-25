@@ -193,7 +193,7 @@ impl Tab {
         }
         self.script_status(ui);
         let rows = script_rows(self.editor.detail_height, 118.0);
-        let hint = "-- Luau\non_gmcp(\"Room.Info\", function(room)\n\tmap.visit({id = room.num, name = room.name, exits = room.exits})\nend)";
+        let hint = "-- Luau\non(\"gmcp\", \"Room.Info\", function(room)\n\tmap.visit({id = room.num, name = room.name, exits = room.exits})\nend)";
         // What keeps it from being read, or else what went wrong when it
         // last ran: shown at its line, in the editor.
         let mistake = (self

@@ -1,7 +1,7 @@
 local function raw(path)
 	local parts = string.split(path, ".")
 	for n = #parts, 1, -1 do
-		local data = gmcp(table.concat(parts, ".", 1, n))
+		local data = gmcp.get(table.concat(parts, ".", 1, n))
 		if data ~= nil then
 			for i = n + 1, #parts do
 				if type(data) ~= "table" then return nil end
@@ -10,7 +10,7 @@ local function raw(path)
 			return data
 		end
 	end
-	local reported = msdp(path)
+	local reported = msdp.get(path)
 	if reported ~= nil then return reported end
 	-- Else a variable of the scripts, and the fields inside it.
 	local data = vars[parts[1]]

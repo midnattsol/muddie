@@ -100,7 +100,7 @@ impl Luau for OnLine {
             ));
         }
         if !when.sound.trim().is_empty() {
-            code.push_str(&call("play", &when.sound));
+            code.push_str(&call("sounds.play", &when.sound));
         }
         if !when.panel.trim().is_empty() {
             code.push_str(&call("to_panel", &when.panel));
@@ -183,7 +183,7 @@ impl Gauge {
                 format!(
                     "\tlocal said = raw({value})\n\
                      \tif said ~= nil then\n\
-                     \t\tgauge({name}, lit(said) and 1 or 0, 1, {{{look}}})\n\
+                     \t\tgauges.set({name}, {{value = lit(said), {look}}})\n\
                      \tend\n"
                 )
             }
@@ -192,14 +192,14 @@ impl Gauge {
             GaugeKind::Effects => format!(
                 "\tlocal said = raw({value})\n\
                  \tif type(said) == \"table\" or shown then\n\
-                 \t\tgauge({name}, 0, 0, {{{look}, items = type(said) == \"table\" and said or {{}}}})\n\
+                 \t\tgauges.set({name}, {{{look}, items = type(said) == \"table\" and said or {{}}}})\n\
                  \t\tshown = true\n\
                  \tend\n"
             ),
             GaugeKind::Text => format!(
                 "\tlocal said = raw({value})\n\
                  \tif said ~= nil and type(said) ~= \"table\" then\n\
-                 \t\tgauge({name}, 0, 0, {{{look}, text = tostring(said)}})\n\
+                 \t\tgauges.set({name}, {{{look}, text = tostring(said)}})\n\
                  \tend\n"
             ),
             // A bar of nothing, as the shield of one who has none, is not
@@ -207,16 +207,16 @@ impl Gauge {
             GaugeKind::Bar | GaugeKind::Cells => format!(
                 "\tlocal value, max = dig({value}), dig({max})\n\
                  \tif value and max and max > 0 then\n\
-                 \t\tgauge({name}, value, max, {{{look}}})\n\
+                 \t\tgauges.set({name}, {{value = value, max = max, {look}}})\n\
                  \telseif value and max then\n\
-                 \t\tgauge({name}, nil, nil, {{{belonging}}})\n\
+                 \t\tgauges.remove({name}, {{{belonging}}})\n\
                  \tend\n",
                 max = quoted(self.maximum()),
             ),
             GaugeKind::Number => format!(
                 "\tlocal value, max = dig({value}), dig({max})\n\
                  \tif value and max then\n\
-                 \t\tgauge({name}, value, max, {{{look}}})\n\
+                 \t\tgauges.set({name}, {{value = value, max = max, {look}}})\n\
                  \tend\n",
                 max = quoted(self.maximum()),
             ),

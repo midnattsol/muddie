@@ -18,6 +18,7 @@ impl Tab {
         // The scripts are told again how big the panel is.
         self.panels_untold();
         self.fresh_runtime();
+        self.tell_session(self.connection.is_some());
         // The scripts teach their words for directions again, over those
         // of the language, and a plugin may say the language anew.
         self.language.declared = None;
@@ -285,12 +286,14 @@ impl Tab {
                 Action::ChannelClosed(name) => self.close_channel(&name),
                 Action::Notify(text) => self.note(&text),
                 Action::PlaySound {
+                    id,
                     file,
                     volume,
                     looped,
                     owner,
-                } => self.play_for_script(&file, volume, looped, owner),
+                } => self.play_for_script(&file, volume, looped, (owner, id)),
                 Action::StopSounds => self.sound.stop_all(),
+                Action::StopSound(id) => self.stop_for_script(id),
                 Action::Log(text) => crate::debug::show(&self.title(), "LOG", &text),
                 Action::Error(message) => self.script_failed(message),
             }
@@ -345,17 +348,34 @@ impl Tab {
     }
 
     /// Plays a sound as a script asked.
-    fn play_for_script(&mut self, file: &str, volume: f32, looped: bool, owner: String) {
+    fn play_for_script(&mut self, file: &str, volume: f32, looped: bool, by: (String, u64)) {
         let path = self.sound_file(file);
         // Known by the script that asked, to stop with it.
+        let (owner, id) = by;
         let label = muddie_sound::Label {
             key: owner,
+            tag: script_sound(id),
             ..Default::default()
         };
         let times = (!looped).then_some(1);
         if let Err(error) = self.sound.play_as(&path, volume, times, label) {
             self.refuse(&trf("Could not play the sound: {0}", &[&error]));
         }
+    }
+
+    /// Stops the sound a script played with this id.
+    fn stop_for_script(&mut self, id: u64) {
+        let tag = script_sound(id);
+        self.sound.stop_where(|label| label.tag == tag);
+    }
+
+    /// Tells the scripts of the session, as it is now.
+    pub(super) fn tell_session(&mut self, connected: bool) {
+        self.scripts.know_session(muddie_script::Session {
+            connected,
+            host: self.host.clone(),
+            profile: self.profile.clone(),
+        });
     }
 
     /// Shows an error a script gave, and keeps it for the editor.
@@ -365,4 +385,9 @@ impl Tab {
         let message = trf("Script error: {0}", &[&message]);
         message.lines().for_each(|line| self.refuse(line));
     }
+}
+
+/// What a sound a script played is stopped by: no tag of the MUD's is so.
+fn script_sound(id: u64) -> String {
+    format!("script {id}")
 }

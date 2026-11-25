@@ -63,7 +63,7 @@ impl Tab {
                 code: &mut rule.code,
                 matched: false,
                 commands_hint: "save",
-                script_hint: "if gmcp(\"Char.Vitals\").hp < 50 then\n\tsend(\"rest\")\nend",
+                script_hint: "if gmcp.get(\"Char.Vitals\").hp < 50 then\n\tsend(\"rest\")\nend",
                 about_commands: tr("One command per line."),
                 about_script: tr("Run each time the timer goes off."),
                 sizes: &mut self.editor.code,

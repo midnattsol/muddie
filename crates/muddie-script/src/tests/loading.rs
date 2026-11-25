@@ -237,7 +237,7 @@ fn a_retired_name_says_what_to_use_instead() {
         })
         .collect();
     assert!(
-        errors[0].contains("supports is no longer: use support_gmcp(module, ...)"),
+        errors[0].contains("supports is no longer: use gmcp.support(module, ...)"),
         "{errors:?}"
     );
     assert!(

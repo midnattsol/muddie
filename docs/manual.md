@@ -421,8 +421,8 @@ The layout is kept with the profile.
 What a panel of text shows comes from elsewhere. A trigger can show the lines
 it matches in a panel, and hide them from the output so that they are only
 there: that is how tells, or combat, get a panel of their own. A script can
-write to one with `add_to_panel(name, text)`, or put a whole text in it with
-`panel(name, text)`. A panel can also be told to show the MUD's channels,
+write to one with `panels.add(name, text)`, or put a whole text in it with
+`panels.set(name, text)`. A panel can also be told to show the MUD's channels,
 from its menu.
 
 The **gauges** are made and changed in the editor, under **Gauges**; the
@@ -561,11 +561,11 @@ be one of channels: **Show the MUD's channels here**, in its menu.
 
 A MUD that sends its channels the usual way over GMCP (`Comm.Channel.Text`)
 fills them by itself. For one that does it its own way, a script says which
-channel a line is of with `channel(name, text)`; for one that only sends
+channel a line is of with `channels.say(name, text)`; for one that only sends
 text, a trigger can.
 
 A script can also say which panel a channel goes to, by the panel's name:
-`channel(name, text, {panel = "Talk"})`. A panel of that name that you made
+`channels.say(name, text, {panel = "Talk"})`. A panel of that name that you made
 yourself is used as it is, wherever you put it; if there is none, one is
 made. So the public channels can be in one panel and whispers in another,
 each with its own tabs. The panels go by their names: one renamed is another

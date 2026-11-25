@@ -3,94 +3,148 @@
 use super::*;
 
 pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
-    install_gauge(lua, state)?;
-    install_panel(lua, state)?;
-    install_add_to_panel(lua, state)?;
+    install_gauges(lua, state)?;
+    install_panels(lua, state)?;
     install_to_panel(lua, state)?;
     install_panel_size(lua, state)?;
-    install_channel(lua, state)?;
-    install_close_channel(lua, state)?;
-    Ok(())
+    install_channels(lua, state)
 }
 
-fn install_gauge(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
-    let globals = lua.globals();
-    let add = |name: &str, function: Function| globals.set(name, function);
+/// What a gauge is given, as a gauge of the rules is written, and its
+/// value.
+const GAUGE: [&str; 12] = [
+    "value",
+    "max",
+    "kind",
+    "colour",
+    "off_colour",
+    "text",
+    "step",
+    "items",
+    "announce",
+    "panel",
+    "place",
+    "tags",
+];
+
+/// `gauges`: showing and removing them, besides switching them.
+fn install_gauges(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
+    let gauges = super::group(lua, "gauges")?;
     let shared = Rc::clone(state);
-    add(
-        "gauge",
-        lua.create_function(
-            move |_,
-                  (name, value, max, options): (
-                String,
-                Option<f64>,
-                Option<f64>,
-                Option<mlua::Table>,
-            )| {
-                let level = match (value, max) {
-                    (Some(value), Some(max)) => Some((value, max)),
-                    (None, None) => None,
-                    _ => return Err(mlua::Error::runtime("gauge needs both a value and a max")),
-                };
-                let mut look = GaugeLook::default();
-                let known = [
-                    "kind", "colour", "off_colour", "text", "step", "items", "announce", "panel", "place",
-                    "tags",
-                ];
-                super::rules::only(options.as_ref(), &known)?;
-                let belongs = super::rules::belongs(options.as_ref())?;
-                let mut panel = String::new();
-                // As a gauge of the rules is written: `kind`, `colour`,
-                // `off_colour`, and `step = {{under = 30, colour = "red"}}`;
-                // where it is shown, and what it is switched by.
-                if let Some(options) = options {
-                    panel = options.get::<Option<String>>("panel")?.unwrap_or_default();
-                    let text = |key: &str| -> mlua::Result<String> {
-                        Ok(options.get::<Option<String>>(key)?.unwrap_or_default())
-                    };
-                    look.colour = text("colour")?;
-                    let kind = text("kind")?;
-                    look.kind = match kind.trim() {
-                        "" => GaugeKind::Bar,
-                        key => GaugeKind::from_key(key).ok_or_else(|| {
-                            mlua::Error::runtime(format!(
-                                "a gauge's kind is bar, cells, number, light, text or effects, not {key}"
-                            ))
-                        })?,
-                    };
-                    look.off_colour = text("off_colour")?;
-                    look.text = text("text")?;
-                    if let Some(steps) = options.get::<Option<Vec<mlua::Table>>>("step")? {
-                        for step in steps {
-                            look.steps.push((step.get("under")?, step.get("colour")?));
-                        }
-                    }
-                    look.items = effects_of(options.get("items")?)?;
-                    look.announce = announce_of(&text("announce")?)?;
-                }
-                let mut state = shared.borrow_mut();
-                let owner = state.owner.clone();
-                state.gauges.retain(|shown| shown.owner != owner || shown.name != name);
-                if level.is_some() {
-                    state.gauges.push(crate::state::Shown {
-                        owner: owner.clone(),
-                        name: name.clone(),
-                        belongs: belongs.clone(),
-                    });
-                }
-                (state.actions).push(Action::Gauge {
-                    name,
-                    level,
-                    look,
-                    owner,
-                    belongs,
-                    panel,
-                });
-                Ok(())
-            },
-        )?,
+    gauges.set(
+        "set",
+        lua.create_function(move |_, (name, given): (String, Table)| {
+            super::rules::only(Some(&given), &GAUGE)?;
+            let look = look_of(&given)?;
+            let level = level_of(&given, look.kind)?;
+            let belongs = super::rules::belongs(Some(&given))?;
+            let panel = given.get::<Option<String>>("panel")?.unwrap_or_default();
+            let mut state = shared.borrow_mut();
+            let owner = state.owner.clone();
+            state
+                .gauges
+                .retain(|shown| shown.owner != owner || shown.name != name);
+            state.gauges.push(crate::state::Shown {
+                owner: owner.clone(),
+                name: name.clone(),
+                belongs: belongs.clone(),
+            });
+            (state.actions).push(Action::Gauge {
+                name,
+                level: Some(level),
+                look,
+                owner,
+                belongs,
+                panel,
+            });
+            Ok(())
+        })?,
     )?;
-    Ok(())
+    let shared = Rc::clone(state);
+    gauges.set(
+        "remove",
+        lua.create_function(move |_, (name, options): (String, Option<Table>)| {
+            super::rules::only(options.as_ref(), &["place", "tags"])?;
+            let belongs = super::rules::belongs(options.as_ref())?;
+            let mut state = shared.borrow_mut();
+            let owner = state.owner.clone();
+            state
+                .gauges
+                .retain(|shown| shown.owner != owner || shown.name != name);
+            (state.actions).push(Action::Gauge {
+                name,
+                level: None,
+                look: GaugeLook::default(),
+                owner,
+                belongs,
+                panel: String::new(),
+            });
+            Ok(())
+        })?,
+    )
+}
+
+/// The value of a gauge and its maximum, as its kind has them: a light's
+/// is whether it is on, and words and effects have none.
+fn level_of(given: &Table, kind: GaugeKind) -> mlua::Result<(f64, f64)> {
+    let needs = |what: &str| {
+        mlua::Error::runtime(format!("a gauge of the kind {} needs {what}", kind.key()))
+    };
+    match kind {
+        GaugeKind::Text => match given.get::<Option<String>>("text")? {
+            Some(_) => Ok((0.0, 0.0)),
+            None => Err(needs("a text")),
+        },
+        GaugeKind::Effects => Ok((0.0, 0.0)),
+        GaugeKind::Light => match given.get::<Value>("value")? {
+            Value::Boolean(on) => Ok((f64::from(u8::from(on)), 1.0)),
+            Value::Nil => Err(needs("a value, whether it is on")),
+            _ => Ok((given.get("value")?, 1.0)),
+        },
+        GaugeKind::Number => match given.get::<Option<f64>>("value")? {
+            Some(value) => Ok((value, given.get::<Option<f64>>("max")?.unwrap_or_default())),
+            None => Err(needs("a value")),
+        },
+        GaugeKind::Bar | GaugeKind::Cells => {
+            match (
+                given.get::<Option<f64>>("value")?,
+                given.get::<Option<f64>>("max")?,
+            ) {
+                (Some(value), Some(max)) => Ok((value, max)),
+                _ => Err(needs("both a value and a max")),
+            }
+        }
+    }
+}
+
+/// How a gauge looks and is announced.
+fn look_of(given: &Table) -> mlua::Result<GaugeLook> {
+    let text = |key: &str| -> mlua::Result<String> {
+        Ok(given.get::<Option<String>>(key)?.unwrap_or_default())
+    };
+    let kind = text("kind")?;
+    let mut look = GaugeLook {
+        colour: text("colour")?,
+        kind: match kind.trim() {
+            "" => GaugeKind::Bar,
+            key => GaugeKind::from_key(key).ok_or_else(|| {
+                mlua::Error::runtime(format!(
+                    "a gauge's kind is bar, cells, number, light, text or effects, not {key}"
+                ))
+            })?,
+        },
+        off_colour: text("off_colour")?,
+        text: text("text")?,
+        items: effects_of(given.get("items")?)?,
+        announce: announce_of(&text("announce")?)?,
+        steps: Vec::new(),
+    };
+    if let Some(steps) = given.get::<Option<Vec<Table>>>("step")? {
+        for step in steps {
+            look.steps.push((step.get("under")?, step.get("colour")?));
+        }
+    }
+    Ok(look)
 }
 
 /// How a gauge is announced, as it is written; as usual if it is not.
@@ -156,34 +210,37 @@ fn effects_of(given: Value) -> mlua::Result<Vec<Effect>> {
     Ok(effects)
 }
 
-fn install_panel(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
-    let globals = lua.globals();
-    let add = |name: &str, function: Function| globals.set(name, function);
+/// `panels`: what is shown in those of text.
+fn install_panels(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
+    let panels = super::group(lua, "panels")?;
     let shared = Rc::clone(state);
-    add(
-        "panel",
-        lua.create_function(move |_, (name, text): (String, Option<String>)| {
+    panels.set(
+        "set",
+        lua.create_function(move |_, (name, text): (String, String)| {
             let mut state = shared.borrow_mut();
             state.set(crate::state::Set::Panel(name.to_lowercase()));
+            let text = Some(text);
             state.actions.push(Action::Panel { name, text });
             Ok(())
         })?,
     )?;
-    Ok(())
-}
-
-fn install_add_to_panel(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
-    let globals = lua.globals();
-    let add = |name: &str, function: Function| globals.set(name, function);
     let shared = Rc::clone(state);
-    add(
-        "add_to_panel",
+    panels.set(
+        "clear",
+        lua.create_function(move |_, name: String| {
+            let text = None;
+            (shared.borrow_mut().actions).push(Action::Panel { name, text });
+            Ok(())
+        })?,
+    )?;
+    let shared = Rc::clone(state);
+    panels.set(
+        "add",
         lua.create_function(move |_, (name, text): (String, String)| {
             (shared.borrow_mut().actions).push(Action::PanelAdd { name, text });
             Ok(())
         })?,
-    )?;
-    Ok(())
+    )
 }
 
 fn install_to_panel(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
@@ -200,12 +257,11 @@ fn install_to_panel(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     Ok(())
 }
 
+/// How many characters fit across and down a panel.
 fn install_panel_size(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
-    let globals = lua.globals();
-    let add = |name: &str, function: Function| globals.set(name, function);
     let shared = Rc::clone(state);
-    add(
-        "panel_size",
+    super::group(lua, "panels")?.set(
+        "size",
         lua.create_function(move |lua, name: Option<String>| {
             let name = name
                 .unwrap_or_else(|| "map".to_owned())
@@ -219,18 +275,17 @@ fn install_panel_size(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()>
             size.set("rows", rows)?;
             Ok(Value::Table(size))
         })?,
-    )?;
-    Ok(())
+    )
 }
 
-fn install_channel(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
-    let globals = lua.globals();
-    let add = |name: &str, function: Function| globals.set(name, function);
+/// `channels`: what is said on those of the MUD.
+fn install_channels(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
+    let channels = super::group(lua, "channels")?;
     let shared = Rc::clone(state);
-    add(
-        "channel",
+    channels.set(
+        "say",
         lua.create_function(
-            move |_, (name, text, options): (String, Option<String>, Option<mlua::Table>)| {
+            move |_, (name, text, options): (String, String, Option<Table>)| {
                 super::rules::only(options.as_ref(), &["panel", "quiet"])?;
                 let (panel, quiet) = match options {
                     Some(options) => (
@@ -243,7 +298,7 @@ fn install_channel(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
                 state.set(crate::state::Set::Channel(name.to_lowercase()));
                 state.actions.push(Action::Channel {
                     name,
-                    text,
+                    text: Some(text),
                     panel: panel.unwrap_or_default(),
                     quiet: quiet.unwrap_or_default(),
                 });
@@ -251,20 +306,32 @@ fn install_channel(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
             },
         )?,
     )?;
-    Ok(())
-}
-
-fn install_close_channel(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     let shared = Rc::clone(state);
-    lua.globals().set(
-        "close_channel",
-        lua.create_function(move |_, name: String| {
-            shared
-                .borrow_mut()
-                .actions
-                .push(Action::ChannelClosed(name));
+    channels.set(
+        "open",
+        lua.create_function(move |_, (name, options): (String, Option<Table>)| {
+            super::rules::only(options.as_ref(), &["panel"])?;
+            let panel = match options {
+                Some(options) => options.get::<Option<String>>("panel")?,
+                None => None,
+            };
+            let mut state = shared.borrow_mut();
+            state.set(crate::state::Set::Channel(name.to_lowercase()));
+            state.actions.push(Action::Channel {
+                name,
+                text: None,
+                panel: panel.unwrap_or_default(),
+                quiet: false,
+            });
             Ok(())
         })?,
     )?;
-    Ok(())
+    let shared = Rc::clone(state);
+    channels.set(
+        "close",
+        lua.create_function(move |_, name: String| {
+            (shared.borrow_mut().actions).push(Action::ChannelClosed(name));
+            Ok(())
+        })?,
+    )
 }

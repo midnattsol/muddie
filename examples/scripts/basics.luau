@@ -6,7 +6,7 @@
 trigger("^(?<who>\\w+) tells you: (?<what>.*)$", function(m, line)
     highlight("bright yellow")
     silence()
-    channel("Tells", line)
+    channels.say("Tells", line)
 end)
 
 -- Hide a noisy line.

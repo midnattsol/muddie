@@ -51,6 +51,7 @@ use api::{install_api, texts_of};
 use convert::*;
 use made::Made;
 use map_api::*;
+pub use state::Session;
 use state::*;
 pub use switches::{Belongs, Kind, Switches, places_up, tag_key};
 
@@ -59,7 +60,7 @@ pub use switches::{Belongs, Kind, Switches, places_up, tag_key};
 const TIME_BUDGET: Duration = Duration::from_millis(500);
 const MEMORY_LIMIT: usize = 256 << 20;
 /// The global tables whose fields are asked for as they are now.
-const CHANGING: [&str; 1] = ["vars"];
+const CHANGING: [&str; 2] = ["vars", "session"];
 const MIN_TIMER_INTERVAL: Duration = Duration::from_millis(10);
 
 pub struct Engine {

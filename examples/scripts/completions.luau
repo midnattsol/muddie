@@ -2,9 +2,9 @@
 -- packages under "Dev.Completions" carrying a list of words. Tab then
 -- offers them along with the words seen in the output.
 
-support_gmcp("Dev 1")
+gmcp.support("Dev 1")
 
 -- Each package keeps its own list; a new one replaces the one before.
 on("gmcp", "Dev.Completions", function(data, package)
-    completions(package, data.words)
+    session.completions(package, data.words)
 end)

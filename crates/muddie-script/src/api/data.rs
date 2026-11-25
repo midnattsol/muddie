@@ -4,14 +4,9 @@ use super::*;
 
 pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     install_on(lua, state)?;
-    install_data(lua, state)?;
-    install_send_msdp(lua, state)?;
-    install_mssp(lua, state)?;
-    install_screen_reader(lua, state)?;
-    install_send_gmcp(lua, state)?;
-    install_supports(lua, state)?;
-    install_completions(lua, state)?;
-    Ok(())
+    install_gmcp(lua, state)?;
+    install_msdp(lua, state)?;
+    install_mssp(lua, state)
 }
 
 /// What there is to listen to by a name of its own, and what that name is.
@@ -98,73 +93,34 @@ fn no_function() -> mlua::Error {
     mlua::Error::runtime("on needs a function: on(what, function) or on(what, name, function)")
 }
 
-fn install_data(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
-    let globals = lua.globals();
-    let add = |name: &str, function: Function| globals.set(name, function);
-    // GMCP packages and MSDP variables share one store; the key function
-    // keeps their names apart.
-    type KeyFn = fn(&str) -> String;
-    let gmcp_key: KeyFn = |package| package.to_lowercase();
-    for (name, key) in [("gmcp", gmcp_key), ("msdp", msdp_key as KeyFn)] {
-        let shared = Rc::clone(state);
-        add(
-            name,
-            lua.create_function(move |_, source: String| {
-                Ok(shared.borrow().data.get(&key(&source)).cloned())
-            })?,
-        )?;
-    }
-    Ok(())
-}
-
-fn install_send_msdp(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
-    let globals = lua.globals();
-    let add = |name: &str, function: Function| globals.set(name, function);
-    let shared = Rc::clone(state);
-    add(
-        "send_msdp",
-        lua.create_function(move |_, (variable, values): (String, Variadic<String>)| {
-            (shared.borrow_mut().actions).push(Action::Msdp {
-                variable,
-                values: values.into_iter().collect(),
-            });
-            Ok(())
+/// Tells who calls `name(...)`, which was once a function, what there is
+/// now.
+fn no_call(lua: &Lua, table: &Table, name: &str) -> mlua::Result<()> {
+    let said = format!("{name}(...) is no longer: use {name}.get(...)");
+    let meta = lua.create_table()?;
+    meta.set(
+        "__call",
+        lua.create_function(move |_, _: mlua::MultiValue| -> mlua::Result<()> {
+            Err(mlua::Error::runtime(said.clone()))
         })?,
     )?;
-    Ok(())
+    table.set_metatable(Some(meta))
 }
 
-fn install_mssp(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
-    let globals = lua.globals();
-    let add = |name: &str, function: Function| globals.set(name, function);
+/// `gmcp`: what the MUD sent over it, and what it is sent and asked.
+fn install_gmcp(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
+    let gmcp = super::group(lua, "gmcp")?;
+    no_call(lua, &gmcp, "gmcp")?;
     let shared = Rc::clone(state);
-    add(
-        "mssp",
-        lua.create_function(move |lua, ()| {
-            let status = lua.create_table()?;
-            for (name, value) in &shared.borrow().mssp {
-                status.set(name.as_str(), value.as_str())?;
-            }
-            Ok(status)
+    gmcp.set(
+        "get",
+        lua.create_function(move |_, package: String| {
+            Ok(shared.borrow().data.get(&package.to_lowercase()).cloned())
         })?,
     )?;
-    Ok(())
-}
-
-fn install_screen_reader(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     let shared = Rc::clone(state);
-    lua.globals().set(
-        "screen_reader",
-        lua.create_function(move |_, ()| Ok(shared.borrow().screen_reader))?,
-    )
-}
-
-fn install_send_gmcp(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
-    let globals = lua.globals();
-    let add = |name: &str, function: Function| globals.set(name, function);
-    let shared = Rc::clone(state);
-    add(
-        "send_gmcp",
+    gmcp.set(
+        "send",
         lua.create_function(move |_, (package, data): (String, Value)| {
             let data = match data {
                 Value::Nil => String::new(),
@@ -174,16 +130,10 @@ fn install_send_gmcp(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> 
             Ok(())
         })?,
     )?;
-    Ok(())
-}
-
-fn install_supports(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
-    let globals = lua.globals();
-    let add = |name: &str, function: Function| globals.set(name, function);
     let shared = Rc::clone(state);
-    add(
-        "merge_gmcp",
-        lua.create_function(move |_, packages: mlua::Variadic<String>| {
+    gmcp.set(
+        "merge",
+        lua.create_function(move |_, packages: Variadic<String>| {
             let mut state = shared.borrow_mut();
             let owner = state.owner.clone();
             for package in packages {
@@ -196,9 +146,49 @@ fn install_supports(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
         })?,
     )?;
     let shared = Rc::clone(state);
-    add(
-        "report_msdp",
-        lua.create_function(move |_, variables: mlua::Variadic<String>| {
+    gmcp.set(
+        "support",
+        lua.create_function(move |_, modules: Variadic<String>| {
+            let mut state = shared.borrow_mut();
+            let owner = state.owner.clone();
+            for module in modules {
+                let asked = (owner.clone(), module);
+                if !state.supports.contains(&asked) {
+                    state.supports.push(asked);
+                    state.changed = true;
+                }
+            }
+            Ok(())
+        })?,
+    )
+}
+
+/// `msdp`: the same.
+fn install_msdp(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
+    let msdp = super::group(lua, "msdp")?;
+    no_call(lua, &msdp, "msdp")?;
+    let shared = Rc::clone(state);
+    msdp.set(
+        "get",
+        lua.create_function(move |_, variable: String| {
+            Ok(shared.borrow().data.get(&msdp_key(&variable)).cloned())
+        })?,
+    )?;
+    let shared = Rc::clone(state);
+    msdp.set(
+        "send",
+        lua.create_function(move |_, (variable, values): (String, Variadic<String>)| {
+            (shared.borrow_mut().actions).push(Action::Msdp {
+                variable,
+                values: values.into_iter().collect(),
+            });
+            Ok(())
+        })?,
+    )?;
+    let shared = Rc::clone(state);
+    msdp.set(
+        "report",
+        lua.create_function(move |_, variables: Variadic<String>| {
             let mut state = shared.borrow_mut();
             let owner = state.owner.clone();
             let mut new = Vec::new();
@@ -218,49 +208,22 @@ fn install_supports(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
             }
             Ok(())
         })?,
-    )?;
-    let shared = Rc::clone(state);
-    add(
-        "support_gmcp",
-        lua.create_function(move |_, modules: mlua::Variadic<String>| {
-            let mut state = shared.borrow_mut();
-            let owner = state.owner.clone();
-            for module in modules {
-                let asked = (owner.clone(), module);
-                if !state.supports.contains(&asked) {
-                    state.supports.push(asked);
-                    state.changed = true;
-                }
-            }
-            Ok(())
-        })?,
-    )?;
-    Ok(())
+    )
 }
 
-fn install_completions(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
-    let globals = lua.globals();
-    let add = |name: &str, function: Function| globals.set(name, function);
+/// `mssp`: the server's status.
+fn install_mssp(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
+    let mssp = super::group(lua, "mssp")?;
+    no_call(lua, &mssp, "mssp")?;
     let shared = Rc::clone(state);
-    add(
-        "completions",
-        lua.create_function(move |_, (name, words): (String, Option<Vec<String>>)| {
-            let words = words.unwrap_or_default();
-            let mut state = shared.borrow_mut();
-            let owner = state.owner.clone();
-            // A list keeps its place when a newer one replaces it.
-            let known = state
-                .completions
-                .iter()
-                .position(|(_, list, _)| *list == name);
-            match (known, words.is_empty()) {
-                (Some(index), true) => drop(state.completions.remove(index)),
-                (Some(index), false) => state.completions[index] = (owner, name, words),
-                (None, false) => state.completions.push((owner, name, words)),
-                (None, true) => {}
+    mssp.set(
+        "get",
+        lua.create_function(move |lua, ()| {
+            let status = lua.create_table()?;
+            for (name, value) in &shared.borrow().mssp {
+                status.set(name.as_str(), value.as_str())?;
             }
-            Ok(())
+            Ok(status)
         })?,
-    )?;
-    Ok(())
+    )
 }
