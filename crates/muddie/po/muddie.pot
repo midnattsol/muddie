@@ -271,18 +271,6 @@ msgstr ""
 msgid "."
 msgstr ""
 
-#, python-brace-format
-msgid "{0}: none"
-msgstr ""
-
-#, python-brace-format
-msgid "{0} ({1})"
-msgstr ""
-
-#, python-brace-format
-msgid "{0} more: {1}"
-msgstr ""
-
 msgid "Settings"
 msgstr ""
 
@@ -3052,5 +3040,17 @@ msgid "Downloaded from a git repository."
 msgstr ""
 
 msgid "A profile name may only have letters, digits, spaces, - and _."
+msgstr ""
+
+#, python-brace-format
+msgid "{0}: none"
+msgstr ""
+
+#, python-brace-format
+msgid "{0} ({1})"
+msgstr ""
+
+#, python-brace-format
+msgid "{0} more: {1}"
 msgstr ""
 
