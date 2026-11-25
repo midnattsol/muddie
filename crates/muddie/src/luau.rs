@@ -36,68 +36,10 @@ pub fn tokens(source: &str) -> Vec<(Kind, &str)> {
             tokens.push((kind, &source[from..to]));
         }
     };
-    // The end of a long bracket `[[...]]` or `[==[...]==]` opened at `at`.
-    let long_bracket = |at: usize| -> Option<usize> {
-        let mut level = at + 1;
-        while bytes.get(level) == Some(&b'=') {
-            level += 1;
-        }
-        if bytes.get(at) != Some(&b'[') || bytes.get(level) != Some(&b'[') {
-            return None;
-        }
-        let close = format!("]{}]", "=".repeat(level - at - 1));
-        let end = source[level..]
-            .find(&close)
-            .map(|found| level + found + close.len());
-        Some(end.unwrap_or(source.len()))
-    };
     let mut plain_from = 0;
     let mut at = 0;
     while at < bytes.len() {
-        let byte = bytes[at];
-        let (kind, end) = if source[at..].starts_with("--") {
-            let end = long_bracket(at + 2).unwrap_or_else(|| {
-                source[at..]
-                    .find('\n')
-                    .map_or(source.len(), |line_end| at + line_end)
-            });
-            (Kind::Comment, end)
-        } else if byte == b'"' || byte == b'\'' || byte == b'`' {
-            let mut end = at + 1;
-            while end < bytes.len() && bytes[end] != byte && bytes[end] != b'\n' {
-                end += if bytes[end] == b'\\' { 2 } else { 1 };
-            }
-            (Kind::Text, (end + 1).min(bytes.len()))
-        } else if let Some(end) = long_bracket(at) {
-            (Kind::Text, end)
-        } else if byte.is_ascii_digit() {
-            let mut end = at + 1;
-            while end < bytes.len()
-                && (bytes[end].is_ascii_alphanumeric() || bytes[end] == b'.' || bytes[end] == b'_')
-            {
-                end += 1;
-            }
-            (Kind::Number, end)
-        } else if byte.is_ascii_alphabetic() || byte == b'_' {
-            let mut end = at + 1;
-            while end < bytes.len() && (bytes[end].is_ascii_alphanumeric() || bytes[end] == b'_') {
-                end += 1;
-            }
-            let word = &source[at..end];
-            let called = source[end..]
-                .trim_start_matches([' ', '\t'])
-                .starts_with(['(', '"', '{']);
-            let kind = if KEYWORDS.contains(&word) {
-                Kind::Keyword
-            } else if CONSTANTS.contains(&word) {
-                Kind::Constant
-            } else if called {
-                Kind::Call
-            } else {
-                Kind::Plain
-            };
-            (kind, end)
-        } else {
+        let Some((kind, end)) = token_at(source, at) else {
             // Punctuation, spaces and anything else, one character at a time.
             let width = source[at..].chars().next().map_or(1, char::len_utf8);
             at += width;
@@ -119,6 +61,81 @@ pub fn tokens(source: &str) -> Vec<(Kind, &str)> {
     }
     push(Kind::Plain, plain_from, source.len());
     tokens
+}
+
+/// The kind and the end of the stretch that starts at `at`, or `None`
+/// for punctuation, spaces and anything else.
+fn token_at(source: &str, at: usize) -> Option<(Kind, usize)> {
+    let bytes = source.as_bytes();
+    let byte = bytes[at];
+    Some(if source[at..].starts_with("--") {
+        let end = long_bracket(source, at + 2).unwrap_or_else(|| {
+            source[at..]
+                .find('\n')
+                .map_or(source.len(), |line_end| at + line_end)
+        });
+        (Kind::Comment, end)
+    } else if byte == b'"' || byte == b'\'' || byte == b'`' {
+        let mut end = at + 1;
+        while end < bytes.len() && bytes[end] != byte && bytes[end] != b'\n' {
+            end += if bytes[end] == b'\\' { 2 } else { 1 };
+        }
+        (Kind::Text, (end + 1).min(bytes.len()))
+    } else if let Some(end) = long_bracket(source, at) {
+        (Kind::Text, end)
+    } else if byte.is_ascii_digit() {
+        let mut end = at + 1;
+        while end < bytes.len()
+            && (bytes[end].is_ascii_alphanumeric() || bytes[end] == b'.' || bytes[end] == b'_')
+        {
+            end += 1;
+        }
+        (Kind::Number, end)
+    } else if byte.is_ascii_alphabetic() || byte == b'_' {
+        word_at(source, at)
+    } else {
+        return None;
+    })
+}
+
+/// The end of a long bracket `[[...]]` or `[==[...]==]` opened at `at`.
+fn long_bracket(source: &str, at: usize) -> Option<usize> {
+    let bytes = source.as_bytes();
+    let mut level = at + 1;
+    while bytes.get(level) == Some(&b'=') {
+        level += 1;
+    }
+    if bytes.get(at) != Some(&b'[') || bytes.get(level) != Some(&b'[') {
+        return None;
+    }
+    let close = format!("]{}]", "=".repeat(level - at - 1));
+    let end = source[level..]
+        .find(&close)
+        .map(|found| level + found + close.len());
+    Some(end.unwrap_or(source.len()))
+}
+
+/// The kind and the end of the name that starts at `at`.
+fn word_at(source: &str, at: usize) -> (Kind, usize) {
+    let bytes = source.as_bytes();
+    let mut end = at + 1;
+    while end < bytes.len() && (bytes[end].is_ascii_alphanumeric() || bytes[end] == b'_') {
+        end += 1;
+    }
+    let word = &source[at..end];
+    let called = source[end..]
+        .trim_start_matches([' ', '\t'])
+        .starts_with(['(', '"', '{']);
+    let kind = if KEYWORDS.contains(&word) {
+        Kind::Keyword
+    } else if CONSTANTS.contains(&word) {
+        Kind::Constant
+    } else if called {
+        Kind::Call
+    } else {
+        Kind::Plain
+    };
+    (kind, end)
 }
 
 /// `source` laid out with each kind in its colour.
