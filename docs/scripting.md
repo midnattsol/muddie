@@ -194,6 +194,39 @@ only never true.
 trigger("^HP \\d+> (.*)$", function(m, line) line:read(m[1]) end)
 ```
 
+### Waiting
+
+What takes several steps is written one after another, rather than as triggers
+and timers that set off each other:
+
+```lua
+alias("^cure$", function()
+    send("drink potion")
+    local m = wait("line", "^You feel better", {timeout = 3})
+    if not m then return echo("It did nothing.") end
+    wait(2)
+    send("drink potion")
+end)
+
+trigger("^You are carrying:$", function()
+    local things = {}
+    for line in lines({till = "^$", timeout = 2}) do table.insert(things, line.text) end
+    vars.things = things
+end)
+```
+
+| Function | What it does |
+|---|---|
+| `wait(seconds)` | Stops there for a while; the rest of the client and of the scripts goes on. |
+| `wait("line", pattern, {timeout = 3, prompt = false})` | Stops until a line after this one matches, and returns what a trigger is given: the groups and the line. With `timeout`, `nil` once those seconds are up. `prompt` is as a trigger's. |
+| `wait(what, name, {timeout = 3})` | Stops until what `on(what, name, ...)` listens to comes, and returns what it would be given (`true`, if that is nothing); its other options are those of `on`. |
+| `lines({till = "^$", count = 10, timeout = 2})` | The lines that come next, one by one, in a `for`: until one matches `till`, which is not among them, there have been `count`, or none comes in `timeout` seconds. |
+
+What waits goes when its script is stopped or run again. Nothing can wait in
+`on("send", ...)`, in a module being required or in a function given to
+another, as to `table.sort`; and `coroutine.wrap(function() ... end)()` does
+what is in it, with its waits, beside the rest.
+
 The options table takes `place`, as `Folder/Name`, to switch it by;
 `tags`, a list of tags (or one alone) that switch it with everything else
 that carries one of them; and, for triggers and aliases, `once`, to remove it

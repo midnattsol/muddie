@@ -11,6 +11,7 @@ mod map;
 mod rules;
 mod sandbox;
 mod things;
+mod wait;
 
 fn engine(code: &str) -> Engine {
     let mut engine = Engine::new(Rc::default()).unwrap();

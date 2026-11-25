@@ -242,7 +242,7 @@ impl Engine {
                     self.as_owner(&owner, || {
                         let (now, change) =
                             (gauge.table(&self.lua)?, gauge.change(&self.lua, &was)?);
-                        callback.call::<()>((now, change))
+                        self.call(&callback, (now, change))
                     });
                 }
             }

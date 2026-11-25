@@ -66,6 +66,7 @@ impl State {
         let mut macros = self.macros.values().flatten();
         self.triggers.iter().any(|made| made.id == id)
             || self.aliases.iter().any(|made| made.id == id)
+            || self.waiting.iter().any(|made| made.id == id)
             || self.timers.iter().any(|made| made.id == id)
             || self.data_handlers.iter().any(|made| made.id == id)
             || macros.any(|made| made.id == id)
@@ -81,6 +82,7 @@ impl State {
         let there = self.has(id);
         self.triggers.retain(|made| made.id != id);
         self.aliases.retain(|made| made.id != id);
+        self.waiting.retain(|made| made.id != id);
         self.timers.retain(|made| made.id != id);
         self.data_handlers.retain(|made| made.id != id);
         self.macros.retain(|_, bound| {

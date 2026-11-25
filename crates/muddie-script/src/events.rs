@@ -73,7 +73,7 @@ impl Engine {
                 }
             }
             Err((owner, function)) => {
-                self.as_owner(&owner, || function.call::<()>(()));
+                self.as_owner(&owner, || self.call(&function, ()));
             }
         }
         true
@@ -135,7 +135,7 @@ impl Engine {
                         let message = self.lua.create_table()?;
                         message.set("channel", channel.as_str())?;
                         message.set("text", text.as_str())?;
-                        callback.call::<()>(message)
+                        self.call(&callback, message)
                     });
                 }
             }
@@ -223,7 +223,7 @@ impl Engine {
         for (id, owner, callback) in callbacks {
             let still_on = self.state.borrow().runs(id);
             if still_on {
-                self.as_owner(&owner, || callback.call::<()>((data.clone(), name)));
+                self.as_owner(&owner, || self.call(&callback, (data.clone(), name)));
             }
         }
     }
@@ -250,7 +250,7 @@ impl Engine {
         };
         for (id, owner, callback, off) in due {
             // One switched off lets its turn pass.
-            let ok = off || self.as_owner(&owner, || callback.call::<()>(()));
+            let ok = off || self.as_owner(&owner, || self.call(&callback, ()));
             let mut state = self.state.borrow_mut();
             // The callback may have cancelled its own timer.
             let Some(index) = state.timers.iter().position(|timer| timer.id == id) else {
@@ -294,8 +294,14 @@ impl Engine {
             .iter()
             .enumerate()
             .filter(|(index, _)| candidate(*index));
+        // What waits for a line comes after the triggers.
+        let waiting = match kind {
+            Kind::Trigger => state.waiting.as_slice(),
+            _ => &[],
+        };
         let matches = listed
             .map(|(_, matcher)| matcher)
+            .chain(waiting)
             .filter(enabled)
             .filter_map(|matcher| {
                 let regex = matcher.pattern.regex()?;
@@ -390,6 +396,7 @@ impl Engine {
             let mut state = self.state.borrow_mut();
             state.triggers.retain(|trigger| trigger.id != hit.id);
             state.aliases.retain(|alias| alias.id != hit.id);
+            state.waiting.retain(|waiting| waiting.id != hit.id);
         }
         self.as_owner(&hit.owner, || {
             let m = self.lua.create_table()?;
@@ -399,7 +406,7 @@ impl Engine {
             for (name, value) in &hit.named {
                 m.set(name.as_str(), value.as_str())?;
             }
-            hit.callback.call::<()>((m, of))
+            self.call(&hit.callback, (m, of))
         });
     }
 

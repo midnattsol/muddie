@@ -208,6 +208,9 @@ pub(super) struct State {
     /// drawing, by its name in lower case.
     pub(crate) panel_sizes: HashMap<String, (u32, u32)>,
     pub(crate) triggers: Vec<Matcher>,
+    /// What waits for a line, which is no trigger: it comes and goes with
+    /// each, and is in no set.
+    pub(crate) waiting: Vec<Matcher>,
     /// The triggers' patterns in one set, to find in one pass which may
     /// match a line.
     pub(crate) trigger_set: TriggerSet,

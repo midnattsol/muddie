@@ -49,7 +49,7 @@ pub struct OfferedTool {
     /// For one that switches something on or off, whether it is on.
     pub checked: Option<bool>,
 }
-use api::{AfterText, aloud_of, install_api, only, texts_of};
+use api::{AfterText, Stopped, aloud_of, install_api, only, texts_of};
 pub use api::{in_interface_language, set_interface_language};
 use convert::*;
 use line::{Given, Looked, Text};
@@ -74,6 +74,8 @@ pub struct Engine {
     map: Rc<RefCell<Map>>,
     /// Script files loaded so far, in order.
     files: Vec<PathBuf>,
+    /// What a script that stopped to wait says.
+    stopped: Stopped,
 }
 
 impl Engine {
@@ -99,7 +101,7 @@ impl Engine {
         lua.globals().raw_remove("require")?;
         lua.set_memory_limit(MEMORY_LIMIT)?;
         let state = Rc::new(RefCell::new(State::default()));
-        install_api(&lua, &state)?;
+        let stopped = install_api(&lua, &state)?;
         install_map_api(&lua, &state, &map)?;
         retired::install_retired(&lua)?;
 
@@ -122,6 +124,7 @@ impl Engine {
             lua,
             state,
             files: Vec::new(),
+            stopped,
         })
     }
 
@@ -178,7 +181,7 @@ impl Engine {
     pub fn exec_owned(&mut self, owner: &str, name: &str, code: &str) {
         // The "@" makes errors read `name:line: message`.
         let chunk = self.lua.load(code).set_name(format!("@{name}"));
-        self.as_owner(owner, || chunk.exec());
+        self.as_owner(owner, || self.call(&chunk.into_function()?, ()));
     }
 
     /// Takes away what `owner` made: its triggers, aliases, timers, key
@@ -190,6 +193,7 @@ impl Engine {
         let mut state = self.state.borrow_mut();
         state.triggers.retain(|matcher| matcher.owner != owner);
         state.aliases.retain(|matcher| matcher.owner != owner);
+        state.waiting.retain(|matcher| matcher.owner != owner);
         state.timers.retain(|timer| timer.owner != owner);
         state.data_handlers.retain(|handler| handler.owner != owner);
         state.awaited.retain(|awaited| awaited.owner != owner);
@@ -347,7 +351,7 @@ impl Engine {
         let Some((owner, callback, checked)) = tool else {
             return false;
         };
-        self.as_owner(&owner, || callback.call::<()>(checked));
+        self.as_owner(&owner, || self.call(&callback, checked));
         true
     }
 
@@ -360,7 +364,7 @@ impl Engine {
             at.map(|at| state.awaited.remove(at))
         };
         if let Some(awaited) = awaited {
-            self.as_owner(&awaited.owner, || awaited.callback.call::<()>(()));
+            self.as_owner(&awaited.owner, || self.call(&awaited.callback, ()));
         }
     }
 
@@ -443,7 +447,7 @@ impl Engine {
                 let still_on = self.state.borrow().runs(id);
                 if still_on {
                     self.as_owner(&owner, || {
-                        callback.call::<()>((value.clone(), name.as_str()))
+                        self.call(&callback, (value.clone(), name.as_str()))
                     });
                 }
             }

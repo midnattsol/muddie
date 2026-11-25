@@ -6,6 +6,7 @@ pub(crate) use aloud::{AfterText, aloud_of};
 pub(crate) use language::texts_of;
 pub use language::{in_interface_language, set_interface_language};
 pub(crate) use rules::only;
+pub(crate) use wait::Stopped;
 
 mod aloud;
 mod data;
@@ -17,9 +18,10 @@ mod rules;
 mod screen;
 mod session;
 mod sound;
+mod wait;
 
 /// Defines the global functions scripts call.
-pub(crate) fn install_api(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
+pub(crate) fn install_api(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<Stopped> {
     output::install(lua, state)?;
     language::install(lua)?;
     rules::install(lua, state)?;
@@ -28,7 +30,8 @@ pub(crate) fn install_api(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result
     require::install(lua, state)?;
     data::install(lua, state)?;
     screen::install(lua, state)?;
-    session::install(lua, state)
+    session::install(lua, state)?;
+    wait::install(lua, state)
 }
 
 /// The global table of that name, made if there is none: what there is to
