@@ -129,6 +129,49 @@ impl Line {
         self.spans = spans;
     }
 
+    /// Puts `text` in place of what is between two byte offsets of
+    /// [`Self::text`], which must be where characters start, in the style of
+    /// what begins there. Links keep to their words; those it cuts through go.
+    pub fn replace(&mut self, range: std::ops::Range<usize>, text: &str) {
+        let mut spans: Vec<Span> = Vec::with_capacity(self.spans.len() + 2);
+        let mut offset = 0;
+        let mut put = false;
+        for span in self.spans.drain(..) {
+            let end = offset + span.text.len();
+            let inside = |at: usize| at.clamp(offset, end) - offset;
+            let (from, to) = (inside(range.start), inside(range.end));
+            // Where it begins, or at the very end of the line.
+            let here = !put && (offset..end).contains(&range.start);
+            for (text, style) in [
+                (&span.text[..from], span.style),
+                (if here { text } else { "" }, span.style),
+                (&span.text[to..], span.style),
+            ] {
+                if !text.is_empty() {
+                    let text = text.to_owned();
+                    spans.push(Span { text, style });
+                }
+            }
+            put |= here;
+            offset = end;
+        }
+        if !put && !text.is_empty() {
+            let style = spans.last().map(|span| span.style).unwrap_or_default();
+            let text = text.to_owned();
+            spans.push(Span { text, style });
+        }
+        self.spans = spans;
+        let moved = |at: usize| at + text.len() - (range.end - range.start);
+        self.links.retain_mut(|link| {
+            let before = link.range.end <= range.start;
+            let after = link.range.start >= range.end;
+            if after {
+                link.range = moved(link.range.start)..moved(link.range.end);
+            }
+            before || after
+        });
+    }
+
     pub fn push(&mut self, ch: char, style: Style) {
         match self.spans.last_mut() {
             Some(span) if span.style == style => span.text.push(ch),
@@ -169,5 +212,53 @@ mod tests {
         assert_eq!(line.text(), "An orco ñu");
         line.restyle(100..200, |style| style.italic = true);
         assert_eq!(line.spans.len(), 3);
+    }
+
+    #[test]
+    fn replace_keeps_the_rest_as_it_was() {
+        let red = Style {
+            fg: Color::Indexed(1),
+            ..Style::default()
+        };
+        let link = |range| LineLink {
+            range,
+            target: LinkTarget::Send("x".into()),
+            hint: String::new(),
+            name: String::new(),
+        };
+        let made = || {
+            let mut line = Line::default();
+            "An ".chars().for_each(|ch| line.push(ch, Style::default()));
+            "orc".chars().for_each(|ch| line.push(ch, red));
+            " is here"
+                .chars()
+                .for_each(|ch| line.push(ch, Style::default()));
+            line.links = vec![link(0..2), link(3..6), link(10..14)];
+            line
+        };
+        let replaced = |range: std::ops::Range<usize>, text: &str| {
+            let mut line = made();
+            line.replace(range, text);
+            let links: Vec<std::ops::Range<usize>> =
+                line.links.iter().map(|link| link.range.clone()).collect();
+            let styled: Vec<bool> = line.spans.iter().map(|span| span.style == red).collect();
+            (line.text(), links, styled)
+        };
+        // In the style of what begins there; links after it move with it.
+        assert_eq!(
+            replaced(3..6, "goblin"),
+            (
+                "An goblin is here".into(),
+                vec![0..2, 13..17],
+                vec![false, true, false]
+            )
+        );
+        // Across spans, to nothing, the whole, and at the end.
+        assert_eq!(replaced(0..7, "").0, "is here");
+        assert_eq!(
+            replaced(0..14, "Nothing."),
+            ("Nothing.".into(), vec![], vec![false])
+        );
+        assert_eq!(replaced(14..14, "!").0, "An orc is here!");
     }
 }
