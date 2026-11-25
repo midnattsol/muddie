@@ -138,6 +138,49 @@ pub fn menu_check(ui: &mut Ui, on: &mut bool, text: &str) -> Response {
     response
 }
 
+/// Measures a row of a menu with this `text` and `shortcut`: how wide it
+/// is, how far its text is from the left, and the room kept at its right
+/// edge for a tick. A row can have a tick and a picture.
+fn menu_row_extent(
+    ui: &mut Ui,
+    (ticked, pictured): (bool, bool),
+    (text, shortcut): (&str, &str),
+    (font, small): (&egui::FontId, &egui::FontId),
+    theme: &theme::Theme,
+) -> (f32, f32, f32) {
+    let measure = |text: &str, font: &egui::FontId| {
+        let galley = ui
+            .painter()
+            .layout_no_wrap(text.to_owned(), font.clone(), theme.text);
+        galley.size().x
+    };
+    // The tick has the right edge to itself, wherever there can be one.
+    let tick = if ticked { 24.0 } else { 0.0 };
+    let right = if shortcut.is_empty() {
+        22.0_f32.max(tick)
+    } else {
+        measure(shortcut, small) + 28.0 + tick
+    };
+    let indent = if pictured { 32.0 } else { 10.0 };
+    let needed = indent + measure(text, font) + right + 10.0;
+    let width = menu_row_width(ui, needed);
+    (width, indent, tick)
+}
+
+/// Draws the tick that shows a choice in a menu is on, at the right.
+fn paint_tick(painter: &egui::Painter, rect: egui::Rect, theme: &theme::Theme) {
+    let centre = rect.right_center() - vec2(17.0, 0.0);
+    let tick = [
+        centre + vec2(-4.5, 0.0),
+        centre + vec2(-1.5, 3.2),
+        centre + vec2(4.5, -3.5),
+    ];
+    painter.add(egui::Shape::line(
+        tick.to_vec(),
+        Stroke::new(1.6, theme.accent),
+    ));
+}
+
 pub(super) fn menu_row(
     ui: &mut Ui,
     checked: Option<bool>,
@@ -148,22 +191,13 @@ pub(super) fn menu_row(
     let theme = theme::current();
     let font = theme::font(Weight::Regular, 13.5);
     let small = theme::font(Weight::Regular, 12.0);
-    let measure = |text: &str, font: &egui::FontId| {
-        let galley = ui
-            .painter()
-            .layout_no_wrap(text.to_owned(), font.clone(), theme.text);
-        galley.size().x
-    };
-    // The tick has the right edge to itself, wherever there can be one.
-    let tick = if checked.is_some() { 24.0 } else { 0.0 };
-    let right = if shortcut.is_empty() {
-        22.0_f32.max(tick)
-    } else {
-        measure(shortcut, &small) + 28.0 + tick
-    };
-    let indent = if glyph.is_some() { 32.0 } else { 10.0 };
-    let needed = indent + measure(text, &font) + right + 10.0;
-    let width = menu_row_width(ui, needed);
+    let (width, indent, tick) = menu_row_extent(
+        ui,
+        (checked.is_some(), glyph.is_some()),
+        (text, shortcut),
+        (&font, &small),
+        &theme,
+    );
     let size = vec2(width, 30.0);
     let (rect, response) = ui.allocate_exact_size(size, Sense::click());
     let enabled = ui.is_enabled();
@@ -209,16 +243,7 @@ pub(super) fn menu_row(
             );
         }
         if checked == Some(true) {
-            let centre = rect.right_center() - vec2(17.0, 0.0);
-            let tick = [
-                centre + vec2(-4.5, 0.0),
-                centre + vec2(-1.5, 3.2),
-                centre + vec2(4.5, -3.5),
-            ];
-            painter.add(egui::Shape::line(
-                tick.to_vec(),
-                Stroke::new(1.6, theme.accent),
-            ));
+            paint_tick(painter, rect, &theme);
         }
     }
     response
