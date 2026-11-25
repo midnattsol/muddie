@@ -53,10 +53,6 @@ fn everything_is_listened_to_with_one_function() {
             r#"on("connect", function() end, {once = true})"#,
             "there is no option once here; there are place, tags",
         ),
-        (
-            r#"on_gmcp("Char", function() end)"#,
-            r#"on_gmcp is no longer: use on("gmcp", package, function)"#,
-        ),
     ] {
         engine.exec("t", code);
         match engine.take_actions().as_slice() {
@@ -105,12 +101,10 @@ fn a_script_is_told_of_the_session() {
     for (code, said) in [
         ("echo(session.hots)", "there is no session.hots; there are"),
         ("session.host = 'x'", "session.host is asked for, not set"),
-        ("gmcp('Char')", "gmcp(...) is no longer: use gmcp.get(...)"),
         (
             "gauges.set('T', {kind = 'text'})",
             "a gauge of the kind text needs a text",
         ),
-        ("gauge('T', 1, 2)", "gauge is no longer: use gauges.set"),
         (
             "sounds.play('x', {volumen = 1})",
             "there is no option volumen here; there are volume, loop",

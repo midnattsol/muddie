@@ -141,24 +141,9 @@ fn no_function() -> mlua::Error {
     mlua::Error::runtime("on needs a function: on(what, function) or on(what, name, function)")
 }
 
-/// Tells who calls `name(...)`, which was once a function, what there is
-/// now.
-fn no_call(lua: &Lua, table: &Table, name: &str) -> mlua::Result<()> {
-    let said = format!("{name}(...) is no longer: use {name}.get(...)");
-    let meta = lua.create_table()?;
-    meta.set(
-        "__call",
-        lua.create_function(move |_, _: mlua::MultiValue| -> mlua::Result<()> {
-            Err(mlua::Error::runtime(said.clone()))
-        })?,
-    )?;
-    table.set_metatable(Some(meta))
-}
-
 /// `gmcp`: what the MUD sent over it, and what it is sent and asked.
 fn install_gmcp(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     let gmcp = super::group(lua, "gmcp")?;
-    no_call(lua, &gmcp, "gmcp")?;
     let shared = Rc::clone(state);
     gmcp.set(
         "get",
@@ -214,7 +199,6 @@ fn install_gmcp(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
 /// `msdp`: the same.
 fn install_msdp(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     let msdp = super::group(lua, "msdp")?;
-    no_call(lua, &msdp, "msdp")?;
     let shared = Rc::clone(state);
     msdp.set(
         "get",
@@ -262,7 +246,6 @@ fn install_msdp(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
 /// `mssp`: the server's status.
 fn install_mssp(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     let mssp = super::group(lua, "mssp")?;
-    no_call(lua, &mssp, "mssp")?;
     let shared = Rc::clone(state);
     mssp.set(
         "get",

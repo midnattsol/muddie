@@ -484,11 +484,6 @@ fn what_is_set_of_the_map_is_set_as_fields() {
     );
     assert_eq!(engine.map().borrow().command_for("n"), "n");
     for (code, said) in [
-        ("map.learn(true)", "a setting is set, as map.learn = true"),
-        (
-            r#"session.separator("|")"#,
-            "a setting is set, as map.learn = true",
-        ),
         (
             "map.lern = true",
             "there is no map.lern to set; there are native",
@@ -504,7 +499,7 @@ fn what_is_set_of_the_map_is_set_as_fields() {
         ),
         (
             r#"gauges.set("L", {value = 1, max = 2, step = {}})"#,
-            "there is no option step any more: use steps",
+            "there is no option step here",
         ),
     ] {
         engine.take_actions();

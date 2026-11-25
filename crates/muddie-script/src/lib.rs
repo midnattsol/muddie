@@ -31,7 +31,6 @@ mod line;
 mod made;
 mod map_api;
 mod memory;
-mod retired;
 mod state;
 mod switches;
 
@@ -103,7 +102,6 @@ impl Engine {
         let state = Rc::new(RefCell::new(State::default()));
         let stopped = install_api(&lua, &state)?;
         install_map_api(&lua, &state, &map)?;
-        retired::install_retired(&lua)?;
 
         let watched = Rc::clone(&state);
         lua.set_interrupt(move |_| {

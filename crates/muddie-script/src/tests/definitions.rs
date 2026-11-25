@@ -87,10 +87,8 @@ fn declared() -> BTreeMap<String, Option<String>> {
         .collect()
 }
 
-/// The names there are in the engine: `send`, `gauges.set`, but those that
-/// only say what is in their place.
+/// The names there are in the engine: `send`, `gauges.set`.
 fn there_are(engine: &Engine) -> BTreeSet<String> {
-    let retired: BTreeSet<&str> = crate::retired::names().collect();
     let plain = Lua::new();
     let globals = engine.lua.globals();
     let frozen: Table = globals.metatable().unwrap().get("__index").unwrap();
@@ -111,7 +109,6 @@ fn there_are(engine: &Engine) -> BTreeSet<String> {
             _ => drop(names.insert(name)),
         }
     }
-    names.retain(|name| !retired.contains(name.as_str()));
     names
 }
 

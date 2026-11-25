@@ -230,8 +230,6 @@ fn a_line_kept_is_over() {
     assert!(!engine.take_actions().is_empty());
     engine.exec("t", "send(kept.txt)");
     assert!(error_text(&engine.take_actions()).contains("there is no line.txt; there are text"));
-    engine.exec("t", "gag()");
-    assert!(error_text(&engine.take_actions()).contains("gag is no longer: use line:hide()"));
 }
 
 /// What `gsub` returns, the text and how many times it replaced, is given

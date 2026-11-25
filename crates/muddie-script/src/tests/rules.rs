@@ -414,10 +414,6 @@ fn a_timer_says_how_long_it_has_left() {
 fn what_is_not_understood_is_said() {
     for (code, said) in [
         (r#"speak("x", {interupt = true})"#, "no option interupt"),
-        (
-            r#"speak("x", {interrupt = true})"#,
-            r#"no option interrupt any more: use aloud = "cut""#,
-        ),
         (r#"speak("x", {aloud = "shout"})"#, "not shout"),
         (
             r#"speak("x", {aloud = "lowest"})"#,

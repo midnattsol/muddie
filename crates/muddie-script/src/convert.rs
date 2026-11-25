@@ -178,15 +178,7 @@ pub(super) fn describe(error: &mlua::Error) -> String {
         mlua::Error::CallbackError { cause, .. } => describe(cause),
         mlua::Error::RuntimeError(message) => {
             let message = message.split("\nstack traceback:").next();
-            let message = message.unwrap_or_default();
-            // As map.learn(true), a function once.
-            let called = ["boolean", "string", "table"]
-                .iter()
-                .any(|kind| message.contains(&format!("attempt to call a {kind} value")));
-            match called {
-                true => format!("{message}; a setting is set, as map.learn = true"),
-                false => message.to_owned(),
-            }
+            message.unwrap_or_default().to_owned()
         }
         other => other.to_string(),
     }

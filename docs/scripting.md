@@ -306,9 +306,6 @@ an error, rather than left out without a word.
 what is misspelt is seen as it is written, and, with `--!strict` at the top of
 the script, so is a line compared with a text.
 
-A function the API had once and has no longer, called by an old script, is
-an error that says what to use instead: `gauge` is `gauges.set` now.
-
 ## The map
 
 The **Standard GMCP and MSDP** plugin maps from GMCP `Room.Info` and MSDP
