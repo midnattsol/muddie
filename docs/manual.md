@@ -536,7 +536,7 @@ Reinos de Leyenda, are downloaded.
   notice over the bottom right corner: **Enable** switches it on there and then, and **Not now**
   puts the offer away for that profile. The MUD sends nothing over GMCP until
   you type `consentir gmcp on` in the game; if nothing has come a minute and
-  a half after connecting, the plugin says so.
+  a half after entering the game, the plugin says so.
 
 Switching one does not run your scripts again. One made of scripts, as
 Reinos de Leyenda, is installed in the profile the first time it is

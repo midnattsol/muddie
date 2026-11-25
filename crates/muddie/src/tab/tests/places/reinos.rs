@@ -423,3 +423,54 @@ fn reinos_has_the_map_keep_itself_up_to_date_unless_switched_off() {
     harness.run_steps(2);
     assert!(harness.state().tab().map.borrow().added().is_empty());
 }
+
+/// That nothing comes over GMCP is told in the game, not while the player is
+/// yet to enter it, and not if it comes.
+#[test]
+fn that_nothing_comes_is_told_once_in_the_game() {
+    let told = |app: &Tab| {
+        let said = |note: &&String| note.contains("consentir gmcp on");
+        notes(app).iter().filter(said).count()
+    };
+    for (line, gmcp, times) in [
+        ("Introduce tu nombre:", false, 0),
+        ("Novedades [ver]", false, 0),
+        ("Anduar: Plaza Mayor [|so|,s,e,n,o]", false, 1),
+        ("Anduar: Plaza Mayor [|so|,s,e,n,o]", true, 0),
+    ] {
+        let mut harness = window(None);
+        let app = harness.state_mut().tab_mut();
+        let (_events, _sent) = fake_connection(app);
+        desert(app);
+        reinos(app);
+        connected_now(app);
+        for _ in 0..2 {
+            app.scripts.on_line(line);
+        }
+        if gmcp {
+            app.scripts.on_gmcp("Char.Status", "{}");
+        }
+        app.scripts.tick(Instant::now() + Duration::from_secs(100));
+        app.run_actions();
+        assert_eq!(told(app), times, "{line} {gmcp}");
+        // Connected again before it was told, it is not told of that time.
+        if times == 1 {
+            connected_now(app);
+            app.scripts.on_line(line);
+            connected_now(app);
+            app.scripts.tick(Instant::now() + Duration::from_secs(100));
+            app.run_actions();
+            assert_eq!(told(app), 1);
+            app.scripts.on_line(line);
+            app.scripts.tick(Instant::now() + Duration::from_secs(300));
+            app.run_actions();
+            assert_eq!(told(app), 2);
+            continue;
+        }
+        // Once for each connection.
+        app.scripts.on_line(line);
+        app.scripts.tick(Instant::now() + Duration::from_secs(300));
+        app.run_actions();
+        assert_eq!(told(app), times, "{line} {gmcp}");
+    }
+}
