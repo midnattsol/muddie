@@ -164,9 +164,10 @@ looks at it; kept for later, it can only be asked what it said.
 | `line:paint(fg, bg)` | Recolours what matched. A colour is a name (`"red"`, `"bright blue"`), `"#rrggbb"` or a palette number. |
 | `line:to_panel(name)` | Adds it to a panel, with its colours. |
 
-It is as good as its text: `echo(line)`, `"> " .. line`, `line:match("%d+")`.
-But it is not one: compare `line.text == "Done."`, for `line == "Done."` is never
-true.
+It is not its text, which is always `line.text`: `echo(line.text)`,
+`line.text:match("%d+")`, `line.text == "Done."`. Where a text is wanted, giving
+the line is an error that says so; but `line == "Done."` is no error in Luau,
+only never true.
 
 ```lua
 -- A prompt that is not read, and what comes after it on its line is.

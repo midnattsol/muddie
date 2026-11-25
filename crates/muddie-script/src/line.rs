@@ -170,39 +170,39 @@ impl UserData for Given {
             (line.state.borrow_mut().actions).push(Action::ToPanel(name));
             Ok(())
         });
-        methods.add_meta_method(MetaMethod::ToString, |_, line, ()| Ok(line.text.clone()));
-        methods.add_meta_method(MetaMethod::Len, |_, line, ()| Ok(line.text.len()));
-        methods.add_meta_function(MetaMethod::Concat, |_, (one, other): (Text, Text)| {
-            Ok(one.0 + &other.0)
-        });
-        // What a text does, as line:match(...), it does too.
-        methods.add_meta_method(MetaMethod::Index, |lua, line, name: String| {
+        // Its text is asked for by its name: taken for the line itself, it
+        // would be compared with one too, which Luau never finds the same.
+        methods.add_meta_method(MetaMethod::ToString, |_, _, ()| refuse::<()>());
+        methods.add_meta_method(MetaMethod::Len, |_, _, ()| refuse::<()>());
+        methods.add_meta_function(MetaMethod::Concat, |_, _: MultiValue| refuse::<()>());
+        methods.add_meta_method(MetaMethod::Index, |lua, _, name: String| {
             let strings: Table = lua.globals().get("string")?;
-            let Some(function) = strings.get::<Option<Function>>(name.as_str())? else {
-                return Err(mlua::Error::runtime(format!(
-                    "there is no line.{name}; there are text, spans, prompt, hide, mute, read, replace, paint, to_panel and what a text does"
-                )));
-            };
-            let text = line.text.clone();
-            lua.create_function(move |_, mut given: MultiValue| {
-                given.pop_front();
-                function.call::<MultiValue>((text.as_str(), given))
-            })
+            Err::<(), _>(mlua::Error::runtime(
+                match strings.contains_key(name.as_str())? {
+                    true => format!("there is no line:{name}: use line.text:{name}"),
+                    false => format!(
+                        "there is no line.{name}; there are text, spans, prompt, hide, mute, read, replace, paint and to_panel"
+                    ),
+                },
+            ))
         });
     }
 }
 
-/// A text a script gives: one, or a line, which is what it says.
+/// A line is not a text, where one is wanted.
+fn refuse<T>() -> mlua::Result<T> {
+    Err(mlua::Error::runtime("a line is not a text: use line.text"))
+}
+
+/// A text a script gives.
 pub(super) struct Text(pub(super) String);
 
 impl FromLua for Text {
     fn from_lua(value: Value, lua: &Lua) -> mlua::Result<Self> {
-        if let Value::UserData(given) = &value
-            && let Ok(line) = given.borrow::<Given>()
-        {
-            return Ok(Self(line.text.clone()));
+        match &value {
+            Value::UserData(given) if given.is::<Given>() => refuse(),
+            _ => String::from_lua(value, lua).map(Self),
         }
-        String::from_lua(value, lua).map(Self)
     }
 }
 

@@ -156,40 +156,38 @@ fn a_trigger_is_for_prompts_or_for_the_rest() {
     assert!(error_text(&actions).contains("there is no option prompt here"));
 }
 
-/// A line is as good as what it says, wherever a text is given.
+/// A line is not its text: taken for it, the error says what to use.
 #[test]
-fn a_line_is_used_as_the_text_it_says() {
-    let mut engine = engine(
-        r#"trigger("^.*$", function(m, line)
-            echo(line)
-            echo("[" .. line .. "] " .. #line)
-            echo(`{line} {line.text}`)
-            echo(`{line:match("%a+")} {line:upper()} {line:find("orc")} {#line:split(" ")}`)
-            echo(line:gsub("orc", "goblin"))
-            panels.add("P", line)
-            channels.say("c", line)
-        end)"#,
-    );
+fn a_line_is_not_the_text_it_says() {
+    let mut engine = engine(r#"trigger("^a", function(m, line) kept = line end)"#);
     engine.on_line("an orc");
-    let said: Vec<String> = (engine.take_actions().into_iter())
-        .map(|action| match action {
-            Action::Echo(said) | Action::PanelAdd { text: said, .. } => said.text,
-            Action::Channel { text, .. } => text.unwrap(),
-            other => panic!("{other:?}"),
-        })
-        .collect();
-    assert_eq!(
-        said,
-        [
-            "an orc",
-            "[an orc] 6",
-            "an orc an orc",
-            "an AN ORC 4 2",
-            "an goblin",
-            "an orc",
-            "an orc"
-        ]
+    for (code, use_) in [
+        ("echo(kept)", "use line.text"),
+        ("speak(kept)", "use line.text"),
+        ("notify(kept)", "use line.text"),
+        ("log(kept)", "use line.text"),
+        ("send(kept)", "use line.text"),
+        ("expand(kept)", "use line.text"),
+        (r#"panels.add("P", kept)"#, "use line.text"),
+        (r#"panels.set("P", kept)"#, "use line.text"),
+        (r#"channels.say("c", kept)"#, "use line.text"),
+        (r#"echo("> " .. kept)"#, "use line.text"),
+        (r#"echo(kept .. " <")"#, "use line.text"),
+        ("echo(`{kept}`)", "use line.text"),
+        ("echo(tostring(kept))", "use line.text"),
+        ("echo(tostring(#kept))", "use line.text"),
+        (r#"kept:match("orc")"#, "use line.text:match"),
+        ("kept:upper()", "use line.text:upper"),
+    ] {
+        engine.exec("t", code);
+        let actions = engine.take_actions();
+        assert!(error_text(&actions).contains(use_), "{code}: {actions:?}");
+    }
+    engine.exec(
+        "t",
+        r#"echo(`{kept.text} {kept.text:match("%a+")} {#kept.text}`)"#,
     );
+    assert_eq!(engine.take_actions(), [Action::Echo("an orc an 6".into())]);
 }
 
 /// What is done with a line is done while it is looked at: after, it says
