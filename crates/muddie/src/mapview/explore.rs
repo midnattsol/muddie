@@ -5,52 +5,7 @@
 
 use super::*;
 use crate::i18n::{trf, trn};
-use muddie_mapper::{Found, FoundBy};
-
-/// How many moves away what is near is looked for, unless told.
-pub const NEAR: usize = 10;
-/// How many of the things near are said while exploring, at most.
-const NEAR_SAID: usize = 6;
-
-/// What is near a room, up to `moves` moves away, the nearest first: what
-/// is noted, marks, notes and the ways into other regions, then the other
-/// places, each name once at its nearest room. Each with what it is and the
-/// way there.
-pub fn near(
-    map: &Map,
-    from: RoomId,
-    moves: usize,
-) -> Vec<(RoomId, String, Vec<muddie_mapper::Step>)> {
-    let Some(start) = map.room(from) else {
-        return Vec::new();
-    };
-    let mut regions = vec![map.region(start).map(str::to_owned)];
-    let mut named = std::collections::HashSet::from([place_words(map, start).to_lowercase()]);
-    let (mut noted, mut places) = (Vec::new(), Vec::new());
-    for (id, steps) in map.around(from, moves) {
-        let Some(room) = map.room(id) else { continue };
-        let marks = map.marks_of(id);
-        let region = map.region(room).map(str::to_owned);
-        let place = place_words(map, room);
-        if !marks.is_empty() {
-            noted.push((id, marks.join(", "), steps));
-        } else if !room.note.is_empty() {
-            noted.push((
-                id,
-                trf("{0}, note: {1}", &[map.short_name(room), &room.note]),
-                steps,
-            ));
-        } else if region.is_some() && !regions.contains(&region) {
-            let into = trf("into {0}", &[region.as_deref().unwrap_or_default()]);
-            regions.push(region);
-            noted.push((id, into, steps));
-        } else if named.insert(place.to_lowercase()) {
-            places.push((id, place, steps));
-        }
-    }
-    noted.extend(places);
-    noted
-}
+use muddie_mapper::Found;
 
 /// What the line over the map asks for while exploring.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -90,38 +45,6 @@ const COMMANDS: [crate::shortcuts::Shortcut; 5] = [
     crate::shortcuts::MARK,
     crate::shortcuts::NOTE,
 ];
-
-/// A place found, as it is listed and said: what it was found by, and
-/// where it is, how far from `here` and which way, and, found by a name
-/// many rooms have, that it is the nearest of them.
-pub fn found_words(map: &Map, here: Option<RoomId>, found: &Found) -> (String, String) {
-    let Some(room) = map.room(found.room) else {
-        return (String::new(), String::new());
-    };
-    let mut detail: Vec<String> = Vec::new();
-    let title = match &found.by {
-        FoundBy::Mark(mark) => {
-            detail.push(trf("mark, {0}", &[&place_words(map, room)]));
-            mark.clone()
-        }
-        FoundBy::Note => {
-            detail.push(trf("note, {0}", &[&place_words(map, room)]));
-            room.note.clone()
-        }
-        FoundBy::Name => {
-            let (name, region) = place_parts(map, room);
-            detail.extend(region.map(str::to_owned));
-            name.to_owned()
-        }
-    };
-    if let (Some(moves), Some(here)) = (found.moves, here) {
-        detail.push(moves_toward(map, here, room.id, moves));
-    }
-    if found.alike > 1 {
-        detail.push(trn("nearest of {0}", "nearest of {0}", found.alike as u64));
-    }
-    (title, detail.join(" · "))
-}
 
 /// What the map's keys are, in short: said on starting, and with the map
 /// when it is reached.
@@ -282,159 +205,6 @@ impl MapView {
         Some(self.step(map, chosen, way))
     }
 
-    /// Moves the room chosen along its exit `way`, or says there is none.
-    /// Asks, in a line under the map, what is to be searched, or a room's
-    /// mark or note: from the keys, or the room's menu.
-    pub(super) fn ask(&mut self, map: &Map, asked: Asked, room: RoomId) {
-        let note = map.room(room).map(|room| room.note.clone());
-        self.prompt = Some(Prompt {
-            asked,
-            room,
-            text: note.filter(|_| asked == Asked::Note).unwrap_or_default(),
-            searched: None,
-            found: Vec::new(),
-            at: 0,
-            focus: 2,
-        });
-    }
-
-    fn step(&mut self, map: &Map, from: RoomId, way: &'static str) -> MapAsk {
-        let to = (map.room(from))
-            .and_then(|room| room.exits.get(way))
-            .map(|exit| exit.to)
-            .filter(|to| map.room(*to).is_some());
-        match to {
-            Some(to) => {
-                self.choose(to);
-                MapAsk::Selected(to, Some(from))
-            }
-            None => MapAsk::NoExit(way),
-        }
-    }
-
-    /// The room chosen, if one is.
-    #[cfg(test)]
-    pub fn chosen_room(&self) -> Option<RoomId> {
-        self.selected
-    }
-
-    /// Whether the map has the keyboard, to be given the keypad's keys.
-    pub fn has_keyboard(&self) -> bool {
-        self.had_focus
-    }
-
-    /// Keys of the keypad pressed, by name, taken from what egui makes of
-    /// them, for the map to take when next drawn.
-    pub fn keypad_pressed(&mut self, names: impl IntoIterator<Item = &'static str>) {
-        self.keypad.extend(names);
-    }
-
-    /// A key of the keypad, whether Num Lock is on or off: by where it is,
-    /// the digits are the compass, minus and plus up and down, slash and
-    /// star in and out; 5 says the room again, and Enter goes there.
-    fn keypad_key(&mut self, map: &Map, chosen: RoomId, name: &str) -> Option<MapAsk> {
-        let way = match name {
-            "numpad8" | "numpadup" => "n",
-            "numpad2" | "numpaddown" => "s",
-            "numpad4" | "numpadleft" => "w",
-            "numpad6" | "numpadright" => "e",
-            "numpad7" | "numpadhome" => "nw",
-            "numpad9" | "numpadpageup" => "ne",
-            "numpad1" | "numpadend" => "sw",
-            "numpad3" | "numpadpagedown" => "se",
-            "numpadsubtract" => "u",
-            "numpadadd" => "d",
-            "numpaddivide" => "in",
-            "numpadmultiply" => "out",
-            "numpad5" | "numpadclear" => return Some(MapAsk::Selected(chosen, None)),
-            "numpadenter" => return self.selected.map(MapAsk::Walk),
-            _ => return None,
-        };
-        Some(self.step(map, chosen, way))
-    }
-
-    /// Chooses a room with the keys, the one chosen before kept to go
-    /// back to, and brings it into sight.
-    pub(super) fn choose(&mut self, room: RoomId) {
-        if let Some(before) = self.selected.filter(|before| *before != room) {
-            self.trail.push(before);
-        }
-        self.selected = Some(room);
-        self.reveal = Some(room);
-    }
-
-    /// Leaves the map for the command line, choosing no room; the view
-    /// goes back to following the player.
-    fn leave(&mut self, ui: &Ui, response: &Response, typed: String) -> MapAsk {
-        match self.browsing.take() {
-            Some(_) => (self.pan, self.glide) = (Vec2::ZERO, None),
-            None => self.shift(ui, -self.pan),
-        }
-        self.selected = None;
-        self.had_focus = false;
-        self.trail.clear();
-        self.prompt = None;
-        ui.memory_mut(|memory| memory.surrender_focus(response.id));
-        MapAsk::Leave(typed)
-    }
-
-    /// Starts exploring the map from `from`: it is chosen, and the map
-    /// takes the keyboard when next drawn. Returns what is said on coming
-    /// to it.
-    pub fn explore(&mut self, map: &Map, from: &Room) -> String {
-        self.selected = Some(from.id);
-        self.reveal = Some(from.id);
-        self.focus_wanted = true;
-        self.explore_started = true;
-        self.trail.clear();
-        self.prompt = None;
-        self.said_region = map.region(from).map(str::to_owned);
-        let here = place_words(map, from);
-        let start = match map.current() {
-            Some(_) => trf("Exploring the map from {0}.", &[&here]),
-            // Not sure where the player is: from one of the rooms alike.
-            None => crate::i18n::trn(
-                "Not sure where you are: exploring the map from one of {0} rooms alike, {1}.",
-                "Not sure where you are: exploring the map from one of {0} rooms alike, {1}.",
-                map.candidates().len() as u64,
-            )
-            .replace("{1}", &here),
-        };
-        sentences([start, exits_words(map, from), keys_hint().to_owned()])
-    }
-
-    /// What is said of a room the keys or a click chose, `came` from the
-    /// one before: its name, and its region on coming to another; how far
-    /// it is and which way; its exits; and, only if so, that it has none
-    /// back, that some are closed, that routes avoid it, its names and its
-    /// note.
-    pub fn said_of(&mut self, map: &Map, room: &Room, came: Option<RoomId>) -> String {
-        let name = map.short_name(room);
-        let region = map.region(room).map(str::to_owned);
-        let said = match &region {
-            Some(region) if self.said_region.as_ref() != Some(region) && region != name => {
-                trf("Into {0}: {1}", &[region, name])
-            }
-            _ => name.to_owned(),
-        };
-        self.said_region = region;
-        // How far, from where the player is: nothing, while the map is
-        // not sure, as was said on starting.
-        let here = map.current().map(|here| here.id);
-        let far = here.map(|_| how_far(map, here, room));
-        let mut parts: Vec<String> = [Some(said), far, Some(exits_words(map, room))]
-            .into_iter()
-            .flatten()
-            .collect();
-        if let Some(came) = came.filter(|came| *came != room.id)
-            && !room.exits.values().any(|exit| exit.to == came)
-        {
-            parts.push(tr("No way straight back").to_owned());
-        }
-        parts.extend(room_facts(map, room));
-        sentences(parts)
-    }
-
     /// The line over the map while it asks for some words: what to look
     /// for, with the arrows through what was found and Enter to go to one;
     /// a name for the room chosen; or a note on it. Enter takes the words,
@@ -560,6 +330,21 @@ impl MapView {
             }
         }
     }
+
+    /// Asks, in a line under the map, what is to be searched, or a room's
+    /// mark or note: from the keys, or the room's menu.
+    pub(super) fn ask(&mut self, map: &Map, asked: Asked, room: RoomId) {
+        let note = map.room(room).map(|room| room.note.clone());
+        self.prompt = Some(Prompt {
+            asked,
+            room,
+            text: note.filter(|_| asked == Asked::Note).unwrap_or_default(),
+            searched: None,
+            found: Vec::new(),
+            at: 0,
+            focus: 2,
+        });
+    }
 }
 
 /// The place the arrows are on among those found, said with where it is
@@ -572,36 +357,4 @@ fn found_line(map: &Map, here: Option<RoomId>, prompt: &Prompt) -> String {
     };
     let at = [(prompt.at + 1).to_string(), prompt.found.len().to_string()];
     trf("{0} of {1}: {2}", &[&at[0], &at[1], &place])
-}
-
-/// What is near a room, the nearest first: the rooms the user named
-/// or wrote a note on, and the way into each other region, with how far
-/// and which way each is.
-fn near_words(map: &Map, from: RoomId) -> String {
-    let near: Vec<String> = (near(map, from, NEAR).into_iter().take(NEAR_SAID))
-        .map(|(id, what, steps)| {
-            trf(
-                "{0}, {1}",
-                &[&what, &moves_toward(map, from, id, steps.len())],
-            )
-        })
-        .collect();
-    match near.is_empty() {
-        true => tr("Nothing else is that near on the map.").to_owned(),
-        false => trf("Near: {0}.", &[&near.join("; ")]),
-    }
-}
-
-/// Every key while exploring, as said.
-fn all_keys() -> String {
-    trf(
-        "Arrows, or the keypad, follow the exits; Page Up and Page Down go up and down, as minus and plus on the keypad, and slash and star go in and out. Home comes back to you, Backspace to the room before. Space says the room again, {0} all about it, {1} what is near. {2} finds on the map. {3} marks the room, {4} writes a note on it. Enter goes there, Shift+Enter says the way. Shift+F10 opens the room's menu, with all that is done with it. Escape, or typing, goes back to the command line.",
-        &[
-            crate::shortcuts::ROOM_INFO.written(),
-            crate::shortcuts::NEAR.written(),
-            crate::shortcuts::FIND.written(),
-            crate::shortcuts::MARK.written(),
-            crate::shortcuts::NOTE.written(),
-        ],
-    )
 }

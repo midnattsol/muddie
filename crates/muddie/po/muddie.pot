@@ -131,80 +131,6 @@ msgstr ""
 msgid "There is a profile called {0} already."
 msgstr ""
 
-#, python-brace-format
-msgid "to the {0}"
-msgstr ""
-
-msgid "the map does not know where you are"
-msgstr ""
-
-msgid "you are here"
-msgstr ""
-
-msgid "no known way"
-msgstr ""
-
-#, python-brace-format
-msgid "{0} move"
-msgstr ""
-
-#, python-brace-format
-msgid "{0} {1}"
-msgstr ""
-
-msgid "No exits"
-msgstr ""
-
-#, python-brace-format
-msgid "Exits: {0}"
-msgstr ""
-
-#, python-brace-format
-msgid "Doors: {0}"
-msgstr ""
-
-#, python-brace-format
-msgid "Kept off routes: {0}"
-msgstr ""
-
-#, python-brace-format
-msgid "Not explored: {0}"
-msgstr ""
-
-msgid "The map added it where you went: the map imported does not have it."
-msgstr ""
-
-msgid "Kept off routes."
-msgstr ""
-
-#, python-brace-format
-msgid "Marked {0}."
-msgstr ""
-
-#, python-brace-format
-msgid "Note: {0}"
-msgstr ""
-
-msgid "open"
-msgstr ""
-
-msgid "shut"
-msgstr ""
-
-msgid "locked"
-msgstr ""
-
-#, python-brace-format
-msgid "{0}, {1}"
-msgstr ""
-
-msgid "The map does not know where you are: tell it with I am in…, in the palette. Looking at the room, or connecting again, may tell it too."
-msgstr ""
-
-#, python-brace-format
-msgid "The map is not sure where you are: in one of {0} rooms alike. Moving tells them apart; Which room am I in, in the palette, lists them."
-msgstr ""
-
 msgid "Where am I"
 msgstr ""
 
@@ -218,34 +144,6 @@ msgid "Show all areas"
 msgstr ""
 
 msgid "Map"
-msgstr ""
-
-msgid "Back to my position"
-msgstr ""
-
-msgid "Go here"
-msgstr ""
-
-msgid "The way there"
-msgstr ""
-
-msgid "What the map knows of it"
-msgstr ""
-
-msgid "Mark…"
-msgstr ""
-
-msgid "Note…"
-msgstr ""
-
-msgid "Keep routes off"
-msgstr ""
-
-msgid "Appearance…"
-msgstr ""
-
-#, python-brace-format
-msgid "Through {0}, to {1}"
 msgstr ""
 
 #, python-brace-format
@@ -450,6 +348,10 @@ msgstr ""
 
 #, python-brace-format
 msgid "You are already in {0}."
+msgstr ""
+
+#, python-brace-format
+msgid "{0} move"
 msgstr ""
 
 #, python-brace-format
@@ -945,6 +847,10 @@ msgstr ""
 
 #, python-brace-format
 msgid "In {0}, at {1}."
+msgstr ""
+
+#, python-brace-format
+msgid "{0} {1}"
 msgstr ""
 
 #, python-brace-format
@@ -2949,32 +2855,6 @@ msgid "Last line: {0}"
 msgstr ""
 
 #, python-brace-format
-msgid "{0}, note: {1}"
-msgstr ""
-
-#, python-brace-format
-msgid "into {0}"
-msgstr ""
-
-#, python-brace-format
-msgid "mark, {0}"
-msgstr ""
-
-#, python-brace-format
-msgid "note, {0}"
-msgstr ""
-
-#, python-brace-format
-msgid "nearest of {0}"
-msgstr ""
-
-msgid "Arrows follow the exits, Enter goes, Escape goes back. F1 says all the keys."
-msgstr ""
-
-msgid "This is where you began exploring."
-msgstr ""
-
-#, python-brace-format
 msgid "Exploring the map from {0}."
 msgstr ""
 
@@ -2987,18 +2867,6 @@ msgid "Into {0}: {1}"
 msgstr ""
 
 msgid "No way straight back"
-msgstr ""
-
-#, python-brace-format
-msgid "{0} found"
-msgstr ""
-
-#, python-brace-format
-msgid "Near: {0}."
-msgstr ""
-
-#, python-brace-format
-msgid "Arrows, or the keypad, follow the exits; Page Up and Page Down go up and down, as minus and plus on the keypad, and slash and star go in and out. Home comes back to you, Backspace to the room before. Space says the room again, {0} all about it, {1} what is near. {2} finds on the map. {3} marks the room, {4} writes a note on it. Enter goes there, Shift+Enter says the way. Shift+F10 opens the room's menu, with all that is done with it. Escape, or typing, goes back to the command line."
 msgstr ""
 
 msgid "no exits"
@@ -3018,6 +2886,138 @@ msgid "Down a level"
 msgstr ""
 
 msgid "No level below."
+msgstr ""
+
+#, python-brace-format
+msgid "{0}, note: {1}"
+msgstr ""
+
+#, python-brace-format
+msgid "into {0}"
+msgstr ""
+
+#, python-brace-format
+msgid "mark, {0}"
+msgstr ""
+
+#, python-brace-format
+msgid "note, {0}"
+msgstr ""
+
+#, python-brace-format
+msgid "nearest of {0}"
+msgstr ""
+
+#, python-brace-format
+msgid "{0}, {1}"
+msgstr ""
+
+#, python-brace-format
+msgid "Near: {0}."
+msgstr ""
+
+#, python-brace-format
+msgid "Arrows, or the keypad, follow the exits; Page Up and Page Down go up and down, as minus and plus on the keypad, and slash and star go in and out. Home comes back to you, Backspace to the room before. Space says the room again, {0} all about it, {1} what is near. {2} finds on the map. {3} marks the room, {4} writes a note on it. Enter goes there, Shift+Enter says the way. Shift+F10 opens the room's menu, with all that is done with it. Escape, or typing, goes back to the command line."
+msgstr ""
+
+#, python-brace-format
+msgid "to the {0}"
+msgstr ""
+
+msgid "the map does not know where you are"
+msgstr ""
+
+msgid "you are here"
+msgstr ""
+
+msgid "no known way"
+msgstr ""
+
+msgid "No exits"
+msgstr ""
+
+#, python-brace-format
+msgid "Exits: {0}"
+msgstr ""
+
+#, python-brace-format
+msgid "Doors: {0}"
+msgstr ""
+
+#, python-brace-format
+msgid "Kept off routes: {0}"
+msgstr ""
+
+#, python-brace-format
+msgid "Not explored: {0}"
+msgstr ""
+
+msgid "The map added it where you went: the map imported does not have it."
+msgstr ""
+
+msgid "Kept off routes."
+msgstr ""
+
+#, python-brace-format
+msgid "Marked {0}."
+msgstr ""
+
+#, python-brace-format
+msgid "Note: {0}"
+msgstr ""
+
+msgid "open"
+msgstr ""
+
+msgid "shut"
+msgstr ""
+
+msgid "locked"
+msgstr ""
+
+msgid "The map does not know where you are: tell it with I am in…, in the palette. Looking at the room, or connecting again, may tell it too."
+msgstr ""
+
+#, python-brace-format
+msgid "The map is not sure where you are: in one of {0} rooms alike. Moving tells them apart; Which room am I in, in the palette, lists them."
+msgstr ""
+
+msgid "Back to my position"
+msgstr ""
+
+msgid "Go here"
+msgstr ""
+
+msgid "The way there"
+msgstr ""
+
+msgid "What the map knows of it"
+msgstr ""
+
+msgid "Mark…"
+msgstr ""
+
+msgid "Note…"
+msgstr ""
+
+msgid "Keep routes off"
+msgstr ""
+
+msgid "Appearance…"
+msgstr ""
+
+#, python-brace-format
+msgid "Through {0}, to {1}"
+msgstr ""
+
+msgid "Arrows follow the exits, Enter goes, Escape goes back. F1 says all the keys."
+msgstr ""
+
+msgid "This is where you began exploring."
+msgstr ""
+
+#, python-brace-format
+msgid "{0} found"
 msgstr ""
 
 msgid "Click a room to see it, double-click to walk there, right-click for more, Shift+drag to move it."
