@@ -230,6 +230,10 @@ impl Tab {
         }
     }
 
+    fn echo_lines(&mut self, said: &Saying) {
+        (said.text.lines()).for_each(|line| self.echo(line, said.aloud));
+    }
+
     /// Carries out what scripts asked for since the last call.
     pub(super) fn run_actions(&mut self) {
         // What was said on each channel, in this one round of actions.
@@ -238,9 +242,7 @@ impl Tab {
             match action {
                 Action::Send(text) => self.send(text),
                 Action::SendAsIs(text) => self.send_as_is(text),
-                Action::Echo(said) => {
-                    (said.text.lines()).for_each(|line| self.echo(line, said.aloud));
-                }
+                Action::Echo(said) => self.echo_lines(&said),
                 Action::Speak(said) => self.voice.say_of_game(&said),
                 Action::Gmcp { package, data } => self.tell_server(Command::Gmcp { package, data }),
                 Action::Msdp { variable, values } => {

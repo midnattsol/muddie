@@ -12,7 +12,7 @@ pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()>
 
 /// What a gauge is given, as a gauge of the rules is written, and its
 /// value.
-const GAUGE: [&str; 14] = [
+pub(crate) const GAUGE: [&str; 14] = [
     "value",
     "on",
     "max",

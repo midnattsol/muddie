@@ -68,6 +68,12 @@ const RETIRED: &[(&str, &str)] = &[
     ("map.relayout", "map.tidy(area)"),
 ];
 
+/// The names that are gone.
+#[cfg(test)]
+pub(crate) fn names() -> impl Iterator<Item = &'static str> {
+    RETIRED.iter().map(|(old, _)| *old)
+}
+
 /// What to use instead of an option that is gone.
 pub(crate) fn option(name: &str) -> Option<&'static str> {
     match name {

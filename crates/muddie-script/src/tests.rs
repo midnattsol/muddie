@@ -3,6 +3,7 @@
 use super::*;
 
 mod data;
+mod definitions;
 mod gauges;
 mod line;
 mod listening;
