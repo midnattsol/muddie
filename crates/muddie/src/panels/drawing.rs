@@ -150,20 +150,24 @@ pub(super) fn effects_said(name: &str, items: &[muddie_script::Effect]) -> Strin
     trf("{0}: {1}", &[name, &names.join(", ")])
 }
 
-/// The effects that are on, each a label in its colour: a dot and its
-/// name on a tint of it, what it is shown on hovering it. As many as fit
-/// in the width of the panel; the rest under one more, "+3", that lists
-/// them. Nothing, while none is on.
-fn draw_effects(ui: &mut Ui, name: &str, items: &[muddie_script::Effect], shade: &Shade) {
-    const HEIGHT: f32 = 24.0;
-    const GAP: f32 = 6.0;
-    if items.is_empty() {
-        return;
-    }
-    let theme = theme::current();
-    let font = theme::font(theme::Weight::Medium, 12.0);
-    let width_of = |text: &str| 26.0 + measure(ui, text, &font);
-    let more_of = |left: usize| format!("+{left}");
+/// How tall a label of an effect is.
+const EFFECT_HEIGHT: f32 = 24.0;
+/// The room between the labels of effects.
+const EFFECT_GAP: f32 = 6.0;
+
+/// What the one more of effects that do not fit says: "+3".
+fn more_of(left: usize) -> String {
+    format!("+{left}")
+}
+
+/// The width of the label of each effect, how many of them fit, and how
+/// wide they are together with the one more for the rest, if not all fit.
+fn fit_effects(
+    ui: &Ui,
+    items: &[muddie_script::Effect],
+    font: &eframe::egui::FontId,
+) -> (Vec<f32>, usize, f32) {
+    let width_of = |text: &str| 26.0 + measure(ui, text, font);
     // How many fit in what is left of the row, or in the next if little is
     // left, leaving room for the one more if not all do.
     let room = match ui.available_width() {
@@ -173,25 +177,42 @@ fn draw_effects(ui: &mut Ui, name: &str, items: &[muddie_script::Effect], shade:
     let widths: Vec<f32> = items.iter().map(|item| width_of(&item.name)).collect();
     let mut shown = items.len();
     let total = |count: usize| -> f32 {
-        let chips: f32 = widths[..count].iter().sum::<f32>() + GAP * count as f32;
+        let chips: f32 = widths[..count].iter().sum::<f32>() + EFFECT_GAP * count as f32;
         match count < items.len() {
             true => chips + width_of(&more_of(items.len() - count)) - 12.0,
-            false => chips - GAP,
+            false => chips - EFFECT_GAP,
         }
     };
     while shown > 1 && total(shown) > room {
         shown -= 1;
     }
-    let (rect, response) =
-        ui.allocate_exact_size(vec2(total(shown).min(room), HEIGHT), Sense::hover());
+    let row = total(shown).min(room);
+    (widths, shown, row)
+}
+
+/// The effects that are on, each a label in its colour: a dot and its
+/// name on a tint of it, what it is shown on hovering it. As many as fit
+/// in the width of the panel; the rest under one more, "+3", that lists
+/// them. Nothing, while none is on.
+fn draw_effects(ui: &mut Ui, name: &str, items: &[muddie_script::Effect], shade: &Shade) {
+    if items.is_empty() {
+        return;
+    }
+    let theme = theme::current();
+    let font = theme::font(theme::Weight::Medium, 12.0);
+    let (widths, shown, row) = fit_effects(ui, items, &font);
+    let (rect, response) = ui.allocate_exact_size(vec2(row, EFFECT_HEIGHT), Sense::hover());
     let said = effects_said(name, items);
     response.widget_info(|| WidgetInfo::labeled(Role::Label, true, &said));
     let painter = ui.painter_at(rect.expand(2.0));
     let mut x = rect.left();
     for (item, width) in items.iter().zip(&widths).take(shown) {
         let colour = colour_named(&item.colour).unwrap_or(shade.colour);
-        let chip = Rect::from_min_size(eframe::egui::pos2(x, rect.top()), vec2(*width, HEIGHT));
-        painter.rect_filled(chip, HEIGHT / 2.0, colour.gamma_multiply(0.18));
+        let chip = Rect::from_min_size(
+            eframe::egui::pos2(x, rect.top()),
+            vec2(*width, EFFECT_HEIGHT),
+        );
+        painter.rect_filled(chip, EFFECT_HEIGHT / 2.0, colour.gamma_multiply(0.18));
         painter.circle_filled(chip.left_center() + vec2(11.0, 0.0), 3.5, colour);
         painter.text(
             chip.left_center() + vec2(19.0, 0.0),
@@ -205,12 +226,25 @@ fn draw_effects(ui: &mut Ui, name: &str, items: &[muddie_script::Effect], shade:
             ui.interact(chip, id, Sense::hover())
                 .on_hover_text(&item.about);
         }
-        x += width + GAP;
+        x += width + EFFECT_GAP;
     }
     let left = &items[shown..];
     if left.is_empty() {
         return;
     }
+    draw_more_effects(ui, &painter, name, left, (rect, x), (font, &theme));
+}
+
+/// The rest of the effects, under one more, "+3": listed with what each
+/// is, in a menu that opens from it. It starts at `x` in `rect`.
+fn draw_more_effects(
+    ui: &mut Ui,
+    painter: &eframe::egui::Painter,
+    name: &str,
+    left: &[muddie_script::Effect],
+    (rect, x): (Rect, f32),
+    (font, theme): (eframe::egui::FontId, &theme::Theme),
+) {
     // The rest, under one more: listed with what each is.
     let label = more_of(left.len());
     let chip = Rect::from_min_max(eframe::egui::pos2(x, rect.top()), rect.max);
@@ -230,7 +264,7 @@ fn draw_effects(ui: &mut Ui, name: &str, items: &[muddie_script::Effect], shade:
     } else {
         theme.surface
     };
-    painter.rect_filled(chip, HEIGHT / 2.0, fill);
+    painter.rect_filled(chip, EFFECT_HEIGHT / 2.0, fill);
     painter.text(
         chip.center(),
         Align2::CENTER_CENTER,
