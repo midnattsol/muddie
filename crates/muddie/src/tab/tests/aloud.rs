@@ -211,3 +211,22 @@ fn what_the_client_makes_a_gauge_of_is_data_too() {
     set(app, 4.0);
     assert_eq!(app.voice.said, ["now 50"]);
 }
+
+/// What a gauge kept from another session is, is no news when a session
+/// starts, however it changes: neither heard nor told of.
+#[test]
+fn how_a_gauge_is_as_the_session_starts_is_not_news() {
+    let mut harness = window(None);
+    let app = harness.state_mut().tab_mut();
+    let set = |text: &str| format!(r#"gauges.set("G", {{kind = "text", text = "{text}"}})"#);
+    heard(
+        app,
+        r#"on("gauge", "G", function(g) speak("told " .. g.text) end)"#,
+    );
+    heard(app, &set("calm"));
+    app.on_connected();
+    // It is still there, to be asked for.
+    assert_eq!(heard(app, r#"speak(gauges.get("G").text)"#).0, ["calm"]);
+    assert_eq!(heard(app, &set("angry")).0, [] as [String; 0]);
+    assert_eq!(heard(app, &set("calm")).0, ["G: calm", "told calm"]);
+}

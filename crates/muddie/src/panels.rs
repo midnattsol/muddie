@@ -39,6 +39,9 @@ pub struct Gauge {
     /// Whether its owner is being run again and has not set it since:
     /// it goes if it does not (see [`Gauges::drop_unset`]).
     unset: bool,
+    /// It is what it was before the session started: what it is said to
+    /// be next is how it starts.
+    before: bool,
 }
 
 impl Gauge {
@@ -58,6 +61,13 @@ impl Gauge {
             .map(|(under, _)| *under)
             .filter(|under| percent < *under)
             .min_by(f64::total_cmp)
+    }
+
+    /// Takes it as it starts, which is not news.
+    fn starts(&mut self) {
+        self.under = self.under();
+        self.said_at = (self.under.is_some() && self.max > 0.0)
+            .then(|| (self.value / self.max).clamp(0.0, 1.0) * 100.0);
     }
 
     /// What to say of it now that it changed from `was`, as what is seen
@@ -197,6 +207,10 @@ impl Gauges {
                     gauge.owner = Some(owner.to_owned());
                 }
                 gauge.unset = false;
+                if std::mem::take(&mut gauge.before) {
+                    gauge.starts();
+                    return None;
+                }
                 index
             }
             (None, Some((value, max))) => {
@@ -212,11 +226,9 @@ impl Gauges {
                     said_at: None,
                     owner: owner.map(str::to_owned),
                     unset: false,
+                    before: false,
                 };
-                // As it starts is not news.
-                gauge.under = gauge.under();
-                gauge.said_at = (gauge.under.is_some() && gauge.max > 0.0)
-                    .then(|| (gauge.value / gauge.max).clamp(0.0, 1.0) * 100.0);
+                gauge.starts();
                 self.0.push(gauge);
                 return None;
             }
@@ -233,6 +245,11 @@ impl Gauges {
     /// The gauge of this key: its place, or else its name.
     pub fn get(&self, key: &str) -> Option<&Gauge> {
         self.0.iter().find(|gauge| gauge.key == key)
+    }
+
+    /// A session starts: how each comes to be in it is not news.
+    pub fn start(&mut self) {
+        self.0.iter_mut().for_each(|gauge| gauge.before = true);
     }
 
     pub fn clear(&mut self) {

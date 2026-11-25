@@ -67,8 +67,8 @@ fn of_the_states_only_what_changes_is_said() {
     );
     // After connecting again, they are not news either.
     let app = heard.harness.state_mut().tab_mut();
-    app.scripts.on_event("disconnect", "");
-    app.run_actions();
+    app.gauges.start();
+    app.scripts.start_gauges();
     let set = format!(r#"{{"sangrado":{BLEEDING}}}"#);
     assert_eq!(heard.gmcp(SET, &set).0, [] as [String; 0]);
 }
