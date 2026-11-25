@@ -44,7 +44,8 @@ fn install_data_handlers(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<
                         callback,
                         tags,
                     });
-                    Ok(id)
+                    drop(state);
+                    Ok(Made::new(id, &shared))
                 },
             )?,
         )?;
@@ -141,7 +142,8 @@ fn install_on_event(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
                     callback,
                     tags,
                 });
-                Ok(id)
+                drop(state);
+                Ok(Made::new(id, &shared))
             },
         )?,
     )?;

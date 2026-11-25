@@ -99,7 +99,6 @@ pub(crate) struct Shown {
 /// switched by. A key can be bound several times, to do one thing while
 /// one is on and another while another is: the first on does.
 pub(super) struct Macro {
-    /// What `cancel` takes it away by.
     pub(crate) id: u64,
     pub(crate) owner: String,
     pub(crate) belongs: Belongs,
@@ -181,6 +180,8 @@ pub(super) fn var_key(name: &str) -> String {
 #[derive(Default)]
 pub(super) struct State {
     pub(crate) last_id: u64,
+    /// What is switched off by itself, of what scripts made.
+    pub(crate) paused: std::collections::HashSet<u64>,
     /// The script whose code is running: what it makes is its own, to
     /// be taken away when that script alone is run again.
     pub(crate) owner: String,

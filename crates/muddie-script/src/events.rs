@@ -26,6 +26,7 @@ impl Engine {
             let state = self.state.borrow();
             let bound = state.macros.get(&key_name(key));
             let live = (bound.into_iter().flatten())
+                .filter(|made| !state.paused.contains(&made.id))
                 .find(|made| state.switches.active(Kind::Macro, &made.belongs));
             match live.map(|made| (&made.owner, &made.action)) {
                 // Its commands, sent as a rule's are: as written, with the
@@ -65,8 +66,8 @@ impl Engine {
             state.current_line = styled;
         }
         for hit in self.hits(text, Kind::Trigger, usize::MAX) {
-            let still_there = (self.state.borrow().triggers.iter()).any(|t| t.id == hit.id);
-            if still_there {
+            let still_on = self.state.borrow().runs(hit.id);
+            if still_on {
                 self.fire(&hit, text);
             }
         }
@@ -177,12 +178,13 @@ impl Engine {
             state.data.insert(key.clone(), kept);
             (state.data_handlers.iter())
                 .filter(|handler| handler.covers(&key) && handler.on(&state.switches))
+                .filter(|handler| !state.paused.contains(&handler.id))
                 .map(|handler| (handler.id, handler.owner.clone(), handler.callback.clone()))
                 .collect()
         };
         for (id, owner, callback) in callbacks {
-            let still_there = (self.state.borrow().data_handlers.iter()).any(|h| h.id == id);
-            if still_there {
+            let still_on = self.state.borrow().runs(id);
+            if still_on {
                 self.as_owner(&owner, || callback.call::<()>((data.clone(), name)));
             }
         }
@@ -192,7 +194,10 @@ impl Engine {
     pub fn tick(&mut self, now: Instant) {
         let due: Vec<(u64, String, Function, bool)> = {
             let state = self.state.borrow();
-            let off = |timer: &Timer| !state.switches.active(Kind::Timer, &timer.belongs);
+            let off = |timer: &Timer| {
+                state.paused.contains(&timer.id)
+                    || !state.switches.active(Kind::Timer, &timer.belongs)
+            };
             (state.timers.iter())
                 .filter(|timer| timer.due <= now)
                 .map(|timer| {
@@ -229,7 +234,9 @@ impl Engine {
             _ => None,
         };
         let state = self.state.borrow();
-        let enabled = |matcher: &&Matcher| state.switches.active(kind, &matcher.belongs);
+        let enabled = |matcher: &&Matcher| {
+            !state.paused.contains(&matcher.id) && state.switches.active(kind, &matcher.belongs)
+        };
         let list = match kind {
             Kind::Alias => &state.aliases,
             _ => &state.triggers,

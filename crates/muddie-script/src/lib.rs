@@ -25,6 +25,7 @@ mod action;
 mod api;
 mod convert;
 mod events;
+mod made;
 mod map_api;
 mod memory;
 mod retired;
@@ -47,6 +48,7 @@ pub struct OfferedTool {
 pub use api::{in_interface_language, set_interface_language};
 use api::{install_api, texts_of};
 use convert::*;
+use made::Made;
 use map_api::*;
 use state::*;
 pub use switches::{Belongs, Kind, Switches, places_up, tag_key};
@@ -228,6 +230,7 @@ impl Engine {
             bound.retain(|bound| bound.owner != owner);
             !bound.is_empty()
         });
+        state.tidy_paused();
         // A module it is asks for it afresh next time.
         let stem = Path::new(owner)
             .file_stem()
@@ -391,6 +394,7 @@ impl Engine {
                 let state = self.state.borrow();
                 let callbacks: Vec<(u64, String, Function)> = (state.data_handlers.iter())
                     .filter(|handler| handler.covers(&key) && handler.on(&state.switches))
+                    .filter(|handler| !state.paused.contains(&handler.id))
                     .map(|handler| (handler.id, handler.owner.clone(), handler.callback.clone()))
                     .collect();
                 drop(state);
@@ -402,9 +406,8 @@ impl Engine {
                     .and_then(|vars| vars.get(name.as_str()))
                     .unwrap_or(Value::Nil);
                 for (id, owner, callback) in callbacks {
-                    let still_there =
-                        (self.state.borrow().data_handlers.iter()).any(|handler| handler.id == id);
-                    if still_there {
+                    let still_on = self.state.borrow().runs(id);
+                    if still_on {
                         self.as_owner(&owner, || {
                             callback.call::<()>((value.clone(), name.as_str()))
                         });

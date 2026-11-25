@@ -102,8 +102,8 @@ trigger("^\\[spam\\]", function() gag() end) -- hide the line
 
 alias("^k (.+)$", function(m) send("kill " .. m[1]) end)
 
-local id = every(60, function() send("save") end)
-after(5, function() cancel(id) end)
+local saving = every(60, function() send("save") end)
+after(5, function() saving:remove() end)
 ```
 
 | Function | What it does |
@@ -117,7 +117,7 @@ after(5, function() cancel(id) end)
 | `triggers`, `aliases`, `macros`, `timers`, `gauges`, `scripts` | Switch one thing of that kind by its place, or a folder with all it holds: `triggers.disable("Combat")`, `macros.enable("Combat/Kick")`, `scripts.toggle("Mapping")`. Each has `enable(place)`, `disable(place)`, `toggle(place)` (which returns whether it is now on), `enabled(place)` and `list()`, the places there are. Whether made in a script or in the editor; for the session, as what is saved is what the editor says. |
 | `tags` | The same for tags: `tags.disable("combat")` switches off everything that carries the tag, of every kind. |
 | `after(seconds, fn, options)`, `every(seconds, fn, options)` | Timers. Switched off, one lets its turns pass. |
-| `cancel(id)` | Takes away what the id belongs to, and says whether there was something: `trigger`, `alias`, `after`, `every`, `macro`, `on_gmcp`, `on_msdp`, `on_var` and `on_event` each return one. |
+| What they return | Each of these, and `macro`, `on_gmcp`, `on_msdp`, `on_var` and `on_event`, returns what it made: `made:disable()`, `made:enable()` and `made:toggle()`, which say whether it is now on; `made:enabled()`; `made:remove()`, which takes it away and says whether it was there; and, of a timer, `made:left()`, the seconds it has left. |
 | `macro(key, action, options)` | Runs commands or a function when a key is pressed: `macro("f5", "look")`, `macro("ctrl+shift+k", fn)`. Commands are sent as a rule's are: separated by `;`, with `$name` put in, not through aliases. A key bound again under another `place` does that while it is on and those bound before are not: the first bound that is on is the one that runs. Bound again under the same place, it does the new thing instead. |
 | `separator(text)` | The text that separates commands typed on one line (`;` by default; doubled, it is typed literally). `separator(false)` turns splitting off, and `separator()` gives back `;`. |
 | `vars` | The variables, as a table: `vars.target = "orc"` keeps a value, `vars.target` reads it, `vars.target = nil` forgets it, and `for name, value in vars do` goes through them. They are those of the editor, kept with the session's profile. A table kept in one must be assigned whole to be kept: `local bag = vars.bag; bag.gold = 5; vars.bag = bag`. |

@@ -88,7 +88,7 @@ fn variables_are_followed_when_they_change() {
     // Taken away, it is told no more.
     engine.exec(
         "t",
-        "cancel(on_var('hp', function() echo('again') end)) vars.hp = 1",
+        "on_var('hp', function() echo('again') end):remove() vars.hp = 1",
     );
     assert_eq!(engine.take_actions(), [Action::Echo("hp 1".into())]);
 }

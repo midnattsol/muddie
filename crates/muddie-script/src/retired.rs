@@ -9,6 +9,7 @@ const RETIRED: &[(&str, &str)] = &[
     ("supports", "support_gmcp(module, ...)"),
     ("gmcp_merge", "merge_gmcp(package, ...)"),
     ("bind", "macro(key, action, options)"),
+    ("cancel", "what was returned as it was made: made:remove()"),
     ("remember", "vars.name = value"),
     ("recall", "vars.name"),
     ("remembered", "vars, as a table"),

@@ -8,7 +8,6 @@ pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()>
     install_switches(lua, state)?;
     install_macro(lua, state)?;
     install_timers(lua, state)?;
-    install_cancel(lua, state)?;
     Ok(())
 }
 
@@ -44,7 +43,8 @@ fn install_triggers_and_aliases(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::
                         belongs,
                         once,
                     });
-                    Ok(id)
+                    drop(state);
+                    Ok(Made::new(id, &shared))
                 },
             )?,
         )?;
@@ -178,7 +178,8 @@ fn install_macro(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
                     belongs,
                     action,
                 });
-                Ok(id)
+                drop(state);
+                Ok(Made::new(id, &shared))
             },
         )?,
     )?;
@@ -210,40 +211,11 @@ fn install_timers(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
                         period: repeats.then_some(delay),
                         callback,
                     });
-                    Ok(id)
+                    drop(state);
+                    Ok(Made::new(id, &shared))
                 },
             )?,
         )?;
     }
-    Ok(())
-}
-
-fn install_cancel(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
-    let globals = lua.globals();
-    let add = |name: &str, function: Function| globals.set(name, function);
-    let shared = Rc::clone(state);
-    add(
-        "cancel",
-        lua.create_function(move |_, id: u64| {
-            let mut state = shared.borrow_mut();
-            let count = |state: &State| {
-                state.triggers.len()
-                    + state.aliases.len()
-                    + state.timers.len()
-                    + state.data_handlers.len()
-                    + state.macros.values().map(Vec::len).sum::<usize>()
-            };
-            let before = count(&state);
-            state.triggers.retain(|trigger| trigger.id != id);
-            state.aliases.retain(|alias| alias.id != id);
-            state.timers.retain(|timer| timer.id != id);
-            state.data_handlers.retain(|handler| handler.id != id);
-            state.macros.retain(|_, bound| {
-                bound.retain(|made| made.id != id);
-                !bound.is_empty()
-            });
-            Ok(count(&state) < before)
-        })?,
-    )?;
     Ok(())
 }

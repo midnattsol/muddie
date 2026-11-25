@@ -37,11 +37,11 @@ fn alias_replaces_input_and_its_sends_are_not_expanded() {
 }
 
 #[test]
-fn timers_fire_repeat_and_cancel() {
+fn timers_fire_repeat_and_are_removed() {
     let mut engine = engine(
         r#"after(1, function() send("once") end)
         ticker = every(2, function() send("tick") end)
-        alias("^stop$", function() echo(tostring(cancel(ticker))) end)"#,
+        alias("^stop$", function() echo(tostring(ticker:remove())) end)"#,
     );
     let start = Instant::now();
     let at = |seconds: f64| start + Duration::from_secs_f64(seconds);
@@ -64,7 +64,7 @@ fn timers_fire_repeat_and_cancel() {
 fn callbacks_may_change_triggers_while_a_line_is_dispatched() {
     let mut engine = engine(
         r#"local second
-        trigger("go", function() cancel(second) trigger("go", function() send("late") end) end)
+        trigger("go", function() second:remove() trigger("go", function() send("late") end) end)
         second = trigger("go", function() send("never") end)"#,
     );
     engine.on_line("go");
@@ -234,7 +234,7 @@ fn keys_run_their_binding() {
         engine.take_actions(),
         [send("look"), send("inventory"), send("kick")]
     );
-    engine.exec("lua", "echo(`{cancel(f5)} {cancel(f5)}`)");
+    engine.exec("lua", "echo(`{f5:remove()} {f5:remove()}`)");
     assert!(!engine.on_key("f5"));
     assert_eq!(engine.take_actions(), [Action::Echo("true false".into())]);
     assert_eq!(key_name("Shift+Alt+Ctrl+Enter"), "ctrl+alt+shift+enter");
@@ -296,7 +296,8 @@ fn many_triggers_fire_as_few_do_and_follow_changes() {
     let mut code = String::new();
     for n in 0..30 {
         code.push_str(&format!(
-            "trigger(\"^word {n}$\", function() send(\"saw {n}\") end)\n"
+            "{}trigger(\"^word {n}$\", function() send(\"saw {n}\") end)\n",
+            if n == 3 { "third = " } else { "" }
         ));
     }
     code.push_str("trigger(\"word\", function() send(\"any\") end)\n");
@@ -305,8 +306,7 @@ fn many_triggers_fire_as_few_do_and_follow_changes() {
     assert_eq!(engine.take_actions(), [send("saw 7"), send("any")]);
     // One added, and one taken away, are seen at the next line.
     engine.exec("t", r#"trigger("^word 7$", function() send("again") end)"#);
-    // The ids count from 1: this is the one of "word 3".
-    engine.exec("t", r#"cancel(4)"#);
+    engine.exec("t", "third:remove()");
     engine.on_line("word 7");
     assert_eq!(
         engine.take_actions(),
@@ -413,5 +413,79 @@ fn a_macro_sends_its_commands_as_a_rule_does() {
             Action::Send("k orc; or not".into()),
             Action::Send("look".into())
         ]
+    );
+}
+
+/// What a script makes is given to it, to switch it and to take it away,
+/// whatever it is.
+#[test]
+fn what_a_script_makes_is_switched_and_taken_away_by_itself() {
+    let mut engine = engine(
+        r#"made = {
+            trigger("^go$", function() send("trigger") end),
+            alias("^go$", function() send("alias") end),
+            macro("f5", function() send("macro") end),
+            on_gmcp("Go", function() send("gmcp") end),
+            on_var("go", function() send("var") end),
+            on_event("connect", function() send("event") end),
+            every(1, function() send("timer") end),
+        }
+        function all(what)
+            local said = {}
+            for _, one in made do table.insert(said, tostring(one[what](one))) end
+            echo(table.concat(said, " "))
+        end"#,
+    );
+    let mut now = Instant::now();
+    let mut go = |engine: &mut Engine| -> Vec<Action> {
+        engine.take_actions();
+        engine.on_line("go");
+        engine.on_input("go");
+        engine.on_key("f5");
+        engine.on_gmcp("Go", "1");
+        engine.exec("t", "vars.go = (vars.go or 0) + 1");
+        engine.on_event("connect", "");
+        now += Duration::from_secs(5);
+        engine.tick(now);
+        engine.take_actions()
+    };
+    let everything: Vec<Action> = ["trigger", "alias", "macro", "gmcp", "var", "event", "timer"]
+        .map(send)
+        .into();
+    let nothing = [send("go")];
+    let all = |engine: &mut Engine, what: &str| -> Vec<Action> {
+        engine.exec("t", &format!("all(\"{what}\")"));
+        engine.take_actions()
+    };
+    let said = |one: &str| [Action::Echo([one; 7].join(" "))];
+    assert_eq!(go(&mut engine), everything);
+    assert_eq!(all(&mut engine, "disable"), said("false"));
+    assert_eq!(all(&mut engine, "enabled"), said("false"));
+    // What was switched off, typed, is sent as it is.
+    assert_eq!(go(&mut engine), nothing);
+    assert_eq!(all(&mut engine, "enable"), said("true"));
+    assert_eq!(go(&mut engine), everything);
+    assert_eq!(all(&mut engine, "toggle"), said("false"));
+    assert_eq!(all(&mut engine, "toggle"), said("true"));
+    assert_eq!(all(&mut engine, "remove"), said("true"));
+    assert_eq!(all(&mut engine, "remove"), said("false"));
+    assert_eq!(all(&mut engine, "enable"), said("false"));
+    assert_eq!(go(&mut engine), nothing);
+}
+
+#[test]
+fn a_timer_says_how_long_it_has_left() {
+    let mut engine = engine("");
+    engine.exec(
+        "t",
+        r#"local soon = after(100, function() end)
+        echo(tostring(soon:left() > 99 and soon:left() <= 100))
+        soon:remove()
+        echo(tostring(soon:left()))
+        echo(tostring(trigger("x", function() end):left()))"#,
+    );
+    assert_eq!(
+        engine.take_actions(),
+        ["true", "nil", "nil"].map(|said| Action::Echo(said.into()))
     );
 }
