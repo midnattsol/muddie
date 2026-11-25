@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0](https://github.com/midnattsol/muddie/compare/v0.3.0...v0.4.0) - 2026-11-25
+
+### Added
+
+- *(plugins)* download official plugins
+
+### Fixed
+
+- *(mapview)* draw rooms always in the same order
+- *(mapview)* colour each way of an exit by itself
+- *(a11y)* keep noise from screen readers
+- *(scripts)* let go of a session once closed
+
 ## [0.3.0](https://github.com/midnattsol/muddie/compare/v0.2.0...v0.3.0) - 2026-11-24
 
 ### Added
