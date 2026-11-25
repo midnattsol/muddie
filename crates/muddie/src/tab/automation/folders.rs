@@ -217,8 +217,36 @@ impl Tab {
     /// the way to delete it, as a rule's are; then what it holds, and what
     /// can be done in it.
     pub(in crate::tab) fn folder_detail(&mut self, ui: &mut egui::Ui, kind: Kind, path: &str) {
-        let theme = theme::current();
         ui.spacing_mut().item_spacing.y = 10.0;
+        let delete = self.folder_header(ui, kind, path);
+        let FolderClicks {
+            moved_to,
+            add,
+            inside,
+            rename,
+        } = self.folder_card(ui, kind, path);
+        if let Some(parent) = moved_to {
+            self.folder_moved_to(ui, kind, path, &parent);
+        }
+        if add {
+            self.add_rule();
+        }
+        if inside {
+            self.new_folder(kind, path);
+        }
+        if rename {
+            self.start_renaming(path);
+        }
+        if delete {
+            self.delete_folder(kind, path);
+        }
+    }
+
+    /// The heading of a folder's details: its name, its switch, which is
+    /// set here, and the way to delete it. Returns whether delete was
+    /// clicked.
+    fn folder_header(&mut self, ui: &mut egui::Ui, kind: Kind, path: &str) -> bool {
+        let theme = theme::current();
         let name = name_of(path).to_owned();
         let mut on = self.editor.draft.folder_on(kind, path);
         let state = on;
@@ -246,6 +274,13 @@ impl Tab {
         if on != state {
             self.editor.draft.set_folder_on(kind, path, on);
         }
+        delete
+    }
+
+    /// The card of a folder's details: what it holds, where it is, and
+    /// what can be done in it. Returns what was clicked in it.
+    fn folder_card(&mut self, ui: &mut egui::Ui, kind: Kind, path: &str) -> FolderClicks {
+        let theme = theme::current();
         let below = format!("{path}/");
         let things = (self.automation_rows().iter())
             .filter(|row| row.folder == path || row.folder.starts_with(&below))
@@ -289,20 +324,11 @@ impl Tab {
                 });
             },
         );
-        if moved {
-            self.folder_moved_to(ui, kind, path, &parent);
-        }
-        if add {
-            self.add_rule();
-        }
-        if inside {
-            self.new_folder(kind, path);
-        }
-        if rename {
-            self.start_renaming(path);
-        }
-        if delete {
-            self.delete_folder(kind, path);
+        FolderClicks {
+            moved_to: moved.then_some(parent),
+            add,
+            inside,
+            rename,
         }
     }
 
@@ -479,4 +505,13 @@ impl Tab {
         };
         self.voice.say_now(&said);
     }
+}
+
+/// What was clicked in the card of a folder's details.
+struct FolderClicks {
+    /// The folder it was moved into, when its place was changed.
+    moved_to: Option<String>,
+    add: bool,
+    inside: bool,
+    rename: bool,
 }
