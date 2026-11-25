@@ -53,61 +53,67 @@ impl Tab {
                 if rows.is_empty() && folders.is_empty() && self.empty_list(ui) {
                     self.add_rule();
                 }
-                let current = self.current_spot();
-                let mut spots = Vec::with_capacity(items.len());
-                // A tree where there are folders, else a list, under the
-                // section's name: a screen reader says where each line is
-                // in it, how deep, and whether a folder is open.
-                let role = match kind {
-                    Some(_) => egui::accesskit::Role::Tree,
-                    None => egui::accesskit::Role::List,
-                };
-                let whole = egui::UiBuilder::new()
-                    .accessibility_role(role)
-                    .accessibility_label(section_name(self.editor.section));
-                ui.scope_builder(whole, |ui| {
-                    ui.spacing_mut().item_spacing.y = widgets::LINE_GAP;
-                    for item in &items {
-                        let here = current.as_ref() == Some(&item.spot);
-                        let rect = match &item.spot {
-                            Spot::Folder(path) => {
-                                let renaming = (self.editor.renaming.as_ref())
-                                    .is_some_and(|named| named.path == *path);
-                                match out_of_sight(ui, widgets::FOLDER_ROW)
-                                    .filter(|_| !renaming && !here)
-                                {
-                                    Some(rect) => rect,
-                                    None => self.folder_line(
-                                        ui,
-                                        kind.unwrap_or(Kind::Trigger),
-                                        path,
-                                        item,
-                                    ),
-                                }
-                            }
-                            Spot::Row(index) => {
-                                let row = &rows[*index];
-                                let tall = match row.detail.is_empty() && row.parts.is_empty() {
-                                    true => widgets::ROW_SHORT,
-                                    false => widgets::ROW_TALL,
-                                };
-                                // Out of sight, only its room is taken: what is
-                                // drawn is what can be seen, and the one chosen,
-                                // which keeps the keyboard.
-                                match out_of_sight(ui, tall).filter(|_| !here) {
-                                    Some(rect) => rect,
-                                    None => self.list_line(ui, row, *index, item),
-                                }
-                            }
-                        };
-                        spots.push((item.spot.clone(), rect));
-                    }
-                });
+                let spots = self.list_lines(ui, kind, &items, &rows);
                 // What is under the last row takes a drop at the top level.
                 let rest = ui.available_rect_before_wrap();
                 ui.allocate_rect(rest, egui::Sense::hover());
                 self.drag_in_list(ui, &spots, &rows, top);
             });
+    }
+
+    /// The lines of the list, in a tree where there are folders, else in a
+    /// list, under the section's name. Returns where each was drawn.
+    fn list_lines(
+        &mut self,
+        ui: &mut egui::Ui,
+        kind: Option<Kind>,
+        items: &[TreeItem],
+        rows: &[Row],
+    ) -> Vec<(Spot, egui::Rect)> {
+        let current = self.current_spot();
+        let mut spots = Vec::with_capacity(items.len());
+        // A tree where there are folders, else a list, under the
+        // section's name: a screen reader says where each line is
+        // in it, how deep, and whether a folder is open.
+        let role = match kind {
+            Some(_) => egui::accesskit::Role::Tree,
+            None => egui::accesskit::Role::List,
+        };
+        let whole = egui::UiBuilder::new()
+            .accessibility_role(role)
+            .accessibility_label(section_name(self.editor.section));
+        ui.scope_builder(whole, |ui| {
+            ui.spacing_mut().item_spacing.y = widgets::LINE_GAP;
+            for item in items {
+                let here = current.as_ref() == Some(&item.spot);
+                let rect = match &item.spot {
+                    Spot::Folder(path) => {
+                        let renaming = (self.editor.renaming.as_ref())
+                            .is_some_and(|named| named.path == *path);
+                        match out_of_sight(ui, widgets::FOLDER_ROW).filter(|_| !renaming && !here) {
+                            Some(rect) => rect,
+                            None => self.folder_line(ui, kind.unwrap_or(Kind::Trigger), path, item),
+                        }
+                    }
+                    Spot::Row(index) => {
+                        let row = &rows[*index];
+                        let tall = match row.detail.is_empty() && row.parts.is_empty() {
+                            true => widgets::ROW_SHORT,
+                            false => widgets::ROW_TALL,
+                        };
+                        // Out of sight, only its room is taken: what is
+                        // drawn is what can be seen, and the one chosen,
+                        // which keeps the keyboard.
+                        match out_of_sight(ui, tall).filter(|_| !here) {
+                            Some(rect) => rect,
+                            None => self.list_line(ui, row, *index, item),
+                        }
+                    }
+                };
+                spots.push((item.spot.clone(), rect));
+            }
+        });
+        spots
     }
 
     /// While what is dragged is in a folder, a strip to let it go on, to
