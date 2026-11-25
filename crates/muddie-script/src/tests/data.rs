@@ -562,3 +562,18 @@ fn everything_is_listened_to_with_one_function() {
         }
     }
 }
+
+/// A variable is read as it is now, each time: not as it was when the
+/// script was loaded, as Luau reads what never changes.
+#[test]
+fn a_variable_is_read_as_it_is_now() {
+    let mut engine = engine("vars.hits = 1");
+    engine.exec(
+        "t",
+        r#"trigger("^x$", function() vars.hits = vars.hits + 1 send(`{vars.hits}`) end)"#,
+    );
+    for _ in 0..3 {
+        engine.on_line("x");
+    }
+    assert_eq!(engine.take_actions(), ["2", "3", "4"].map(send));
+}

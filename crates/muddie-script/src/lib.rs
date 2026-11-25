@@ -12,6 +12,7 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
+use mlua::chunk::Compiler;
 use mlua::serde::SerializeOptions;
 use mlua::{Function, Lua, LuaOptions, LuaSerdeExt, StdLib, Table, Value, Variadic, VmState};
 use muddie_core::{Color, Line};
@@ -57,6 +58,8 @@ pub use switches::{Belongs, Kind, Switches, places_up, tag_key};
 /// so a faulty script cannot freeze the client.
 const TIME_BUDGET: Duration = Duration::from_millis(500);
 const MEMORY_LIMIT: usize = 256 << 20;
+/// The global tables whose fields are asked for as they are now.
+const CHANGING: [&str; 1] = ["vars"];
 const MIN_TIMER_INTERVAL: Duration = Duration::from_millis(10);
 
 pub struct Engine {
@@ -84,6 +87,9 @@ impl Engine {
             | StdLib::MATH
             | StdLib::BUFFER;
         let lua = Lua::new_with(libs, LuaOptions::default())?;
+        // What a script reads of these changes: not to be found once, as it
+        // is loaded, and kept, as Luau does with what is in a global table.
+        lua.set_compiler(Compiler::new().set_mutable_globals(CHANGING));
         // mlua always installs a `require` that reads any file on disk.
         lua.globals().raw_remove("require")?;
         lua.set_memory_limit(MEMORY_LIMIT)?;
