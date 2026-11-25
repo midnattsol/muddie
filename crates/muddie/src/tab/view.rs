@@ -23,19 +23,40 @@ impl Tab {
         self.tidy_window(ui.ctx());
         // The palette of commands, over whichever view is shown.
         self.palette(ui.ctx());
-        // The layout and the editor take the place of the game while open.
+        if self.show_page(ui) {
+            return;
+        }
+        self.say_on_shortcut(ui);
+        self.read_back(ui);
+        if !self.started {
+            return self.welcome(ui);
+        }
+        self.show_game(ui);
+    }
+
+    /// The layout and the editor take the place of the game while open.
+    /// Returns whether one of them was shown.
+    fn show_page(&mut self, ui: &mut egui::Ui) -> bool {
         if self.layout_view.open {
             if self.unprofiled_page(ui, unprofiled::Unprofiled::Layout) {
-                return;
+                return true;
             }
-            return self.layout_page(ui);
+            self.layout_page(ui);
+            return true;
         }
         if self.editor.open {
             if self.unprofiled_page(ui, unprofiled::Unprofiled::Editor) {
-                return;
+                return true;
             }
-            return self.automation_page(ui);
+            self.automation_page(ui);
+            return true;
         }
+        false
+    }
+
+    /// Says where the player is, explores the map, and reads the gauges
+    /// aloud, on their shortcuts.
+    fn say_on_shortcut(&mut self, ui: &mut egui::Ui) {
         // Alt+M (Ctrl+M on a Mac) says where the player is, by the map;
         // Alt+E explores it.
         if ui.input_mut(|input| crate::shortcuts::WHERE.pressed(input)) {
@@ -53,6 +74,11 @@ impl Tab {
                 &summary
             });
         }
+    }
+
+    /// Lets the voice read the output and the text panels back, and
+    /// copies or follows what it asks for.
+    fn read_back(&mut self, ui: &mut egui::Ui) {
         // The text panels to read back, by name: that of the channels
         // first, as Alt+Shift reads it unless another is chosen.
         let mut texts: Vec<(String, u32)> = (self.layout.panels.iter())
@@ -85,9 +111,10 @@ impl Tab {
             }
             None => {}
         }
-        if !self.started {
-            return self.welcome(ui);
-        }
+    }
+
+    /// The output with its panels, and the command line at the bottom.
+    fn show_game(&mut self, ui: &mut egui::Ui) {
         let plain = egui::Frame::new().inner_margin(egui::Margin {
             left: 8,
             right: 8,
