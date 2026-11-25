@@ -246,3 +246,167 @@ fn a_prompt_that_looks_like_a_room_is_known_by_coming_everywhere() {
             .is_empty()
     );
 }
+
+/// The prompt of a session that was recorded, as the game says it.
+const TEMPLATE: &str = r"Pv:$v\$V Pe:$g\$G Xp:$x SL:$s PL:$a Jgd:$j>";
+/// How it came in it, with nobody in the room, and ending in each sign.
+const CAME: &str = r"Pv:4141\4141 Pe:1300\1300 Xp:1964984 SL: [|so|,s,e,n,o] PL: Jgd:";
+
+impl Playing {
+    /// What the game says as the player makes their prompt.
+    fn makes(&mut self, template: &str, fight: bool) {
+        let which = if fight { "de combate " } else { "" };
+        self.line(&format!(
+            "Tu prompt {which}ha sido definido como '{template}'."
+        ));
+        self.harness.run_steps(2);
+    }
+
+    /// What is read as a line comes, or a prompt the MUD marks.
+    fn heard(&mut self, text: &str, marked: bool) -> Vec<String> {
+        self.harness.state_mut().tab_mut().voice.said.clear();
+        let line = panels::styled_lines(text).remove(0);
+        let event = if marked {
+            Event::Prompt(line)
+        } else {
+            Event::Line(line)
+        };
+        self.events.send(event).unwrap();
+        self.harness.run_steps(2);
+        std::mem::take(&mut self.harness.state_mut().tab_mut().voice.said)
+    }
+}
+
+const NOTHING: [&str; 0] = [];
+
+/// Once the player made it, the prompt is not read, whatever sign ends it, and
+/// what comes after it on its line is.
+#[test]
+fn the_prompt_made_is_not_read_and_what_comes_after_it_is() {
+    let mut playing = Playing::start();
+    assert_eq!(playing.heard(&format!("{CAME}> "), true).len(), 1);
+    playing.makes(TEMPLATE, false);
+    for end in [">", "]", "}"] {
+        for marked in [true, false] {
+            assert_eq!(playing.heard(&format!("{CAME}{end} "), marked), NOTHING);
+            assert_eq!(
+                playing.heard(&format!("{CAME}Indre, Furan{end}"), marked),
+                NOTHING
+            );
+        }
+        let more = "Pvs: 4141/4141 (+260) Pe: 1300/1300 (0)";
+        assert_eq!(playing.heard(&format!("{CAME}{end} {more}"), false), [more]);
+        // Two of them, when much comes.
+        assert_eq!(
+            playing.heard(&format!("{CAME}{end} {CAME}> {more}"), false),
+            [more]
+        );
+    }
+    for said in [
+        "Un orco te ataca.",
+        "Indre dice: Pv:10 > ven",
+        "Pv: mucho > poco",
+    ] {
+        assert_eq!(playing.heard(said, false), [said]);
+    }
+}
+
+/// That of a fight is its own, and one made again takes the place of the one
+/// there was; what it says is whatever the player wants.
+#[test]
+fn the_prompts_are_those_the_player_makes() {
+    let mut playing = Playing::start();
+    playing.makes(TEMPLATE, false);
+    playing.makes("[$v/$V] -- $AM.$AP$l(50%) $g>", true);
+    assert_eq!(playing.heard("[90/100] -- 1.2", false), NOTHING);
+    assert_eq!(playing.heard("(50%) 30} ", true), NOTHING);
+    assert_eq!(playing.heard(&format!("{CAME}> "), true), NOTHING);
+    playing.makes("Vida $v>", false);
+    assert_eq!(playing.heard("Vida 90> ", true), NOTHING);
+    assert_eq!(playing.heard("Vida 90> Un orco.", false), ["Un orco."]);
+    assert_eq!(playing.heard(&format!("{CAME}> "), true).len(), 1);
+    // So long that the game writes it in two lines.
+    playing.line("Tu prompt ha sido definido como 'Vida actual: $v de");
+    playing.line("$V y energía: $g>'.");
+    playing.harness.run_steps(2);
+    assert_eq!(
+        playing.heard("Vida actual: 9 de 10 y energía: 3> ", true),
+        NOTHING
+    );
+    // The one of who makes none.
+    assert_eq!(playing.heard("> ", true), NOTHING);
+    assert_eq!(playing.heard("> Un orco.", false), ["Un orco."]);
+    // One with nothing to be told by takes nothing for it.
+    playing.makes("$j>", false);
+    assert_eq!(playing.heard("Indre > Furan", false), ["Indre > Furan"]);
+}
+
+/// The room comes after the prompt known, whatever ends it.
+#[test]
+fn a_room_after_the_prompt_known_is_the_room() {
+    for (known, end) in [
+        (true, ">"),
+        (true, "]"),
+        (true, "}"),
+        (false, ">"),
+        (false, "]"),
+        (false, "}"),
+    ] {
+        let mut playing = Playing::start();
+        if known {
+            playing.makes(TEMPLATE, false);
+        }
+        let case = format!("{known} {end}");
+        playing.line(&format!("{CAME}{end} Anduar: Camino [o,n]"));
+        playing.moved("este");
+        assert_eq!(playing.here().as_deref(), Some("Anduar: Camino"), "{case}");
+        playing.read(&[&format!("{CAME}{end} ")]);
+        assert_eq!(playing.here().as_deref(), Some("Anduar: Camino"), "{case}");
+        playing.read(&[&format!("{CAME}{end} Anduar: Arco Este")]);
+        assert_eq!(
+            playing.here().as_deref(),
+            Some("Anduar: Arco Este"),
+            "{case}"
+        );
+    }
+}
+
+/// With the prompt known, what others say is not taken for a room.
+#[test]
+fn with_the_prompt_known_a_room_named_by_someone_does_not_move_the_player() {
+    for said in [
+        "Indre dice: > Anduar: Camino",
+        "[Ciudad] Anduar: Camino",
+        "Indre> Bosque [s]",
+    ] {
+        let mut playing = Playing::start();
+        playing.makes(TEMPLATE, false);
+        playing.read(&[&format!("{CAME}> {said}"), said]);
+        assert_eq!(
+            playing.here().as_deref(),
+            Some("Anduar: Arco Este"),
+            "{said}"
+        );
+    }
+}
+
+/// A prompt not known is told of once, in the game and not before, and never
+/// to who has the usual one.
+#[test]
+fn a_prompt_not_known_is_told_of_once() {
+    let mut playing = Playing::start();
+    let told = "Your prompt is read";
+    playing.heard("Introduce tu nombre: ", true);
+    assert_eq!(playing.told(told), 0);
+    let char = Event::Gmcp {
+        package: "Char.Status".into(),
+        data: "{}".into(),
+    };
+    playing.events.send(char).unwrap();
+    playing.heard("> ", true);
+    assert_eq!(playing.told(told), 0);
+    for _ in 0..2 {
+        playing.heard(&format!("{CAME}> "), true);
+    }
+    assert_eq!(playing.told(told), 1);
+}

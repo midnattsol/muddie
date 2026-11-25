@@ -230,6 +230,8 @@ fn a_plugin_that_comes_with_muddie_is_installed_in_sight_and_the_profiles() {
         crate::plugins::fixture::SCRIPT
     );
     assert!(app.scripts.is_loaded(&script));
+    // Each finds the others, as files and run as they come.
+    assert_eq!(app.script_errors, [] as [String; 0]);
     let rules = || Rules::load(&profiles.rules_path(Some("Reinos"))).unwrap();
     let gauges = |rules: &Rules| -> Vec<(String, bool)> {
         (rules.gauges.iter())
@@ -350,6 +352,7 @@ fn a_plugin_that_comes_with_muddie_runs_as_it_comes_without_a_profile() {
     let plugin = &crate::plugins::fixture::reinos();
     app.set_plugin(plugin, true);
     assert!(app.plugin_on(plugin));
+    assert_eq!(app.script_errors, [] as [String; 0]);
     let theirs = |app: &Tab| {
         (app.rules.gauges.iter())
             .filter(|gauge| gauge.folder == "Reinos de Leyenda")
