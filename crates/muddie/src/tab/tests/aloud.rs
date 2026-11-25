@@ -172,6 +172,22 @@ fn what_is_read_in_place_of_a_line_is_heard_as_it_is_told() {
     }
 }
 
+/// A gauge switched off is neither shown nor heard.
+#[test]
+fn a_gauge_switched_off_is_not_heard() {
+    let mut harness = window(None);
+    let app = harness.state_mut().tab_mut();
+    let set = |text: &str| {
+        format!(r#"gauges.set("G", {{kind = "text", text = "{text}", place = "Me/G"}})"#)
+    };
+    heard(app, &set("calm"));
+    assert_eq!(heard(app, &set("angry")).0, ["G: angry"]);
+    heard(app, r#"gauges.disable("Me")"#);
+    assert_eq!(heard(app, &set("calm")).0, [] as [String; 0]);
+    heard(app, r#"gauges.enable("Me")"#);
+    assert_eq!(heard(app, &set("angry")).0, ["G: angry"]);
+}
+
 /// A gauge the MUD asks for with MXP is told of to scripts, and one of a
 /// session that ended is not.
 #[test]

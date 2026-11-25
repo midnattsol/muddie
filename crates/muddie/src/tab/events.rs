@@ -278,7 +278,10 @@ impl Tab {
         {
             self.scripts.know_gauge(name, level, look.clone());
         }
-        if let Some(said) = (self.gauges).set_by(name, level, look, owner, belongs, panel) {
+        // Switched off, it is not shown, nor heard.
+        let on = (self.scripts.switches()).active(muddie_script::Kind::Gauge, &belongs);
+        let said = (self.gauges).set_by(name, level, look, owner, belongs, panel);
+        if let Some(said) = said.filter(|_| on) {
             self.voice.say_of_game(&said);
         }
     }
