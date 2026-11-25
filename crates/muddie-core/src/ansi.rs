@@ -173,25 +173,7 @@ impl Assembler {
     pub fn feed(&mut self, text: &str, out: &mut Vec<Line>) {
         for ch in text.chars() {
             match self.state {
-                State::Ground => match ch {
-                    // Not an end of line if the server said the next is
-                    // not, or inside a paragraph, where it is a space.
-                    '\n' if std::mem::take(&mut self.no_break) => {}
-                    '\n' if self.paragraph => self.line.push(' ', self.style),
-                    '\n' => self.end_line(out),
-                    '\x1b' => self.state = State::Esc,
-                    '<' if self.mxp && self.mode != MxpMode::Locked => {
-                        self.markup.clear();
-                        self.state = State::Tag;
-                    }
-                    '&' if self.mxp && self.mode != MxpMode::Locked => {
-                        self.markup.clear();
-                        self.state = State::Entity;
-                    }
-                    '\t' => self.line.push(ch, self.style),
-                    _ if ch.is_control() => {}
-                    _ => self.line.push(ch, self.style),
-                },
+                State::Ground => self.ground(ch, out),
                 State::Esc => {
                     self.state = match ch {
                         '[' => {
@@ -208,22 +190,7 @@ impl Assembler {
                         self.state = State::Ground;
                     }
                 }
-                State::Csi => match ch {
-                    '\x1b' => self.state = State::Esc,
-                    ' '..='?' => {
-                        if self.params.len() < MAX_PARAMS {
-                            self.params.push(ch);
-                        }
-                    }
-                    _ => {
-                        match ch {
-                            'm' => apply_sgr(&mut self.style, &self.params),
-                            'z' if self.mxp => self.set_mxp_mode(out),
-                            _ => {}
-                        }
-                        self.state = State::Ground;
-                    }
-                },
+                State::Csi => self.csi(ch, out),
                 State::Osc => match ch {
                     '\x07' => self.state = State::Ground,
                     '\x1b' => self.state = State::OscEsc,
@@ -236,51 +203,104 @@ impl Assembler {
                         State::Osc
                     };
                 }
-                State::Tag => match ch {
-                    // A `>` inside a quoted attribute is part of the tag.
-                    '>' if !ends_in_quotes(&self.markup) => {
-                        self.state = State::Ground;
-                        let tag = std::mem::take(&mut self.markup);
-                        self.tag(&tag, out);
+                State::Tag => self.in_tag(ch, out),
+                State::Entity => self.in_entity(ch, out),
+            }
+        }
+    }
+
+    /// Takes one character of ordinary text.
+    fn ground(&mut self, ch: char, out: &mut Vec<Line>) {
+        match ch {
+            // Not an end of line if the server said the next is
+            // not, or inside a paragraph, where it is a space.
+            '\n' if std::mem::take(&mut self.no_break) => {}
+            '\n' if self.paragraph => self.line.push(' ', self.style),
+            '\n' => self.end_line(out),
+            '\x1b' => self.state = State::Esc,
+            '<' if self.mxp && self.mode != MxpMode::Locked => {
+                self.markup.clear();
+                self.state = State::Tag;
+            }
+            '&' if self.mxp && self.mode != MxpMode::Locked => {
+                self.markup.clear();
+                self.state = State::Entity;
+            }
+            '\t' => self.line.push(ch, self.style),
+            _ if ch.is_control() => {}
+            _ => self.line.push(ch, self.style),
+        }
+    }
+
+    /// Takes one character of a control sequence.
+    fn csi(&mut self, ch: char, out: &mut Vec<Line>) {
+        match ch {
+            '\x1b' => self.state = State::Esc,
+            ' '..='?' => {
+                if self.params.len() < MAX_PARAMS {
+                    self.params.push(ch);
+                }
+            }
+            _ => {
+                match ch {
+                    'm' => apply_sgr(&mut self.style, &self.params),
+                    'z' if self.mxp => self.set_mxp_mode(out),
+                    _ => {}
+                }
+                self.state = State::Ground;
+            }
+        }
+    }
+
+    /// Takes one character of an MXP tag.
+    fn in_tag(&mut self, ch: char, out: &mut Vec<Line>) {
+        match ch {
+            // A `>` inside a quoted attribute is part of the tag.
+            '>' if !ends_in_quotes(&self.markup) => {
+                self.state = State::Ground;
+                let tag = std::mem::take(&mut self.markup);
+                self.tag(&tag, out);
+            }
+            // Not a tag after all: a lone `<` in ordinary text.
+            '\n' | '\x1b' => {
+                self.literal('<');
+                self.state = State::Ground;
+                self.feed(ch.encode_utf8(&mut [0; 4]), out);
+            }
+            _ if self.markup.len() >= MAX_TAG => {
+                self.literal('<');
+                self.state = State::Ground;
+            }
+            _ => self.markup.push(ch),
+        }
+    }
+
+    /// Takes one character of an MXP entity.
+    fn in_entity(&mut self, ch: char, out: &mut Vec<Line>) {
+        match ch {
+            ';' => {
+                self.state = State::Ground;
+                match self.entity_value(&self.markup) {
+                    Some(value) => {
+                        value.chars().for_each(|ch| self.line.push(ch, self.style));
                     }
-                    // Not a tag after all: a lone `<` in ordinary text.
-                    '\n' | '\x1b' => {
-                        self.literal('<');
-                        self.state = State::Ground;
-                        self.feed(ch.encode_utf8(&mut [0; 4]), out);
-                    }
-                    _ if self.markup.len() >= MAX_TAG => {
-                        self.literal('<');
-                        self.state = State::Ground;
-                    }
-                    _ => self.markup.push(ch),
-                },
-                State::Entity => match ch {
-                    ';' => {
-                        self.state = State::Ground;
-                        match self.entity_value(&self.markup) {
-                            Some(value) => {
-                                value.chars().for_each(|ch| self.line.push(ch, self.style));
-                            }
-                            None => {
-                                self.literal('&');
-                                self.line.push(';', self.style);
-                            }
-                        }
-                        self.markup.clear();
-                    }
-                    _ if (ch.is_ascii_alphanumeric() || ch == '#' || ch == '_')
-                        && self.markup.len() < MAX_ENTITY =>
-                    {
-                        self.markup.push(ch);
-                    }
-                    // Not an entity after all: a lone `&` in ordinary text.
-                    _ => {
+                    None => {
                         self.literal('&');
-                        self.state = State::Ground;
-                        self.feed(ch.encode_utf8(&mut [0; 4]), out);
+                        self.line.push(';', self.style);
                     }
-                },
+                }
+                self.markup.clear();
+            }
+            _ if (ch.is_ascii_alphanumeric() || ch == '#' || ch == '_')
+                && self.markup.len() < MAX_ENTITY =>
+            {
+                self.markup.push(ch);
+            }
+            // Not an entity after all: a lone `&` in ordinary text.
+            _ => {
+                self.literal('&');
+                self.state = State::Ground;
+                self.feed(ch.encode_utf8(&mut [0; 4]), out);
             }
         }
     }

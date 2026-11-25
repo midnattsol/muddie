@@ -123,99 +123,116 @@ impl Negotiator {
     }
 
     fn negotiate(&mut self, verb: Verb, option: u8, reply: &mut Vec<u8>) -> Option<Signal> {
-        let o = option as usize;
         match verb {
-            Verb::Will => {
-                let accept = matches!(
-                    option,
-                    opt::ECHO
-                        | opt::SGA
-                        | opt::EOR
-                        | opt::CHARSET
-                        | opt::GMCP
-                        | opt::MCCP2
-                        | opt::MSDP
-                        | opt::MSSP
-                        | opt::MSP
-                        | opt::MCCP3
-                        | opt::MXP
-                );
-                if !accept {
-                    send(reply, Verb::Dont, option);
-                } else if !self.remote[o] {
-                    self.remote[o] = true;
-                    send(reply, Verb::Do, option);
-                    if option == opt::GMCP {
-                        self.write_gmcp_hello(reply);
-                    }
-                    if option == opt::MSDP {
-                        // The usual ones at once, and a list of all the
-                        // server can report, to ask for the rest.
-                        if !self.config.msdp_report.is_empty() {
-                            msdp::write("REPORT", &self.config.msdp_report, reply);
-                        }
-                        msdp::write("LIST", &["REPORTABLE_VARIABLES".to_owned()], reply);
-                    }
-                    if option == opt::MCCP3 {
-                        telnet::write_subneg(opt::MCCP3, &[], reply);
-                        return Some(Signal::CompressOutgoing);
-                    }
-                    if option == opt::MXP {
-                        return Some(Signal::Mxp);
-                    }
-                    if option == opt::ECHO {
-                        return Some(Signal::ServerEcho(true));
-                    }
-                }
+            Verb::Will => self.on_will(option, reply),
+            Verb::Wont => self.on_wont(option, reply),
+            Verb::Do => self.on_do(option, reply),
+            Verb::Dont => self.on_dont(option, reply),
+        }
+    }
+
+    /// The server offers to enable an option on its side.
+    fn on_will(&mut self, option: u8, reply: &mut Vec<u8>) -> Option<Signal> {
+        let o = option as usize;
+        let accept = matches!(
+            option,
+            opt::ECHO
+                | opt::SGA
+                | opt::EOR
+                | opt::CHARSET
+                | opt::GMCP
+                | opt::MCCP2
+                | opt::MSDP
+                | opt::MSSP
+                | opt::MSP
+                | opt::MCCP3
+                | opt::MXP
+        );
+        if !accept {
+            send(reply, Verb::Dont, option);
+        } else if !self.remote[o] {
+            self.remote[o] = true;
+            send(reply, Verb::Do, option);
+            if option == opt::GMCP {
+                self.write_gmcp_hello(reply);
             }
-            Verb::Wont => {
-                if self.remote[o] {
-                    self.remote[o] = false;
-                    send(reply, Verb::Dont, option);
-                    if option == opt::ECHO {
-                        return Some(Signal::ServerEcho(false));
-                    }
+            if option == opt::MSDP {
+                // The usual ones at once, and a list of all the
+                // server can report, to ask for the rest.
+                if !self.config.msdp_report.is_empty() {
+                    msdp::write("REPORT", &self.config.msdp_report, reply);
                 }
+                msdp::write("LIST", &["REPORTABLE_VARIABLES".to_owned()], reply);
             }
-            Verb::Do => {
-                // MXP is asked for this way by some servers, and offered
-                // with WILL by others: it is taken up either way.
-                let accept = matches!(
-                    option,
-                    opt::TTYPE | opt::NAWS | opt::CHARSET | opt::MXP | opt::NEW_ENVIRON
-                );
-                if !accept {
-                    send(reply, Verb::Wont, option);
-                } else if !self.local[o] {
-                    self.local[o] = true;
-                    send(reply, Verb::Will, option);
-                    if option == opt::NAWS {
-                        self.write_naws(reply);
-                    }
-                    // Asked to say which encoding to use: the one the
-                    // user chose, or UTF-8.
-                    if option == opt::CHARSET {
-                        let chosen = self.config.encoding.trim();
-                        let wanted = match chosen.is_empty() || chosen.eq_ignore_ascii_case("auto")
-                        {
-                            true => "UTF-8",
-                            false => chosen,
-                        };
-                        let mut body = vec![CHARSET_REQUEST, b';'];
-                        body.extend_from_slice(wanted.as_bytes());
-                        telnet::write_subneg(opt::CHARSET, &body, reply);
-                    }
-                    if option == opt::MXP {
-                        return Some(Signal::Mxp);
-                    }
-                }
+            if option == opt::MCCP3 {
+                telnet::write_subneg(opt::MCCP3, &[], reply);
+                return Some(Signal::CompressOutgoing);
             }
-            Verb::Dont => {
-                if self.local[o] {
-                    self.local[o] = false;
-                    send(reply, Verb::Wont, option);
-                }
+            if option == opt::MXP {
+                return Some(Signal::Mxp);
             }
+            if option == opt::ECHO {
+                return Some(Signal::ServerEcho(true));
+            }
+        }
+        None
+    }
+
+    /// The server says it will not (any longer) do an option.
+    fn on_wont(&mut self, option: u8, reply: &mut Vec<u8>) -> Option<Signal> {
+        let o = option as usize;
+        if self.remote[o] {
+            self.remote[o] = false;
+            send(reply, Verb::Dont, option);
+            if option == opt::ECHO {
+                return Some(Signal::ServerEcho(false));
+            }
+        }
+        None
+    }
+
+    /// The server asks this client to enable an option.
+    fn on_do(&mut self, option: u8, reply: &mut Vec<u8>) -> Option<Signal> {
+        let o = option as usize;
+        // MXP is asked for this way by some servers, and offered
+        // with WILL by others: it is taken up either way.
+        let accept = matches!(
+            option,
+            opt::TTYPE | opt::NAWS | opt::CHARSET | opt::MXP | opt::NEW_ENVIRON
+        );
+        if !accept {
+            send(reply, Verb::Wont, option);
+        } else if !self.local[o] {
+            self.local[o] = true;
+            send(reply, Verb::Will, option);
+            if option == opt::NAWS {
+                self.write_naws(reply);
+            }
+            // Asked to say which encoding to use: the one the
+            // user chose, or UTF-8.
+            if option == opt::CHARSET {
+                let chosen = self.config.encoding.trim();
+                let wanted = match chosen.is_empty() || chosen.eq_ignore_ascii_case("auto") {
+                    true => "UTF-8",
+                    false => chosen,
+                };
+                let mut body = vec![CHARSET_REQUEST, b';'];
+                body.extend_from_slice(wanted.as_bytes());
+                telnet::write_subneg(opt::CHARSET, &body, reply);
+            }
+            if option == opt::MXP {
+                return Some(Signal::Mxp);
+            }
+        }
+        None
+    }
+
+    /// The server asks this client to stop an option.
+    fn on_dont(&mut self, option: u8, reply: &mut Vec<u8>) -> Option<Signal> {
+        let o = option as usize;
+        if self.local[o] {
+            self.local[o] = false;
+            send(reply, Verb::Wont, option);
         }
         None
     }
@@ -235,73 +252,12 @@ impl Negotiator {
 
     fn subneg(&mut self, option: u8, payload: &[u8], reply: &mut Vec<u8>) -> Option<Signal> {
         match option {
-            // `SEND` with the names wanted, each after `VAR` or `USERVAR`;
-            // with none, all there are. Answered with `IS`, each name
-            // after `VAR` and its value after `VALUE`.
             opt::NEW_ENVIRON if payload.first() == Some(&ENVIRON_SEND) => {
-                let asked: Vec<&[u8]> = (payload[1..])
-                    .split(|byte| matches!(*byte, ENVIRON_VAR | ENVIRON_USERVAR))
-                    .filter(|name| !name.is_empty())
-                    .collect();
-                let mut body = vec![ENVIRON_IS];
-                for (name, value) in self.environment() {
-                    if asked.is_empty() || asked.contains(&name.as_bytes()) {
-                        body.push(ENVIRON_VAR);
-                        body.extend_from_slice(name.as_bytes());
-                        body.push(ENVIRON_VALUE);
-                        body.extend_from_slice(value.as_bytes());
-                    }
-                }
-                telnet::write_subneg(opt::NEW_ENVIRON, &body, reply);
+                self.answer_environ(payload, reply);
             }
-            opt::TTYPE if payload == [TTYPE_SEND] => {
-                // MTTS: client name, then terminal type, then the capability
-                // bitvector, which is repeated for any further request.
-                let name = match self.ttype_step {
-                    0 => self.config.client_name.clone(),
-                    1 => self.config.terminal_type.clone(),
-                    _ => format!("MTTS {}", self.mtts()),
-                };
-                self.ttype_step = self.ttype_step.saturating_add(1);
-                let mut body = vec![TTYPE_IS];
-                body.extend_from_slice(name.as_bytes());
-                telnet::write_subneg(opt::TTYPE, &body, reply);
-            }
-            // The server names the encodings it can use. The one the
-            // user chose is taken if it is among them, and none other;
-            // with none chosen, UTF-8, or failing that the first of them
-            // this client knows, which what arrives is then read as.
+            opt::TTYPE if payload == [TTYPE_SEND] => self.answer_ttype(reply),
             opt::CHARSET if payload.first() == Some(&CHARSET_REQUEST) => {
-                let mut list = &payload[1..];
-                if let Some(rest) = list.strip_prefix(b"[TTABLE]") {
-                    list = rest.get(1..).unwrap_or_default();
-                }
-                let names: Vec<&[u8]> = match list.split_first() {
-                    Some((sep, names)) => names.split(|byte| byte == sep).collect(),
-                    None => Vec::new(),
-                };
-                let named = |wanted: &str| {
-                    (names.iter().copied())
-                        .find(|name| name.eq_ignore_ascii_case(wanted.as_bytes()))
-                };
-                let chosen = self.config.encoding.trim();
-                let taken = if chosen.is_empty() || chosen.eq_ignore_ascii_case("auto") {
-                    named("UTF-8").or_else(|| {
-                        (names.iter().copied()).find(|name| {
-                            let label = String::from_utf8_lossy(name);
-                            !name.is_empty() && crate::decode::Decoder::for_label(&label).is_some()
-                        })
-                    })
-                } else {
-                    named(chosen)
-                };
-                if let Some(name) = taken {
-                    let mut body = vec![CHARSET_ACCEPTED];
-                    body.extend_from_slice(name);
-                    telnet::write_subneg(opt::CHARSET, &body, reply);
-                    return Some(Signal::Charset(String::from_utf8_lossy(name).into_owned()));
-                }
-                telnet::write_subneg(opt::CHARSET, &[CHARSET_REJECTED], reply);
+                return self.answer_charset_request(payload, reply);
             }
             // The server took the encoding this client asked for.
             opt::CHARSET if payload.first() == Some(&CHARSET_ACCEPTED) => {
@@ -314,6 +270,78 @@ impl Negotiator {
             }
             _ => {}
         }
+        None
+    }
+
+    /// `SEND` with the names wanted, each after `VAR` or `USERVAR`;
+    /// with none, all there are. Answered with `IS`, each name
+    /// after `VAR` and its value after `VALUE`.
+    fn answer_environ(&self, payload: &[u8], reply: &mut Vec<u8>) {
+        let asked: Vec<&[u8]> = (payload[1..])
+            .split(|byte| matches!(*byte, ENVIRON_VAR | ENVIRON_USERVAR))
+            .filter(|name| !name.is_empty())
+            .collect();
+        let mut body = vec![ENVIRON_IS];
+        for (name, value) in self.environment() {
+            if asked.is_empty() || asked.contains(&name.as_bytes()) {
+                body.push(ENVIRON_VAR);
+                body.extend_from_slice(name.as_bytes());
+                body.push(ENVIRON_VALUE);
+                body.extend_from_slice(value.as_bytes());
+            }
+        }
+        telnet::write_subneg(opt::NEW_ENVIRON, &body, reply);
+    }
+
+    /// Answers the next TERMINAL-TYPE request.
+    fn answer_ttype(&mut self, reply: &mut Vec<u8>) {
+        // MTTS: client name, then terminal type, then the capability
+        // bitvector, which is repeated for any further request.
+        let name = match self.ttype_step {
+            0 => self.config.client_name.clone(),
+            1 => self.config.terminal_type.clone(),
+            _ => format!("MTTS {}", self.mtts()),
+        };
+        self.ttype_step = self.ttype_step.saturating_add(1);
+        let mut body = vec![TTYPE_IS];
+        body.extend_from_slice(name.as_bytes());
+        telnet::write_subneg(opt::TTYPE, &body, reply);
+    }
+
+    /// The server names the encodings it can use. The one the
+    /// user chose is taken if it is among them, and none other;
+    /// with none chosen, UTF-8, or failing that the first of them
+    /// this client knows, which what arrives is then read as.
+    fn answer_charset_request(&self, payload: &[u8], reply: &mut Vec<u8>) -> Option<Signal> {
+        let mut list = &payload[1..];
+        if let Some(rest) = list.strip_prefix(b"[TTABLE]") {
+            list = rest.get(1..).unwrap_or_default();
+        }
+        let names: Vec<&[u8]> = match list.split_first() {
+            Some((sep, names)) => names.split(|byte| byte == sep).collect(),
+            None => Vec::new(),
+        };
+        let named = |wanted: &str| {
+            (names.iter().copied()).find(|name| name.eq_ignore_ascii_case(wanted.as_bytes()))
+        };
+        let chosen = self.config.encoding.trim();
+        let taken = if chosen.is_empty() || chosen.eq_ignore_ascii_case("auto") {
+            named("UTF-8").or_else(|| {
+                (names.iter().copied()).find(|name| {
+                    let label = String::from_utf8_lossy(name);
+                    !name.is_empty() && crate::decode::Decoder::for_label(&label).is_some()
+                })
+            })
+        } else {
+            named(chosen)
+        };
+        if let Some(name) = taken {
+            let mut body = vec![CHARSET_ACCEPTED];
+            body.extend_from_slice(name);
+            telnet::write_subneg(opt::CHARSET, &body, reply);
+            return Some(Signal::Charset(String::from_utf8_lossy(name).into_owned()));
+        }
+        telnet::write_subneg(opt::CHARSET, &[CHARSET_REJECTED], reply);
         None
     }
 
