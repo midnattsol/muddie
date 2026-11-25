@@ -434,11 +434,14 @@ impl MapView {
             .is_none_or(|(known, _)| *known != shown)
         {
             // Rooms left over are not drawn: their place is another's.
-            let places = map
-                .rooms()
+            let mut places: Vec<(Pos, RoomId)> = (map.rooms())
                 .filter(|room| on_level(room) && !map.is_ghost(room.id))
-                .map(|room| (room.pos, room.id));
-            self.on_level = Some((shown, places.collect()));
+                .map(|room| (room.pos, room.id))
+                .collect();
+            // The map gives them in no order: in one, what is over what is
+            // always the same.
+            places.sort_unstable_by_key(|(_, id)| *id);
+            self.on_level = Some((shown, places));
         }
     }
 
@@ -539,3 +542,6 @@ impl MapView {
         chosen
     }
 }
+
+#[cfg(test)]
+mod tests;
