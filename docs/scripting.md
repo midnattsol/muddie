@@ -36,7 +36,6 @@ default_on = false              # on in every profile until switched off
 hosts = ["mymud.example.org"]   # offered when connecting to these…
 names = ["my mud"]              # …or to a MUD that says it is called so
 muddie = "0.5.0"                # the least version of Muddie it is made for
-replaces = ["Old name.luau"]    # scripts it had by other names: put aside
 ```
 
 `name` and `about` are a text, or one by language as for `tr`; with no

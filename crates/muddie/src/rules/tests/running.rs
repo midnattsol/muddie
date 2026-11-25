@@ -431,16 +431,3 @@ fn how_a_gauge_is_heard_is_kept_and_told() {
         other => panic!("{other:?}"),
     }
 }
-
-/// The colours of a gauge as a file of before has them are kept, and saved
-/// by the name they have now.
-#[test]
-fn the_steps_of_a_gauge_are_read_by_the_name_they_had() {
-    let gauge: Gauge =
-        toml::from_str("name = \"HP\"\nstep = [{ under = 30, colour = \"red\" }]").unwrap();
-    assert_eq!(
-        (gauge.steps[0].under, gauge.steps[0].colour.as_str()),
-        (30, "red")
-    );
-    assert!(toml::to_string(&gauge).unwrap().contains("steps"));
-}

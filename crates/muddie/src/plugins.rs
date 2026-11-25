@@ -84,10 +84,6 @@ pub struct Manifest {
     /// The least version of Muddie it is made for, as `0.4.0`. One that
     /// needs a newer Muddie than this is kept, and not updated.
     pub muddie: Option<String>,
-    /// The scripts it had by other names, each by the name of its file:
-    /// put aside where they are found, for what it has now is in their
-    /// place.
-    pub replaces: Vec<String>,
 }
 
 /// A plugin that comes with the program: its folder, and its files as
