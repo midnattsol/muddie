@@ -190,33 +190,66 @@ fn plural_form(code: &str) -> Option<fn(u64) -> usize> {
     })
 }
 
+/// Which part of an entry the lines being read belong to.
+#[derive(Clone, Copy, PartialEq)]
+enum Part {
+    None,
+    Id,
+    Plural,
+    Text(usize),
+    Ignored,
+}
+
+/// The text inside the quotes of a `.po` line, with its escapes undone.
+fn unquote(quoted: &str) -> String {
+    let inner = quoted.trim().trim_start_matches('"');
+    let inner = inner.strip_suffix('"').unwrap_or(inner);
+    let mut text = String::with_capacity(inner.len());
+    let mut chars = inner.chars();
+    while let Some(ch) = chars.next() {
+        match (ch, ch == '\\').1.then(|| chars.next()).flatten() {
+            Some('n') => text.push('\n'),
+            Some('t') => text.push('\t'),
+            Some(escaped) => text.push(escaped),
+            None => text.push(ch),
+        }
+    }
+    text
+}
+
+/// `text` kept for as long as the program runs.
+fn leak(text: &str) -> &'static str {
+    Box::leak(text.to_owned().into_boxed_str())
+}
+
+/// Files the entry just read into the catalogue and clears it.
+fn finish_entry(
+    catalogue: &mut Catalogue,
+    id: &mut String,
+    texts: &mut Vec<String>,
+    has_plural: &mut bool,
+) {
+    let translated = texts.first().is_some_and(|text| !text.is_empty());
+    if id.is_empty() {
+        // The header: one `Name: value` per line.
+        let header = texts.first().map(String::as_str).unwrap_or_default();
+        let named = header
+            .lines()
+            .find_map(|line| line.strip_prefix("X-Language-Name:"));
+        catalogue.name = named.unwrap_or_default().trim().to_owned();
+    } else if *has_plural && translated {
+        let forms = texts.iter().map(|text| leak(text)).collect();
+        catalogue.plurals.insert(id.clone(), forms);
+    } else if translated {
+        catalogue.texts.insert(id.clone(), leak(&texts[0]));
+    }
+    id.clear();
+    texts.clear();
+    *has_plural = false;
+}
+
 /// Reads a `.po` file.
 fn parse(text: &str, code: &str) -> Catalogue {
-    /// Which part of an entry the lines being read belong to.
-    #[derive(Clone, Copy, PartialEq)]
-    enum Part {
-        None,
-        Id,
-        Plural,
-        Text(usize),
-        Ignored,
-    }
-    let unquote = |quoted: &str| -> String {
-        let inner = quoted.trim().trim_start_matches('"');
-        let inner = inner.strip_suffix('"').unwrap_or(inner);
-        let mut text = String::with_capacity(inner.len());
-        let mut chars = inner.chars();
-        while let Some(ch) = chars.next() {
-            match (ch, ch == '\\').1.then(|| chars.next()).flatten() {
-                Some('n') => text.push('\n'),
-                Some('t') => text.push('\t'),
-                Some(escaped) => text.push(escaped),
-                None => text.push(ch),
-            }
-        }
-        text
-    };
-    let leak = |text: &str| -> &'static str { Box::leak(text.to_owned().into_boxed_str()) };
     let mut catalogue = Catalogue {
         form: plural_form(code),
         ..Catalogue::default()
@@ -224,30 +257,11 @@ fn parse(text: &str, code: &str) -> Catalogue {
     let (mut id, mut texts): (String, Vec<String>) = (String::new(), Vec::new());
     let mut has_plural = false;
     let mut part = Part::None;
-    let mut finish = |id: &mut String, texts: &mut Vec<String>, has_plural: &mut bool| {
-        let translated = texts.first().is_some_and(|text| !text.is_empty());
-        if id.is_empty() {
-            // The header: one `Name: value` per line.
-            let header = texts.first().map(String::as_str).unwrap_or_default();
-            let named = header
-                .lines()
-                .find_map(|line| line.strip_prefix("X-Language-Name:"));
-            catalogue.name = named.unwrap_or_default().trim().to_owned();
-        } else if *has_plural && translated {
-            let forms = texts.iter().map(|text| leak(text)).collect();
-            catalogue.plurals.insert(id.clone(), forms);
-        } else if translated {
-            catalogue.texts.insert(id.clone(), leak(&texts[0]));
-        }
-        id.clear();
-        texts.clear();
-        *has_plural = false;
-    };
     let mut started = false;
     for line in text.lines().map(str::trim) {
         if let Some(rest) = line.strip_prefix("msgid ") {
             if started {
-                finish(&mut id, &mut texts, &mut has_plural);
+                finish_entry(&mut catalogue, &mut id, &mut texts, &mut has_plural);
             }
             started = true;
             id = unquote(rest);
@@ -276,7 +290,7 @@ fn parse(text: &str, code: &str) -> Catalogue {
         }
     }
     if started {
-        finish(&mut id, &mut texts, &mut has_plural);
+        finish_entry(&mut catalogue, &mut id, &mut texts, &mut has_plural);
     }
     catalogue
 }
