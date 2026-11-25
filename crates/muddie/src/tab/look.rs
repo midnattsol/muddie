@@ -93,41 +93,8 @@ impl Tab {
             &mut open,
             crate::theme::size::DIALOG_M,
             |ui| {
-                widgets::sub_label(ui, tr("Colour"));
-                ui.horizontal(|ui| {
-                    ui.spacing_mut().item_spacing.x = 4.0;
-                    if widgets::swatch_none(ui, look.colour.is_none(), usual_colour).clicked() {
-                        look.colour = None;
-                    }
-                    for name in crate::panels::COLOUR_CHOICES {
-                        let Some(shown) = crate::panels::colour_named(name) else {
-                            continue;
-                        };
-                        let colour = [shown.r(), shown.g(), shown.b()];
-                        if widgets::swatch(ui, shown, look.colour == Some(colour), tr(name))
-                            .clicked()
-                        {
-                            look.colour = Some(colour);
-                        }
-                    }
-                });
-                ui.add_space(4.0);
-                widgets::sub_label(ui, tr("Shape"));
-                // A room may take the map's; the map has one always.
-                let mut shapes: Vec<Option<Shape>> = Shape::ALL.into_iter().map(Some).collect();
-                if room {
-                    shapes.insert(0, None);
-                }
-                let names: Vec<&str> = (shapes.iter())
-                    .map(|shape| shape.map_or(tr("The map's"), shape_name))
-                    .collect();
-                let current = shapes
-                    .iter()
-                    .position(|shape| *shape == look.shape)
-                    .unwrap_or(0);
-                if let Some(chosen) = widgets::segmented(ui, &names, current) {
-                    look.shape = shapes[chosen];
-                }
+                colour_choice(ui, look, usual_colour);
+                shape_choice(ui, look, room);
                 if room {
                     ui.add_space(4.0);
                     widgets::sub_label(ui, tr("Written in it"));
@@ -182,5 +149,46 @@ impl Tab {
             }
         };
         self.map_saved(done);
+    }
+}
+
+/// The colours to choose from, and none, which is named `usual_colour`.
+fn colour_choice(ui: &mut egui::Ui, look: &mut Look, usual_colour: &str) {
+    widgets::sub_label(ui, tr("Colour"));
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = 4.0;
+        if widgets::swatch_none(ui, look.colour.is_none(), usual_colour).clicked() {
+            look.colour = None;
+        }
+        for name in crate::panels::COLOUR_CHOICES {
+            let Some(shown) = crate::panels::colour_named(name) else {
+                continue;
+            };
+            let colour = [shown.r(), shown.g(), shown.b()];
+            if widgets::swatch(ui, shown, look.colour == Some(colour), tr(name)).clicked() {
+                look.colour = Some(colour);
+            }
+        }
+    });
+}
+
+/// The shapes to choose from.
+fn shape_choice(ui: &mut egui::Ui, look: &mut Look, room: bool) {
+    ui.add_space(4.0);
+    widgets::sub_label(ui, tr("Shape"));
+    // A room may take the map's; the map has one always.
+    let mut shapes: Vec<Option<Shape>> = Shape::ALL.into_iter().map(Some).collect();
+    if room {
+        shapes.insert(0, None);
+    }
+    let names: Vec<&str> = (shapes.iter())
+        .map(|shape| shape.map_or(tr("The map's"), shape_name))
+        .collect();
+    let current = shapes
+        .iter()
+        .position(|shape| *shape == look.shape)
+        .unwrap_or(0);
+    if let Some(chosen) = widgets::segmented(ui, &names, current) {
+        look.shape = shapes[chosen];
     }
 }

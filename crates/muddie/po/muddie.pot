@@ -1362,15 +1362,6 @@ msgstr ""
 msgid "The theme's colour"
 msgstr ""
 
-msgid "Colour"
-msgstr ""
-
-msgid "Shape"
-msgstr ""
-
-msgid "The map's"
-msgstr ""
-
 msgid "Written in it"
 msgstr ""
 
@@ -1382,6 +1373,15 @@ msgid "All {0} rooms called {1}"
 msgstr ""
 
 msgid "Apply"
+msgstr ""
+
+msgid "Colour"
+msgstr ""
+
+msgid "Shape"
+msgstr ""
+
+msgid "The map's"
 msgstr ""
 
 #, python-brace-format
