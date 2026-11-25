@@ -62,7 +62,7 @@ impl Engine {
             state.var_changed(name);
             state.save_memory()
         };
-        self.tell_vars_changed();
+        self.tell_changes();
         saved
     }
 

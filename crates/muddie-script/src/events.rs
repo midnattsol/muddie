@@ -151,7 +151,7 @@ impl Engine {
                 Err(error) => return self.error(format!("bad data for {name}: {error}")),
             }
         };
-        let callbacks: Vec<(u64, String, Function)> = {
+        let callbacks = {
             let mut state = self.state.borrow_mut();
             // A package that sends only what changed is merged into what
             // was kept of it; its handlers still get what came.
@@ -170,11 +170,7 @@ impl Engine {
                 _ => data.clone(),
             };
             state.data.insert(key.clone(), kept);
-            (state.data_handlers.iter())
-                .filter(|handler| handler.covers(&key) && handler.on(&state.switches))
-                .filter(|handler| !state.paused.contains(&handler.id))
-                .map(|handler| (handler.id, handler.owner.clone(), handler.callback.clone()))
-                .collect()
+            state.listeners(&key)
         };
         for (id, owner, callback) in callbacks {
             let still_on = self.state.borrow().runs(id);

@@ -3,6 +3,7 @@
 use super::*;
 
 mod data;
+mod gauges;
 mod line;
 mod loading;
 mod map;

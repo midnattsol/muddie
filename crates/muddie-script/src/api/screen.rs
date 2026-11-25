@@ -4,6 +4,7 @@ use super::*;
 
 pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     install_gauges(lua, state)?;
+    install_gauge_data(lua, state)?;
     install_panels(lua, state)?;
     install_panel_size(lua, state)?;
     install_channels(lua, state)
@@ -41,13 +42,14 @@ fn install_gauges(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
             let panel = given.get::<Option<String>>("panel")?.unwrap_or_default();
             let mut state = shared.borrow_mut();
             let owner = state.owner.clone();
-            state
-                .gauges
-                .retain(|shown| shown.owner != owner || shown.name != name);
-            state.gauges.push(crate::state::Shown {
+            state.set_gauge(crate::gauges::Shown {
                 owner: owner.clone(),
                 name: name.clone(),
                 belongs: belongs.clone(),
+                value: level.0,
+                max: level.1,
+                look: look.clone(),
+                over: false,
             });
             (state.actions).push(Action::Gauge {
                 name,
@@ -68,9 +70,7 @@ fn install_gauges(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
             let belongs = super::rules::belongs(options.as_ref())?;
             let mut state = shared.borrow_mut();
             let owner = state.owner.clone();
-            state
-                .gauges
-                .retain(|shown| shown.owner != owner || shown.name != name);
+            state.remove_gauge(&name, &belongs);
             (state.actions).push(Action::Gauge {
                 name,
                 level: None,
@@ -80,6 +80,30 @@ fn install_gauges(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
                 panel: String::new(),
             });
             Ok(())
+        })?,
+    )
+}
+
+/// `gauges`: what those there are say, whoever made them.
+fn install_gauge_data(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
+    let gauges = super::group(lua, "gauges")?;
+    let shared = Rc::clone(state);
+    gauges.set(
+        "get",
+        lua.create_function(move |lua, name: String| {
+            let state = shared.borrow();
+            (state.gauge_called(&name).map(|gauge| gauge.table(lua))).transpose()
+        })?,
+    )?;
+    let shared = Rc::clone(state);
+    gauges.set(
+        "all",
+        lua.create_function(move |lua, ()| {
+            let all = lua.create_table()?;
+            for gauge in shared.borrow().gauges_on() {
+                all.set(gauge.name.as_str(), gauge.table(lua)?)?;
+            }
+            Ok(all)
         })?,
     )
 }

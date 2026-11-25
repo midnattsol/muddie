@@ -2,6 +2,7 @@
 //! handlers, and what they remember.
 
 use super::*;
+use crate::gauges::{Levels, Shown};
 
 /// A trigger's or an alias's pattern: checked when it is made, and
 /// compiled the first time it is tried on a line. Most triggers are seldom
@@ -90,13 +91,6 @@ impl State {
     }
 }
 
-/// A gauge a script shows: its name, and what it is switched by.
-pub(crate) struct Shown {
-    pub(crate) owner: String,
-    pub(crate) name: String,
-    pub(crate) belongs: Belongs,
-}
-
 /// What a key does, for whom: the script that bound it, and what it is
 /// switched by. A key can be bound several times, to do one thing while
 /// one is on and another while another is: the first on does.
@@ -128,9 +122,19 @@ pub(super) struct DataHandler {
     pub(crate) callback: Function,
     /// What it is switched by: it is told nothing while it is off.
     pub(crate) belongs: Belongs,
+    /// Of a gauge, the levels it is told at; at every change, if none.
+    pub(crate) levels: Option<Levels>,
 }
 
+/// Who is told something: its id, the script that made it, and what is
+/// called.
+pub(crate) type Listener = (u64, String, Function);
+
 impl DataHandler {
+    pub(crate) fn listener(&self) -> Listener {
+        (self.id, self.owner.clone(), self.callback.clone())
+    }
+
     /// Whether it is told what comes: switched as a trigger is, by its
     /// place, the folders above it and its tags.
     pub(crate) fn on(&self, switches: &Switches) -> bool {
@@ -174,6 +178,10 @@ pub(super) fn msdp_key(variable: &str) -> String {
 pub(super) fn var_key(name: &str) -> String {
     format!("var {name}")
 }
+
+/// What the key of who listens to a gauge starts with: its name follows,
+/// or nothing, for all. The space cannot occur in a GMCP package name.
+pub(super) const GAUGES: &str = "gauge ";
 
 /// What scripts are told of the session, as the frontend knows it.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -237,8 +245,11 @@ pub(super) struct State {
     /// Words to offer when completing, as `(owner, name, words)`, in the
     /// order the names were first given.
     pub(crate) completions: Vec<(String, String, Vec<String>)>,
-    /// The gauges the scripts show, by what they are switched by.
+    /// The gauges there are.
     pub(crate) gauges: Vec<Shown>,
+    /// Those changed since who listens was last told, each by what it is
+    /// told apart by, with what it was.
+    pub(crate) gauges_changed: Vec<(String, Shown)>,
     /// What each key does, by its normalised name.
     pub(crate) macros: HashMap<String, Vec<Macro>>,
     /// Values kept between sessions, and the file they are saved in.
@@ -319,6 +330,15 @@ impl State {
         if !self.vars_changed.iter().any(|known| known == name) {
             self.vars_changed.push(name.to_owned());
         }
+    }
+
+    /// Who is told what comes under `key`.
+    pub(super) fn listeners(&self, key: &str) -> Vec<Listener> {
+        (self.data_handlers.iter())
+            .filter(|handler| handler.covers(key) && handler.on(&self.switches))
+            .filter(|handler| !self.paused.contains(&handler.id))
+            .map(DataHandler::listener)
+            .collect()
     }
 
     pub(super) fn next_id(&mut self) -> u64 {

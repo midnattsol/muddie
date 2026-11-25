@@ -26,6 +26,7 @@ mod action;
 mod api;
 mod convert;
 mod events;
+mod gauges;
 mod line;
 mod made;
 mod map_api;
@@ -382,52 +383,59 @@ impl Engine {
         };
         // Out of script code: what it changed is told.
         if out {
-            self.tell_vars_changed();
+            self.tell_changes();
         }
         ok
     }
 
-    /// Calls the handlers of each variable changed with its value and its
-    /// name. A handler that changes a variable has it told in turn, a few
-    /// rounds at most, so two that change each other do not go on forever.
-    fn tell_vars_changed(&self) {
-        if std::mem::replace(&mut self.state.borrow_mut().telling, true) {
-            return;
+    /// Tells who listens what changed: the variables, the gauges. A
+    /// handler that changes one has it told in turn, a few rounds at most,
+    /// so two that change each other do not go on forever.
+    fn tell_changes(&self) {
+        {
+            let mut state = self.state.borrow_mut();
+            if state.running > 0 || std::mem::replace(&mut state.telling, true) {
+                return;
+            }
         }
         for _ in 0..8 {
-            let changed = std::mem::take(&mut self.state.borrow_mut().vars_changed);
-            if changed.is_empty() {
+            let mut state = self.state.borrow_mut();
+            let vars = std::mem::take(&mut state.vars_changed);
+            let gauges = std::mem::take(&mut state.gauges_changed);
+            drop(state);
+            if vars.is_empty() && gauges.is_empty() {
                 break;
             }
-            for name in changed {
-                let key = var_key(&name);
-                let state = self.state.borrow();
-                let callbacks: Vec<(u64, String, Function)> = (state.data_handlers.iter())
-                    .filter(|handler| handler.covers(&key) && handler.on(&state.switches))
-                    .filter(|handler| !state.paused.contains(&handler.id))
-                    .map(|handler| (handler.id, handler.owner.clone(), handler.callback.clone()))
-                    .collect();
-                drop(state);
-                if callbacks.is_empty() {
-                    continue;
-                }
-                let vars: mlua::Result<Table> = self.lua.globals().get("vars");
-                let value: Value = vars
-                    .and_then(|vars| vars.get(name.as_str()))
-                    .unwrap_or(Value::Nil);
-                for (id, owner, callback) in callbacks {
-                    let still_on = self.state.borrow().runs(id);
-                    if still_on {
-                        self.as_owner(&owner, || {
-                            callback.call::<()>((value.clone(), name.as_str()))
-                        });
-                    }
-                }
-            }
+            self.tell_vars_changed(vars);
+            self.tell_gauges_changed(gauges);
         }
         let mut state = self.state.borrow_mut();
         state.vars_changed.clear();
+        state.gauges_changed.clear();
         state.telling = false;
+    }
+
+    /// Calls the handlers of each variable changed with its value and its
+    /// name.
+    fn tell_vars_changed(&self, changed: Vec<String>) {
+        for name in changed {
+            let callbacks = self.state.borrow().listeners(&var_key(&name));
+            if callbacks.is_empty() {
+                continue;
+            }
+            let vars: mlua::Result<Table> = self.lua.globals().get("vars");
+            let value: Value = vars
+                .and_then(|vars| vars.get(name.as_str()))
+                .unwrap_or(Value::Nil);
+            for (id, owner, callback) in callbacks {
+                let still_on = self.state.borrow().runs(id);
+                if still_on {
+                    self.as_owner(&owner, || {
+                        callback.call::<()>((value.clone(), name.as_str()))
+                    });
+                }
+            }
+        }
     }
 
     /// Runs script code under the time budget, reporting failure as an

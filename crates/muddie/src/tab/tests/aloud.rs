@@ -171,3 +171,27 @@ fn what_is_read_in_place_of_a_line_is_heard_as_it_is_told() {
         );
     }
 }
+
+/// A gauge the MUD asks for with MXP is told of to scripts, and one of a
+/// session that ended is not.
+#[test]
+fn what_the_client_makes_a_gauge_of_is_data_too() {
+    let mut harness = window(None);
+    let app = harness.state_mut().tab_mut();
+    heard(
+        app,
+        r#"on("gauge", "HP", function(g) speak(`now {g.percent}`) end)"#,
+    );
+    let set = |app: &mut Tab, value: f64| {
+        let look = Some(muddie_script::GaugeLook::default());
+        let none = Default::default();
+        app.set_gauge("HP", Some((value, 10.0)), look, None, none, String::new());
+        app.run_actions();
+    };
+    set(app, 10.0);
+    set(app, 5.0);
+    assert_eq!(app.voice.said, ["now 50"]);
+    app.forget_connection();
+    set(app, 4.0);
+    assert_eq!(app.voice.said, ["now 50"]);
+}

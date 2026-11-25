@@ -271,6 +271,13 @@ impl Tab {
         if !panel.trim().is_empty() {
             self.gauges_panel_named(&panel);
         }
+        // What the client makes, scripts are told of; what they made, they
+        // know.
+        if owner.is_none()
+            && let (Some(level), Some(look)) = (level, &look)
+        {
+            self.scripts.know_gauge(name, level, look.clone());
+        }
         if let Some(said) = (self.gauges).set_by(name, level, look, owner, belongs, panel) {
             self.voice.say_of_game(&said);
         }
@@ -333,11 +340,12 @@ impl Tab {
     }
 
     /// Lets go of what lasted only as long as the connection.
-    fn forget_connection(&mut self) {
+    pub(super) fn forget_connection(&mut self) {
         self.walk = None;
         self.pending_partial = None;
         self.settled_partial = None;
         self.gauges.clear();
+        self.scripts.forget_gauges();
         self.sound.stop_all();
         self.fetching.base = None;
         self.fetching.jobs.clear();

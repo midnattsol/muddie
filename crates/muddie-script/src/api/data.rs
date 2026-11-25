@@ -1,6 +1,8 @@
 //! What the MUD sends besides text, and what is sent back to it.
 
 use super::*;
+use crate::gauges::Levels;
+use crate::state::GAUGES;
 
 pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     install_on(lua, state)?;
@@ -10,10 +12,11 @@ pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()>
 }
 
 /// What there is to listen to by a name of its own, and what that name is.
-const NAMED: [(&str, &str); 3] = [
+const NAMED: [(&str, &str); 4] = [
     ("gmcp", "a package"),
     ("msdp", "a variable"),
     ("var", "a variable"),
+    ("gauge", "a gauge"),
 ];
 
 /// What happens in the client that there is to listen to.
@@ -26,8 +29,10 @@ fn listened(what: &str, name: Option<&str>) -> mlua::Result<String> {
         (Some(_), Some(name)) => Ok(match what {
             "gmcp" => name.to_lowercase(),
             "msdp" => msdp_key(name),
+            "gauge" => format!("{GAUGES}{name}"),
             _ => var_key(name),
         }),
+        (Some(("gauge", _)), None) => Ok(GAUGES.to_owned()),
         (Some((_, of)), None) => Err(mlua::Error::runtime(format!(
             "on(\"{what}\", ...) needs the name of {of} before the function"
         ))),
@@ -69,7 +74,7 @@ fn install_on(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
                     Value::Table(options) => Some(options),
                     _ => return Err(mlua::Error::runtime("the options of on are a table")),
                 };
-                super::rules::only(options.as_ref(), &["place", "tags"])?;
+                let levels = levels_of(&what, options.as_ref())?;
                 let belongs = super::rules::belongs(options.as_ref())?;
                 let key = listened(&what, name.as_deref())?;
                 let mut state = shared.borrow_mut();
@@ -81,12 +86,28 @@ fn install_on(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
                     key,
                     callback,
                     belongs,
+                    levels,
                 });
                 drop(state);
                 Ok(Made::new(id, &shared))
             },
         )?,
     )
+}
+
+/// The levels of a gauge its options ask to be told at, if they do: of
+/// nothing else are there any.
+fn levels_of(what: &str, options: Option<&Table>) -> mlua::Result<Option<Levels>> {
+    if what != "gauge" {
+        super::rules::only(options, &["place", "tags"])?;
+        return Ok(None);
+    }
+    super::rules::only(options, &["under", "over", "place", "tags"])?;
+    let level = |key: &str| match options {
+        Some(options) => options.get::<Option<f64>>(key),
+        None => Ok(None),
+    };
+    Ok(Levels::new(level("under")?, level("over")?))
 }
 
 fn no_function() -> mlua::Error {
