@@ -1,6 +1,7 @@
 //! What arrives from the connection, and the session's log.
 
 use super::*;
+use muddie_script::Heard;
 
 /// How long a frame spends on what arrived, at most: enough for hundreds
 /// of lines, little enough for the window to keep moving.
@@ -178,10 +179,12 @@ impl Tab {
         // Text whose triggers already ran while it was unterminated keeps
         // that verdict instead of firing twice.
         let settled = (self.settled_partial.take()).filter(|(fired, _)| *fired == text);
+        // Read then, if it was to be.
+        let heard = settled.is_some();
         let shown = match settled {
             Some((_, shown)) => shown,
             None => self
-                .run_triggers(line)
+                .run_triggers(line, prompt)
                 .then(|| self.dispatched.take())
                 .flatten(),
         };
@@ -190,12 +193,15 @@ impl Tab {
                 self.show_line(&shown);
                 // Read unless a trigger asked not to, or the session is
                 // not the one on screen: only that one is heard.
-                if self.scripts.line_silenced() || !self.on_screen {
-                    self.voice.skip_line(&text);
-                } else if prompt {
-                    self.voice.prompt(&text);
-                } else {
-                    self.voice.line(&text);
+                match self.scripts.line_heard() {
+                    _ if !self.on_screen => self.voice.skip_line(&text),
+                    Heard::AsIs if prompt => self.voice.prompt(&text),
+                    Heard::AsIs => self.voice.line(&text),
+                    Heard::Instead(said) if !heard => {
+                        self.voice.skip_line(&text);
+                        self.voice.instead(&said, prompt);
+                    }
+                    Heard::Not | Heard::Instead(_) => self.voice.skip_line(&text),
                 }
                 self.dispatched = Some(shown);
             }
@@ -212,8 +218,8 @@ impl Tab {
     /// Runs the triggers on a line. What they leave of it, or the line as
     /// it came if they hid it, is kept for what they asked to be done with
     /// it. Returns whether it is to be shown.
-    pub(super) fn run_triggers(&mut self, line: Line) -> bool {
-        let shown = self.scripts.on_styled_line(&line);
+    pub(super) fn run_triggers(&mut self, line: Line, prompt: bool) -> bool {
+        let shown = self.scripts.on_styled_line(&line, prompt);
         let visible = shown.is_some();
         self.dispatched = Some(shown.unwrap_or(line));
         visible

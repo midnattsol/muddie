@@ -55,6 +55,8 @@ pub(super) struct Matcher {
     pub(crate) belongs: Belongs,
     /// Removed after firing once.
     pub(crate) once: bool,
+    /// Tried on prompts alone, or on all but prompts; on both, if neither.
+    pub(crate) prompt: Option<bool>,
 }
 
 pub(super) enum MacroAction {
@@ -230,15 +232,8 @@ pub(super) struct State {
     /// is and the script that set it last: to be undone when that script
     /// stops. One of [`Set`].
     pub(crate) set_by: Vec<(Set, String)>,
-    /// The line the triggers run on is shown, but not read aloud
-    /// (`silence()`).
-    pub(crate) silenced: bool,
-    /// Set by `gag()` while a line's triggers run.
-    pub(crate) gag: bool,
-    /// The line whose triggers are running, with its styles.
-    pub(crate) current_line: Option<Line>,
-    /// Byte range of the text the running trigger matched.
-    pub(crate) current_match: Option<(usize, usize)>,
+    /// The line whose triggers are running, or that ran last.
+    pub(crate) looked: Looked,
     /// Words to offer when completing, as `(owner, name, words)`, in the
     /// order the names were first given.
     pub(crate) completions: Vec<(String, String, Vec<String>)>,

@@ -5,17 +5,38 @@ use super::*;
 
 impl Engine {
     /// Offers a completed output line to the triggers. Returns false if a
-    /// trigger gagged it, meaning it must not be shown or spoken.
+    /// trigger hid it, meaning it must not be shown or spoken.
     pub fn on_line(&mut self, line: &str) -> bool {
-        self.dispatch_line(line, None).is_some()
+        let plain = Line {
+            spans: vec![Span {
+                text: line.to_owned(),
+                style: Style::default(),
+            }],
+            ..Line::default()
+        };
+        self.on_styled_line(&plain, false).is_some()
     }
 
-    /// Like [`Self::on_line`], with the line's colours available to the
-    /// triggers through `line_spans()`.
-    /// Returns the line to show, which triggers may have recoloured, or
-    /// `None` if one gagged it.
-    pub fn on_styled_line(&mut self, line: &Line) -> Option<Line> {
-        self.dispatch_line(&line.text(), Some(line.clone()))
+    /// Like [`Self::on_line`], with the line's colours, and whether it is a
+    /// prompt. Returns the line to show, which triggers may have changed, or
+    /// `None` if one hid it; what is read of it is [`Self::line_heard`].
+    pub fn on_styled_line(&mut self, line: &Line, prompt: bool) -> Option<Line> {
+        let text = line.text();
+        self.state.borrow_mut().looked.begin(line.clone());
+        for hit in self.hits(&text, Kind::Trigger, Some(prompt), usize::MAX) {
+            let still_on = self.state.borrow().runs(hit.id);
+            if still_on {
+                self.state.borrow_mut().looked.matched(hit.range);
+                let given = Given::new(&text, prompt, &self.state);
+                self.fire(&hit, given);
+            }
+        }
+        self.state.borrow_mut().looked.end()
+    }
+
+    /// What is read aloud of the last line the triggers were run on.
+    pub fn line_heard(&self) -> Heard {
+        self.state.borrow().looked.heard().clone()
     }
 
     /// Handles a key press, named as in `macro` (see [`key_name`]). Returns
@@ -58,33 +79,6 @@ impl Engine {
         true
     }
 
-    pub(super) fn dispatch_line(&mut self, text: &str, styled: Option<Line>) -> Option<Line> {
-        {
-            let mut state = self.state.borrow_mut();
-            state.gag = false;
-            state.silenced = false;
-            state.current_line = styled;
-        }
-        for hit in self.hits(text, Kind::Trigger, usize::MAX) {
-            let still_on = self.state.borrow().runs(hit.id);
-            if still_on {
-                self.fire(&hit, text);
-            }
-        }
-        let mut state = self.state.borrow_mut();
-        let line = state.current_line.take();
-        if std::mem::take(&mut state.gag) {
-            return None;
-        }
-        Some(line.unwrap_or_default())
-    }
-
-    /// Whether a trigger asked that the last line be shown but not read
-    /// aloud.
-    pub fn line_silenced(&self) -> bool {
-        self.state.borrow().silenced
-    }
-
     /// Handles a line typed by the user: a client command, or one or more
     /// commands, each of them an alias or sent as it is.
     pub fn on_input(&mut self, input: &str) {
@@ -93,8 +87,8 @@ impl Engine {
             None => Some(";".to_owned()),
         };
         for command in split_commands(input, separator.as_deref()) {
-            match self.hits(&command, Kind::Alias, 1).pop() {
-                Some(hit) => self.fire(&hit, &command),
+            match self.hits(&command, Kind::Alias, None, 1).pop() {
+                Some(hit) => self.fire(&hit, command),
                 None => self.push(Action::Send(command)),
             }
         }
@@ -228,14 +222,24 @@ impl Engine {
         }
     }
 
-    pub(super) fn hits(&self, text: &str, kind: Kind, limit: usize) -> Vec<Hit> {
+    /// What matches a text, in order: of the triggers, those for prompts
+    /// only if it is one.
+    pub(super) fn hits(
+        &self,
+        text: &str,
+        kind: Kind,
+        prompt: Option<bool>,
+        limit: usize,
+    ) -> Vec<Hit> {
         let candidates = match kind {
             Kind::Trigger => self.matching_triggers(text),
             _ => None,
         };
         let state = self.state.borrow();
         let enabled = |matcher: &&Matcher| {
-            !state.paused.contains(&matcher.id) && state.switches.active(kind, &matcher.belongs)
+            !state.paused.contains(&matcher.id)
+                && state.switches.active(kind, &matcher.belongs)
+                && (matcher.prompt.is_none() || matcher.prompt == prompt)
         };
         let list = match kind {
             Kind::Alias => &state.aliases,
@@ -336,8 +340,8 @@ impl Engine {
         set.set.is_some()
     }
 
-    pub(super) fn fire(&mut self, hit: &Hit, text: &str) {
-        self.state.borrow_mut().current_match = Some(hit.range);
+    /// Calls what was made for a match, with its groups and what it was of.
+    pub(super) fn fire(&mut self, hit: &Hit, of: impl mlua::IntoLua) {
         if hit.once {
             let mut state = self.state.borrow_mut();
             state.triggers.retain(|trigger| trigger.id != hit.id);
@@ -351,7 +355,7 @@ impl Engine {
             for (name, value) in &hit.named {
                 m.set(name.as_str(), value.as_str())?;
             }
-            hit.callback.call::<()>((m, text))
+            hit.callback.call::<()>((m, of))
         });
     }
 

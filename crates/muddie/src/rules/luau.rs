@@ -83,14 +83,15 @@ impl Luau for OnLine {
             quoted(&when.regex_source())
         );
         let call = |name: &str, given: &str| format!("\t{name}({})\n", quoted(given.trim()));
+        let done = |name: &str, given: &str| call(&format!("line:{name}"), given);
         if !when.highlight.trim().is_empty() {
-            code.push_str(&call("highlight", &when.highlight));
+            code.push_str(&done("paint", &when.highlight));
         }
         if when.gag {
-            code.push_str("\tgag()\n");
+            code.push_str("\tline:hide()\n");
         }
         if when.silence {
-            code.push_str("\tsilence()\n");
+            code.push_str("\tline:mute()\n");
         }
         code.push_str(&rule.action());
         if !when.speak.trim().is_empty() {
@@ -103,7 +104,7 @@ impl Luau for OnLine {
             code.push_str(&call("sounds.play", &when.sound));
         }
         if !when.panel.trim().is_empty() {
-            code.push_str(&call("to_panel", &when.panel));
+            code.push_str(&done("to_panel", &when.panel));
         }
         code.push_str(&format!("end, {options})\n"));
         code

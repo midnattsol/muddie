@@ -133,7 +133,7 @@ fn shows_script() {
     app.open_automation(automation::SCRIPTS);
     app.add_script(None);
     script.run_steps(3);
-    script.state_mut().tab_mut().editor.script_text = "gmcp.support(\"Comm 1\")\n\non_gmcp(\"Comm.MensajeCanal\", function(data)\n\tpanel_add(data.canal, data.mensaje)\nend)\n".into();
+    script.state_mut().tab_mut().editor.script_text = "gmcp.support(\"Comm 1\")\n\non(\"gmcp\", \"Comm.MensajeCanal\", function(data)\n\tpanels.add(data.canal, data.mensaje)\nend)\n".into();
     script.run_steps(2);
     script.get_by_label("Run").click();
     script.run_steps(4);

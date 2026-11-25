@@ -1,6 +1,7 @@
 //! The command line, and what is typed in it.
 
 use super::*;
+use muddie_script::Heard;
 
 /// How long unterminated text must stay unchanged before triggers see it
 /// as a line. Servers that do not mark their prompts leave them like that.
@@ -374,20 +375,24 @@ impl Tab {
         };
         let text = line.text();
         let shown = self
-            .run_triggers(line)
+            .run_triggers(line, true)
             .then(|| self.dispatched.clone())
             .flatten();
         match &shown {
-            // Shown, but kept from being read: as if it had been.
-            Some(shown) if self.scripts.line_silenced() => {
-                self.output.set_partial(shown);
-                self.voice.skip_partial(&text);
-            }
             Some(shown) => self.output.set_partial(shown),
-            None => {
-                self.output.clear_partial();
+            None => self.output.clear_partial(),
+        }
+        // Kept from being read, or read as something else: as if it had
+        // been.
+        match (shown.is_some(), self.scripts.line_heard()) {
+            (true, Heard::AsIs) => {}
+            (true, Heard::Instead(said)) => {
                 self.voice.skip_partial(&text);
+                if self.on_screen {
+                    self.voice.instead(&said, true);
+                }
             }
+            _ => self.voice.skip_partial(&text),
         }
         self.settled_partial = Some((text, shown));
         self.run_actions();

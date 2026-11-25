@@ -15,7 +15,7 @@ use std::time::{Duration, Instant};
 use mlua::chunk::Compiler;
 use mlua::serde::SerializeOptions;
 use mlua::{Function, Lua, LuaOptions, LuaSerdeExt, StdLib, Table, Value, Variadic, VmState};
-use muddie_core::{Color, Line};
+use muddie_core::{Color, Line, Span, Style};
 use muddie_mapper::{
     Added, Arrival, Colour, Exit, Located, Map, Naming, Pos, Refused, Room, RoomId, RoomInfo,
     Sighting, room_id,
@@ -26,6 +26,7 @@ mod action;
 mod api;
 mod convert;
 mod events;
+mod line;
 mod made;
 mod map_api;
 mod memory;
@@ -35,6 +36,7 @@ mod switches;
 
 pub use action::{Action, Announce, Effect, GaugeKind, GaugeLook};
 pub use convert::{bindable, colour_named, split_commands};
+pub use line::Heard;
 
 /// Something a script offers to do with the map, as the user is shown it.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -49,6 +51,7 @@ pub struct OfferedTool {
 pub use api::{in_interface_language, set_interface_language};
 use api::{install_api, only, texts_of};
 use convert::*;
+use line::{Given, Looked, Text};
 use made::Made;
 use map_api::*;
 pub use state::Session;

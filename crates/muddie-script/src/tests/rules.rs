@@ -7,7 +7,7 @@ fn trigger_gets_groups_and_the_line() {
     let mut engine = engine(
         r#"trigger("^(?<who>\\w+) tells you: (.*)$", function(m, line)
             send(`reply {m.who} got {m[2]}`)
-            echo(m[0] == line and "whole" or "partial")
+            echo(m[0] == line.text and "whole" or "partial")
         end)"#,
     );
     assert!(engine.on_line("Ana tells you: hola"));
@@ -21,7 +21,7 @@ fn trigger_gets_groups_and_the_line() {
 
 #[test]
 fn gag_hides_only_the_line_that_fired() {
-    let mut engine = engine(r#"trigger("spam", function() gag() end)"#);
+    let mut engine = engine(r#"trigger("spam", function(m, line) line:hide() end)"#);
     assert!(!engine.on_line("some spam here"));
     assert!(engine.on_line("a normal line"));
 }
@@ -138,87 +138,6 @@ fn a_thing_is_switched_by_its_place_or_its_folder_and_only_of_its_kind() {
             "falseCombat,Combat/Flee,Combat/Healing,Combat/Healing/Quaff".into()
         )]
     );
-}
-
-#[test]
-fn trigger_can_read_the_colours_of_its_line() {
-    use muddie_core::{Span, Style};
-    let mut engine = engine(
-        r#"trigger("orc", function()
-            local parts = {}
-            for _, span in line_spans() do
-                table.insert(parts, `{span.text}:{span.fg}:{span.bold}`)
-            end
-            echo(table.concat(parts, "|") .. " " .. #line_spans())
-        end)"#,
-    );
-    let span = |text: &str, style: Style| Span {
-        text: text.into(),
-        style,
-    };
-    let line = Line {
-        spans: vec![
-            span("An ", Style::default()),
-            span(
-                "orc",
-                Style {
-                    fg: Color::Indexed(1),
-                    bold: true,
-                    ..Style::default()
-                },
-            ),
-            span(
-                "!",
-                Style {
-                    fg: Color::Rgb(255, 128, 0),
-                    ..Style::default()
-                },
-            ),
-        ],
-        links: Vec::new(),
-        dest: None,
-    };
-    assert_eq!(engine.on_styled_line(&line), Some(line.clone()));
-    assert_eq!(
-        engine.take_actions(),
-        [Action::Echo(
-            "An :nil:false|orc:1:true|!:#ff8000:false 3".into()
-        )]
-    );
-    // Outside a trigger there is no line to describe.
-    engine.exec("lua", "echo(tostring(#line_spans()))");
-    assert_eq!(engine.take_actions(), [Action::Echo("0".into())]);
-}
-
-#[test]
-fn trigger_can_recolour_its_match_or_gag_the_line() {
-    use muddie_core::{Span, Style};
-    let mut engine = engine(
-        r##"trigger("An (\\w+)", function() highlight("bright yellow", "#102030") end)
-        trigger("^secret", function() gag() end)"##,
-    );
-    let plain = |text: &str| Line {
-        spans: vec![Span {
-            text: text.into(),
-            style: Style::default(),
-        }],
-        links: Vec::new(),
-        dest: None,
-    };
-    let shown = engine.on_styled_line(&plain("An orc!")).unwrap();
-    let styles: Vec<(&str, Color, Color)> = (shown.spans.iter())
-        .map(|span| (span.text.as_str(), span.style.fg, span.style.bg))
-        .collect();
-    assert_eq!(
-        styles,
-        [
-            ("An orc", Color::Indexed(11), Color::Rgb(0x10, 0x20, 0x30)),
-            ("!", Color::Default, Color::Default),
-        ]
-    );
-    assert_eq!(engine.on_styled_line(&plain("secret plans")), None);
-    engine.exec("lua", "highlight('plaid')");
-    assert!(error_text(&engine.take_actions()).contains("a colour is"));
 }
 
 #[test]

@@ -284,6 +284,14 @@ impl Voice {
         }
     }
 
+    /// Reads `text` in place of a line, or of a prompt, as it would be.
+    pub fn instead(&mut self, text: &str, prompt: bool) {
+        let text = text.trim();
+        if !text.is_empty() && !(prompt && self.quiet_prompts) {
+            self.read_game(text);
+        }
+    }
+
     /// Reads what the game said, unless the game is not read: cutting
     /// short what is said only at the start of a burst, so that a room
     /// that comes in many lines is read whole. What was just read as said

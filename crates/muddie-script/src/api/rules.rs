@@ -21,11 +21,15 @@ fn install_triggers_and_aliases(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::
             lua.create_function(
                 move |_, (pattern, callback, options): (String, Function, Option<Table>)| {
                     let pattern = Pattern::new(&pattern).map_err(mlua::Error::runtime)?;
-                    only(options.as_ref(), &["place", "tags", "once"])?;
+                    let known = ["place", "tags", "once", "prompt"];
+                    only(options.as_ref(), &known[..if is_alias { 3 } else { 4 }])?;
                     let belongs = belongs(options.as_ref())?;
-                    let once = match &options {
-                        Some(options) => options.get::<Option<bool>>("once")?.unwrap_or(false),
-                        None => false,
+                    let (once, prompt) = match &options {
+                        Some(options) => (
+                            options.get::<Option<bool>>("once")?.unwrap_or(false),
+                            options.get::<Option<bool>>("prompt")?,
+                        ),
+                        None => (false, None),
                     };
                     let mut state = shared.borrow_mut();
                     let id = state.next_id();
@@ -42,6 +46,7 @@ fn install_triggers_and_aliases(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::
                         callback,
                         belongs,
                         once,
+                        prompt,
                     });
                     drop(state);
                     Ok(Made::new(id, &shared))

@@ -54,7 +54,7 @@ pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()>
     let shared = Rc::clone(state);
     globals.set(
         "expand",
-        lua.create_function(move |_, text: String| Ok(shared.borrow().expand(&text)))?,
+        lua.create_function(move |_, text: Text| Ok(shared.borrow().expand(&text.0)))?,
     )?;
     Ok(())
 }

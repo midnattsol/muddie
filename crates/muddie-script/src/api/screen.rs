@@ -5,7 +5,6 @@ use super::*;
 pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     install_gauges(lua, state)?;
     install_panels(lua, state)?;
-    install_to_panel(lua, state)?;
     install_panel_size(lua, state)?;
     install_channels(lua, state)
 }
@@ -229,10 +228,10 @@ fn install_panels(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     let shared = Rc::clone(state);
     panels.set(
         "set",
-        lua.create_function(move |_, (name, text): (String, String)| {
+        lua.create_function(move |_, (name, text): (String, Text)| {
             let mut state = shared.borrow_mut();
             state.set(crate::state::Set::Panel(name.to_lowercase()));
-            let text = Some(text);
+            let text = Some(text.0);
             state.actions.push(Action::Panel { name, text });
             Ok(())
         })?,
@@ -249,25 +248,12 @@ fn install_panels(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     let shared = Rc::clone(state);
     panels.set(
         "add",
-        lua.create_function(move |_, (name, text): (String, String)| {
+        lua.create_function(move |_, (name, text): (String, Text)| {
+            let text = text.0;
             (shared.borrow_mut().actions).push(Action::PanelAdd { name, text });
             Ok(())
         })?,
     )
-}
-
-fn install_to_panel(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
-    let globals = lua.globals();
-    let add = |name: &str, function: Function| globals.set(name, function);
-    let shared = Rc::clone(state);
-    add(
-        "to_panel",
-        lua.create_function(move |_, name: String| {
-            (shared.borrow_mut().actions).push(Action::ToPanel(name));
-            Ok(())
-        })?,
-    )?;
-    Ok(())
 }
 
 /// How many characters fit across and down a panel.
@@ -298,7 +284,7 @@ fn install_channels(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     channels.set(
         "say",
         lua.create_function(
-            move |_, (name, text, options): (String, String, Option<Table>)| {
+            move |_, (name, text, options): (String, Text, Option<Table>)| {
                 super::rules::only(options.as_ref(), &["panel", "quiet"])?;
                 let (panel, quiet) = match options {
                     Some(options) => (
@@ -311,7 +297,7 @@ fn install_channels(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
                 state.set(crate::state::Set::Channel(name.to_lowercase()));
                 state.actions.push(Action::Channel {
                     name,
-                    text: Some(text),
+                    text: Some(text.0),
                     panel: panel.unwrap_or_default(),
                     quiet: quiet.unwrap_or_default(),
                 });

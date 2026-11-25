@@ -62,7 +62,7 @@ fn unmarked_prompt_fires_triggers_once_it_settles() {
     app.scripts.exec(
         "test",
         r#"trigger("^Name: $", function() send("gandalf") end)
-            trigger("^Spam> $", function() gag() end)"#,
+            trigger("^Spam> $", function(m, line) line:hide() end)"#,
     );
     let (events, mut sent) = fake_connection(app);
     let partial = |text: &str| Event::Partial(panels::styled_lines(text).remove(0));
@@ -99,7 +99,10 @@ fn unmarked_prompt_fires_triggers_once_it_settles() {
 fn a_silenced_prompt_is_not_read_when_data_comes_after_it() {
     let mut harness = window(None);
     let app = harness.state_mut().tab_mut();
-    (app.scripts).exec("test", r#"trigger("^HP .*> $", function() silence() end)"#);
+    (app.scripts).exec(
+        "test",
+        r#"trigger("^HP .*> $", function(m, line) line:mute() end)"#,
+    );
     app.on_screen = true;
     let (events, _sent) = fake_connection(app);
     let partial = |text: &str| Event::Partial(panels::styled_lines(text).remove(0));
@@ -122,6 +125,59 @@ fn a_silenced_prompt_is_not_read_when_data_comes_after_it() {
     events.send(partial("Name: ")).unwrap();
     settle(&mut harness);
     assert_eq!(harness.state().tab().voice.said[1..], ["Name:"]);
+}
+
+/// A script reads something else in place of a line or of a prompt: once,
+/// as the line would be read, or not.
+#[test]
+fn a_line_is_read_as_a_script_says() {
+    let mut harness = window(None);
+    let app = harness.state_mut().tab_mut();
+    (app.scripts).exec(
+        "test",
+        r#"trigger("^HP (\\d+)> (.*)$", function(m, line)
+            line:read(m[2] ~= "" and m[2] or `life {m[1]}`)
+        end)"#,
+    );
+    let (events, _sent) = fake_connection(app);
+    app.voice.said.clear();
+    let line = |text: &str| panels::styled_lines(text).remove(0);
+    let settle = |harness: &mut Harness<'_, App>| {
+        harness.run_steps(2);
+        std::thread::sleep(PARTIAL_SETTLE + Duration::from_millis(50));
+        harness.run_steps(2);
+        std::mem::take(&mut harness.state_mut().tab_mut().voice.said)
+    };
+    events.send(Event::Line(line("HP 10> A goblin."))).unwrap();
+    assert_eq!(settle(&mut harness), ["A goblin."]);
+    // A prompt not ended, as it settles; ended as it was, no more; and with
+    // something after it, that.
+    events.send(Event::Partial(line("HP 9> "))).unwrap();
+    assert_eq!(settle(&mut harness), ["life 9"]);
+    events.send(Event::Partial(line("HP 9> "))).unwrap();
+    assert_eq!(settle(&mut harness), [] as [String; 0]);
+    events.send(Event::Line(line("HP 9> "))).unwrap();
+    assert_eq!(settle(&mut harness), [] as [String; 0]);
+    events.send(Event::Partial(line("HP 8> "))).unwrap();
+    assert_eq!(settle(&mut harness), ["life 8"]);
+    events.send(Event::Line(line("HP 8> An orc."))).unwrap();
+    assert_eq!(settle(&mut harness), ["An orc."]);
+    // One the MUD marks.
+    events.send(Event::Prompt(line("HP 7> "))).unwrap();
+    assert_eq!(settle(&mut harness), ["life 7"]);
+    // Prompts not read, what is read in their place is not either.
+    let mut settings = harness.state().tab().settings.clone();
+    settings.speech_prompts = false;
+    harness.state_mut().tab_mut().voice.configure(&settings);
+    events.send(Event::Prompt(line("HP 6> "))).unwrap();
+    events.send(Event::Partial(line("HP 5> "))).unwrap();
+    assert_eq!(settle(&mut harness), [] as [String; 0]);
+    events.send(Event::Line(line("HP 5> A wolf."))).unwrap();
+    assert_eq!(settle(&mut harness), ["A wolf."]);
+    // The game not read, nothing is.
+    harness.state_mut().tab_mut().voice.set_muted(true);
+    events.send(Event::Line(line("HP 4> A bear."))).unwrap();
+    assert_eq!(settle(&mut harness), [] as [String; 0]);
 }
 
 /// What a script says is of the game: not said while the game is not read.

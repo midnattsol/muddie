@@ -79,7 +79,7 @@ session (`map.learn`, `map.directions`, `map.names`, `map.native`,
 | `log(text)` | Shows something on the standard output of a run started with `--debug` (see the manual); nothing otherwise. |
 | `speak(text, {interrupt = true})` | Says something through speech, unless the player has the game not read aloud. |
 | `panels.set(name, text)` | Puts `text` in a panel, in place of what it showed; `panels.clear(name)` clears it. For anything the server sends ready to display, such as a map it draws. The panel is made, as one of text, if there is none of that name; `"map"` means the map's panel whatever it is called, and `"channels"` the one of the channels. |
-| `panels.add(name, text)` | Adds `text` at the end of a panel, which keeps what it had. In a trigger, `to_panel(name)` adds the line being looked at, with its colours. |
+| `panels.add(name, text)` | Adds `text` at the end of a panel, which keeps what it had. In a trigger, `line:to_panel(name)` adds the line being looked at, with its colours. |
 | `channels.say(name, text, options)` | Adds `text` as said on the channel `name` of the MUD, which has a tab of its own in a panel. `options.panel` names that panel: the one of that name is used as it is, and one is made if there is none; with no panel named, it is the panel of channels. With `options.quiet`, it is not read aloud, as what was said before the player came. `channels.open(name)` makes the tab before anyone speaks, and `channels.close(name)` takes it away, as when the character leaves the channel. |
 | `gauges.set(name, {value = 80, max = 100, ...})` | Shows or updates a gauge; `gauges.remove(name)` removes it. What it is given is named as a gauge's in the editor's rules: `value` and `max`, its level; `kind` (`"bar"`, `"cells"`, `"number"`, `"light"`, which is on when `value` is true or not 0, `"text"`, which shows `text`, or `"effects"`, which shows `items`: a list, or a table by name, of what the character is in, each a name or `{name = "Poisoned", about = "1 damage a second", colour = "red"}`), `colour` (a name or `#rrggbb`), `off_colour`, a light's while it is off, and `step`, the colours it takes under each percentage, `{{under = 60, colour = "yellow"}, {under = 30, colour = "red"}}`. `announce` says how its changes are read aloud: `"usual"`, as its kind is, a level cutting short what is being read as it falls under a step and the rest waiting their turn; `"never"`; `"wait"`, after what is being read; `"lowest"`, the same, but cutting in under the lowest of its steps; or `"cut"`, cutting in. Also `panel`, the panel of gauges it is shown in, by its name (made if there is none; the first there is if none is named), and `place` and `tags`, which switch it as they do a trigger. |
 | `sounds.play(file, {volume = 0.8, loop = false})` | Plays a sound, by path or by name in the profile's `sounds` folder. Returns it, to stop it alone: `sound:stop()`. |
@@ -91,14 +91,14 @@ session (`map.learn`, `map.directions`, `map.names`, `map.native`,
 -- Patterns are regular expressions. m[0] is the whole match, m[1]... its
 -- groups, and named groups are also m.name.
 trigger("^(?<who>\\w+) tells you: (.*)$", function(m, line)
-    highlight("bright yellow")              -- recolour what matched
+    line:paint("bright yellow")             -- recolour what matched
     speak(`{m.who} says {m[2]}`, {interrupt = true})
 end)
 
 trigger("^You are hungry", function() send("eat bread") end,
         {place = "Survival/Eat", tags = {"survival"}})
 
-trigger("^\\[spam\\]", function() gag() end) -- hide the line
+trigger("^\\[spam\\]", function(m, line) line:hide() end)
 
 alias("^k (.+)$", function(m) send("kill " .. m[1]) end)
 
@@ -108,12 +108,8 @@ after(5, function() saving:remove() end)
 
 | Function | What it does |
 |---|---|
-| `trigger(pattern, fn, options)` | Calls `fn(m, line)` for each output line that matches. Unterminated prompts count once they stop changing. |
+| `trigger(pattern, fn, options)` | Calls `fn(m, line)` for each output line that matches, with the groups and the line (see below). Unterminated prompts count once they stop changing. With `{prompt = true}`, for prompts only; with `{prompt = false}`, for all but prompts. |
 | `alias(pattern, fn, options)` | Calls `fn(m, input)` instead of sending typed input that matches. |
-| `gag()` | In a trigger: hides the line. |
-| `silence()` | In a trigger: the line is shown, and kept to be read back with the review keys, but not read aloud as it comes. |
-| `highlight(fg, bg)` | In a trigger: recolours the matched text. A colour is a name (`"red"`, `"bright blue"`), `"#rrggbb"` or a palette number. |
-| `line_spans()` | In a trigger: the line as runs of text with `fg`, `bg`, `bold`, `italic`, `underline` and `inverse`. |
 | `triggers`, `aliases`, `macros`, `timers`, `gauges`, `scripts` | Switch one thing of that kind by its place, or a folder with all it holds: `triggers.disable("Combat")`, `macros.enable("Combat/Kick")`, `scripts.toggle("Mapping")`. Each has `enable(place)`, `disable(place)`, `toggle(place)` (which returns whether it is now on), `enabled(place)` and `list()`, the places there are. Whether made in a script or in the editor; for the session, as what is saved is what the editor says. |
 | `tags` | The same for tags: `tags.disable("combat")` switches off everything that carries the tag, of every kind. |
 | `after(seconds, fn, options)`, `every(seconds, fn, options)` | Timers. Switched off, one lets its turns pass. |
@@ -122,6 +118,32 @@ after(5, function() saving:remove() end)
 | `session.separator(text)` | The text that separates commands typed on one line (`;` by default; doubled, it is typed literally). `session.separator(false)` turns splitting off, and `session.separator()` gives back `;`. |
 | `vars` | The variables, as a table: `vars.target = "orc"` keeps a value, `vars.target` reads it, `vars.target = nil` forgets it, and `for name, value in vars do` goes through them. They are those of the editor, kept with the session's profile. A table kept in one must be assigned whole to be kept: `local bag = vars.bag; bag.gold = 5; vars.bag = bag`. |
 | `expand(text)` | `text` with each `$name` replaced by that variable's value, `$name.key` by a field of a table and `$name.1` by an item of an array, as the commands of rules are. |
+
+### The line
+
+A trigger is given the line it matched, to do with it what it wants while it
+looks at it; kept for later, it can only be asked what it said.
+
+| | |
+|---|---|
+| `line.text` | What it says. |
+| `line.prompt` | Whether it is a prompt: marked so by the MUD, or left without an end. |
+| `line.spans` | The line as runs of text with `fg`, `bg`, `bold`, `italic`, `underline` and `inverse`. |
+| `line:hide()` | It is neither shown nor read. |
+| `line:mute()` | It is shown, and kept to be read back with the review keys, but not read aloud as it comes. |
+| `line:read(text)` | That is read in its place, as the line would be. |
+| `line:replace(text)` | Puts `text` in place of what matched, shown and, unless told otherwise, read. Returns whether it could: not over what another trigger replaced. |
+| `line:paint(fg, bg)` | Recolours what matched. A colour is a name (`"red"`, `"bright blue"`), `"#rrggbb"` or a palette number. |
+| `line:to_panel(name)` | Adds it to a panel, with its colours. |
+
+It is as good as its text: `echo(line)`, `"> " .. line`, `line:match("%d+")`.
+But it is not one: compare `line.text == "Done."`, for `line == "Done."` is never
+true.
+
+```lua
+-- A prompt that is not read, and what comes after it on its line is.
+trigger("^HP \\d+> (.*)$", function(m, line) line:read(m[1]) end)
+```
 
 The options table takes `place`, as `Folder/Name`, to switch it by;
 `tags`, a list of tags (or one alone) that switch it with everything else

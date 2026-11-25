@@ -295,7 +295,7 @@ fn line_costs() {
         app.scripts.on_line("start");
         let started = Instant::now();
         for line in &lines {
-            std::hint::black_box(app.scripts.on_styled_line(line));
+            std::hint::black_box(app.scripts.on_styled_line(line, false));
         }
         let triggers = started.elapsed();
         // The whole way, drawing included, as they arrive at once.

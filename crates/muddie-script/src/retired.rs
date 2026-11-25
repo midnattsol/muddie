@@ -39,6 +39,17 @@ const RETIRED: &[(&str, &str)] = &[
         "on_event",
         "on(event, function), as on(\"connect\", function)",
     ),
+    ("gag", "line:hide(), of the line the trigger is given"),
+    ("silence", "line:mute(), of the line the trigger is given"),
+    (
+        "highlight",
+        "line:paint(fg, bg), of the line the trigger is given",
+    ),
+    (
+        "to_panel",
+        "line:to_panel(name), of the line the trigger is given",
+    ),
+    ("line_spans", "line.spans, of the line the trigger is given"),
     ("remember", "vars.name = value"),
     ("recall", "vars.name"),
     ("remembered", "vars, as a table"),

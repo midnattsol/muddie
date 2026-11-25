@@ -4,13 +4,13 @@
 -- Keep tells in a tab of the channels' panel: read there, with the
 -- channel's name, rather than as the line came.
 trigger("^(?<who>\\w+) tells you: (?<what>.*)$", function(m, line)
-    highlight("bright yellow")
-    silence()
+    line:paint("bright yellow")
+    line:mute()
     channels.say("Tells", line)
 end)
 
 -- Hide a noisy line.
-trigger("^The wind howls", function() gag() end)
+trigger("^The wind howls", function(m, line) line:hide() end)
 
 -- "k orc" sends "kill orc".
 alias("^k (.+)$", function(m) send("kill " .. m[1]) end)
