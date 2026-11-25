@@ -28,25 +28,40 @@ pub(super) fn bar_width(room: f32, count: usize) -> f32 {
 
 /// Draws one gauge as its look says: a bar or a row of cells under its
 /// name and numbers, a number alone, a light that is on or off, or a few
-/// words.
-pub fn draw_gauge(ui: &mut Ui, name: &str, value: f64, max: f64, look: &GaugeLook, bar: f32) {
+/// words. Returns what tells it to a screen reader; nothing with nothing to
+/// draw.
+pub fn draw_gauge(
+    ui: &mut Ui,
+    name: &str,
+    value: f64,
+    max: f64,
+    look: &GaugeLook,
+    bar: f32,
+) -> Option<Id> {
     let shade = Shade::of(name, value, max, look);
     let heard = said_of(name, value, max, look);
     match look.kind {
-        GaugeKind::Light => draw_light(ui, name, value != 0.0, &shade, look, &heard),
+        GaugeKind::Light => Some(draw_light(ui, name, value != 0.0, &shade, look, &heard)),
         GaugeKind::Effects => draw_effects(ui, name, &look.items, &shade),
-        GaugeKind::Text => draw_words(ui, name, look.text.clone(), &shade, false, &heard),
+        GaugeKind::Text => Some(draw_words(
+            ui,
+            name,
+            look.text.clone(),
+            &shade,
+            false,
+            &heard,
+        )),
         GaugeKind::Number => {
             let said = if max > 0.0 {
                 format!("{} / {}", plain(value), plain(max))
             } else {
                 plain(value)
             };
-            draw_words(ui, name, said, &shade, true, &heard);
+            Some(draw_words(ui, name, said, &shade, true, &heard))
         }
         GaugeKind::Bar | GaugeKind::Cells => {
             let cells = look.kind == GaugeKind::Cells;
-            draw_bar(ui, name, value, max, &shade, cells, bar, &heard);
+            Some(draw_bar(ui, name, value, max, &shade, cells, bar, &heard))
         }
     }
 }
@@ -94,7 +109,14 @@ fn measure(ui: &Ui, text: &str, font: &eframe::egui::FontId) -> f32 {
 
 /// A light, on or off, with its name. Off, it is unlit, unless being off
 /// has a colour of its own: green for not poisoned, say.
-fn draw_light(ui: &mut Ui, name: &str, on: bool, shade: &Shade, look: &GaugeLook, heard: &str) {
+fn draw_light(
+    ui: &mut Ui,
+    name: &str,
+    on: bool,
+    shade: &Shade,
+    look: &GaugeLook,
+    heard: &str,
+) -> Id {
     let theme = theme::current();
     let small = theme::font(theme::Weight::Medium, 11.5);
     let width = 18.0 + measure(ui, name, &small);
@@ -132,6 +154,7 @@ fn draw_light(ui: &mut Ui, name: &str, on: bool, shade: &Shade, look: &GaugeLook
         small,
         text,
     );
+    response.id
 }
 
 /// What a gauge of effects says: its name and what is on, or that nothing
@@ -194,9 +217,14 @@ fn fit_effects(
 /// name on a tint of it, what it is shown on hovering it. As many as fit
 /// in the width of the panel; the rest under one more, "+3", that lists
 /// them. Nothing, while none is on.
-fn draw_effects(ui: &mut Ui, name: &str, items: &[muddie_script::Effect], shade: &Shade) {
+fn draw_effects(
+    ui: &mut Ui,
+    name: &str,
+    items: &[muddie_script::Effect],
+    shade: &Shade,
+) -> Option<Id> {
     if items.is_empty() {
-        return;
+        return None;
     }
     let theme = theme::current();
     let font = theme::font(theme::Weight::Medium, 12.0);
@@ -229,10 +257,10 @@ fn draw_effects(ui: &mut Ui, name: &str, items: &[muddie_script::Effect], shade:
         x += width + EFFECT_GAP;
     }
     let left = &items[shown..];
-    if left.is_empty() {
-        return;
+    if !left.is_empty() {
+        draw_more_effects(ui, &painter, name, left, (rect, x), (font, &theme));
     }
-    draw_more_effects(ui, &painter, name, left, (rect, x), (font, &theme));
+    Some(response.id)
 }
 
 /// The rest of the effects, under one more, "+3": listed with what each
@@ -285,7 +313,14 @@ fn draw_more_effects(
 
 /// Words or a number under the gauge's name; a number low enough to stand
 /// out in its colour.
-fn draw_words(ui: &mut Ui, name: &str, said: String, shade: &Shade, number: bool, heard: &str) {
+fn draw_words(
+    ui: &mut Ui,
+    name: &str,
+    said: String,
+    shade: &Shade,
+    number: bool,
+    heard: &str,
+) -> Id {
     let theme = theme::current();
     let (small, large) = (
         theme::font(theme::Weight::Medium, 11.5),
@@ -316,6 +351,7 @@ fn draw_words(ui: &mut Ui, name: &str, said: String, shade: &Shade, number: bool
         large,
         figures,
     );
+    response.id
 }
 
 /// A bar, or a row of cells, under the gauge's name and its numbers.
@@ -329,7 +365,7 @@ fn draw_bar(
     cells: bool,
     width: f32,
     heard: &str,
-) {
+) -> Id {
     let theme = theme::current();
     let small = theme::font(theme::Weight::Medium, 11.5);
     let numbers = format!("{} / {}", plain(value), plain(max));
@@ -365,6 +401,7 @@ fn draw_bar(
         );
         painter.rect_filled(filled, 4.5, shade.colour);
     }
+    response.id
 }
 
 /// Leaning cells along the bottom, like the ▰ of a terminal's status line:

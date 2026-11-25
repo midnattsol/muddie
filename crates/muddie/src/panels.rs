@@ -1,7 +1,7 @@
 //! The status strip of gauges and the helpers that feed the panels from
 //! GMCP.
 
-use eframe::egui::{Align2, Color32, Rect, Role, Sense, Ui, WidgetInfo, vec2};
+use eframe::egui::{Align2, Color32, Id, Rect, Role, Sense, Ui, WidgetInfo, vec2};
 use muddie_core::Line;
 use muddie_core::ansi::Assembler;
 use muddie_script::{Belongs, GaugeKind, GaugeLook};
@@ -298,7 +298,7 @@ impl Gauges {
                     .filter(|_| editable)
                     .map(|rect| ui.interact(rect, id, Sense::click()));
                 let drawn = ui.scope(|ui| {
-                    draw_gauge(ui, &gauge.name, gauge.value, gauge.max, &gauge.look, width);
+                    draw_gauge(ui, &gauge.name, gauge.value, gauge.max, &gauge.look, width)
                 });
                 if editable && last != Some(drawn.response.rect) {
                     ui.data_mut(|data| data.insert_temp(id, drawn.response.rect));
@@ -313,6 +313,10 @@ impl Gauges {
                 press.widget_info(|| WidgetInfo::labeled(Role::Button, true, &label));
                 let about = crate::i18n::trf("Press to edit {0}", &[&gauge.name]);
                 (ui.ctx()).accesskit_node_builder(press.id, |node| node.set_description(about));
+                // What presses it tells it: not its drawing too.
+                if let Some(told) = drawn.inner {
+                    (ui.ctx()).accesskit_node_builder(told, |node| node.set_hidden());
+                }
                 if press.hovered() {
                     ui.painter().rect_stroke(
                         drawn.response.rect.expand(4.0),

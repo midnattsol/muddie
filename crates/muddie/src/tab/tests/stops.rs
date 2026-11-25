@@ -111,6 +111,43 @@ fn what_is_only_for_the_pointer_is_not_told_to_a_screen_reader() {
     assert!(pointed(&harness) > 3);
 }
 
+/// A gauge to press is one thing to a screen reader: the button, with what
+/// the gauge says, and not its drawing too.
+#[test]
+fn a_gauge_to_edit_is_told_once() {
+    let mut harness = playing();
+    let app = harness.state_mut().tab_mut();
+    for (name, kind) in [
+        ("Bar", muddie_script::GaugeKind::Bar),
+        ("Number", muddie_script::GaugeKind::Number),
+        ("Light", muddie_script::GaugeKind::Light),
+    ] {
+        app.rules.gauges.push(crate::rules::Gauge {
+            name: name.into(),
+            kind,
+            value: "Told.value".into(),
+            max: "10".into(),
+            ..Default::default()
+        });
+    }
+    app.run_rules();
+    app.scripts.on_gmcp("Told", r#"{"value": 7}"#);
+    app.run_actions();
+    harness.run_steps(6);
+    for name in ["Bar", "Number", "Light"] {
+        let told: Vec<(Role, String)> = (harness.query_all(egui_kittest::kittest::by()))
+            .filter(|node| !node.accesskit_node().is_hidden())
+            .map(|node| {
+                let node = node.accesskit_node();
+                (node.role(), node.label().unwrap_or_default().to_string())
+            })
+            .filter(|(_, label)| label.starts_with(name))
+            .collect();
+        let roles: Vec<Role> = told.iter().map(|(role, _)| *role).collect();
+        assert_eq!(roles, [Role::Button], "{told:?}");
+    }
+}
+
 #[test]
 fn f6_says_which_panel_it_comes_to_and_tab_goes_on_into_it() {
     let mut harness = playing();
