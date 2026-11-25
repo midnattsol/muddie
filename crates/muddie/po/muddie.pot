@@ -69,14 +69,14 @@ msgstr ""
 msgid "Line"
 msgstr ""
 
-msgid "Editor height"
-msgstr ""
-
 #, python-brace-format
 msgid "{0} lines"
 msgstr ""
 
 msgid "Fits its contents"
+msgstr ""
+
+msgid "Editor height"
 msgstr ""
 
 msgid "Latest lines"
@@ -131,6 +131,9 @@ msgstr ""
 msgid "There is a profile called {0} already."
 msgstr ""
 
+msgid "Map"
+msgstr ""
+
 msgid "Where am I"
 msgstr ""
 
@@ -141,9 +144,6 @@ msgid "Stop going"
 msgstr ""
 
 msgid "Show all areas"
-msgstr ""
-
-msgid "Map"
 msgstr ""
 
 #, python-brace-format
@@ -2641,9 +2641,6 @@ msgstr ""
 msgid "Connection"
 msgstr ""
 
-msgid "Typing"
-msgstr ""
-
 msgid "Earlier and later commands"
 msgstr ""
 
@@ -2687,9 +2684,6 @@ msgid "Follow the link of the line read last"
 msgstr ""
 
 msgid "Explore the map with the keys"
-msgstr ""
-
-msgid "Exploring the map"
 msgstr ""
 
 msgid "Follow the exits"
@@ -2749,9 +2743,6 @@ msgstr ""
 msgid "Back to the command line"
 msgstr ""
 
-msgid "Sessions"
-msgstr ""
-
 msgid "Switch between the game and the editor"
 msgstr ""
 
@@ -2788,13 +2779,22 @@ msgstr ""
 msgid "Make the panels larger or smaller"
 msgstr ""
 
-msgid "Everywhere"
-msgstr ""
-
 msgid "Go to the next or previous control"
 msgstr ""
 
 msgid "Open the context menu of the focused item"
+msgstr ""
+
+msgid "Typing"
+msgstr ""
+
+msgid "Exploring the map"
+msgstr ""
+
+msgid "Sessions"
+msgstr ""
+
+msgid "Everywhere"
 msgstr ""
 
 #, python-brace-format
