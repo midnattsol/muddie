@@ -240,15 +240,9 @@ impl Tab {
                     true => self.voice.say_now(&text),
                     false => self.voice.say(&text),
                 },
-                Action::Gmcp { package, data } => {
-                    if let Some(connection) = &self.connection {
-                        let _ = connection.commands.send(Command::Gmcp { package, data });
-                    }
-                }
+                Action::Gmcp { package, data } => self.tell_server(Command::Gmcp { package, data }),
                 Action::Msdp { variable, values } => {
-                    if let Some(connection) = &self.connection {
-                        let _ = connection.commands.send(Command::Msdp { variable, values });
-                    }
+                    self.tell_server(Command::Msdp { variable, values })
                 }
                 Action::Gauge {
                     name,
@@ -261,10 +255,7 @@ impl Tab {
                     let look = (look != Default::default()).then_some(look);
                     self.set_gauge(&name, level, look, Some(&owner), belongs, panel);
                 }
-                Action::Unloaded(owner) => {
-                    self.gauges.drop_owned_by(&owner);
-                    self.sound.stop_where(|label| label.key == owner);
-                }
+                Action::Unloaded(owner) => self.drop_unloaded(&owner),
                 Action::Language(language) => self.declare_language(language),
                 Action::Walk(room) => self.walk_to(room),
                 Action::Entered(room) => {
@@ -275,12 +266,7 @@ impl Tab {
                     self.record_whereabouts();
                     self.lost_track()
                 }
-                Action::MoveFailed => {
-                    self.map.borrow_mut().moves_failed();
-                    if self.walk.take().is_some() {
-                        self.note(tr("Stopped: the server said the move failed."));
-                    }
-                }
+                Action::MoveFailed => self.stop_for_failed_move(),
                 // A script stops just in case: it is told nothing if there
                 // was no walk.
                 Action::StopWalk if self.walk.is_some() => self.stop_walking(),
@@ -291,17 +277,8 @@ impl Tab {
                 // The palette lists them: worked out again.
                 Action::MapActions => self.palette.cache = None,
                 Action::Panel { name, text } => self.show_in_panel(&name, text.as_deref()),
-                Action::PanelAdd { name, text } => {
-                    for line in panels::styled_lines(&text) {
-                        self.add_to_panel(&name, &line);
-                    }
-                }
-                Action::ToPanel(name) => {
-                    if let Some(line) = self.dispatched.take() {
-                        self.add_to_panel(&name, &line);
-                        self.dispatched = Some(line);
-                    }
-                }
+                Action::PanelAdd { name, text } => self.add_text_to_panel(&name, &text),
+                Action::ToPanel(name) => self.add_dispatched_to_panel(&name),
                 Action::Channel { name, text, panel } => {
                     self.channel_from_script(&name, text.as_deref(), &panel, &mut said);
                 }
@@ -312,26 +289,10 @@ impl Tab {
                     volume,
                     looped,
                     owner,
-                } => {
-                    let path = self.sound_file(&file);
-                    // Known by the script that asked, to stop with it.
-                    let label = muddie_sound::Label {
-                        key: owner,
-                        ..Default::default()
-                    };
-                    let times = (!looped).then_some(1);
-                    if let Err(error) = self.sound.play_as(&path, volume, times, label) {
-                        self.refuse(&trf("Could not play the sound: {0}", &[&error]));
-                    }
-                }
+                } => self.play_for_script(&file, volume, looped, owner),
                 Action::StopSounds => self.sound.stop_all(),
                 Action::Log(text) => crate::debug::show(&self.title(), "LOG", &text),
-                Action::Error(message) => {
-                    crate::debug::show(&self.title(), "SCRIPT", &message);
-                    self.script_errors.push(message.clone());
-                    let message = trf("Script error: {0}", &[&message]);
-                    message.lines().for_each(|line| self.refuse(line));
-                }
+                Action::Error(message) => self.script_failed(message),
             }
         }
         // A script loaded, unloaded or run may have changed what it asks
@@ -342,5 +303,66 @@ impl Tab {
                 self.run_actions();
             }
         }
+    }
+
+    /// Sends the server a command over the connection, if there is one.
+    fn tell_server(&self, command: Command) {
+        if let Some(connection) = &self.connection {
+            let _ = connection.commands.send(command);
+        }
+    }
+
+    /// What a script took with it when it was unloaded: its gauges and
+    /// its sounds.
+    fn drop_unloaded(&mut self, owner: &str) {
+        self.gauges.drop_owned_by(owner);
+        self.sound.stop_where(|label| label.key == owner);
+    }
+
+    /// Takes what a script said of a move that failed: the map is told, and
+    /// a walk under way stops.
+    fn stop_for_failed_move(&mut self) {
+        self.map.borrow_mut().moves_failed();
+        if self.walk.take().is_some() {
+            self.note(tr("Stopped: the server said the move failed."));
+        }
+    }
+
+    /// Adds the lines of a text, styled, to the end of a panel.
+    fn add_text_to_panel(&mut self, name: &str, text: &str) {
+        for line in panels::styled_lines(text) {
+            self.add_to_panel(name, &line);
+        }
+    }
+
+    /// Adds the line the triggers were last given to a panel, if there is
+    /// one.
+    fn add_dispatched_to_panel(&mut self, name: &str) {
+        if let Some(line) = self.dispatched.take() {
+            self.add_to_panel(name, &line);
+            self.dispatched = Some(line);
+        }
+    }
+
+    /// Plays a sound as a script asked.
+    fn play_for_script(&mut self, file: &str, volume: f32, looped: bool, owner: String) {
+        let path = self.sound_file(file);
+        // Known by the script that asked, to stop with it.
+        let label = muddie_sound::Label {
+            key: owner,
+            ..Default::default()
+        };
+        let times = (!looped).then_some(1);
+        if let Err(error) = self.sound.play_as(&path, volume, times, label) {
+            self.refuse(&trf("Could not play the sound: {0}", &[&error]));
+        }
+    }
+
+    /// Shows an error a script gave, and keeps it for the editor.
+    fn script_failed(&mut self, message: String) {
+        crate::debug::show(&self.title(), "SCRIPT", &message);
+        self.script_errors.push(message.clone());
+        let message = trf("Script error: {0}", &[&message]);
+        message.lines().for_each(|line| self.refuse(line));
     }
 }
