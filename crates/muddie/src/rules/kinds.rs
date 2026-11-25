@@ -340,7 +340,7 @@ pub struct Gauge {
     /// For a light, its colour while it is off; empty leaves it unlit.
     pub off_colour: String,
     /// The colour it takes under each percentage of its maximum.
-    #[serde(rename = "step")]
+    #[serde(alias = "step")]
     pub steps: Vec<Step>,
     /// How its changes are heard.
     #[serde(skip_serializing_if = "How::is_usual")]

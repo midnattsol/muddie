@@ -12,14 +12,15 @@ pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()>
 
 /// What a gauge is given, as a gauge of the rules is written, and its
 /// value.
-const GAUGE: [&str; 13] = [
+const GAUGE: [&str; 14] = [
     "value",
+    "on",
     "max",
     "kind",
     "colour",
     "off_colour",
     "text",
-    "step",
+    "steps",
     "items",
     "aloud",
     "always",
@@ -101,7 +102,7 @@ fn install_gauge_data(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()>
         lua.create_function(move |lua, ()| {
             let all = lua.create_table()?;
             for gauge in shared.borrow().gauges_on() {
-                all.set(gauge.name.as_str(), gauge.table(lua)?)?;
+                all.push(gauge.table(lua)?)?;
             }
             Ok(all)
         })?,
@@ -120,10 +121,9 @@ fn level_of(given: &Table, kind: GaugeKind) -> mlua::Result<(f64, f64)> {
             None => Err(needs("a text")),
         },
         GaugeKind::Effects => Ok((0.0, 0.0)),
-        GaugeKind::Light => match given.get::<Value>("value")? {
+        GaugeKind::Light => match given.get::<Value>("on")? {
             Value::Boolean(on) => Ok((f64::from(u8::from(on)), 1.0)),
-            Value::Nil => Err(needs("a value, whether it is on")),
-            _ => Ok((given.get("value")?, 1.0)),
+            _ => Err(needs("on, true or false")),
         },
         GaugeKind::Number => match given.get::<Option<f64>>("value")? {
             Some(value) => Ok((value, given.get::<Option<f64>>("max")?.unwrap_or_default())),
@@ -163,7 +163,7 @@ fn look_of(given: &Table) -> mlua::Result<GaugeLook> {
         aloud: aloud_of(Some(given), true)?,
         steps: Vec::new(),
     };
-    if let Some(steps) = given.get::<Option<Vec<Table>>>("step")? {
+    if let Some(steps) = given.get::<Option<Vec<Table>>>("steps")? {
         for step in steps {
             super::rules::only(Some(&step), &["under", "colour"])?;
             let colour = colour_of(step.get("colour")?)?;

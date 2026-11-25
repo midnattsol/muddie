@@ -38,7 +38,7 @@ fn what_a_gauge_is_can_be_asked_for() {
     let mut engine = having(
         r##"gauges.set("HP", {value = 40, max = 80})
         gauges.set("Gold", {kind = "number", value = 7})
-        gauges.set("Hungry", {kind = "light", value = true})
+        gauges.set("Hungry", {kind = "light", on = true})
         gauges.set("Mood", {kind = "text", text = "calm", place = "Me/Mood"})
         gauges.set("On you", {kind = "effects", items = {"Blessed", {name = "Poisoned", about = "ow", colour = "red"}}})
         function tell(g) return `{g.name} {g.kind} {g.value} {g.max} {g.percent} {g.on} {g.text} {g.place}` end"##,
@@ -64,14 +64,13 @@ fn what_a_gauge_is_can_be_asked_for() {
             echo(`{#i} {i[1].name} {i[1].about} {i[2].name} {i[2].about} {i[2].colour}`)
             echo(tostring(gauges.get("None")))
             local names = {}
-            for name, g in gauges.all() do table.insert(names, `{name}={g.kind}`) end
-            table.sort(names)
+            for _, g in gauges.all() do table.insert(names, `{g.name}={g.kind}`) end
             echo(table.concat(names, " "))"#
         ),
         [
             "2 Blessed nil Poisoned ow red",
             "nil",
-            "Gold=number HP=bar Hungry=light Mood=text On you=effects"
+            "HP=bar Gold=number Hungry=light Mood=text On you=effects"
         ]
     );
     // As it is set, at once; gone once removed; and off, as if not there.
@@ -80,9 +79,9 @@ fn what_a_gauge_is_can_be_asked_for() {
             &mut engine,
             r#"gauges.set("HP", {value = 20, max = 80}) echo(tell(gauges.get("HP")))
             gauges.remove("HP") echo(tostring(gauges.get("HP")))
-            gauges.disable("Me") echo(tostring(gauges.get("Mood"))) echo(tostring(gauges.all().Mood))"#
+            gauges.disable("Me") echo(tostring(gauges.get("Mood"))) echo(tostring(#gauges.all()))"#
         ),
-        ["HP bar 20 80 25 nil nil nil", "nil", "nil", "nil"]
+        ["HP bar 20 80 25 nil nil nil", "nil", "nil", "3"]
     );
 }
 

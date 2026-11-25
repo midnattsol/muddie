@@ -12,7 +12,7 @@ value = "Char.Status.pvs.min"
 max = "Char.Status.pvs.max"
 colour = "#5fb85f"
 kind = "bar"
-step = [{ under = 60, colour = "#e0c040" }, { under = 30, colour = "#e05050" }]
+steps = [{ under = 60, colour = "#e0c040" }, { under = 30, colour = "#e05050" }]
 aloud = "lowest"
 panel = "Puntos"
 
@@ -22,7 +22,7 @@ value = "Char.Status.pe.min"
 max = "Char.Status.pe.max"
 colour = "#5fb85f"
 kind = "bar"
-step = [{ under = 60, colour = "#e0c040" }, { under = 30, colour = "#e05050" }]
+steps = [{ under = 60, colour = "#e0c040" }, { under = 30, colour = "#e05050" }]
 aloud = "wait"
 panel = "Puntos"
 
@@ -32,6 +32,6 @@ value = "Char.Status.fe.min"
 max = "Char.Status.fe.max"
 colour = "#5fb85f"
 kind = "bar"
-step = [{ under = 60, colour = "#e0c040" }, { under = 30, colour = "#e05050" }]
+steps = [{ under = 60, colour = "#e0c040" }, { under = 30, colour = "#e05050" }]
 aloud = "wait"
 panel = "Puntos"

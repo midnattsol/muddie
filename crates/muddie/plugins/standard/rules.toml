@@ -9,7 +9,7 @@ value = "Char.Vitals.hp"
 max = "Char.Vitals.maxhp"
 colour = "#5fb85f"
 kind = "bar"
-step = [{ under = 60, colour = "#e0c040" }, { under = 30, colour = "#e05050" }]
+steps = [{ under = 60, colour = "#e0c040" }, { under = 30, colour = "#e05050" }]
 
 [[gauge]]
 name = "MP"
@@ -18,7 +18,7 @@ value = "Char.Vitals.mp"
 max = "Char.Vitals.maxmp"
 colour = "#5f8fd8"
 kind = "bar"
-step = [{ under = 60, colour = "#e0c040" }, { under = 30, colour = "#e05050" }]
+steps = [{ under = 60, colour = "#e0c040" }, { under = 30, colour = "#e05050" }]
 
 [[gauge]]
 name = "Mana"
@@ -27,7 +27,7 @@ value = "Char.Vitals.mana"
 max = "Char.Vitals.maxmana"
 colour = "#5f8fd8"
 kind = "bar"
-step = [{ under = 60, colour = "#e0c040" }, { under = 30, colour = "#e05050" }]
+steps = [{ under = 60, colour = "#e0c040" }, { under = 30, colour = "#e05050" }]
 
 [[gauge]]
 name = "SP"
@@ -36,7 +36,7 @@ value = "Char.Vitals.sp"
 max = "Char.Vitals.maxsp"
 colour = "#d8b85f"
 kind = "bar"
-step = [{ under = 60, colour = "#e0c040" }, { under = 30, colour = "#e05050" }]
+steps = [{ under = 60, colour = "#e0c040" }, { under = 30, colour = "#e05050" }]
 
 [[gauge]]
 name = "EP"
@@ -45,7 +45,7 @@ value = "Char.Vitals.ep"
 max = "Char.Vitals.maxep"
 colour = "#d8b85f"
 kind = "bar"
-step = [{ under = 60, colour = "#e0c040" }, { under = 30, colour = "#e05050" }]
+steps = [{ under = 60, colour = "#e0c040" }, { under = 30, colour = "#e05050" }]
 
 [[gauge]]
 name = "WP"
@@ -54,7 +54,7 @@ value = "Char.Vitals.wp"
 max = "Char.Vitals.maxwp"
 colour = "#b85fd8"
 kind = "bar"
-step = [{ under = 60, colour = "#e0c040" }, { under = 30, colour = "#e05050" }]
+steps = [{ under = 60, colour = "#e0c040" }, { under = 30, colour = "#e05050" }]
 
 [[gauge]]
 name = "MV"
@@ -63,7 +63,7 @@ value = "Char.Vitals.mv"
 max = "Char.Vitals.maxmv"
 colour = "#d8985f"
 kind = "bar"
-step = [{ under = 60, colour = "#e0c040" }, { under = 30, colour = "#e05050" }]
+steps = [{ under = 60, colour = "#e0c040" }, { under = 30, colour = "#e05050" }]
 
 [[gauge]]
 name = "Moves"
@@ -72,7 +72,7 @@ value = "Char.Vitals.moves"
 max = "Char.Vitals.maxmoves"
 colour = "#d8985f"
 kind = "bar"
-step = [{ under = 60, colour = "#e0c040" }, { under = 30, colour = "#e05050" }]
+steps = [{ under = 60, colour = "#e0c040" }, { under = 30, colour = "#e05050" }]
 
 [[gauge]]
 name = "HP"
@@ -81,7 +81,7 @@ value = "HEALTH"
 max = "HEALTH_MAX"
 colour = "#5fb85f"
 kind = "bar"
-step = [{ under = 60, colour = "#e0c040" }, { under = 30, colour = "#e05050" }]
+steps = [{ under = 60, colour = "#e0c040" }, { under = 30, colour = "#e05050" }]
 
 [[gauge]]
 name = "MP"
@@ -90,7 +90,7 @@ value = "MANA"
 max = "MANA_MAX"
 colour = "#5f8fd8"
 kind = "bar"
-step = [{ under = 60, colour = "#e0c040" }, { under = 30, colour = "#e05050" }]
+steps = [{ under = 60, colour = "#e0c040" }, { under = 30, colour = "#e05050" }]
 
 [[gauge]]
 name = "MV"
@@ -99,4 +99,4 @@ value = "MOVEMENT"
 max = "MOVEMENT_MAX"
 colour = "#d8985f"
 kind = "bar"
-step = [{ under = 60, colour = "#e0c040" }, { under = 30, colour = "#e05050" }]
+steps = [{ under = 60, colour = "#e0c040" }, { under = 30, colour = "#e05050" }]

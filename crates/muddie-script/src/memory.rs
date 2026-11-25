@@ -99,7 +99,7 @@ impl Engine {
     }
 
     /// Whether the map should be saved to a file, which it is unless a
-    /// script chose otherwise with `map.persist(false)`.
+    /// script chose otherwise with `map.persist = false`.
     pub fn persist_map(&self) -> bool {
         self.state.borrow().map_memory_only.is_none()
     }

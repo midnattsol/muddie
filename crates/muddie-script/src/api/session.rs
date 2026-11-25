@@ -4,12 +4,11 @@
 use super::*;
 
 /// What there is to ask of the session.
-const FIELDS: [&str; 4] = ["connected", "host", "profile", "reader"];
+const FIELDS: [&str; 5] = ["connected", "host", "profile", "reader", "separator"];
 
 pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
     let session = super::group(lua, "session")?;
     install_completions(lua, state, &session)?;
-    install_separator(lua, state, &session)?;
     let meta = lua.create_table()?;
     let shared = Rc::clone(state);
     meta.set(
@@ -24,21 +23,30 @@ pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()>
                     None => Value::Nil,
                 },
                 "reader" => Value::Boolean(state.screen_reader),
+                "separator" => match &state.separator {
+                    None => Value::String(lua.create_string(";")?),
+                    Some((_, None)) => Value::Boolean(false),
+                    Some((_, Some(text))) => Value::String(lua.create_string(text)?),
+                },
                 other => {
                     return Err(mlua::Error::runtime(format!(
-                        "there is no session.{other}; there are {}, completions, separator",
+                        "there is no session.{other}; there are {} and completions",
                         FIELDS.join(", ")
                     )));
                 }
             })
         })?,
     )?;
+    let shared = Rc::clone(state);
     meta.set(
         "__newindex",
-        lua.create_function(|_, (_, field): (Table, String)| -> mlua::Result<()> {
-            Err(mlua::Error::runtime(format!(
-                "session.{field} is asked for, not set"
-            )))
+        lua.create_function(move |_, (_, field, value): (Table, String, Value)| {
+            if field != "separator" {
+                return Err(mlua::Error::runtime(format!(
+                    "session.{field} is asked for, not set"
+                )));
+            }
+            set_separator(&shared, value)
         })?,
     )?;
     session.set_metatable(Some(meta))
@@ -69,26 +77,21 @@ fn install_completions(lua: &Lua, state: &Rc<RefCell<State>>, session: &Table) -
     )
 }
 
-/// What separates the commands typed on one line.
-fn install_separator(lua: &Lua, state: &Rc<RefCell<State>>, session: &Table) -> mlua::Result<()> {
-    let shared = Rc::clone(state);
-    session.set(
-        "separator",
-        // A text to split by; `false` for none; nothing for `;` again.
-        lua.create_function(move |_, separator: Value| {
-            let owner = shared.borrow().owner.clone();
-            shared.borrow_mut().separator = match separator {
-                Value::Nil => None,
-                Value::Boolean(false) => Some((owner, None)),
-                Value::String(text) => Some((owner, Some(text.to_str()?.to_owned()))),
-                other => {
-                    return Err(mlua::Error::runtime(format!(
-                        "separator takes a text, or false for none, not {}",
-                        other.type_name()
-                    )));
-                }
-            };
-            Ok(())
-        })?,
-    )
+/// Sets what separates the commands typed on one line: a text; `false`, for
+/// none; nothing, for `;` again.
+fn set_separator(state: &Rc<RefCell<State>>, separator: Value) -> mlua::Result<()> {
+    let state = &mut *state.borrow_mut();
+    let owner = state.owner.clone();
+    state.separator = match separator {
+        Value::Nil => None,
+        Value::Boolean(false) => Some((owner, None)),
+        Value::String(text) => Some((owner, Some(text.to_str()?.to_owned()))),
+        other => {
+            return Err(mlua::Error::runtime(format!(
+                "session.separator is a text, or false for none, not {}",
+                other.type_name()
+            )));
+        }
+    };
+    Ok(())
 }

@@ -1,8 +1,8 @@
 -- For a MUD that sends each area complete, here in an imaginary GMCP
 -- package "Area.Map". Nothing is saved: the server is the source of truth.
 
-map.native(false)
-map.persist(false)
+map.native = false
+map.persist = false
 
 on("gmcp", "Area.Map", function(area)
     map.clear()

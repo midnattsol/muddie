@@ -11,7 +11,7 @@ fn places_are_found_in_the_palette_and_a_walk_stops_with_escape() {
     let app = harness.state_mut().tab_mut();
     let (_events, mut sent) = fake_connection(app);
     desert(app);
-    app.scripts.exec("t", r#"map.names({exits = "[]"}) map.directions({n = {"norte"}, s = {"sur"}, e = {"este"}, w = {"oeste"}})"#);
+    app.scripts.exec("t", r#"map.names = {exits = "[]"} map.directions = {n = {"norte"}, s = {"sur"}, e = {"este"}, w = {"oeste"}}"#);
     assert!(app.map.borrow_mut().set_current(4));
     app.map.borrow_mut().mark("casa", 1).unwrap();
     app.toggle_palette();
@@ -76,7 +76,7 @@ fn a_room_is_chosen_on_the_map_to_see_it_and_moved_with_the_keys() {
     desert(app);
     app.scripts.exec(
         "t",
-        r#"map.directions({e = {"este"}, w = {"oeste"}, n = {"norte"}, s = {"sur"}}) map.names({exits = "[]"})"#,
+        r#"map.directions = {e = {"este"}, w = {"oeste"}, n = {"norte"}, s = {"sur"}} map.names = {exits = "[]"}"#,
     );
     app.run_actions();
     assert!(app.map.borrow_mut().set_current(1));
@@ -127,7 +127,7 @@ fn the_map_is_explored_with_the_keys_alone() {
     desert(app);
     app.scripts.exec(
         "t",
-        r#"map.directions({e = {"este"}, w = {"oeste"}, n = {"norte"}, s = {"sur"}}) map.names({exits = "[]"})"#,
+        r#"map.directions = {e = {"este"}, w = {"oeste"}, n = {"norte"}, s = {"sur"}} map.names = {exits = "[]"}"#,
     );
     app.run_actions();
     assert!(app.map.borrow_mut().set_current(1));
@@ -224,7 +224,7 @@ fn the_map_explored_is_searched_named_noted_and_gone_back_along() {
     desert(app);
     app.scripts.exec(
         "t",
-        r#"map.directions({e = {"este"}, w = {"oeste"}, n = {"norte"}, s = {"sur"}}) map.names({exits = "[]"}) macro("numpad6", "este") macro("numpadhome", "noroeste")"#,
+        r#"map.directions = {e = {"este"}, w = {"oeste"}, n = {"norte"}, s = {"sur"}} map.names = {exits = "[]"} macro("numpad6", "este") macro("numpadhome", "noroeste")"#,
     );
     app.run_actions();
     assert!(app.map.borrow_mut().set_current(1));

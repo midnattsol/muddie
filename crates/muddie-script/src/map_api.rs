@@ -4,10 +4,13 @@ use super::*;
 
 use keeping::{install_actions, install_keeping, install_routes};
 use rooms::{install_changing, install_exits, install_finding};
+pub(crate) use settings::MapSettings;
+use settings::install_settings;
 use visiting::install_visiting;
 
 mod keeping;
 mod rooms;
+mod settings;
 mod visiting;
 
 /// Reads a room id argument: a number, or text (see [`room_id`]).
@@ -133,10 +136,11 @@ pub(super) fn install_map_api(
     install_visiting(lua, state, map, &api)?;
     install_finding(lua, map, &api)?;
     install_changing(lua, map, &api)?;
-    install_keeping(lua, state, map, &api)?;
+    install_keeping(lua, map, &api)?;
     install_routes(lua, state, map, &api)?;
     install_exits(lua, map, &api)?;
     install_actions(lua, state, map, &api)?;
+    install_settings(lua, state, map, &api)?;
     lua.globals().set("map", api)
 }
 

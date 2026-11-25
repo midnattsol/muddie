@@ -113,7 +113,7 @@ fn the_map_is_said_in_words() {
     desert(app);
     app.scripts.exec(
         "t",
-        r#"map.directions({n = {"norte"}, s = {"sur"}, e = {"este"}, w = {"oeste", "o"}})"#,
+        r#"map.directions = {n = {"norte"}, s = {"sur"}, e = {"este"}, w = {"oeste", "o"}}"#,
     );
     let said = answer;
     let unknown = said(app, "/map exits");
@@ -243,7 +243,7 @@ fn the_game_is_played_in_the_language_its_profile_plugin_or_mud_says() {
     assert_eq!(spoken(app), ("nw".to_owned(), "noroeste".to_owned()));
     // The profile's choice comes before the MUD's, and the plugin's.
     app.language.chosen = "en".into();
-    app.scripts.exec("plugin", r#"map.language("es")"#);
+    app.scripts.exec("plugin", r#"map.language = "es""#);
     app.run_actions();
     assert_eq!(spoken(app).1, "nw");
     // Automatic, the plugin's is taken over the MUD's.

@@ -3,39 +3,7 @@
 use super::*;
 
 /// Whether the client keeps the map itself, and in a file.
-pub(super) fn install_keeping(
-    lua: &Lua,
-    state: &Rc<RefCell<State>>,
-    map: &Rc<RefCell<Map>>,
-    api: &Table,
-) -> mlua::Result<()> {
-    let shared = Rc::clone(state);
-    api.set(
-        "native",
-        // Given, whether the built-in loader is on; asked, whether it is.
-        lua.create_function(move |_, enabled: Option<bool>| {
-            let mut state = shared.borrow_mut();
-            if let Some(enabled) = enabled {
-                state.map_native_off = (!enabled).then(|| state.owner.clone());
-            }
-            Ok(state.map_native_off.is_none())
-        })?,
-    )?;
-
-    let (shared, world) = (Rc::clone(state), Rc::clone(map));
-    api.set(
-        "persist",
-        lua.create_function(move |_, enabled: bool| {
-            let mut state = shared.borrow_mut();
-            state.map_memory_only = (!enabled).then(|| state.owner.clone());
-            drop(state);
-            if !enabled {
-                world.borrow_mut().stop_storing();
-            }
-            Ok(())
-        })?,
-    )?;
-
+pub(super) fn install_keeping(lua: &Lua, map: &Rc<RefCell<Map>>, api: &Table) -> mlua::Result<()> {
     let world = Rc::clone(map);
     api.set(
         "clear",

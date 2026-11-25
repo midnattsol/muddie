@@ -64,7 +64,7 @@ pub use switches::{Belongs, Kind, Switches, places_up, tag_key};
 const TIME_BUDGET: Duration = Duration::from_millis(500);
 const MEMORY_LIMIT: usize = 256 << 20;
 /// The global tables whose fields are asked for as they are now.
-const CHANGING: [&str; 2] = ["vars", "session"];
+const CHANGING: [&str; 3] = ["vars", "session", "map"];
 const MIN_TIMER_INTERVAL: Duration = Duration::from_millis(10);
 
 pub struct Engine {
@@ -223,10 +223,20 @@ impl Engine {
         for (what, _) in undone {
             let mut map = self.map.borrow_mut();
             match what {
-                crate::state::Set::Learning => map.set_learning(false),
-                crate::state::Set::Directions => map.forget_taught_directions(),
-                crate::state::Set::Naming => map.set_naming(Default::default()),
+                crate::state::Set::Learning => {
+                    state.map_settings.learn = false;
+                    map.set_learning(false);
+                }
+                crate::state::Set::Directions => {
+                    state.map_settings.directions.clear();
+                    map.forget_taught_directions();
+                }
+                crate::state::Set::Naming => {
+                    state.map_settings.names = Naming::default();
+                    map.set_naming(Naming::default());
+                }
                 crate::state::Set::Language => {
+                    state.map_settings.language = None;
                     state.actions.push(Action::Language(String::new()));
                 }
                 crate::state::Set::Panel(name) => {

@@ -135,8 +135,8 @@ fn a_gauge_takes_what_its_kind_has() {
     };
     assert_eq!(level("value = 3, max = 4"), Some((3.0, 4.0)));
     assert_eq!(level("kind = 'number', value = 3"), Some((3.0, 0.0)));
-    assert_eq!(level("kind = 'light', value = true"), Some((1.0, 1.0)));
-    assert_eq!(level("kind = 'light', value = 0"), Some((0.0, 1.0)));
+    assert_eq!(level("kind = 'light', on = true"), Some((1.0, 1.0)));
+    assert_eq!(level("kind = 'light', on = false"), Some((0.0, 1.0)));
     assert_eq!(level("kind = 'text', text = 'hi'"), Some((0.0, 0.0)));
     assert_eq!(level("kind = 'effects', items = {'a'}"), Some((0.0, 0.0)));
 }

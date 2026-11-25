@@ -8,7 +8,7 @@ msdp.report("HEALTH", "HEALTH_MAX", "MANA", "MANA_MAX", "MOVEMENT", "MOVEMENT_MA
 -- The room the player is in, unless a script of the profile draws the map
 -- its own way.
 local function arrived(room)
-    if map.native() and type(room) == "table" then
+    if map.native and type(room) == "table" then
         map.visit(room)
     end
 end

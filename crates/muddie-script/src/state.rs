@@ -235,9 +235,11 @@ pub(super) struct State {
     /// What scripts are told of the session.
     pub(crate) session: Session,
     pub(crate) actions: Vec<Action>,
-    /// Set by `map.native(false)`, with the script that did.
+    /// What scripts set of the map.
+    pub(crate) map_settings: MapSettings,
+    /// Set by `map.native = false`, with the script that did.
     pub(crate) map_native_off: Option<String>,
-    /// Set by `map.persist(false)`, with the script that did.
+    /// Set by `map.persist = false`, with the script that did.
     pub(crate) map_memory_only: Option<String>,
     /// What scripts set that is the map's or the session's, each by what it
     /// is and the script that set it last: to be undone when that script
@@ -281,7 +283,7 @@ pub(super) struct State {
     /// The scripts there are, as the frontend tells: to list them and
     /// their tags, as it is the frontend that runs them.
     pub(crate) scripts: Vec<Belongs>,
-    /// Set by `session.separator()`, with the script that did: `None` in it turns
+    /// Set by `session.separator`, with the script that did: `None` in it turns
     /// command splitting off; none set is the usual `;`.
     pub(crate) separator: Option<(String, Option<String>)>,
     /// Folders `require` looks in: those scripts were loaded from.

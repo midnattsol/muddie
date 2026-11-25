@@ -3,7 +3,7 @@
 -- only shows it, in the panel beside the output, and tells the MUD how
 -- much room there is so the drawing fits.
 
-map.native(false)
+map.native = false
 gmcp.support("Map.Render 1")
 
 -- The size in characters of the map's panel, whenever it changes.

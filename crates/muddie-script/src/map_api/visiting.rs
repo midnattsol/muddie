@@ -11,7 +11,7 @@ pub(super) fn install_visiting(
 ) -> mlua::Result<()> {
     install_entering(lua, state, map, api)?;
     install_following(lua, state, map, api)?;
-    install_teaching(lua, state, map, api)
+    install_setting_rooms(lua, map, api)
 }
 
 /// Entering a room: visited, arrived at as the server shows it, or added.
@@ -94,27 +94,6 @@ fn install_following(
     map: &Rc<RefCell<Map>>,
     api: &Table,
 ) -> mlua::Result<()> {
-    let shared = Rc::clone(state);
-    api.set(
-        "language",
-        lua.create_function(move |_, language: String| {
-            let mut state = shared.borrow_mut();
-            state.set(crate::state::Set::Language);
-            state.actions.push(Action::Language(language));
-            Ok(())
-        })?,
-    )?;
-
-    let (shared, world) = (Rc::clone(state), Rc::clone(map));
-    api.set(
-        "learn",
-        lua.create_function(move |_, on: bool| {
-            shared.borrow_mut().set(crate::state::Set::Learning);
-            world.borrow_mut().set_learning(on);
-            Ok(())
-        })?,
-    )?;
-
     let world = Rc::clone(map);
     api.set(
         "candidates",
@@ -137,67 +116,7 @@ fn install_following(
 }
 
 /// Teaching the map the words of the MUD, and setting a room.
-fn install_teaching(
-    lua: &Lua,
-    state: &Rc<RefCell<State>>,
-    map: &Rc<RefCell<Map>>,
-    api: &Table,
-) -> mlua::Result<()> {
-    let (shared, world) = (Rc::clone(state), Rc::clone(map));
-    api.set(
-        "directions",
-        lua.create_function(move |_, words: Table| {
-            shared.borrow_mut().set(crate::state::Set::Directions);
-            let mut taught = Vec::new();
-            for pair in words.pairs::<String, Value>() {
-                let (direction, said) = pair?;
-                let said: Vec<String> = match said {
-                    Value::String(word) => vec![word.to_str()?.to_owned()],
-                    Value::Table(list) => list.sequence_values().collect::<mlua::Result<_>>()?,
-                    other => {
-                        return Err(mlua::Error::runtime(format!(
-                            "the words for {direction} must be a string or a list, not {}",
-                            other.type_name()
-                        )));
-                    }
-                };
-                taught.push((direction, said));
-            }
-            world.borrow_mut().teach_directions(&taught);
-            Ok(())
-        })?,
-    )?;
-
-    let (shared, world) = (Rc::clone(state), Rc::clone(map));
-    api.set(
-        "names",
-        lua.create_function(move |_, ways: Option<Table>| {
-            only(ways.as_ref(), &["region", "exits"])?;
-            shared.borrow_mut().set(crate::state::Set::Naming);
-            let naming = match ways {
-                None => Naming::default(),
-                Some(ways) => {
-                    let exits: Option<String> = ways.get("exits")?;
-                    let exits_between = match exits.as_deref().map(|pair| pair.chars().collect::<Vec<_>>()) {
-                        None => None,
-                        Some(pair) if pair.len() == 2 => Some((pair[0].to_string(), pair[1].to_string())),
-                        Some(_) => {
-                            return Err(mlua::Error::runtime(
-                                "exits must be the two characters the exits are written between, such as \"[]\"",
-                            ));
-                        }
-                    };
-                    Naming {
-                        region_before: ways.get("region")?,
-                        exits_between,
-                    }
-                }
-            };
-            world.borrow_mut().set_naming(naming);
-            Ok(())
-        })?,
-    )?;
-
+fn install_setting_rooms(lua: &Lua, map: &Rc<RefCell<Map>>, api: &Table) -> mlua::Result<()> {
     let world = Rc::clone(map);
     api.set(
         "set_room",

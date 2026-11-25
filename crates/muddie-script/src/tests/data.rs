@@ -246,12 +246,12 @@ fn what_a_script_sets_for_all_goes_with_it() {
     engine.exec_owned(
         "one",
         "one",
-        r#"gmcp.merge("Char.Status") session.separator(false) map.native(false)"#,
+        r#"gmcp.merge("Char.Status") session.separator = false map.native = false"#,
     );
     engine.on_input("say a; b");
     assert_eq!(engine.take_actions(), [Action::Send("say a; b".into())]);
     let native = |engine: &mut Engine| {
-        engine.exec("ask", r#"send(tostring(map.native()))"#);
+        engine.exec("ask", r#"send(tostring(map.native))"#);
         engine.take_actions()
     };
     assert_eq!(native(&mut engine), [Action::Send("false".into())]);
@@ -416,8 +416,8 @@ fn what_a_script_set_of_the_map_and_the_session_goes_with_it() {
     engine.exec_owned(
         "one",
         "one",
-        r#"map.persist(false) map.language("es") panels.set("Mapa", "x") channels.open("ooc")
-        map.names({region = true}) map.directions({n = {"norte"}})"#,
+        r#"map.persist = false map.language = "es" panels.set("Mapa", "x") channels.open("ooc")
+        map.names = {region = true} map.directions = {n = {"norte"}}"#,
     );
     assert!(!engine.persist_map());
     engine.take_actions();

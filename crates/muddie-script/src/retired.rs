@@ -29,7 +29,7 @@ const RETIRED: &[(&str, &str)] = &[
     ("stop_sounds", "sounds.stop()"),
     ("screen_reader", "session.reader"),
     ("completions", "session.completions(name, words)"),
-    ("separator", "session.separator(text)"),
+    ("separator", "session.separator = text"),
     ("bind", "macro(key, action, options)"),
     ("cancel", "what was returned as it was made: made:remove()"),
     ("on_gmcp", "on(\"gmcp\", package, function)"),
@@ -70,7 +70,11 @@ const RETIRED: &[(&str, &str)] = &[
 
 /// What to use instead of an option that is gone.
 pub(crate) fn option(name: &str) -> Option<&'static str> {
-    (name == "interrupt").then_some("aloud = \"cut\"")
+    match name {
+        "interrupt" => Some("aloud = \"cut\""),
+        "step" => Some("steps"),
+        _ => None,
+    }
 }
 
 /// Puts each retired name in place, as a function that fails saying what
@@ -83,7 +87,7 @@ pub(crate) fn install_retired(lua: &Lua) -> mlua::Result<()> {
             Err(mlua::Error::runtime(said.clone()))
         })?;
         match old.strip_prefix("map.") {
-            Some(name) => map.set(name, gone)?,
+            Some(name) => map.raw_set(name, gone)?,
             None => lua.globals().set(*old, gone)?,
         }
     }

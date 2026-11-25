@@ -206,12 +206,12 @@ end)
 
 -- How its rooms are named: the region first, as in "Anduar: Plaza Mayor",
 -- and some with their exits after, as in "Desierto de Sharframna [n,s]".
-map.names({ region = ":", exits = "[]" })
+map.names = { region = ":", exits = "[]" }
 
 -- It is played in Spanish: its words for directions are those of the
 -- language, long and short, "norte" and "n" to "fuera" and "fu". One of its
 -- own would go after it, with map.directions.
-map.language("es")
+map.language = "es"
 
 -- Following the player. The MUD tells three things, each used for what it
 -- is good for:
@@ -252,11 +252,11 @@ end
 local LEARNING = "reinos_learning"
 local LEARNING_ACTION = { en = "Keep the map up to date as you go", es = "Mantener el mapa al día sobre la marcha" }
 local learning = vars[LEARNING] ~= false
-map.learn(learning)
+map.learn = learning
 map.action(LEARNING_ACTION, function(on)
     learning = on
     vars[LEARNING] = on
-    map.learn(on)
+    map.learn = on
 end, { checked = learning })
 
 -- Whether every exit written is a direction: else the line was something

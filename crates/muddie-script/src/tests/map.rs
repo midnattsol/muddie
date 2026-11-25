@@ -7,7 +7,7 @@ fn script_can_load_the_map_from_text() {
     // A MUD with no GMCP: the room is read from its title and exits
     // lines, and identified by the title since there is no number.
     let mut engine = engine(
-        r#"map.native(false)
+        r#"map.native = false
         local title
         trigger("^\\[ (.+) \\]$", function(m) title = m[1] end)
         trigger("^Exits: (.+)$", function(m)
@@ -16,7 +16,7 @@ fn script_can_load_the_map_from_text() {
             map.visit({id = title, name = title, area = "town", exits = exits})
         end)"#,
     );
-    engine.exec("ask", "send(tostring(map.native()))");
+    engine.exec("ask", "send(tostring(map.native))");
     assert_eq!(engine.take_actions(), [Action::Send("false".into())]);
     for line in [
         "[ Gate ]",
@@ -60,8 +60,8 @@ fn script_can_take_the_whole_map_from_the_server() {
     // The server sends each area complete: nothing is saved, and the
     // previous area is dropped when a new one arrives.
     let mut engine = engine(
-        r#"map.native(false)
-        map.persist(false)
+        r#"map.native = false
+        map.persist = false
         on("gmcp", "Area.Map", function(area)
             map.clear()
             for _, room in area.rooms do
@@ -102,7 +102,7 @@ fn script_can_edit_and_query_the_map() {
         map.set_room({id = 2, name = "Square", x = 5, y = 5, exits = {south = 1}})
         map.set_room({id = 3, name = "Old Square"})"#,
     );
-    engine.exec("ask", "send(tostring(map.native()))");
+    engine.exec("ask", "send(tostring(map.native))");
     assert_eq!(engine.take_actions(), [Action::Send("true".into())]);
     engine.exec(
         "test",
@@ -184,7 +184,7 @@ fn script_can_follow_a_server_that_shows_rooms_by_name_only() {
     // A server in Spanish shows each room's name and exits, and the move
     // made: two rooms alike, told apart by where the player goes.
     let mut engine = engine(
-        r#"map.directions({n = {"norte", "n"}, s = {"sur", "s"}, e = {"este", "e"}, w = {"oeste", "o"}})
+        r#"map.directions = {n = {"norte", "n"}, s = {"sur", "s"}, e = {"este", "e"}, w = {"oeste", "o"}}
         for _, room in {{1, "Dune", {e = 2}}, {2, "Dune", {o = 1, norte = 3}}, {3, "Oasis", {sur = 2}}} do
             map.set_room({id = room[1], name = room[2], area = "desert", exits = room[3]})
         end
@@ -335,7 +335,7 @@ fn script_offers_to_do_things_with_the_map_and_is_told_when_its_map_changed() {
 #[test]
 fn script_adds_the_room_the_map_has_not_where_the_player_went() {
     let mut engine = engine(
-        r#"map.directions({n = {"norte", "n"}, s = {"sur", "s"}})
+        r#"map.directions = {n = {"norte", "n"}, s = {"sur", "s"}}
         map.set_room({id = 1, name = "Gate", area = "town", exits = {}})
         local function tell(id, how) echo(tostring(id) .. " " .. how) end
         on("gmcp", "Room.Nueva", function(seen) tell(map.add(seen)) end)"#,
@@ -441,4 +441,75 @@ fn a_room_is_given_by_its_mark_or_name_wherever_one_is_taken() {
             Action::Echo("true dry true nil".into()),
         ]
     );
+}
+
+/// What is set of the map and the session is set as fields, read back as it
+/// is, put back with nil and gone with its script.
+#[test]
+fn what_is_set_of_the_map_is_set_as_fields() {
+    let mut engine = engine("");
+    let ask = |engine: &mut Engine| {
+        engine.exec(
+            "ask",
+            r#"send(`{map.native} {map.persist} {map.learn} {map.language} {map.names.region}{map.names.exits} {map.directions.n and map.directions.n[1]} {session.separator}`)"#,
+        );
+        let actions = engine.take_actions();
+        let sent = actions.into_iter().find_map(|action| match action {
+            Action::Send(text) => Some(text),
+            Action::Error(error) => Some(error),
+            _ => None,
+        });
+        sent.unwrap()
+    };
+    let unset = "true true false nil nilnil nil ;";
+    assert_eq!(ask(&mut engine), unset);
+    let set = r#"map.native = false map.persist = false map.learn = true map.language = "es"
+        map.names = {region = ":", exits = "[]"} map.directions = {n = "norte"} session.separator = "|""#;
+    let as_set = "false false true es :[] norte |";
+    engine.exec("one", set);
+    assert_eq!(ask(&mut engine), as_set);
+    engine.unload("one");
+    assert_eq!(ask(&mut engine), unset);
+    engine.exec("one", set);
+    engine.exec(
+        "one",
+        r#"map.native = nil map.persist = nil map.learn = nil map.language = nil
+        map.names = nil map.directions = nil session.separator = nil"#,
+    );
+    assert_eq!(ask(&mut engine), unset);
+    // Words for directions take the place of those there were.
+    engine.exec(
+        "one",
+        r#"map.directions = {n = "norte"} map.directions = {s = "sur"}"#,
+    );
+    assert_eq!(engine.map().borrow().command_for("n"), "n");
+    for (code, said) in [
+        ("map.learn(true)", "a setting is set, as map.learn = true"),
+        (
+            r#"session.separator("|")"#,
+            "a setting is set, as map.learn = true",
+        ),
+        (
+            "map.lern = true",
+            "there is no map.lern to set; there are native",
+        ),
+        ("local x = map.lern", "there is no map.lern"),
+        ("map.learn = 1", "map.learn is true or false"),
+        ("map.names = 1", "map.names is a table"),
+        ("map.language = {}", "map.language is a text"),
+        ("session.host = 'x'", "session.host is asked for, not set"),
+        (
+            r#"gauges.set("L", {kind = "light", value = 1})"#,
+            "needs on, true or false",
+        ),
+        (
+            r#"gauges.set("L", {value = 1, max = 2, step = {}})"#,
+            "there is no option step any more: use steps",
+        ),
+    ] {
+        engine.take_actions();
+        engine.exec("t", code);
+        let actions = engine.take_actions();
+        assert!(error_text(&actions).contains(said), "{code}: {actions:?}");
+    }
 }

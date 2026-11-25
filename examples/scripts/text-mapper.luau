@@ -5,7 +5,7 @@
 --   [ Market Square ]
 --   Exits: north=Gate east=Alley
 
-map.native(false)
+map.native = false
 
 local title
 trigger("^\\[ (.+) \\]$", function(m) title = m[1] end)

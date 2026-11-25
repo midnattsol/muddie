@@ -83,14 +83,14 @@ fn several_commands_on_one_line_each_go_through_aliases() {
     );
     engine.on_input("");
     assert_eq!(engine.take_actions(), [send("")]);
-    engine.exec("lua", "session.separator('|')");
+    engine.exec("lua", "session.separator = '|'");
     engine.on_input("n|s;e");
     assert_eq!(engine.take_actions(), [send("n"), send("s;e")]);
-    engine.exec("lua", "session.separator(false)");
+    engine.exec("lua", "session.separator = false");
     engine.on_input("n|s;e");
     assert_eq!(engine.take_actions(), [send("n|s;e")]);
     // Given back, the usual `;`.
-    engine.exec("lua", "session.separator()");
+    engine.exec("lua", "session.separator = nil");
     engine.on_input("n|s;e");
     assert_eq!(engine.take_actions(), [send("n|s"), send("e")]);
 }
@@ -427,7 +427,7 @@ fn what_is_not_understood_is_said() {
         (r#"notify({})"#, "no text in any language"),
         (r#"map.find("x", {exacto = true})"#, "no option exacto"),
         (r#"map.arrive({nombre = "x"})"#, "no option nombre"),
-        (r#"map.names({regions = ":"})"#, "no option regions"),
+        (r#"map.names = {regions = ":"}"#, "no option regions"),
         (r#"map.edit_room(1, {nombre = "x"})"#, "no option nombre"),
         (
             r#"map.set_exit(1, "n", 2, {block = true})"#,
@@ -447,7 +447,7 @@ fn what_is_not_understood_is_said() {
             "there is no colour nope",
         ),
         (
-            r#"gauges.set("G", {value = 1, max = 2, step = {{under = 3, color = "red"}}})"#,
+            r#"gauges.set("G", {value = 1, max = 2, steps = {{under = 3, color = "red"}}})"#,
             "no option color",
         ),
     ] {

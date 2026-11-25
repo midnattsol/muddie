@@ -184,7 +184,7 @@ impl Gauge {
                 format!(
                     "\tlocal said = raw({value})\n\
                      \tif said ~= nil then\n\
-                     \t\tgauges.set({name}, {{value = lit(said), {look}}})\n\
+                     \t\tgauges.set({name}, {{on = lit(said), {look}}})\n\
                      \tend\n"
                 )
             }
@@ -254,7 +254,7 @@ impl Gauge {
             })
             .collect();
         format!(
-            "kind = {}, colour = {}, off_colour = {}, step = {{{}}}, aloud = {}, always = {}",
+            "kind = {}, colour = {}, off_colour = {}, steps = {{{}}}, aloud = {}, always = {}",
             quoted(self.kind.key()),
             quoted(self.colour.trim()),
             quoted(self.off_colour.trim()),
