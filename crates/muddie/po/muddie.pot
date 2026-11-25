@@ -1107,60 +1107,6 @@ msgstr ""
 msgid "Show {0}"
 msgstr ""
 
-msgid "Exits of this room"
-msgstr ""
-
-msgid "What is near"
-msgstr ""
-
-msgid "Go to…"
-msgstr ""
-
-msgid "Go to"
-msgstr ""
-
-msgid "The way to…"
-msgstr ""
-
-msgid "The way to"
-msgstr ""
-
-msgid "Find rooms…"
-msgstr ""
-
-msgid "Find rooms with"
-msgstr ""
-
-msgid "What the map knows of…"
-msgstr ""
-
-msgid "What the map knows of"
-msgstr ""
-
-msgid "Areas of the map"
-msgstr ""
-
-msgid "Check the map"
-msgstr ""
-
-msgid "Remove a room…"
-msgstr ""
-
-msgid "Remove the room"
-msgstr ""
-
-msgid "Import a Mudlet map…"
-msgstr ""
-
-msgid "Import the Mudlet map at"
-msgstr ""
-
-msgid "I am in…"
-msgstr ""
-
-msgid "The room you are in"
-msgstr ""
-
 msgid "Show an area…"
 msgstr ""
 
@@ -1168,40 +1114,6 @@ msgid "Which room am I in"
 msgstr ""
 
 msgid "Map appearance…"
-msgstr ""
-
-#, python-brace-format
-msgid "Mark {0}…"
-msgstr ""
-
-#, python-brace-format
-msgid "Mark for {0}"
-msgstr ""
-
-#, python-brace-format
-msgid "Note on {0}…"
-msgstr ""
-
-#, python-brace-format
-msgid "Note on {0}"
-msgstr ""
-
-#, python-brace-format
-msgid "Take the note off {0}"
-msgstr ""
-
-#, python-brace-format
-msgid "Appearance of {0}…"
-msgstr ""
-
-#, python-brace-format
-msgid "Keep routes off {0}"
-msgstr ""
-
-msgid "Keep routes off an exit…"
-msgstr ""
-
-msgid "Keep routes off the exit"
 msgstr ""
 
 msgid "Forget a mark…"
@@ -1278,6 +1190,94 @@ msgstr ""
 
 #, python-brace-format
 msgid "{0} (off)"
+msgstr ""
+
+msgid "Exits of this room"
+msgstr ""
+
+msgid "What is near"
+msgstr ""
+
+msgid "Go to…"
+msgstr ""
+
+msgid "Go to"
+msgstr ""
+
+msgid "The way to…"
+msgstr ""
+
+msgid "The way to"
+msgstr ""
+
+msgid "Find rooms…"
+msgstr ""
+
+msgid "Find rooms with"
+msgstr ""
+
+msgid "What the map knows of…"
+msgstr ""
+
+msgid "What the map knows of"
+msgstr ""
+
+msgid "Areas of the map"
+msgstr ""
+
+msgid "Check the map"
+msgstr ""
+
+msgid "Remove a room…"
+msgstr ""
+
+msgid "Remove the room"
+msgstr ""
+
+msgid "Import a Mudlet map…"
+msgstr ""
+
+msgid "Import the Mudlet map at"
+msgstr ""
+
+msgid "I am in…"
+msgstr ""
+
+msgid "The room you are in"
+msgstr ""
+
+#, python-brace-format
+msgid "Mark {0}…"
+msgstr ""
+
+#, python-brace-format
+msgid "Mark for {0}"
+msgstr ""
+
+#, python-brace-format
+msgid "Note on {0}…"
+msgstr ""
+
+#, python-brace-format
+msgid "Note on {0}"
+msgstr ""
+
+#, python-brace-format
+msgid "Take the note off {0}"
+msgstr ""
+
+#, python-brace-format
+msgid "Appearance of {0}…"
+msgstr ""
+
+#, python-brace-format
+msgid "Keep routes off {0}"
+msgstr ""
+
+msgid "Keep routes off an exit…"
+msgstr ""
+
+msgid "Keep routes off the exit"
 msgstr ""
 
 msgid "Where do you want to play?"

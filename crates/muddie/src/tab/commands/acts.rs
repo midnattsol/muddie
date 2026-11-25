@@ -125,71 +125,21 @@ impl Tab {
     /// What is done with the map, and with the scripts, plugins and tags:
     /// each by what it does, asking in the field for what it needs more.
     fn map_acts(&self) -> Vec<Item> {
-        let run = |line: &str| Act::Run(line.to_owned());
-        let ask = |title: String, command: &str, offers: Offers| {
-            Act::Ask(Asking {
-                title,
-                command: command.to_owned(),
-                offers,
-            })
-        };
+        let mut acts = map_fixed_acts();
+        self.map_state_acts(&mut acts);
+        if self.walk.is_some() {
+            acts.push(item(tr("Stop going"), tr("Map"), run("/map stop")));
+        }
+        self.script_acts(&mut acts);
+        self.plugin_acts(&mut acts);
+        acts
+    }
+
+    /// What is done with the map that depends on what it holds: its
+    /// areas, its candidates for where I am, the room I am in, the marks
+    /// and the rooms it added.
+    fn map_state_acts(&self, acts: &mut Vec<Item>) {
         let map = tr("Map");
-        let mut acts = vec![
-            item(tr("Where am I"), map, run("/map where")),
-            item(tr("Exits of this room"), map, run("/map exits")),
-            item(tr("What is near"), map, run("/map near")),
-            item(tr("Explore the map"), map, run("/map explore")),
-            item(
-                tr("Go to…"),
-                map,
-                ask(tr("Go to").into(), "/map go ", Offers::Places),
-            ),
-            item(
-                tr("The way to…"),
-                map,
-                ask(tr("The way to").into(), "/map way ", Offers::Places),
-            ),
-            item(
-                tr("Find rooms…"),
-                map,
-                ask(tr("Find rooms with").into(), "/map find ", Offers::Nothing),
-            ),
-            item(
-                tr("What the map knows of…"),
-                map,
-                ask(
-                    tr("What the map knows of").into(),
-                    "/map info ",
-                    Offers::Places,
-                ),
-            ),
-            item(tr("Areas of the map"), map, run("/map areas")),
-            item(tr("Check the map"), map, run("/map check")),
-            item(tr("Tidy this area"), map, run("/map tidy")),
-            item(
-                tr("Remove a room…"),
-                map,
-                ask(tr("Remove the room").into(), "/map remove ", Offers::Places),
-            ),
-            item(
-                tr("Import a Mudlet map…"),
-                map,
-                ask(
-                    tr("Import the Mudlet map at").into(),
-                    "/map import ",
-                    Offers::Nothing,
-                ),
-            ),
-        ];
-        acts.push(item(
-            tr("I am in…"),
-            map,
-            ask(
-                tr("The room you are in").into(),
-                "/map here ",
-                Offers::Places,
-            ),
-        ));
         let state = self.map.borrow();
         if self.map_view.area_count(&state) > 1 {
             acts.push(item(
@@ -205,42 +155,7 @@ impl Tab {
         let all = switched(tr("Show all areas"), self.map_view.all_areas);
         acts.push(item(&all, map, Act::AllAreas));
         if let Some(room) = state.current() {
-            let name = state.short_name(room).to_owned();
-            acts.push(item(
-                &trf("Mark {0}…", &[&name]),
-                map,
-                ask(trf("Mark for {0}", &[&name]), "/map mark ", Offers::Nothing),
-            ));
-            acts.push(item(
-                &trf("Note on {0}…", &[&name]),
-                map,
-                ask(trf("Note on {0}", &[&name]), "/map note ", Offers::Nothing),
-            ));
-            if !room.note.is_empty() {
-                acts.push(item(
-                    &trf("Take the note off {0}", &[&name]),
-                    map,
-                    run("/map unnote"),
-                ));
-            }
-            acts.push(item(
-                &trf("Appearance of {0}…", &[&name]),
-                map,
-                Act::Look(Some(room.id)),
-            ));
-            let avoid = switched(&trf("Keep routes off {0}", &[&name]), room.avoid);
-            acts.push(item(&avoid, map, run("/map avoid")));
-            if !room.exits.is_empty() {
-                acts.push(item(
-                    tr("Keep routes off an exit…"),
-                    map,
-                    ask(
-                        tr("Keep routes off the exit").into(),
-                        "/map block ",
-                        Offers::Exits,
-                    ),
-                ));
-            }
+            room_acts(acts, &state, room);
         }
         if !state.marks().is_empty() {
             acts.push(item(
@@ -253,9 +168,10 @@ impl Tab {
             acts.push(item(tr("Rooms the map added"), map, run("/map added")));
         }
         drop(state);
-        if self.walk.is_some() {
-            acts.push(item(tr("Stop going"), map, run("/map stop")));
-        }
+    }
+
+    /// What is done with the scripts, and with their tags.
+    fn script_acts(&self, acts: &mut Vec<Item>) {
         // The scripts, plugins and tags.
         let scripts = tr("Scripts");
         acts.push(item(
@@ -274,6 +190,11 @@ impl Tab {
                 Act::Run(line),
             ));
         }
+    }
+
+    /// What is done with the plugins: switching each, updating, installing
+    /// and removing.
+    fn plugin_acts(&self, acts: &mut Vec<Item>) {
         let plugins = tr("Plugins");
         for plugin in &self.plugins {
             let on = self.plugin_on(plugin);
@@ -316,7 +237,6 @@ impl Tab {
                 ),
             ));
         }
-        acts
     }
 
     /// Connecting to each saved profile; they are edited from Profiles,
@@ -433,5 +353,125 @@ fn switched(label: &str, on: bool) -> String {
     match on {
         true => trf("{0} (on)", &[label]),
         false => trf("{0} (off)", &[label]),
+    }
+}
+
+/// The act of running a line of the client's own commands.
+fn run(line: &str) -> Act {
+    Act::Run(line.to_owned())
+}
+
+/// The act of asking in the field for what `command` needs more, offering
+/// `offers`.
+fn ask(title: String, command: &str, offers: Offers) -> Act {
+    Act::Ask(Asking {
+        title,
+        command: command.to_owned(),
+        offers,
+    })
+}
+
+/// What is done with the map whatever it holds: where I am, the way,
+/// finding, checking and importing.
+fn map_fixed_acts() -> Vec<Item> {
+    let map = tr("Map");
+    let mut acts = vec![
+        item(tr("Where am I"), map, run("/map where")),
+        item(tr("Exits of this room"), map, run("/map exits")),
+        item(tr("What is near"), map, run("/map near")),
+        item(tr("Explore the map"), map, run("/map explore")),
+        item(
+            tr("Go to…"),
+            map,
+            ask(tr("Go to").into(), "/map go ", Offers::Places),
+        ),
+        item(
+            tr("The way to…"),
+            map,
+            ask(tr("The way to").into(), "/map way ", Offers::Places),
+        ),
+        item(
+            tr("Find rooms…"),
+            map,
+            ask(tr("Find rooms with").into(), "/map find ", Offers::Nothing),
+        ),
+        item(
+            tr("What the map knows of…"),
+            map,
+            ask(
+                tr("What the map knows of").into(),
+                "/map info ",
+                Offers::Places,
+            ),
+        ),
+        item(tr("Areas of the map"), map, run("/map areas")),
+        item(tr("Check the map"), map, run("/map check")),
+        item(tr("Tidy this area"), map, run("/map tidy")),
+        item(
+            tr("Remove a room…"),
+            map,
+            ask(tr("Remove the room").into(), "/map remove ", Offers::Places),
+        ),
+        item(
+            tr("Import a Mudlet map…"),
+            map,
+            ask(
+                tr("Import the Mudlet map at").into(),
+                "/map import ",
+                Offers::Nothing,
+            ),
+        ),
+    ];
+    acts.push(item(
+        tr("I am in…"),
+        map,
+        ask(
+            tr("The room you are in").into(),
+            "/map here ",
+            Offers::Places,
+        ),
+    ));
+    acts
+}
+
+/// What is done with the room I am in: marking it, noting on it, how it
+/// looks and which routes keep off it or its exits.
+fn room_acts(acts: &mut Vec<Item>, state: &muddie_mapper::Map, room: &muddie_mapper::Room) {
+    let map = tr("Map");
+    let name = state.short_name(room).to_owned();
+    acts.push(item(
+        &trf("Mark {0}…", &[&name]),
+        map,
+        ask(trf("Mark for {0}", &[&name]), "/map mark ", Offers::Nothing),
+    ));
+    acts.push(item(
+        &trf("Note on {0}…", &[&name]),
+        map,
+        ask(trf("Note on {0}", &[&name]), "/map note ", Offers::Nothing),
+    ));
+    if !room.note.is_empty() {
+        acts.push(item(
+            &trf("Take the note off {0}", &[&name]),
+            map,
+            run("/map unnote"),
+        ));
+    }
+    acts.push(item(
+        &trf("Appearance of {0}…", &[&name]),
+        map,
+        Act::Look(Some(room.id)),
+    ));
+    let avoid = switched(&trf("Keep routes off {0}", &[&name]), room.avoid);
+    acts.push(item(&avoid, map, run("/map avoid")));
+    if !room.exits.is_empty() {
+        acts.push(item(
+            tr("Keep routes off an exit…"),
+            map,
+            ask(
+                tr("Keep routes off the exit").into(),
+                "/map block ",
+                Offers::Exits,
+            ),
+        ));
     }
 }
