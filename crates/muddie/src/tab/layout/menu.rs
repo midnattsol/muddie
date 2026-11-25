@@ -31,65 +31,14 @@ impl Tab {
             widgets::menu_separator(ui);
             let panel = &mut self.layout.panels[index];
             match spec.kind {
-                Kind::Text => {
-                    widgets::menu_check(
-                        ui,
-                        &mut panel.channels,
-                        tr("Show the MUD's channels here"),
-                    );
-                    // The channels have their own, each, in their tabs.
-                    if !panel.channels {
-                        let mut aloud = !panel.quiet;
-                        if widgets::menu_check(ui, &mut aloud, tr("Read aloud")).clicked() {
-                            panel.quiet = !aloud;
-                        }
-                    }
-                }
+                Kind::Text => text_menu_items(ui, panel),
                 Kind::Gauges => {
                     if widgets::menu_item(ui, tr("Edit the gauges"), "").clicked() {
                         asked = Some(PanelAsk::Gauges);
                         ui.close();
                     }
                 }
-                Kind::Map => {
-                    self.map_view.menu_items(ui);
-                    // Another area, to look at: asked for in the palette.
-                    let several = self.map_view.area_count(&self.map.borrow()) > 1;
-                    if several && widgets::menu_item(ui, tr("Show an area…"), "").clicked() {
-                        asked = Some(PanelAsk::ShowArea);
-                        ui.close();
-                    }
-                    if widgets::menu_item(ui, tr("Map appearance…"), "").clicked() {
-                        asked = Some(PanelAsk::Appearance);
-                        ui.close();
-                    }
-                    // The last room the map added, while there is one.
-                    if self.map.borrow().last_change().is_some()
-                        && widgets::menu_item(ui, tr("Undo the map's last change"), "").clicked()
-                    {
-                        asked = Some(PanelAsk::UndoChange);
-                        ui.close();
-                    }
-                    // What the scripts offer to do with the map, under the
-                    // name of each that offers something.
-                    let offered = self.scripts.map_actions();
-                    let mut by = None;
-                    for tool in offered {
-                        if by.as_ref() != Some(&tool.by) {
-                            widgets::menu_separator(ui);
-                            widgets::menu_heading(ui, &tool.by);
-                            by = Some(tool.by.clone());
-                        }
-                        let chosen = match tool.checked {
-                            Some(mut on) => widgets::menu_check(ui, &mut on, &tool.label),
-                            None => widgets::menu_item(ui, &tool.label, ""),
-                        };
-                        if chosen.clicked() {
-                            asked = Some(PanelAsk::MapAction(tool.label));
-                            ui.close();
-                        }
-                    }
-                }
+                Kind::Map => self.map_menu_items(ui, &mut asked),
             }
             widgets::menu_separator(ui);
             asked = closing_items(ui, &spec.shown_name()).or(asked.take());
@@ -105,6 +54,53 @@ impl Tab {
             Some(PanelAsk::Appearance) => self.open_map_appearance(),
             Some(PanelAsk::ShowArea) => self.ask(crate::tab::commands::Asking::area_to_show()),
             None => {}
+        }
+    }
+
+    /// What the menu of the map's panel has: the map view's own, another
+    /// area to show, its appearance, undoing its last change, and what the
+    /// scripts offer.
+    fn map_menu_items(&mut self, ui: &mut egui::Ui, asked: &mut Option<PanelAsk>) {
+        self.map_view.menu_items(ui);
+        // Another area, to look at: asked for in the palette.
+        let several = self.map_view.area_count(&self.map.borrow()) > 1;
+        if several && widgets::menu_item(ui, tr("Show an area…"), "").clicked() {
+            *asked = Some(PanelAsk::ShowArea);
+            ui.close();
+        }
+        if widgets::menu_item(ui, tr("Map appearance…"), "").clicked() {
+            *asked = Some(PanelAsk::Appearance);
+            ui.close();
+        }
+        // The last room the map added, while there is one.
+        if self.map.borrow().last_change().is_some()
+            && widgets::menu_item(ui, tr("Undo the map's last change"), "").clicked()
+        {
+            *asked = Some(PanelAsk::UndoChange);
+            ui.close();
+        }
+        self.script_map_items(ui, asked);
+    }
+
+    /// What the scripts offer to do with the map, under the name of each
+    /// that offers something.
+    fn script_map_items(&self, ui: &mut egui::Ui, asked: &mut Option<PanelAsk>) {
+        let offered = self.scripts.map_actions();
+        let mut by = None;
+        for tool in offered {
+            if by.as_ref() != Some(&tool.by) {
+                widgets::menu_separator(ui);
+                widgets::menu_heading(ui, &tool.by);
+                by = Some(tool.by.clone());
+            }
+            let chosen = match tool.checked {
+                Some(mut on) => widgets::menu_check(ui, &mut on, &tool.label),
+                None => widgets::menu_item(ui, &tool.label, ""),
+            };
+            if chosen.clicked() {
+                *asked = Some(PanelAsk::MapAction(tool.label));
+                ui.close();
+            }
         }
     }
 
@@ -197,6 +193,19 @@ enum PanelAsk {
     UndoChange,
     Appearance,
     ShowArea,
+}
+
+/// What the menu of a text panel has: whether it shows the MUD's channels,
+/// and, while it does not, whether it is read aloud.
+fn text_menu_items(ui: &mut egui::Ui, panel: &mut PanelSpec) {
+    widgets::menu_check(ui, &mut panel.channels, tr("Show the MUD's channels here"));
+    // The channels have their own, each, in their tabs.
+    if !panel.channels {
+        let mut aloud = !panel.quiet;
+        if widgets::menu_check(ui, &mut aloud, tr("Read aloud")).clicked() {
+            panel.quiet = !aloud;
+        }
+    }
 }
 
 /// Hiding the panel, and removing it.

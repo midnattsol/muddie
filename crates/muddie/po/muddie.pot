@@ -2108,14 +2108,14 @@ msgstr ""
 msgid "Move in Layout…"
 msgstr ""
 
-msgid "Show the MUD's channels here"
-msgstr ""
-
 msgid "Edit the gauges"
 msgstr ""
 
 #, python-brace-format
 msgid "There is a panel called {0} already."
+msgstr ""
+
+msgid "Show the MUD's channels here"
 msgstr ""
 
 #, python-brace-format
