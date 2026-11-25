@@ -63,7 +63,7 @@ pub fn icon_button(ui: &mut Ui, icon: Icon, label: &str, on: bool) -> Response {
         }
         draw_icon(painter, icon, rect.center(), icon_colour(icon, on, hovered));
     }
-    response.on_hover_text(label)
+    name_tip(response, label)
 }
 
 /// The colour an icon is drawn in: running is green, and deleting red

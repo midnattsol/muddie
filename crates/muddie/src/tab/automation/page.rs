@@ -169,7 +169,9 @@ impl Tab {
     /// widths, with a short grip only while it can be taken.
     fn pane_handle(&mut self, ui: &mut egui::Ui, handle: egui::Rect) {
         let id = ui.make_persistent_id("automation handle");
-        let edge = widgets::edge(ui, handle, id, tr("Width of the list"), true, true);
+        // Nothing to a screen reader user, who would stop at it.
+        let reachable = !self.voice.screen_reader();
+        let edge = widgets::edge(ui, handle, id, tr("Width of the list"), true, reachable);
         self.editor.panes[1] += edge.moved;
         if edge.by_keys {
             let width = (self.editor.panes[1].round() as u32).to_string();

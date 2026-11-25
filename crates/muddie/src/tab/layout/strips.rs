@@ -1,6 +1,7 @@
 //! Drawing the panels around the output: each side a strip they share, each
 //! panel with its header.
 
+use super::side_edge::{drag_edge, size_by_keys};
 use super::*;
 
 /// The gap between two places of a side, which is the edge dragged.
@@ -129,6 +130,10 @@ impl Tab {
             top: 4,
             bottom: 4,
         });
+        // With a screen reader the edge is only for the pointer, not one
+        // more stop: the size is changed from Layout too.
+        let reader = self.voice.screen_reader();
+        let size = self.layout.panels[first].size;
         // The arrows move the edge while it has the keyboard.
         let handle = ui.scope_id().with(id).with("__resize");
         let resized = size_by_keys(ui, side, handle);
@@ -138,12 +143,13 @@ impl Tab {
             Side::Top => Panel::top(id),
             Side::Bottom => Panel::bottom(id),
         };
+        let strip = match reader {
+            true => strip.resizable(false).exact_size(size.max(least)),
+            false => strip.resizable(true).default_size(size).min_size(least),
+        };
         let shown = strip
             .frame(around)
             .show_separator_line(false)
-            .resizable(true)
-            .default_size(self.layout.panels[first].size)
-            .min_size(least)
             .show(ui, |ui| self.strip(ui, side, &members));
         let asked = shown.inner;
         // The edge to drag is named for what it sizes, and described by
@@ -151,7 +157,7 @@ impl Tab {
         // reads it as a fraction, and then as a share of how far it can
         // move, which is two numbers that say little.
         let mut share = None;
-        ui.ctx().accesskit_node_builder(handle, |node| {
+        let name_edge = |node: &mut egui::accesskit::Node| {
             node.set_label(side.size_label());
             if let Some(value) = node.numeric_value() {
                 let text = trf(
@@ -166,7 +172,10 @@ impl Tab {
             node.clear_max_numeric_value();
             node.clear_numeric_value_step();
             node.remove_action(egui::accesskit::Action::SetValue);
-        });
+        };
+        if !reader {
+            ui.ctx().accesskit_node_builder(handle, name_edge);
+        }
         if let (true, Some(share)) = (resized, share) {
             self.voice.say_now(&share);
         }
@@ -177,8 +186,12 @@ impl Tab {
         } else {
             rect.height()
         };
+        let size = match reader {
+            true => drag_edge(ui, side, rect, id),
+            false => size.round(),
+        };
         for index in members {
-            self.layout.panels[index].size = size.round();
+            self.layout.panels[index].size = size;
         }
         (asked, Some(rect))
     }
@@ -332,6 +345,9 @@ impl Tab {
             if let Some(at) = widgets::tab_keys(ui, &tabs) {
                 shown = ids[at];
             }
+            // Where F6 comes.
+            let on = ids.iter().position(|id| *id == shown).unwrap_or(0);
+            self.panels.zones.push(tabs[on].id);
         });
         self.panels.shown_tabs.retain(|(known, _)| *known != stack);
         self.panels.shown_tabs.push((stack, shown));
@@ -434,6 +450,9 @@ impl Tab {
                 handle.widget_info(|| {
                     egui::WidgetInfo::labeled(egui::Role::Image, true, trf("Move {0}", &[&name]))
                 });
+                if this.voice.screen_reader() {
+                    (ui.ctx()).accesskit_node_builder(handle.id, |node| node.set_hidden());
+                }
                 let dots = if handle.hovered() || handle.dragged() {
                     theme.text
                 } else {
@@ -467,14 +486,9 @@ impl Tab {
                         .font(theme::font(Weight::Semibold, 12.5))
                         .color(theme.text_dim);
                     let id = spec.id;
-                    // A heading, not a stop of the keyboard: named again with
-                    // a double click, or Rename… in its menu.
-                    let caption = ui.add(
-                        Label::new(caption)
-                            .selectable(false)
-                            .sense(egui::Sense::CLICK),
-                    );
-                    widgets::heading_role(ui, &caption, &name);
+                    // Named again with a double click, or Rename… in its menu.
+                    let caption = panel_name(ui, caption, id, &name);
+                    this.panels.zones.push(caption.id);
                     if caption.double_clicked() {
                         this.rename_panel(id);
                     }
@@ -498,36 +512,29 @@ impl Tab {
     }
 }
 
-/// Moves the edge of `side` with the arrows while `handle`, the edge, has
-/// the keyboard: away from the output makes its panels smaller, toward it
-/// larger. Returns whether it was moved.
-fn size_by_keys(ui: &egui::Ui, side: Side, handle: egui::Id) -> bool {
-    if !ui.memory(|memory| memory.has_focus(handle)) {
-        return false;
+/// The name of a panel, over it: a heading, where F6 comes, so that it says
+/// which panel it came to. Not a stop of Tab: focusable only while F6 has
+/// the keyboard there.
+fn panel_name(ui: &mut egui::Ui, caption: RichText, panel: u32, name: &str) -> egui::Response {
+    let shown = ui.add(Label::new(caption).selectable(false));
+    // Read once, as the heading.
+    (ui.ctx()).accesskit_node_builder(shown.id, |node| node.set_hidden());
+    let id = ui.make_persistent_id(("panel name", panel));
+    let mut sense = egui::Sense::CLICK;
+    if ui.memory(|memory| memory.has_focus(id)) {
+        sense |= egui::Sense::FOCUSABLE;
     }
-    let (larger, smaller) = match side {
-        Side::Left => (egui::Key::ArrowRight, egui::Key::ArrowLeft),
-        Side::Right => (egui::Key::ArrowLeft, egui::Key::ArrowRight),
-        Side::Top => (egui::Key::ArrowDown, egui::Key::ArrowUp),
-        Side::Bottom => (egui::Key::ArrowUp, egui::Key::ArrowDown),
-    };
-    ui.input_mut(|input| {
-        let action = if input.consume_key(egui::Modifiers::NONE, larger) {
-            egui::accesskit::Action::Increment
-        } else if input.consume_key(egui::Modifiers::NONE, smaller) {
-            egui::accesskit::Action::Decrement
-        } else {
-            return false;
-        };
-        // As a screen reader would ask: the panel does it as it does then.
-        input.events.push(egui::Event::AccessKitActionRequest(
-            egui::accesskit::ActionRequest {
-                action,
-                target_tree: egui::accesskit::TreeId::ROOT,
-                target_node: handle.accesskit_id(),
-                data: None,
-            },
-        ));
-        true
-    })
+    let heading = ui.interact(shown.rect, id, sense);
+    widgets::heading_role(ui, &heading, name);
+    if heading.has_focus() {
+        // Within the header, clear of the picture before it.
+        let size = egui::vec2(heading.rect.width() + 5.0, 20.0);
+        ui.painter().rect_stroke(
+            egui::Rect::from_center_size(heading.rect.center(), size),
+            egui::CornerRadius::same(5),
+            ui.visuals().selection.stroke,
+            egui::StrokeKind::Inside,
+        );
+    }
+    heading
 }

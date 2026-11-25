@@ -19,6 +19,7 @@ mod lists;
 mod menus;
 mod order;
 mod rows;
+mod tips;
 mod toggles;
 
 pub use buttons::*;
@@ -32,6 +33,7 @@ pub use lists::*;
 pub use menus::*;
 pub use order::*;
 pub use rows::*;
+pub use tips::*;
 pub use toggles::*;
 
 #[cfg(test)]

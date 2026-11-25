@@ -438,9 +438,8 @@ impl Tab {
                 delete =
                     widgets::icon_button(ui, widgets::Icon::Trash, tr("Delete"), false).clicked();
                 if section != VARIABLES {
-                    switched = widgets::switch(ui, &mut on, tr("Enabled"))
-                        .on_hover_text(tr("Enabled"))
-                        .changed();
+                    let switch = widgets::switch(ui, &mut on, tr("Enabled"));
+                    switched = widgets::name_tip(switch, tr("Enabled")).changed();
                 }
                 let said = trn("{0} chosen", "{0} chosen", chosen.len() as u64);
                 ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {

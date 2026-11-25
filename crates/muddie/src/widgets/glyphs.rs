@@ -133,7 +133,7 @@ fn glyph_button_as(ui: &mut Ui, (glyph, tint, label): (Glyph, Option<Color32>, &
             colour,
         );
     }
-    response.on_hover_text(label)
+    name_tip(response, label)
 }
 
 /// How long a button that copied says so.

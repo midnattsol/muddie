@@ -64,6 +64,8 @@ impl Tab {
             && ui.input_mut(|input| input.consume_key(Modifiers::NONE, Key::Tab))
         {
             self.open_reader();
+            // Not on to what is next meanwhile, which would be said.
+            ui.memory_mut(|memory| memory.move_focus(egui::FocusDirection::None));
             ui.ctx().request_repaint();
         }
         // A click on what takes no keyboard (the output, to choose text in
@@ -123,6 +125,8 @@ impl Tab {
         if !completing {
             return false;
         }
+        // Nor on to what is next.
+        ui.memory_mut(|memory| memory.move_focus(egui::FocusDirection::None));
         let scripted = self.scripts.completions();
         let rows = (0..self.output.len()).rev().take(200);
         let seen: Vec<&str> = rows

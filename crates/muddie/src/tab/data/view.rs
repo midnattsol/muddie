@@ -71,7 +71,7 @@ pub(in crate::tab) fn protocol_chip(
     shown.widget_info(|| {
         egui::WidgetInfo::selected(egui::Role::Button, true, chosen, format!("{name}: {about}"))
     });
-    shown.on_hover_text(about).clicked()
+    widgets::name_tip(shown, about).clicked()
 }
 
 /// The name of what was received, and what it came by, how many times,

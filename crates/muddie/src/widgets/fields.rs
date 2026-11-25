@@ -631,7 +631,9 @@ pub fn tag_field(
                     .stroke(Stroke::new(1.0, theme.border))
                     .corner_radius(CornerRadius::same(255)),
                 );
-                let add = add.on_hover_text(crate::i18n::trf("Add the tag {0}", &[tag]));
+                let name = crate::i18n::trf("Add the tag {0}", &[tag]);
+                (ui.ctx()).accesskit_node_builder(add.id, |node| node.set_label(name.clone()));
+                let add = name_tip(add, &name);
                 if add.clicked() {
                     tags.push(tag.clone());
                     typed.clear();
@@ -656,10 +658,9 @@ fn tag_chip(ui: &mut Ui, tag: &str) -> Response {
             .stroke(Stroke::NONE)
             .corner_radius(CornerRadius::same(255)),
     );
-    ui.ctx().accesskit_node_builder(chip.id, |node| {
-        node.set_label(crate::i18n::trf("Remove the tag {0}", &[tag]));
-    });
-    chip.on_hover_text(crate::i18n::trf("Remove the tag {0}", &[tag]))
+    let name = crate::i18n::trf("Remove the tag {0}", &[tag]);
+    (ui.ctx()).accesskit_node_builder(chip.id, |node| node.set_label(name.clone()));
+    name_tip(chip, &name)
 }
 
 /// Names a field by its hint for a screen reader, when nothing else names

@@ -20,7 +20,7 @@ pub fn swatch(ui: &mut Ui, colour: Color32, selected: bool, label: &str) -> Resp
             painter.circle_stroke(rect.center(), 11.0, Stroke::new(1.5, ring));
         }
     }
-    response.on_hover_text(label)
+    name_tip(response, label)
 }
 
 /// The choice of no colour, beside the [`swatch`]es: an empty ring,
@@ -51,5 +51,5 @@ pub fn swatch_none(ui: &mut Ui, selected: bool, label: &str) -> Response {
             painter.circle_stroke(rect.center(), 11.0, Stroke::new(1.5, ring));
         }
     }
-    response.on_hover_text(label)
+    name_tip(response, label)
 }

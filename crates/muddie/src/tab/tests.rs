@@ -38,6 +38,7 @@ mod official;
 mod places;
 mod profiles;
 mod screenshots;
+mod stops;
 mod window;
 
 /// A window that is not drawn, using `profiles` as its configuration.

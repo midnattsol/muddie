@@ -17,7 +17,6 @@ impl Tab {
             &trf("{0} options", &[&spec.shown_name()]),
             false,
         );
-        self.panels.zones.push(more.id);
         let mut asked = None;
         crate::widgets::menu_of(&more).show(|ui| {
             widgets::menu_width(ui);

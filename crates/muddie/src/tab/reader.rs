@@ -74,11 +74,15 @@ impl Tab {
             egui::Sense::FOCUSABLE,
         );
         let label = tr("Output");
-        ui.ctx()
-            .accesskit_node_builder(way.id, |node| node.set_label(label));
+        ui.ctx().accesskit_node_builder(way.id, |node| {
+            node.set_role(egui::accesskit::Role::Group);
+            node.set_label(label);
+        });
         self.panels.zone_output = Some(way.id);
         if way.has_focus() {
             self.open_reader();
+            // Drawn again as text at once: the way in is not said as well.
+            ui.ctx().request_discard("the output is read as text");
         }
     }
 

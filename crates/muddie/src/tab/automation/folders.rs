@@ -266,7 +266,8 @@ impl Tab {
             },
             |_, ui| {
                 off_badge(ui, state);
-                widgets::switch(ui, &mut on, tr("Enabled")).on_hover_text(tr("Enabled"));
+                let switch = widgets::switch(ui, &mut on, tr("Enabled"));
+                widgets::name_tip(switch, tr("Enabled"));
                 delete = widgets::icon_button(ui, widgets::Icon::Trash, tr("Delete folder"), false)
                     .clicked();
             },

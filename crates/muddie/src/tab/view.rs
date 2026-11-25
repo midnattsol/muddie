@@ -174,6 +174,13 @@ impl Tab {
             (Some(at), true) => (at + count - 1) % count,
             (None, _) => 0,
         };
+        // The output is opened to be read, rather than its way in reached
+        // first, which would be said too.
+        if Some(zones[to]) == self.panels.zone_output && !self.reader.open {
+            self.open_reader();
+            ui.ctx().request_repaint();
+            return;
+        }
         ui.memory_mut(|memory| memory.request_focus(zones[to]));
     }
 
@@ -342,7 +349,8 @@ impl Tab {
         };
         ui.scope(|ui| {
             ui.spacing_mut().item_spacing.x = 6.0;
-            let place = ui.label(small(&shown, theme.text_dim)).on_hover_text(&said);
+            let place = ui.label(small(&shown, theme.text_dim));
+            let place = crate::widgets::name_tip(place, &said);
             (ui.ctx()).accesskit_node_builder(place.id, |node| node.set_label(said.clone()));
             if connected && self.tls {
                 crate::widgets::glyph(ui, crate::widgets::Glyph::Lock, 10.5, theme.text_faint);

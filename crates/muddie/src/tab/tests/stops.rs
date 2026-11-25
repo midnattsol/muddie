@@ -1,0 +1,304 @@
+//! What a screen reader user meets with the keyboard, forward and back:
+//! nothing that is only for the pointer, nothing said twice, and the name
+//! of what is come to.
+
+use super::*;
+use egui::accesskit::Role;
+
+/// What is said of where the keyboard is: its kind, name and description.
+fn said(harness: &Harness<'_, App>) -> Option<(String, Role, String, String)> {
+    harness
+        .query_all(egui_kittest::kittest::by())
+        .find(|node| node.is_focused())
+        .map(|node| {
+            let node = node.accesskit_node();
+            (
+                format!("{:?}", node.id()),
+                node.role(),
+                node.label().unwrap_or_default().to_string(),
+                node.description().unwrap_or_default().to_string(),
+            )
+        })
+}
+
+/// Goes round with Tab, with `modifiers`, and says what should not be met.
+fn round(harness: &mut Harness<'_, App>, view: &str, modifiers: Modifiers) -> Vec<String> {
+    let (mut problems, mut seen) = (Vec::new(), Vec::new());
+    for _ in 0..120 {
+        harness.key_press_modifiers(modifiers, Key::Tab);
+        harness.run_steps(3);
+        let Some((id, role, name, about)) = said(harness) else {
+            problems.push(format!("{view}: Tab left the keyboard nowhere"));
+            break;
+        };
+        if seen.contains(&id) {
+            break;
+        }
+        seen.push(id);
+        if matches!(role, Role::Splitter | Role::Image | Role::Unknown) {
+            problems.push(format!("{view}: a stop at a {role:?}, {name:?}"));
+        }
+        if !about.is_empty() && name.contains(&about) {
+            problems.push(format!("{view}: {name:?} is also said to be {about:?}"));
+        }
+    }
+    problems
+}
+
+fn both_ways(harness: &mut Harness<'_, App>, view: &str) -> Vec<String> {
+    let mut problems = round(harness, view, Modifiers::NONE);
+    problems.extend(round(harness, &format!("{view}, back"), Modifiers::SHIFT));
+    problems
+}
+
+fn to_the_line(harness: &mut Harness<'_, App>) {
+    let tab = harness.state_mut().tab_mut();
+    tab.reader.open = false;
+    tab.input.clear();
+    tab.focus_line = true;
+    harness.run_steps(4);
+}
+
+/// Playing with every panel in use, and a screen reader.
+fn playing<'a>() -> Harness<'a, App> {
+    let mut harness = connected_demo_window();
+    harness.state_mut().tab_mut().voice.pretend_reader = true;
+    harness.run_steps(3);
+    to_the_line(&mut harness);
+    harness
+}
+
+#[test]
+fn playing_nothing_for_the_pointer_or_said_twice_is_come_to() {
+    let mut harness = playing();
+    let mut problems = round(&mut harness, "game, back", Modifiers::SHIFT);
+    // From each panel on, which Tab alone does not go to.
+    for presses in 1..5 {
+        to_the_line(&mut harness);
+        for _ in 0..presses {
+            harness.key_press(Key::F6);
+            harness.run_steps(3);
+        }
+        problems.extend(both_ways(&mut harness, &format!("place {presses}")));
+    }
+    // With a side put away.
+    for name in ["Collapse the right side", "Collapse the bottom side"] {
+        harness.get_all_by_label(name).next().unwrap().click();
+        harness.run_steps(4);
+        to_the_line(&mut harness);
+        problems.extend(both_ways(&mut harness, name));
+    }
+    assert!(problems.is_empty(), "{}", problems.join("\n"));
+}
+
+#[test]
+fn what_is_only_for_the_pointer_is_not_told_to_a_screen_reader() {
+    let pointed = |harness: &Harness<'_, App>| {
+        (harness.query_all(egui_kittest::kittest::by()))
+            .filter(|node| !node.accesskit_node().is_hidden())
+            .filter(|node| {
+                let node = node.accesskit_node();
+                let name = node.label().unwrap_or_default().to_string();
+                node.role() == Role::Splitter || name.starts_with("Move ")
+            })
+            .count()
+    };
+    let mut harness = playing();
+    assert_eq!(pointed(&harness), 0);
+    // It is there for who has none.
+    harness.state_mut().tab_mut().voice.pretend_reader = false;
+    harness.run_steps(3);
+    assert!(pointed(&harness) > 3);
+}
+
+#[test]
+fn f6_says_which_panel_it_comes_to_and_tab_goes_on_into_it() {
+    let mut harness = playing();
+    let mut come = Vec::new();
+    for _ in 0..5 {
+        harness.key_press(Key::F6);
+        for _ in 0..3 {
+            harness.run_steps(1);
+            let (_, role, name, _) = said(&harness).unwrap();
+            if come.last() != Some(&(role, name.clone())) {
+                come.push((role, name));
+            }
+        }
+    }
+    // Nothing else has the keyboard on the way, in any frame.
+    let come: Vec<_> = (come.iter())
+        .map(|(role, name)| (*role, name.as_str()))
+        .collect();
+    assert_eq!(
+        come,
+        [
+            (Role::MultilineTextInput, "Output"),
+            (Role::Heading, "Map"),
+            (Role::Heading, "Minimapa"),
+            (Role::Heading, "Gauges"),
+            (Role::TextInput, "Command"),
+        ]
+    );
+    to_the_line(&mut harness);
+    for _ in 0..4 {
+        harness.key_press(Key::F6);
+        harness.run_steps(3);
+    }
+    harness.key_press(Key::Tab);
+    harness.run_steps(3);
+    assert_eq!(said(&harness).unwrap().2, "Gauges options");
+    // The name is not a stop on the way back.
+    harness.key_press_modifiers(Modifiers::SHIFT, Key::Tab);
+    harness.run_steps(3);
+    assert_ne!(said(&harness).unwrap().1, Role::Heading);
+}
+
+/// Presses `key` and says what has the keyboard in each frame drawn since.
+fn frames(harness: &mut Harness<'_, App>, key: Key, modifiers: Modifiers) -> Vec<(Role, String)> {
+    harness.input_mut().events.push(egui::Event::Key {
+        key,
+        physical_key: None,
+        pressed: true,
+        repeat: false,
+        modifiers,
+    });
+    let mut met = Vec::new();
+    for _ in 0..4 {
+        harness.step();
+        if let Some((_, role, name, _)) = said(harness) {
+            met.push((role, name));
+        }
+    }
+    met.dedup();
+    met
+}
+
+#[test]
+fn the_output_is_come_to_as_text_and_nothing_before_it() {
+    let text = (Role::MultilineTextInput, "Output".to_owned());
+    let line = (Role::TextInput, "Command".to_owned());
+    for (key, modifiers) in [
+        (Key::Tab, Modifiers::NONE),
+        (Key::Tab, Modifiers::SHIFT),
+        (Key::F6, Modifiers::NONE),
+    ] {
+        let mut harness = playing();
+        let met = frames(&mut harness, key, modifiers);
+        assert_eq!(met.last(), Some(&text), "{key:?} {modifiers:?}");
+        let between: Vec<_> = (met.iter())
+            .filter(|at| **at != text && **at != line)
+            .collect();
+        assert!(between.is_empty(), "{key:?} {modifiers:?}: {between:?}");
+    }
+    // Coming on from a panel, with Tab.
+    let mut harness = playing();
+    for _ in 0..3 {
+        harness.key_press(Key::F6);
+        harness.run_steps(3);
+    }
+    let mut met = Vec::new();
+    for _ in 0..4 {
+        met.extend(frames(&mut harness, Key::Tab, Modifiers::NONE));
+        if met.last() == Some(&text) {
+            break;
+        }
+    }
+    assert_eq!(met.last(), Some(&text), "{met:?}");
+    let odd = |(role, name): &&(Role, String)| name == "Output" && *role != text.0;
+    assert_eq!(met.iter().find(odd), None);
+}
+
+#[test]
+fn going_back_to_the_line_and_completing_come_to_nothing_else() {
+    let line = (Role::TextInput, "Command".to_owned());
+    let text = (Role::MultilineTextInput, "Output".to_owned());
+    for key in [Key::Tab, Key::Escape, Key::Enter] {
+        let mut harness = playing();
+        frames(&mut harness, Key::Tab, Modifiers::NONE);
+        let met = frames(&mut harness, key, Modifiers::NONE);
+        assert_eq!(met.last(), Some(&line), "{key:?}");
+        assert!(met.iter().all(|at| *at == line || *at == text), "{met:?}");
+    }
+    // With something typed, Tab completes it and stays.
+    let mut harness = playing();
+    harness.state_mut().tab_mut().input = "hach".into();
+    harness.run_steps(2);
+    let met = frames(&mut harness, Key::Tab, Modifiers::NONE);
+    assert_eq!(met, [line]);
+    assert_eq!(harness.state().tab().input, "hacha");
+}
+
+#[test]
+fn a_side_is_resized_with_the_pointer_with_a_screen_reader_too() {
+    let mut harness = playing();
+    let width = |harness: &Harness<'_, App>| {
+        let layout = &harness.state().tab().layout;
+        (layout.panels.iter())
+            .find(|panel| panel.side == layout::Side::Right)
+            .unwrap()
+            .size
+    };
+    let before = width(&harness);
+    let size = harness.ctx.content_rect();
+    let from = egui::pos2(size.right() - before, size.center().y - 60.0);
+    harness.drag_at(from);
+    harness.run_steps(2);
+    for step in 1..=4 {
+        harness.hover_at(from - egui::vec2(10.0 * step as f32, 0.0));
+        harness.run_steps(1);
+    }
+    harness.drop_at(from - egui::vec2(40.0, 0.0));
+    harness.run_steps(3);
+    let after = width(&harness);
+    assert!((after - before - 40.0).abs() < 3.0, "{before} to {after}");
+    // It stays so as the reader goes.
+    harness.state_mut().tab_mut().voice.pretend_reader = false;
+    harness.run_steps(3);
+    assert!((width(&harness) - after).abs() < 1.0);
+}
+
+#[test]
+fn in_the_other_windows_nothing_for_the_pointer_or_said_twice_is_come_to() {
+    let dir = std::env::temp_dir().join(format!("muddie-stops-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let profiles = Profiles::at(dir.clone());
+    profiles
+        .save("Reinos", &crate::profile::Profile::default())
+        .unwrap();
+    let mut harness = window(Some(profiles));
+    harness.set_size(egui::vec2(1300.0, 860.0));
+    harness.state_mut().tab_mut().voice.pretend_reader = true;
+    harness.state_mut().tab_mut().started = false;
+    harness.run_steps(3);
+    let mut problems = both_ways(&mut harness, "welcome");
+    let (_events, _sent) = fake_connection(harness.state_mut().tab_mut());
+    harness.state_mut().tab_mut().started = true;
+    harness.run_steps(3);
+    for section in automation::Section::ALL {
+        harness.state_mut().tab_mut().open_automation(section);
+        harness.run_steps(3);
+        problems.extend(both_ways(&mut harness, &format!("editor {section:?}")));
+    }
+    harness.state_mut().tab_mut().set_view(View::Layout);
+    harness.run_steps(3);
+    problems.extend(both_ways(&mut harness, "layout"));
+    harness.state_mut().tab_mut().set_view(View::Game);
+    harness.run_steps(2);
+    for section in crate::app::Section::ALL {
+        harness.state_mut().open_settings(section);
+        harness.run_steps(3);
+        let view = format!("settings {}", section.name());
+        problems.extend(both_ways(&mut harness, &view));
+    }
+    harness.state_mut().close_settings_for_tests();
+    harness.run_steps(2);
+    harness.state_mut().edit_profile("Reinos");
+    harness.run_steps(3);
+    for tab in ["Connection", "Session", "Plugins"] {
+        harness.get_by_role_and_label(Role::Tab, tab).click();
+        harness.run_steps(3);
+        problems.extend(both_ways(&mut harness, &format!("profile {tab}")));
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+    assert!(problems.is_empty(), "{}", problems.join("\n"));
+}

@@ -214,13 +214,12 @@ pub(super) fn level_steps(ui: &mut Ui, levels: &[i32], level: &mut i32) -> Optio
         }
         // Its number, said as the level it is.
         let level_said = crate::i18n::trf("Level {0}", &[&level.to_string()]);
-        let shown = ui
-            .label(
-                RichText::new(level.to_string())
-                    .font(theme::font(Weight::Medium, 12.5))
-                    .color(theme::current().text),
-            )
-            .on_hover_text(&level_said);
+        let shown = ui.label(
+            RichText::new(level.to_string())
+                .font(theme::font(Weight::Medium, 12.5))
+                .color(theme::current().text),
+        );
+        let shown = crate::widgets::name_tip(shown, &level_said);
         shown.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Label, true, &level_said));
         if step(ui, "▼", tr("Down a level"), below) {
             said = Some(match below {

@@ -391,9 +391,9 @@ another side, saying where it is now. Escape goes back to the game.
   output) to go before or after it, on its middle to share its place as a
   tab. Drag the edge between two panels, or between a panel and the output,
   to size them; the keyboard reaches the edge too, with its arrows, unless
-  a screen reader is running, where it would be one more stop between
-  every two panels. With the keyboard, a panel is reached by its menu
-  button, and **F6** goes from one to the next.
+  a screen reader is running, where it would be one more stop: panels are
+  sized in Layout then. With the keyboard, **F6** goes from the name of one
+  panel to the next, and Tab from there into it, its menu button first.
 - Its **menu** has **Rename…**, **Move in Layout…**, where the keyboard
   moves it, what goes with its kind (the channels for one of text, and
   whether what is put in it is read aloud; editing the gauges; for the map, its appearance, showing every area or another, undoing

@@ -247,7 +247,8 @@ impl Tab {
                 }
                 run = widgets::icon_button(ui, widgets::Icon::Play, tr("Run"), false).clicked();
                 ui.add_space(6.0);
-                widgets::switch(ui, &mut kept.enabled, tr("Enabled")).on_hover_text(tr("Enabled"));
+                let switch = widgets::switch(ui, &mut kept.enabled, tr("Enabled"));
+                widgets::name_tip(switch, tr("Enabled"));
                 off_badge(ui, kept.enabled);
                 let font = theme::font(Weight::Semibold, 20.0);
                 let (name, rename) = (&mut self.editor.script_name, &mut self.editor.rename);

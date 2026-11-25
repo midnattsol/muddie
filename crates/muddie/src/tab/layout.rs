@@ -13,6 +13,7 @@ mod dragging;
 mod folding;
 mod gauges;
 mod menu;
+mod side_edge;
 mod strips;
 mod text;
 

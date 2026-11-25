@@ -29,7 +29,8 @@ pub fn edge(
         true => egui::CursorIcon::ResizeHorizontal,
         false => egui::CursorIcon::ResizeVertical,
     };
-    // Reached with Tab, unless it is in the way of more than it helps.
+    // Reached with Tab, and told to a screen reader, unless it is in the
+    // way of more than it helps.
     let sense = match reachable {
         true => Sense::drag(),
         false => Sense::DRAG,
@@ -37,6 +38,9 @@ pub fn edge(
     let response = ui.interact(rect, id, sense).on_hover_cursor(cursor);
     response.widget_info(|| WidgetInfo::labeled(Role::Splitter, true, label));
     ui.ctx().accesskit_node_builder(response.id, |node| {
+        if !reachable {
+            node.set_hidden();
+        }
         node.set_orientation(match standing {
             true => egui::accesskit::Orientation::Vertical,
             false => egui::accesskit::Orientation::Horizontal,

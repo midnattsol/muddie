@@ -190,13 +190,12 @@ fn session_name(
     let label = RichText::new(title)
         .font(theme::font(weight, 12.5))
         .color(colour);
-    let name = ui
-        .add(
-            egui::Label::new(label)
-                .selectable(false)
-                .sense(Sense::click()),
-        )
-        .on_hover_text(state);
+    let name = ui.add(
+        egui::Label::new(label)
+            .selectable(false)
+            .sense(Sense::click()),
+    );
+    let name = widgets::name_tip(name, state);
     ui.ctx().accesskit_node_builder(name.id, |node| {
         node.set_role(egui::accesskit::Role::Tab);
         node.set_selected(active);

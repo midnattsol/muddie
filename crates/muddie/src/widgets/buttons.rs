@@ -198,7 +198,7 @@ pub fn sign_button(ui: &mut Ui, sign: &str, label: &str, frame: bool) -> Respons
     ui.ctx().accesskit_node_builder(response.id, |node| {
         node.set_label(label);
     });
-    response.on_hover_text(label)
+    name_tip(response, label)
 }
 
 /// The cross that closes something. `label` says what, for screen readers.
@@ -226,7 +226,7 @@ pub fn close_button(ui: &mut Ui, label: &str, size: f32) -> Response {
         );
         painter.line_segment([centre + vec2(arm, -arm), centre + vec2(-arm, arm)], stroke);
     }
-    response.on_hover_text(label)
+    name_tip(response, label)
 }
 
 /// A round button in the accent with an arrow: go. `label` says where,
@@ -259,7 +259,7 @@ pub fn go_button(ui: &mut Ui, label: &str, size: f32) -> Response {
             stroke,
         ));
     }
-    response.on_hover_text(label)
+    name_tip(response, label)
 }
 
 /// What looks like a field to search in and opens the palette: where

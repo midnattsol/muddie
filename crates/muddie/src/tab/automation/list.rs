@@ -784,7 +784,7 @@ impl Tab {
             let add = widgets::primary_button(ui, "+");
             ui.ctx()
                 .accesskit_node_builder(add.id, |node| node.set_label(tr("Add")));
-            let add = add.on_hover_text(tr("Add"));
+            let add = widgets::name_tip(add, tr("Add"));
             if self.editor.section == SCRIPTS {
                 crate::widgets::menu_of(&add).show(|ui| self.new_script_menu(ui));
             } else if add.clicked() {

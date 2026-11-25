@@ -852,11 +852,8 @@ fn f6_goes_from_place_to_place() {
     harness.key_press(Key::F6);
     harness.run_steps(3);
     let first = harness.state().tab().layout.panels[0].shown_name();
-    assert!(
-        harness
-            .get_by_label(&format!("{first} options"))
-            .is_focused()
-    );
+    let heading = egui::accesskit::Role::Heading;
+    assert!(harness.get_by_role_and_label(heading, &first).is_focused());
     harness.key_press_modifiers(egui::Modifiers::SHIFT, Key::F6);
     harness.run_steps(3);
     assert!(harness.get_by_role_and_label(text, "Output").is_focused());
