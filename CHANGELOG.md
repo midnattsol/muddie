@@ -7,6 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0](https://github.com/midnattsol/muddie/compare/v0.4.0...v0.5.0) - 2026-11-26
+
+### Added
+
+- *(map)* say where you are from a room's menu
+- *(debug)* tell prompts from lines
+- *(scripts)* find a module beside who asks
+- *(scripts)* write definitions for editors
+- *(scripts)* add what scripts of others can do
+- *(scripts)* [**breaking**] set what is set as a field
+- *(gauges)* leave panels out of screen readers
+- *(scripts)* listen to channels and what is sent
+- *(scripts)* ask for gauges and listen to them
+- *(scripts)* [**breaking**] say how things are heard one way
+- *(scripts)* [**breaking**] give triggers the line to change
+- *(scripts)* [**breaking**] say what is not understood
+- *(scripts)* [**breaking**] a table for each kind of thing
+- *(scripts)* [**breaking**] listen to everything with on
+- *(gauges)* say how each is read aloud
+- *(scripts)* say quietly on a channel
+- *(core)* replace a part of a line
+- *(scripts)* say what a call to nothing called
+- *(scripts)* wait in the middle of a script
+- *(scripts)* [**breaking**] ask a line for its text by name
+- *(scripts)* [**breaking**] give what is made as an object
+- *(scripts)* tell scripts whether a screen reader reads
+
+### Fixed
+
+- *(plugins)* clear what an update does not have
+- *(keyboard)* go back from the command line
+- *(gauges)* wrap where they do not fit
+- *(gauges)* take how a session starts as no news
+- *(gauges)* do not say one switched off
+- *(a11y)* read effects by name with the rest
+- *(channels)* read a message once
+- *(a11y)* tell each gauge once
+- *(scripts)* speak only while the game is read
+- *(speech)* read a silenced prompt no more
+- *(scripts)* read a variable as it is now
+- *(scripts)* let go of a session once closed
+
 ## [0.4.0](https://github.com/midnattsol/muddie/compare/v0.3.0...v0.4.0) - 2026-11-25
 
 ### Added

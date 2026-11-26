@@ -2550,7 +2550,7 @@ dependencies = [
 
 [[package]]
 name = "muddie"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "eframe",
  "egui_kittest",
@@ -2574,7 +2574,7 @@ dependencies = [
 
 [[package]]
 name = "muddie-core"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "encoding_rs",
  "flate2",
@@ -2586,7 +2586,7 @@ dependencies = [
 
 [[package]]
 name = "muddie-mapper"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "rusqlite",
  "serde_json",
@@ -2594,7 +2594,7 @@ dependencies = [
 
 [[package]]
 name = "muddie-script"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "mlua",
  "muddie-core",
@@ -2607,14 +2607,14 @@ dependencies = [
 
 [[package]]
 name = "muddie-sound"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "rodio",
 ]
 
 [[package]]
 name = "muddie-speech"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "prismer",
 ]
