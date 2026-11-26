@@ -32,7 +32,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - *(scripts)* wait in the middle of a script
 - *(scripts)* [**breaking**] ask a line for its text by name
 - *(scripts)* [**breaking**] give what is made as an object
-- *(scripts)* tell scripts whether a screen reader reads
 
 ### Fixed
 
