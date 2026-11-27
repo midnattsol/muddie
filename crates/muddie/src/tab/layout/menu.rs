@@ -85,7 +85,7 @@ impl Tab {
     /// What the scripts offer to do with the map, under the name of each
     /// that offers something.
     fn script_map_items(&self, ui: &mut egui::Ui, asked: &mut Option<PanelAsk>) {
-        let offered = self.scripts.map_actions();
+        let offered = (self.scripts.map_actions().into_iter()).filter(|tool| tool.on_map);
         let mut by = None;
         for tool in offered {
             let name = self.offered_by(&tool.owner);

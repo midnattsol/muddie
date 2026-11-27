@@ -189,3 +189,31 @@ fn a_sound_is_put_to_a_side_in_a_group_and_made_quieter_as_it_plays() {
     let actions = engine.take_actions();
     assert!(error_text(&actions).contains("pann"));
 }
+
+#[test]
+fn an_action_is_offered_in_the_palette_and_one_of_the_map_on_the_map_too() {
+    let mut engine = engine("");
+    engine.exec(
+        "modes.luau",
+        r#"action({en = "Next mode", es = "Siguiente modo"}, function() echo("next") end)
+        action("Quiet", function(on) echo(tostring(on)) end, {checked = false})
+        map.action("Sync the map", function() end)"#,
+    );
+    let offered: Vec<(String, bool, Option<bool>)> = (engine.map_actions().into_iter())
+        .map(|tool| (tool.label, tool.on_map, tool.checked))
+        .collect();
+    assert_eq!(
+        offered,
+        [
+            ("Next mode".to_owned(), false, None),
+            ("Quiet".to_owned(), false, Some(false)),
+            ("Sync the map".to_owned(), true, None),
+        ]
+    );
+    assert!(engine.use_map_action("Quiet"));
+    assert!(engine.use_map_action("Next mode"));
+    let said = echoes(engine.take_actions());
+    assert_eq!(said, ["true", "next"]);
+    engine.exec("modes.luau", r#"action("Quiet")"#);
+    assert_eq!(engine.map_actions().len(), 2);
+}

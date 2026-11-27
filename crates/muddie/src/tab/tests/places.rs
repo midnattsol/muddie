@@ -10,6 +10,7 @@ mod own_keys;
 mod prompts;
 mod reading;
 mod reinos;
+mod ways;
 
 /// A desert of dunes alike, 1 - 2 - 3 from west to east, with a well
 /// north of the last, written as a map taken from Mudlet would be.

@@ -154,7 +154,8 @@ fn the_plugin_leaves_a_map_there_is_and_brings_it_up_to_date_when_asked() {
     // Taken away with the plugin.
     app.scripts.unload("Reinos de Leyenda/reinos.luau");
     app.run_actions();
-    assert!(app.scripts.map_actions().is_empty());
+    let sync = "Sync with the official map";
+    assert!(!(app.scripts.map_actions().iter()).any(|tool| tool.label == sync));
 }
 
 /// As a session with Reinos de Leyenda showed: with lag, steps come in
@@ -372,7 +373,7 @@ fn reinos_has_the_map_keep_itself_up_to_date_unless_switched_off() {
             .collect::<Vec<_>>()
     };
     assert_eq!(
-        switched(app),
+        switched(app)[..2],
         [
             ("Sync with the official map".into(), None),
             (learning.into(), Some(true))

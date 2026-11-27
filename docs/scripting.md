@@ -49,6 +49,7 @@ half a second without stopping, Muddie stops it with an error and carries on.
    - [`hush()`](#hush)
 6. [Offer a list, and the clipboard](#offer-a-list-and-the-clipboard)
    - [`choose(items, fn, options)`](#chooseitems-fn-options)
+   - [`action(name, fn, options)`](#actionname-fn-options)
    - [`clipboard.set(text)`](#clipboardsettext)
    - [`clipboard.get()`](#clipboardget)
 7. [Choose how something is heard](#choose-how-something-is-heard)
@@ -542,6 +543,32 @@ end)
 ```
 
 **See also:** [`clipboard.set(text)`](#clipboardsettext).
+
+### `action(name, fn, options)`
+
+Offers to do something, chosen by `name` in the palette (Ctrl+K), while the
+script is loaded: what is not of the map, as switching a mode or some keys.
+A plugin's actions are listed under the plugin's name. `action(name)` takes
+it away.
+
+**Parameters:** `name` can be given by language, as for [`tr`](#trtexts).
+
+**Options:** `checked`, true or false, makes it a switch: choosing it calls
+`fn(on)` with what it is now.
+
+**Returns:** nothing.
+
+**Example:**
+
+```lua
+-- A switch in the palette, remembered.
+action({en = "Read the channels", es = "Leer los canales"}, function(on)
+    vars.read_channels = on
+end, {checked = vars.read_channels ~= false})
+```
+
+**See also:** [`map.action(name, fn, options)`](#mapactionname-fn-options),
+for what is done with the map, which is in the map's menu too.
 
 ### `clipboard.set(text)`
 

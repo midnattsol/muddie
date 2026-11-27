@@ -104,7 +104,8 @@ fn the_reading_can_be_switched_off_alone() {
     assert_eq!(summary, "Efectos: Aturdido");
 }
 
-/// Life cuts in only when it is about to run out; energy and faith wait.
+/// Life lost is said, and life cuts in only when it is about to run out;
+/// energy and faith wait.
 #[test]
 fn life_cuts_in_only_under_its_lowest_step() {
     let mut heard = Heard::start();
@@ -120,11 +121,11 @@ fn life_cuts_in_only_under_its_lowest_step() {
     let (said, cut) = heard.gmcp("Char.Status", &status(55, 100, 100));
     assert_eq!(
         (said.as_slice(), cut.len()),
-        (["Vida 55 of 100".to_owned()].as_slice(), 0)
+        (["Life lost: 45.".to_owned()].as_slice(), 0)
     );
     let (said, cut) = heard.gmcp("Char.Status", &status(25, 100, 100));
-    assert_eq!(said, ["Vida 25 of 100"]);
-    assert_eq!(cut, ["Vida 25 of 100"]);
+    assert_eq!(said, ["Life lost: 30.", "Life low!"]);
+    assert_eq!(cut, ["Life low!"]);
     let (said, cut) = heard.gmcp("Char.Status", &status(25, 10, 10));
     assert_eq!(said, ["Energía 10 of 100", "Fe 10 of 100"]);
     assert_eq!(cut, [] as [String; 0]);

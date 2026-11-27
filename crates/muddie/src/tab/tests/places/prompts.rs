@@ -302,13 +302,14 @@ fn the_prompt_made_is_not_read_and_what_comes_after_it_is() {
             [more]
         );
     }
-    for said in [
-        "Un orco te ataca.",
-        "Indre dice: Pv:10 > ven",
-        "Pv: mucho > poco",
-    ] {
+    for said in ["Un orco te ataca.", "Pv: mucho > poco"] {
         assert_eq!(playing.heard(said, false), [said]);
     }
+    // What is said in the room is read short, as the plugin's modes do.
+    assert_eq!(
+        playing.heard("Indre dice: Pv:10 > ven", false),
+        ["Indre: Pv:10 > ven"]
+    );
 }
 
 /// That of a fight is its own, and one made again takes the place of the one

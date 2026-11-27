@@ -13,6 +13,33 @@ pub const SCRIPT_NAME: &str = "reinos.luau";
 pub const SCRIPT: &str = include_str!("../tab/tests/fixtures/reinos-de-leyenda/reinos.luau");
 pub const ALOUD: &str = include_str!("../tab/tests/fixtures/reinos-de-leyenda/aloud.luau");
 pub const PROMPT: &str = include_str!("../tab/tests/fixtures/reinos-de-leyenda/prompt.luau");
+/// The other scripts, by name.
+const MORE: [(&str, &str); 6] = [
+    (
+        "corrector.luau",
+        include_str!("../tab/tests/fixtures/reinos-de-leyenda/corrector.luau"),
+    ),
+    (
+        "history.luau",
+        include_str!("../tab/tests/fixtures/reinos-de-leyenda/history.luau"),
+    ),
+    (
+        "keys.luau",
+        include_str!("../tab/tests/fixtures/reinos-de-leyenda/keys.luau"),
+    ),
+    (
+        "life.luau",
+        include_str!("../tab/tests/fixtures/reinos-de-leyenda/life.luau"),
+    ),
+    (
+        "modes.luau",
+        include_str!("../tab/tests/fixtures/reinos-de-leyenda/modes.luau"),
+    ),
+    (
+        "movement.luau",
+        include_str!("../tab/tests/fixtures/reinos-de-leyenda/movement.luau"),
+    ),
+];
 pub const RULES: &str = include_str!("../tab/tests/fixtures/reinos-de-leyenda/rules.toml");
 pub const TEMPLATE: &str = include_str!("../tab/tests/fixtures/reinos-de-leyenda/template.toml");
 
@@ -22,14 +49,16 @@ thread_local! {
 
 /// The plugin, as an official one.
 pub fn reinos() -> Plugin {
+    let mut scripts = vec![
+        ("aloud.luau".to_owned(), ALOUD.to_owned()),
+        ("prompt.luau".to_owned(), PROMPT.to_owned()),
+        (SCRIPT_NAME.to_owned(), SCRIPT.to_owned()),
+    ];
+    scripts.extend(MORE.map(|(name, code)| (name.to_owned(), code.to_owned())));
     Plugin::made(
         FOLDER,
         MANIFEST,
-        vec![
-            ("aloud.luau".to_owned(), ALOUD.to_owned()),
-            ("prompt.luau".to_owned(), PROMPT.to_owned()),
-            (SCRIPT_NAME.to_owned(), SCRIPT.to_owned()),
-        ],
+        scripts,
         RULES.to_owned(),
         Origin::Official,
     )

@@ -18,7 +18,12 @@ impl Tab {
                 None => tool.label.clone(),
                 Some(on) => switched(&tool.label, on),
             };
-            item(&label, map, Act::MapAction(tool.label))
+            // Of the map, with the map's; else under who offers it.
+            let group = match tool.on_map {
+                true => map.to_owned(),
+                false => self.offered_by(&tool.owner),
+            };
+            item(&label, &group, Act::MapAction(tool.label))
         }));
         if self.map.borrow().last_change().is_some() {
             acts.push(item(

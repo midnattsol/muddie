@@ -295,6 +295,7 @@ fn script_offers_to_do_things_with_the_map_and_is_told_when_its_map_changed() {
         label: label.into(),
         owner: "plugin".into(),
         checked,
+        on_map: true,
     };
     assert_eq!(
         engine.map_actions(),

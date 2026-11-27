@@ -50,6 +50,7 @@ sigue funcionando.
    - [`hush()`](#hush)
 6. [Ofrecer una lista, y el portapapeles](#ofrecer-una-lista-y-el-portapapeles)
    - [`choose(items, fn, options)`](#chooseitems-fn-options)
+   - [`action(name, fn, options)`](#actionname-fn-options)
    - [`clipboard.set(text)`](#clipboardsettext)
    - [`clipboard.get()`](#clipboardget)
 7. [Elegir cómo se oye algo](#elegir-cómo-se-oye-algo)
@@ -547,6 +548,32 @@ end)
 ```
 
 **Ver también:** [`clipboard.set(text)`](#clipboardsettext).
+
+### `action(name, fn, options)`
+
+Ofrece hacer algo, que se elige por `name` en la paleta (Ctrl+K), mientras el
+script está cargado: lo que no es del mapa, como cambiar de modo o activar
+unas teclas. Las acciones de un plugin salen bajo el nombre del plugin.
+`action(name)` la quita.
+
+**Parámetros:** `name` puede darse por idioma, como en [`tr`](#trtexts).
+
+**Opciones:** `checked`, verdadero o falso, la convierte en un interruptor:
+al elegirla se llama a `fn(on)` con cómo queda.
+
+**Devuelve:** nada.
+
+**Ejemplo:**
+
+```lua
+-- A switch in the palette, remembered.
+action({en = "Read the channels", es = "Leer los canales"}, function(on)
+    vars.read_channels = on
+end, {checked = vars.read_channels ~= false})
+```
+
+**Ver también:** [`map.action(name, fn, options)`](#mapactionname-fn-options),
+para lo que se hace con el mapa, que sale también en el menú del mapa.
 
 ### `clipboard.set(text)`
 

@@ -92,45 +92,8 @@ pub(super) fn install_actions(
         lua.create_function(move |_, ()| Ok(world.borrow().rooms().count()))?,
     )?;
 
-    let shared = Rc::clone(state);
-    api.set(
-        "action",
-        lua.create_function(
-            move |_, (label, callback, options): (Value, Option<Function>, Option<Table>)| {
-                only(options.as_ref(), &["checked"])?;
-                let label = texts_of(label)?;
-                if label.is_empty() {
-                    return Err(mlua::Error::runtime(
-                        "an action needs a name to be chosen by",
-                    ));
-                }
-                let checked = match &options {
-                    Some(options) => options.get::<Option<bool>>("checked")?,
-                    None => None,
-                };
-                let mut state = shared.borrow_mut();
-                let owner = state.owner.clone();
-                let at = state
-                    .map_actions
-                    .iter()
-                    .position(|tool| tool.label == label);
-                let tool = |callback| MapAction {
-                    owner,
-                    label,
-                    checked,
-                    callback,
-                };
-                match (at, callback) {
-                    (Some(at), Some(callback)) => state.map_actions[at] = tool(callback),
-                    (None, Some(callback)) => state.map_actions.push(tool(callback)),
-                    (Some(at), None) => drop(state.map_actions.remove(at)),
-                    (None, None) => return Ok(()),
-                }
-                state.actions.push(Action::MapActions);
-                Ok(())
-            },
-        )?,
-    )?;
+    api.set("action", offering(lua, state, true)?)?;
+    lua.globals().set("action", offering(lua, state, false)?)?;
 
     let shared = Rc::clone(state);
     api.set(
@@ -152,4 +115,44 @@ pub(super) fn install_actions(
         })?,
     )?;
     Ok(())
+}
+
+/// `map.action` and `action`: offers to do something, chosen by its name in
+/// the palette, and in the map's menu if it is `on_map`; without a function,
+/// takes it away.
+fn offering(lua: &Lua, state: &Rc<RefCell<State>>, on_map: bool) -> mlua::Result<Function> {
+    let shared = Rc::clone(state);
+    lua.create_function(
+        move |_, (label, callback, options): (Value, Option<Function>, Option<Table>)| {
+            only(options.as_ref(), &["checked"])?;
+            let label = texts_of(label)?;
+            if label.is_empty() {
+                return Err(mlua::Error::runtime(
+                    "an action needs a name to be chosen by",
+                ));
+            }
+            let checked = match &options {
+                Some(options) => options.get::<Option<bool>>("checked")?,
+                None => None,
+            };
+            let mut state = shared.borrow_mut();
+            let owner = state.owner.clone();
+            let at = (state.map_actions.iter()).position(|tool| tool.label == label);
+            let tool = |callback| MapAction {
+                owner,
+                label,
+                checked,
+                callback,
+                on_map,
+            };
+            match (at, callback) {
+                (Some(at), Some(callback)) => state.map_actions[at] = tool(callback),
+                (None, Some(callback)) => state.map_actions.push(tool(callback)),
+                (Some(at), None) => drop(state.map_actions.remove(at)),
+                (None, None) => return Ok(()),
+            }
+            state.actions.push(Action::MapActions);
+            Ok(())
+        },
+    )
 }

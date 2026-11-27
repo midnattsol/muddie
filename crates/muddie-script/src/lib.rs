@@ -49,6 +49,8 @@ pub struct OfferedTool {
     pub owner: String,
     /// For one that switches something on or off, whether it is on.
     pub checked: Option<bool>,
+    /// Whether it is of the map, offered in its menu too.
+    pub on_map: bool,
 }
 use api::{AfterText, Stopped, aloud_of, install_api, only, texts_of};
 pub use api::{CheckKeys, KnownShortcut, in_interface_language, set_interface_language};
@@ -331,13 +333,15 @@ impl Engine {
         variables
     }
 
-    /// What the scripts offer to do with the map, in the order offered.
+    /// What the scripts offer to do, with the map or not, in the order
+    /// offered.
     pub fn map_actions(&self) -> Vec<OfferedTool> {
         (self.state.borrow().map_actions.iter())
             .map(|tool| OfferedTool {
                 label: in_interface_language(&tool.label).unwrap_or_default(),
                 owner: tool.owner.clone(),
                 checked: tool.checked,
+                on_map: tool.on_map,
             })
             .collect()
     }

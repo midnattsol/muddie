@@ -151,6 +151,8 @@ pub(super) struct MapAction {
     /// For one that switches something on or off, whether it is on.
     pub(crate) checked: Option<bool>,
     pub(crate) callback: Function,
+    /// Offered in the map's menu too, not only in the palette.
+    pub(crate) on_map: bool,
 }
 
 /// A function a script gave to be called once the client knows something
