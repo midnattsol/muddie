@@ -1,54 +1,70 @@
 # Cómo hacer un plugin de Muddie
 
-English: [plugins.md](plugins.md). Todas las funciones que puede usar un plugin
-están en [scripting.es.md](scripting.es.md); sus tipos, en
-[muddie.d.luau](muddie.d.luau).
+English: [plugins.md](plugins.md).
 
-Un plugin le enseña a Muddie cómo es un MUD: sus indicadores, sus canales, su
-mapa, lo que merece decirse en voz alta. Muddie no sabe nada de ningún MUD en
-concreto; todo eso son plugins. El jugador activa un plugin, o lo acepta
-cuando Muddie se lo ofrece al conectar, y el plugin lo prepara todo él solo.
+Esta guía te lleva desde cero hasta un plugin que otros jugadores pueden
+instalar. No necesitas haber hecho ninguno antes. Cuando quieras consultar una
+función, ve a [scripting.es.md](scripting.es.md). Cuando quieras los tipos
+exactos, ve a [muddie.d.luau](muddie.d.luau).
 
 ## Contenido
 
-1. [Qué es un plugin](#qué-es-un-plugin)
-2. [Un plugin en cinco minutos](#un-plugin-en-cinco-minutos)
-3. [Probarlo mientras lo escribes](#probarlo-mientras-lo-escribes)
-4. [Los archivos](#los-archivos)
+1. [Para qué sirve un plugin](#para-qué-sirve-un-plugin)
+2. [Tu primer plugin](#tu-primer-plugin)
+3. [Pruébalo mientras lo escribes](#pruébalo-mientras-lo-escribes)
+4. [Los archivos en detalle](#los-archivos-en-detalle)
 5. [Cómo lo instala y lo actualiza Muddie](#cómo-lo-instala-y-lo-actualiza-muddie)
-6. [Escribirlo bien](#escribirlo-bien)
+6. [Hacerlo bien](#hacerlo-bien)
 7. [Recetas](#recetas)
 8. [Publicarlo](#publicarlo)
 9. [Escribir un plugin con una IA](#escribir-un-plugin-con-una-ia)
 
-## Qué es un plugin
+## Para qué sirve un plugin
 
-Una carpeta, cuyo nombre es el id del plugin, con estos archivos y nada más:
+Un plugin le enseña a Muddie cómo funciona un MUD. Trae sus indicadores, sus
+canales, su mapa y lo que merece la pena decir en voz alta. Muddie no sabe
+nada de ningún MUD en concreto, así que todo eso vive en plugins.
 
-| Archivo | Qué es |
+Haz un plugin cuando quieras compartir ese trabajo con todos los jugadores del
+MUD. Unos cuantos scripts en tu perfil solo te sirven a ti. Un plugin lo
+prepara todo él solo: el jugador lo activa, o dice que sí cuando Muddie se lo
+ofrece al conectar, y no hace falta nada más.
+
+### Qué lleva dentro
+
+Un plugin es una carpeta. El nombre de la carpeta es el id del plugin. Dentro
+lleva estos archivos y nada más:
+
+| Archivo | Qué contiene |
 |---|---|
-| `plugin.toml` | Qué es: su nombre, qué hace, para qué MUD es |
-| `*.luau` | Sus scripts, al menos uno |
-| `rules.toml` | Las reglas que trae, como las del editor: indicadores, disparadores, alias, teclas, temporizadores. Opcional |
-| `template.toml` | Un perfil listo para jugar al MUD, para **Perfil nuevo**. Opcional |
+| `plugin.toml` | El nombre del plugin, qué hace y para qué MUD es |
+| `*.luau` | Sus scripts. Necesitas al menos uno |
+| `rules.toml` | Opcional. Indicadores, disparadores, alias, teclas y temporizadores, las mismas reglas que hace el editor |
+| `template.toml` | Opcional. Un perfil listo para jugar al MUD, que se ofrece en **Perfil nuevo** |
 
-Hay tres clases, y todas se escriben igual:
+### Las tres clases
 
-- **Incluidos** en Muddie: el plugin **GMCP y MSDP estándar**, para lo que
-  muchos MUD mandan de la misma manera.
-- **Oficiales**: los del repositorio
-  [muddie-plugins](https://github.com/midnattsol/muddie-plugins), que Muddie
-  descarga y mantiene al día él solo.
-- **De git**: cualquier repositorio con un plugin en su raíz, que el jugador
-  instala con **Instalar un plugin…** en la paleta y su dirección.
+Las tres clases se escriben igual. Solo cambia de dónde vienen:
 
-## Un plugin en cinco minutos
+- **Incluidos**: Muddie trae el plugin **GMCP y MSDP estándar**. Se encarga de
+  lo que muchos MUD mandan de la misma manera.
+- **Oficiales**: están en el repositorio
+  [muddie-plugins](https://github.com/midnattsol/muddie-plugins). Muddie los
+  descarga y los mantiene al día él solo.
+- **De git**: cualquier repositorio con un plugin en su raíz. El jugador lo
+  instala con **Instalar un plugin…** en la paleta, dando la dirección del
+  repositorio.
 
-Un plugin para un MUD llamado Example, en `mud.example.org`, que manda la vida
-y la energía por GMCP en `Char.Vitals`, y los mensajes de sus canales en
-`Comm.Message`. La carpeta es `example-mud/`.
+## Tu primer plugin
 
-`plugin.toml`:
+En esta sección se hace un plugin completo con cuatro archivos. Cópialo,
+cambia los nombres y tendrás un punto de partida para tu MUD.
+
+El MUD del ejemplo se llama Example y está en `mud.example.org`. Manda la vida
+y la energía por GMCP en `Char.Vitals`. Manda los mensajes de los canales en
+`Comm.Message`. La carpeta del plugin es `example-mud/`.
+
+**Paso 1.** Escribe `plugin.toml`. Dice qué es el plugin y cuándo ofrecerlo:
 
 ```toml
 name = "Example MUD"
@@ -58,8 +74,9 @@ names = ["example"]
 muddie = "0.5.0"
 ```
 
-`rules.toml`, con sus indicadores: siguen solos lo que manda el MUD, y el
-jugador puede cambiarlos en el editor como si fueran suyos.
+**Paso 2.** Escribe `rules.toml` con los indicadores. Cada indicador sigue lo
+que manda el MUD sin nada de código. El jugador puede cambiarlos en el editor
+como si los hubiera hecho él.
 
 ```toml
 [[gauge]]
@@ -82,7 +99,8 @@ aloud = "wait"
 panel = "Points"
 ```
 
-`example.luau`, lo que hace:
+**Paso 3.** Escribe `example.luau`. Le pide GMCP al MUD y pone cada canal en
+su pestaña:
 
 ```lua
 -- Example MUD: its channels, each in its tab. Its gauges are in rules.toml.
@@ -95,7 +113,8 @@ on("gmcp", "Comm.Message", function(message)
 end)
 ```
 
-`template.toml`, para que **Perfil nuevo** ofrezca el MUD listo para jugar:
+**Paso 4.** Escribe `template.toml`. Con él, **Perfil nuevo** ofrece el MUD
+listo para jugar:
 
 ```toml
 name = "Example MUD"
@@ -104,42 +123,55 @@ port = 4000
 plugins = ["example-mud"]
 ```
 
-Eso es todo. Al conectar a `mud.example.org`, Muddie ofrece el plugin; una vez
-activado, los indicadores se ven y se oyen cuando bajan, y cada canal tiene su
-pestaña, que se lee en voz alta tras su nombre.
+Ya está. Cuando un jugador conecta a `mud.example.org`, Muddie le ofrece el
+plugin. Una vez activado, el jugador ve los indicadores y los oye cuando
+bajan. Cada canal tiene su pestaña, y Muddie lee cada mensaje en voz alta
+después del nombre del canal.
 
-## Probarlo mientras lo escribes
+## Pruébalo mientras lo escribes
 
-1. Pon la carpeta dentro de la carpeta `plugins` de la carpeta de
-   configuración: `~/.config/muddie/plugins/example-mud/` en Linux,
-   `%APPDATA%\muddie\plugins\example-mud\` en Windows. Muddie lo toma como uno
-   de git.
-2. Actívalo en la pestaña **Plugins** del perfil, en la ventana **Perfiles**.
-   Sus scripts se instalan en el perfil, en **Scripts**, en una carpeta con su
-   nombre; sus indicadores, en **Indicadores**.
-3. Cuando cambies los archivos del plugin, **Instalar de nuevo**, en su menú de
-   la pestaña **Plugins**, lo deja como está ahora. Para probar un cambio más
-   rápido, cambia la copia instalada en el editor y ejecútala; después pásalo
-   al plugin.
+Puedes usar tu plugin en Muddie mucho antes de publicarlo. Sigue estos pasos:
 
-Para ver qué hace:
+1. Pon la carpeta del plugin dentro de la carpeta `plugins` de la carpeta de
+   configuración de Muddie. En Linux es `~/.config/muddie/plugins/example-mud/`.
+   En Windows es `%APPDATA%\muddie\plugins\example-mud\`. Muddie lo trata
+   como un plugin de git.
+2. Abre la ventana **Perfiles**, ve a la pestaña **Plugins** del perfil y
+   activa el plugin. Sus scripts aparecen en **Scripts**, en una carpeta con
+   su nombre. Sus indicadores aparecen en **Indicadores**.
+3. Cada vez que cambies los archivos del plugin, abre su menú en la pestaña
+   **Plugins** y elige **Instalar de nuevo**. El perfil recibe los archivos
+   tal como están ahora.
 
-- `session.feed("text")`, en **Ejecutar Luau…** de la paleta, toma el texto
-  como si lo hubiera mandado el MUD: sirve para probar un disparador sin el
-  MUD.
-- `muddie --debug | tee muddie.log` muestra todo lo que pasa: el texto
+Para probar más rápido, cambia la copia instalada en el editor y ejecútala
+allí. Cuando funcione, copia el cambio a la carpeta del plugin.
+
+### Ver qué pasa
+
+Estas herramientas te enseñan lo que manda el MUD y lo que hace tu plugin:
+
+- **`session.feed("text")`** hace como si el MUD hubiera mandado ese texto.
+  Escríbelo en **Ejecutar Luau…** de la paleta. Úsalo para probar un
+  disparador sin conectar.
+- **`muddie --debug | tee muddie.log`** muestra todo lo que pasa. Ves el texto
   (`TEXT`, `PROMPT`, `PARTIAL`), lo que se manda, cada mensaje GMCP (`GMCP<`),
-  lo que los scripts escriben con `log` y sus errores (`SCRIPT`). Es lo primero
-  que hay que mirar para saber qué manda un MUD y para encontrar lo que falla.
-- Un error en un script se muestra en la esquina y queda guardado en el
-  editor, con su archivo y su línea.
-- [muddie.d.luau](muddie.d.luau) tiene todas las funciones con sus tipos: si se
-  lo das a un editor con luau-lsp, o a `luau-analyze`, un nombre mal escrito se
-  ve en cuanto lo escribes.
+  lo que los scripts escriben con `log` y los errores de los scripts
+  (`SCRIPT`). Mira aquí primero para saber qué manda un MUD y para encontrar
+  lo que falla.
+- **Los errores de los scripts** salen en la esquina. El editor también los
+  guarda, con el archivo y la línea.
+- **[muddie.d.luau](muddie.d.luau)** tiene todas las funciones con sus tipos.
+  Dáselo a un editor con luau-lsp, o a `luau-analyze`. Así, un nombre mal
+  escrito se marca en cuanto lo escribes.
 
-## Los archivos
+## Los archivos en detalle
+
+Esta sección explica cada campo de cada archivo. Vuelve a ella cuando el
+primer plugin se te quede corto.
 
 ### `plugin.toml`
+
+Este archivo le dice a Muddie qué es el plugin y cuándo ofrecerlo.
 
 ```toml
 name = { en = "Example MUD", es = "Ejemplo" }   # a text, or one by language
@@ -150,58 +182,82 @@ default_on = false            # on in every profile until switched off
 muddie = "0.5.0"              # the oldest Muddie it works with
 ```
 
-- `name` y `about` se muestran en la pestaña **Plugins** y en el ofrecimiento.
-  Un texto, o una tabla por código de idioma (`en`, `es`...), como los que
-  acepta [`tr`](scripting.es.md#trtexts); el nombre en inglés es la carpeta en
-  la que se instala, en cada perfil.
-- `hosts` y `names` dicen cuándo ofrecerlo: cuando la dirección contiene uno de
-  `hosts`, o cuando el MUD dice por MSSP que se llama como uno de `names`.
-- `default_on`: activado en todos los perfiles salvo que se desactive. Para el
-  plugin de un solo MUD, déjalo desactivado: se ofrece al conectar a ese MUD.
-- `muddie`: un Muddie más antiguo que esta versión se queda con la versión del
-  plugin que ya tiene.
-- Nada más: cualquier otro campo es un error, y el plugin no se acepta.
+- **`name` y `about`** salen en la pestaña **Plugins** y en el ofrecimiento.
+  Cada uno es un texto, o una tabla por código de idioma (`en`, `es`, etc.),
+  igual que lo que acepta [`tr`](scripting.es.md#trtexts). El nombre en
+  inglés es también el nombre de la carpeta en la que se instala el plugin, en
+  cada perfil.
+- **`hosts` y `names`** deciden cuándo ofrece Muddie el plugin. Lo ofrece
+  cuando la dirección contiene uno de `hosts`. También lo ofrece cuando el MUD
+  dice por MSSP que se llama como uno de `names`.
+- **`default_on`** activa el plugin en todos los perfiles hasta que el jugador
+  lo desactive. Para un plugin de un solo MUD, déjalo desactivado. Muddie lo
+  ofrece igualmente cuando el jugador conecta a ese MUD.
+- **`muddie`** es el Muddie más antiguo con el que funciona el plugin. Un
+  Muddie más antiguo se queda con la versión del plugin que ya tiene.
+- **No se admite ningún otro campo.** Cualquier otro campo es un error, y
+  Muddie rechaza el plugin.
 
 ### `rules.toml`
 
-Las reglas que trae, escritas como el `rules.toml` de un perfil. Cada una va en
-una carpeta con el nombre del plugin; `folder = "Combat"` la pone en una
-carpeta dentro de esa. Todas las clases admiten `name`, `folder`, `tags` y
-`enabled`.
+Este archivo trae las reglas del plugin. Usa reglas para lo que el jugador
+querrá cambiar en el editor, como los colores y los pasos de un indicador.
+Todo lo demás, hazlo en un script.
 
-Un indicador, `[[gauge]]`:
+Se escribe igual que el `rules.toml` de un perfil. Cada regla va en una
+carpeta con el nombre del plugin. `folder = "Combat"` pone una regla en una
+carpeta llamada Combat dentro de esa. Todas las clases de regla admiten
+`name`, `folder`, `tags` y `enabled`.
+
+#### Indicadores
+
+Un indicador se escribe como `[[gauge]]`. Muestra un valor que manda el MUD.
 
 | Campo | Qué es |
 |---|---|
-| `name` | Su nombre, tal como se muestra y se dice |
-| `value` | Dónde está su valor: una ruta de GMCP (`Char.Vitals.hp`), una variable de MSDP o una variable de `vars` |
-| `max` | Dónde está su máximo, o un número |
+| `name` | El nombre del indicador, tal como se muestra y se dice |
+| `value` | De dónde sale el valor: una ruta de GMCP (`Char.Vitals.hp`), una variable de MSDP o una variable de `vars` |
+| `max` | De dónde sale el máximo, o un número |
 | `kind` | `"bar"`, `"cells"`, `"number"`, `"light"`, `"text"` o `"effects"` |
-| `colour`, `off_colour` | Un nombre o `#rrggbb` |
-| `steps` | `[{ under = 30, colour = "#e05050" }]`: el color por debajo de cada porcentaje |
+| `colour`, `off_colour` | Un nombre de color o `#rrggbb` |
+| `steps` | El color por debajo de cada porcentaje, por ejemplo `[{ under = 30, colour = "#e05050" }]` |
 | `aloud` | `"usual"`, `"lowest"`, `"wait"`, `"cut"` o `"never"`, como en [`gauges.set`](scripting.es.md#gaugessetname-gauge) |
-| `always` | `true` para que se oiga también con la lectura del juego apagada |
-| `panel` | El panel de indicadores en el que se muestra, por su nombre: se crea si no existe |
+| `always` | Con `true` se oye aunque la lectura del juego esté apagada |
+| `panel` | El nombre del panel de indicadores en el que sale. Muddie crea el panel si no existe |
 
-Un disparador, `[[trigger]]`: `pattern` (un texto que contiene la línea, o una
-expresión regular con `regex = true`), y lo que hace: `send` (órdenes, una por
-línea o separadas por `;`, con `%1`... para lo que ha coincidido y `$name` para
-las variables), `speak`, `sound`, `highlight` (un color), `panel` (muestra la
-línea allí), `gag = true` (la oculta), `silence = true` (la muestra y no la
-lee), o `code` con `luau = true` (Luau, que recibe `m` y `line` igual que la
-función de un disparador).
+#### Disparadores
 
-Un alias, `[[alias]]`: `pattern` (la primera palabra de lo que se escribe, o
-una expresión regular con `regex = true`), y `send` o `code`. Una tecla,
-`[[macro]]`: `key` (`"f5"`, `"ctrl+k"`, `"numpad8"`), y `send` o `code`. Un
-temporizador, `[[timer]]`: `seconds`, `repeat = true` para que se repita una y
-otra vez, y `send` o `code`.
+Un disparador se escribe como `[[trigger]]`. Reacciona a una línea del MUD.
 
-Lo que se hace mejor en un script, hazlo en un script: las reglas son para lo
-que el jugador querrá cambiar en el editor, como los colores y los pasos de un
-indicador.
+- **`pattern`** es un texto que contiene la línea. Con `regex = true`, es una
+  expresión regular.
+- Después di qué hace el disparador, con uno o varios de estos campos:
+  - **`send`**: órdenes que mandar, una por línea o separadas por `;`. Usa
+    `%1`, etc. para lo que ha coincidido, y `$name` para una variable.
+  - **`speak`**: un texto que decir en voz alta.
+  - **`sound`**: un sonido que tocar.
+  - **`highlight`**: un color para la línea.
+  - **`panel`**: un panel en el que mostrar la línea.
+  - **`gag = true`**: oculta la línea.
+  - **`silence = true`**: muestra la línea pero no la lee.
+  - **`code`** con **`luau = true`**: código Luau. Recibe `m` y `line`, igual
+    que la función de un disparador en un script.
+
+#### Alias, teclas y temporizadores
+
+- **Un alias**, `[[alias]]`, reacciona a lo que escribe el jugador. Su
+  `pattern` es la primera palabra escrita, o una expresión regular con
+  `regex = true`. Hace `send` o `code`.
+- **Una tecla**, `[[macro]]`, reacciona al pulsar una tecla. Su `key` es un
+  nombre como `"f5"`, `"ctrl+k"` o `"numpad8"`. Hace `send` o `code`.
+- **Un temporizador**, `[[timer]]`, se ejecuta pasado un tiempo. Su `seconds`
+  dice cuánto. Con `repeat = true` se repite una y otra vez. Hace `send` o
+  `code`.
 
 ### `template.toml`
+
+Este archivo es un perfil ya hecho para el MUD. **Perfil nuevo** lo ofrece en
+la lista de MUD a los que jugar.
 
 ```toml
 name = "Example MUD"        # the game, which the profile is named after
@@ -213,81 +269,105 @@ language = "es"             # optional: the language the game is played in
 plugins = ["example-mud"]   # the plugins switched on, by their ids
 ```
 
-**Perfil nuevo** lo ofrece entre los MUD a los que jugar.
-
 ### Los scripts
 
-- **Ponles nombre en inglés y sin espacios**: `example.luau`, `aloud.luau`,
-  `prompt.luau`. Se ejecutan en el orden de sus nombres.
-- Se instalan en el perfil del jugador, en una carpeta con el nombre del
-  plugin, para leerlos y cambiarlos en el editor. Al desactivar el plugin se
-  desactivan.
-- **Módulos**: `require("prompt")` carga `prompt.luau` de la propia carpeta del
-  plugin, una sola vez, para todos sus scripts. Cada `.luau` de esa carpeta se
-  ejecuta también como script, así que un módulo solo devuelve lo que tiene.
-- **Pon lo que se oye en un script aparte**, `aloud.luau`, que el jugador puede
-  desactivar por separado sin perder lo que se ve (ver
-  [Escribirlo bien](#escribirlo-bien)).
+En los scripts es donde el plugin hace su trabajo. Ten en cuenta estas
+normas:
+
+- **Ponles nombre en inglés y sin espacios.** Por ejemplo `example.luau`,
+  `aloud.luau` y `prompt.luau`. Muddie los ejecuta en el orden de sus nombres.
+- **Se instalan en el perfil del jugador**, en una carpeta con el nombre del
+  plugin. El jugador puede leerlos y cambiarlos en el editor. Cuando el plugin
+  se desactiva, sus scripts también se desactivan.
+- **Comparte código con módulos.** `require("prompt")` carga `prompt.luau` de
+  la propia carpeta del plugin. Lo carga una sola vez, para todos los scripts
+  del plugin. Muddie también ejecuta como script cada `.luau` de la carpeta,
+  así que un módulo solo debe devolver lo que tiene.
+- **Pon todo lo que se oye en su propio script**, `aloud.luau`. Así el jugador
+  puede desactivar lo que se oye y quedarse con lo que se ve. Mira
+  [Hacerlo bien](#hacerlo-bien).
 
 ## Cómo lo instala y lo actualiza Muddie
 
-- **Al activarlo** en un perfil, el plugin se instala en él: sus scripts, en
-  una carpeta con su nombre entre los scripts del perfil; sus reglas, entre las
-  del perfil, en una carpeta con su nombre; sus indicadores, en los paneles que
-  nombran. Son del jugador, para cambiarlos.
-- **Al desactivarlo**, esas carpetas se desactivan; al volver a activarlo, lo
-  que el jugador había desactivado dentro sigue desactivado.
-- **Una versión nueva**, oficial o de git, se instala sola al abrir el perfil,
-  nunca en mitad de una partida. Lo que tenía antes y ya no tiene desaparece,
-  scripts y reglas; un script que el jugador cambió se guarda al lado, como
-  `name.luau.before-update`; lo que el jugador añadió se queda.
-- **Instalar de nuevo**, en su menú, vuelve a poner lo que instaló tal como
-  viene.
-- En una sesión sin perfil, se ejecuta tal como viene, hasta que acaba la
-  sesión.
+No tienes que hacer nada para que esto pase. Léelo para saber con qué se
+queda el jugador.
 
-## Escribirlo bien
+- **Cuando el jugador lo activa** en un perfil, Muddie instala el plugin en
+  ese perfil. Los scripts van a una carpeta con el nombre del plugin, entre
+  los scripts del perfil. Las reglas van a una carpeta con el nombre del
+  plugin, entre las reglas del perfil. Los indicadores van a los paneles que
+  nombran. Desde ese momento todo es del jugador, y puede cambiarlo.
+- **Cuando el jugador lo desactiva**, esas carpetas se desactivan. Cuando lo
+  vuelve a activar, lo que había desactivado dentro sigue desactivado.
+- **Cuando hay una versión nueva**, oficial o de git, Muddie la instala al
+  abrir el perfil. Nunca actualiza en mitad de una partida.
+  - Los scripts y las reglas que la versión nueva ya no tiene desaparecen.
+  - Un script que el jugador cambió se guarda junto al nuevo, como
+    `name.luau.before-update`.
+  - Lo que el jugador añadió se queda.
+- **Instalar de nuevo**, en el menú del plugin, vuelve a poner todo lo que
+  instaló, tal como viene en el plugin.
+- **En una sesión sin perfil**, el plugin se ejecuta tal como viene hasta que
+  acaba la sesión.
 
-- **Lo hace todo él solo.** Al activarlo, el plugin pide al MUD lo que
-  necesita (`gmcp.support`), pone sus indicadores y paneles, y le dice al
-  jugador, una vez, lo que tenga que hacer en el juego. Nada que preparar a
-  mano.
-- **Datos, no pantalla.** Lo que dice el MUD va a datos (indicadores, canales,
-  el mapa, `vars`); un panel es solo una forma de verlo. Quien escucha recibe lo
-  mismo: los indicadores se consultan con Alt+0 y se dicen cuando cambian.
-- **Lo que se oye sale de los datos, no de lo que se ve.** Escríbelo en
-  `aloud.luau`, escuchando lo que manda el MUD (`on("gmcp")`, disparadores),
-  nunca un indicador o un panel que el jugador puede borrar.
-- **Poco ruido.** Di lo que cambia, no todo otra vez: el estado que llega y el
-  que se va, no todos. Lo importante, con `aloud = "cut"`; lo demás, después de
-  lo que se esté leyendo. Usa `line:mute()` o `line:read(shorter)` para las
-  líneas que dicen demasiado. Deja `always = true` para lo urgente.
-- **Todos los textos en inglés y en español**, por idioma:
-  `notify{en = ..., es = ...}`, `tr{...}`. El jugador los ve en el idioma de la
-  interfaz.
-- **Avisa una sola vez.** Lo que el jugador tiene que saber (un módulo que
-  activar en el juego, un mapa más nuevo) se dice una vez, y se guarda en
-  `vars` si debe quedar dicho.
-- **Guarda en `vars` lo que elige el jugador**, con nombres propios del plugin:
-  `vars.example_learning`.
-- **Nada del MUD dentro de Muddie.** Si el plugin necesita algo que Muddie no
-  tiene, eso es una función de la API que hay que pedir, útil para cualquier
+## Hacerlo bien
+
+Estas costumbres hacen que un plugin sea agradable, para quien mira y para
+quien escucha.
+
+- **Lo prepara todo él solo.** Al activarse, el plugin le pide al MUD lo que
+  necesita (`gmcp.support`). Pone sus indicadores y paneles. Le dice al
+  jugador, una vez, lo que tenga que hacer en el juego. El jugador nunca
+  prepara nada a mano.
+- **Manda lo que dice el MUD a datos, no a la pantalla.** Datos son los
+  indicadores, los canales, el mapa y `vars`. Un panel es solo una forma de
+  ver esos datos. Quien escucha recibe los mismos datos: consulta los
+  indicadores con Alt+0 y los oye cuando cambian.
+- **Saca lo que se oye de los datos, no de lo que se ve.** Escríbelo en
+  `aloud.luau`, y escucha lo que manda el MUD, con `on("gmcp")` y
+  disparadores. Nunca escuches un indicador o un panel, porque el jugador
+  puede borrarlo.
+- **Haz poco ruido.** Di lo que cambia, no todo otra vez. Con los estados, di
+  el que llega y el que se va, no la lista entera.
+  - Di lo importante con `aloud = "cut"`, y lo demás después de lo que se
+    esté leyendo.
+  - Usa `line:mute()` o `line:read(shorter)` para las líneas que dicen
+    demasiado.
+  - Deja `always = true` para lo urgente.
+- **Escribe todos los textos en inglés y en español**, como una tabla por
+  idioma: `notify{en = ..., es = ...}`, `tr{...}`. El jugador ve cada texto en
+  el idioma de la interfaz.
+- **Avisa al jugador una sola vez.** Hay cosas que el jugador tiene que saber,
+  como un módulo que activar en el juego o un mapa más nuevo. Díselas una vez.
+  Guarda en `vars` que ya lo dijiste, si debe quedar dicho.
+- **Guarda en `vars` lo que elige el jugador**, con nombres propios del
+  plugin, como `vars.example_learning`.
+- **Deja el MUD fuera de Muddie.** Si el plugin necesita algo que Muddie no
+  tiene, pide una función nueva de la API. Tiene que servir para cualquier
   MUD.
 
 ## Recetas
 
-### Indicadores desde GMCP
+Cada receta resuelve una necesidad habitual. Copia el código y cambia los
+nombres de GMCP y los patrones para que encajen con tu MUD.
 
-En `rules.toml`, como en [el ejemplo](#un-plugin-en-cinco-minutos). Un paquete
-que solo manda lo que ha cambiado (solo la vida, cuando solo ha cambiado la
-vida) se combina con lo que llegó antes, para que los indicadores lo tengan
-entero:
+### Mostrar la vida y la energía
+
+Escribe los indicadores en `rules.toml`, como en
+[tu primer plugin](#tu-primer-plugin).
+
+Algunos MUD solo mandan lo que ha cambiado. Por ejemplo, mandan solo la vida
+cuando solo ha cambiado la vida. Pídele a Muddie que combine cada mensaje con
+lo que llegó antes, para que los indicadores tengan siempre todos los
+valores:
 
 ```lua
 gmcp.merge("Char.Status")
 ```
 
-### Los estados del personaje, como un indicador de efectos
+### Mostrar los estados del personaje
+
+Este script muestra los estados del personaje como un indicador de efectos:
 
 ```lua
 local states = {}
@@ -310,7 +390,8 @@ on("gmcp", "Char.States", function(data)
 end)
 ```
 
-Y lo que cambia de ellos, en `aloud.luau`, a partir de los mismos datos:
+Para decir en voz alta qué estados llegan y cuáles se van, añade esto a
+`aloud.luau`. Lee los mismos datos de GMCP, no el indicador:
 
 ```lua
 local known = nil
@@ -332,7 +413,10 @@ end)
 on("disconnect", function() known = nil end)
 ```
 
-### Canales
+### Poner cada canal en su pestaña
+
+`channels.say` pone un mensaje en la pestaña de su canal y lo lee en voz alta.
+Los mensajes de antes de que llegara el jugador se guardan pero no se leen:
 
 ```lua
 on("gmcp", "Comm.Message", function(message)
@@ -344,10 +428,13 @@ on("gmcp", "Comm.History", function(message)
 end)
 ```
 
-### El mapa
+### Seguir al jugador en el mapa
 
-Si el MUD manda `Room.Info`, como la mayoría, el plugin estándar ya hace el
-mapa. Si dice en qué sala estás con un GMCP propio:
+La mayoría de los MUD mandan `Room.Info`. Si el tuyo lo hace, el plugin
+estándar ya dibuja el mapa y no necesitas nada.
+
+Si tu MUD dice en qué sala está el jugador con un GMCP propio, apaga el mapa
+estándar y dale al mapa cada sala:
 
 ```lua
 map.native = false
@@ -356,8 +443,8 @@ on("gmcp", "Room.Info", function(room)
 end)
 ```
 
-Si solo escribe la sala en su texto, el mapa te sigue por el nombre y las
-salidas, y puede aprender lo que le falta:
+Si tu MUD solo escribe la sala en su texto, el mapa sigue al jugador por el
+nombre y las salidas de la sala. También puede aprender lo que le falta:
 
 ```lua
 map.language = "es"
@@ -371,8 +458,8 @@ trigger("^(.+) \\[([a-z,]+)\\]$", function(m)
 end)
 ```
 
-Una opción para el jugador, en el menú del mapa y en la paleta, que se
-recuerda:
+Para que el jugador elija si el mapa aprende, añade una opción. Sale en el
+menú del mapa y en la paleta, y Muddie la recuerda:
 
 ```lua
 map.action({en = "Learn the map as you go", es = "Aprender el mapa sobre la marcha"},
@@ -383,9 +470,10 @@ map.action({en = "Learn the map as you go", es = "Aprender el mapa sobre la marc
     {checked = map.learn})
 ```
 
-### El prompt
+### Callar el prompt
 
-Que no se lea, y que se lea lo que viene detrás en la misma línea:
+Este disparador hace que el prompt no se lea. Si detrás del prompt viene algo
+en la misma línea, lee solo eso:
 
 ```lua
 trigger("^HP:\\d+ SP:\\d+> ?(.*)$", function(m, line)
@@ -393,11 +481,16 @@ trigger("^HP:\\d+ SP:\\d+> ?(.*)$", function(m, line)
 end)
 ```
 
-Si cada jugador se hace su propio prompt, apréndelo tal como lo dice el juego,
-guárdalo en `vars` y saca de él el patrón. El plugin de Reinos de Leyenda, en
-muddie-plugins, lo hace así en su `prompt.luau`.
+En algunos MUD cada jugador se diseña su propio prompt. En ese caso, aprende
+el prompt tal como lo muestra el juego, guárdalo en `vars` y saca de él el
+patrón. El plugin de Reinos de Leyenda, en muddie-plugins, lo hace así en su
+`prompt.luau`.
 
 ### Avisar al jugador una vez
+
+Este script espera 90 segundos después de conectar. Si no ha llegado la vida
+por GMCP, le dice al jugador cómo activarla y guarda en `vars` que ya se lo
+dijo:
 
 ```lua
 on("connect", function()
@@ -413,54 +506,71 @@ end)
 
 ## Publicarlo
 
-- **En un repositorio propio**: pon los archivos del plugin en su raíz. El
-  jugador lo instala con **Instalar un plugin…**, en la paleta, y su
-  dirección; **Actualizar un plugin…** lo pone al día.
-- **Como plugin oficial**: abre una pull request en
-  [muddie-plugins](https://github.com/midnattsol/muddie-plugins), con el plugin
-  en una carpeta con su id. Allí tiene que llevar también `rules.toml` y
-  `template.toml`, y ninguna carpeta dentro. Sus herramientas lo comprueban
-  antes de aceptarlo:
+Hay dos formas de compartir tu plugin. Elige una.
 
-  ```sh
-  python3 tools/check.py   # the files of every plugin
-  python3 tools/api.py     # the use of the API, with luau-analyze
-  python3 tools/pack.py    # plugins.zip, as Muddie downloads it
-  ```
+### En un repositorio propio
 
-  Una vez aceptado, release-please saca una versión, y todos los Muddie la
-  toman solos.
+1. Pon los archivos del plugin en la raíz del repositorio.
+2. Da a los jugadores su dirección. Lo instalan con **Instalar un plugin…** en
+   la paleta.
+3. Los jugadores lo ponen al día con **Actualizar un plugin…**.
+
+### Como plugin oficial
+
+Los plugins oficiales llegan a todos los jugadores de Muddie, y Muddie los
+actualiza él solo.
+
+1. Pon el plugin en una carpeta con el nombre de su id, en una copia de
+   [muddie-plugins](https://github.com/midnattsol/muddie-plugins). Allí el
+   plugin tiene que llevar también `rules.toml` y `template.toml`, y ninguna
+   carpeta dentro.
+2. Pasa las comprobaciones del repositorio:
+
+```sh
+python3 tools/check.py   # the files of every plugin
+python3 tools/api.py     # the use of the API, with luau-analyze
+python3 tools/pack.py    # plugins.zip, as Muddie downloads it
+```
+
+3. Abre una pull request.
+
+Cuando se acepte, release-please saca una versión, y todos los Muddie la toman
+solos.
 
 ## Escribir un plugin con una IA
 
-Una IA puede escribir un plugin con estos archivos y una sesión del MUD. Dale:
+Una IA puede escribir un buen plugin si le das el material adecuado. Sigue
+estos pasos:
 
-1. Esta guía, [plugins.es.md](plugins.es.md).
-2. La referencia, [scripting.es.md](scripting.es.md), y los tipos,
+1. Dale esta guía, [plugins.es.md](plugins.es.md).
+2. Dale la referencia, [scripting.es.md](scripting.es.md), y los tipos,
    [muddie.d.luau](muddie.d.luau).
-3. **El registro de una sesión real**, `muddie --debug | tee session.log`:
-   entrar, caminar, un combate, los canales. Muestra lo que manda el MUD, línea
-   a línea y por GMCP, y ninguna descripción lo sustituye. Quita tu contraseña
-   si la escribiste donde el juego la muestra.
-4. El plugin de Reinos de Leyenda, en muddie-plugins, como ejemplo de uno
-   completo.
+3. Dale **el registro de una sesión real**, hecho con
+   `muddie --debug | tee session.log`. En esa sesión, entra, camina, pelea una
+   vez y usa los canales. El registro muestra lo que manda el MUD, línea a
+   línea y por GMCP. Ninguna descripción lo sustituye. Quita tu contraseña si
+   la escribiste donde el juego la muestra.
+4. Dale el plugin de Reinos de Leyenda, de muddie-plugins, como ejemplo de un
+   plugin completo.
+5. Pídele el plugin. Por ejemplo:
 
-Y pídele, por ejemplo:
+   > Haz un plugin de Muddie para el MUD de session.log, siguiendo
+   > plugins.es.md y scripting.es.md, y usando solo las funciones de
+   > muddie.d.luau. Indicadores para lo que manda por GMCP, sus canales cada
+   > uno en una pestaña, el mapa siguiendo al jugador y, en aloud.luau, que
+   > solo se diga en voz alta lo que cambia. Todos los textos en inglés y en
+   > español. Dame cada archivo completo.
 
-> Haz un plugin de Muddie para el MUD de session.log, siguiendo plugins.es.md
-> y scripting.es.md, y usando solo las funciones de muddie.d.luau. Indicadores
-> para lo que manda por GMCP, sus canales cada uno en una pestaña, el mapa
-> siguiendo al jugador y, en aloud.luau, que solo se diga en voz alta lo que
-> cambia. Todos los textos en inglés y en español. Dame cada archivo completo.
+6. Prueba el resultado como en
+   [Pruébalo mientras lo escribes](#pruébalo-mientras-lo-escribes).
+7. Cuando algo falle, dale a la IA el error tal como lo muestra Muddie, y las
+   líneas del registro de alrededor.
 
-Después pruébalo como en
-[Probarlo mientras lo escribes](#probarlo-mientras-lo-escribes), y devuélvele
-lo que falle: el error tal como lo muestra Muddie, y las líneas del registro de
-alrededor. Antes de usarlo, comprueba:
+Antes de usar el plugin, comprueba que:
 
 - [ ] `plugin.toml` solo tiene los campos de arriba, y `muddie = "0.5.0"` o posterior.
-- [ ] Los scripts tienen nombre en inglés, sin espacios; lo que se oye, en `aloud.luau`.
-- [ ] Solo usa funciones de `muddie.d.luau`; `luau-analyze` no encuentra nada mal escrito.
-- [ ] Nada se dice dos veces: lo que dice un indicador no lo repite un script.
-- [ ] Todos los textos que ve el jugador, en inglés y en español.
+- [ ] Los scripts tienen nombre en inglés y sin espacios, y lo que se oye está en `aloud.luau`.
+- [ ] Solo usa funciones de `muddie.d.luau`, y `luau-analyze` no encuentra nada mal escrito.
+- [ ] Nada se dice dos veces: un script no repite lo que ya dice un indicador.
+- [ ] Todos los textos que ve el jugador están en inglés y en español.
 - [ ] Al activarlo en un perfil nuevo, funciona sin tocar nada a mano.

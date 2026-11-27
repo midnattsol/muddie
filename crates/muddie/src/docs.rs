@@ -9,7 +9,7 @@ use std::rc::Rc;
 
 /// The documents, by their names, in English and in Spanish where there is
 /// a Spanish one.
-const DOCS: [(&str, &str); 4] = [
+const DOCS: [(&str, &str); 6] = [
     ("scripting.md", include_str!("../../../docs/scripting.md")),
     ("plugins.md", include_str!("../../../docs/plugins.md")),
     (
@@ -17,6 +17,14 @@ const DOCS: [(&str, &str); 4] = [
         include_str!("../../../docs/scripting.es.md"),
     ),
     ("plugins.es.md", include_str!("../../../docs/plugins.es.md")),
+    (
+        "first-scripts.md",
+        include_str!("../../../docs/first-scripts.md"),
+    ),
+    (
+        "first-scripts.es.md",
+        include_str!("../../../docs/first-scripts.es.md"),
+    ),
 ];
 
 /// The fenced blocks of a document, each with what they are written in.
@@ -153,6 +161,7 @@ fn each_spanish_document_has_the_code_of_its_english() {
     for (english, spanish) in [
         ("scripting.md", "scripting.es.md"),
         ("plugins.md", "plugins.es.md"),
+        ("first-scripts.md", "first-scripts.es.md"),
     ] {
         let code = |name: &str| blocks(text_of(name));
         assert_eq!(code(english), code(spanish), "{spanish}");

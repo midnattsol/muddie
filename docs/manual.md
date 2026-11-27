@@ -358,8 +358,8 @@ the others. Triggers and aliases have a box to try them out: paste a line
 from the MUD, or type a command, and it says whether it matches and what it
 would do.
 
-They are saved in the profile's `rules.toml`. For anything more, see
-[scripting](scripting.md), and to make a plugin for a MUD,
+They are saved in the profile's `rules.toml`. For anything more, start with
+[your first scripts](first-scripts.md), then the [reference](scripting.md), and to make a plugin for a MUD,
 [plugins](plugins.md).
 
 ## Panels

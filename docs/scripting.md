@@ -1,60 +1,180 @@
 # Muddie scripting reference
 
-Español: [scripting.es.md](scripting.es.md). To make a plugin, start with
-[plugins.md](plugins.md). Every function and its types, for an editor that
-checks Luau: [muddie.d.luau](muddie.d.luau).
+Español: [scripting.es.md](scripting.es.md). New to scripts? Start with
+[first-scripts.md](first-scripts.md). To make a plugin, read
+[plugins.md](plugins.md). Every function with its types, for an editor that
+checks Luau, is in [muddie.d.luau](muddie.d.luau).
 
-Scripts are written in [Luau](https://luau.org), a fast, typed dialect of Lua
-5.1. There is one API for everyone: what a script shows is seen, what it says
-is heard, and the same script serves who looks at the screen and who listens
-with a screen reader. Muddie gives the data and the tools; what is shown and
-said is up to the scripts.
+This is the reference: every function, what it does, what it takes and what
+it returns. Scripts are written in [Luau](https://luau.org), a fast, typed
+dialect of Lua 5.1.
 
-Scripts run in a sandbox: they cannot read or write files, start programs or
-load code from outside the script folders, so a script someone shares can do
-no harm. One that runs for more than half a second at a time is stopped with
-an error, and the client carries on.
+There is one API for everyone. What a script shows is seen, and what it says
+is heard. The same script works for someone looking at the screen and for
+someone listening with a screen reader. Muddie gives you the data and the
+tools; your scripts decide what to show and what to say.
+
+Scripts are safe to share. They cannot read or write files, start programs,
+or load code from outside the script folders. If a script runs for more than
+half a second without stopping, Muddie stops it with an error and carries on.
 
 ## Contents
 
-1. [Getting started](#getting-started)
-2. [Showing and saying](#showing-and-saying)
-3. [What is heard](#what-is-heard)
-4. [Triggers](#triggers)
-5. [The line](#the-line)
-6. [Aliases, keys and timers](#aliases-keys-and-timers)
-7. [What a script makes, and switching it](#what-a-script-makes-and-switching-it)
-8. [Waiting](#waiting)
-9. [Listening: on](#listening-on)
-10. [Variables](#variables)
-11. [Gauges](#gauges)
-12. [Panels and channels](#panels-and-channels)
-13. [Sounds](#sounds)
-14. [The session and the command line](#the-session-and-the-command-line)
-15. [Data from the MUD](#data-from-the-mud)
-16. [The map](#the-map)
-17. [Modules](#modules)
-18. [Mistakes, and checking a script](#mistakes-and-checking-a-script)
-19. [What there is not](#what-there-is-not)
+1. [Start here](#start-here)
+   - [Where scripts go](#where-scripts-go)
+   - [Running a script again](#running-a-script-again)
+   - [A first script](#a-first-script)
+2. [Which one do I use?](#which-one-do-i-use)
+   - [To show or say something](#to-show-or-say-something)
+   - [To react to something](#to-react-to-something)
+   - [To keep data](#to-keep-data)
+   - [To follow the player's room](#to-follow-the-players-room)
+3. [React to what the MUD says](#react-to-what-the-mud-says)
+   - [`trigger(pattern, fn, options)`](#triggerpattern-fn-options)
+4. [Change how a line looks or sounds](#change-how-a-line-looks-or-sounds)
+   - [Fields of a line](#fields-of-a-line)
+   - [`line:hide()`](#linehide)
+   - [`line:mute()`](#linemute)
+   - [`line:read(text, options)`](#linereadtext-options)
+   - [`line:replace(text)`](#linereplacetext)
+   - [`line:paint(fg, bg)`](#linepaintfg-bg)
+   - [`line:link(command, options)`](#linelinkcommand-options)
+   - [`line:to_panel(name)`](#lineto_panelname)
+5. [Show messages and speak](#show-messages-and-speak)
+   - [`echo(text, options)`](#echotext-options)
+   - [`speak(text, options)`](#speaktext-options)
+   - [`notify(text, options)`](#notifytext-options)
+   - [`tr(texts)`](#trtexts)
+   - [`log(text)`](#logtext)
+   - [`hush()`](#hush)
+6. [Choose how something is heard](#choose-how-something-is-heard)
+7. [Send commands and make shortcuts](#send-commands-and-make-shortcuts)
+   - [`send(text)`](#sendtext)
+   - [`alias(pattern, fn, options)`](#aliaspattern-fn-options)
+   - [`on("send", fn)`](#onsend-fn)
+8. [Bind keys](#bind-keys)
+   - [`macro(key, action, options)`](#macrokey-action-options)
+9. [Do something later or every so often](#do-something-later-or-every-so-often)
+   - [`after(seconds, fn, options)`](#afterseconds-fn-options)
+   - [`every(seconds, fn, options)`](#everyseconds-fn-options)
+10. [Wait in the middle of a script](#wait-in-the-middle-of-a-script)
+   - [`wait(seconds)`](#waitseconds)
+   - [`wait("line", pattern, options)`](#waitline-pattern-options)
+   - [`wait(what, name, options)`](#waitwhat-name-options)
+   - [`lines(options)`](#linesoptions)
+   - [Where nothing can wait](#where-nothing-can-wait)
+11. [Remember things (vars)](#remember-things-vars)
+   - [`vars`](#vars)
+   - [`expand(text)`](#expandtext)
+   - [`on("var", name, fn)`](#onvar-name-fn)
+12. [Show your character's state (gauges)](#show-your-characters-state-gauges)
+   - [`gauges.set(name, gauge)`](#gaugessetname-gauge)
+   - [`gauges.remove(name, options)`](#gaugesremovename-options)
+   - [`gauges.get(name)`](#gaugesgetname)
+   - [`gauges.all()`](#gaugesall)
+   - [`on("gauge", name, fn, options)`](#ongauge-name-fn-options)
+13. [Text panels and channels](#text-panels-and-channels)
+   - [`panels.set(name, text)`](#panelssetname-text)
+   - [`panels.clear(name)`](#panelsclearname)
+   - [`panels.add(name, text, options)`](#panelsaddname-text-options)
+   - [`panels.size(name)`](#panelssizename)
+   - [`channels.say(name, text, options)`](#channelssayname-text-options)
+   - [`channels.open(name, options)`](#channelsopenname-options)
+   - [`channels.close(name)`](#channelsclosename)
+   - [`channels.all()`](#channelsall)
+14. [Play sounds](#play-sounds)
+   - [`sounds.play(file, options)`](#soundsplayfile-options)
+   - [`sounds.stop()`](#soundsstop)
+15. [Talk to the MUD behind the scenes (GMCP, MSDP)](#talk-to-the-mud-behind-the-scenes-gmcp-msdp)
+   - [`gmcp.get(package)`](#gmcpgetpackage)
+   - [`gmcp.send(package, data)`](#gmcpsendpackage-data)
+   - [`gmcp.support(module, ...)`](#gmcpsupportmodule-)
+   - [`gmcp.merge(package, ...)`](#gmcpmergepackage-)
+   - [`msdp.get(variable)`, `msdp.send(command, ...)`](#msdpgetvariable-msdpsendcommand-)
+   - [`msdp.report(variable, ...)`](#msdpreportvariable-)
+   - [`mssp.get()`](#msspget)
+16. [React to other events (on)](#react-to-other-events-on)
+   - [`on(what, name, fn, options)`](#onwhat-name-fn-options)
+   - [`emit(name, data)`](#emitname-data)
+17. [Turn things on and off](#turn-things-on-and-off)
+   - [Options, places and tags](#options-places-and-tags)
+   - [What `trigger`, `alias`, `macro`, `after`, `every` and `on` return](#what-trigger-alias-macro-after-every-and-on-return)
+   - [`triggers`, `aliases`, `macros`, `timers`, `gauges`, `scripts`](#triggers-aliases-macros-timers-gauges-scripts)
+   - [`tags`](#tags)
+   - [What goes with a script](#what-goes-with-a-script)
+18. [The session and the command line](#the-session-and-the-command-line)
+   - [Fields of `session`](#fields-of-session)
+   - [`session.completions(name, words)`](#sessioncompletionsname-words)
+   - [`session.feed(text)`](#sessionfeedtext)
+   - [`output.last(count)`](#outputlastcount)
+19. [Map the game and walk it](#map-the-game-and-walk-it)
+   - [Rooms and places](#rooms-and-places)
+   - [Settings of the map](#settings-of-the-map)
+   - [Following the player](#following-the-player)
+     - [`map.visit(room)`](#mapvisitroom)
+     - [`map.set_room(room)`](#mapset_roomroom)
+     - [`map.here(place)`](#maphereplace)
+     - [`map.arrive{name, exits, came}`](#maparrivename-exits-came)
+     - [`map.add{name, exits, came}`](#mapaddname-exits-came)
+     - [`map.learn`](#maplearn)
+     - [`map.candidates()`](#mapcandidates)
+     - [`map.failed()`](#mapfailed)
+   - [Walking](#walking)
+     - [`map.way(to, from)`](#mapwayto-from)
+     - [`map.go(to)`](#mapgoto)
+     - [`map.stop()`](#mapstop)
+   - [Looking things up](#looking-things-up)
+     - [`map.room(place)`](#maproomplace)
+     - [`map.find(text, options)`](#mapfindtext-options)
+     - [`map.exit(from, direction)`](#mapexitfrom-direction)
+     - [`map.direction(word)`](#mapdirectionword)
+     - [`map.count()`, `map.areas()`, `map.id(text)`](#mapcount-mapareas-mapidtext)
+     - [`map.marks()`](#mapmarks)
+   - [Changing the map](#changing-the-map)
+     - [`map.mark(name, place)`](#mapmarkname-place)
+     - [`map.edit_room(place, changes)`](#mapedit_roomplace-changes)
+     - [`map.set_exit(from, direction, to, options)`](#mapset_exitfrom-direction-to-options)
+     - [`map.remove_exit(from, direction)`, `map.remove_room(place)`](#mapremove_exitfrom-direction-mapremove_roomplace)
+     - [`map.clear()`](#mapclear)
+     - [`map.tidy(area)`](#maptidyarea)
+     - [`map.undo()`](#mapundo)
+     - [`map.show_area(area)`](#mapshow_areaarea)
+   - [The map a MUD publishes](#the-map-a-mud-publishes)
+     - [`map.import(address)`](#mapimportaddress)
+     - [`map.newer(address, fn)`](#mapneweraddress-fn)
+     - [`map.action(name, fn, options)`](#mapactionname-fn-options)
+20. [Share code between scripts](#share-code-between-scripts)
+   - [`require(name)`](#requirename)
+21. [When something goes wrong](#when-something-goes-wrong)
+22. [What scripts cannot do](#what-scripts-cannot-do)
 
-## Getting started
+## Start here
 
-### Where scripts live
+### Where scripts go
 
-All paths are under the configuration folder: `~/.config/muddie` on Linux,
-`%APPDATA%\muddie` on Windows.
+Scripts are text files ending in `.luau`, in the configuration folder:
+`~/.config/muddie` on Linux, `%APPDATA%\muddie` on Windows.
 
 | File | When it runs |
 |---|---|
 | `init.luau` | In every session |
-| `profiles/<profile>/scripts/*.luau` | In that profile, in name order; those of a plugin in the plugin's folder |
+| `profiles/<profile>/scripts/*.luau` | In that profile, in name order; a plugin's scripts are in the plugin's folder |
 | files given with `--script` | In every session, last |
 
-In the palette (Ctrl+K), **Restart scripts** runs them afresh after editing,
-and **Run Luau…** runs a line of Luau on the spot. In the editor, **Scripts**
-has each script, to write, run and switch.
+You can also write them inside Muddie: in the editor, **Scripts** lists every
+script, to write it, run it, and turn it on or off.
+
+### Running a script again
+
+A script runs once, top to bottom, when Muddie loads it. What it sets up
+(triggers, keys, gauges...) keeps working while you play. After you edit a
+script, run it again: save it in the editor, press its run button, or choose
+**Restart scripts** in the palette (Ctrl+K) to run every script again. To try
+one line of Luau without a file, use **Run Luau…** in the palette.
 
 ### A first script
+
+Save this as `init.luau` and choose **Restart scripts**.
 
 ```lua
 -- Say who tells you something, cutting in, and paint the name.
@@ -73,135 +193,91 @@ on("gmcp", "Char.Vitals", function(vitals)
 end)
 ```
 
-### What a script keeps, and when it loses it
+[first-scripts.md](first-scripts.md) goes on from here, step by step.
 
-What a script holds in its own variables lasts while it is loaded:
+## Which one do I use?
 
-- **Kept** when the connection is lost and made again (scripts are only told,
-  with `on("disconnect")` and `on("connect")`), and when another script or a
-  rule is changed and saved.
-- **Lost** when the script itself is run again, by saving it or with its run
-  button; when everything is run again (**Restart scripts**, another profile, a
-  plugin switched); and when Muddie is closed. A script run again starts from
-  its first line with nothing: that is where to ask the MUD for what it had
-  sent.
+Several functions do similar jobs. These tables help you pick.
 
-What must outlast all of that goes in [`vars`](#variables).
+### To show or say something
 
-What a script makes and sets goes with it when it is switched off, removed or
-run again: its triggers, aliases, keys, timers, listeners and gauges; the text
-it put in panels and the channels it opened; its sounds, stopped; and what it
-set of the map and the session (`map.learn`, `map.directions`, `map.names`,
-`map.native`, `map.persist`, `map.language`, `session.separator`,
-`session.completions`, `gmcp.merge`, `gmcp.support`, `msdp.report`), back as it
-was.
-
-### Options, places and tags
-
-Options always go last, in a table: `trigger(pattern, fn, {once = true})`. An
-option a function does not take is an error that says which it takes, never
-left out without a word.
-
-Everything that can be switched takes `place` and `tags`:
-
-- `place`, as `"Folder/Name"`: what it is switched by. Switching a folder off
-  switches off everything in it.
-- `tags`, a list of tags or one alone: each switches it with everything else
-  that carries it.
-
-Something runs while its place, every folder above it and every tag it
-carries are on. A rule of the editor has as its place its folder and its name
-(`Combat/Fight back`; two alike are told apart by a number,
-`Combat/Fight back #2`). A script's place is where it is among the profile's scripts, with no
-extension: `Mapping/rooms`.
-
-## Showing and saying
-
-### `send(text)`
-
-Sends a command to the MUD as it is: aliases are not applied.
-
-### `echo(text, options)`
-
-Shows a line in the output, and reads it aloud. Takes `aloud` and `always`
-(see [What is heard](#what-is-heard)).
-
-### `speak(text, options)`
-
-Says something aloud and shows nothing. Takes `aloud` and `always`.
-
-```lua
-speak("You are dying!", {aloud = "cut", always = true})
-```
-
-### `notify(text, options)`
-
-Tells the player something, as the client tells its own: for a few seconds over
-the bottom right corner, and under the bell after; never in the output. It is
-Muddie talking, not the game, so it is heard in any session and with the game
-not read aloud, unless it is `{aloud = "never"}`.
-
-### `log(text)`
-
-Shows something on the standard output of a run started with `--debug`;
-nothing otherwise. For what only whoever writes the script wants to see.
-
-### `tr(texts)`
-
-The text in the language of the interface, of those given by language code:
-else that of its language without the country (`es` for `es_AR`), else
-English, else the first. For what a shared script shows the player.
-
-```lua
-notify(tr{en = "Map updated.", es = "Mapa actualizado."})
-```
-
-`echo`, `notify` and `speak` take the texts by language themselves, too:
-`speak{en = "You are dying", es = "Te mueres"}`.
-
-### `hush()`
-
-Silences what is being read, in the session on screen.
-
-## What is heard
-
-`speak`, `echo`, `line:read`, `panels.add`, `channels.say` and `gauges.set`
-say how they are heard in the same way, in their options:
-
-| Option | Heard |
+| You want to... | Use |
 |---|---|
-| `aloud = "usual"` | As it is if nothing is said: after what is being read; `line:read` as the line would be; a gauge as its kind is (see [`gauges.set`](#gaugessetname-gauge)) |
-| `aloud = "wait"` | After what is being read |
-| `aloud = "cut"` | Cutting short what is being read |
-| `aloud = "never"` | Not at all |
-| `aloud = "lowest"` | Of a gauge only: waiting, but cutting in under its lowest step |
-| `always = true` | Also while the player has the game not read aloud |
+| Show a line in the output and read it aloud | [`echo`](#echotext-options) |
+| Say something aloud, without showing it | [`speak`](#speaktext-options) |
+| Tell the player something from Muddie itself, heard even in another session | [`notify`](#notifytext-options) |
+| Say something else in place of a line that came | [`line:read`](#linereadtext-options) |
+| Leave a note only you, the author, will see | [`log`](#logtext) |
 
-Everything of the game goes through one door, with the same rules as its lines:
+### To react to something
 
-- It is heard only in the session on screen.
-- It is not heard while the player has the game not read aloud, unless it is
-  `always`.
-- It is not heard if the settings, the panel or the channel are told not to be
-  read; `always` does not get past those.
-- The same words just read, as a line or of a channel, are not read again,
-  unless a script asks for them to cut in.
+| When... | Use |
+|---|---|
+| A line of output matches a pattern | [`trigger`](#triggerpattern-fn-options) |
+| You type a command that matches a pattern | [`alias`](#aliaspattern-fn-options) |
+| You press a key | [`macro`](#macrokey-action-options) |
+| Something that is not text happens: GMCP data, a gauge, a variable, connecting | [`on`](#onwhat-name-fn-options) |
+| The next line, or the next lines, inside one function | [`wait("line")`](#waitline-pattern-options), [`lines`](#linesoptions) |
+| Any of the first three, without writing code | A rule in the editor |
 
-`notify` is not of the game: it is heard in any session.
+### To keep data
 
-## Triggers
+| You want it to last... | Use |
+|---|---|
+| While the script is loaded (lost when it runs again) | A `local` variable in the script |
+| For good, saved with the profile | [`vars`](#vars) |
+
+A script's `local` variables last while it is loaded:
+
+- **They are kept** when the connection drops and comes back. Scripts are only
+  told, with `on("disconnect")` and `on("connect")`. They are also kept when
+  you change and save another script or a rule.
+- **They are lost** when the script itself runs again (you save it, or press
+  its run button), when every script runs again (**Restart scripts**, another
+  profile, a plugin turned on or off), and when you close Muddie.
+
+A script that runs again starts from its first line with nothing. That is the
+place to ask the MUD again for anything it had already sent.
+
+### To follow the player's room
+
+| The server... | Use |
+|---|---|
+| Tells you the room, with its id (GMCP `Room.Info`, MSDP `ROOM`) | The standard plugin does it; or [`map.visit`](#mapvisitroom) |
+| Tells you the id of a room the map already has | [`map.here`](#maphereplace) |
+| Tells only the room's name and exits | [`map.arrive`](#maparrivename-exits-came) |
+| Tells only the name and exits, and the map has no room there yet | [`map.add`](#mapaddname-exits-came) |
+
+## React to what the MUD says
+
+A trigger watches the game's output and runs your function when a line
+matches a pattern. Use it to answer the game, warn yourself, or change how a
+line looks or sounds.
 
 ### `trigger(pattern, fn, options)`
 
-Calls `fn(m, line)` for each line of the output that matches `pattern`, a
-regular expression (Rust's `regex`, so `\\d`, `(?<name>...)` and `(?i)` work).
-`m[0]` is the whole match, `m[1]`... its groups, and a named group is also
-`m.name`. `line` is [the line](#the-line), to change how it is shown and heard.
+Calls `fn(m, line)` for each line of output that matches `pattern`.
 
-Options: `place`, `tags`, `once` (removed after it fires once) and `prompt`:
-`true`, for prompts only; `false`, for all but prompts; not given, for both. A
-prompt is what the MUD marks as one, or text left without an end, once it stops
-changing.
+**Parameters:**
+
+- `pattern`: a regular expression, in the syntax of Rust's `regex`, so
+  `\\d`, `(?<name>...)` and `(?i)` work.
+- `fn(m, line)`: `m[0]` is the whole match, and `m[1]`, `m[2]`... are its
+  groups. A named group is also `m.name`. `line` is
+  [the line itself](#change-how-a-line-looks-or-sounds).
+
+**Options:**
+
+- `place`, `tags`: what turns it on and off (see
+  [places and tags](#options-places-and-tags)).
+- `once`: remove the trigger after it fires once.
+- `prompt`: `true` matches prompts only; `false` matches everything except
+  prompts. Leave it out to match both. A prompt is a line the MUD marks as a
+  prompt, or text that has no line end and has stopped changing.
+
+**Returns:** what it made (see [what is returned](#what-trigger-alias-macro-after-every-and-on-return)).
+
+**Example:**
 
 ```lua
 trigger("^You are hungry", function() send("eat bread") end,
@@ -213,97 +289,320 @@ trigger("^\\[spam\\]", function(m, line) line:hide() end)
 trigger("^HP \\d+> (.*)$", function(m, line) line:read(m[1]) end)
 ```
 
-Triggers run in the order they were made; a line goes through every one that
-matches.
+Triggers run in the order they were made. A line goes through every trigger
+that matches it, not just the first. There is no priority.
 
-## The line
+**See also:** [`wait("line")`](#waitline-pattern-options) and
+[`lines`](#linesoptions), to catch the next lines inside one function;
+[`alias`](#aliaspattern-fn-options), for what you type.
 
-A trigger is given the line it matched, to do with it what it wants while it
-looks at it. Kept for later, it can only be asked what it said.
+## Change how a line looks or sounds
 
-### Fields
+Every trigger gets the line it matched. While your function runs, you can
+hide the line, recolour it, replace words, make a link, or say something else
+in its place. If you keep the line for later, you can only read what it said.
+
+### Fields of a line
 
 | Field | What it is |
 |---|---|
-| `line.text` | What it says |
-| `line.prompt` | Whether it is a prompt: marked so by the MUD, or left without an end |
-| `line.spans` | The line as runs of text with `text`, `fg`, `bg`, `bold`, `italic`, `underline` and `inverse` |
+| `line.text` | What the line says |
+| `line.prompt` | Whether it is a prompt: marked as one by the MUD, or without a line end |
+| `line.spans` | The line as runs of text, each with `text`, `fg`, `bg`, `bold`, `italic`, `underline` and `inverse` |
+
+**A trap:** a line is not its text. To use its words, use `line.text`:
+`echo(line.text)`, `line.text:match("%d+")`, `line.text == "Done."`. Passing
+the line where a text is expected gives an error that says so. But
+`line == "Done."` is not an error in Luau: it is simply always false. Put
+`--!strict` at the top of the script and
+[the definitions](#when-something-goes-wrong) will catch it.
 
 ### `line:hide()`
 
-It is neither shown nor read.
+Hides the line: it is neither shown nor read.
+
+**Returns:** nothing.
+
+**See also:** [`line:mute()`](#linemute), to show it without reading it.
 
 ### `line:mute()`
 
-It is shown, and kept to be read back with the review keys, but not read aloud
-as it comes.
+Shows the line but does not read it aloud when it arrives. It is still kept,
+so you can read it back with the review keys.
+
+**Returns:** nothing.
+
+**See also:** [`line:hide()`](#linehide), to hide it as well.
 
 ### `line:read(text, options)`
 
-`text` is read in its place, as the line would be, or as `aloud` and `always`
-say.
+Reads `text` instead of the line; the line is still shown as it is.
+
+**Options:** `aloud` and `always` (see
+[Choose how something is heard](#choose-how-something-is-heard)). Without
+them, `text` is heard as the line would be.
+
+**Returns:** nothing.
+
+**See also:** [`line:replace`](#linereplacetext), to change what is shown
+too.
 
 ### `line:replace(text)`
 
-Puts `text` in place of what matched: shown so and, unless told otherwise,
-read so. Returns whether it could: not over what another trigger replaced.
+Puts `text` in place of the part that matched. The line is shown that way
+and, unless you say otherwise with `line:read`, read that way.
+
+**Returns:** whether it worked. It fails over a part that another trigger
+already replaced.
 
 ### `line:paint(fg, bg)`
 
-Recolours what matched. A colour is a name (`"red"`, `"bright blue"`),
-`"#rrggbb"` or a palette number; `nil` leaves that one as it is.
+Recolours the part that matched.
+
+**Parameters:** `fg` is the text colour and `bg` the background. A colour is
+a name (`"red"`, `"bright blue"`), `"#rrggbb"`, or a palette number. `nil`
+leaves that colour as it is.
+
+**Returns:** nothing.
 
 ### `line:link(command, options)`
 
-Makes what matched a link that sends `command`, reached with the keyboard as
-those the MUD marks. `{hint = "..."}` says what it is for. Returns whether it
-could, as `line:replace`.
+Turns the part that matched into a link that sends `command`. You can reach
+it with the keyboard, like the links the MUD marks.
+
+**Options:** `hint`, a text that says what the link is for.
+
+**Returns:** whether it worked, as for `line:replace`.
+
+**Example:**
+
+```lua
+-- Someone arrives: paint the line and make the name a link.
+trigger("^(\\w+) arrives\\.$", function(m, line)
+    line:paint("bright green")
+    line:link("look " .. m[1], {hint = "look at them"})
+end)
+
+-- Shown, but not read aloud.
+trigger("^You hear a distant bell\\.$", function(m, line) line:mute() end)
+```
 
 ### `line:to_panel(name)`
 
-Adds the line to a panel of text, with its colours.
+Copies the line, with its colours, to the end of the text panel `name`.
 
-### A line is not its text
+**Returns:** nothing.
 
-Its text is always `line.text`: `echo(line.text)`, `line.text:match("%d+")`,
-`line.text == "Done."`. Giving the line where a text is wanted is an error that
-says so; but `line == "Done."` is no error in Luau, only never true. With
-`--!strict` at the top of the script, [the definitions](#mistakes-and-checking-a-script)
-catch it.
+**See also:** [`panels.add`](#panelsaddname-text-options), to add your own
+text to a panel.
 
-## Aliases, keys and timers
+## Show messages and speak
+
+These functions put words in front of the player: in the output, in the
+corner of the window, or only in their ears. To pick one, see
+[Which one do I use?](#to-show-or-say-something)
+
+### `echo(text, options)`
+
+Shows a line in the output and reads it aloud.
+
+**Parameters:** `text` can also be a table of texts by language, as for
+[`tr`](#trtexts).
+
+**Options:** `aloud` and `always` (see
+[Choose how something is heard](#choose-how-something-is-heard)).
+
+**Returns:** nothing.
+
+To show a line without reading it, give `{aloud = "never"}`.
+
+**See also:** [`speak`](#speaktext-options), [`notify`](#notifytext-options).
+
+### `speak(text, options)`
+
+Says something aloud and shows nothing.
+
+**Parameters:** `text` can also be a table of texts by language.
+
+**Options:** `aloud` and `always`.
+
+**Returns:** nothing.
+
+**Example:**
+
+```lua
+speak("You are dying!", {aloud = "cut", always = true})
+```
+
+**See also:** [`echo`](#echotext-options), [`hush`](#hush).
+
+### `notify(text, options)`
+
+Shows a notice to the player. It appears for a few seconds in the bottom
+right corner, and then stays in the **Messages** list (the bell icon). It
+never appears in the game's output.
+
+A notice comes from Muddie, not from the game. So it is always read aloud,
+even when reading the game is turned off or its session is not the one in
+front.
+
+**Parameters:** `text` can also be a table of texts by language.
+
+**Options:** only `aloud`. To keep the notice from being read:
+`{aloud = "never"}`.
+
+**Returns:** nothing.
+
+**See also:** [`echo`](#echotext-options), [`speak`](#speaktext-options).
+
+### `tr(texts)`
+
+Picks the text for the interface's language from a table keyed by language
+code. If that language is missing, it uses the same language without the
+country (`es` for `es_AR`); then English; then the first one given. Use it
+for anything a shared script shows the player.
+
+**Returns:** the text it picked.
+
+**Example:**
+
+```lua
+notify(tr{en = "Map updated.", es = "Mapa actualizado."})
+```
+
+`echo`, `notify` and `speak` also take texts by language directly:
+`speak{en = "You are dying", es = "Te mueres"}`.
+
+### `log(text)`
+
+Writes `text` to the standard output when Muddie was started with `--debug`,
+and does nothing otherwise. Use it for messages only the script's author
+needs.
+
+**Returns:** nothing.
+
+**See also:** [`muddie --debug`](#when-something-goes-wrong).
+
+### `hush()`
+
+Stops what is being read right now, in the session in front.
+
+**Returns:** nothing.
+
+## Choose how something is heard
+
+`speak`, `echo`, `line:read`, `panels.add`, `channels.say` and `gauges.set`
+all take the same two options to say how they are heard. Most of the time you
+need neither.
+
+| Option | How it is heard |
+|---|---|
+| `aloud = "usual"` | The default. After what is being read. `line:read` is heard as the line would be; a gauge as its kind is (see [`gauges.set`](#gaugessetname-gauge)) |
+| `aloud = "wait"` | After what is being read |
+| `aloud = "cut"` | Right away, cutting off what is being read |
+| `aloud = "never"` | Not at all |
+| `aloud = "lowest"` | Gauges only: waits its turn, but cuts in when the gauge falls under its lowest step |
+| `always = true` | Even while reading the game is turned off |
+
+Everything a script says about the game follows the same rules as the game's
+own lines:
+
+- It is heard only in the session in front.
+- It is not heard while reading the game is turned off, unless you give
+  `always = true`.
+- It is not heard if the settings, the panel or the channel say not to read
+  it. `always` does not get past those.
+- Words that were just read, as a line or on a channel, are not read again,
+  unless the script asks for `"cut"`.
+
+`notify` is different: it is Muddie talking, so it is heard in any session.
+
+## Send commands and make shortcuts
+
+Use `send` to send a command as if the player typed it, and `alias` to make
+your own short commands. `on("send")` sees every command just before it
+leaves, so it can change or stop it.
+
+### `send(text)`
+
+Sends a command to the MUD exactly as written. Aliases are not applied.
+
+**Returns:** nothing.
+
+**See also:** [`on("send")`](#onsend-fn), which sees it before it leaves.
 
 ### `alias(pattern, fn, options)`
 
-Calls `fn(m, input)` instead of sending what is typed, when it matches
-`pattern`. Options: `place`, `tags` and `once`.
+When what you type matches `pattern`, calls `fn(m, input)` instead of
+sending it.
+
+**Parameters:** `m` holds the groups, as in a [trigger](#triggerpattern-fn-options);
+`input` is what you typed.
+
+**Options:** `place`, `tags` and `once`.
+
+**Returns:** what it made (see [what is returned](#what-trigger-alias-macro-after-every-and-on-return)).
+
+**Example:**
 
 ```lua
 alias("^k (.+)$", function(m) send("kill " .. m[1]) end)
 ```
 
+**See also:** [`macro`](#macrokey-action-options), for a key instead of a
+command.
+
+### `on("send", fn)`
+
+Calls `fn(text)` with each command just before it goes to the MUD, wherever
+it comes from: typed, or sent by a script, a rule, a walk or a link.
+
+**Parameters:** what `fn` returns decides what is sent:
+
+- a text: that is sent instead;
+- `false`: nothing is sent;
+- `nil`: the command goes as it is.
+
+**Returns:** what it made, as [`on`](#onwhat-name-fn-options).
+
+**Example:**
+
+```lua
+on("send", function(text)
+    if text == "quit" then
+        notify("Type it in full: quit!")
+        return false
+    end
+    if text == "quit!" then return "quit" end
+end)
+```
+
+It is not told the name and password the client logs in with, nor the
+commands the function itself sends. Nothing can [wait](#where-nothing-can-wait)
+inside it.
+
+## Bind keys
+
+A key binding runs commands or a function when you press a key. It is the
+quickest way to walk with the numeric keypad or fire a spell with F5.
+
 ### `macro(key, action, options)`
 
-Runs commands or a function when a key is pressed: `macro("f5", "look")`,
-`macro("ctrl+shift+k", fn)`. Commands are sent as a rule's are: separated by
-`;`, with `$name` put in, not through aliases. Options: `place` and `tags`.
+Binds `key` to commands or a function: `macro("f5", "look")`,
+`macro("ctrl+shift+k", fn)`.
 
-A key bound again under another `place` does that while it is on: the first
-bound that is on is the one that runs. Bound again under the same place, it
-does the new thing instead.
+**Parameters:**
 
-Keys are named in lower case with their modifiers in the order `ctrl`, `alt`,
-`shift`: `f1`...`f35`, `ctrl+k`, `alt+shift+up`. Of the main block, only
-function keys and keys pressed with Ctrl or Alt can be bound, so typing is
-never taken.
+- `key`: a key name (see below).
+- `action`: a function, or commands, sent the way a rule sends them:
+  separated by `;`, with each `$name` replaced by its variable, and without
+  going through aliases.
 
-The numeric keypad has names of its own: `numpad0` to `numpad9`, `numpadadd`,
-`numpadsubtract`, `numpadmultiply`, `numpaddivide`, `numpaddecimal` and
-`numpadenter`. With Num Lock off, the digits are other keys, named by what is
-written on them: `numpadup`, `numpaddown`, `numpadleft`, `numpadright`,
-`numpadhome`, `numpadend`, `numpadpageup`, `numpadpagedown`, `numpadclear` (the
-5), `numpadinsert` and `numpaddelete`. A bound keypad key no longer types its
-digit.
+**Options:** `place` and `tags`.
+
+**Returns:** what it made (see [what is returned](#what-trigger-alias-macro-after-every-and-on-return)).
+
+**Example:**
 
 ```lua
 macro("numpad8", "north")
@@ -313,56 +612,83 @@ macro("numpad6", "east")
 macro("numpad5", "look")
 ```
 
+If you bind a key again under a different `place`, both bindings exist, and
+the first one bound that is on is the one that runs. If you bind it again
+under the same place, the new action replaces the old one.
+
+**Key names.** Write them in lower case, with modifiers in the order `ctrl`,
+`alt`, `shift`: `f1`...`f35`, `ctrl+k`, `alt+shift+up`. On the main keyboard
+you can only bind function keys and keys pressed with Ctrl or Alt. That way a
+binding never steals what you type.
+
+**The numeric keypad** has names of its own: `numpad0` to `numpad9`,
+`numpadadd`, `numpadsubtract`, `numpadmultiply`, `numpaddivide`,
+`numpaddecimal` and `numpadenter`. With Num Lock off, the digit keys are
+other keys, named after what is printed on them: `numpadup`, `numpaddown`,
+`numpadleft`, `numpadright`, `numpadhome`, `numpadend`, `numpadpageup`,
+`numpadpagedown`, `numpadclear` (the 5), `numpadinsert` and `numpaddelete`.
+Once you bind a keypad key, it stops typing its digit.
+
+## Do something later or every so often
+
+Timers run a function after a delay, or again and again. Use them for things
+like saving every minute.
+
 ### `after(seconds, fn, options)`
 
-Calls `fn()` once, after so many seconds. Options: `place` and `tags`.
+Calls `fn()` once, after that many seconds.
+
+**Options:** `place` and `tags`.
+
+**Returns:** what it made; `made:left()` gives the seconds left.
+
+**See also:** [`wait(seconds)`](#waitseconds), to pause inside a function
+instead.
 
 ### `every(seconds, fn, options)`
 
-Calls `fn()` again and again, every so many seconds. Switched off, it lets its
-turns pass.
+Calls `fn()` every that many seconds, until you remove it. While it is turned
+off, it skips its turns.
+
+**Options:** `place` and `tags`.
+
+**Returns:** what it made; `made:left()` gives the seconds until the next
+call.
+
+**Example:**
 
 ```lua
 local saving = every(60, function() send("save") end)
 after(5, function() saving:remove() end)
 ```
 
-## What a script makes, and switching it
+## Wait in the middle of a script
 
-### What `trigger`, `alias`, `macro`, `after`, `every` and `on` return
+When something takes several steps, write them one after another. A function
+can pause until a line arrives, a gauge drops, or some seconds pass, and then
+carry on. This is much simpler than triggers and timers that start each
+other.
 
-What they made:
+### `wait(seconds)`
 
-| Method | What it does |
-|---|---|
-| `made:enable()`, `made:disable()`, `made:toggle()` | Switch it; return whether it is now on |
-| `made:enabled()` | Whether it is on |
-| `made:remove()` | Takes it away; returns whether it was there |
-| `made:left()` | Of a timer, the seconds it has left |
+Pauses the function for that many seconds. The rest of the client and the
+other scripts keep going.
 
-### `triggers`, `aliases`, `macros`, `timers`, `gauges`, `scripts`
+**Returns:** nothing.
 
-Switch the things of a kind by their place, or a folder with all it holds,
-whether made in a script or in the editor, for the session:
+### `wait("line", pattern, options)`
 
-```lua
-triggers.disable("Combat")
-macros.enable("Combat/Kick")
-local on = scripts.toggle("Mapping")
-```
+Pauses until a later line matches `pattern`.
 
-Each has `enable(place)`, `disable(place)`, `toggle(place)` (returns whether it
-is now on), `enabled(place)` and `list()`, the places there are.
+**Options:**
 
-### `tags`
+- `timeout`: the most seconds to wait.
+- `prompt`: as in a [trigger](#triggerpattern-fn-options).
 
-The same for tags: `tags.disable("combat")` switches off everything that
-carries the tag, of every kind.
+**Returns:** what a trigger gets: the groups and the line. `nil` if
+`timeout` passes first.
 
-## Waiting
-
-What takes several steps is written one after another, rather than as triggers
-and timers that set off each other.
+**Example:**
 
 ```lua
 alias("^cure$", function()
@@ -380,97 +706,61 @@ trigger("^You are carrying:$", function()
 end)
 ```
 
-### `wait(seconds)`
-
-Stops there for a while; the rest of the client and of the scripts goes on.
-
-### `wait("line", pattern, options)`
-
-Stops until a line after this one matches, and returns what a trigger is
-given: the groups and the line. Options: `timeout`, in seconds, after which it
-returns `nil`; and `prompt`, as a trigger's.
+**See also:** [`lines`](#linesoptions), for several lines;
+[`trigger`](#triggerpattern-fn-options).
 
 ### `wait(what, name, options)`
 
-Stops until what `on(what, name, ...)` listens to comes, and returns what it
-would be given (`true`, if that is nothing). Options: `timeout`, and those of
-`on`: `wait("gauge", "HP", {under = 30, timeout = 10})`.
+Pauses until whatever `on(what, name, ...)` listens to arrives:
+`wait("gauge", "HP", {under = 30, timeout = 10})`. Leave out `name` for what
+takes none.
+
+**Options:** `timeout`, and those of [`on`](#onwhat-name-fn-options).
+
+**Returns:** what `on` would pass to its function, or `true` if that is
+nothing. `nil` if `timeout` passes first.
 
 ### `lines(options)`
 
-The lines that come next, one by one, in a `for`: until one matches `till`,
-which is not among them; until there have been `count`; or until none comes in
-`timeout` seconds. It needs one of the three.
+Gives you the next lines one by one, in a `for` loop.
+
+**Options:** it stops at the first of these, and you must give at least one:
+
+- `till`: a line matches this pattern (that line is not included);
+- `count`: this many lines have come;
+- `timeout`: no line comes for this many seconds.
+
+**Returns:** a function for `for`, which gives a [line](#fields-of-a-line)
+each time.
+
+**See also:** [`wait("line")`](#waitline-pattern-options).
 
 ### Where nothing can wait
 
-What waits goes when its script is stopped or run again. Nothing can wait in
-`on("send", ...)`, in a module while it is being required, or in a function
-given to another, as to `table.sort`. `coroutine.wrap(function() ... end)()`
-runs what is in it, waits and all, beside the rest.
+A wait ends when its script is stopped or run again.
 
-## Listening: on
+You cannot wait inside `on("send", ...)`, inside a module while `require` is
+loading it, or inside a function handed to another function, such as the one
+you give `table.sort`.
 
-### `on(what, name, fn, options)`
+To wait without holding up the rest of your code, wrap it:
+`coroutine.wrap(function() ... end)()` runs its contents, waits included,
+alongside the rest.
 
-Calls `fn` when something comes. Returns what it made, as a trigger. Options:
-`place` and `tags`; for a gauge also `under` and `over`. Something it does not
-know to listen to is an error that says what there is.
+## Remember things (vars)
 
-| `what` | `name` | `fn` is given |
-|---|---|---|
-| `"gmcp"` | a package: also those under it (`"Char"` covers `Char.Vitals`) | the data, and the package |
-| `"msdp"` | a variable | the value (a string), and the variable |
-| `"var"` | a variable of [`vars`](#variables) | the value, and the name |
-| `"gauge"` | a gauge, or none for all | the gauge, and how it changed (see [`on("gauge")`](#ongauge-name-fn-options)) |
-| `"channel"` | a channel, or none for all | `{channel, text}` |
-| `"emit"` | what another script says | what it said, and the name |
-| `"send"` | none | each command on its way to the MUD (see [`on("send")`](#onsend-fn)) |
-| `"connect"`, `"disconnect"` | none | nothing |
-| `"focus"` | none | whether the session is now in front, in a window that is |
-| `"reader"` | none | whether a screen reader now reads Muddie |
-| `"mxp"` | none | `{name, value}`, when the MUD names a value with MXP |
-| `"panel"` | none | `{name, map, columns, rows}`, when a panel that shows a drawing settles its size; `map` is true for the map's panel |
-
-What changes of a variable, a gauge, a channel or another script is told once
-the script that changed it is done, so it is told whole.
-
-### `emit(name, data)`
-
-Says something to the other scripts, which listen with `on("emit", name, fn)`.
-A plugin tells so what others may want to know.
-
-```lua
--- In one script:
-emit("fight", {with = "orc"})
--- In another:
-on("emit", "fight", function(data) speak(`Fighting {data.with}`) end)
-```
-
-### `on("send", fn)`
-
-Calls `fn(text)` with each command about to be sent to the MUD, wherever it
-comes from: typed, or sent by a script, a rule, a walk or a link. What it
-returns is sent instead; `false`, nothing is; `nil`, it goes as it is. Not
-told of the name and password the client logs in with, nor of what such a
-function sends itself.
-
-```lua
-on("send", function(text)
-    if text == "quit" then
-        notify("Type it in full: quit!")
-        return false
-    end
-    if text == "quit!" then return "quit" end
-end)
-```
-
-## Variables
+Variables in `vars` are saved with the profile, so they survive closing
+Muddie. Use them for a target, a list of friends, or anything your scripts
+must not forget. For what lasts only while a script is loaded, see
+[To keep data](#to-keep-data).
 
 ### `vars`
 
-The variables, as a table, kept with the profile: they outlast the session.
-They are those of the editor's **Variables**.
+The profile's variables, as a table. They are the same ones you see under
+**Variables** in the editor. Set a field to keep it, read it to get it as it
+is now, and set it to `nil` to forget it.
+
+**Example:**
 
 ```lua
 vars.target = "orc"          -- keeps it
@@ -479,8 +769,8 @@ vars.target = nil            -- forgets it
 for name, value in vars do echo(`{name} = {value}`) end
 ```
 
-A table kept in one is kept as it is when it is given: change it, and give it
-again.
+**A trap:** a table stored in a variable is saved as it was when you stored
+it. If you change the table afterwards, store it again:
 
 ```lua
 local bag = vars.bag or {}
@@ -488,44 +778,58 @@ bag.gold = 5
 vars.bag = bag
 ```
 
+**See also:** [`on("var")`](#onvar-name-fn), [`expand`](#expandtext).
+
 ### `expand(text)`
 
-`text` with each `$name` replaced by that variable's value, `$name.key` by a
-field of a table and `$name.1` by an item of a list, as the commands of rules
-are.
+Fills variables into `text`, as in the commands of rules: `$name` becomes
+the value of that variable, `$name.key` a field of a table, and `$name.1` an
+item of a list.
+
+**Returns:** the text with the variables filled in.
 
 ### `on("var", name, fn)`
 
-Calls `fn(value, name)` when the variable changes, by a script, a trigger or
-the editor. A gauge of the editor can follow a variable too.
+Calls `fn(value, name)` when the variable changes, whether a script, a
+trigger or the editor changed it.
 
-## Gauges
+**Returns:** what it made, as [`on`](#onwhat-name-fn-options).
 
-A gauge is data first: whatever made it (the editor, a plugin, a script or the
-MUD), a script can ask for it and listen to it, whether a panel shows it or not.
-With a screen reader the panels of gauges are not there for it; what they show
-is read with Alt+0, and said as it changes.
+A gauge made in the editor can also follow a variable, without a script.
+
+## Show your character's state (gauges)
+
+A gauge shows a piece of your character's state: health as a bar, a light
+for "poisoned", a list of effects. Gauges sit in gauge panels, and their
+changes are read aloud.
+
+A gauge is data first. Whoever made it (the editor, a plugin, a script or the
+MUD), any script can read it and listen to it, whether a panel shows it or
+not. With a screen reader, the gauge panels are skipped; press Alt+0 to hear
+what they show, and changes are said as they happen.
 
 ### `gauges.set(name, gauge)`
 
-Shows a gauge, or updates it. What it is given:
+Shows a gauge, or updates it if it exists.
+
+**Parameters:** `gauge` is a table with these fields:
 
 | Field | What it is |
 |---|---|
-| `kind` | `"bar"` (as none is said), `"cells"`, `"number"`, `"light"`, `"text"` or `"effects"` |
-| `value`, `max` | Its level: a bar and cells need both; a number, `value` |
-| `on` | Of a light: whether it is lit |
-| `text` | Of text: what it says |
-| `items` | Of effects: what the character is in, a list (or a table by name) of names or `{name = "Poisoned", about = "1 damage a second", colour = "red"}` |
-| `colour`, `off_colour` | A name or `#rrggbb`; `off_colour` is a light's while it is off |
-| `steps` | The colours it takes under each percentage: `{{under = 60, colour = "yellow"}, {under = 30, colour = "red"}}` |
-| `aloud`, `always` | How its changes are heard. `"usual"`: a level cuts in as it falls under a step, and the rest wait their turn; also `"lowest"`, `"wait"`, `"cut"`, `"never"` |
-| `panel` | The panel of gauges it is shown in, by name: made if there is none; the first there is if none is named |
-| `place`, `tags` | What switches it, as a trigger |
+| `kind` | `"bar"` (the default), `"cells"`, `"number"`, `"light"`, `"text"` or `"effects"` |
+| `value`, `max` | Its level. A bar and cells need both; a number needs `value` |
+| `on` | For a light: whether it is lit |
+| `text` | For text: what it says |
+| `items` | For effects: what the character has, as a list (or a table by name) of names or of `{name = "Poisoned", about = "1 damage a second", colour = "red"}` |
+| `colour`, `off_colour` | A name or `#rrggbb`; `off_colour` is a light's colour while it is off |
+| `steps` | The colour it takes under each percentage: `{{under = 60, colour = "yellow"}, {under = 30, colour = "red"}}` |
+| `aloud`, `always` | How its changes are heard. `"usual"`: a level cuts in when it falls under a step, and other changes wait their turn. Also `"lowest"`, `"wait"`, `"cut"` and `"never"` |
+| `panel` | The gauge panel to show it in, by name. The panel is made if it does not exist. Without it, the first gauge panel there is |
+| `place`, `tags` | What turns it on and off, as for a trigger |
 
-A level is said as it falls under one of its steps, once until it rises clear
-of it, and each tenth more it falls under one; a light, words or effects are
-said when what they say changes.
+**Returns:** nothing.
+
+**Example:**
 
 ```lua
 gauges.set("HP", {value = 40, max = 100,
@@ -534,30 +838,59 @@ gauges.set("Poisoned", {kind = "light", on = true, colour = "green"})
 gauges.set("States", {kind = "effects", items = {"Blessed", "Stunned"}})
 ```
 
+When a level's change is said:
+
+- when it falls under one of its steps; then not again until it rises clearly
+  above that step;
+- and again for each further tenth it falls while under a step.
+
+A light, a text or effects are said whenever what they say changes.
+
+**See also:** [`on("gauge")`](#ongauge-name-fn-options),
+[`gauges.get`](#gaugesgetname).
+
 ### `gauges.remove(name, options)`
 
-Removes it. Options: `place` and `tags`, those it was set with.
+Removes the gauge.
+
+**Options:** `place` and `tags`, the same ones it was set with.
+
+**Returns:** nothing.
 
 ### `gauges.get(name)`
 
-What the gauge is now, by its name or its place, or `nil`: a table with
-`name`, `place` and `kind`, and by its kind, `value`, `max` and `percent`;
-`on`; `text`; or `items`, a list of `{name, about, colour}`. One switched off
-is as if it were not there.
+Gets a gauge as it is now, by its name or its place.
+
+**Returns:** a table with `name`, `place` and `kind`, plus, depending on the
+kind: `value`, `max` and `percent`; `on`; `text`; or `items`, a list of
+`{name, about, colour}`. `nil` if there is no such gauge; a gauge that is
+turned off counts as missing.
 
 ### `gauges.all()`
 
-All of them, in a list, each as `gauges.get` gives it.
+Gets every gauge.
+
+**Returns:** a list, each gauge as `gauges.get` gives it.
 
 ### `on("gauge", name, fn, options)`
 
-Calls `fn(gauge, change)` when the gauge changes, as it is now; with no name,
-for every gauge. `change.was` is what it was; of effects, `change.came` and
-`change.gone` are lists of those that came and those gone. What a gauge is as
-it is made is not a change.
+Calls `fn(gauge, change)` when the gauge changes. Leave out `name` to hear
+about every gauge. A gauge being made does not count as a change.
 
-`{under = 30}`: only as it falls under 30 %, once, until it comes back 5 % over
-it. `{over = 90}`: as it reaches 90 %.
+**Parameters:** `gauge` is how it is now, as `gauges.get` gives it.
+`change.was` is how it was before. For effects, `change.came` lists those
+that arrived and `change.gone` those that left.
+
+**Options:**
+
+- `under = 30`: only when it falls under 30 %. It fires once, and not again
+  until the gauge has come back 5 % above that.
+- `over = 90`: when it reaches 90 %.
+- `place`, `tags`.
+
+**Returns:** what it made, as [`on`](#onwhat-name-fn-options).
+
+**Example:**
 
 ```lua
 on("gauge", "HP", function() sounds.play("alarm.ogg") end, {under = 30})
@@ -567,100 +900,168 @@ on("gauge", "States", function(gauge, change)
 end)
 ```
 
-## Panels and channels
+## Text panels and channels
+
+A text panel is a box beside the output where a script can put text: a loot
+list, a map the server draws, a log of one kind of message. Channels are the
+MUD's chat channels, each in its own tab, so conversation does not get lost
+in the fight.
 
 ### `panels.set(name, text)`
 
-Puts `text` in a panel of text, in place of what it showed: for what the
-server sends ready to show, as a map it draws. The panel is made if there is
-none of that name; `"map"` is the map's panel whatever it is called, and
-`"channels"` the panel of channels.
+Replaces everything in a text panel with `text`. Use it for something the
+server sends ready to show, such as a map it draws.
+
+**Parameters:** `name` is the panel. It is made if none has that name.
+`"map"` always means the map panel, whatever it is called, and `"channels"`
+means the channels panel.
+
+**Returns:** nothing.
+
+**See also:** [`panels.add`](#panelsaddname-text-options), to add without
+replacing.
 
 ### `panels.clear(name)`
 
-Empties it.
+Empties the panel.
+
+**Returns:** nothing.
 
 ### `panels.add(name, text, options)`
 
-Adds `text` at the end of a panel, which keeps what it had, and reads it aloud
-after the panel's name. Takes `aloud` and `always`.
+Adds `text` at the end of a panel, keeping what was there, and reads it aloud
+after the panel's name.
+
+**Options:** `aloud` and `always`.
+
+**Returns:** nothing.
+
+**Example:**
+
+```lua
+trigger("^You find (.+)\\.$", function(m) panels.add("Loot", m[1]) end)
+
+trigger("^(\\w+) chats: (.*)$", function(m, line)
+    channels.say("chat", `{m[1]}: {m[2]}`)
+    line:hide()
+end)
+```
+
+**See also:** [`channels.say`](#channelssayname-text-options),
+[`line:to_panel`](#lineto_panelname).
 
 ### `panels.size(name)`
 
-How many characters fit in a panel, as `{columns, rows}`, at once; `nil` if it
-has not been on the screen. With no name, the map's panel. `on("panel")` tells
-when it changes.
+Tells how many characters fit in a panel right now. Without a name, the map
+panel.
+
+**Returns:** `{columns, rows}`, or `nil` if the panel has not been on screen
+yet.
+
+**See also:** `on("panel")` in [`on`](#onwhat-name-fn-options), which tells
+you when the size changes.
 
 ### `channels.say(name, text, options)`
 
-Adds `text` as said on the channel `name` of the MUD, which has a tab of its
-own in a panel, and reads it aloud after the channel's name. Options:
+Adds `text` as said on the MUD channel `name`, which has its own tab in a
+panel, and reads it aloud after the channel's name.
 
-- `panel`: the panel the channel goes in, by name. One of that name is used as
-  it is, and one is made if there is none; with none, the panel of channels.
-- `aloud` and `always`: `aloud = "never"` for what was said before the player
-  came.
+**Options:**
 
-The same message said twice at once, by two scripts, is one.
+- `panel`: the panel the channel goes in, by name. An existing panel of that
+  name is used as it is; otherwise one is made. Without it, the channels
+  panel.
+- `aloud` and `always`. Use `aloud = "never"` for what was said before the
+  player arrived.
+
+**Returns:** nothing.
+
+If two scripts say the same message at the same moment, it counts once.
+
+**See also:** [`panels.add`](#panelsaddname-text-options).
 
 ### `channels.open(name, options)`
 
-Makes the channel's tab before anyone speaks on it. Takes `panel`.
+Makes the channel's tab before anyone speaks on it.
+
+**Options:** `panel`, as for `channels.say`.
+
+**Returns:** nothing.
 
 ### `channels.close(name)`
 
-Takes the tab away, as when the character leaves the channel.
+Removes the channel's tab, as when the character leaves the channel.
+
+**Returns:** nothing.
 
 ### `channels.all()`
 
-The names of the channels there are.
+Gets the channels there are.
 
-## Sounds
+**Returns:** a list of their names.
+
+## Play sounds
+
+Sounds give quick cues without words: a beep when you are hit, an alarm when
+health is low. Put your files in the profile's `sounds` folder.
 
 ### `sounds.play(file, options)`
 
-Plays a sound, by path or by name in the profile's `sounds` folder. Options:
+Plays a sound, by path or by name in the profile's `sounds` folder.
+
+**Options:**
 
 - `volume`, from 0 to 1, and `loop`.
-- Where the system's player can (Linux): `start` and `finish`, where in it to
-  start and to end, and `fade_in` and `fade_out`, how long it takes to come up
-  and to die away, in seconds. On Windows and Mac it plays whole.
+- Only where the system's player supports them (Linux): `start` and
+  `finish`, where to start and stop within the sound; and `fade_in` and
+  `fade_out`, how many seconds it takes to come up and to fade away. On
+  Windows and Mac the sound plays whole.
 
-Returns the sound: `sound:stop()`, and `sound:playing()`, whether it plays.
+**Returns:** the sound. `sound:stop()` stops it, and `sound:playing()` says
+whether it is still playing.
+
+**Example:**
+
+```lua
+trigger("^You are hit", function() sounds.play("hit.ogg", {volume = 0.5}) end)
+```
 
 ### `sounds.stop()`
 
 Stops every sound.
 
-## The session and the command line
+**Returns:** nothing.
 
-### Fields of `session`
+## Talk to the MUD behind the scenes (GMCP, MSDP)
 
-| Field | What it is |
-|---|---|
-| `session.connected` | Whether the session is connected |
-| `session.host` | Where it connects to |
-| `session.profile` | The name of its profile, or `nil` |
-| `session.reader` | Whether a screen reader is reading Muddie |
-| `session.focused` | Whether the session is in front, in a window that is |
-| `session.input` | What is typed in the command line; set it to put something there. `nil` while it is a password, which is not set either |
-| `session.separator` | What separates commands typed on one line: `";"` as none is set; `false` turns splitting off; `nil` gives back `";"`. Doubled, it is typed as it is |
+Many MUDs send data you never see in the text, such as your health or the
+room you are in. They use protocols called GMCP and MSDP. Use this data to
+fill gauges and the map without reading the text. To react when data
+arrives, use `on("gmcp", ...)` or `on("msdp", ...)` (see
+[`on`](#onwhat-name-fn-options)).
 
-### `session.completions(name, words)`
+### `gmcp.get(package)`
 
-Words for Tab to offer, besides those seen in the output. Each name keeps its
-own list; `session.completions(name)` removes it.
+Gets the data last received for exactly that package.
 
-### `session.feed(text)`
+**Returns:** the data, or `nil` if none has come.
 
-Takes `text` as if the MUD had sent it: to try what a script does with it.
+### `gmcp.send(package, data)`
 
-### `output.last(count)`
+Sends a GMCP message to the server.
 
-What the last `count` lines of the output say, the newest last; the last one,
-if `count` is not given.
+**Returns:** nothing.
 
-## Data from the MUD
+### `gmcp.support(module, ...)`
+
+Asks the server for GMCP modules, as `"Name version"`, besides those the
+client asks for itself (`Core` and `Client.Media`). Some servers only send
+what you ask for. The request lasts while the script is loaded: when it is
+turned off or removed, the server is told the modules are no longer wanted.
+
+**Returns:** nothing.
+
+**Example:**
 
 ```lua
 gmcp.support("Char 1", "Room 1")
@@ -672,45 +1073,268 @@ msdp.report("HEALTH", "HEALTH_MAX")
 on("msdp", "HEALTH", function(value) echo("health " .. value) end)
 ```
 
-### `gmcp.get(package)`
-
-The data last received for exactly that package.
-
-### `gmcp.send(package, data)`
-
-Sends a GMCP message.
-
-### `gmcp.support(module, ...)`
-
-Asks the server for GMCP modules besides the client's own (`Core` and
-`Client.Media`), as `"Name version"`. Some servers only send what was asked
-for. Asked for while the script is loaded: switched off or removed, the server
-is told it no longer wants them.
-
 ### `gmcp.merge(package, ...)`
 
-For packages the server sends only what changed of, as a `Char.Status` with
-only the life that changed: what comes is merged into what `gmcp.get` and the
-gauges keep, tables inside too. Listeners still get what came.
+For packages where the server sends only what changed, such as a
+`Char.Status` with just the health. What arrives is merged into what
+`gmcp.get` and the gauges keep, including nested tables. Listeners still
+receive only what arrived.
+
+**Returns:** nothing.
 
 ### `msdp.get(variable)`, `msdp.send(command, ...)`
 
-The same for MSDP. Values arrive as strings.
+The same as `gmcp.get` and `gmcp.send`, for MSDP.
+
+**Returns:** `msdp.get` returns the value, as a string; `msdp.send`, nothing.
 
 ### `msdp.report(variable, ...)`
 
-Asks the server to report MSDP variables as they change, while the script is
-loaded.
+Asks the server to send these MSDP variables whenever they change, while the
+script is loaded.
+
+**Returns:** nothing.
 
 ### `mssp.get()`
 
-The server's MSSP status, as a table.
+Gets the server's MSSP status.
 
-## The map
+**Returns:** a table of texts.
 
-The **Standard GMCP and MSDP** plugin maps from GMCP `Room.Info` and MSDP
-`ROOM`. For a MUD that tells rooms some other way, or only in text, a script
-feeds the map itself, and can turn the standard loader off.
+## React to other events (on)
+
+`on` runs a function when something happens that is not a line of text: GMCP
+data arrives, a variable changes, you connect, another script says
+something.
+
+### `on(what, name, fn, options)`
+
+Calls `fn` when `what` happens. For events that take no `name`, write
+`on(what, fn)`.
+
+**Parameters:**
+
+| `what` | `name` | `fn` gets |
+|---|---|---|
+| `"gmcp"` | a package; it also covers those under it (`"Char"` covers `Char.Vitals`) | the data, and the package |
+| `"msdp"` | a variable | the value (a string), and the variable |
+| `"var"` | a variable of [`vars`](#vars) | the value, and the name |
+| `"gauge"` | a gauge, or none for all | the gauge, and how it changed (see [`on("gauge")`](#ongauge-name-fn-options)) |
+| `"channel"` | a channel, or none for all | `{channel, text}` |
+| `"emit"` | what another script says | what it said, and the name |
+| `"send"` | none | each command on its way to the MUD (see [`on("send")`](#onsend-fn)) |
+| `"connect"`, `"disconnect"` | none | nothing |
+| `"focus"` | none | whether the session is now in front, in a window that is in front |
+| `"reader"` | none | whether a screen reader now reads Muddie |
+| `"mxp"` | none | `{name, value}`, when the MUD names a value with MXP |
+| `"panel"` | none | `{name, map, columns, rows}`, when a panel that shows a drawing settles on a new size; `map` is true for the map panel |
+
+**Options:** `place` and `tags`; for a gauge, also `under` and `over`.
+
+**Returns:** what it made, just like a trigger (see
+[what is returned](#what-trigger-alias-macro-after-every-and-on-return)).
+
+**Example:**
+
+```lua
+on("connect", function() send("look") end)
+```
+
+If `on` does not know `what`, the error lists what it can listen to.
+Changes to a variable, a gauge or a channel, and messages from another
+script, are passed on once the script that made them has finished. So you
+always get the whole change, not half of it.
+
+**See also:** [`wait(what, name)`](#waitwhat-name-options), to wait for one
+of these inside a function.
+
+### `emit(name, data)`
+
+Sends a message to the other scripts, which listen with
+`on("emit", name, fn)`. This is how a plugin tells others what they may want
+to know.
+
+**Returns:** nothing.
+
+**Example:**
+
+```lua
+-- In one script:
+emit("fight", {with = "orc"})
+-- In another:
+on("emit", "fight", function(data) speak(`Fighting {data.with}`) end)
+```
+
+## Turn things on and off
+
+Anything a script makes can be turned on and off: during a fight you may want
+combat triggers and keys, and outside it you may not. Give things a place or
+tags, then turn whole groups on and off at once.
+
+### Options, places and tags
+
+Options always go last, in a table: `trigger(pattern, fn, {once = true})`.
+An option a function does not take gives an error that lists the ones it
+does take. Muddie never ignores an option silently.
+
+Triggers, aliases, keys, timers, listeners and gauges all take two options:
+
+- `place`, such as `"Folder/Name"`: where it lives. Turning a folder off
+  turns off everything inside it.
+- `tags`, a list of tags or a single one. Turning a tag off turns off
+  everything that carries it.
+
+Something runs only while its place, every folder above it, and every tag it
+carries are all on.
+
+Rules made in the editor have their folder and name as their place:
+`Combat/Fight back`. Two rules with the same name get a number:
+`Combat/Fight back #2`. A script's place is its path among the profile's
+scripts, without the extension: `Mapping/rooms`.
+
+### What `trigger`, `alias`, `macro`, `after`, `every` and `on` return
+
+Each returns the thing it made, which you can keep in a variable:
+
+| Method | What it does |
+|---|---|
+| `made:enable()`, `made:disable()`, `made:toggle()` | Turn it on or off; return whether it is now on |
+| `made:enabled()` | Whether it is on |
+| `made:remove()` | Removes it; returns whether it was there |
+| `made:left()` | For a timer, the seconds it has left |
+
+### `triggers`, `aliases`, `macros`, `timers`, `gauges`, `scripts`
+
+Turn things of one kind on or off by their place, or a whole folder at once,
+for the session. This works whether they were made in a script or in the
+editor.
+
+**Functions:** each has `enable(place)`, `disable(place)`, `toggle(place)`,
+`enabled(place)` and `list()`.
+
+**Returns:** `toggle` and `enabled` return whether it is on; `list` returns
+the places there are; the others, nothing.
+
+**Example:**
+
+```lua
+triggers.disable("Combat")
+macros.enable("Combat/Kick")
+local on = scripts.toggle("Mapping")
+```
+
+### `tags`
+
+The same functions, by tag: `tags.disable("combat")` turns off everything of
+every kind that carries the tag.
+
+### What goes with a script
+
+When a script is turned off, removed or run again, everything it made goes
+with it:
+
+- its triggers, aliases, keys, timers, listeners and gauges;
+- the text it put in panels, and the channels it opened;
+- its sounds, which stop;
+- what it set on the map and the session, which goes back to how it was:
+  `map.learn`, `map.directions`, `map.names`, `map.native`, `map.persist`,
+  `map.language`, `session.separator`, `session.completions`, `gmcp.merge`,
+  `gmcp.support` and `msdp.report`.
+
+## The session and the command line
+
+`session` tells your script about the current connection: where it is
+connected, whether a screen reader is running, what is typed in the command
+line. A few functions help with typing and testing.
+
+### Fields of `session`
+
+| Field | What it is |
+|---|---|
+| `session.connected` | Whether the session is connected |
+| `session.host` | The server it connects to |
+| `session.profile` | The name of its profile, or `nil` |
+| `session.reader` | Whether a screen reader is reading Muddie |
+| `session.focused` | Whether the session is in front, in a window that is in front |
+| `session.input` | What is typed in the command line. Set it to put text there. It is `nil` while a password is being typed, and then it cannot be set either |
+| `session.separator` | What separates several commands typed on one line: `";"` unless you set it. `false` turns splitting off; `nil` brings back `";"`. Type it twice to send it as it is |
+
+### `session.completions(name, words)`
+
+Adds words for Tab to offer, besides the words seen in the output. Each
+`name` keeps its own list; `session.completions(name)` removes that list.
+
+**Returns:** nothing.
+
+**Example:**
+
+```lua
+session.completions("friends", {"Ana", "Luis"})
+if session.reader then echo("A screen reader is reading Muddie.") end
+```
+
+### `session.feed(text)`
+
+Handles `text` as if the MUD had sent it. Use it to test what your script
+does with a line.
+
+**Returns:** nothing.
+
+### `output.last(count)`
+
+Gets what the last `count` lines of the output say. Without `count`, only
+the last line.
+
+**Returns:** a list of texts, newest last.
+
+## Map the game and walk it
+
+Muddie keeps a map of the rooms you visit and can walk you to any of them.
+The **Standard GMCP and MSDP** plugin builds the map from GMCP `Room.Info`
+and MSDP `ROOM`. For a MUD that describes rooms some other way, or only in
+the text, a script feeds the map itself and can turn the standard loader
+off. To pick the function that fits your MUD, see
+[To follow the player's room](#to-follow-the-players-room).
+
+### Rooms and places
+
+You give a room as a table with an `id`. It can also have `name`, `area`,
+`exits` (each direction to a room id), `x`, `y`, `z` and `colour` (a name,
+`"#rrggbb"` or a palette number). A room given without a colour keeps the one
+it had.
+
+An id is a number, or the text the server uses to name the room. You can pass
+what a MUD sends in `Room.Info` or `ROOM` as it comes: `num` or `vnum` work
+as `id`, `zone` as `area`, and `coords` as the position, in any letter case.
+
+Some functions take a place (`map.room`, `map.here`, `map.mark`,
+`map.edit_room`, `map.remove_room`, `map.way`, `map.go`). A place is a room's
+id, or a mark or a room name as the player would type it. If several rooms
+match, the nearest one is used.
+
+### Settings of the map
+
+These are fields: set them, and read them back. Setting one to `nil` puts it
+back as it was.
+
+| Field | What it does |
+|---|---|
+| `map.native` | `false` turns the standard loader off while the script is loaded |
+| `map.persist` | `false` keeps the map in memory only, for servers that send the map themselves |
+| `map.learn` | `true` makes the map learn as the player moves (see [`map.learn`](#maplearn)) |
+| `map.language` | The language the MUD is played in, by code or name (`"es"`). The map uses that language's words for directions |
+| `map.directions` | The MUD's own words for directions, on top of those of its language: `{n = {"nte"}, s = "sur"}`. The first word of each is the one walks send |
+| `map.names` | How the MUD writes its room names: `{region = ":", exits = "[]"}`. The region comes first, up to the `region` text; the exits come after, between the characters of `exits` |
+
+### Following the player
+
+#### `map.visit(room)`
+
+Says the player is now in `room`, adding the room or updating it.
+
+**Returns:** the room's id.
+
+**Example:**
 
 ```lua
 -- A MUD with no GMCP: the room from its title and exits lines.
@@ -724,202 +1348,267 @@ trigger("^Exits: (.+)$", function(m)
 end)
 ```
 
-### Rooms and places
-
-A room is given as a table with `id` and, optionally, `name`, `area`, `exits`
-(direction to room id), `x`, `y`, `z` and `colour` (a name, `"#rrggbb"` or a
-palette number; a room given without one keeps the colour it had). An id is a
-number, or the text the server tells the room by. What a MUD sends in
-`Room.Info` or `ROOM` can be given as it comes: `num` or `vnum` for `id`,
-`zone` for `area`, `coords` for where it is, in any letter case.
-
-A place, where a function takes one (`map.room`, `map.here`, `map.mark`,
-`map.edit_room`, `map.remove_room`, `map.way`, `map.go`), is a room's id, or a
-mark or a name as the player types them, the nearest of several.
-
-### Settings of the map
-
-They are fields: set them, and read them back. `nil` puts one back as it was.
-
-| Field | What it does |
-|---|---|
-| `map.native` | `false` turns the standard loader off while the script is loaded |
-| `map.persist` | `false` keeps the map in memory only, for servers that send it themselves |
-| `map.learn` | `true` has the map learn as the player goes (see [`map.learn`](#maplearn)) |
-| `map.language` | The language the MUD is played in, by code or name (`"es"`): the map takes its words for directions |
-| `map.directions` | Words of the MUD's own for directions, over those of its language: `{n = {"nte"}, s = "sur"}`; the first of each is what walks send |
-| `map.names` | How the MUD names its rooms: `{region = ":", exits = "[]"}`, the region first, up to `region`, and the exits after, between the characters of `exits` |
-
-### Following the player
-
-#### `map.visit(room)`
-
-The player is now in `room`, which is added or updated. Returns its id.
+**See also:** [`map.here`](#maphereplace), [`map.arrive`](#maparrivename-exits-came).
 
 #### `map.set_room(room)`
 
-Adds or updates a room without moving there. Returns its id.
+Adds or updates a room without moving the player there.
+
+**Returns:** the room's id.
 
 #### `map.here(place)`
 
-The player is in that room, one the map has. Returns whether it has it.
+Says the player is in that room, which must already be on the map.
+
+**Returns:** whether the map has the room.
+
+**See also:** [`map.visit`](#mapvisitroom).
 
 #### `map.arrive{name, exits, came}`
 
-For servers that do not say which room it is: the player is in a room of this
-name and exits, reached by the exit `came`. Returns the room's id, or `nil`
-while unsure.
+For servers that do not say which room you are in. Says the player is in a
+room with this name and these exits, reached through the exit `came`.
+
+**Returns:** the room's id, or `nil` while the map is not sure which room it
+is.
+
+**See also:** [`map.add`](#mapaddname-exits-came), [`map.learn`](#maplearn),
+[`map.candidates`](#mapcandidates).
 
 #### `map.add{name, exits, came}`
 
-For servers that do not say which room it is, when the player went by `came`
-where the map has no room: finds the room among those the map has, or makes it.
-Returns its id and `"found"` or `"made"`, or `nil` and why not: `"lost"`, the
-map does not know for certain where the player was; `"known"`, the exit leads
-to a room already; `"alike"`, several rooms could be it; `"unnamed"`. The
-player can undo the rooms added.
+For servers that do not say which room you are in. Use it when the player
+went through `came` to a place where the map has no room. It looks for the
+room among those the map has, or makes a new one. The player can undo the
+rooms added this way.
+
+**Returns:** the room's id and `"found"` or `"made"`. If it cannot, `nil`
+and the reason:
+
+- `"lost"`: the map does not know for sure where the player was;
+- `"known"`: that exit already leads to a room;
+- `"alike"`: several rooms could be the one;
+- `"unnamed"`.
 
 #### `map.learn`
 
-Set to `true`, the map learns from the rooms `map.arrive` is given, never from
-one sighting alone, nor from a room it does not know for certain the player was
-in: it adds the rooms it has not where the player goes by the compass; puts
-right the names of rooms it named otherwise, once the next move bears it out;
-adds the exits a room shows that it lacks; and has an exit lead to the room it
-really leads to. Each change is told, and undone as one of the map's own.
+A setting: set it to `true` and the map learns from the rooms passed to
+`map.arrive`. It never learns from a single sighting, nor from a room it is
+not sure the player was in. It:
+
+- adds rooms it does not have where the player walks by compass directions;
+- corrects the names of rooms it had under another name, once the next move
+  confirms it;
+- adds exits a room shows that the map is missing;
+- makes an exit lead to the room it really leads to.
+
+Each change is announced, and can be undone like any change the map makes on
+its own.
 
 #### `map.candidates()`
 
-The ids of the rooms the player may be in while the map cannot tell which;
-empty when it can, or has no idea.
+Gets the rooms the player might be in while the map cannot tell which.
+
+**Returns:** a list of room ids; empty when the map knows, or when it has no
+idea.
 
 #### `map.failed()`
 
-The server said a move failed: the moves sent did not happen, and a walk stops.
+Tells the map that the server said a move failed. The moves already sent are
+treated as not done, and a walk stops.
+
+**Returns:** nothing.
 
 ### Walking
 
 #### `map.way(to, from)`
 
-The commands to walk from `from` (where the player is, if not given) to `to`,
-or `nil`.
+Works out the way from `from` to `to`. Without `from`, it starts where the
+player is.
+
+**Returns:** a list of commands, or `nil` if there is no way.
 
 #### `map.go(to)`
 
-Goes there, one confirmed move at a time.
+Walks the player there, waiting for each move to be confirmed before the
+next.
+
+**Returns:** nothing.
+
+**Example:**
+
+```lua
+alias("^home$", function() map.go("home") end)
+```
 
 #### `map.stop()`
 
 Stops a walk, as **Stop going** does.
 
+**Returns:** nothing.
+
 ### Looking things up
 
 #### `map.room(place)`
 
-A room as a table, the player's if none is given: `id`, `name`, `area`, `x`,
-`y`, `z`, `exits` (direction to room id), `cost` (what entering it costs a
-route), `avoid`, `colour` (`"#rrggbb"` or `nil`), `note` (`""` for none),
-`renamed` (its name is one given in place of the map's), `added` (the map
-added it of itself), `shape` and `symbol`.
+Gets a room; without `place`, the player's room.
+
+**Returns:** a table with `id`, `name`, `area`, `x`, `y`, `z`, `exits`
+(direction to room id), `cost` (what entering it costs a route), `avoid`,
+`colour` (`"#rrggbb"` or `nil`), `note` (`""` if none), `renamed` (its name
+was given in place of the map's), `added` (the map added it on its own),
+`shape` and `symbol`. `nil` if there is no such room.
 
 #### `map.find(text, options)`
 
-The ids of the rooms `text` finds, as **Find rooms…** finds them: by mark,
-note or name, the nearest first. With `{exact = true}`, of those called just
-`text`, as the MUD names them.
+Finds rooms the way **Find rooms…** does: by mark, note or name.
+
+**Options:** `exact = true`: only rooms named exactly `text`, as the MUD
+names them.
+
+**Returns:** a list of room ids, nearest first.
 
 #### `map.exit(from, direction)`
 
-An exit as a table: `to`, `cost`, `blocked` (kept off routes), `command` and
-`custom` (one of the player's own).
+Gets an exit of a room.
+
+**Returns:** a table with `to`, `cost`, `blocked` (kept off routes),
+`command`, and `custom` (one the player added); `nil` if there is no such
+exit.
 
 #### `map.direction(word)`
 
-The direction a word says, as the map keeps it (`"n"`, `"ne"`... `"u"`, `"d"`,
-`"in"`, `"out"`), in the MUD's words or in English; `nil` if it says none.
+Tells which direction a word means. The word can be in the MUD's language or
+in English.
+
+**Returns:** the direction as the map stores it (`"n"`, `"ne"`... `"u"`,
+`"d"`, `"in"`, `"out"`), or `nil` if it is not a direction.
 
 #### `map.count()`, `map.areas()`, `map.id(text)`
 
-How many rooms there are; the names of the areas; the id used for a text id.
+**Returns:** `map.count()`, how many rooms there are; `map.areas()`, a list
+of the areas' names; `map.id(text)`, the number used for a text id.
 
 #### `map.marks()`
 
-The marks, by name, each with its room's id.
+Gets the marks.
+
+**Returns:** a table of marks by name, each with its room's id.
 
 ### Changing the map
 
 #### `map.mark(name, place)`
 
-Marks a room with `name`, as **Mark…** does; `map.mark(name)` forgets the mark.
-Returns whether there was the room, or the mark.
+Marks a room with `name`, as **Mark…** does. `map.mark(name)` removes the
+mark.
+
+**Returns:** whether the room (or the mark) existed.
 
 #### `map.edit_room(place, changes)`
 
-Changes what `changes` gives of a room, leaving the rest: `name` (in place of
-the map's: the server telling the room again, or the map imported again, leaves
-it), `note`, `cost`, `avoid`, `x`, `y`, `z`, `colour`, `shape` (`"square"`,
-`"circle"`, `"diamond"` or `"hexagon"`) and `symbol` (a character or two
-written in it). `false` gives back the map's own colour or shape, no cost, or
-no symbol. Returns whether there was the room.
+Changes only the fields given in `changes`, leaving the rest.
+
+**Parameters:** `changes` can have:
+
+- `name`: a name in place of the map's. It stays even when the server
+  describes the room again or the map is imported again.
+- `note`, `cost`, `avoid`, `x`, `y`, `z`, `colour`.
+- `shape`: `"square"`, `"circle"`, `"diamond"` or `"hexagon"`.
+- `symbol`: one or two characters written in the room.
+
+`false` brings back the map's own colour or shape, removes the cost, or
+removes the symbol.
+
+**Returns:** whether the room existed.
 
 #### `map.set_exit(from, direction, to, options)`
 
-Adds an exit of the player's own, or changes where one leads; with `to` `nil`,
-changes only what `options` give of it: `cost`, `blocked` or `command`
-(`"open door;n"`). Returns whether there was the room, and the exit.
+Adds an exit of the player's own, or changes where an exit leads. With `to`
+set to `nil`, it only changes what `options` give.
+
+**Options:** `cost`, `blocked`, or `command` (such as `"open door;n"`).
+
+**Returns:** whether the room and the exit existed.
 
 #### `map.remove_exit(from, direction)`, `map.remove_room(place)`
 
-Remove one.
+Remove an exit, or a room.
+
+**Returns:** whether it existed.
 
 #### `map.clear()`
 
 Forgets every room.
 
+**Returns:** nothing.
+
 #### `map.tidy(area)`
 
-Draws an area again from scratch, the player's if none is given, if that draws
-it better. Returns how many rooms moved; none if it was left as it was, and
-then, as a second value, `{now = {wrong_exits, stacked}, ["then"] = {wrong_exits, stacked}}`.
+Redraws an area from scratch, if that draws it better; without `area`, the
+player's area.
+
+**Returns:** how many rooms moved. If it moved none, it left the area as it
+was, and returns as a second value
+`{now = {wrong_exits, stacked}, ["then"] = {wrong_exits, stacked}}`.
 
 #### `map.undo()`
 
-Undoes the last change the map made of itself. Returns whether there was one.
+Undoes the last change the map made on its own.
+
+**Returns:** whether there was one.
 
 #### `map.show_area(area)`
 
-Shows an area on the map, to look at it, without going.
+Shows an area on the map, just to look at it, without walking there.
+
+**Returns:** nothing.
 
 ### The map a MUD publishes
 
 #### `map.import(address)`
 
-Imports the map made with Mudlet at `address` (a `.dat`, or a zip with one; on
-the web or on disk) in place of this one. What the player set stays: rooms
-renamed, notes, marks, rooms to avoid and exits of their own, and the rooms the
-map added.
+Imports a map made with Mudlet from `address` (a `.dat` file, or a zip with
+one, on the web or on disk), replacing the current map. What the player set
+is kept: renamed rooms, notes, marks, rooms to avoid, their own exits, and
+the rooms the map added.
+
+**Returns:** nothing.
 
 #### `map.newer(address, fn)`
 
-Finds out, without taking it, whether the map at `address` changed since it
-was taken, and calls `fn()` if it did: to tell the player, rather than change
-the map unasked.
+Checks, without downloading it, whether the map at `address` has changed
+since it was imported, and calls `fn()` if it has. Use it to tell the
+player, rather than replace their map without asking.
+
+**Returns:** nothing.
 
 #### `map.action(name, fn, options)`
 
-Offers to do `fn()` with the map, chosen by `name` in the map's menu and the
-palette, while the script is loaded; a plugin's under the plugin's name. `name`
-can be given by language, as to `tr`. With `{checked = false}` it is a switch:
-choosing it calls `fn(on)` with what it is now. `map.action(name)` takes it
-away.
+Adds an entry called `name` to the map's menu and the palette, which runs
+`fn()`. It stays while the script is loaded; a plugin's entries appear under
+the plugin's name. `map.action(name)` removes the entry.
 
-## Modules
+**Parameters:** `name` can be given by language, as for [`tr`](#trtexts).
+
+**Options:** `checked = false` makes the entry a switch: choosing it calls
+`fn(on)` with its new state.
+
+**Returns:** nothing.
+
+## Share code between scripts
+
+When several scripts need the same helpers, put them in a module and load it
+with `require`. This is how a plugin's scripts share code.
 
 ### `require(name)`
 
-Loads `name.luau`, or `name/init.luau`, from the folder of the script that asks
-(or else from that of any other loaded), once, and returns what it returns. The
-scripts of a plugin share their modules so.
+Loads `name.luau`, or `name/init.luau`. It looks in the folder of the script
+that asks first, then in the folders of the other loaded scripts. A module is
+loaded only once.
+
+**Returns:** what the module returns.
+
+**Example:**
 
 ```lua
 -- util.luau
@@ -934,36 +1623,42 @@ local util = require("util")
 echo(`{util.percent(30, 120)} %`)
 ```
 
-A module in a plugin's folder is also run as a script, as every `.luau` there
-is: make a module only return what it has, and not make things.
+**A trap:** in a plugin's folder, every `.luau` file also runs as a script,
+modules included. So a module should only return what it has, and not make
+triggers, keys or anything else.
 
-## Mistakes, and checking a script
+## When something goes wrong
 
-- A mistake is shown as `script.luau:12: what is wrong`, and kept for the
-  editor. A call to what there is not says what: `there is no function
-  gauges.sett`.
-- An option a function does not take, something `on` does not know, a key that
-  is not one or a colour that is not one are mistakes that say what there is.
-- [`muddie.d.luau`](muddie.d.luau) has every function with its types, for an
-  editor with luau-lsp (as its definitions file) or for `luau-analyze`: what is
-  misspelt is seen as it is written, and, with `--!strict` at the top of the
-  script, a line compared with a text.
-- `muddie --debug` shows, on the standard output, everything that happens: the
-  text (`TEXT`, a line; `PROMPT`, one the MUD marks; `PARTIAL`, what has no end
-  yet), what is sent (`SENT`), GMCP and the other protocols, what scripts
-  `log`, and their mistakes (`SCRIPT`). `muddie --debug | tee muddie.log` keeps
-  it. Passwords are never shown.
+- An error shows as `script.luau:12: what is wrong`, and the editor keeps it.
+  Calling something that does not exist names it:
+  `there is no function gauges.sett`.
+- An option a function does not take, something `on` does not know, a wrong
+  key name or a wrong colour: each gives an error that lists what is valid.
+- [`muddie.d.luau`](muddie.d.luau) has every function with its types. Load it
+  in an editor with luau-lsp (as its definitions file), or pass it to
+  `luau-analyze`. Typos show as you type. With `--!strict` at the top of the
+  script, comparing a line with a text shows too.
+- `muddie --debug` prints everything that happens to the standard output:
+  - the text: `TEXT` for a line, `PROMPT` for a line the MUD marks as a
+    prompt, `PARTIAL` for text without an end yet;
+  - what is sent: `SENT`;
+  - GMCP and the other protocols;
+  - what scripts pass to `log`, and their errors: `SCRIPT`.
 
-## What there is not
+  `muddie --debug | tee muddie.log` saves it to a file. Passwords are never
+  shown.
 
-On purpose, scripts cannot:
+## What scripts cannot do
 
-- Make windows, labels or bars of their own: a panel of text or a gauge, which
-  are heard as well as seen, do that.
-- Read or write files, start programs or download what they like: a script of
-  someone else's must not be able to do harm. `vars` keeps data.
-- Add their own commands or settings to the palette: aliases, keys and `vars`
-  do that.
-- Order triggers by priority: they run in the order they were made, and
-  `wait` follows what comes in several lines.
-- Keep data of their own on each room of the map.
+These limits are on purpose. Scripts cannot:
+
+- Make their own windows, labels or bars. Use a text panel or a gauge
+  instead: they are heard as well as seen.
+- Read or write files, start programs, or download whatever they like. A
+  script from someone else must not be able to do harm. Use `vars` to keep
+  data.
+- Add their own commands or settings to the palette. Use aliases, keys and
+  `vars` instead.
+- Order triggers by priority. Triggers run in the order they were made, and
+  `wait` follows things that span several lines.
+- Store their own data on each room of the map.
