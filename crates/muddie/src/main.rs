@@ -8,6 +8,8 @@ mod autosave;
 mod brand;
 mod complete;
 mod debug;
+#[cfg(test)]
+mod docs;
 mod history;
 mod i18n;
 mod keypad;

@@ -68,8 +68,9 @@ El icono se genera a partir de `assets/icon.png` con `assets/make-icons.sh`.
 muddie mud.ejemplo.org 4000
 ```
 
-El [manual](docs/manual.md), la [referencia de scripts](docs/scripting.md) y
-los [scripts de ejemplo](examples/scripts) están en inglés.
+La [referencia de scripts](docs/scripting.es.md) y la guía para
+[hacer un plugin](docs/plugins.es.md) están también en español; el
+[manual](docs/manual.md) y los [scripts de ejemplo](examples/scripts), en inglés.
 
 ## Estado del proyecto
 

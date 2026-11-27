@@ -359,7 +359,8 @@ from the MUD, or type a command, and it says whether it matches and what it
 would do.
 
 They are saved in the profile's `rules.toml`. For anything more, see
-[scripting](scripting.md).
+[scripting](scripting.md), and to make a plugin for a MUD,
+[plugins](plugins.md).
 
 ## Panels
 

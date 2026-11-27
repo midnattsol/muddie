@@ -69,8 +69,9 @@ The icon is made from `assets/icon.png` by `assets/make-icons.sh`.
 muddie mud.example.org 4000
 ```
 
-See the [manual](docs/manual.md), the [scripting reference](docs/scripting.md)
-and the [example scripts](examples/scripts).
+See the [manual](docs/manual.md), the [scripting reference](docs/scripting.md),
+the guide to [making a plugin](docs/plugins.md) and the
+[example scripts](examples/scripts).
 
 ## State of the project
 

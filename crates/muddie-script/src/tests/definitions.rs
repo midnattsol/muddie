@@ -5,7 +5,10 @@ use super::*;
 use std::collections::{BTreeMap, BTreeSet};
 
 const DEFINITIONS: &str = include_str!("../../../../docs/muddie.d.luau");
-const MANUAL: &str = include_str!("../../../../docs/scripting.md");
+const MANUALS: [&str; 2] = [
+    include_str!("../../../../docs/scripting.md"),
+    include_str!("../../../../docs/scripting.es.md"),
+];
 
 /// What a type of the definitions has: each with whether it is a function,
 /// and whether it is only read.
@@ -239,6 +242,12 @@ fn the_options_of_a_gauge_are_as_the_definitions_say() {
 /// Everything there is is in the manual.
 #[test]
 fn the_manual_tells_of_everything_there_is() {
+    for manual in MANUALS {
+        tells_of_everything(manual);
+    }
+}
+
+fn tells_of_everything(manual: &str) {
     let engine = engine("");
     let mut untold = Vec::new();
     for name in there_are(&engine) {
@@ -248,8 +257,8 @@ fn the_manual_tells_of_everything_there_is() {
         });
         let told = ["(", "{", "`", " ", "."]
             .iter()
-            .any(|after| MANUAL.contains(&format!("`{name}{after}")))
-            || MANUAL.contains(&format!(", `{name}"));
+            .any(|after| manual.contains(&format!("`{name}{after}")))
+            || manual.contains(&format!(", `{name}"));
         if !told && !switch {
             untold.push(name);
         }
@@ -258,7 +267,7 @@ fn the_manual_tells_of_everything_there_is() {
         for member in types()[what].keys() {
             let told = [":", "."]
                 .iter()
-                .any(|dot| MANUAL.contains(&format!("{name}{dot}{member}")));
+                .any(|dot| manual.contains(&format!("{name}{dot}{member}")));
             if !told {
                 untold.push(format!("{name}:{member}"));
             }
@@ -266,7 +275,7 @@ fn the_manual_tells_of_everything_there_is() {
     }
     for (table, name) in [("Session", "session"), ("MapTable", "map")] {
         for member in types()[table].keys() {
-            if !MANUAL.contains(&format!("`{name}.{member}")) {
+            if !manual.contains(&format!("`{name}.{member}")) {
                 untold.push(format!("{name}.{member}"));
             }
         }
