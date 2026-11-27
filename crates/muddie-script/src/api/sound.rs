@@ -17,6 +17,16 @@ impl UserData for Sound {
             state.actions.push(Action::StopSound(sound.id));
             Ok(())
         });
+        methods.add_method("volume", |_, sound, volume: f32| {
+            let volume = volume.clamp(0.0, 1.0);
+            let id = sound.id;
+            sound
+                .state
+                .borrow_mut()
+                .actions
+                .push(Action::SoundVolume { id, volume });
+            Ok(())
+        });
         methods.add_method("playing", |_, sound, ()| {
             Ok(sound.state.borrow().sounds.contains(&sound.id))
         });
@@ -51,6 +61,28 @@ pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()>
 
     let shared = Rc::clone(state);
     sounds.set(
+        "volume",
+        lua.create_function(move |_, (group, volume): (String, Option<f32>)| {
+            let mut state = shared.borrow_mut();
+            if let Some(volume) = volume {
+                let volume = volume.clamp(0.0, 1.0);
+                let owner = state.owner.clone();
+                state.group_volumes.retain(|(_, known, _)| *known != group);
+                state.group_volumes.push((owner, group.clone(), volume));
+                state.actions.push(Action::GroupVolume {
+                    group: group.clone(),
+                    volume,
+                });
+            }
+            let now = (state.group_volumes.iter())
+                .find(|(_, known, _)| *known == group)
+                .map_or(1.0, |(_, _, volume)| *volume);
+            Ok(now)
+        })?,
+    )?;
+
+    let shared = Rc::clone(state);
+    sounds.set(
         "stop",
         lua.create_function(move |_, ()| {
             let mut state = shared.borrow_mut();
@@ -63,7 +95,9 @@ pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()>
 
 /// How a sound is to be played, as a script says.
 fn playing_of(options: Option<Table>) -> mlua::Result<Playing> {
-    let known = ["volume", "loop", "start", "finish", "fade_in", "fade_out"];
+    let known = [
+        "volume", "loop", "start", "finish", "fade_in", "fade_out", "pan", "group",
+    ];
     super::rules::only(options.as_ref(), &known)?;
     let Some(options) = options else {
         return Ok(Playing::default());
@@ -82,5 +116,10 @@ fn playing_of(options: Option<Table>) -> mlua::Result<Playing> {
         finish: seconds("finish")?,
         fade_in: seconds("fade_in")?.unwrap_or_default(),
         fade_out: seconds("fade_out")?.unwrap_or_default(),
+        pan: options
+            .get::<Option<f32>>("pan")?
+            .unwrap_or(0.0)
+            .clamp(-1.0, 1.0),
+        group: options.get::<Option<String>>("group")?.unwrap_or_default(),
     })
 }

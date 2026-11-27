@@ -6,10 +6,14 @@ edition.workspace = true
 license.workspace = true
 description = "Sound playback for the muddie MUD client."
 
+# Muddie decodes and mixes the sounds itself, everywhere: on Linux what it
+# mixes goes to one of the system's players, so that no audio library is
+# linked nor its headers needed to build; elsewhere, to the system's audio.
 [dependencies]
+rodio = { version = "0.23.0", default-features = false, features = ["wav", "vorbis", "mp3", "flac", "mp4"] }
 
 [target.'cfg(not(target_os = "linux"))'.dependencies]
-rodio = "0.23.0"
+rodio = { version = "0.23.0", default-features = false, features = ["playback"] }
 
 [lints]
 workspace = true

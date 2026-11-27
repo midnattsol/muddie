@@ -281,6 +281,10 @@ impl Tab {
                 Action::ImportMap(address) => self.import_for_script(address),
                 Action::MapNewer { address, answer } => self.check_newer_map(address, answer),
                 Action::Choose { id, title, items } => self.start_choice(id, &title, items),
+                Action::SoundVolume { id, volume } => self.sound_volume_for_script(id, volume),
+                Action::GroupVolume { group, volume } => {
+                    self.sound.set_group_volume(&group, volume)
+                }
                 Action::Copy(text) => self.copying = Some(text),
                 Action::Reading(reading) => self.voice.set_muted(!reading),
                 // The palette lists them: worked out again.
@@ -368,6 +372,7 @@ impl Tab {
         let label = muddie_sound::Label {
             key: owner,
             tag: script_sound(id),
+            group: how.group.clone(),
             ..Default::default()
         };
         let milliseconds = |seconds: f32| (seconds * 1000.0) as u32;
@@ -378,10 +383,18 @@ impl Tab {
             finish: how.finish.map(milliseconds),
             fade_in: milliseconds(how.fade_in),
             fade_out: milliseconds(how.fade_out),
+            pan: how.pan,
         };
         if let Err(error) = self.sound.play_with(&path, options, label) {
             self.refuse(&trf("Could not play the sound: {0}", &[&error]));
         }
+    }
+
+    /// Sets how loud the sound a script played with this id is, as it plays.
+    fn sound_volume_for_script(&mut self, id: u64, volume: f32) {
+        let tag = script_sound(id);
+        self.sound
+            .set_volume_where(|label| label.tag == tag, volume);
     }
 
     /// Stops the sound a script played with this id.

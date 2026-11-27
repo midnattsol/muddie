@@ -304,6 +304,9 @@ pub(super) struct State {
     /// Set by `session.separator`, with the script that did: `None` in it turns
     /// command splitting off; none set is the usual `;`.
     pub(crate) separator: Option<(String, Option<String>)>,
+    /// How loud each group of sounds is, as a script set it: the script,
+    /// the group and the volume.
+    pub(crate) group_volumes: Vec<(String, String, f32)>,
     /// The room the player was last known to be in, to tell when it changes.
     pub(crate) room_now: Option<muddie_mapper::RoomId>,
     /// What Muddie last put on the clipboard: a script, or the player with

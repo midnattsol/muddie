@@ -251,6 +251,9 @@ impl Tab {
             tag: play.tag.clone(),
             key: play.key.clone(),
             priority: play.priority,
+            // What the MUD plays, as a group of its own, to make it all
+            // louder or quieter.
+            group: "mud".to_owned(),
         };
         let options = muddie_sound::Options {
             volume: play.volume,
@@ -259,6 +262,7 @@ impl Tab {
             finish: play.finish,
             fade_in: play.fade_in,
             fade_out: play.fade_out,
+            pan: 0.0,
         };
         // A sound that cannot be played is no error.
         let _ = self.sound.play_with(path, options, label);

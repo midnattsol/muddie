@@ -835,8 +835,8 @@ A sound with more priority stops those with less, and is not played over one
 with more. There is one music at a time, which goes on if it is asked for
 again. A sound can be played several times or until stopped, and stopped by
 name, kind, tag or key. Starting part way in, ending early, and coming up or
-dying away are done where `ffplay` is installed; otherwise the sound is played
-whole.
+dying away are done on every system. The MUD's sounds are a group of their
+own, `"mud"`, which a script can make louder or quieter.
 
 ## What a MUD can do: the protocols
 

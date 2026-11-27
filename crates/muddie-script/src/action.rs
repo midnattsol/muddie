@@ -81,7 +81,7 @@ pub struct Aloud {
 }
 
 /// How a script plays a sound.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Playing {
     /// From 0 to 1.
     pub volume: f32,
@@ -93,6 +93,10 @@ pub struct Playing {
     pub finish: Option<f32>,
     pub fade_in: f32,
     pub fade_out: f32,
+    /// Where it is heard, from -1, all left, to 1, all right.
+    pub pan: f32,
+    /// The group whose volume it follows: none for the rest.
+    pub group: String,
 }
 
 impl Default for Playing {
@@ -104,6 +108,8 @@ impl Default for Playing {
             finish: None,
             fade_in: 0.0,
             fade_out: 0.0,
+            pan: 0.0,
+            group: String::new(),
         }
     }
 }
@@ -306,6 +312,16 @@ pub enum Action {
     },
     /// Put this on the clipboard.
     Copy(String),
+    /// Make the sound played with this id louder or quieter as it plays.
+    SoundVolume {
+        id: u64,
+        volume: f32,
+    },
+    /// Make a group of sounds louder or quieter, those playing too.
+    GroupVolume {
+        group: String,
+        volume: f32,
+    },
     /// Read the game aloud, or not.
     Reading(bool),
     /// A script failed; the message is for the user.

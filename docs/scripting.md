@@ -92,6 +92,7 @@ half a second without stopping, Muddie stops it with an error and carries on.
    - [`channels.all()`](#channelsall)
 16. [Play sounds](#play-sounds)
    - [`sounds.play(file, options)`](#soundsplayfile-options)
+   - [`sounds.volume(group, volume)`](#soundsvolumegroup-volume)
    - [`sounds.stop()`](#soundsstop)
 17. [Talk to the MUD behind the scenes (GMCP, MSDP)](#talk-to-the-mud-behind-the-scenes-gmcp-msdp)
    - [`gmcp.get(package)`](#gmcpgetpackage)
@@ -1285,7 +1286,9 @@ Gets the channels there are.
 ## Play sounds
 
 Sounds give quick cues without words: a beep when you are hit, an alarm when
-health is low. Put your files in the profile's `sounds` folder.
+health is low, the wind of a forest. Put your files in the profile's `sounds`
+folder. Muddie reads WAV, OGG, MP3, FLAC and M4A, and plays them the same on
+Linux, Windows and Mac.
 
 ### `sounds.play(file, options)`
 
@@ -1293,19 +1296,56 @@ Plays a sound, by path or by name in the profile's `sounds` folder.
 
 **Options:**
 
-- `volume`, from 0 to 1, and `loop`.
-- Only where the system's player supports them (Linux): `start` and
-  `finish`, where to start and stop within the sound; and `fade_in` and
-  `fade_out`, how many seconds it takes to come up and to fade away. On
-  Windows and Mac the sound plays whole.
+- `volume`, from 0 to 1, and `loop`, to play it again and again.
+- `start` and `finish`: where to start and stop within the sound, in seconds.
+- `fade_in` and `fade_out`: how many seconds it takes to come up, and to die
+  away before `finish`.
+- `pan`: where it is heard, from -1, all left, to 1, all right; 0, in the
+  middle, as it is if not given. Put a sound where something is: a door
+  opening to the west, on the left.
+- `group`: the group of sounds it is in, as `"ambient"` or `"alerts"`, whose
+  volume [`sounds.volume`](#soundsvolumegroup-volume) sets.
 
-**Returns:** the sound. `sound:stop()` stops it, and `sound:playing()` says
-whether it is still playing.
+**Returns:** the sound:
+
+- `sound:stop()` stops it.
+- `sound:playing()` says whether it is still playing.
+- `sound:volume(volume)` makes it louder or quieter as it plays, from 0 to 1.
 
 **Example:**
 
 ```lua
 trigger("^You are hit", function() sounds.play("hit.ogg", {volume = 0.5}) end)
+```
+
+```lua
+-- The wind of a forest, quietly, on the left; louder as the fight ends.
+local wind = sounds.play("wind.ogg", {loop = true, volume = 0.3, pan = -0.6, group = "ambient"})
+trigger("^You won the fight", function() wind:volume(0.6) end)
+```
+
+**See also:** [`sounds.volume(group, volume)`](#soundsvolumegroup-volume).
+
+### `sounds.volume(group, volume)`
+
+Sets how loud a group of sounds is, from 0 to 1: those playing at once, and
+those played after. Without `volume`, says how loud it is. The sounds the MUD
+plays itself are in the group `"mud"`.
+
+**Returns:** how loud the group is now; 1 if nothing set it.
+
+When the script that set it goes, the group is as loud as before. To keep
+the player's choice, keep it in [`vars`](#vars) and set it again as the
+script starts.
+
+**Example:**
+
+```lua
+-- "ambient 20" sets the background sounds to 20 %.
+alias("^ambient (%d+)$", function(m)
+    vars.ambient = tonumber(m[1]) / 100
+    sounds.volume("ambient", vars.ambient)
+end)
 ```
 
 ### `sounds.stop()`

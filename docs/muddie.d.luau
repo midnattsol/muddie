@@ -185,7 +185,7 @@ type Channels = {
     close: (name: string) -> (),
     all: () -> { string },
 }
-type Sound = { stop: (self: Sound) -> (), playing: (self: Sound) -> boolean }
+type Sound = { stop: (self: Sound) -> (), playing: (self: Sound) -> boolean, volume: (self: Sound, volume: number) -> () }
 type SoundOptions = {
     volume: number?,
     loop: boolean?,
@@ -193,8 +193,10 @@ type SoundOptions = {
     finish: number?,
     fade_in: number?,
     fade_out: number?,
+    pan: number?,
+    group: string?,
 }
-type Sounds = { play: (file: string, options: SoundOptions?) -> Sound, stop: () -> () }
+type Sounds = { play: (file: string, options: SoundOptions?) -> Sound, stop: () -> (), volume: (group: string, volume: number?) -> number }
 declare panels: Panels
 declare channels: Channels
 declare sounds: Sounds

@@ -41,8 +41,9 @@ cargo build --release -p muddie
 El binario queda en `target/release/muddie`. Para compilar hacen falta CMake
 y un compilador de C++; en Linux también los ficheros de desarrollo de D-Bus y
 Speech Dispatcher (`sudo apt install cmake libdbus-1-dev libspeechd-dev
-pkg-config` en Debian y Ubuntu), sin los que el programa sale mudo. El sonido
-usa `pw-play`, `paplay`, `ffplay` o `aplay`, el que haya instalado.
+pkg-config` en Debian y Ubuntu), sin los que el programa sale mudo. Muddie mezcla
+los sonidos él mismo; en Linux la mezcla se oye por `pw-cat`, `pacat` o
+`aplay`, el que haya instalado.
 
 Además de `cargo test`, `dbus-run-session -- tests/orca/run.sh
 target/release/muddie` prueba Muddie con Orca en un escritorio propio que

@@ -141,3 +141,51 @@ fn a_script_has_the_game_read_aloud_or_not_until_it_goes() {
     let actions = engine.take_actions();
     assert!(error_text(&actions).contains("session.reading is true or false"));
 }
+
+#[test]
+fn a_sound_is_put_to_a_side_in_a_group_and_made_quieter_as_it_plays() {
+    let mut engine = engine("");
+    engine.exec(
+        "ambient.luau",
+        r#"local wind = sounds.play("wind.ogg", {loop = true, pan = -0.5, group = "ambient", volume = 0.8})
+        wind:volume(0.3)
+        echo(tostring(sounds.volume("ambient")))
+        echo(tostring(sounds.volume("ambient", 0.5)))"#,
+    );
+    let actions = engine.take_actions();
+    let Some(Action::PlaySound { id, how, .. }) = actions.first() else {
+        panic!("{actions:?}");
+    };
+    assert_eq!(
+        (how.pan, how.group.as_str(), how.volume),
+        (-0.5, "ambient", 0.8)
+    );
+    assert_eq!(
+        actions[1..],
+        [
+            Action::SoundVolume {
+                id: *id,
+                volume: 0.3
+            },
+            Action::Echo("1".into()),
+            Action::GroupVolume {
+                group: "ambient".into(),
+                volume: 0.5
+            },
+            Action::Echo("0.5".into()),
+        ]
+    );
+    // Gone with the script, the group is as loud as before.
+    engine.unload("ambient.luau");
+    let actions = engine.take_actions();
+    assert!(
+        actions.contains(&Action::GroupVolume {
+            group: "ambient".into(),
+            volume: 1.0
+        }),
+        "{actions:?}"
+    );
+    engine.exec("t", r#"sounds.play("x.ogg", {pann = 1})"#);
+    let actions = engine.take_actions();
+    assert!(error_text(&actions).contains("pann"));
+}

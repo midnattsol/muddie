@@ -93,6 +93,7 @@ sigue funcionando.
    - [`channels.all()`](#channelsall)
 16. [Reproducir sonidos](#reproducir-sonidos)
    - [`sounds.play(file, options)`](#soundsplayfile-options)
+   - [`sounds.volume(group, volume)`](#soundsvolumegroup-volume)
    - [`sounds.stop()`](#soundsstop)
 17. [Hablar con el MUD por detrás (GMCP, MSDP)](#hablar-con-el-mud-por-detrás-gmcp-msdp)
    - [`gmcp.get(package)`](#gmcpgetpackage)
@@ -1297,8 +1298,9 @@ Da los canales que hay.
 ## Reproducir sonidos
 
 Los sonidos dan pistas rápidas sin palabras: un pitido cuando te golpean,
-una alarma cuando tienes poca vida. Pon tus archivos en la carpeta `sounds`
-del perfil.
+una alarma cuando tienes poca vida, el viento de un bosque. Pon tus archivos
+en la carpeta `sounds` del perfil. Muddie lee WAV, OGG, MP3, FLAC y M4A, y
+los reproduce igual en Linux, Windows y Mac.
 
 ### `sounds.play(file, options)`
 
@@ -1307,19 +1309,57 @@ perfil.
 
 **Opciones:**
 
-- `volume`, de 0 a 1, y `loop`.
-- Solo donde el reproductor del sistema puede (Linux): `start` y `finish`,
-  dónde empezar y dónde terminar dentro del sonido; y `fade_in` y
-  `fade_out`, cuántos segundos tarda en subir y en apagarse. En Windows y Mac
-  el sonido suena entero.
+- `volume`, de 0 a 1, y `loop`, para que se repita una y otra vez.
+- `start` y `finish`: dónde empieza y dónde acaba dentro del sonido, en
+  segundos.
+- `fade_in` y `fade_out`: cuántos segundos tarda en subir, y en apagarse
+  antes de `finish`.
+- `pan`: dónde se oye, de -1, todo a la izquierda, a 1, todo a la derecha; 0,
+  en el centro, que es como suena si no lo das. Pon el sonido donde está lo
+  que suena: una puerta que se abre al oeste, a la izquierda.
+- `group`: el grupo de sonidos en el que va, como `"ambient"` o `"alerts"`,
+  cuyo volumen pone [`sounds.volume`](#soundsvolumegroup-volume).
 
-**Devuelve:** el sonido. `sound:stop()` lo para, y `sound:playing()` dice si
-sigue sonando.
+**Devuelve:** el sonido:
+
+- `sound:stop()` lo para.
+- `sound:playing()` dice si sigue sonando.
+- `sound:volume(volume)` lo sube o lo baja mientras suena, de 0 a 1.
 
 **Ejemplo:**
 
 ```lua
 trigger("^You are hit", function() sounds.play("hit.ogg", {volume = 0.5}) end)
+```
+
+```lua
+-- The wind of a forest, quietly, on the left; louder as the fight ends.
+local wind = sounds.play("wind.ogg", {loop = true, volume = 0.3, pan = -0.6, group = "ambient"})
+trigger("^You won the fight", function() wind:volume(0.6) end)
+```
+
+**Ver también:** [`sounds.volume(group, volume)`](#soundsvolumegroup-volume).
+
+### `sounds.volume(group, volume)`
+
+Pone el volumen de un grupo de sonidos, de 0 a 1: los que suenan ya y los que
+suenen después. Sin `volume`, dice cuánto está. Los sonidos que pone el
+propio MUD van en el grupo `"mud"`.
+
+**Devuelve:** el volumen del grupo ahora; 1 si nadie lo cambió.
+
+Cuando se va el script que lo cambió, el grupo vuelve a su volumen de antes.
+Para guardar lo que elige el jugador, guárdalo en [`vars`](#vars) y vuelve a
+ponerlo al arrancar el script.
+
+**Ejemplo:**
+
+```lua
+-- "ambient 20" sets the background sounds to 20 %.
+alias("^ambient (%d+)$", function(m)
+    vars.ambient = tonumber(m[1]) / 100
+    sounds.volume("ambient", vars.ambient)
+end)
 ```
 
 ### `sounds.stop()`

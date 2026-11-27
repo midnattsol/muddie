@@ -71,3 +71,29 @@ impl Engine {
         state.reading_set_by = None;
     }
 }
+
+/// Gives back what `owner` set of the client: the game read aloud, the
+/// volume of groups of sounds, and the keys of shortcuts.
+pub(crate) fn unset(state: &mut State, owner: &str) {
+    if state.reading_set_by.as_deref() == Some(owner) {
+        state.reading_set_by = None;
+        if std::mem::take(&mut state.not_reading) {
+            state.actions.push(Action::Reading(true));
+        }
+    }
+    // The groups of sounds it set go back to their own volume.
+    let (gone, kept): (Vec<_>, Vec<_>) = std::mem::take(&mut state.group_volumes)
+        .into_iter()
+        .partition(|(by, _, _)| by == owner);
+    state.group_volumes = kept;
+    for (_, group, _) in gone {
+        state
+            .actions
+            .push(Action::GroupVolume { group, volume: 1.0 });
+    }
+    let chosen = state.shortcuts.len();
+    state.shortcuts.retain(|(by, _, _)| by != owner);
+    if state.shortcuts.len() != chosen {
+        state.shortcuts_changed += 1;
+    }
+}
