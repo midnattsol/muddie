@@ -118,6 +118,8 @@ pub struct MapView {
     levels: Option<((u64, String), Vec<i32>)>,
     /// The room chosen to look at, with a click or the keys.
     selected: Option<RoomId>,
+    /// The way a key that walks in the game asked to move, while exploring.
+    walked: Option<&'static str>,
     /// What is told of it, for the room chosen, where the player is and
     /// the map's revision it was worked out at.
     told: Option<(Told, String)>,
@@ -169,6 +171,7 @@ impl Default for MapView {
             areas: Default::default(),
             levels: None,
             selected: None,
+            walked: None,
             told: None,
             reveal: None,
             had_focus: false,

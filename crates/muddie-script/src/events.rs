@@ -39,6 +39,26 @@ impl Engine {
         self.state.borrow().looked.heard().clone()
     }
 
+    /// The commands the key's macro sends, named as in `macro`, if the one
+    /// that runs sends commands rather than calling a function: so that
+    /// the client can tell what the key is for, as a key that walks.
+    pub fn macro_commands(&self, key: &str) -> Option<Vec<String>> {
+        let state = self.state.borrow();
+        let bound = state.macros.get(&key_name(key));
+        let live = (bound.into_iter().flatten())
+            .filter(|made| !state.paused.contains(&made.id))
+            .find(|made| state.switches.active(Kind::Macro, &made.belongs))?;
+        match &live.action {
+            MacroAction::Command(command) => Some(
+                (split_commands(command, Some(";")).into_iter())
+                    .filter(|command| !command.is_empty())
+                    .map(|command| state.expand(&command))
+                    .collect(),
+            ),
+            MacroAction::Function(_) => None,
+        }
+    }
+
     /// Handles a key press, named as in `macro` (see [`key_name`]). Returns
     /// whether the key was bound, in which case nothing else should use it.
     pub fn on_key(&mut self, key: &str) -> bool {

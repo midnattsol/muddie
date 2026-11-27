@@ -683,7 +683,8 @@ the area's rooms and levels, and explores it from its room nearest you.
 Hidden, or left for the editor, the map is explored no more, and says so. Its number is not
 said, but it is under the map. While exploring, the keys are the map's:
 nothing bound to the keypad, F1 or the map's Ctrl keys is sent to the MUD,
-so a keypad that walks in the game moves on the map instead. Nothing is
+and a key whose macro sends only a direction moves on the map that way, so
+the keys that walk in the game walk on the map too. Nothing is
 sent until you press Enter on a room or go back to the command line. Which way a place lies is said in the palette and by **What the map knows of…**
 too, when it is in your area and level.
 

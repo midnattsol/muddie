@@ -63,6 +63,12 @@ impl MapView {
         was
     }
 
+    /// Moves the room chosen along the exit `way` when the map is next
+    /// drawn: pressed on a key whose macro walks that way.
+    pub fn walk_key(&mut self, way: &'static str) {
+        self.walked = Some(way);
+    }
+
     /// Whether the map takes these keys while exploring, before anything
     /// else they are bound to: those of its shortcuts.
     pub fn takes(&self, keys: &crate::shortcuts::Press) -> bool {
@@ -98,6 +104,10 @@ impl MapView {
         // to another widget.
         lock_arrows(ui, response.id);
         let chosen = self.selected.unwrap_or(current.id);
+        // A key that walks in the game walks on the map.
+        if let Some(way) = self.walked.take() {
+            return Some(self.step(map, chosen, way));
+        }
         self.keys_pressed(ui, map, current, chosen)
     }
 

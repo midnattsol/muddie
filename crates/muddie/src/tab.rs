@@ -17,7 +17,6 @@ use tokio::sync::mpsc::UnboundedSender;
 use crate::complete::{self, Completion};
 use crate::history::History;
 use crate::i18n::{tr, trf, trn};
-use crate::keypad;
 use crate::logger::SessionLog;
 use crate::mapview::{MapAsk, MapView};
 use crate::output::{Output, server_job};

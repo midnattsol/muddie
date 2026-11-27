@@ -118,3 +118,52 @@ fn the_lines_are_read_and_speech_silenced_with_the_keys_a_script_gives() {
     harness.run_steps(2);
     assert_eq!(harness.state().tab().voice.stopped, stopped + 1);
 }
+
+#[test]
+fn the_keys_that_walk_in_the_game_walk_on_the_map() {
+    let mut harness = window(None);
+    let app = harness.state_mut().tab_mut();
+    let (_events, mut sent) = fake_connection(app);
+    desert(app);
+    // As ScriptsRL walks: Alt and the letters around the right hand.
+    app.scripts.exec(
+        "walking.luau",
+        r#"map.directions = {e = {"este"}, w = {"oeste"}, n = {"norte"}, s = {"sur"}}
+        macro("alt+o", "este")
+        macro("alt+u", "w")
+        macro("alt+b", "buscar")
+        macro("alt+f", function() send("matar x") end)"#,
+    );
+    app.run_actions();
+    assert!(app.map.borrow_mut().set_current(1));
+    app.voice.force_voice();
+    harness.run_steps(3);
+    let (held, key) = crate::shortcuts::EXPLORE.first();
+    harness.key_press_modifiers(held, key);
+    harness.run_steps(3);
+    said(&mut harness);
+    harness.key_press_modifiers(Modifiers::ALT, Key::O);
+    harness.run_steps(2);
+    assert_eq!(
+        said(&mut harness),
+        "Dunas. 1 move to the este. Exits: este, oeste."
+    );
+    harness.key_press_modifiers(Modifiers::ALT, Key::O);
+    harness.run_steps(2);
+    assert!(said(&mut harness).starts_with("Dunas. 2 moves to the este."));
+    // In the MUD's words or in English, short or long.
+    harness.key_press_modifiers(Modifiers::ALT, Key::U);
+    harness.run_steps(2);
+    assert!(said(&mut harness).starts_with("Dunas. 1 move to the este."));
+    // Nothing went to the MUD; what is not a way goes as always.
+    harness.key_press_modifiers(Modifiers::ALT, Key::B);
+    harness.run_steps(2);
+    let sent: Vec<String> = std::iter::from_fn(|| sent.try_recv().ok())
+        .filter_map(|command| match command {
+            Command::Send(text) => Some(text),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(sent, ["buscar"]);
+    assert!(harness.state().tab().map_view.exploring());
+}

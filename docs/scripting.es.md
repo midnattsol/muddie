@@ -710,6 +710,13 @@ Si asignas otra vez una tecla con otro `place`, existen las dos, y se
 ejecuta la primera asignada que esté encendida. Si la asignas otra vez con el
 mismo sitio, lo nuevo sustituye a lo de antes.
 
+**En el mapa.** Mientras exploras el mapa, una tecla cuya macro manda solo
+una dirección mueve la sala elegida en esa dirección en vez de caminar: en
+las palabras del MUD o en inglés (`"este"`, `"e"`, `"east"`), como la lee
+[`map.direction`](#mapdirectionword). Así las teclas con las que caminas en
+el juego también caminan por el mapa. Una macro que llama a una función, o
+que manda otra cosa, se queda como está.
+
 **Nombres de teclas.** Se escriben en minúsculas, con los modificadores en el
 orden `ctrl`, `alt`, `shift`: `f1`...`f35`, `ctrl+k`, `alt+shift+up`. Del
 teclado principal solo puedes asignar las teclas de función y las que se

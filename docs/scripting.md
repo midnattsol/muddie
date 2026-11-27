@@ -700,6 +700,12 @@ macro("numpad6", "east")
 macro("numpad5", "look")
 ```
 
+**On the map.** While you explore the map, a key whose macro sends only a
+direction moves the room chosen that way instead of walking: in the MUD's
+words or in English (`"este"`, `"e"`, `"east"`), as [`map.direction`](#mapdirectionword)
+reads it. So the keys you walk with in the game walk on the map too. A
+macro that calls a function, or sends something else, is left alone.
+
 If you bind a key again under a different `place`, both bindings exist, and
 the first one bound that is on is the one that runs. If you bind it again
 under the same place, the new action replaces the old one.

@@ -162,6 +162,12 @@ pub fn names() -> impl Iterator<Item = &'static str> {
         .filter(|name| !name.is_empty())
 }
 
+/// Whether a press of the keypad key `name` types a character.
+pub fn types(name: &str) -> bool {
+    KEYS.iter()
+        .any(|key| key.name == name && !key.types.is_empty())
+}
+
 /// Keypad keys pressed since they were last taken, by name.
 pub type Pressed = Arc<Mutex<Vec<&'static str>>>;
 

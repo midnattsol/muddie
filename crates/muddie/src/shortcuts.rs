@@ -324,6 +324,20 @@ pub fn maps_keys_pressed(input: &egui::InputState) -> bool {
         })
 }
 
+/// Takes what egui made of a press of the keypad key `name`: the key, and
+/// what it typed, now or in a frame after.
+pub fn take_keypad_events(input: &mut egui::InputState, name: &str) {
+    let typed = (input.events.iter()).any(|event| {
+        matches!(event, egui::Event::Text(_)) && crate::keypad::is_event_of(name, event)
+    });
+    input
+        .events
+        .retain(|event| !crate::keypad::is_event_of(name, event));
+    if crate::keypad::types(name) && !typed {
+        TYPED.with(|waiting| waiting.set(true));
+    }
+}
+
 /// Takes a press of `keys`, if there was one in this frame: of the main
 /// block, not what egui made of a key of the keypad; or of the keypad,
 /// with what egui made of it, so that it does not also type.
@@ -368,7 +382,7 @@ pub fn take(input: &mut egui::InputState, keys: &Press) -> bool {
                 at.map(|at| keypad.remove(at)).is_some()
             });
             if taken {
-                (input.events).retain(|event| !crate::keypad::is_event_of(name, event));
+                take_keypad_events(input, name);
             }
             taken
         }
