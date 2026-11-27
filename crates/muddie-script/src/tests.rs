@@ -6,6 +6,7 @@ mod data;
 mod definitions;
 mod explain;
 mod gauges;
+mod keys;
 mod line;
 mod listening;
 mod loading;

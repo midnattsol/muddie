@@ -54,26 +54,30 @@ half a second without stopping, Muddie stops it with an error and carries on.
    - [`on("send", fn)`](#onsend-fn)
 8. [Bind keys](#bind-keys)
    - [`macro(key, action, options)`](#macrokey-action-options)
-9. [Do something later or every so often](#do-something-later-or-every-so-often)
+9. [Change Muddie's own keys (shortcuts)](#change-muddies-own-keys-shortcuts)
+   - [`shortcuts.<name>`](#shortcutsname)
+   - [`shortcuts.all()`](#shortcutsall)
+   - [Every shortcut](#every-shortcut)
+10. [Do something later or every so often](#do-something-later-or-every-so-often)
    - [`after(seconds, fn, options)`](#afterseconds-fn-options)
    - [`every(seconds, fn, options)`](#everyseconds-fn-options)
-10. [Wait in the middle of a script](#wait-in-the-middle-of-a-script)
+11. [Wait in the middle of a script](#wait-in-the-middle-of-a-script)
    - [`wait(seconds)`](#waitseconds)
    - [`wait("line", pattern, options)`](#waitline-pattern-options)
    - [`wait(what, name, options)`](#waitwhat-name-options)
    - [`lines(options)`](#linesoptions)
    - [Where nothing can wait](#where-nothing-can-wait)
-11. [Remember things (vars)](#remember-things-vars)
+12. [Remember things (vars)](#remember-things-vars)
    - [`vars`](#vars)
    - [`expand(text)`](#expandtext)
    - [`on("var", name, fn)`](#onvar-name-fn)
-12. [Show your character's state (gauges)](#show-your-characters-state-gauges)
+13. [Show your character's state (gauges)](#show-your-characters-state-gauges)
    - [`gauges.set(name, gauge)`](#gaugessetname-gauge)
    - [`gauges.remove(name, options)`](#gaugesremovename-options)
    - [`gauges.get(name)`](#gaugesgetname)
    - [`gauges.all()`](#gaugesall)
    - [`on("gauge", name, fn, options)`](#ongauge-name-fn-options)
-13. [Text panels and channels](#text-panels-and-channels)
+14. [Text panels and channels](#text-panels-and-channels)
    - [`panels.set(name, text)`](#panelssetname-text)
    - [`panels.clear(name)`](#panelsclearname)
    - [`panels.add(name, text, options)`](#panelsaddname-text-options)
@@ -82,10 +86,10 @@ half a second without stopping, Muddie stops it with an error and carries on.
    - [`channels.open(name, options)`](#channelsopenname-options)
    - [`channels.close(name)`](#channelsclosename)
    - [`channels.all()`](#channelsall)
-14. [Play sounds](#play-sounds)
+15. [Play sounds](#play-sounds)
    - [`sounds.play(file, options)`](#soundsplayfile-options)
    - [`sounds.stop()`](#soundsstop)
-15. [Talk to the MUD behind the scenes (GMCP, MSDP)](#talk-to-the-mud-behind-the-scenes-gmcp-msdp)
+16. [Talk to the MUD behind the scenes (GMCP, MSDP)](#talk-to-the-mud-behind-the-scenes-gmcp-msdp)
    - [`gmcp.get(package)`](#gmcpgetpackage)
    - [`gmcp.send(package, data)`](#gmcpsendpackage-data)
    - [`gmcp.support(module, ...)`](#gmcpsupportmodule-)
@@ -93,21 +97,21 @@ half a second without stopping, Muddie stops it with an error and carries on.
    - [`msdp.get(variable)`, `msdp.send(command, ...)`](#msdpgetvariable-msdpsendcommand-)
    - [`msdp.report(variable, ...)`](#msdpreportvariable-)
    - [`mssp.get()`](#msspget)
-16. [React to other events (on)](#react-to-other-events-on)
+17. [React to other events (on)](#react-to-other-events-on)
    - [`on(what, name, fn, options)`](#onwhat-name-fn-options)
    - [`emit(name, data)`](#emitname-data)
-17. [Turn things on and off](#turn-things-on-and-off)
+18. [Turn things on and off](#turn-things-on-and-off)
    - [Options, places and tags](#options-places-and-tags)
    - [What `trigger`, `alias`, `macro`, `after`, `every` and `on` return](#what-trigger-alias-macro-after-every-and-on-return)
    - [`triggers`, `aliases`, `macros`, `timers`, `gauges`, `scripts`](#triggers-aliases-macros-timers-gauges-scripts)
    - [`tags`](#tags)
    - [What goes with a script](#what-goes-with-a-script)
-18. [The session and the command line](#the-session-and-the-command-line)
+19. [The session and the command line](#the-session-and-the-command-line)
    - [Fields of `session`](#fields-of-session)
    - [`session.completions(name, words)`](#sessioncompletionsname-words)
    - [`session.feed(text)`](#sessionfeedtext)
    - [`output.last(count)`](#outputlastcount)
-19. [Map the game and walk it](#map-the-game-and-walk-it)
+20. [Map the game and walk it](#map-the-game-and-walk-it)
    - [Rooms and places](#rooms-and-places)
    - [Settings of the map](#settings-of-the-map)
    - [Following the player](#following-the-player)
@@ -143,10 +147,10 @@ half a second without stopping, Muddie stops it with an error and carries on.
      - [`map.import(address)`](#mapimportaddress)
      - [`map.newer(address, fn)`](#mapneweraddress-fn)
      - [`map.action(name, fn, options)`](#mapactionname-fn-options)
-20. [Share code between scripts](#share-code-between-scripts)
+21. [Share code between scripts](#share-code-between-scripts)
    - [`require(name)`](#requirename)
-21. [When something goes wrong](#when-something-goes-wrong)
-22. [What scripts cannot do](#what-scripts-cannot-do)
+22. [When something goes wrong](#when-something-goes-wrong)
+23. [What scripts cannot do](#what-scripts-cannot-do)
 
 ## Start here
 
@@ -628,6 +632,194 @@ other keys, named after what is printed on them: `numpadup`, `numpaddown`,
 `numpadleft`, `numpadright`, `numpadhome`, `numpadend`, `numpadpageup`,
 `numpadpagedown`, `numpadclear` (the 5), `numpadinsert` and `numpaddelete`.
 Once you bind a keypad key, it stops typing its digit.
+
+## Change Muddie's own keys (shortcuts)
+
+Every key Muddie uses for itself is a shortcut you can change: the palette,
+the review keys that read the output, the keys that move on the map while you
+explore it, the keys of the editor. The keys each has at first are in the
+[table below](#every-shortcut). You can change them in **Settings → Keys**,
+or from a script. A script is handy to keep your whole set of keys in one
+file, share it with others, and let each of them adjust it.
+
+Keys a script chooses go before those chosen in Settings while the script is
+loaded. When the script is switched off or removed, the keys go back to what
+they were. Settings shows which script chose each one.
+
+### `shortcuts.<name>`
+
+Reads or changes the keys of one shortcut, by its name.
+
+- **Read it** to get the keys it has now, as a list of texts:
+  `shortcuts.explore` gives `{"alt+e"}`.
+- **Set it** to a key or a list of keys: `shortcuts.explore = "f9"`,
+  `shortcuts.map_north = {"up", "k"}`.
+- **Set it to `false`** to leave the shortcut without keys.
+- **Set it to `nil`** to give it back the keys it had before the script.
+
+Keys are written as in [`macro`](#macrokey-action-options), with `cmd` too
+on a Mac. For `hush` you can also give a modifier alone: `"ctrl"`. Letter
+case does not matter.
+
+**Where each key can go:**
+
+- A shortcut that works everywhere needs keys that do not type: held with
+  Ctrl, Alt or Cmd, a function key, or a key of the numeric keypad.
+- In the command line, keys that do not type will do too, such as the
+  arrows, but not Enter.
+- On the map, while you explore it, any key will do: the map has the
+  keyboard to itself.
+- Tab, Escape and Shift+F10 always move through the window. They cannot be
+  taken.
+
+**When keys collide:**
+
+- If a script gives a shortcut keys that another one has where both work,
+  the other one loses them.
+- A [macro](#macrokey-action-options) on the same keys goes before Muddie's
+  shortcut.
+- While you explore the map, its keys go first.
+
+**Returns:** reading it gives a list of texts.
+
+Watch out: an unknown name, a key that does not exist, or a key that cannot go
+where the shortcut works is an error that says which.
+
+**Example:**
+
+```lua
+-- My keys: explore the map with F9, and read the lines with the keypad.
+shortcuts.explore = "f9"
+shortcuts.read_previous = "numpad8"
+shortcuts.read_next = "numpad2"
+-- On the map, the letters too, besides the arrows.
+shortcuts.map_north = {"up", "k"}
+shortcuts.map_south = {"down", "j"}
+-- Ctrl no longer silences speech.
+shortcuts.hush = false
+```
+
+**See also:** [`shortcuts.all()`](#shortcutsall), [`macro`](#macrokey-action-options).
+
+### `shortcuts.all()`
+
+Lists every shortcut, with the keys it has now. Give the list to an AI, or
+read it aloud, to know what there is to change.
+
+**Returns:** a list of tables, each with:
+
+- `name`: its name, to use as `shortcuts.<name>`.
+- `place`: where it works: `"everywhere"`, `"reading"`, `"line"` (the
+  command line), `"map"` (exploring the map), `"editor"` or `"layout"`.
+- `about`: what it does, in the language of the interface.
+- `keys`: its keys now, as a list of texts.
+
+**Example:**
+
+```lua
+for _, shortcut in shortcuts.all() do
+    echo(`{shortcut.name}: {table.concat(shortcut.keys, ", ")} ({shortcut.about})`)
+end
+```
+
+**See also:** [`shortcuts.<name>`](#shortcutsname).
+
+### Every shortcut
+
+These are the keys each shortcut has before anyone changes them. On a Mac,
+`ctrl` here is `cmd`, and the keys held with `alt` and a letter or a figure
+are held with `ctrl` instead; `shortcuts.all()` gives them as they are on
+each system.
+
+| Name | Where | Keys at first | What it does |
+|---|---|---|---|
+| `palette` | `everywhere` | `ctrl+k` | Palette |
+| `settings` | `everywhere` | `ctrl+comma` | Settings |
+| `new_session` | `everywhere` | `ctrl+t` | New session |
+| `close_session` | `everywhere` | `ctrl+w` | Close session |
+| `reconnect` | `everywhere` | `alt+r` | Reconnect |
+| `switch_view` | `everywhere` | `ctrl+e` | Between the game and the editor |
+| `data_view` | `everywhere` | `ctrl+d` | Between the game and the incoming data |
+| `find` | `everywhere` | `ctrl+f` | Find in the output |
+| `messages` | `everywhere` | `alt+n` | Messages |
+| `gauges` | `everywhere` | `alt+0` | Read the gauges |
+| `where` | `everywhere` | `alt+m` | Where am I |
+| `explore` | `everywhere` | `alt+e` | Explore the map |
+| `map` | `everywhere` | `ctrl+m` | Show or hide the map |
+| `keys_help` | `everywhere` | `f1` | Say the keys to know |
+| `next_zone` | `everywhere` | `f6` | Go to the output and each panel |
+| `previous_zone` | `everywhere` | `shift+f6` | Go back through the panels |
+| `hush` | `everywhere` | `ctrl` | Silence speech |
+| `read_previous` | `reading` | `alt+up` | Read the previous line |
+| `read_next` | `reading` | `alt+down` | Read the next line |
+| `read_first` | `reading` | `alt+home` | Read the first line |
+| `read_last` | `reading` | `alt+end` | Read the last line |
+| `read_recent_1` | `reading` | `alt+1` | Read the most recent line |
+| `read_recent_2` | `reading` | `alt+2` | Read the 2nd most recent line |
+| `read_recent_3` | `reading` | `alt+3` | Read the 3rd most recent line |
+| `read_recent_4` | `reading` | `alt+4` | Read the 4th most recent line |
+| `read_recent_5` | `reading` | `alt+5` | Read the 5th most recent line |
+| `read_recent_6` | `reading` | `alt+6` | Read the 6th most recent line |
+| `read_recent_7` | `reading` | `alt+7` | Read the 7th most recent line |
+| `read_recent_8` | `reading` | `alt+8` | Read the 8th most recent line |
+| `read_recent_9` | `reading` | `alt+9` | Read the 9th most recent line |
+| `copy_read` | `reading` | `alt+c` | Copy the line read last |
+| `follow_link` | `reading` | `alt+o` | Follow the link of the line read last |
+| `panel_previous` | `reading` | `alt+shift+left` | Choose the previous panel of text to read |
+| `panel_next` | `reading` | `alt+shift+right` | Choose the next panel of text to read |
+| `panel_read_previous` | `reading` | `alt+shift+up` | Read the previous line of the panel |
+| `panel_read_next` | `reading` | `alt+shift+down` | Read the next line of the panel |
+| `panel_read_first` | `reading` | `alt+shift+home` | Read the first line of the panel |
+| `panel_read_last` | `reading` | `alt+shift+end` | Read the last line of the panel |
+| `panel_recent_1` | `reading` | `alt+shift+1` | Read the most recent line of the panel |
+| `panel_recent_2` | `reading` | `alt+shift+2` | Read the 2nd most recent line of the panel |
+| `panel_recent_3` | `reading` | `alt+shift+3` | Read the 3rd most recent line of the panel |
+| `panel_recent_4` | `reading` | `alt+shift+4` | Read the 4th most recent line of the panel |
+| `panel_recent_5` | `reading` | `alt+shift+5` | Read the 5th most recent line of the panel |
+| `panel_recent_6` | `reading` | `alt+shift+6` | Read the 6th most recent line of the panel |
+| `panel_recent_7` | `reading` | `alt+shift+7` | Read the 7th most recent line of the panel |
+| `panel_recent_8` | `reading` | `alt+shift+8` | Read the 8th most recent line of the panel |
+| `panel_recent_9` | `reading` | `alt+shift+9` | Read the 9th most recent line of the panel |
+| `panel_copy_read` | `reading` | `alt+shift+c` | Copy the line of the panel read last |
+| `history_previous` | `line` | `up` | Earlier command |
+| `history_next` | `line` | `down` | Later command |
+| `history_search` | `line` | `ctrl+r` | Search the commands typed before |
+| `map_north` | `map` | `up`, `8`, `numpad8`, `numpadup` | Follow the exit north |
+| `map_south` | `map` | `down`, `2`, `numpad2`, `numpaddown` | Follow the exit south |
+| `map_west` | `map` | `left`, `4`, `numpad4`, `numpadleft` | Follow the exit west |
+| `map_east` | `map` | `right`, `6`, `numpad6`, `numpadright` | Follow the exit east |
+| `map_northwest` | `map` | `7`, `numpad7`, `numpadhome` | Follow the exit north-west |
+| `map_northeast` | `map` | `9`, `numpad9`, `numpadpageup` | Follow the exit north-east |
+| `map_southwest` | `map` | `1`, `numpad1`, `numpadend` | Follow the exit south-west |
+| `map_southeast` | `map` | `3`, `numpad3`, `numpadpagedown` | Follow the exit south-east |
+| `map_up` | `map` | `pageup`, `numpadsubtract` | Follow the exit up |
+| `map_down` | `map` | `pagedown`, `numpadadd` | Follow the exit down |
+| `map_in` | `map` | `numpaddivide` | Follow the exit in |
+| `map_out` | `map` | `numpadmultiply` | Follow the exit out |
+| `map_again` | `map` | `space`, `numpad5`, `numpadclear` | Say the room again |
+| `map_home` | `map` | `home` | Back to your room |
+| `map_back` | `map` | `backspace` | Back to the room before |
+| `map_go` | `map` | `enter`, `numpadenter` | Go to the room chosen |
+| `map_way` | `map` | `shift+enter` | Say the way to the room chosen |
+| `map_help` | `map` | `f1` | Say all the map's keys |
+| `map_info` | `map` | `ctrl+i` | All about the room |
+| `map_near` | `map` | `ctrl+l` | What is near |
+| `map_find` | `map` | `ctrl+f` | Find on the map |
+| `map_mark` | `map` | `ctrl+b` | Mark the room |
+| `map_note` | `map` | `ctrl+n` | Write a note on the room |
+| `move_up` | `editor` | `alt+up` | Move the rule up |
+| `move_down` | `editor` | `alt+down` | Move the rule down |
+| `move_out` | `editor` | `alt+left` | Move the rule out of its folder |
+| `rename` | `editor` | `f2` | Rename |
+| `delete` | `editor` | `delete` | Delete |
+| `select_all` | `editor` | `ctrl+a` | Select all visible items |
+| `undo` | `editor` | `ctrl+z` | Undo |
+| `redo` | `editor` | `ctrl+y`, `ctrl+shift+z` | Redo |
+| `panel_up` | `layout` | `alt+up` | Move the panel up |
+| `panel_down` | `layout` | `alt+down` | Move the panel down |
+| `panel_side_back` | `layout` | `alt+left` | Move the panel to the side before |
+| `panel_side_on` | `layout` | `alt+right` | Move the panel to the next side |
+
 
 ## Do something later or every so often
 

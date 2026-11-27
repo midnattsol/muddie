@@ -36,16 +36,6 @@ pub(super) struct Prompt {
     focus: u8,
 }
 
-/// The shortcuts the map takes while exploring: all about the room, what
-/// is near, search, mark and note.
-const COMMANDS: [crate::shortcuts::Shortcut; 5] = [
-    crate::shortcuts::ROOM_INFO,
-    crate::shortcuts::NEAR,
-    crate::shortcuts::FIND,
-    crate::shortcuts::MARK,
-    crate::shortcuts::NOTE,
-];
-
 /// What the map's keys are, in short: said on starting, and with the map
 /// when it is reached.
 pub(super) fn keys_hint() -> &'static str {
@@ -70,18 +60,16 @@ impl MapView {
         let was = self.exploring();
         self.had_focus = false;
         self.prompt = None;
-        self.keypad.clear();
         was
     }
 
-    /// Whether the map takes this key while exploring, before anything
-    /// bound to it: the keypad, F1, and its shortcuts.
-    pub fn takes(&self, key: egui::Key, modifiers: egui::Modifiers) -> bool {
-        let shortcut = |keys: egui::KeyboardShortcut| {
-            keys.logical_key == key && modifiers.matches_logically(keys.modifiers)
-        };
+    /// Whether the map takes these keys while exploring, before anything
+    /// else they are bound to: those of its shortcuts.
+    pub fn takes(&self, keys: &crate::shortcuts::Press) -> bool {
         self.exploring()
-            && (key == egui::Key::F1 || COMMANDS.iter().any(|command| shortcut(command.keys())))
+            && (crate::shortcuts::ALL.iter()).any(|shortcut| {
+                shortcut.place == crate::shortcuts::Place::Map && shortcut.has(keys)
+            })
     }
 
     /// The keys, while the map has the keyboard: those that move the room
@@ -110,17 +98,10 @@ impl MapView {
         // to another widget.
         lock_arrows(ui, response.id);
         let chosen = self.selected.unwrap_or(current.id);
-        // The keypad first, by where its keys are: what egui made of them,
-        // Home for 7 with Num Lock off, was taken away.
-        for name in std::mem::take(&mut self.keypad) {
-            if let Some(action) = self.keypad_key(map, chosen, name) {
-                return Some(action);
-            }
-        }
         self.keys_pressed(ui, map, current, chosen)
     }
 
-    /// What the keys that are not the keypad's ask for, with `chosen` the
+    /// What the map's keys ask for, with `chosen` the
     /// room they work from: the keys that say, search, name and note, go
     /// back or leave, and the ones that move along the exits.
     fn keys_pressed(
@@ -130,31 +111,30 @@ impl MapView {
         current: &Room,
         chosen: RoomId,
     ) -> Option<MapAsk> {
-        let pressed = |modifiers, key| ui.input_mut(|input| input.consume_key(modifiers, key));
-        if pressed(egui::Modifiers::NONE, egui::Key::F1) {
+        use crate::shortcuts as keys;
+        let pressed = |shortcut: keys::Shortcut| ui.input_mut(|input| shortcut.pressed(input));
+        if pressed(keys::MAP_HELP) {
             return Some(MapAsk::Say(all_keys()));
         }
-        let shortcut =
-            |shortcut: crate::shortcuts::Shortcut| ui.input_mut(|input| shortcut.pressed(input));
-        if shortcut(crate::shortcuts::ROOM_INFO) {
+        if pressed(keys::MAP_INFO) {
             return Some(MapAsk::Info(chosen));
         }
-        if shortcut(crate::shortcuts::NEAR) {
+        if pressed(keys::MAP_NEAR) {
             return Some(MapAsk::Say(near_words(map, chosen)));
         }
         let asked = [
-            (crate::shortcuts::FIND, Asked::Search),
-            (crate::shortcuts::MARK, Asked::Mark),
-            (crate::shortcuts::NOTE, Asked::Note),
+            (keys::MAP_FIND, Asked::Search),
+            (keys::MAP_MARK, Asked::Mark),
+            (keys::MAP_NOTE, Asked::Note),
         ];
-        if let Some((_, asked)) = asked.into_iter().find(|(keys, _)| shortcut(*keys)) {
+        if let Some((_, asked)) = asked.into_iter().find(|(shortcut, _)| pressed(*shortcut)) {
             self.ask(map, asked, chosen);
             return None;
         }
-        if pressed(egui::Modifiers::NONE, egui::Key::Space) {
+        if pressed(keys::MAP_AGAIN) {
             return Some(MapAsk::Selected(chosen, None));
         }
-        if pressed(egui::Modifiers::NONE, egui::Key::Backspace) {
+        if pressed(keys::MAP_BACK) {
             let Some(back) = self.trail.pop() else {
                 return Some(MapAsk::Say(
                     tr("This is where you began exploring.").to_owned(),
@@ -164,22 +144,18 @@ impl MapView {
             self.reveal = Some(back);
             return Some(MapAsk::Selected(back, None));
         }
-        if let Some(id) = self.selected {
-            if pressed(egui::Modifiers::SHIFT, egui::Key::Enter) {
-                return Some(MapAsk::Way(id));
-            }
-            if pressed(egui::Modifiers::NONE, egui::Key::Enter) {
-                return Some(MapAsk::Walk(id));
-            }
+        if pressed(keys::MAP_WAY) {
+            return self.selected.map(MapAsk::Way);
         }
-        if pressed(egui::Modifiers::NONE, egui::Key::Home) {
+        if pressed(keys::MAP_GO) {
+            return self.selected.map(MapAsk::Walk);
+        }
+        if pressed(keys::MAP_HOME) {
             // A jump, not a move: nothing is said of the way back.
             self.choose(current.id);
             return Some(MapAsk::Selected(current.id, None));
         }
-        let (_, way) = MOVES
-            .iter()
-            .find(|(key, _)| pressed(egui::Modifiers::NONE, *key))?;
+        let (_, way) = (keys::MAP_MOVES.iter()).find(|(shortcut, _)| pressed(*shortcut))?;
         Some(self.step(map, chosen, way))
     }
 
@@ -219,7 +195,7 @@ impl MapView {
     }
 
     /// Leaves the map for the command line, with what was typed, if
-    /// anything but the digits that move was.
+    /// anything but the keys of the map was.
     fn typed_leaves(&mut self, ui: &Ui, response: &Response) -> Option<MapAsk> {
         let typed: String = ui.input(|input| {
             (input.events.iter())
@@ -229,10 +205,9 @@ impl MapView {
                 })
                 .collect()
         });
-        if typed
-            .chars()
-            .any(|c| !c.is_ascii_digit() && !c.is_whitespace())
-        {
+        // What the map's own keys type is not typing.
+        let the_maps = ui.input(crate::shortcuts::maps_keys_pressed);
+        if !the_maps && typed.chars().any(|c| !c.is_whitespace()) {
             return Some(self.leave(ui, response, typed));
         }
         None

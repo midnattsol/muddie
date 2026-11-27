@@ -45,13 +45,12 @@ impl Tab {
         if ui.memory(|memory| memory.focused()) != Some(row_id(chosen)) {
             return;
         }
-        let with = crate::shortcuts::WITH_ARROWS;
         let (move_up, move_down, move_back, move_on) = ui.input_mut(|input| {
             (
-                input.consume_key(with, Key::ArrowUp),
-                input.consume_key(with, Key::ArrowDown),
-                input.consume_key(with, Key::ArrowLeft),
-                input.consume_key(with, Key::ArrowRight),
+                crate::shortcuts::PANEL_UP.pressed(input),
+                crate::shortcuts::PANEL_DOWN.pressed(input),
+                crate::shortcuts::PANEL_SIDE_BACK.pressed(input),
+                crate::shortcuts::PANEL_SIDE_ON.pressed(input),
             )
         });
         if move_up || move_down {

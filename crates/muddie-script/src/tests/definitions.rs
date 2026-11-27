@@ -170,7 +170,7 @@ fn the_fields_that_change_are_those_the_definitions_say() {
         let changing = CHANGING.contains(&name.as_str());
         assert_eq!(
             changing,
-            !fields.is_empty() || name == "vars",
+            !fields.is_empty() || name == "vars" || name == "shortcuts",
             "{name}: {fields:?}"
         );
         for field in fields {

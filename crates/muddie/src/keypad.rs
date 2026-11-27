@@ -156,7 +156,6 @@ pub fn name_of(code: KeyCode, typing: bool) -> Option<&'static str> {
 }
 
 /// Every name the keypad's keys have.
-#[cfg(test)]
 pub fn names() -> impl Iterator<Item = &'static str> {
     (KEYS.iter())
         .flat_map(|key| [key.name, key.off])

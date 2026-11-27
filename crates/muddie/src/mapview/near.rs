@@ -101,14 +101,11 @@ pub(super) fn near_words(map: &Map, from: RoomId) -> String {
 
 /// Every key while exploring, as said.
 pub(super) fn all_keys() -> String {
-    trf(
-        "Arrows, or the keypad, follow the exits; Page Up and Page Down go up and down, as minus and plus on the keypad, and slash and star go in and out. Home comes back to you, Backspace to the room before. Space says the room again, {0} all about it, {1} what is near. {2} finds on the map. {3} marks the room, {4} writes a note on it. Enter goes there, Shift+Enter says the way. Shift+F10 opens the room's menu, with all that is done with it. Escape, or typing, goes back to the command line.",
-        &[
-            crate::shortcuts::ROOM_INFO.written(),
-            crate::shortcuts::NEAR.written(),
-            crate::shortcuts::FIND.written(),
-            crate::shortcuts::MARK.written(),
-            crate::shortcuts::NOTE.written(),
-        ],
-    )
+    let mut said: Vec<String> = (crate::shortcuts::ALL.iter())
+        .filter(|shortcut| shortcut.place == crate::shortcuts::Place::Map)
+        .filter(|shortcut| !shortcut.keys().is_empty())
+        .map(|shortcut| trf("{0}: {1}.", &[&shortcut.all_written(), shortcut.about()]))
+        .collect();
+    said.push(tr("Shift+F10 opens the room's menu, with all that is done with it. Escape, or typing, goes back to the command line.").to_owned());
+    said.join(" ")
 }

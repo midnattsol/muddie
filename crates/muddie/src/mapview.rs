@@ -80,26 +80,6 @@ pub enum MapAsk {
     Look(RoomId),
 }
 
-/// The keys that move the room chosen along its exits while the map has
-/// the keyboard: the arrows, the digits as on a keypad, and the pages up
-/// and down.
-const MOVES: [(egui::Key, &str); 14] = [
-    (egui::Key::ArrowUp, "n"),
-    (egui::Key::ArrowDown, "s"),
-    (egui::Key::ArrowLeft, "w"),
-    (egui::Key::ArrowRight, "e"),
-    (egui::Key::Num8, "n"),
-    (egui::Key::Num2, "s"),
-    (egui::Key::Num4, "w"),
-    (egui::Key::Num6, "e"),
-    (egui::Key::Num7, "nw"),
-    (egui::Key::Num9, "ne"),
-    (egui::Key::Num1, "sw"),
-    (egui::Key::Num3, "se"),
-    (egui::Key::PageUp, "u"),
-    (egui::Key::PageDown, "d"),
-];
-
 /// What the map's tools asked for.
 #[derive(Debug, Default, Clone, Copy)]
 struct Tools {
@@ -163,8 +143,6 @@ pub struct MapView {
     trail: Vec<RoomId>,
     /// The words asked for over the map while exploring it.
     prompt: Option<Prompt>,
-    /// Keys of the keypad pressed while the map has the keyboard, by name.
-    keypad: Vec<&'static str>,
 }
 
 /// What is told of the room chosen depends on: it, where the player is,
@@ -202,7 +180,6 @@ impl Default for MapView {
             said_region: None,
             trail: Vec::new(),
             prompt: None,
-            keypad: Vec::new(),
         }
     }
 }

@@ -881,12 +881,17 @@ its control at the right.
   the command line.
 - **Speech**: what reads aloud, whether new lines interrupt, whether the
   channels are read, and the speed and language of the system's voice.
-- **Keys**: the keys of Muddie's shortcuts, the same for every profile.
-  Press a shortcut's keys and then the new ones: they are said, or why they
-  cannot be (they type, or Muddie uses them already); Escape keeps those it
-  had, and **Reset** gives it its own back. Copying, selecting all, undoing
-  and the keys that read the output stay as they are; a macro on any keys
-  goes before them.
+- **Keys**: every key Muddie uses for itself, the same for every profile,
+  grouped by where it works: everywhere, reading, the command line,
+  exploring the map, the editor and Layout. Press a shortcut's keys and then
+  the new ones: they are said, or why they cannot be (they type, or Muddie
+  uses them already there); Escape keeps those it had. Its menu (Shift+F10)
+  adds more keys, leaves it without keys, or gives it its own back with
+  **Reset**. Keys of the numeric keypad can be chosen too, and on the map
+  any key. Tab, Escape, Shift+F10 and copying stay as they are. A macro on
+  any keys goes before them, and so do the keys a script chooses with
+  `shortcuts` (see [scripting](scripting.md#change-muddies-own-keys-shortcuts)),
+  which the row says.
 
 A session without a profile connects, keeps its connection and logs as a new
 profile would; the plugins that come with Muddie run in it as they come,

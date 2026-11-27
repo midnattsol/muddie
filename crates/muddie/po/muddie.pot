@@ -184,88 +184,13 @@ msgstr ""
 msgid "."
 msgstr ""
 
-msgid "Settings"
-msgstr ""
-
-msgid "New session"
-msgstr ""
-
-msgid "Close session"
-msgstr ""
-
-msgid "Reconnect"
-msgstr ""
-
-msgid "Between the game and the editor"
-msgstr ""
-
-msgid "Between the game and the incoming data"
-msgstr ""
-
-msgid "Find"
-msgstr ""
-
-msgid "Search the commands typed before"
-msgstr ""
-
-msgid "Messages"
-msgstr ""
-
-msgid "Read the gauges"
-msgstr ""
-
-msgid "Explore the map"
-msgstr ""
-
-msgid "Show or hide the map"
-msgstr ""
-
-msgid "All about the room, exploring the map"
-msgstr ""
-
-msgid "What is near, exploring the map"
-msgstr ""
-
-msgid "Mark the room, exploring the map"
-msgstr ""
-
-msgid "Note on the room, exploring the map"
-msgstr ""
-
-msgid "Select all"
-msgstr ""
-
-msgid "Undo"
-msgstr ""
-
-msgid "Redo"
-msgstr ""
-
-msgid "Reads the output line by line"
-msgstr ""
-
-msgid "Reads a panel of text line by line"
-msgstr ""
-
-msgid "Chooses the panel of text to read"
-msgstr ""
-
-msgid "Reads the most recent lines"
-msgstr ""
-
-msgid "Reads the most recent lines of a panel"
-msgstr ""
-
-msgid "Copies the line read last"
-msgstr ""
-
-msgid "Does what the link of the line read last does"
-msgstr ""
-
 msgid "Copy line"
 msgstr ""
 
 msgid "Copy all output"
+msgstr ""
+
+msgid "Find"
 msgstr ""
 
 #, python-brace-format
@@ -382,7 +307,7 @@ msgid "That line has no link."
 msgstr ""
 
 #, python-brace-format
-msgid "Tab, with nothing typed, reads the output as text, and F6 goes to each panel. {0} read the lines one by one. {1}: the messages. {2}: the gauges. {3}: where you are. {4}: explore the map. {5}: the palette, for all else. Ctrl silences speech."
+msgid "Tab, with nothing typed, reads the output as text, and {0} goes to each panel. {1} and {2} read the lines one by one. {3}: the messages. {4}: the gauges. {5}: where you are. {6}: explore the map. {7}: the palette, for all else. {8} silences speech."
 msgstr ""
 
 #, python-brace-format
@@ -1085,6 +1010,9 @@ msgstr ""
 msgid "Undo the map's last change"
 msgstr ""
 
+msgid "Settings"
+msgstr ""
+
 msgid "Help"
 msgstr ""
 
@@ -1097,10 +1025,19 @@ msgstr ""
 msgid "Session"
 msgstr ""
 
+msgid "Reconnect"
+msgstr ""
+
 msgid "Connect"
 msgstr ""
 
 msgid "Disconnect"
+msgstr ""
+
+msgid "New session"
+msgstr ""
+
+msgid "Close session"
 msgstr ""
 
 msgid "Profiles"
@@ -1215,6 +1152,9 @@ msgid "Exits of this room"
 msgstr ""
 
 msgid "What is near"
+msgstr ""
+
+msgid "Explore the map"
 msgstr ""
 
 msgid "Go to…"
@@ -1746,6 +1686,9 @@ msgstr ""
 msgid "Deleted {0}."
 msgstr ""
 
+msgid "Undo"
+msgstr ""
+
 #, python-brace-format
 msgid "Could not delete the script: {0}"
 msgstr ""
@@ -2269,41 +2212,6 @@ msgstr ""
 msgid "Keys"
 msgstr ""
 
-msgid "Press a shortcut's keys to choose others, then the keys; Escape keeps them. A macro on the same keys goes before it. The keys that read the output stay as they are."
-msgstr ""
-
-msgid "Press the keys…"
-msgstr ""
-
-msgid "Reset"
-msgstr ""
-
-#, python-brace-format
-msgid "Reset {0}"
-msgstr ""
-
-msgid "Press to choose other keys."
-msgstr ""
-
-#, python-brace-format
-msgid "{0} kept: {1}."
-msgstr ""
-
-#, python-brace-format
-msgid "Press the keys for {0}; Escape keeps them."
-msgstr ""
-
-msgid "Hold Ctrl or Alt with the key, or use a function key."
-msgstr ""
-
-#, python-brace-format
-msgid "{0} is already used: {1}."
-msgstr ""
-
-#, python-brace-format
-msgid "{0}: {1}."
-msgstr ""
-
 msgid "Language"
 msgstr ""
 
@@ -2499,6 +2407,44 @@ msgstr ""
 msgid "Only install what you trust: a plugin can send commands as you."
 msgstr ""
 
+msgid "Press a shortcut's keys to choose others, then the keys; Escape keeps them. Its menu (Shift+F10) adds more keys, leaves it without, or resets it. A macro on the same keys goes before it, and keys a script chooses go before these."
+msgstr ""
+
+msgid "Press the keys…"
+msgstr ""
+
+#, python-brace-format
+msgid "Chosen by {0}, which goes first."
+msgstr ""
+
+msgid "Press to choose other keys. Its menu adds keys, leaves it without, or resets it."
+msgstr ""
+
+msgid "Add keys…"
+msgstr ""
+
+msgid "No keys"
+msgstr ""
+
+msgid "Reset"
+msgstr ""
+
+#, python-brace-format
+msgid "{0} kept: {1}."
+msgstr ""
+
+#, python-brace-format
+msgid "Press the keys for {0}; Escape keeps them."
+msgstr ""
+
+#, python-brace-format
+msgid "{0}: {1}."
+msgstr ""
+
+#, python-brace-format
+msgid "{0} is already used: {1}."
+msgstr ""
+
 msgid "No profiles yet. A profile keeps a MUD's connection, scripts, map and layout."
 msgstr ""
 
@@ -2665,10 +2611,13 @@ msgstr ""
 msgid "Connection"
 msgstr ""
 
-msgid "Earlier and later commands"
+msgid "Go to the next or previous control"
 msgstr ""
 
-msgid "Find a command typed before"
+msgid "Shift+F10  Menu key"
+msgstr ""
+
+msgid "Open the context menu of the focused item"
 msgstr ""
 
 msgid "Complete the word being typed"
@@ -2677,100 +2626,10 @@ msgstr ""
 msgid "With nothing typed, read the output as text"
 msgstr ""
 
-msgid "Go to the output and each panel"
-msgstr ""
-
-msgid "Open the messages"
-msgstr ""
-
-msgid "Silence speech"
-msgstr ""
-
-msgid "Read the previous and next line"
-msgstr ""
-
-msgid "Read the first and last line"
-msgstr ""
-
-msgid "Read the most recent lines"
-msgstr ""
-
-msgid "Same, for a panel of text"
-msgstr ""
-
-msgid "Choose the panel of text to read"
-msgstr ""
-
-msgid "Copy the line read last"
-msgstr ""
-
-msgid "Follow the link of the line read last"
-msgstr ""
-
-msgid "Explore the map with the keys"
-msgstr ""
-
-msgid "Follow the exits"
-msgstr ""
-
-msgid "The keypad"
-msgstr ""
-
-msgid "Follow the exits by where its keys are; slash and star, in and out"
-msgstr ""
-
-msgid "Home"
-msgstr ""
-
-msgid "Back to your room"
-msgstr ""
-
-msgid "Backspace"
-msgstr ""
-
-msgid "Back to the room before"
-msgstr ""
-
-msgid "Space"
-msgstr ""
-
-msgid "Say the room again"
-msgstr ""
-
-msgid "All about the room"
-msgstr ""
-
-msgid "Find on the map"
-msgstr ""
-
-msgid "Mark the room"
-msgstr ""
-
-msgid "Write a note on the room"
-msgstr ""
-
-msgid "Enter  Shift+Enter"
-msgstr ""
-
-msgid "Go there, or say the way"
-msgstr ""
-
-msgid "Shift+F10  Menu key"
-msgstr ""
-
 msgid "The room's menu, with each exit to follow"
 msgstr ""
 
-msgid "Say all the keys"
-msgstr ""
-
 msgid "Back to the command line"
-msgstr ""
-
-msgid "Switch between the game and the editor"
-msgstr ""
-
-msgid "Show incoming data"
 msgstr ""
 
 msgid "Select the previous or next item"
@@ -2788,37 +2647,10 @@ msgstr ""
 msgid "Select several items or a range"
 msgstr ""
 
-msgid "Select all visible items"
-msgstr ""
-
-msgid "Move up or down"
-msgstr ""
-
-msgid "Move out of its folder"
-msgstr ""
-
 msgid "← →  ↑ ↓ on an edge"
 msgstr ""
 
 msgid "Make the panels larger or smaller"
-msgstr ""
-
-msgid "Go to the next or previous control"
-msgstr ""
-
-msgid "Open the context menu of the focused item"
-msgstr ""
-
-msgid "Typing"
-msgstr ""
-
-msgid "Exploring the map"
-msgstr ""
-
-msgid "Sessions"
-msgstr ""
-
-msgid "Everywhere"
 msgstr ""
 
 #, python-brace-format
@@ -2836,6 +2668,9 @@ msgstr ""
 
 #, python-brace-format
 msgid "Close {0}"
+msgstr ""
+
+msgid "Messages"
 msgstr ""
 
 #, python-brace-format
@@ -2940,8 +2775,7 @@ msgstr ""
 msgid "Near: {0}."
 msgstr ""
 
-#, python-brace-format
-msgid "Arrows, or the keypad, follow the exits; Page Up and Page Down go up and down, as minus and plus on the keypad, and slash and star go in and out. Home comes back to you, Backspace to the room before. Space says the room again, {0} all about it, {1} what is near. {2} finds on the map. {3} marks the room, {4} writes a note on it. Enter goes there, Shift+Enter says the way. Shift+F10 opens the room's menu, with all that is done with it. Escape, or typing, goes back to the command line."
+msgid "Shift+F10 opens the room's menu, with all that is done with it. Escape, or typing, goes back to the command line."
 msgstr ""
 
 #, python-brace-format
@@ -3043,6 +2877,9 @@ msgstr ""
 msgid "This is where you began exploring."
 msgstr ""
 
+msgid "Find on the map"
+msgstr ""
+
 #, python-brace-format
 msgid "{0} found"
 msgstr ""
@@ -3064,6 +2901,271 @@ msgid ", "
 msgstr ""
 
 msgid "Downloaded from a git repository."
+msgstr ""
+
+msgid "Those are not keys Muddie knows."
+msgstr ""
+
+msgid "Those keys type: hold Ctrl or Alt with them, or use a function key or the keypad."
+msgstr ""
+
+msgid "Tab, Escape and the menu keys always go through the window."
+msgstr ""
+
+msgid "Hold a key with them."
+msgstr ""
+
+msgid "Page Up"
+msgstr ""
+
+msgid "Page Down"
+msgstr ""
+
+msgid "Space"
+msgstr ""
+
+msgid "Backspace"
+msgstr ""
+
+msgid "Home"
+msgstr ""
+
+msgid "End"
+msgstr ""
+
+msgid "Insert"
+msgstr ""
+
+#, python-brace-format
+msgid "Keypad {0}"
+msgstr ""
+
+msgid "Everywhere"
+msgstr ""
+
+msgid "Reading"
+msgstr ""
+
+msgid "Command line"
+msgstr ""
+
+msgid "Exploring the map"
+msgstr ""
+
+msgid "Follow the exit north"
+msgstr ""
+
+msgid "Follow the exit south"
+msgstr ""
+
+msgid "Follow the exit west"
+msgstr ""
+
+msgid "Follow the exit east"
+msgstr ""
+
+msgid "Follow the exit north-west"
+msgstr ""
+
+msgid "Follow the exit north-east"
+msgstr ""
+
+msgid "Follow the exit south-west"
+msgstr ""
+
+msgid "Follow the exit south-east"
+msgstr ""
+
+msgid "Follow the exit up"
+msgstr ""
+
+msgid "Follow the exit down"
+msgstr ""
+
+msgid "Follow the exit in"
+msgstr ""
+
+msgid "Follow the exit out"
+msgstr ""
+
+msgid "Say the room again"
+msgstr ""
+
+msgid "Back to your room"
+msgstr ""
+
+msgid "Back to the room before"
+msgstr ""
+
+msgid "Go to the room chosen"
+msgstr ""
+
+msgid "Say the way to the room chosen"
+msgstr ""
+
+msgid "Say all the map's keys"
+msgstr ""
+
+msgid "All about the room"
+msgstr ""
+
+msgid "Mark the room"
+msgstr ""
+
+msgid "Write a note on the room"
+msgstr ""
+
+msgid "Move the rule up"
+msgstr ""
+
+msgid "Move the rule down"
+msgstr ""
+
+msgid "Move the rule out of its folder"
+msgstr ""
+
+msgid "Select all visible items"
+msgstr ""
+
+msgid "Redo"
+msgstr ""
+
+msgid "Move the panel up"
+msgstr ""
+
+msgid "Move the panel down"
+msgstr ""
+
+msgid "Move the panel to the side before"
+msgstr ""
+
+msgid "Move the panel to the next side"
+msgstr ""
+
+msgid "Between the game and the editor"
+msgstr ""
+
+msgid "Between the game and the incoming data"
+msgstr ""
+
+msgid "Read the gauges"
+msgstr ""
+
+msgid "Show or hide the map"
+msgstr ""
+
+msgid "Say the keys to know"
+msgstr ""
+
+msgid "Go to the output and each panel"
+msgstr ""
+
+msgid "Go back through the panels"
+msgstr ""
+
+msgid "Silence speech"
+msgstr ""
+
+msgid "Read the previous line"
+msgstr ""
+
+msgid "Read the next line"
+msgstr ""
+
+msgid "Read the first line"
+msgstr ""
+
+msgid "Read the last line"
+msgstr ""
+
+msgid "Read the most recent line"
+msgstr ""
+
+msgid "Read the 2nd most recent line"
+msgstr ""
+
+msgid "Read the 3rd most recent line"
+msgstr ""
+
+msgid "Read the 4th most recent line"
+msgstr ""
+
+msgid "Read the 5th most recent line"
+msgstr ""
+
+msgid "Read the 6th most recent line"
+msgstr ""
+
+msgid "Read the 7th most recent line"
+msgstr ""
+
+msgid "Read the 8th most recent line"
+msgstr ""
+
+msgid "Read the 9th most recent line"
+msgstr ""
+
+msgid "Copy the line read last"
+msgstr ""
+
+msgid "Follow the link of the line read last"
+msgstr ""
+
+msgid "Choose the previous panel of text to read"
+msgstr ""
+
+msgid "Choose the next panel of text to read"
+msgstr ""
+
+msgid "Read the previous line of the panel"
+msgstr ""
+
+msgid "Read the next line of the panel"
+msgstr ""
+
+msgid "Read the first line of the panel"
+msgstr ""
+
+msgid "Read the last line of the panel"
+msgstr ""
+
+msgid "Read the most recent line of the panel"
+msgstr ""
+
+msgid "Read the 2nd most recent line of the panel"
+msgstr ""
+
+msgid "Read the 3rd most recent line of the panel"
+msgstr ""
+
+msgid "Read the 4th most recent line of the panel"
+msgstr ""
+
+msgid "Read the 5th most recent line of the panel"
+msgstr ""
+
+msgid "Read the 6th most recent line of the panel"
+msgstr ""
+
+msgid "Read the 7th most recent line of the panel"
+msgstr ""
+
+msgid "Read the 8th most recent line of the panel"
+msgstr ""
+
+msgid "Read the 9th most recent line of the panel"
+msgstr ""
+
+msgid "Copy the line of the panel read last"
+msgstr ""
+
+msgid "Earlier command"
+msgstr ""
+
+msgid "Later command"
+msgstr ""
+
+msgid "Search the commands typed before"
 msgstr ""
 
 msgid "A profile name may only have letters, digits, spaces, - and _."

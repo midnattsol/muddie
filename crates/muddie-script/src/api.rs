@@ -3,6 +3,7 @@
 use super::*;
 
 pub(crate) use aloud::{AfterText, aloud_of};
+pub use keys::{CheckKeys, KnownShortcut};
 pub(crate) use language::texts_of;
 pub use language::{in_interface_language, set_interface_language};
 pub(crate) use rules::only;
@@ -12,6 +13,7 @@ pub(crate) use wait::Stopped;
 
 mod aloud;
 mod data;
+mod keys;
 mod language;
 mod memory;
 mod output;
@@ -33,6 +35,7 @@ pub(crate) fn install_api(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result
     data::install(lua, state)?;
     screen::install(lua, state)?;
     session::install(lua, state)?;
+    keys::install(lua, state)?;
     wait::install(lua, state)
 }
 

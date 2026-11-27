@@ -241,6 +241,23 @@ macro("numpad5", "look")
 También sirven las teclas de función, y las teclas con Ctrl o Alt:
 `macro("f5", "score")`, `macro("ctrl+h", "heal")`.
 
+### Cambiar las teclas de Muddie
+
+Las teclas de Muddie también se pueden cambiar: la que explora el mapa, las
+que leen las líneas, todas. Dale a `shortcuts` el nombre de una y sus teclas
+nuevas:
+
+```lua
+-- Explore the map with F9, and read the last line with keypad 5.
+shortcuts.explore = "f9"
+shortcuts.read_last = "numpad5"
+```
+
+Alt+E ya no explora: lo hace F9. Para ver cada nombre con sus teclas, ejecuta
+`for _, s in shortcuts.all() do echo(s.name .. ": " .. table.concat(s.keys, ", ")) end`
+en **Ejecutar Luau…**. Apaga el script y vuelven las teclas de Muddie. También
+puedes cambiarlas en **Ajustes → Teclas**.
+
 ### Hacer algo cada cierto tiempo
 
 `every` ejecuta código una y otra vez. Esto guarda tu personaje cada cinco
@@ -369,6 +386,7 @@ Todo el mundo se equivoca. Muddie te dice dónde.
 | Ver tu vida, tu energía, etc. | Un indicador: `gauges.set` |
 | Reaccionar a los datos que manda el juego | `on` |
 | Apagar cosas un rato | `place`, `tags`, `triggers.disable` |
+| Cambiar las teclas de Muddie | `shortcuts` |
 
 ### Por dónde seguir
 

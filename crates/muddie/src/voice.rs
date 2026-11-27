@@ -7,7 +7,7 @@ use std::collections::VecDeque;
 use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
-use eframe::egui::{Key, Modifiers, Ui};
+use eframe::egui::Ui;
 use muddie_script::{Aloud, How, Saying};
 use muddie_speech::{Narrator, Speech, Through};
 
@@ -32,19 +32,6 @@ pub enum Reviewed {
     /// The first link of the line read last, in the main output, by row.
     Follow(usize),
 }
-
-/// Alt plus one of these reads the first to ninth most recent line.
-const RECENT_KEYS: [Key; 9] = [
-    Key::Num1,
-    Key::Num2,
-    Key::Num3,
-    Key::Num4,
-    Key::Num5,
-    Key::Num6,
-    Key::Num7,
-    Key::Num8,
-    Key::Num9,
-];
 
 #[derive(Default)]
 pub struct Voice {
@@ -266,11 +253,23 @@ impl Voice {
     /// Pressing Ctrl silences speech, as it does in screen readers: of
     /// every session, the ones out of sight too, each with its own voice.
     pub fn hush_on_ctrl(&mut self, ctx: &eframe::egui::Context) {
-        let ctrl_down = ctx.input(|input| input.modifiers.ctrl);
-        if ctrl_down && !self.ctrl_was_down {
+        use crate::shortcuts::{HUSH, Held, Pressed};
+        let keys = HUSH.keys();
+        // Held alone, as Ctrl: as it is pressed, not while it is held.
+        let held = ctx.input(|input| Held::of(input.modifiers));
+        let alone = (keys.iter()).any(|keys| {
+            let wanted = keys.held;
+            keys.key == Pressed::Alone
+                && (!wanted.ctrl || held.ctrl)
+                && (!wanted.alt || held.alt)
+                && (!wanted.shift || held.shift)
+                && (!wanted.cmd || held.cmd)
+        });
+        let pressed = ctx.input_mut(|input| HUSH.pressed(input));
+        if (alone && !self.ctrl_was_down) || pressed {
             self.stop();
         }
-        self.ctrl_was_down = ctrl_down;
+        self.ctrl_was_down = alone;
     }
 
     /// Silences it as a script asks: in the session on screen only, for it
@@ -422,19 +421,18 @@ impl Voice {
             })
             .or(panels.first());
         if let Some((_, log)) = panel {
-            asked = asked.or(self.review_keys(ui, log, 1, Modifiers::SHIFT));
+            asked = asked.or(self.review_keys(ui, log, 1));
         }
-        asked.or(self.review_keys(ui, output, 0, Modifiers::NONE))
+        asked.or(self.review_keys(ui, output, 0))
     }
 
-    /// Alt+Shift+Left and Right choose the text panel Alt+Shift reviews,
+    /// Its keys, Alt+Shift+Left and Right, choose the text panel reviewed,
     /// saying its name and how many lines it has.
     fn choose_panel(&mut self, ui: &mut Ui, panels: &[(&str, &Output)]) -> Option<Reviewed> {
-        let keys = crate::shortcuts::WITH_ARROWS | Modifiers::SHIFT;
         let (back, on) = ui.input_mut(|input| {
             (
-                input.consume_key(keys, Key::ArrowLeft),
-                input.consume_key(keys, Key::ArrowRight),
+                crate::shortcuts::PANEL_PREVIOUS.pressed(input),
+                crate::shortcuts::PANEL_NEXT.pressed(input),
             )
         });
         if !(back || on) {
@@ -463,43 +461,53 @@ impl Voice {
         None
     }
 
-    /// With `modifiers` held, Up/Down/Home/End move through `output`
-    /// reading each line, saying so at either end, and 1..9 read the most
-    /// recent lines without moving. Alt reviews the main output and
-    /// Alt+Shift a text panel. C copies the line read, and O, in the main
-    /// output, follows its link.
-    fn review_keys(
-        &mut self,
-        ui: &mut Ui,
-        output: &Output,
-        which: usize,
-        modifiers: Modifiers,
-    ) -> Option<Reviewed> {
+    /// The review keys of `output`, the main one (`which` 0) or a text
+    /// panel's: those that move through it reading each line, saying so at
+    /// either end, and those that read the most recent lines without
+    /// moving; one copies the line read, and, in the main output, one
+    /// follows its link.
+    fn review_keys(&mut self, ui: &mut Ui, output: &Output, which: usize) -> Option<Reviewed> {
         let last = output.len().checked_sub(1)?;
         // The first row there is, by serial.
         let first = output.total_pushed() - output.len() as u64;
         let current =
             self.review[which].map(|serial| (serial.saturating_sub(first) as usize).min(last));
         let (moved, recent, copy, follow) = ui.input_mut(|input| {
-            // The arrows with Alt (Option on a Mac), the figures and the
-            // letters with Alt (Ctrl on a Mac), and Shift for a panel.
-            let arrows = crate::shortcuts::WITH_ARROWS | modifiers;
-            let figures = crate::shortcuts::WITH_KEY | modifiers;
-            let mut pressed = |key| input.consume_key(arrows, key);
-            let moved = if pressed(Key::ArrowUp) {
+            use crate::shortcuts as keys;
+            let [previous, next, first, end, copy] = match which {
+                0 => [
+                    keys::READ_PREVIOUS,
+                    keys::READ_NEXT,
+                    keys::READ_FIRST,
+                    keys::READ_LAST,
+                    keys::COPY_READ,
+                ],
+                _ => [
+                    keys::PANEL_READ_PREVIOUS,
+                    keys::PANEL_READ_NEXT,
+                    keys::PANEL_READ_FIRST,
+                    keys::PANEL_READ_LAST,
+                    keys::PANEL_COPY_READ,
+                ],
+            };
+            let moved = if previous.pressed(input) {
                 Some(current.map_or(last, |row| row.saturating_sub(1)))
-            } else if pressed(Key::ArrowDown) {
+            } else if next.pressed(input) {
                 Some(current.map_or(last, |row| (row + 1).min(last)))
-            } else if pressed(Key::Home) {
+            } else if first.pressed(input) {
                 Some(0)
-            } else if pressed(Key::End) {
+            } else if end.pressed(input) {
                 Some(last)
             } else {
                 None
             };
-            let recent = (RECENT_KEYS.iter()).position(|&key| input.consume_key(figures, key));
-            let copy = input.consume_key(figures, Key::C);
-            let follow = which == 0 && input.consume_key(figures, Key::O);
+            let recent_keys = match which {
+                0 => keys::READ_RECENT,
+                _ => keys::PANEL_RECENT,
+            };
+            let recent = (recent_keys.iter()).position(|shortcut| shortcut.pressed(input));
+            let copy = copy.pressed(input);
+            let follow = which == 0 && keys::FOLLOW_LINK.pressed(input);
             (moved, recent, copy, follow)
         });
         if let Some(row) = moved {

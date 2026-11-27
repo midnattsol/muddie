@@ -84,6 +84,10 @@ fn each_example_of_luau_runs_as_it_is_written() {
             }
             let mut engine = muddie_script::Engine::new(Rc::new(RefCell::new(Default::default())))
                 .expect("the engine starts");
+            engine.know_shortcuts(
+                crate::shortcuts::for_scripts(),
+                crate::shortcuts::check_for_scripts,
+            );
             if let Some((line, problem)) = engine.check(&code) {
                 wrong.push(format!("{name}, line {line}: {problem}\n{code}"));
                 continue;
@@ -171,6 +175,27 @@ fn each_spanish_document_has_the_code_of_its_english() {
                 .collect()
         };
         assert_eq!(of_code(english), of_code(spanish), "{spanish}");
+    }
+}
+
+/// Every shortcut is in the reference, in English and in Spanish, with its
+/// name and its keys as they are at first.
+#[test]
+fn the_reference_has_every_shortcut() {
+    for name in ["scripting.md", "scripting.es.md"] {
+        let text = text_of(name);
+        for shortcut in crate::shortcuts::ALL {
+            let keys: Vec<String> = (shortcut.defaults().iter())
+                .map(|keys| format!("`{}`", keys.stored()))
+                .collect();
+            let row = format!(
+                "| `{}` | `{}` | {} |",
+                shortcut.id,
+                shortcut.place.id(),
+                keys.join(", ")
+            );
+            assert!(text.contains(&row), "{name}: {row}");
+        }
     }
 }
 

@@ -141,8 +141,8 @@ fn the_palette_and_the_small_windows_are_gone_through_with_tab() {
     let mut problems = Vec::new();
     // The palette, as it opens and with a word typed.
     to_the_line(&mut harness);
-    let palette = crate::shortcuts::PALETTE.keys();
-    harness.key_press_modifiers(palette.modifiers, palette.logical_key);
+    let (held, key) = crate::shortcuts::PALETTE.first();
+    harness.key_press_modifiers(held, key);
     harness.run_steps(3);
     problems.extend(through(&mut harness, "palette", &["Palette"]));
     harness.state_mut().tab_mut().palette.query = "map".into();
@@ -168,12 +168,12 @@ fn the_palette_and_the_small_windows_are_gone_through_with_tab() {
     harness.run_steps(3);
     // Marking and noting a room, over the map.
     for (shortcut, name) in [
-        (crate::shortcuts::MARK, "Mark"),
-        (crate::shortcuts::NOTE, "Note"),
+        (crate::shortcuts::MAP_MARK, "Mark"),
+        (crate::shortcuts::MAP_NOTE, "Note"),
     ] {
         exploring(&mut harness);
-        let keys = shortcut.keys();
-        harness.key_press_modifiers(keys.modifiers, keys.logical_key);
+        let (held, key) = shortcut.first();
+        harness.key_press_modifiers(held, key);
         harness.run_steps(3);
         let (id, role, said, _) = said(&harness).unwrap_or_default();
         if role != Role::TextInput || !said.contains(name) {

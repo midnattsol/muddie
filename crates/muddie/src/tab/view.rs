@@ -13,10 +13,11 @@ impl Tab {
         if self.map_view.left_unseen() {
             self.voice.say_now(tr("Left the map."));
         }
+        crate::shortcuts::exploring(self.map_view.exploring());
         if self.editor.recording_key {
             self.record_key(ui);
         } else {
-            self.bound_keys(ui);
+            self.session_keys(ui);
         }
         self.gauge_window(ui.ctx());
         self.look_window(ui.ctx());
@@ -150,7 +151,7 @@ impl Tab {
             },
         );
         self.next_zone(ui);
-        if ui.input_mut(|input| input.consume_key(Modifiers::NONE, Key::F1)) {
+        if ui.input_mut(|input| crate::shortcuts::KEYS_HELP.pressed(input)) {
             let keys = self.keys_help();
             self.voice.say_now(&keys);
         }
@@ -159,16 +160,21 @@ impl Tab {
     /// The keys to know, said with F1 while playing: those that read and
     /// go where things are, and the palette for all else.
     pub(super) fn keys_help(&self) -> String {
-        use crate::shortcuts::{EXPLORE, GAUGES, MESSAGES, PALETTE, WHERE, with_arrows};
+        use crate::shortcuts::{
+            EXPLORE, GAUGES, HUSH, MESSAGES, NEXT_ZONE, PALETTE, READ_NEXT, READ_PREVIOUS, WHERE,
+        };
         trf(
-            "Tab, with nothing typed, reads the output as text, and F6 goes to each panel. {0} read the lines one by one. {1}: the messages. {2}: the gauges. {3}: where you are. {4}: explore the map. {5}: the palette, for all else. Ctrl silences speech.",
+            "Tab, with nothing typed, reads the output as text, and {0} goes to each panel. {1} and {2} read the lines one by one. {3}: the messages. {4}: the gauges. {5}: where you are. {6}: explore the map. {7}: the palette, for all else. {8} silences speech.",
             &[
-                with_arrows!("↑ ↓"),
+                NEXT_ZONE.written(),
+                READ_PREVIOUS.written(),
+                READ_NEXT.written(),
                 MESSAGES.written(),
                 GAUGES.written(),
                 WHERE.written(),
                 EXPLORE.written(),
                 PALETTE.written(),
+                HUSH.written(),
             ],
         )
     }
@@ -177,11 +183,10 @@ impl Tab {
     /// panel and round, as in other programs: not through all there is,
     /// as Tab does.
     fn next_zone(&mut self, ui: &mut egui::Ui) {
-        // Shift first: F6 alone would take Shift+F6 too.
         let (back, on) = ui.input_mut(|input| {
             (
-                input.consume_key(Modifiers::SHIFT, Key::F6),
-                input.consume_key(Modifiers::NONE, Key::F6),
+                crate::shortcuts::PREVIOUS_ZONE.pressed(input),
+                crate::shortcuts::NEXT_ZONE.pressed(input),
             )
         });
         let panels = &self.panels;

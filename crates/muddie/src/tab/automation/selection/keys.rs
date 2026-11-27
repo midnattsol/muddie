@@ -39,8 +39,13 @@ impl ListKeys {
             pressed(Key::End),
         );
         let (left, right) = (pressed(Key::ArrowLeft), pressed(Key::ArrowRight));
-        let (delete, rename) = (pressed(Key::Delete), pressed(Key::F2));
-        let all = ui.input_mut(|input| input.consume_key(Modifiers::COMMAND, Key::A));
+        let shortcut =
+            |shortcut: crate::shortcuts::Shortcut| ui.input_mut(|input| shortcut.pressed(input));
+        let (delete, rename) = (
+            shortcut(crate::shortcuts::DELETE),
+            shortcut(crate::shortcuts::RENAME),
+        );
+        let all = shortcut(crate::shortcuts::SELECT_ALL);
         Self {
             wider_up,
             wider_down,

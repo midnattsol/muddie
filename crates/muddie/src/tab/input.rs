@@ -248,13 +248,13 @@ impl Tab {
         }
     }
 
-    /// The keys of the line: the arrows through the history, Ctrl+R to
-    /// search it, Ctrl+F to search the output.
+    /// The keys of the line: through the history (the arrows), to search
+    /// it (Ctrl+R) and to search the output (Ctrl+F).
     fn line_keys(&mut self, ui: &mut egui::Ui) {
         let (up, down, search, find) = ui.input_mut(|input| {
             (
-                input.consume_key(Modifiers::NONE, Key::ArrowUp),
-                input.consume_key(Modifiers::NONE, Key::ArrowDown),
+                crate::shortcuts::HISTORY_PREVIOUS.pressed(input),
+                crate::shortcuts::HISTORY_NEXT.pressed(input),
                 crate::shortcuts::HISTORY_SEARCH.pressed(input),
                 crate::shortcuts::FIND.pressed(input),
             )

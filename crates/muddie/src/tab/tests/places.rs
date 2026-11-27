@@ -6,6 +6,7 @@ use muddie_mapper::{Exit, Room};
 
 mod drawing;
 mod exploring;
+mod own_keys;
 mod prompts;
 mod reading;
 mod reinos;

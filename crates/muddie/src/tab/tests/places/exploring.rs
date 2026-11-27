@@ -331,7 +331,11 @@ fn the_map_explored_is_searched_named_noted_and_gone_back_along() {
     assert_eq!(said(&mut harness), "Near: agua, 3 moves to the este.");
     harness.key_press(Key::F1);
     harness.run_steps(2);
-    assert!(said(&mut harness).starts_with("Arrows, or the keypad, follow the exits"));
+    let keys = said(&mut harness);
+    assert!(
+        keys.starts_with("↑, 8, Keypad 8, Keypad ↑: Follow the exit north."),
+        "{keys}"
+    );
     // Escape leaves a search for the map, and the map for the line.
     command(&mut harness, Key::F);
     harness.event(egui::Event::Text("agua".into()));

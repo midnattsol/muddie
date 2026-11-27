@@ -134,7 +134,7 @@ fn output_menu(response: &eframe::egui::Response, line: Option<&str>, asked: &mu
             .lock()
             .when_opened;
         let copy = ui.add_enabled_ui(chosen, |ui| {
-            crate::widgets::menu_item(ui, tr("Copy"), crate::shortcuts::COPY.written())
+            crate::widgets::menu_item(ui, tr("Copy"), crate::shortcuts::copy_written())
         });
         if copy.inner.clicked() {
             *asked = Some(Asked::Copy);

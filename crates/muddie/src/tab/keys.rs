@@ -3,15 +3,24 @@
 use super::*;
 
 impl Tab {
-    /// Runs the binding of any key pressed with Ctrl or Alt, or of a
-    /// function key, before anything else gets to use the key.
-    pub(super) fn bound_keys(&mut self, ui: &mut egui::Ui) {
+    /// The shortcuts of the session that go before the rest of it.
+    pub(super) fn session_keys(&mut self, ui: &mut egui::Ui) {
         if ui.input_mut(|input| crate::shortcuts::RECONNECT.pressed(input)) {
             self.reconnect(&ui.ctx().clone());
         }
         if ui.input_mut(|input| crate::shortcuts::MAP.pressed(input)) {
             let shown = self.map_shown();
             self.set_map_shown(!shown);
+        }
+    }
+
+    /// Runs the macro of any key pressed with Ctrl or Alt, of a function
+    /// key or of the keypad, before anything else gets to use the key,
+    /// Muddie's own shortcuts too; but while the map is explored, the keys
+    /// it takes are its own, and while a macro's key is recorded, none.
+    pub fn macro_keys(&mut self, ui: &mut egui::Ui) {
+        if self.editor.recording_key {
+            return;
         }
         let pressed: Vec<(Key, Modifiers)> = ui.input(|input| {
             let keys = input.events.iter().filter_map(|event| match event {
@@ -28,40 +37,33 @@ impl Tab {
         });
         // Keypad keys come from the window layer, as egui cannot tell them
         // from the main block's. A bound one must not also type its digit.
-        let held = ui.input(|input| input.modifiers);
-        // While the map is explored, the keypad moves on it: nothing bound
-        // to it is sent to the MUD.
-        let mut keypad = std::mem::take(&mut self.keypad_pressed);
+        // While the map is explored, nothing bound to the keypad is sent.
         let exploring = self.map_view.exploring();
-        if self.map_view.has_keyboard() {
-            // On the map, by where the keys are: 7 is north-west, not the
-            // Home egui makes of it with Num Lock off.
-            for name in &keypad {
-                ui.input_mut(|input| {
-                    input
-                        .events
-                        .retain(|event| !keypad::is_event_of(name, event))
-                });
-            }
-            self.map_view.keypad_pressed(std::mem::take(&mut keypad));
-        }
-        for name in keypad.into_iter().filter(|_| !exploring) {
-            if self.scripts.on_key(&key_name(held, name)) {
+        let keypad = crate::shortcuts::keypad_left();
+        let mut left = Vec::new();
+        for (held, name) in keypad {
+            let macro_name = key_name(held.modifiers(), name);
+            if !exploring && self.scripts.on_key(&macro_name) {
                 ui.input_mut(|input| {
                     input
                         .events
                         .retain(|event| !keypad::is_event_of(name, event))
                 });
                 self.run_actions();
+            } else {
+                left.push((held, name));
             }
         }
+        crate::shortcuts::keypad_give_back(left);
         for (key, modifiers) in pressed {
             let name = key.name().to_lowercase();
             let is_function_key =
                 name.len() > 1 && name.starts_with('f') && name[1..].parse::<u8>().is_ok();
-            if !(modifiers.ctrl || modifiers.alt || is_function_key)
-                || self.map_view.takes(key, modifiers)
-            {
+            let keys = crate::shortcuts::Press {
+                held: crate::shortcuts::Held::of(modifiers),
+                key: crate::shortcuts::Pressed::Key(key),
+            };
+            if !(modifiers.ctrl || modifiers.alt || is_function_key) || self.map_view.takes(&keys) {
                 continue;
             }
             if self.scripts.on_key(&key_name(modifiers, &name)) {

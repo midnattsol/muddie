@@ -75,6 +75,7 @@ impl Tab {
             Engine::new(Rc::clone(&self.map)).expect("failed to start the script runtime");
         // Known as the scripts run, not a frame later.
         let _ = self.scripts.set_screen_reader(self.voice.screen_reader());
+        self.tell_shortcuts();
         self.retell_panel_sizes();
         match (&self.profiles, &self.profile) {
             (Some(profiles), Some(profile)) => self

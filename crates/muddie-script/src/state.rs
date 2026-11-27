@@ -304,6 +304,15 @@ pub(super) struct State {
     /// Set by `session.separator`, with the script that did: `None` in it turns
     /// command splitting off; none set is the usual `;`.
     pub(crate) separator: Option<(String, Option<String>)>,
+    /// The client's shortcuts, as it tells of them, and how to read the
+    /// keys a script gives them.
+    pub(crate) known_shortcuts: Vec<crate::api::KnownShortcut>,
+    pub(crate) check_shortcut: Option<crate::api::CheckKeys>,
+    /// The keys scripts chose for shortcuts, in the order they did: the
+    /// script, the shortcut and its keys, none for none.
+    pub(crate) shortcuts: Vec<(String, String, Vec<String>)>,
+    /// How many times what scripts chose of the shortcuts changed.
+    pub(crate) shortcuts_changed: u64,
     /// Folders `require` looks in: those scripts were loaded from.
     pub(crate) module_dirs: Vec<PathBuf>,
     /// The code of what is run, to say more of its mistakes.

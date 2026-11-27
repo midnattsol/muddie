@@ -339,6 +339,10 @@ players who listen.
   Remember in `vars` that you said it, if it should stay said.
 - **Remember the player's choices in `vars`**, under names that belong to the
   plugin, such as `vars.example_learning`.
+- **Leave the player's keys alone.** A plugin for a MUD does not change
+  Muddie's keys: the player learns them once, for every MUD. Keys go in a
+  plugin of their own, which the player chooses (see
+  [Share a set of keys](#share-a-set-of-keys)).
 - **Keep the MUD out of Muddie.** If the plugin needs something Muddie does
   not have, ask for a new API function. It should be useful to every MUD.
 
@@ -496,6 +500,43 @@ on("connect", function()
     end)
 end)
 ```
+
+### Share a set of keys
+
+A plugin can be nothing but keys: a set that someone made to their liking,
+for others to install and adjust. It has no `hosts`, so Muddie offers it for
+no MUD; each player switches it on in the profiles they want.
+
+`plugin.toml`:
+
+```toml
+name = "Keypad keys"
+about = { en = "Explore and read with the keypad.", es = "Explorar y leer con el teclado numérico." }
+muddie = "0.5.0"
+```
+
+`keys.luau`:
+
+```lua
+-- keys.luau: Muddie's keys, as this set has them. Change what you like;
+-- what is not here keeps Muddie's own keys.
+local mine = {
+    explore = "numpad0",
+    read_previous = "numpad8",
+    read_next = "numpad2",
+    read_last = "numpad5",
+    map_north = {"up", "numpad8"},
+    map_south = {"down", "numpad2"},
+}
+for name, keys in mine do
+    shortcuts[name] = keys
+end
+```
+
+Every key Muddie has, by its name, is in
+[the reference](scripting.md#every-shortcut). Whoever installs it changes the
+list in the editor, in **Scripts**, and switches it off to get Muddie's keys
+back.
 
 ## Publishing it
 

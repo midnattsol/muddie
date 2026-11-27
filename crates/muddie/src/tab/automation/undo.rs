@@ -112,7 +112,7 @@ impl Tab {
         let disk = !matches!(undo.what, Undone::Step(_));
         let keys = disk
             && automation::typing_in(ui.ctx()).is_none()
-            && ui.input_mut(|input| input.consume_key(Modifiers::COMMAND, Key::Z));
+            && ui.input_mut(|input| crate::shortcuts::UNDO.pressed(input));
         if again || keys {
             self.undo_delete();
         }

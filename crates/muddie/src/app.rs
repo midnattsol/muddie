@@ -3,9 +3,7 @@
 
 use std::path::PathBuf;
 
-use eframe::egui::{
-    self, Color32, CornerRadius, KeyboardShortcut, Modifiers, Panel, RichText, Sense, Ui,
-};
+use eframe::egui::{self, Color32, CornerRadius, Modifiers, Panel, RichText, Sense, Ui};
 
 use crate::i18n::{self, tr, trf};
 use crate::keypad;
@@ -19,6 +17,7 @@ mod asks;
 mod bars;
 mod dialogs;
 mod keys;
+mod keys_page;
 mod plugin_updates;
 mod profiles;
 mod settings_page;
@@ -45,7 +44,9 @@ pub struct App {
     settings_section: Section,
     /// The shortcut whose keys are being chosen, by its name: the next
     /// keys pressed are its.
-    recording_shortcut: Option<&'static str>,
+    /// The shortcut whose keys are being chosen, and whether they are
+    /// added to those it has.
+    recording_shortcut: Option<(&'static str, bool)>,
     /// The Profiles window, the profile chosen in it, and its tab.
     show_profiles: bool,
     editing: Option<ProfileEdit>,
@@ -359,28 +360,28 @@ impl App {
     /// The window's own keys, before a session gets them.
     fn window_keys(&mut self, ui: &mut Ui) {
         let pressed =
-            |shortcut: &KeyboardShortcut| ui.input_mut(|input| input.consume_shortcut(shortcut));
-        if pressed(&NEW_SESSION.keys()) {
+            |shortcut: crate::shortcuts::Shortcut| ui.input_mut(|input| shortcut.pressed(input));
+        if pressed(NEW_SESSION) {
             self.new_tab(ui.ctx());
         }
-        if pressed(&CLOSE_SESSION.keys()) {
+        if pressed(CLOSE_SESSION) {
             self.close_tab(self.active, ui.ctx());
         }
-        if pressed(&SETTINGS.keys()) {
+        if pressed(SETTINGS) {
             self.open_settings(Section::General);
         }
         let tab = &mut self.tabs[self.active];
-        if pressed(&PALETTE.keys()) {
+        if pressed(PALETTE) {
             tab.toggle_palette();
         }
-        if pressed(&SWITCH_VIEW.keys()) {
+        if pressed(SWITCH_VIEW) {
             tab.set_view(if tab.view() == View::Game {
                 View::Editor
             } else {
                 View::Game
             });
         }
-        if pressed(&DATA_VIEW.keys()) {
+        if pressed(DATA_VIEW) {
             tab.set_view(if tab.view() == View::Data {
                 View::Game
             } else {
@@ -429,9 +430,8 @@ impl App {
     /// The session on screen, with the keypad keys pressed for it, and
     /// what it asked of the window.
     fn session(&mut self, ui: &mut Ui) {
-        let pressed = std::mem::take(&mut *self.keypad.lock().expect("keypad lock"));
         let tab = &mut self.tabs[self.active];
-        tab.keypad_pressed.extend(pressed);
+        crate::shortcuts::script(tab.scripted_shortcuts());
         tab.show(ui);
         if let Some(request) = tab.take_app_request() {
             self.carry_out(request, ui.ctx());
@@ -482,8 +482,18 @@ impl eframe::App for App {
         // Alt with a key is a shortcut here, never typing.
         let last = &mut self.alt_typing;
         ui.input_mut(|input| drop_alt_typing(&mut input.events, input.modifiers, last));
+        // What a shortcut's keys typed is not typing.
+        ui.input_mut(crate::shortcuts::drop_typed);
         self.trace_frames(ui);
         crate::widgets::note_input(ui.ctx());
+        // The keypad's keys pressed in this frame, for the shortcuts and
+        // the macros of the session on screen.
+        let mut pressed = std::mem::take(&mut self.tabs[self.active].keypad_pressed);
+        pressed.extend(std::mem::take(
+            &mut *self.keypad.lock().expect("keypad lock"),
+        ));
+        let held = ui.input(|input| input.modifiers);
+        crate::shortcuts::keypad_pressed(held, pressed);
         // Keys being chosen for a shortcut are for nothing else.
         self.record_shortcut(ui);
         // What came of looking for plugins is told before the sessions run,
@@ -517,6 +527,8 @@ impl eframe::App for App {
         if let Some(request) = kept {
             self.carry_out(request, ui.ctx());
         }
+        // Macros go before Muddie's own keys.
+        self.tabs[self.active].macro_keys(ui);
         self.window_keys(ui);
         self.windows(ui.ctx());
         self.bars_and_session(ui);

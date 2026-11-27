@@ -50,7 +50,7 @@ pub struct OfferedTool {
     pub checked: Option<bool>,
 }
 use api::{AfterText, Stopped, aloud_of, install_api, only, texts_of};
-pub use api::{in_interface_language, set_interface_language};
+pub use api::{CheckKeys, KnownShortcut, in_interface_language, set_interface_language};
 use convert::*;
 use line::{Given, Looked, Text};
 use made::Made;
@@ -64,7 +64,7 @@ pub use switches::{Belongs, Kind, Switches, places_up, tag_key};
 const TIME_BUDGET: Duration = Duration::from_millis(500);
 const MEMORY_LIMIT: usize = 256 << 20;
 /// The global tables whose fields are asked for as they are now.
-const CHANGING: [&str; 3] = ["vars", "session", "map"];
+const CHANGING: [&str; 4] = ["vars", "session", "map", "shortcuts"];
 const MIN_TIMER_INTERVAL: Duration = Duration::from_millis(10);
 
 pub struct Engine {
@@ -216,6 +216,11 @@ impl Engine {
         state.merged.retain(|(by, _)| by != owner);
         state.reports.retain(|(by, _)| by != owner);
         state.completions.retain(|(by, _, _)| by != owner);
+        let chosen = state.shortcuts.len();
+        state.shortcuts.retain(|(by, _, _)| by != owner);
+        if state.shortcuts.len() != chosen {
+            state.shortcuts_changed += 1;
+        }
         if state.separator.as_ref().is_some_and(|(by, _)| by == owner) {
             state.separator = None;
         }
@@ -371,6 +376,22 @@ impl Engine {
         if let Some(awaited) = awaited {
             self.as_owner(&awaited.owner, || self.call(&awaited.callback, ()));
         }
+    }
+
+    /// Tells scripts of the client's shortcuts, and how to read the keys
+    /// they give them; again whenever their keys change.
+    pub fn know_shortcuts(&mut self, known: Vec<KnownShortcut>, check: CheckKeys) {
+        let mut state = self.state.borrow_mut();
+        state.known_shortcuts = known;
+        state.check_shortcut = Some(check);
+    }
+
+    /// The keys scripts chose for shortcuts, in the order they did: the
+    /// script, the shortcut and its keys; with how many times they
+    /// changed, to tell when they did.
+    pub fn shortcuts(&self) -> (u64, Vec<(String, String, Vec<String>)>) {
+        let state = self.state.borrow();
+        (state.shortcuts_changed, state.shortcuts.clone())
     }
 
     /// The map the scripts work on, shared with the frontend.

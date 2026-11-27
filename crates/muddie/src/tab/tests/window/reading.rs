@@ -239,7 +239,7 @@ fn a_shortcut_is_pressed_with_other_keys_chosen_in_the_settings() {
     // Keys Muddie has for something else are not taken.
     harness.key_press_modifiers(Modifiers::COMMAND, Key::E);
     harness.run_steps(2);
-    let editor = crate::shortcuts::write(&crate::shortcuts::SWITCH_VIEW.keys());
+    let editor = crate::shortcuts::SWITCH_VIEW.all_written();
     assert_eq!(
         said(&harness).as_deref(),
         Some(format!("{editor} is already used: Between the game and the editor.").as_str())
@@ -249,7 +249,7 @@ fn a_shortcut_is_pressed_with_other_keys_chosen_in_the_settings() {
     harness.run_steps(2);
     assert_eq!(
         said(&harness).as_deref(),
-        Some("Hold Ctrl or Alt with the key, or use a function key.")
+        Some("Those keys type: hold Ctrl or Alt with them, or use a function key or the keypad.")
     );
     harness.key_press_modifiers(Modifiers::COMMAND | Modifiers::SHIFT, Key::P);
     harness.run_steps(2);
@@ -269,12 +269,31 @@ fn a_shortcut_is_pressed_with_other_keys_chosen_in_the_settings() {
     harness.key_press_modifiers(Modifiers::COMMAND | Modifiers::SHIFT, Key::P);
     harness.run_steps(2);
     assert!(harness.state().tab().palette.open);
-    // Its own again.
+    // Its menu adds more keys, and gives it its own back.
     harness.key_press(Key::Escape);
     harness.state_mut().open_settings(crate::app::Section::Keys);
     harness.run_steps(3);
-    harness.get_by_label("Reset Palette").click();
+    let menu = |harness: &mut Harness<App>, item: &str| {
+        let label = format!("Palette: {}", crate::shortcuts::PALETTE.all_written());
+        harness.get_by_label(&label).focus();
+        harness.run_steps(1);
+        harness.key_press_modifiers(Modifiers::SHIFT, Key::F10);
+        harness.run_steps(3);
+        harness.get_by_label(item).click();
+        harness.run_steps(2);
+    };
+    menu(&mut harness, "Add keys…");
+    harness.key_press(Key::F9);
     harness.run_steps(2);
+    assert_eq!(
+        said(&harness).as_deref(),
+        Some(format!("Palette: {chosen}, F9.").as_str())
+    );
+    assert_eq!(
+        harness.state().settings().shortcuts["palette"],
+        "ctrl+shift+p, f9"
+    );
+    menu(&mut harness, "Reset");
     assert!(harness.state().settings().shortcuts.is_empty());
     assert_eq!(crate::shortcuts::PALETTE.written(), own);
 }

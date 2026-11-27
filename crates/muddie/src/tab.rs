@@ -450,6 +450,21 @@ impl Tab {
                 .restyle(settings.scrollback_lines, settings.timestamps);
         }
         self.voice.configure(settings);
+        self.tell_shortcuts();
+    }
+
+    /// Tells the scripts of Muddie's shortcuts, as their keys are now.
+    pub(crate) fn tell_shortcuts(&mut self) {
+        (self.scripts).know_shortcuts(
+            crate::shortcuts::for_scripts(),
+            crate::shortcuts::check_for_scripts,
+        );
+    }
+
+    /// The keys the scripts chose for Muddie's shortcuts, in the order they
+    /// did: the script, the shortcut and its keys.
+    pub fn scripted_shortcuts(&self) -> Vec<(String, String, Vec<String>)> {
+        self.scripts.shortcuts().1
     }
 }
 

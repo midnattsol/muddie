@@ -43,9 +43,6 @@ msgstr "No se pudieron guardar los ajustes: {0}"
 msgid "Could not load the settings: {0}"
 msgstr "No se pudieron cargar los ajustes: {0}"
 
-msgid "Sessions"
-msgstr "Sesiones"
-
 #, python-brace-format
 msgid "Logging stopped: {0}"
 msgstr "Registro detenido: {0}"
@@ -134,9 +131,6 @@ msgstr "Expresión regular"
 
 msgid "Hide the line"
 msgstr "Ocultar la línea"
-
-msgid "Typing"
-msgstr "Al escribir"
 
 #, python-brace-format
 msgid "Unknown text encoding {0}; using the automatic one."
@@ -251,20 +245,11 @@ msgstr "Ayuda"
 msgid "Keyboard shortcuts"
 msgstr "Atajos de teclado"
 
-msgid "Earlier and later commands"
-msgstr "Navegar por el historial de comandos"
-
 msgid "Complete the word being typed"
 msgstr "Autocompletar la palabra"
 
 msgid "Silence speech"
 msgstr "Silenciar la voz"
-
-msgid "Read the previous and next line"
-msgstr "Leer la línea anterior y la siguiente"
-
-msgid "Read the most recent lines"
-msgstr "Leer las líneas más recientes"
 
 msgid "Read the gauges"
 msgstr "Leer los indicadores"
@@ -625,9 +610,6 @@ msgstr "Instalar"
 
 msgid "Editor"
 msgstr "Editor"
-
-msgid "Switch between the game and the editor"
-msgstr "Cambiar entre el juego y el editor"
 
 msgid "Vivid"
 msgstr "Vivos"
@@ -1299,9 +1281,6 @@ msgstr "Tecla"
 msgid "Field name"
 msgstr "Nombre del campo"
 
-msgid "Show incoming data"
-msgstr "Mostrar los datos recibidos"
-
 msgid "New profile"
 msgstr "Perfil nuevo"
 
@@ -1349,9 +1328,6 @@ msgstr "Seleccionar varios elementos o un rango"
 
 msgid "Select all visible items"
 msgstr "Seleccionar todos los elementos visibles"
-
-msgid "Move up or down"
-msgstr "Mover arriba o abajo"
 
 msgid "Restart scripts"
 msgstr "Reiniciar scripts"
@@ -1660,9 +1636,6 @@ msgstr "Mover al nivel superior"
 #, python-brace-format
 msgid "Move into {0}"
 msgstr "Mover a {0}"
-
-msgid "Move out of its folder"
-msgstr "Sacar de su carpeta"
 
 #, python-brace-format
 msgid "Moved up, {0} of {1}."
@@ -2035,9 +2008,6 @@ msgstr "Entras en {0}: {1}"
 msgid "No exit {0}."
 msgstr "No hay salida al {0}."
 
-msgid "Explore the map with the keys"
-msgstr "Explorar el mapa con el teclado"
-
 #, python-brace-format
 msgid "This is where you began exploring."
 msgstr "Aquí empezaste a explorar."
@@ -2089,9 +2059,6 @@ msgstr "Anotado: {0}"
 msgid "Exploring the map"
 msgstr "Explorando el mapa"
 
-msgid "Follow the exits"
-msgstr "Seguir las salidas"
-
 msgid "Home"
 msgstr "Inicio"
 
@@ -2115,15 +2082,6 @@ msgstr "Todo sobre la sala"
 
 msgid "Write a note on the room"
 msgstr "Escribir una nota en la sala"
-
-msgid "Enter  Shift+Enter"
-msgstr "Intro  Mayús+Intro"
-
-msgid "Go there, or say the way"
-msgstr "Ir allí, o decir el camino"
-
-msgid "Say all the keys"
-msgstr "Decir todas las teclas"
 
 msgid "Escape"
 msgstr "Escape"
@@ -2672,9 +2630,6 @@ msgstr "Bendecido"
 msgid "Kept off routes: {0}"
 msgstr "Fuera de las rutas: {0}"
 
-msgid "Arrows, or the keypad, follow the exits; Page Up and Page Down go up and down, as minus and plus on the keypad, and slash and star go in and out. Home comes back to you, Backspace to the room before. Space says the room again, {0} all about it, {1} what is near. {2} finds on the map. {3} marks the room, {4} writes a note on it. Enter goes there, Shift+Enter says the way. Shift+F10 opens the room's menu, with all that is done with it. Escape, or typing, goes back to the command line."
-msgstr "Las flechas, o el teclado numérico, siguen las salidas; Re Pág y Av Pág suben y bajan, como menos y más en el teclado numérico, y la barra y el asterisco entran y salen. Inicio vuelve a ti, Retroceso a la sala anterior. Espacio repite la sala, {0} dice todo de ella, {1} qué hay cerca. {2} busca en el mapa. {3} marca la sala, {4} le escribe una nota. Intro va allí, Mayús+Intro dice el camino. Mayús+F10 abre el menú de la sala, con todo lo que se hace con ella. Escape, o escribir, vuelve a la línea de comandos."
-
 msgid "Channels"
 msgstr "Canales"
 
@@ -2683,9 +2638,6 @@ msgstr "Apariencia de {0}…"
 
 msgid "Included fonts"
 msgstr "Fuentes incluidas"
-
-msgid "Read the first and last line"
-msgstr "Leer la primera y la última línea"
 
 msgid "There is a panel called {0} already."
 msgstr "Ya hay un panel llamado {0}."
@@ -2777,9 +2729,6 @@ msgstr "El nombre de una carpeta no puede llevar barra."
 msgid "Palette"
 msgstr "Paleta"
 
-msgid "Find a command typed before"
-msgstr "Buscar un comando escrito antes"
-
 msgid "Staying connected"
 msgstr "Mantener la conexión"
 
@@ -2839,12 +2788,6 @@ msgid "{0} line"
 msgid_plural "{0} lines"
 msgstr[0] "{0} línea"
 msgstr[1] "{0} líneas"
-
-msgid "Same, for a panel of text"
-msgstr "Igual, para un panel de texto"
-
-msgid "Choose the panel of text to read"
-msgstr "Elegir el panel de texto que leer"
 
 msgid "Copy the line read last"
 msgstr "Copiar la última línea leída"
@@ -2969,12 +2912,6 @@ msgid_plural "{0} levels"
 msgstr[0] "{0} nivel"
 msgstr[1] "{0} niveles"
 
-msgid "The keypad"
-msgstr "El teclado numérico"
-
-msgid "Follow the exits by where its keys are; slash and star, in and out"
-msgstr "Seguir las salidas según dónde están sus teclas; barra y asterisco, dentro y fuera"
-
 msgid "The room's menu, with each exit to follow"
 msgstr "El menú de la sala, con cada salida que seguir"
 
@@ -2986,42 +2923,6 @@ msgstr "Entre el juego y los datos entrantes"
 
 msgid "Search the commands typed before"
 msgstr "Buscar en los comandos escritos antes"
-
-msgid "All about the room, exploring the map"
-msgstr "Todo sobre la sala, explorando el mapa"
-
-msgid "What is near, exploring the map"
-msgstr "Qué hay cerca, explorando el mapa"
-
-msgid "Mark the room, exploring the map"
-msgstr "Marcar la sala, explorando el mapa"
-
-msgid "Note on the room, exploring the map"
-msgstr "Nota de la sala, explorando el mapa"
-
-msgid "Select all"
-msgstr "Seleccionar todo"
-
-msgid "Reads the output line by line"
-msgstr "Lee la salida línea a línea"
-
-msgid "Reads a panel of text line by line"
-msgstr "Lee un panel de texto línea a línea"
-
-msgid "Chooses the panel of text to read"
-msgstr "Elige el panel de texto que leer"
-
-msgid "Reads the most recent lines"
-msgstr "Lee las líneas más recientes"
-
-msgid "Reads the most recent lines of a panel"
-msgstr "Lee las líneas más recientes de un panel"
-
-msgid "Copies the line read last"
-msgstr "Copia la última línea leída"
-
-msgid "Does what the link of the line read last does"
-msgstr "Sigue el enlace de la última línea leída"
 
 msgid "Key: {0}."
 msgstr "Tecla: {0}."
@@ -3035,29 +2936,17 @@ msgstr "{0} también es la tecla de {1}: se ejecuta la primera activada."
 msgid "Keys"
 msgstr "Teclas"
 
-msgid "Press a shortcut's keys to choose others, then the keys; Escape keeps them. A macro on the same keys goes before it. The keys that read the output stay as they are."
-msgstr "Pulsa las teclas de un atajo para elegir otras y luego pulsa las nuevas; Escape deja las que tenía. Una macro con las mismas teclas va antes. Las teclas que leen la salida no cambian."
-
 msgid "Press the keys…"
 msgstr "Pulsa las teclas…"
 
 msgid "Reset"
 msgstr "Restablecer"
 
-msgid "Reset {0}"
-msgstr "Restablecer {0}"
-
-msgid "Press to choose other keys."
-msgstr "Púlsalo para elegir otras teclas."
-
 msgid "{0} kept: {1}."
 msgstr "{0} se queda igual: {1}."
 
 msgid "Press the keys for {0}; Escape keeps them."
 msgstr "Pulsa las teclas para {0}; Escape deja las que tenía."
-
-msgid "Hold Ctrl or Alt with the key, or use a function key."
-msgstr "Mantén Ctrl o Alt con la tecla, o usa una tecla de función."
 
 msgid "{0} is already used: {1}."
 msgstr "{0} ya se usa: {1}."
@@ -3116,12 +3005,6 @@ msgstr "Sin nada escrito, leer la salida como texto"
 msgid "Go to the output and each panel"
 msgstr "Ir a la salida y a cada panel"
 
-msgid "Open the messages"
-msgstr "Abrir los mensajes"
-
-msgid "Tab, with nothing typed, reads the output as text, and F6 goes to each panel. {0} read the lines one by one. {1}: the messages. {2}: the gauges. {3}: where you are. {4}: explore the map. {5}: the palette, for all else. Ctrl silences speech."
-msgstr "Tab, sin nada escrito, lee la salida como texto, y F6 va a cada panel. {0} leen las líneas una a una. {1}: los mensajes. {2}: los indicadores. {3}: dónde estás. {4}: explorar el mapa. {5}: la paleta, para todo lo demás. Ctrl calla la voz."
-
 msgid "Close {0}"
 msgstr "Cerrar {0}"
 
@@ -3169,3 +3052,227 @@ msgstr "Muddie mantiene al día los plugins oficiales. Los que hacen otras perso
 
 msgid "it stopped halfway"
 msgstr "se interrumpió a medias"
+
+#, python-brace-format
+msgid "Tab, with nothing typed, reads the output as text, and {0} goes to each panel. {1} and {2} read the lines one by one. {3}: the messages. {4}: the gauges. {5}: where you are. {6}: explore the map. {7}: the palette, for all else. {8} silences speech."
+msgstr "Tab, sin nada escrito, lee la salida como texto, y {0} va a cada panel. {1} y {2} leen las líneas una a una. {3}: los mensajes. {4}: los indicadores. {5}: dónde estás. {6}: explorar el mapa. {7}: la paleta, para todo lo demás. {8} calla la voz."
+
+msgid "Press a shortcut's keys to choose others, then the keys; Escape keeps them. Its menu (Shift+F10) adds more keys, leaves it without, or resets it. A macro on the same keys goes before it, and keys a script chooses go before these."
+msgstr "Pulsa las teclas de un atajo para elegir otras, y luego las teclas; Escape deja las que tenía. Su menú (Mayús+F10) le añade teclas, lo deja sin teclas o lo restablece. Una macro con las mismas teclas va antes que el atajo, y las teclas que elige un script van antes que estas."
+
+#, python-brace-format
+msgid "Chosen by {0}, which goes first."
+msgstr "Elegidas por {0}, que va primero."
+
+msgid "No keys"
+msgstr "Sin teclas"
+
+
+
+msgid "Shift+F10 opens the room's menu, with all that is done with it. Escape, or typing, goes back to the command line."
+msgstr "Mayús+F10 abre el menú de la sala, con todo lo que se puede hacer con ella. Escape, o escribir, vuelve a la línea de órdenes."
+
+msgid "Those are not keys Muddie knows."
+msgstr "Muddie no conoce esas teclas."
+
+msgid "Those keys type: hold Ctrl or Alt with them, or use a function key or the keypad."
+msgstr "Esas teclas escriben: mantén Ctrl o Alt con ellas, o usa una tecla de función o el teclado numérico."
+
+msgid "Tab, Escape and the menu keys always go through the window."
+msgstr "Tab, Escape y las teclas de menú siempre sirven para moverse por la ventana."
+
+msgid "Hold a key with them."
+msgstr "Pulsa una tecla con ellas."
+
+msgid "Page Up"
+msgstr "Re Pág"
+
+msgid "Page Down"
+msgstr "Av Pág"
+
+msgid "End"
+msgstr "Fin"
+
+msgid "Insert"
+msgstr "Insert"
+
+#, python-brace-format
+msgid "Keypad {0}"
+msgstr "Teclado numérico {0}"
+
+msgid "Reading"
+msgstr "Lectura"
+
+msgid "Command line"
+msgstr "Línea de órdenes"
+
+msgid "Say the keys to know"
+msgstr "Decir las teclas que conviene saber"
+
+msgid "Go back through the panels"
+msgstr "Volver por los paneles"
+
+msgid "Read the previous line"
+msgstr "Leer la línea anterior"
+
+msgid "Read the next line"
+msgstr "Leer la línea siguiente"
+
+msgid "Read the first line"
+msgstr "Leer la primera línea"
+
+msgid "Read the last line"
+msgstr "Leer la última línea"
+
+msgid "Read the most recent line"
+msgstr "Leer la línea más reciente"
+
+msgid "Read the 2nd most recent line"
+msgstr "Leer la 2.ª línea más reciente"
+
+msgid "Read the 3rd most recent line"
+msgstr "Leer la 3.ª línea más reciente"
+
+msgid "Read the 4th most recent line"
+msgstr "Leer la 4.ª línea más reciente"
+
+msgid "Read the 5th most recent line"
+msgstr "Leer la 5.ª línea más reciente"
+
+msgid "Read the 6th most recent line"
+msgstr "Leer la 6.ª línea más reciente"
+
+msgid "Read the 7th most recent line"
+msgstr "Leer la 7.ª línea más reciente"
+
+msgid "Read the 8th most recent line"
+msgstr "Leer la 8.ª línea más reciente"
+
+msgid "Read the 9th most recent line"
+msgstr "Leer la 9.ª línea más reciente"
+
+msgid "Choose the previous panel of text to read"
+msgstr "Elegir el panel de texto anterior para leer"
+
+msgid "Choose the next panel of text to read"
+msgstr "Elegir el panel de texto siguiente para leer"
+
+msgid "Read the previous line of the panel"
+msgstr "Leer la línea anterior del panel"
+
+msgid "Read the next line of the panel"
+msgstr "Leer la línea siguiente del panel"
+
+msgid "Read the first line of the panel"
+msgstr "Leer la primera línea del panel"
+
+msgid "Read the last line of the panel"
+msgstr "Leer la última línea del panel"
+
+msgid "Read the most recent line of the panel"
+msgstr "Leer la línea más reciente del panel"
+
+msgid "Read the 2nd most recent line of the panel"
+msgstr "Leer la 2.ª línea más reciente del panel"
+
+msgid "Read the 3rd most recent line of the panel"
+msgstr "Leer la 3.ª línea más reciente del panel"
+
+msgid "Read the 4th most recent line of the panel"
+msgstr "Leer la 4.ª línea más reciente del panel"
+
+msgid "Read the 5th most recent line of the panel"
+msgstr "Leer la 5.ª línea más reciente del panel"
+
+msgid "Read the 6th most recent line of the panel"
+msgstr "Leer la 6.ª línea más reciente del panel"
+
+msgid "Read the 7th most recent line of the panel"
+msgstr "Leer la 7.ª línea más reciente del panel"
+
+msgid "Read the 8th most recent line of the panel"
+msgstr "Leer la 8.ª línea más reciente del panel"
+
+msgid "Read the 9th most recent line of the panel"
+msgstr "Leer la 9.ª línea más reciente del panel"
+
+msgid "Copy the line of the panel read last"
+msgstr "Copiar la última línea leída del panel"
+
+msgid "Earlier command"
+msgstr "Orden anterior"
+
+msgid "Later command"
+msgstr "Orden siguiente"
+
+msgid "Follow the exit north"
+msgstr "Seguir la salida norte"
+
+msgid "Follow the exit south"
+msgstr "Seguir la salida sur"
+
+msgid "Follow the exit west"
+msgstr "Seguir la salida oeste"
+
+msgid "Follow the exit east"
+msgstr "Seguir la salida este"
+
+msgid "Follow the exit north-west"
+msgstr "Seguir la salida noroeste"
+
+msgid "Follow the exit north-east"
+msgstr "Seguir la salida noreste"
+
+msgid "Follow the exit south-west"
+msgstr "Seguir la salida suroeste"
+
+msgid "Follow the exit south-east"
+msgstr "Seguir la salida sureste"
+
+msgid "Follow the exit up"
+msgstr "Seguir la salida hacia arriba"
+
+msgid "Follow the exit down"
+msgstr "Seguir la salida hacia abajo"
+
+msgid "Follow the exit in"
+msgstr "Seguir la salida hacia dentro"
+
+msgid "Follow the exit out"
+msgstr "Seguir la salida hacia fuera"
+
+msgid "Go to the room chosen"
+msgstr "Ir a la sala elegida"
+
+msgid "Say the way to the room chosen"
+msgstr "Decir el camino a la sala elegida"
+
+msgid "Say all the map's keys"
+msgstr "Decir todas las teclas del mapa"
+
+msgid "Move the rule up"
+msgstr "Subir la regla"
+
+msgid "Move the rule down"
+msgstr "Bajar la regla"
+
+msgid "Move the rule out of its folder"
+msgstr "Sacar la regla de su carpeta"
+
+msgid "Move the panel up"
+msgstr "Subir el panel"
+
+msgid "Move the panel down"
+msgstr "Bajar el panel"
+
+msgid "Move the panel to the side before"
+msgstr "Mover el panel al lado anterior"
+
+msgid "Move the panel to the next side"
+msgstr "Mover el panel al lado siguiente"
+
+msgid "Press to choose other keys. Its menu adds keys, leaves it without, or resets it."
+msgstr "Púlsalo para elegir otras teclas. Su menú le añade teclas, lo deja sin teclas o lo restablece."
+
+msgid "Add keys…"
+msgstr "Añadir teclas…"

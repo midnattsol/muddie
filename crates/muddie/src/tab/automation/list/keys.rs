@@ -27,9 +27,9 @@ impl Tab {
         }
         let (up, down, out) = ui.input_mut(|input| {
             (
-                input.consume_key(crate::shortcuts::WITH_ARROWS, Key::ArrowUp),
-                input.consume_key(crate::shortcuts::WITH_ARROWS, Key::ArrowDown),
-                input.consume_key(crate::shortcuts::WITH_ARROWS, Key::ArrowLeft),
+                crate::shortcuts::MOVE_UP.pressed(input),
+                crate::shortcuts::MOVE_DOWN.pressed(input),
+                crate::shortcuts::MOVE_OUT.pressed(input),
             )
         });
         if !(up || down || out) {

@@ -24,41 +24,6 @@ impl MapView {
         self.selected
     }
 
-    /// Whether the map has the keyboard, to be given the keypad's keys.
-    pub fn has_keyboard(&self) -> bool {
-        self.had_focus
-    }
-
-    /// Keys of the keypad pressed, by name, taken from what egui makes of
-    /// them, for the map to take when next drawn.
-    pub fn keypad_pressed(&mut self, names: impl IntoIterator<Item = &'static str>) {
-        self.keypad.extend(names);
-    }
-
-    /// A key of the keypad, whether Num Lock is on or off: by where it is,
-    /// the digits are the compass, minus and plus up and down, slash and
-    /// star in and out; 5 says the room again, and Enter goes there.
-    pub(super) fn keypad_key(&mut self, map: &Map, chosen: RoomId, name: &str) -> Option<MapAsk> {
-        let way = match name {
-            "numpad8" | "numpadup" => "n",
-            "numpad2" | "numpaddown" => "s",
-            "numpad4" | "numpadleft" => "w",
-            "numpad6" | "numpadright" => "e",
-            "numpad7" | "numpadhome" => "nw",
-            "numpad9" | "numpadpageup" => "ne",
-            "numpad1" | "numpadend" => "sw",
-            "numpad3" | "numpadpagedown" => "se",
-            "numpadsubtract" => "u",
-            "numpadadd" => "d",
-            "numpaddivide" => "in",
-            "numpadmultiply" => "out",
-            "numpad5" | "numpadclear" => return Some(MapAsk::Selected(chosen, None)),
-            "numpadenter" => return self.selected.map(MapAsk::Walk),
-            _ => return None,
-        };
-        Some(self.step(map, chosen, way))
-    }
-
     /// Chooses a room with the keys, the one chosen before kept to go
     /// back to, and brings it into sight.
     pub(super) fn choose(&mut self, room: RoomId) {

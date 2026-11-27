@@ -46,8 +46,8 @@ impl Tab {
         let held = ui.input(|input| input.modifiers);
         let prefix = |modifiers: Modifiers| crate::tab::keys::key_name(modifiers, "");
         // The keypad first: egui would report its keys as plain digits.
-        let mut recorded =
-            (self.keypad_pressed.drain(..).next()).map(|name| format!("{}{name}", prefix(held)));
+        let mut recorded = (crate::shortcuts::keypad_left().into_iter().next())
+            .map(|(_, name)| format!("{}{name}", prefix(held)));
         let events = ui.input(|input| input.events.clone());
         for event in events {
             let egui::Event::Key {
@@ -159,9 +159,7 @@ fn key_clashes(macros: &Vec<crate::rules::Macro>, index: usize) -> Vec<String> {
     }
     let shown = key_shown(key);
     let mut clashes = Vec::new();
-    let muddies =
-        crate::shortcuts::of_macro(key).and_then(|keys| crate::shortcuts::taken_by(&keys, None));
-    if let Some(does) = muddies {
+    if let Some(does) = crate::shortcuts::taken_by_macro(key).map(|shortcut| shortcut.about()) {
         clashes.push(trf(
             "{0} is also Muddie's: {1}. This macro goes before it.",
             &[&shown, does],
@@ -211,7 +209,7 @@ mod tests {
         assert_eq!(
             key_clashes(&macros, 1),
             [format!(
-                "{recent} is also Muddie's: Reads the most recent lines. This macro goes before it."
+                "{recent} is also Muddie's: Read the most recent line. This macro goes before it."
             )]
         );
     }

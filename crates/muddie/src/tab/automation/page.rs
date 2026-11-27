@@ -120,9 +120,8 @@ impl Tab {
             return;
         }
         let (again, back) = ui.input_mut(|input| {
-            let again = input.consume_key(Modifiers::COMMAND | Modifiers::SHIFT, Key::Z)
-                || input.consume_key(Modifiers::COMMAND, Key::Y);
-            let back = !disk_bar && input.consume_key(Modifiers::COMMAND, Key::Z);
+            let again = crate::shortcuts::REDO.pressed(input);
+            let back = !disk_bar && crate::shortcuts::UNDO.pressed(input);
             (again, back)
         });
         if !again && !back {

@@ -55,26 +55,30 @@ sigue funcionando.
    - [`on("send", fn)`](#onsend-fn)
 8. [Asignar teclas](#asignar-teclas)
    - [`macro(key, action, options)`](#macrokey-action-options)
-9. [Hacer algo más tarde o cada cierto tiempo](#hacer-algo-más-tarde-o-cada-cierto-tiempo)
+9. [Cambiar las teclas de Muddie (atajos)](#cambiar-las-teclas-de-muddie-atajos)
+   - [`shortcuts.<name>`](#shortcutsname)
+   - [`shortcuts.all()`](#shortcutsall)
+   - [Todos los atajos](#todos-los-atajos)
+10. [Hacer algo más tarde o cada cierto tiempo](#hacer-algo-más-tarde-o-cada-cierto-tiempo)
    - [`after(seconds, fn, options)`](#afterseconds-fn-options)
    - [`every(seconds, fn, options)`](#everyseconds-fn-options)
-10. [Esperar en mitad de un script](#esperar-en-mitad-de-un-script)
+11. [Esperar en mitad de un script](#esperar-en-mitad-de-un-script)
    - [`wait(seconds)`](#waitseconds)
    - [`wait("line", pattern, options)`](#waitline-pattern-options)
    - [`wait(what, name, options)`](#waitwhat-name-options)
    - [`lines(options)`](#linesoptions)
    - [Dónde no se puede esperar](#dónde-no-se-puede-esperar)
-11. [Recordar cosas (vars)](#recordar-cosas-vars)
+12. [Recordar cosas (vars)](#recordar-cosas-vars)
    - [`vars`](#vars)
    - [`expand(text)`](#expandtext)
    - [`on("var", name, fn)`](#onvar-name-fn)
-12. [Mostrar el estado del personaje (indicadores)](#mostrar-el-estado-del-personaje-indicadores)
+13. [Mostrar el estado del personaje (indicadores)](#mostrar-el-estado-del-personaje-indicadores)
    - [`gauges.set(name, gauge)`](#gaugessetname-gauge)
    - [`gauges.remove(name, options)`](#gaugesremovename-options)
    - [`gauges.get(name)`](#gaugesgetname)
    - [`gauges.all()`](#gaugesall)
    - [`on("gauge", name, fn, options)`](#ongauge-name-fn-options)
-13. [Paneles de texto y canales](#paneles-de-texto-y-canales)
+14. [Paneles de texto y canales](#paneles-de-texto-y-canales)
    - [`panels.set(name, text)`](#panelssetname-text)
    - [`panels.clear(name)`](#panelsclearname)
    - [`panels.add(name, text, options)`](#panelsaddname-text-options)
@@ -83,10 +87,10 @@ sigue funcionando.
    - [`channels.open(name, options)`](#channelsopenname-options)
    - [`channels.close(name)`](#channelsclosename)
    - [`channels.all()`](#channelsall)
-14. [Reproducir sonidos](#reproducir-sonidos)
+15. [Reproducir sonidos](#reproducir-sonidos)
    - [`sounds.play(file, options)`](#soundsplayfile-options)
    - [`sounds.stop()`](#soundsstop)
-15. [Hablar con el MUD por detrás (GMCP, MSDP)](#hablar-con-el-mud-por-detrás-gmcp-msdp)
+16. [Hablar con el MUD por detrás (GMCP, MSDP)](#hablar-con-el-mud-por-detrás-gmcp-msdp)
    - [`gmcp.get(package)`](#gmcpgetpackage)
    - [`gmcp.send(package, data)`](#gmcpsendpackage-data)
    - [`gmcp.support(module, ...)`](#gmcpsupportmodule-)
@@ -94,21 +98,21 @@ sigue funcionando.
    - [`msdp.get(variable)`, `msdp.send(command, ...)`](#msdpgetvariable-msdpsendcommand-)
    - [`msdp.report(variable, ...)`](#msdpreportvariable-)
    - [`mssp.get()`](#msspget)
-16. [Reaccionar a otros sucesos (on)](#reaccionar-a-otros-sucesos-on)
+17. [Reaccionar a otros sucesos (on)](#reaccionar-a-otros-sucesos-on)
    - [`on(what, name, fn, options)`](#onwhat-name-fn-options)
    - [`emit(name, data)`](#emitname-data)
-17. [Encender y apagar cosas](#encender-y-apagar-cosas)
+18. [Encender y apagar cosas](#encender-y-apagar-cosas)
    - [Opciones, sitios y etiquetas](#opciones-sitios-y-etiquetas)
    - [Lo que devuelven `trigger`, `alias`, `macro`, `after`, `every` y `on`](#lo-que-devuelven-trigger-alias-macro-after-every-y-on)
    - [`triggers`, `aliases`, `macros`, `timers`, `gauges`, `scripts`](#triggers-aliases-macros-timers-gauges-scripts)
    - [`tags`](#tags)
    - [Lo que se va con un script](#lo-que-se-va-con-un-script)
-18. [La sesión y la línea de órdenes](#la-sesión-y-la-línea-de-órdenes)
+19. [La sesión y la línea de órdenes](#la-sesión-y-la-línea-de-órdenes)
    - [Campos de `session`](#campos-de-session)
    - [`session.completions(name, words)`](#sessioncompletionsname-words)
    - [`session.feed(text)`](#sessionfeedtext)
    - [`output.last(count)`](#outputlastcount)
-19. [Hacer el mapa y recorrerlo](#hacer-el-mapa-y-recorrerlo)
+20. [Hacer el mapa y recorrerlo](#hacer-el-mapa-y-recorrerlo)
    - [Salas y sitios](#salas-y-sitios)
    - [Ajustes del mapa](#ajustes-del-mapa)
    - [Seguir al jugador](#seguir-al-jugador)
@@ -144,10 +148,10 @@ sigue funcionando.
      - [`map.import(address)`](#mapimportaddress)
      - [`map.newer(address, fn)`](#mapneweraddress-fn)
      - [`map.action(name, fn, options)`](#mapactionname-fn-options)
-20. [Compartir código entre scripts](#compartir-código-entre-scripts)
+21. [Compartir código entre scripts](#compartir-código-entre-scripts)
    - [`require(name)`](#requirename)
-21. [Cuando algo falla](#cuando-algo-falla)
-22. [Lo que los scripts no pueden hacer](#lo-que-los-scripts-no-pueden-hacer)
+22. [Cuando algo falla](#cuando-algo-falla)
+23. [Lo que los scripts no pueden hacer](#lo-que-los-scripts-no-pueden-hacer)
 
 ## Empieza aquí
 
@@ -635,6 +639,195 @@ teclas, con el nombre de lo que llevan impreso: `numpadup`, `numpaddown`,
 `numpadleft`, `numpadright`, `numpadhome`, `numpadend`, `numpadpageup`,
 `numpadpagedown`, `numpadclear` (el 5), `numpadinsert` y `numpaddelete`. En
 cuanto asignas una tecla del teclado numérico, deja de escribir su cifra.
+
+## Cambiar las teclas de Muddie (atajos)
+
+Cada tecla que Muddie usa para sí mismo es un atajo que puedes cambiar: la
+paleta, las teclas de revisión que leen la salida, las teclas que mueven por
+el mapa mientras lo exploras, las teclas del editor. Las teclas que tiene
+cada uno al principio están en la [tabla de abajo](#todos-los-atajos). Puedes
+cambiarlas en **Ajustes → Teclas**, o desde un script. Un script viene bien
+para tener todas tus teclas en un archivo, compartirlo y que cada persona lo
+ajuste a su gusto.
+
+Las teclas que elige un script van antes que las de Ajustes mientras el
+script está cargado. Cuando el script se apaga o se quita, las teclas vuelven
+a ser las de antes. Ajustes dice qué script eligió cada una.
+
+### `shortcuts.<name>`
+
+Lee o cambia las teclas de un atajo, por su nombre.
+
+- **Léelo** para saber las teclas que tiene ahora, como una lista de textos:
+  `shortcuts.explore` da `{"alt+e"}`.
+- **Ponle** una tecla o una lista de teclas: `shortcuts.explore = "f9"`,
+  `shortcuts.map_north = {"up", "k"}`.
+- **Ponle `false`** para dejar el atajo sin teclas.
+- **Ponle `nil`** para devolverle las teclas que tenía antes del script.
+
+Las teclas se escriben como en [`macro`](#macrokey-action-options), y en un
+Mac también con `cmd`. Para `hush` también vale una tecla modificadora sola:
+`"ctrl"`. Da igual escribir en mayúsculas o minúsculas.
+
+**Dónde puede ir cada tecla:**
+
+- Un atajo que funciona en todas partes necesita teclas que no escriban:
+  con Ctrl, Alt o Cmd, una tecla de función o una tecla del teclado numérico.
+- En la línea de órdenes también valen teclas que no escriben, como las
+  flechas, pero no Intro.
+- En el mapa, mientras lo exploras, vale cualquier tecla: el mapa tiene el
+  teclado para él solo.
+- Tab, Escape y Mayús+F10 siempre sirven para moverse por la ventana. No se
+  pueden usar para otra cosa.
+
+**Cuando dos atajos quieren las mismas teclas:**
+
+- Si un script le da a un atajo teclas que ya tiene otro donde funcionan los
+  dos, el otro las pierde.
+- Una [macro](#macrokey-action-options) con las mismas teclas va antes que el
+  atajo de Muddie.
+- Mientras exploras el mapa, sus teclas van primero.
+
+**Devuelve:** al leerlo, una lista de textos.
+
+Ojo: un nombre que no existe, una tecla que no existe o una tecla que no
+puede ir donde funciona el atajo dan un error que dice cuál.
+
+**Ejemplo:**
+
+```lua
+-- My keys: explore the map with F9, and read the lines with the keypad.
+shortcuts.explore = "f9"
+shortcuts.read_previous = "numpad8"
+shortcuts.read_next = "numpad2"
+-- On the map, the letters too, besides the arrows.
+shortcuts.map_north = {"up", "k"}
+shortcuts.map_south = {"down", "j"}
+-- Ctrl no longer silences speech.
+shortcuts.hush = false
+```
+
+**Ver también:** [`shortcuts.all()`](#shortcutsall), [`macro`](#macrokey-action-options).
+
+### `shortcuts.all()`
+
+Da la lista de todos los atajos, con las teclas que tienen ahora. Pásasela a
+una IA, o léela en voz alta, para saber qué puedes cambiar.
+
+**Devuelve:** una lista de tablas, cada una con:
+
+- `name`: su nombre, para usarlo como `shortcuts.<name>`.
+- `place`: dónde funciona: `"everywhere"` (en todas partes), `"reading"`
+  (leyendo), `"line"` (la línea de órdenes), `"map"` (explorando el mapa),
+  `"editor"` o `"layout"` (la disposición de paneles).
+- `about`: qué hace, en el idioma de la interfaz.
+- `keys`: sus teclas ahora, como una lista de textos.
+
+**Ejemplo:**
+
+```lua
+for _, shortcut in shortcuts.all() do
+    echo(`{shortcut.name}: {table.concat(shortcut.keys, ", ")} ({shortcut.about})`)
+end
+```
+
+**Ver también:** [`shortcuts.<name>`](#shortcutsname).
+
+### Todos los atajos
+
+Estas son las teclas de cada atajo antes de que nadie las cambie. En un Mac,
+`ctrl` aquí es `cmd`, y las teclas que van con `alt` y una letra o una cifra
+van con `ctrl`; `shortcuts.all()` las da como son en cada sistema.
+
+| Nombre | Dónde | Teclas de inicio | Qué hace |
+|---|---|---|---|
+| `palette` | `everywhere` | `ctrl+k` | Paleta |
+| `settings` | `everywhere` | `ctrl+comma` | Ajustes |
+| `new_session` | `everywhere` | `ctrl+t` | Sesión nueva |
+| `close_session` | `everywhere` | `ctrl+w` | Cerrar esta sesión |
+| `reconnect` | `everywhere` | `alt+r` | Reconectar |
+| `switch_view` | `everywhere` | `ctrl+e` | Entre el juego y el editor |
+| `data_view` | `everywhere` | `ctrl+d` | Entre el juego y los datos entrantes |
+| `find` | `everywhere` | `ctrl+f` | Buscar en la salida |
+| `messages` | `everywhere` | `alt+n` | Mensajes |
+| `gauges` | `everywhere` | `alt+0` | Leer los indicadores |
+| `where` | `everywhere` | `alt+m` | Dónde estoy |
+| `explore` | `everywhere` | `alt+e` | Explorar el mapa |
+| `map` | `everywhere` | `ctrl+m` | Mostrar u ocultar el mapa |
+| `keys_help` | `everywhere` | `f1` | Decir las teclas que conviene saber |
+| `next_zone` | `everywhere` | `f6` | Ir a la salida y a cada panel |
+| `previous_zone` | `everywhere` | `shift+f6` | Volver por los paneles |
+| `hush` | `everywhere` | `ctrl` | Silenciar la voz |
+| `read_previous` | `reading` | `alt+up` | Leer la línea anterior |
+| `read_next` | `reading` | `alt+down` | Leer la línea siguiente |
+| `read_first` | `reading` | `alt+home` | Leer la primera línea |
+| `read_last` | `reading` | `alt+end` | Leer la última línea |
+| `read_recent_1` | `reading` | `alt+1` | Leer la línea más reciente |
+| `read_recent_2` | `reading` | `alt+2` | Leer la 2.ª línea más reciente |
+| `read_recent_3` | `reading` | `alt+3` | Leer la 3.ª línea más reciente |
+| `read_recent_4` | `reading` | `alt+4` | Leer la 4.ª línea más reciente |
+| `read_recent_5` | `reading` | `alt+5` | Leer la 5.ª línea más reciente |
+| `read_recent_6` | `reading` | `alt+6` | Leer la 6.ª línea más reciente |
+| `read_recent_7` | `reading` | `alt+7` | Leer la 7.ª línea más reciente |
+| `read_recent_8` | `reading` | `alt+8` | Leer la 8.ª línea más reciente |
+| `read_recent_9` | `reading` | `alt+9` | Leer la 9.ª línea más reciente |
+| `copy_read` | `reading` | `alt+c` | Copiar la última línea leída |
+| `follow_link` | `reading` | `alt+o` | Seguir el enlace de la última línea leída |
+| `panel_previous` | `reading` | `alt+shift+left` | Elegir el panel de texto anterior para leer |
+| `panel_next` | `reading` | `alt+shift+right` | Elegir el panel de texto siguiente para leer |
+| `panel_read_previous` | `reading` | `alt+shift+up` | Leer la línea anterior del panel |
+| `panel_read_next` | `reading` | `alt+shift+down` | Leer la línea siguiente del panel |
+| `panel_read_first` | `reading` | `alt+shift+home` | Leer la primera línea del panel |
+| `panel_read_last` | `reading` | `alt+shift+end` | Leer la última línea del panel |
+| `panel_recent_1` | `reading` | `alt+shift+1` | Leer la línea más reciente del panel |
+| `panel_recent_2` | `reading` | `alt+shift+2` | Leer la 2.ª línea más reciente del panel |
+| `panel_recent_3` | `reading` | `alt+shift+3` | Leer la 3.ª línea más reciente del panel |
+| `panel_recent_4` | `reading` | `alt+shift+4` | Leer la 4.ª línea más reciente del panel |
+| `panel_recent_5` | `reading` | `alt+shift+5` | Leer la 5.ª línea más reciente del panel |
+| `panel_recent_6` | `reading` | `alt+shift+6` | Leer la 6.ª línea más reciente del panel |
+| `panel_recent_7` | `reading` | `alt+shift+7` | Leer la 7.ª línea más reciente del panel |
+| `panel_recent_8` | `reading` | `alt+shift+8` | Leer la 8.ª línea más reciente del panel |
+| `panel_recent_9` | `reading` | `alt+shift+9` | Leer la 9.ª línea más reciente del panel |
+| `panel_copy_read` | `reading` | `alt+shift+c` | Copiar la última línea leída del panel |
+| `history_previous` | `line` | `up` | Orden anterior |
+| `history_next` | `line` | `down` | Orden siguiente |
+| `history_search` | `line` | `ctrl+r` | Buscar en los comandos escritos antes |
+| `map_north` | `map` | `up`, `8`, `numpad8`, `numpadup` | Seguir la salida norte |
+| `map_south` | `map` | `down`, `2`, `numpad2`, `numpaddown` | Seguir la salida sur |
+| `map_west` | `map` | `left`, `4`, `numpad4`, `numpadleft` | Seguir la salida oeste |
+| `map_east` | `map` | `right`, `6`, `numpad6`, `numpadright` | Seguir la salida este |
+| `map_northwest` | `map` | `7`, `numpad7`, `numpadhome` | Seguir la salida noroeste |
+| `map_northeast` | `map` | `9`, `numpad9`, `numpadpageup` | Seguir la salida noreste |
+| `map_southwest` | `map` | `1`, `numpad1`, `numpadend` | Seguir la salida suroeste |
+| `map_southeast` | `map` | `3`, `numpad3`, `numpadpagedown` | Seguir la salida sureste |
+| `map_up` | `map` | `pageup`, `numpadsubtract` | Seguir la salida hacia arriba |
+| `map_down` | `map` | `pagedown`, `numpadadd` | Seguir la salida hacia abajo |
+| `map_in` | `map` | `numpaddivide` | Seguir la salida hacia dentro |
+| `map_out` | `map` | `numpadmultiply` | Seguir la salida hacia fuera |
+| `map_again` | `map` | `space`, `numpad5`, `numpadclear` | Repetir la sala |
+| `map_home` | `map` | `home` | Volver a tu sala |
+| `map_back` | `map` | `backspace` | Volver a la sala anterior |
+| `map_go` | `map` | `enter`, `numpadenter` | Ir a la sala elegida |
+| `map_way` | `map` | `shift+enter` | Decir el camino a la sala elegida |
+| `map_help` | `map` | `f1` | Decir todas las teclas del mapa |
+| `map_info` | `map` | `ctrl+i` | Todo sobre la sala |
+| `map_near` | `map` | `ctrl+l` | Qué hay cerca |
+| `map_find` | `map` | `ctrl+f` | Buscar en el mapa |
+| `map_mark` | `map` | `ctrl+b` | Marcar la sala |
+| `map_note` | `map` | `ctrl+n` | Escribir una nota en la sala |
+| `move_up` | `editor` | `alt+up` | Subir la regla |
+| `move_down` | `editor` | `alt+down` | Bajar la regla |
+| `move_out` | `editor` | `alt+left` | Sacar la regla de su carpeta |
+| `rename` | `editor` | `f2` | Renombrar |
+| `delete` | `editor` | `delete` | Eliminar |
+| `select_all` | `editor` | `ctrl+a` | Seleccionar todos los elementos visibles |
+| `undo` | `editor` | `ctrl+z` | Deshacer |
+| `redo` | `editor` | `ctrl+y`, `ctrl+shift+z` | Rehacer |
+| `panel_up` | `layout` | `alt+up` | Subir el panel |
+| `panel_down` | `layout` | `alt+down` | Bajar el panel |
+| `panel_side_back` | `layout` | `alt+left` | Mover el panel al lado anterior |
+| `panel_side_on` | `layout` | `alt+right` | Mover el panel al lado siguiente |
+
 
 ## Hacer algo más tarde o cada cierto tiempo
 

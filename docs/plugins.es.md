@@ -342,6 +342,10 @@ quien escucha.
   Guarda en `vars` que ya lo dijiste, si debe quedar dicho.
 - **Guarda en `vars` lo que elige el jugador**, con nombres propios del
   plugin, como `vars.example_learning`.
+- **No toques las teclas del jugador.** El plugin de un MUD no cambia las
+  teclas de Muddie: el jugador se las aprende una vez, para todos los MUD.
+  Las teclas van en un plugin propio, que elige el jugador (mira
+  [Compartir un juego de teclas](#compartir-un-juego-de-teclas)).
 - **Deja el MUD fuera de Muddie.** Si el plugin necesita algo que Muddie no
   tiene, pide una función nueva de la API. Tiene que servir para cualquier
   MUD.
@@ -503,6 +507,44 @@ on("connect", function()
     end)
 end)
 ```
+
+### Compartir un juego de teclas
+
+Un plugin puede no tener más que teclas: un juego que alguien se ha hecho a
+su gusto, para que otros lo instalen y lo ajusten. No lleva `hosts`, así que
+Muddie no lo ofrece para ningún MUD; cada jugador lo activa en los perfiles
+que quiera.
+
+`plugin.toml`:
+
+```toml
+name = "Keypad keys"
+about = { en = "Explore and read with the keypad.", es = "Explorar y leer con el teclado numérico." }
+muddie = "0.5.0"
+```
+
+`keys.luau`:
+
+```lua
+-- keys.luau: Muddie's keys, as this set has them. Change what you like;
+-- what is not here keeps Muddie's own keys.
+local mine = {
+    explore = "numpad0",
+    read_previous = "numpad8",
+    read_next = "numpad2",
+    read_last = "numpad5",
+    map_north = {"up", "numpad8"},
+    map_south = {"down", "numpad2"},
+}
+for name, keys in mine do
+    shortcuts[name] = keys
+end
+```
+
+Todas las teclas de Muddie, por su nombre, están en
+[la referencia](scripting.es.md#todos-los-atajos). Quien lo instala cambia la
+lista en el editor, en **Scripts**, y lo apaga para recuperar las teclas de
+Muddie.
 
 ## Publicarlo
 

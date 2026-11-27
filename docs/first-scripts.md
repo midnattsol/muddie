@@ -239,6 +239,23 @@ macro("numpad5", "look")
 You can use the function keys too, and keys with Ctrl or Alt:
 `macro("f5", "score")`, `macro("ctrl+h", "heal")`.
 
+### Changing Muddie's own keys
+
+Muddie's own keys can change too: the one that explores the map, the ones
+that read the lines, all of them. Give `shortcuts` the name of one and its
+new keys:
+
+```lua
+-- Explore the map with F9, and read the last line with keypad 5.
+shortcuts.explore = "f9"
+shortcuts.read_last = "numpad5"
+```
+
+Alt+E no longer explores: F9 does. To see every name with its keys, run
+`for _, s in shortcuts.all() do echo(s.name .. ": " .. table.concat(s.keys, ", ")) end`
+in **Run Luau…**. Switch the script off, and Muddie's keys are back. You can
+also change them in **Settings → Keys**.
+
 ### Doing something every so often
 
 `every` runs code again and again. This saves your character every five
@@ -363,6 +380,7 @@ Everybody makes mistakes. Muddie tells you where yours are.
 | Show your life, energy and so on | A gauge: `gauges.set` |
 | React to data the game sends | `on` |
 | Switch things off for a while | `place`, `tags`, `triggers.disable` |
+| Change Muddie's own keys | `shortcuts` |
 
 ### Where to go next
 

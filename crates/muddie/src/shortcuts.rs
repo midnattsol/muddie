@@ -1,235 +1,268 @@
-//! The keys Muddie's own shortcuts are held with, which are not the same on
-//! a Mac: there Option types characters (@ on a Spanish keyboard is
-//! Option+2), so that it cannot be held for a letter or a figure, and Cmd
-//! does what Ctrl does elsewhere. How each is written comes from here too.
+//! Muddie's shortcuts: every one there is, the keys each is pressed with,
+//! and how they are chosen. Each has keys of its own; the player can
+//! choose others in the settings, and a script others still, which go
+//! first while it is loaded: so that everything can be set by writing it,
+//! and a set of keys shared as a script.
+//!
+//! The keys are not the same on a Mac: there Option types characters (@
+//! on a Spanish keyboard is Option+2), so that it cannot be held for a
+//! letter or a figure, and Cmd does what Ctrl does elsewhere.
+
+mod list;
+mod press;
+#[cfg(test)]
+mod tests;
 
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 
-use eframe::egui::{Key, KeyboardShortcut, Modifiers};
+use eframe::egui::{self, Key, Modifiers};
 
-use crate::i18n::tr;
+pub use list::*;
+pub use press::{Held, Press, Pressed, Wrong};
 
 const MAC: bool = cfg!(target_os = "macos");
 
 /// Held with a letter or a figure (reading the latest lines, the gauges,
 /// where one is): Alt; on a Mac, Ctrl.
+#[cfg(test)]
 pub const WITH_KEY: Modifiers = if MAC { Modifiers::CTRL } else { Modifiers::ALT };
 
 /// Held with the arrows (reading line by line, moving in the editor's
 /// list): Alt, which is Option on a Mac, where the arrows type nothing and
 /// Ctrl and the arrows are the system's.
+#[cfg(test)]
 pub const WITH_ARROWS: Modifiers = Modifiers::ALT;
 
 /// Takes Tab, if it was pressed alone: with Shift it goes back, which taking
 /// it with nothing held would take too.
-pub fn take_tab(input: &mut eframe::egui::InputState) -> bool {
+pub fn take_tab(input: &mut egui::InputState) -> bool {
     !input.modifiers.shift && input.consume_key(Modifiers::NONE, Key::Tab)
 }
 
-/// How Command and a key are written: Cmd on a Mac, Ctrl elsewhere.
-macro_rules! command {
-    ($key:literal) => {
-        if cfg!(target_os = "macos") {
-            concat!("Cmd+", $key)
-        } else {
-            concat!("Ctrl+", $key)
-        }
-    };
+/// How copying is written: the system's, which stays.
+pub fn copy_written() -> &'static str {
+    if MAC { "Cmd+C" } else { "Ctrl+C" }
 }
 
-/// How `WITH_KEY` and a key are written.
-macro_rules! with_key {
-    ($key:literal) => {
-        if cfg!(target_os = "macos") {
-            concat!("Ctrl+", $key)
-        } else {
-            concat!("Alt+", $key)
-        }
-    };
-}
-
-/// How `WITH_ARROWS` and a key are written.
-macro_rules! with_arrows {
-    ($key:literal) => {
-        if cfg!(target_os = "macos") {
-            concat!("Option+", $key)
-        } else {
-            concat!("Alt+", $key)
-        }
-    };
-}
-
-pub(crate) use {with_arrows, with_key};
-
-/// One of Muddie's shortcuts: the keys it is pressed with, and how they
-/// are written, everywhere it is shown. Most can be pressed with other
-/// keys, chosen in the settings: see [`configure`].
-#[derive(Debug, Clone, Copy)]
-pub struct Shortcut {
-    /// Its name in the settings file.
-    pub id: &'static str,
-    default_keys: KeyboardShortcut,
-    default_written: &'static str,
-}
-
-impl Shortcut {
-    /// The keys it is pressed with now.
-    pub fn keys(&self) -> KeyboardShortcut {
-        bound(self.id).map_or(self.default_keys, |(keys, _)| keys)
-    }
-
-    /// How they are written.
-    pub fn written(&self) -> &'static str {
-        bound(self.id).map_or(self.default_written, |(_, written)| written)
-    }
-
-    /// Whether it is pressed with keys other than its own.
-    pub fn is_changed(&self) -> bool {
-        bound(self.id).is_some()
-    }
-
-    /// Whether it was pressed, taking the press.
-    pub fn pressed(&self, input: &mut eframe::egui::InputState) -> bool {
-        input.consume_shortcut(&self.keys())
-    }
-}
-
-/// Command and a key: Cmd on a Mac, Ctrl elsewhere.
-macro_rules! command_shortcut {
-    ($id:literal, $key:ident, $written:literal) => {
-        Shortcut {
-            id: $id,
-            default_keys: KeyboardShortcut::new(Modifiers::COMMAND, eframe::egui::Key::$key),
-            default_written: command!($written),
-        }
-    };
-}
-
-pub const NEW_SESSION: Shortcut = command_shortcut!("new_session", T, "T");
-pub const CLOSE_SESSION: Shortcut = command_shortcut!("close_session", W, "W");
-/// Between the game and the editor.
-pub const SWITCH_VIEW: Shortcut = command_shortcut!("switch_view", E, "E");
-/// The incoming data.
-pub const DATA_VIEW: Shortcut = command_shortcut!("data_view", D, "D");
-pub const PALETTE: Shortcut = command_shortcut!("palette", K, "K");
-pub const SETTINGS: Shortcut = command_shortcut!("settings", Comma, ",");
-/// In the output, and on the map while exploring it.
-pub const FIND: Shortcut = command_shortcut!("find", F, "F");
-/// Shows or hides the map.
-pub const MAP: Shortcut = command_shortcut!("map", M, "M");
-pub const COPY: Shortcut = command_shortcut!("copy", C, "C");
-pub const SELECT_ALL: Shortcut = command_shortcut!("select_all", A, "A");
-pub const UNDO: Shortcut = command_shortcut!("undo", Z, "Z");
-pub const REDO: Shortcut = command_shortcut!("redo", Y, "Y");
-/// While exploring the map: all about the room, what is near, marking it
-/// and writing a note on it; and searching, as [`FIND`].
-pub const ROOM_INFO: Shortcut = command_shortcut!("room_info", I, "I");
-pub const NEAR: Shortcut = command_shortcut!("near", L, "L");
-pub const MARK: Shortcut = command_shortcut!("mark", B, "B");
-pub const NOTE: Shortcut = command_shortcut!("note", N, "N");
-
-/// [`WITH_KEY`] and a key.
-macro_rules! with_key_shortcut {
-    ($id:literal, $key:ident, $written:literal) => {
-        Shortcut {
-            id: $id,
-            default_keys: KeyboardShortcut::new(WITH_KEY, eframe::egui::Key::$key),
-            default_written: with_key!($written),
-        }
-    };
-}
-
-/// Says where the player is, by the map.
-pub const WHERE: Shortcut = with_key_shortcut!("where", M, "M");
-/// Explores the map with the keys.
-pub const EXPLORE: Shortcut = with_key_shortcut!("explore", E, "E");
-/// Opens the messages: what Muddie said, and a plugin offered.
-pub const MESSAGES: Shortcut = with_key_shortcut!("messages", N, "N");
-/// Reads the gauges aloud.
-pub const GAUGES: Shortcut = with_key_shortcut!("gauges", Num0, "0");
-
-/// Reconnecting: Alt+R; on a Mac Cmd+R, as reloading is in every app
-/// there, Ctrl+R being the search of what was typed, as in a terminal.
-pub const RECONNECT: Shortcut = Shortcut {
-    id: "reconnect",
-    default_keys: KeyboardShortcut::new(
-        if MAC {
-            Modifiers::COMMAND
-        } else {
-            Modifiers::ALT
-        },
-        eframe::egui::Key::R,
-    ),
-    default_written: if MAC { "Cmd+R" } else { "Alt+R" },
-};
-
-/// Searching the commands typed before, as in a terminal: Ctrl+R, on a
-/// Mac too.
-pub const HISTORY_SEARCH: Shortcut = Shortcut {
-    id: "history_search",
-    default_keys: KeyboardShortcut::new(Modifiers::CTRL, eframe::egui::Key::R),
-    default_written: "Ctrl+R",
-};
-
-/// The shortcuts that can be pressed with other keys, and what each does.
-/// Copying, selecting, undoing and redoing are the system's, and stay.
-pub fn bindable() -> [(Shortcut, &'static str); 18] {
-    [
-        (PALETTE, tr("Palette")),
-        (SETTINGS, tr("Settings")),
-        (NEW_SESSION, tr("New session")),
-        (CLOSE_SESSION, tr("Close session")),
-        (RECONNECT, tr("Reconnect")),
-        (SWITCH_VIEW, tr("Between the game and the editor")),
-        (DATA_VIEW, tr("Between the game and the incoming data")),
-        (FIND, tr("Find")),
-        (HISTORY_SEARCH, tr("Search the commands typed before")),
-        (MESSAGES, tr("Messages")),
-        (GAUGES, tr("Read the gauges")),
-        (WHERE, tr("Where am I")),
-        (EXPLORE, tr("Explore the map")),
-        (MAP, tr("Show or hide the map")),
-        (ROOM_INFO, tr("All about the room, exploring the map")),
-        (NEAR, tr("What is near, exploring the map")),
-        (MARK, tr("Mark the room, exploring the map")),
-        (NOTE, tr("Note on the room, exploring the map")),
-    ]
+/// The keys of every shortcut, as they are now: by name, those that are
+/// not their own. Of the window's thread: tests, each in a thread of its
+/// own, do not change each other's.
+#[derive(Default)]
+struct Bound {
+    /// Chosen in the settings, as they are kept there.
+    chosen: BTreeMap<String, String>,
+    /// Chosen by the scripts of the session on screen, in the order they
+    /// were: the script, the shortcut and its keys.
+    scripted: Vec<(String, String, Vec<String>)>,
+    /// What both make of each shortcut's keys.
+    now: BTreeMap<&'static str, Vec<Press>>,
+    /// The script that chose each shortcut's keys, of those a script did.
+    by_script: BTreeMap<&'static str, String>,
 }
 
 thread_local! {
-    /// The shortcuts pressed with other keys than their own, by their
-    /// name, and how those are written. Of the window's thread: tests,
-    /// each in a thread of its own, do not change each other's.
-    static BOUND: RefCell<BTreeMap<&'static str, (KeyboardShortcut, &'static str)>> =
-        RefCell::default();
+    static BOUND: RefCell<Bound> = RefCell::default();
+    /// The keypad's keys pressed in this frame, with what was held, not
+    /// yet taken by a shortcut or a macro.
+    static KEYPAD: RefCell<Vec<(Held, &'static str)>> = const { RefCell::new(Vec::new()) };
+    /// Whether the map is explored in this frame: its keys are its own.
+    static EXPLORING: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    /// Whether keys that type were taken, and what they typed has not come
+    /// yet: it may come in the next frame.
+    static TYPED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
-fn bound(id: &str) -> Option<(KeyboardShortcut, &'static str)> {
-    BOUND.with(|bound| bound.borrow().get(id).copied())
-}
-
-/// Takes the keys chosen in the settings, by each shortcut's name, as
-/// [`stored`] writes them. What cannot be read, or is a shortcut's own
-/// keys, leaves it as it is.
-pub fn configure(chosen: &BTreeMap<String, String>) {
-    let mut now = BTreeMap::new();
-    for (shortcut, _) in bindable() {
-        let keys = chosen.get(shortcut.id).and_then(|text| parse(text));
-        if let Some(keys) = keys.filter(|keys| !is_own(&shortcut, keys)) {
-            now.insert(shortcut.id, (keys, written_once(&keys)));
+/// Takes what keys a shortcut took typed, if it came in a frame after
+/// them, before another key was pressed: run as a frame begins.
+pub fn drop_typed(input: &mut egui::InputState) {
+    if !TYPED.with(std::cell::Cell::get) {
+        return;
+    }
+    let came = (input.events.iter()).position(|event| {
+        matches!(
+            event,
+            egui::Event::Text(_) | egui::Event::Key { pressed: true, .. }
+        )
+    });
+    if let Some(at) = came {
+        TYPED.with(|waiting| waiting.set(false));
+        if matches!(input.events[at], egui::Event::Text(_)) {
+            input.events.remove(at);
         }
     }
-    BOUND.with(|bound| *bound.borrow_mut() = now);
 }
 
-/// How `keys` are written, kept for as long as Muddie runs: the same
-/// text is made once however often the settings change.
-fn written_once(keys: &KeyboardShortcut) -> &'static str {
+/// Says whether the map is explored in this frame: while it is, the keys
+/// of its shortcuts do nothing else.
+pub fn exploring(now: bool) {
+    EXPLORING.with(|exploring| exploring.set(now));
+}
+
+/// Whether the map, explored, has these keys for one of its shortcuts.
+fn the_maps(keys: &Press) -> bool {
+    EXPLORING.with(std::cell::Cell::get)
+        && (ALL.iter()).any(|shortcut| shortcut.place == Place::Map && shortcut.has(keys))
+}
+
+/// Takes the keys chosen in the settings, by each shortcut's name: one or
+/// more, separated by commas, or none, written as [`Press::stored`] writes
+/// them.
+pub fn configure(chosen: &BTreeMap<String, String>) {
+    BOUND.with(|bound| {
+        let mut bound = bound.borrow_mut();
+        bound.chosen = chosen.clone();
+        work_out(&mut bound);
+    });
+}
+
+/// Takes the keys the scripts of the session on screen chose, in the order
+/// they did: the script, the shortcut and its keys, written as
+/// [`Press::stored`] writes them.
+pub fn script(scripted: Vec<(String, String, Vec<String>)>) {
+    BOUND.with(|bound| {
+        let mut bound = bound.borrow_mut();
+        if bound.scripted != scripted {
+            bound.scripted = scripted;
+            work_out(&mut bound);
+        }
+    });
+}
+
+/// Works out the keys of every shortcut: those chosen in the settings in
+/// place of its own, then those the scripts chose, each taking its keys
+/// from the shortcuts they would meet.
+fn work_out(bound: &mut Bound) {
+    let mut now = BTreeMap::new();
+    for shortcut in ALL {
+        if let Some(text) = bound.chosen.get(shortcut.id) {
+            now.insert(shortcut.id, read_list(text));
+        }
+    }
+    let mut by_script = BTreeMap::new();
+    for (script, id, keys) in &bound.scripted {
+        let Some(shortcut) = named(id) else {
+            continue;
+        };
+        let keys: Vec<Press> = keys.iter().filter_map(|key| Press::parse(key)).collect();
+        for other in ALL {
+            if other.id != shortcut.id && other.place.meets(shortcut.place) {
+                let had = now
+                    .get(other.id)
+                    .cloned()
+                    .unwrap_or_else(|| other.defaults.to_vec());
+                let kept: Vec<Press> = (had.iter())
+                    .filter(|key| !keys.contains(key))
+                    .copied()
+                    .collect();
+                if kept.len() != had.len() {
+                    now.insert(other.id, kept);
+                }
+            }
+        }
+        now.insert(shortcut.id, keys);
+        by_script.insert(shortcut.id, script.clone());
+    }
+    bound.now = now;
+    bound.by_script = by_script;
+}
+
+/// Keys as the settings keep them: several, separated by commas.
+fn read_list(text: &str) -> Vec<Press> {
+    (text.split(',').map(str::trim))
+        .filter(|key| !key.is_empty())
+        .filter_map(Press::parse)
+        .collect()
+}
+
+/// Keys as the settings keep them.
+pub fn write_list(keys: &[Press]) -> String {
+    (keys.iter().map(Press::stored))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+impl Shortcut {
+    /// The keys it is pressed with now: none, if it was left without.
+    pub fn keys(&self) -> Vec<Press> {
+        BOUND
+            .with(|bound| bound.borrow().now.get(self.id).cloned())
+            .unwrap_or_else(|| self.defaults.to_vec())
+    }
+
+    /// The keys it has without the scripts: its own, or those chosen in
+    /// the settings.
+    pub fn chosen_keys(&self) -> Vec<Press> {
+        let chosen = BOUND.with(|bound| bound.borrow().chosen.get(self.id).cloned());
+        chosen.map_or_else(|| self.defaults.to_vec(), |text| read_list(&text))
+    }
+
+    /// How its first keys are written, as said in a sentence: none, if it
+    /// has none.
+    pub fn written(&self) -> &'static str {
+        match self.keys().first() {
+            Some(keys) => written_once(keys.written()),
+            None => crate::i18n::tr("no keys"),
+        }
+    }
+
+    /// How all its keys are written, one after another.
+    pub fn all_written(&self) -> String {
+        let keys = self.keys();
+        match keys.is_empty() {
+            true => crate::i18n::tr("No keys").to_owned(),
+            false => (keys.iter().map(Press::written))
+                .collect::<Vec<_>>()
+                .join(", "),
+        }
+    }
+
+    /// Whether the settings give it keys other than its own.
+    pub fn is_changed(&self) -> bool {
+        BOUND.with(|bound| bound.borrow().chosen.contains_key(self.id))
+    }
+
+    /// The script that chose its keys, if one did: those go first.
+    pub fn script(&self) -> Option<String> {
+        BOUND.with(|bound| bound.borrow().by_script.get(self.id).cloned())
+    }
+
+    /// Whether it was pressed, taking the press, of the main block or of
+    /// the keypad.
+    /// While the map is explored, the keys of its shortcuts are its own.
+    pub fn pressed(&self, input: &mut egui::InputState) -> bool {
+        let others = self.place != Place::Map;
+        (self.keys().iter()).any(|keys| !(others && the_maps(keys)) && take(input, keys))
+    }
+
+    /// What egui is told to press its first keys, of the main block: for
+    /// tests.
+    #[cfg(test)]
+    pub fn first(&self) -> (Modifiers, Key) {
+        let keys = self.keys()[0];
+        match keys.key {
+            Pressed::Key(key) => (keys.held.modifiers(), key),
+            _ => panic!("{} is not pressed with a key of the main block", self.id),
+        }
+    }
+
+    /// Whether `keys` are among those it is pressed with now.
+    pub fn has(&self, keys: &Press) -> bool {
+        self.keys().contains(keys)
+    }
+
+    /// Whether `keys` can be its keys: what is wrong with them if not.
+    pub fn check(&self, keys: &Press) -> Result<(), Wrong> {
+        keys.check(self.place.typing(), self.can_be_alone())
+    }
+}
+
+/// How keys are written, kept for as long as Muddie runs: the same text
+/// is made once however often it is asked for.
+fn written_once(text: String) -> &'static str {
     thread_local! {
         static MADE: RefCell<BTreeMap<String, &'static str>> = RefCell::default();
     }
-    let text = write(keys);
     MADE.with(|made| {
         *made
             .borrow_mut()
@@ -238,227 +271,146 @@ fn written_once(keys: &KeyboardShortcut) -> &'static str {
     })
 }
 
-/// How `keys` are kept in the settings file: `ctrl+alt+shift+cmd+K`, those
-/// held in that order, and the key's name.
-pub fn stored(keys: &KeyboardShortcut) -> String {
-    let held = keys.modifiers;
-    let mut text = String::new();
-    for (down, name) in [
-        (held.ctrl || (held.command && !MAC), "ctrl+"),
-        (held.alt, "alt+"),
-        (held.shift, "shift+"),
-        (held.mac_cmd || (held.command && MAC), "cmd+"),
-    ] {
-        if down {
-            text.push_str(name);
-        }
-    }
-    text + keys.logical_key.name()
+/// Notes the keypad's keys pressed in this frame, by name, with what was
+/// held: shortcuts take them, and what is left goes to the macros.
+pub fn keypad_pressed(held: Modifiers, names: impl IntoIterator<Item = &'static str>) {
+    let held = Held::of(held);
+    KEYPAD.with(|keypad| {
+        let mut keypad = keypad.borrow_mut();
+        keypad.clear();
+        keypad.extend(names.into_iter().map(|name| (held, name)));
+    });
 }
 
-/// Reads keys as [`stored`] writes them.
-pub fn parse(text: &str) -> Option<KeyboardShortcut> {
-    let mut parts: Vec<&str> = text.split('+').collect();
-    // A + alone is the key named so.
-    let name = match parts.pop()? {
-        "" if parts.last() == Some(&"") => {
-            parts.pop();
-            "+"
-        }
-        name => name,
+/// The keypad's keys pressed in this frame that nothing took yet, taken.
+pub fn keypad_left() -> Vec<(Held, &'static str)> {
+    KEYPAD.with(|keypad| std::mem::take(&mut *keypad.borrow_mut()))
+}
+
+/// Puts back keys of the keypad taken but not used, for the shortcuts.
+pub fn keypad_give_back(left: Vec<(Held, &'static str)>) {
+    KEYPAD.with(|keypad| keypad.borrow_mut().extend(left));
+}
+
+/// Whether keys of the map's shortcuts that type were pressed in this
+/// frame: of the main block, or of the keypad.
+pub fn maps_keys_pressed(input: &egui::InputState) -> bool {
+    let the_maps = |keys: &Press| {
+        (ALL.iter()).any(|shortcut| shortcut.place == Place::Map && shortcut.has(keys))
     };
-    let key = Key::from_name(name)?;
-    let mut held = Modifiers::NONE;
-    for part in parts {
-        match part.to_lowercase().as_str() {
-            "ctrl" => held.ctrl = true,
-            "alt" => held.alt = true,
-            "shift" => held.shift = true,
-            "cmd" => held.mac_cmd = true,
-            _ => return None,
-        }
-    }
-    // Command is what the system takes it to be: Cmd on a Mac, Ctrl
-    // elsewhere; held so, egui matches it whichever of the two the
-    // window reports.
-    if MAC && held.mac_cmd {
-        held.mac_cmd = false;
-        held.command = true;
-    } else if !MAC && held.ctrl {
-        held.ctrl = false;
-        held.command = true;
-    }
-    Some(KeyboardShortcut::new(held, key))
-}
-
-/// How keys are written to be read: `Ctrl+Alt+K`, with Option and Cmd on
-/// a Mac.
-pub fn write(keys: &KeyboardShortcut) -> String {
-    let held = keys.modifiers;
-    let mut text = String::new();
-    let alt = if MAC { "Option+" } else { "Alt+" };
-    for (down, name) in [
-        (held.ctrl || (held.command && !MAC), "Ctrl+"),
-        (held.alt, alt),
-        (held.shift, "Shift+"),
-        (held.mac_cmd || (held.command && MAC), "Cmd+"),
-    ] {
-        if down {
-            text.push_str(name);
-        }
-    }
-    text + keys.logical_key.symbol_or_name()
-}
-
-/// The keys of a macro, as it names them (`alt+shift+f5`), as keys
-/// Muddie could have: none for the keypad's, which are not egui's.
-pub fn of_macro(name: &str) -> Option<KeyboardShortcut> {
-    let mut parts: Vec<&str> = name.trim().split('+').collect();
-    let key = parts.pop()?;
-    let key = *Key::ALL
-        .iter()
-        .find(|known| known.name().eq_ignore_ascii_case(key))?;
-    let mut held = Modifiers::NONE;
-    for part in parts {
-        match part {
-            "ctrl" => held.ctrl = true,
-            "alt" => held.alt = true,
-            "shift" => held.shift = true,
-            _ => return None,
-        }
-    }
-    Some(KeyboardShortcut::new(held, key))
-}
-
-/// Whether `keys` are `shortcut`'s own, those it has when none are chosen.
-pub fn is_own(shortcut: &Shortcut, keys: &KeyboardShortcut) -> bool {
-    let own = shortcut.default_keys;
-    own.logical_key == keys.logical_key && same_held(own.modifiers, keys.modifiers)
-}
-
-/// Whether keys pressed can be a shortcut: held with Ctrl, Alt or Cmd, or
-/// a function key, so that they do not type.
-pub fn can_be_shortcut(keys: &KeyboardShortcut) -> bool {
-    let held = keys.modifiers;
-    held.ctrl || held.alt || held.mac_cmd || held.command || is_function_key(keys.logical_key)
-}
-
-fn is_function_key(key: Key) -> bool {
-    let name = key.name();
-    name.len() > 1 && name.starts_with('F') && name[1..].parse::<u8>().is_ok()
-}
-
-/// What Muddie does with keys, of its own: a shortcut but `except`, or the
-/// keys that read the output and the panels, which are not chosen. None
-/// if they are free.
-pub fn taken_by(keys: &KeyboardShortcut, except: Option<&str>) -> Option<&'static str> {
-    let same = |other: &KeyboardShortcut| {
-        other.logical_key == keys.logical_key && same_held(other.modifiers, keys.modifiers)
-    };
-    for (shortcut, does) in bindable() {
-        if Some(shortcut.id) != except && same(&shortcut.keys()) {
-            return Some(does);
-        }
-    }
-    for shortcut in [COPY, SELECT_ALL, UNDO, REDO] {
-        if same(&shortcut.keys()) {
-            return Some(match shortcut.id {
-                "copy" => tr("Copy"),
-                "select_all" => tr("Select all"),
-                "undo" => tr("Undo"),
-                _ => tr("Redo"),
-            });
-        }
-    }
-    reading_keys(keys)
-}
-
-/// The keys that read the output and the panels, as they are: what each
-/// does, if `keys` are one.
-fn reading_keys(keys: &KeyboardShortcut) -> Option<&'static str> {
-    let held = keys.modifiers;
-    let key = keys.logical_key;
-    let shift = held.shift;
-    let plain = Modifiers {
-        shift: false,
-        ..held
-    };
-    let arrows = same_held(plain, WITH_ARROWS);
-    let figures = same_held(plain, WITH_KEY);
-    let digit = matches!(
-        key,
-        Key::Num1
-            | Key::Num2
-            | Key::Num3
-            | Key::Num4
-            | Key::Num5
-            | Key::Num6
-            | Key::Num7
-            | Key::Num8
-            | Key::Num9
-    );
-    match () {
-        _ if arrows && matches!(key, Key::ArrowUp | Key::ArrowDown | Key::Home | Key::End) => {
-            Some(match shift {
-                false => tr("Reads the output line by line"),
-                true => tr("Reads a panel of text line by line"),
+    let keypad = KEYPAD.with(|keypad| {
+        (keypad.borrow().iter()).any(|(held, name)| {
+            the_maps(&Press {
+                held: *held,
+                key: Pressed::Keypad(name),
             })
+        })
+    });
+    keypad
+        || input.events.iter().any(|event| match event {
+            egui::Event::Key {
+                key,
+                pressed: true,
+                modifiers,
+                ..
+            } => {
+                let keys = Press {
+                    held: Held::of(*modifiers),
+                    key: Pressed::Key(*key),
+                };
+                keys.types() && the_maps(&keys)
+            }
+            _ => false,
+        })
+}
+
+/// Takes a press of `keys`, if there was one in this frame: of the main
+/// block, not what egui made of a key of the keypad; or of the keypad,
+/// with what egui made of it, so that it does not also type.
+pub fn take(input: &mut egui::InputState, keys: &Press) -> bool {
+    match keys.key {
+        Pressed::Key(key) => {
+            let waiting: Vec<&'static str> =
+                KEYPAD.with(|keypad| keypad.borrow().iter().map(|(_, name)| *name).collect());
+            let at = input.events.iter().position(|event| match event {
+                egui::Event::Key {
+                    key: pressed,
+                    pressed: true,
+                    modifiers,
+                    ..
+                } => {
+                    *pressed == key
+                        && Held::of(*modifiers) == keys.held
+                        && !(waiting.iter()).any(|name| crate::keypad::is_event_of(name, event))
+                }
+                _ => false,
+            });
+            let Some(at) = at else {
+                return false;
+            };
+            input.events.remove(at);
+            // Keys that type, taken, type nothing.
+            if keys.types() {
+                let typed = (input.events[at..].iter())
+                    .position(|event| matches!(event, egui::Event::Text(_)));
+                match typed {
+                    Some(typed) => drop(input.events.remove(at + typed)),
+                    None => TYPED.with(|waiting| waiting.set(true)),
+                }
+            }
+            true
         }
-        _ if arrows && shift && matches!(key, Key::ArrowLeft | Key::ArrowRight) => {
-            Some(tr("Chooses the panel of text to read"))
+        Pressed::Keypad(name) => {
+            let taken = KEYPAD.with(|keypad| {
+                let mut keypad = keypad.borrow_mut();
+                let at =
+                    (keypad.iter()).position(|(held, known)| *known == name && *held == keys.held);
+                at.map(|at| keypad.remove(at)).is_some()
+            });
+            if taken {
+                (input.events).retain(|event| !crate::keypad::is_event_of(name, event));
+            }
+            taken
         }
-        _ if figures && digit => Some(match shift {
-            false => tr("Reads the most recent lines"),
-            true => tr("Reads the most recent lines of a panel"),
-        }),
-        _ if figures && key == Key::C => Some(tr("Copies the line read last")),
-        _ if figures && !shift && key == Key::O => {
-            Some(tr("Does what the link of the line read last does"))
-        }
-        _ => None,
+        Pressed::Alone => false,
     }
 }
 
-/// The same keys held, Command being Ctrl or Cmd as the system has it.
-fn same_held(one: Modifiers, other: Modifiers) -> bool {
-    let ctrl = |held: Modifiers| held.ctrl || (held.command && !MAC);
-    let cmd = |held: Modifiers| held.mac_cmd || (held.command && MAC);
-    ctrl(one) == ctrl(other)
-        && cmd(one) == cmd(other)
-        && one.alt == other.alt
-        && one.shift == other.shift
+/// Every shortcut, as scripts are told of them.
+pub fn for_scripts() -> Vec<muddie_script::KnownShortcut> {
+    (ALL.iter())
+        .map(|shortcut| muddie_script::KnownShortcut {
+            name: shortcut.id.to_owned(),
+            place: shortcut.place.id().to_owned(),
+            about: shortcut.about().to_owned(),
+            keys: shortcut.chosen_keys().iter().map(Press::stored).collect(),
+        })
+        .collect()
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+/// Reads keys a script gives the shortcut named `name`: as they are kept,
+/// or what is wrong with them, in English, as scripts are told.
+pub fn check_for_scripts(name: &str, key: &str) -> Result<String, String> {
+    let shortcut = named(name).ok_or_else(|| "is for no shortcut".to_owned())?;
+    let keys = Press::parse(key).ok_or_else(|| Wrong::Unknown.for_scripts().to_owned())?;
+    shortcut
+        .check(&keys)
+        .map_err(|wrong| wrong.for_scripts().to_owned())?;
+    Ok(keys.stored())
+}
 
-    #[test]
-    fn keys_chosen_are_kept_read_and_told_apart_from_muddies_own() {
-        let keys = KeyboardShortcut::new(Modifiers::CTRL | Modifiers::SHIFT, Key::P);
-        assert_eq!(stored(&keys), "ctrl+shift+P");
-        assert_eq!(parse("ctrl+shift+P"), parse(&stored(&keys)));
-        assert!(same_held(
-            parse("ctrl+shift+P").unwrap().modifiers,
-            keys.modifiers
-        ));
-        assert_eq!(parse("ctrl+F5").map(|keys| keys.logical_key), Some(Key::F5));
-        assert!(parse("ctrl+nothing").is_none() && parse("hyper+K").is_none());
-        // Chosen, the palette is opened with them and written so.
-        configure(&BTreeMap::from([("palette".into(), "ctrl+shift+P".into())]));
-        assert!(PALETTE.is_changed());
-        assert_eq!(PALETTE.keys().logical_key, Key::P);
-        assert_eq!(PALETTE.written(), "Ctrl+Shift+P");
-        assert_eq!(taken_by(&keys, None), Some(tr("Palette")));
-        assert_eq!(taken_by(&keys, Some("palette")), None);
-        // What reads the output is not chosen, but it is taken.
-        let review = KeyboardShortcut::new(WITH_KEY, Key::Num1);
-        assert_eq!(
-            taken_by(&review, None),
-            Some(tr("Reads the most recent lines"))
-        );
-        configure(&BTreeMap::new());
-        assert!(!PALETTE.is_changed());
-        assert_eq!(PALETTE.written(), command!("K"));
-    }
+/// What has `keys` among Muddie's shortcuts that would meet one working
+/// in `place`, but `except`: what it does, if one has.
+pub fn taken_by(keys: &Press, place: Place, except: Option<&str>) -> Option<Shortcut> {
+    (ALL.iter())
+        .filter(|shortcut| Some(shortcut.id) != except && shortcut.place.meets(place))
+        .find(|shortcut| shortcut.has(keys))
+        .copied()
+}
+
+/// What of Muddie's has the keys of a macro, as it names them
+/// (`alt+shift+f5`): the macro goes before it.
+pub fn taken_by_macro(key: &str) -> Option<Shortcut> {
+    let keys = Press::parse(key)?;
+    taken_by(&keys, Place::Everywhere, None)
 }

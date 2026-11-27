@@ -1,185 +1,73 @@
 use super::*;
 
-/// The shortcuts of "Typing", each with the keys and what they do.
-fn typing_shortcuts() -> [(&'static str, &'static str); 7] {
-    [
-        ("↑  ↓", tr("Earlier and later commands")),
-        (
-            crate::shortcuts::HISTORY_SEARCH.written(),
-            tr("Find a command typed before"),
-        ),
-        ("Tab", tr("Complete the word being typed")),
-        ("Tab", tr("With nothing typed, read the output as text")),
-        ("F6  Shift+F6", tr("Go to the output and each panel")),
-        (
-            crate::shortcuts::MESSAGES.written(),
-            tr("Open the messages"),
-        ),
-        (crate::shortcuts::FIND.written(), tr("Find in the output")),
-    ]
-}
-
-/// The shortcuts of "Speech", each with the keys and what they do.
-fn speech_shortcuts() -> [(&'static str, &'static str); 11] {
-    [
-        ("Ctrl", tr("Silence speech")),
-        (
-            crate::shortcuts::with_arrows!("↑  ↓"),
-            tr("Read the previous and next line"),
-        ),
-        (
-            crate::shortcuts::with_arrows!("Home  End"),
-            tr("Read the first and last line"),
-        ),
-        (
-            crate::shortcuts::with_key!("1 … 9"),
-            tr("Read the most recent lines"),
-        ),
-        (
-            crate::shortcuts::with_arrows!("Shift+↑ …"),
-            tr("Same, for a panel of text"),
-        ),
-        (
-            crate::shortcuts::with_arrows!("Shift+←  →"),
-            tr("Choose the panel of text to read"),
-        ),
-        (
-            crate::shortcuts::with_key!("C"),
-            tr("Copy the line read last"),
-        ),
-        (
-            crate::shortcuts::with_key!("O"),
-            tr("Follow the link of the line read last"),
-        ),
-        (crate::shortcuts::GAUGES.written(), tr("Read the gauges")),
-        (crate::shortcuts::WHERE.written(), tr("Where am I")),
-        (
-            crate::shortcuts::EXPLORE.written(),
-            tr("Explore the map with the keys"),
-        ),
-    ]
-}
-
-/// The shortcuts of "Exploring the map", each with the keys and what they do.
-fn exploring_shortcuts() -> [(&'static str, &'static str); 14] {
-    [
-        ("↑ ↓ ← →  PgUp PgDn", tr("Follow the exits")),
-        (
-            tr("The keypad"),
-            tr("Follow the exits by where its keys are; slash and star, in and out"),
-        ),
-        (tr("Home"), tr("Back to your room")),
-        (tr("Backspace"), tr("Back to the room before")),
-        (tr("Space"), tr("Say the room again")),
-        (
-            crate::shortcuts::ROOM_INFO.written(),
-            tr("All about the room"),
-        ),
-        (crate::shortcuts::NEAR.written(), tr("What is near")),
-        (crate::shortcuts::FIND.written(), tr("Find on the map")),
-        (crate::shortcuts::MARK.written(), tr("Mark the room")),
-        (
-            crate::shortcuts::NOTE.written(),
-            tr("Write a note on the room"),
-        ),
-        (tr("Enter  Shift+Enter"), tr("Go there, or say the way")),
-        (
-            tr("Shift+F10  Menu key"),
-            tr("The room's menu, with each exit to follow"),
-        ),
-        ("F1", tr("Say all the keys")),
-        (tr("Escape"), tr("Back to the command line")),
-    ]
-}
-
-/// The shortcuts of "Sessions", each with the keys and what they do.
-fn sessions_shortcuts() -> [(&'static str, &'static str); 7] {
-    [
-        (crate::shortcuts::NEW_SESSION.written(), tr("New session")),
-        (
-            crate::shortcuts::CLOSE_SESSION.written(),
-            tr("Close session"),
-        ),
-        (crate::shortcuts::RECONNECT.written(), tr("Reconnect")),
-        (crate::shortcuts::PALETTE.written(), tr("Palette")),
-        (
-            crate::shortcuts::SWITCH_VIEW.written(),
-            tr("Switch between the game and the editor"),
-        ),
-        (
-            crate::shortcuts::DATA_VIEW.written(),
-            tr("Show incoming data"),
-        ),
-        (crate::shortcuts::SETTINGS.written(), tr("Settings")),
-    ]
-}
-
-/// The shortcuts of "Editor", each with the keys and what they do.
-fn editor_shortcuts() -> [(&'static str, &'static str); 10] {
-    [
-        ("↑  ↓", tr("Select the previous or next item")),
-        ("←  →", tr("Collapse or expand a folder")),
-        (
-            if cfg!(target_os = "macos") {
-                tr("Cmd+click  Shift+click")
-            } else {
-                tr("Ctrl+click  Shift+click")
-            },
-            tr("Select several items or a range"),
-        ),
-        (
-            crate::shortcuts::SELECT_ALL.written(),
-            tr("Select all visible items"),
-        ),
-        (
-            crate::shortcuts::with_arrows!("↑  ↓"),
-            tr("Move up or down"),
-        ),
-        (
-            crate::shortcuts::with_arrows!("←"),
-            tr("Move out of its folder"),
-        ),
-        ("F2", tr("Rename")),
-        (tr("Del"), tr("Delete")),
-        (crate::shortcuts::UNDO.written(), tr("Undo")),
-        (crate::shortcuts::REDO.written(), tr("Redo")),
-    ]
-}
-
-/// The shortcuts of "Panels", each with the keys and what they do.
-fn panels_shortcuts() -> [(&'static str, &'static str); 2] {
-    [
-        (crate::shortcuts::MAP.written(), tr("Show or hide the map")),
-        (
+/// The keys of a place that are not shortcuts to choose: those that go
+/// through the window, and the system's.
+fn fixed_keys(place: crate::shortcuts::Place) -> Vec<(String, &'static str)> {
+    use crate::shortcuts::Place;
+    let keys = |pairs: &[(&str, &'static str)]| -> Vec<(String, &'static str)> {
+        (pairs.iter())
+            .map(|(keys, does)| ((*keys).to_owned(), *does))
+            .collect()
+    };
+    match place {
+        Place::Everywhere => keys(&[
+            ("Tab  Shift+Tab", tr("Go to the next or previous control")),
+            (
+                tr("Shift+F10  Menu key"),
+                tr("Open the context menu of the focused item"),
+            ),
+            (crate::shortcuts::copy_written(), tr("Copy")),
+        ]),
+        Place::Line => keys(&[
+            ("Tab", tr("Complete the word being typed")),
+            ("Tab", tr("With nothing typed, read the output as text")),
+        ]),
+        Place::Map => keys(&[
+            (
+                tr("Shift+F10  Menu key"),
+                tr("The room's menu, with each exit to follow"),
+            ),
+            (tr("Escape"), tr("Back to the command line")),
+        ]),
+        Place::Editor => keys(&[
+            ("↑  ↓", tr("Select the previous or next item")),
+            ("←  →", tr("Collapse or expand a folder")),
+            (
+                if cfg!(target_os = "macos") {
+                    tr("Cmd+click  Shift+click")
+                } else {
+                    tr("Ctrl+click  Shift+click")
+                },
+                tr("Select several items or a range"),
+            ),
+        ]),
+        Place::Layout => keys(&[(
             tr("← →  ↑ ↓ on an edge"),
             tr("Make the panels larger or smaller"),
-        ),
-    ]
-}
-
-/// The shortcuts of "Everywhere", each with the keys and what they do.
-fn everywhere_shortcuts() -> [(&'static str, &'static str); 2] {
-    [
-        ("Tab  Shift+Tab", tr("Go to the next or previous control")),
-        (
-            tr("Shift+F10  Menu key"),
-            tr("Open the context menu of the focused item"),
-        ),
-    ]
+        )]),
+        Place::Reading => Vec::new(),
+    }
 }
 
 /// The groups of shortcuts, each under its title, in a grid of the keys
-/// and what they do.
-fn show_shortcut_groups(ui: &mut Ui, groups: [(&str, &[(&str, &str)]); 7], theme: &theme::Theme) {
-    for (title, shortcuts) in groups {
+/// and what they do: those that can be chosen as they are now, then
+/// those that stay.
+fn show_shortcut_groups(ui: &mut Ui, theme: &theme::Theme) {
+    for place in crate::shortcuts::Place::ALL {
+        let title = place.title();
         widgets::caption(ui, title);
+        let mut rows: Vec<(String, &str)> = (crate::shortcuts::ALL.iter())
+            .filter(|shortcut| shortcut.place == place)
+            .map(|shortcut| (shortcut.all_written(), shortcut.about()))
+            .collect();
+        rows.extend(fixed_keys(place));
         egui::Grid::new(title)
             .num_columns(2)
             .spacing([24.0, 8.0])
             .show(ui, |ui| {
-                for (keys, action) in shortcuts {
+                for (keys, action) in &rows {
                     ui.label(
-                        RichText::new(*keys)
+                        RichText::new(keys.as_str())
                             .font(theme::font(Weight::Medium, 13.0))
                             .color(theme.text),
                     );
@@ -201,23 +89,7 @@ impl App {
             &mut self.show_shortcuts,
             size::DIALOG_S,
             |ui| {
-                let typing = typing_shortcuts();
-                let speech = speech_shortcuts();
-                let exploring = exploring_shortcuts();
-                let sessions = sessions_shortcuts();
-                let editor = editor_shortcuts();
-                let panels = panels_shortcuts();
-                let everywhere = everywhere_shortcuts();
-                let groups: [(&str, &[(&str, &str)]); 7] = [
-                    (tr("Typing"), &typing),
-                    (tr("Speech"), &speech),
-                    (tr("Exploring the map"), &exploring),
-                    (tr("Sessions"), &sessions),
-                    (tr("Editor"), &editor),
-                    (tr("Panels"), &panels),
-                    (tr("Everywhere"), &everywhere),
-                ];
-                show_shortcut_groups(ui, groups, &theme);
+                show_shortcut_groups(ui, &theme);
             },
         );
     }
