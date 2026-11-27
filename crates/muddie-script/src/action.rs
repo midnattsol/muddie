@@ -296,6 +296,18 @@ pub enum Action {
     Input(String),
     /// Take this as if the MUD had sent it.
     Feed(String),
+    /// Offer these, by what each says and what more it says of itself,
+    /// to choose one under `title`: what is chosen, or that none was, is
+    /// told back with [`crate::Engine::chosen`] and `id`.
+    Choose {
+        id: u64,
+        title: String,
+        items: Vec<(String, String)>,
+    },
+    /// Put this on the clipboard.
+    Copy(String),
+    /// Read the game aloud, or not.
+    Reading(bool),
     /// A script failed; the message is for the user.
     Error(String),
     /// Something a script shows on the standard output of a run started

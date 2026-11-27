@@ -2,6 +2,7 @@
 
 use super::*;
 
+mod client;
 mod data;
 mod definitions;
 mod explain;

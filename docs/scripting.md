@@ -47,37 +47,41 @@ half a second without stopping, Muddie stops it with an error and carries on.
    - [`tr(texts)`](#trtexts)
    - [`log(text)`](#logtext)
    - [`hush()`](#hush)
-6. [Choose how something is heard](#choose-how-something-is-heard)
-7. [Send commands and make shortcuts](#send-commands-and-make-shortcuts)
+6. [Offer a list, and the clipboard](#offer-a-list-and-the-clipboard)
+   - [`choose(items, fn, options)`](#chooseitems-fn-options)
+   - [`clipboard.set(text)`](#clipboardsettext)
+   - [`clipboard.get()`](#clipboardget)
+7. [Choose how something is heard](#choose-how-something-is-heard)
+8. [Send commands and make shortcuts](#send-commands-and-make-shortcuts)
    - [`send(text)`](#sendtext)
    - [`alias(pattern, fn, options)`](#aliaspattern-fn-options)
    - [`on("send", fn)`](#onsend-fn)
-8. [Bind keys](#bind-keys)
+9. [Bind keys](#bind-keys)
    - [`macro(key, action, options)`](#macrokey-action-options)
-9. [Change Muddie's own keys (shortcuts)](#change-muddies-own-keys-shortcuts)
+10. [Change Muddie's own keys (shortcuts)](#change-muddies-own-keys-shortcuts)
    - [`shortcuts.<name>`](#shortcutsname)
    - [`shortcuts.all()`](#shortcutsall)
    - [Every shortcut](#every-shortcut)
-10. [Do something later or every so often](#do-something-later-or-every-so-often)
+11. [Do something later or every so often](#do-something-later-or-every-so-often)
    - [`after(seconds, fn, options)`](#afterseconds-fn-options)
    - [`every(seconds, fn, options)`](#everyseconds-fn-options)
-11. [Wait in the middle of a script](#wait-in-the-middle-of-a-script)
+12. [Wait in the middle of a script](#wait-in-the-middle-of-a-script)
    - [`wait(seconds)`](#waitseconds)
    - [`wait("line", pattern, options)`](#waitline-pattern-options)
    - [`wait(what, name, options)`](#waitwhat-name-options)
    - [`lines(options)`](#linesoptions)
    - [Where nothing can wait](#where-nothing-can-wait)
-12. [Remember things (vars)](#remember-things-vars)
+13. [Remember things (vars)](#remember-things-vars)
    - [`vars`](#vars)
    - [`expand(text)`](#expandtext)
    - [`on("var", name, fn)`](#onvar-name-fn)
-13. [Show your character's state (gauges)](#show-your-characters-state-gauges)
+14. [Show your character's state (gauges)](#show-your-characters-state-gauges)
    - [`gauges.set(name, gauge)`](#gaugessetname-gauge)
    - [`gauges.remove(name, options)`](#gaugesremovename-options)
    - [`gauges.get(name)`](#gaugesgetname)
    - [`gauges.all()`](#gaugesall)
    - [`on("gauge", name, fn, options)`](#ongauge-name-fn-options)
-14. [Text panels and channels](#text-panels-and-channels)
+15. [Text panels and channels](#text-panels-and-channels)
    - [`panels.set(name, text)`](#panelssetname-text)
    - [`panels.clear(name)`](#panelsclearname)
    - [`panels.add(name, text, options)`](#panelsaddname-text-options)
@@ -86,10 +90,10 @@ half a second without stopping, Muddie stops it with an error and carries on.
    - [`channels.open(name, options)`](#channelsopenname-options)
    - [`channels.close(name)`](#channelsclosename)
    - [`channels.all()`](#channelsall)
-15. [Play sounds](#play-sounds)
+16. [Play sounds](#play-sounds)
    - [`sounds.play(file, options)`](#soundsplayfile-options)
    - [`sounds.stop()`](#soundsstop)
-16. [Talk to the MUD behind the scenes (GMCP, MSDP)](#talk-to-the-mud-behind-the-scenes-gmcp-msdp)
+17. [Talk to the MUD behind the scenes (GMCP, MSDP)](#talk-to-the-mud-behind-the-scenes-gmcp-msdp)
    - [`gmcp.get(package)`](#gmcpgetpackage)
    - [`gmcp.send(package, data)`](#gmcpsendpackage-data)
    - [`gmcp.support(module, ...)`](#gmcpsupportmodule-)
@@ -97,21 +101,21 @@ half a second without stopping, Muddie stops it with an error and carries on.
    - [`msdp.get(variable)`, `msdp.send(command, ...)`](#msdpgetvariable-msdpsendcommand-)
    - [`msdp.report(variable, ...)`](#msdpreportvariable-)
    - [`mssp.get()`](#msspget)
-17. [React to other events (on)](#react-to-other-events-on)
+18. [React to other events (on)](#react-to-other-events-on)
    - [`on(what, name, fn, options)`](#onwhat-name-fn-options)
    - [`emit(name, data)`](#emitname-data)
-18. [Turn things on and off](#turn-things-on-and-off)
+19. [Turn things on and off](#turn-things-on-and-off)
    - [Options, places and tags](#options-places-and-tags)
    - [What `trigger`, `alias`, `macro`, `after`, `every` and `on` return](#what-trigger-alias-macro-after-every-and-on-return)
    - [`triggers`, `aliases`, `macros`, `timers`, `gauges`, `scripts`](#triggers-aliases-macros-timers-gauges-scripts)
    - [`tags`](#tags)
    - [What goes with a script](#what-goes-with-a-script)
-19. [The session and the command line](#the-session-and-the-command-line)
+20. [The session and the command line](#the-session-and-the-command-line)
    - [Fields of `session`](#fields-of-session)
    - [`session.completions(name, words)`](#sessioncompletionsname-words)
    - [`session.feed(text)`](#sessionfeedtext)
    - [`output.last(count)`](#outputlastcount)
-20. [Map the game and walk it](#map-the-game-and-walk-it)
+21. [Map the game and walk it](#map-the-game-and-walk-it)
    - [Rooms and places](#rooms-and-places)
    - [Settings of the map](#settings-of-the-map)
    - [Following the player](#following-the-player)
@@ -147,10 +151,10 @@ half a second without stopping, Muddie stops it with an error and carries on.
      - [`map.import(address)`](#mapimportaddress)
      - [`map.newer(address, fn)`](#mapneweraddress-fn)
      - [`map.action(name, fn, options)`](#mapactionname-fn-options)
-21. [Share code between scripts](#share-code-between-scripts)
+22. [Share code between scripts](#share-code-between-scripts)
    - [`require(name)`](#requirename)
-22. [When something goes wrong](#when-something-goes-wrong)
-23. [What scripts cannot do](#what-scripts-cannot-do)
+23. [When something goes wrong](#when-something-goes-wrong)
+24. [What scripts cannot do](#what-scripts-cannot-do)
 
 ## Start here
 
@@ -492,6 +496,86 @@ needs.
 Stops what is being read right now, in the session in front.
 
 **Returns:** nothing.
+
+## Offer a list, and the clipboard
+
+Sometimes the player has to pick one thing among several: whom to reply to,
+which event to read again, which object to look at. A list does that the
+same way for everyone: it opens in the palette, the arrows go through it,
+each item is read aloud, Enter chooses and Escape closes it. Typing narrows
+the list down.
+
+### `choose(items, fn, options)`
+
+Offers `items` in a list, and calls `fn` with what the player chose.
+
+**Parameters:**
+
+- `items`: a list. Each item is a text, or `{text = ..., about = ...}`, where
+  `about` says more of it; each can be a table of texts by language, as for
+  [`tr`](#trtexts).
+- `fn`: called with where the chosen item is in the list (from 1) and its
+  text; with `nil` if the list was closed without choosing.
+
+**Options:** `title`, what the list asks, as a text or texts by language.
+Without it, the list says "Choose one".
+
+**Returns:** nothing. `fn` is called later, when the player chooses.
+
+A new list closes one still open: the script that offered that one gets
+`nil`.
+
+**Example:**
+
+```lua
+-- Choose whom to reply to, from those who told you something.
+local senders = {}
+trigger("^(\\w+) tells you: ", function(m)
+    if not table.find(senders, m[1]) then table.insert(senders, m[1]) end
+end)
+alias("^replyto$", function()
+    choose(senders, function(index, name)
+        if name then vars.reply_to = name end
+    end, {title = {en = "Reply to", es = "Responder a"}})
+end)
+```
+
+**See also:** [`clipboard.set(text)`](#clipboardsettext).
+
+### `clipboard.set(text)`
+
+Puts `text` on the clipboard, for the player to paste anywhere.
+
+**Returns:** nothing.
+
+**Example:**
+
+```lua
+-- F7 copies your life, to paste it where you like.
+macro("f7", function()
+    local vitals = gmcp.get("Char.Vitals")
+    if vitals then clipboard.set(`{vitals.hp}({vitals.maxhp})`) end
+end)
+-- "repg" says what Muddie copied last on the group channel.
+alias("^repg$", function()
+    local text = clipboard.get()
+    if text then send("group " .. text) end
+end)
+```
+
+**See also:** [`clipboard.get()`](#clipboardget).
+
+### `clipboard.get()`
+
+Gets the last text Muddie put on the clipboard: by a script, or by the
+player with the review key that copies a line.
+
+**Returns:** the text, or `nil` if Muddie has copied nothing yet.
+
+Watch out: it does not read what other programs copied. A script someone
+shares cannot see, for instance, a password you copied from elsewhere.
+
+**See also:** [`clipboard.set(text)`](#clipboardsettext).
 
 ## Choose how something is heard
 
@@ -1315,11 +1399,21 @@ Calls `fn` when `what` happens. For events that take no `name`, write
 | `"channel"` | a channel, or none for all | `{channel, text}` |
 | `"emit"` | what another script says | what it said, and the name |
 | `"send"` | none | each command on its way to the MUD (see [`on("send")`](#onsend-fn)) |
+| `"room"` | none | the room the player is now in, as [`map.room`](#maproomplace) gives it, and the id of the one before (`nil` at first) |
 | `"connect"`, `"disconnect"` | none | nothing |
 | `"focus"` | none | whether the session is now in front, in a window that is in front |
 | `"reader"` | none | whether a screen reader now reads Muddie |
 | `"mxp"` | none | `{name, value}`, when the MUD names a value with MXP |
 | `"panel"` | none | `{name, map, columns, rows}`, when a panel that shows a drawing settles on a new size; `map` is true for the map panel |
+
+**A move to another room** is told once the map knows the player is there, however it knows it: the standard plugin, a script, or a walk.
+
+```lua
+-- The note of a room is said as you come into it.
+on("room", function(room)
+    if room.note ~= "" then speak(room.note) end
+end)
+```
 
 **Options:** `place` and `tags`; for a gauge, also `under` and `over`.
 
@@ -1449,6 +1543,7 @@ line. A few functions help with typing and testing.
 | `session.reader` | Whether a screen reader is reading Muddie |
 | `session.focused` | Whether the session is in front, in a window that is in front |
 | `session.input` | What is typed in the command line. Set it to put text there. It is `nil` while a password is being typed, and then it cannot be set either |
+| `session.reading` | Whether the game is read aloud. Set it to `false` to keep it quiet, as a quiet mode does; `true` or `nil` reads it again. The player can switch it too; when the script that set it goes, the game is read again |
 | `session.separator` | What separates several commands typed on one line: `";"` unless you set it. `false` turns splitting off; `nil` brings back `";"`. Type it twice to send it as it is |
 
 ### `session.completions(name, words)`

@@ -266,6 +266,7 @@ fn look_of(item: &Item) -> (widgets::Glyph, &'static str) {
         Act::Panel(_) => (Glyph::Panel, ""),
         Act::Place(_) | Act::MapAction(_) | Act::Look(_) | Act::AllAreas => (Glyph::Map, ""),
         Act::Ask(_) | Act::Answer(_) => (Glyph::Search, ""),
+        Act::Chose(_) => (Glyph::Check, ""),
         Act::Run(command) if command.starts_with("/map") => (Glyph::Map, ""),
         Act::Run(_) => (Glyph::Check, ""),
     }

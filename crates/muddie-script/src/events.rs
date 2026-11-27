@@ -283,6 +283,7 @@ impl Engine {
 
     /// Runs the timers that are due at `now`.
     pub fn tick(&mut self, now: Instant) {
+        self.watch_room();
         let due: Vec<(u64, String, Function, bool)> = {
             let state = self.state.borrow();
             let off = |timer: &Timer| {

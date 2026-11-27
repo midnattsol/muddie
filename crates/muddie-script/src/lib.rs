@@ -24,6 +24,7 @@ use regex::Regex;
 
 mod action;
 mod api;
+mod client;
 mod convert;
 mod events;
 mod explain;
@@ -216,6 +217,12 @@ impl Engine {
         state.merged.retain(|(by, _)| by != owner);
         state.reports.retain(|(by, _)| by != owner);
         state.completions.retain(|(by, _, _)| by != owner);
+        if state.reading_set_by.as_deref() == Some(owner) {
+            state.reading_set_by = None;
+            if std::mem::take(&mut state.not_reading) {
+                state.actions.push(Action::Reading(true));
+            }
+        }
         let chosen = state.shortcuts.len();
         state.shortcuts.retain(|(by, _, _)| by != owner);
         if state.shortcuts.len() != chosen {

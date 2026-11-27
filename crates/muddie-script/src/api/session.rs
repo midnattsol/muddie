@@ -4,7 +4,7 @@
 use super::*;
 
 /// What there is to ask of the session.
-const FIELDS: [&str; 7] = [
+const FIELDS: [&str; 8] = [
     "connected",
     "host",
     "profile",
@@ -12,6 +12,7 @@ const FIELDS: [&str; 7] = [
     "focused",
     "separator",
     "input",
+    "reading",
 ];
 
 pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()> {
@@ -40,6 +41,7 @@ pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()>
                 },
                 "reader" => Value::Boolean(state.screen_reader),
                 "focused" => Value::Boolean(state.focused.unwrap_or(false)),
+                "reading" => Value::Boolean(!state.not_reading),
                 "input" => match &state.input {
                     Some(text) => Value::String(lua.create_string(text)?),
                     None => Value::Nil,
@@ -65,6 +67,7 @@ pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()>
             match field.as_str() {
                 "separator" => set_separator(&shared, value),
                 "input" => set_input(&shared, &value),
+                "reading" => set_reading(&shared, &value),
                 _ => Err(mlua::Error::runtime(format!(
                     "session.{field} is asked for, not set"
                 ))),
@@ -112,6 +115,25 @@ fn set_input(state: &Rc<RefCell<State>>, text: &Value) -> mlua::Result<()> {
         state.input = Some(text.clone());
         state.actions.push(Action::Input(text));
     }
+    Ok(())
+}
+
+/// Has the game read aloud, or not: `nil` is read aloud again.
+fn set_reading(state: &Rc<RefCell<State>>, value: &Value) -> mlua::Result<()> {
+    let reading = match value {
+        Value::Nil => true,
+        Value::Boolean(reading) => *reading,
+        other => {
+            return Err(mlua::Error::runtime(format!(
+                "session.reading is true or false, not {}",
+                other.type_name()
+            )));
+        }
+    };
+    let mut state = state.borrow_mut();
+    state.not_reading = !reading;
+    state.reading_set_by = (!reading).then(|| state.owner.clone());
+    state.actions.push(Action::Reading(reading));
     Ok(())
 }
 

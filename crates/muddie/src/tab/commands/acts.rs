@@ -272,21 +272,25 @@ impl Tab {
             Act::ReadChannel(name, read) => {
                 self.set_channel_quiet(&name, !read);
             }
-            Act::Speech => match self.voice.enabled() && self.voice.reads_game() {
-                true => {
-                    self.voice.set_muted(true);
-                    self.voice.say_now(tr("The game is no longer read aloud."));
-                }
-                false => {
-                    self.voice.set_muted(false);
-                    // Asked to speak with nothing to speak through: the
-                    // system's voice does.
-                    if !self.voice.enabled() {
-                        self.voice.force_voice();
+            Act::Speech => {
+                match self.voice.enabled() && self.voice.reads_game() {
+                    true => {
+                        self.voice.set_muted(true);
+                        self.voice.say_now(tr("The game is no longer read aloud."));
                     }
-                    self.voice.say_now(tr("The game is read aloud."));
+                    false => {
+                        self.voice.set_muted(false);
+                        // Asked to speak with nothing to speak through: the
+                        // system's voice does.
+                        if !self.voice.enabled() {
+                            self.voice.force_voice();
+                        }
+                        self.voice.say_now(tr("The game is read aloud."));
+                    }
                 }
-            },
+                self.scripts.set_reading(self.voice.reads_game());
+            }
+            Act::Chose(_) => {}
             Act::MapAction(label) => self.use_map_action(&label),
             Act::CopyOutput => {
                 self.output.copy_all(ctx);

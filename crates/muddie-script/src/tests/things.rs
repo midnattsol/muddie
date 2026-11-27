@@ -38,7 +38,7 @@ fn everything_is_listened_to_with_one_function() {
     for (code, said) in [
         (
             r#"on("conect", function() end)"#,
-            "there is no conect to listen to; there are gmcp, msdp, var, gauge, channel, emit, send, connect, disconnect, focus, reader, panel, mxp",
+            "there is no conect to listen to; there are gmcp, msdp, var, gauge, channel, emit, send, room, connect, disconnect, focus, reader, panel, mxp",
         ),
         (
             r#"on("gmcp", function() end)"#,

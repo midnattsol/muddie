@@ -23,8 +23,9 @@ const NAMED: [(&str, &str); 6] = [
 ];
 
 /// What happens in the client that there is to listen to.
-const EVENTS: [&str; 7] = [
+const EVENTS: [&str; 8] = [
     "send",
+    "room",
     "connect",
     "disconnect",
     "focus",

@@ -253,6 +253,9 @@ pub struct Tab {
     login: Login,
     /// Keypad keys pressed since the last frame, by name.
     pub keypad_pressed: Vec<&'static str>,
+    /// What a script asked to put on the clipboard, put there as the
+    /// frame runs.
+    copying: Option<String>,
     /// Whether the MUD was last told a screen reader reads the session.
     told_screen_reader: bool,
 }
@@ -416,6 +419,7 @@ impl Tab {
             new_password: String::new(),
             login: Login::Idle,
             keypad_pressed: Vec::new(),
+            copying: None,
             told_screen_reader: false,
         }
     }
@@ -484,6 +488,9 @@ impl Tab {
         let now = Instant::now();
         self.scripts.tick(now);
         self.run_actions();
+        if let Some(text) = self.copying.take() {
+            ctx.copy_text(text);
+        }
         self.check_walk(ctx);
         self.check_map_imported(ctx);
         self.check_newer_maps(ctx);

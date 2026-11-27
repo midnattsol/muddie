@@ -76,6 +76,7 @@ impl Tab {
         // Known as the scripts run, not a frame later.
         let _ = self.scripts.set_screen_reader(self.voice.screen_reader());
         self.tell_shortcuts();
+        self.scripts.set_reading(self.voice.reads_game());
         self.retell_panel_sizes();
         match (&self.profiles, &self.profile) {
             (Some(profiles), Some(profile)) => self
@@ -279,6 +280,9 @@ impl Tab {
                 Action::ShowArea(area) => self.show_area(&area, false),
                 Action::ImportMap(address) => self.import_for_script(address),
                 Action::MapNewer { address, answer } => self.check_newer_map(address, answer),
+                Action::Choose { id, title, items } => self.start_choice(id, &title, items),
+                Action::Copy(text) => self.copying = Some(text),
+                Action::Reading(reading) => self.voice.set_muted(!reading),
                 // The palette lists them: worked out again.
                 Action::MapActions => self.palette.cache = None,
                 Action::Panel { name, text } => self.show_in_panel(&name, text.as_deref()),

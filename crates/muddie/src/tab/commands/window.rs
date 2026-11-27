@@ -11,6 +11,7 @@ impl Tab {
     /// The palette over the window while it is open: the keys first, then
     /// its card, then a click on one of its rows or anywhere else.
     pub(in crate::tab) fn palette(&mut self, ctx: &egui::Context) {
+        self.choice_left();
         let shown =
             ctx.animate_bool_with_time(egui::Id::unique("palette shown"), self.palette.open, 0.1);
         if !self.palette.open {

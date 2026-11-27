@@ -12,6 +12,7 @@ pub(crate) use screen::GAUGE;
 pub(crate) use wait::Stopped;
 
 mod aloud;
+mod choosing;
 mod data;
 mod keys;
 mod language;
@@ -36,6 +37,7 @@ pub(crate) fn install_api(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result
     screen::install(lua, state)?;
     session::install(lua, state)?;
     keys::install(lua, state)?;
+    choosing::install(lua, state)?;
     wait::install(lua, state)
 }
 

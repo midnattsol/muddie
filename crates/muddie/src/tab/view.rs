@@ -100,6 +100,7 @@ impl Tab {
         let reviewed = self.voice.update(ui, &self.output, &logs);
         match reviewed {
             Some(crate::voice::Reviewed::Copy(text)) => {
+                self.scripts.copied(&text);
                 ui.ctx().copy_text(text);
                 self.voice.say_now(tr("Copied."));
             }

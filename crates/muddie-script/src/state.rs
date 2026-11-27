@@ -304,6 +304,14 @@ pub(super) struct State {
     /// Set by `session.separator`, with the script that did: `None` in it turns
     /// command splitting off; none set is the usual `;`.
     pub(crate) separator: Option<(String, Option<String>)>,
+    /// The room the player was last known to be in, to tell when it changes.
+    pub(crate) room_now: Option<muddie_mapper::RoomId>,
+    /// What Muddie last put on the clipboard: a script, or the player with
+    /// the review keys.
+    pub(crate) copied: Option<String>,
+    /// The game is not read aloud, and the script that said so, if one did.
+    pub(crate) not_reading: bool,
+    pub(crate) reading_set_by: Option<String>,
     /// The client's shortcuts, as it tells of them, and how to read the
     /// keys a script gives them.
     pub(crate) known_shortcuts: Vec<crate::api::KnownShortcut>,

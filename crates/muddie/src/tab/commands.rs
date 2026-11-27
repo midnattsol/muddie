@@ -10,6 +10,7 @@ use crate::theme::Weight;
 
 mod acts;
 mod answers;
+mod chosen;
 mod window;
 
 /// Something the palette offers.
@@ -68,6 +69,8 @@ pub enum Act {
     Look(Option<muddie_mapper::RoomId>),
     /// Shows the rooms of every area on the map, or only the one shown.
     AllAreas,
+    /// What a script offered to choose from, chosen: by where it is.
+    Chose(usize),
 }
 
 /// Something to do that needs a word more, asked in the palette's field:
@@ -111,6 +114,8 @@ pub enum Offers {
     Plugins,
     /// The areas of the map.
     Areas,
+    /// What a script offered to choose from.
+    Choice,
 }
 
 impl Act {
@@ -311,6 +316,7 @@ impl Tab {
                 .filter(|name| has(name))
                 .map(|name| answer(name.to_owned(), String::new()))
                 .collect(),
+            Offers::Choice => self.choice_items(query),
             Offers::Plugins => (self.plugins.iter())
                 .filter(|plugin| plugin.is_git() && has(&plugin.name))
                 .map(|plugin| answer(plugin.name.clone(), String::new()))
@@ -342,7 +348,10 @@ impl Tab {
 
     /// Does what was asked, with the answer given.
     pub(super) fn answer(&mut self, answer: &str) {
-        let Some(asking) = self.palette.asking.take() else {
+        // What a script offers is chosen from the list, not typed.
+        let choosing =
+            (self.palette.asking.as_ref()).is_some_and(|asking| asking.offers == Offers::Choice);
+        let Some(asking) = self.palette.asking.take().filter(|_| !choosing) else {
             return;
         };
         let answer = answer.trim();
@@ -369,6 +378,10 @@ impl Tab {
         match item.act.clone() {
             Some(Act::Ask(asking)) => self.ask(asking),
             Some(Act::Answer(answer)) => self.answer(&answer),
+            Some(Act::Chose(index)) => {
+                self.end_choice(Some(index));
+                self.close_palette();
+            }
             Some(Act::Run(line)) => {
                 self.remember_chosen(item.clone());
                 self.palette.query.clear();
@@ -478,6 +491,8 @@ pub(super) struct Palette {
     pub(super) message: Option<(String, bool)>,
     /// What is being asked in its field, while it asks.
     pub(super) asking: Option<Asking>,
+    /// What a script offers to choose from, while it is offered.
+    pub(super) choice: Option<chosen::Choice>,
     /// What was chosen, by its name, while it is done: what it lists is
     /// shown under it.
     pub(super) doing: Option<String>,

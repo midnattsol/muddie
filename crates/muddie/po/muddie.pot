@@ -964,6 +964,9 @@ msgstr ""
 msgid "{0} room the map added, which the map imported does not have, was kept."
 msgstr ""
 
+msgid "Choose one"
+msgstr ""
+
 msgid "choose"
 msgstr ""
 
@@ -999,9 +1002,6 @@ msgstr ""
 
 #, python-brace-format
 msgid "{0} result"
-msgstr ""
-
-msgid "Choose one"
 msgstr ""
 
 msgid "Search for something to do, or a place"
