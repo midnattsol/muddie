@@ -78,6 +78,7 @@ fn valid_folder(name: &str) -> bool {
         && !name.starts_with('.')
         && !name.ends_with('.')
         && !name.chars().any(wrong)
+        && !crate::whole::reserved(name)
 }
 
 /// What a plugin says of itself, in its `plugin.toml`.

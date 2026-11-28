@@ -113,7 +113,10 @@ impl Default for Profile {
 /// so only letters, digits, spaces, `-` and `_` are allowed.
 pub fn valid_name(name: &str) -> bool {
     let allowed = |ch: char| ch.is_alphanumeric() || matches!(ch, ' ' | '-' | '_');
-    !name.trim().is_empty() && name == name.trim() && name.chars().all(allowed)
+    !name.trim().is_empty()
+        && name == name.trim()
+        && name.chars().all(allowed)
+        && !crate::whole::reserved(name)
 }
 
 /// What a profile's name may have, said.

@@ -139,9 +139,10 @@ pub fn parse(package: &str, data: &str) -> Option<Media> {
 pub fn safe_name(name: &str) -> bool {
     let path = Path::new(name);
     let inside = !name.contains('\\')
-        && path
-            .components()
-            .all(|part| matches!(part, Component::Normal(_)));
+        && path.components().all(|part| match part {
+            Component::Normal(part) => !crate::whole::reserved(&part.to_string_lossy()),
+            _ => false,
+        });
     let kind = path
         .extension()
         .and_then(|kind| kind.to_str())

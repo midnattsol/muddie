@@ -25,6 +25,7 @@ pub type Plugins = BTreeMap<String, Files>;
 /// Whether a folder may be called this: what an id is made of.
 pub fn valid_id(id: &str) -> bool {
     !id.is_empty()
+        && !crate::whole::reserved(id)
         && id.len() <= MAX_NAME
         && id
             .chars()
@@ -41,6 +42,7 @@ fn valid_file(name: &str) -> bool {
     !stem.is_empty()
         && name.len() <= MAX_NAME
         && !name.starts_with('.')
+        && !crate::whole::reserved(name)
         && !name
             .chars()
             .any(|ch| ch.is_control() || "/\\:*?\"<>|".contains(ch))
