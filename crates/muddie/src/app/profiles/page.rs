@@ -42,9 +42,10 @@ impl App {
         let Some(edit) = self.editing.as_mut() else {
             return;
         };
+        let host_wanted = std::mem::take(&mut self.host_wanted);
         match self.profile_tab {
             ProfileTab::Connection => {
-                server_group(ui, &mut edit.draft);
+                server_group(ui, &mut edit.draft, host_wanted);
                 login_group(ui, edit);
             }
             ProfileTab::Session => {

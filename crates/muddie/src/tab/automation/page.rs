@@ -57,8 +57,11 @@ impl Tab {
                 top: 2,
                 bottom: 8,
             });
+        ui.data_mut(|data| data.remove::<egui::Id>(detail::name_zone()));
+        let mut parts = None;
         CentralPanel::default().frame(page).show(ui, |ui| {
             let columns = self.columns(ui.available_rect_before_wrap());
+            parts = Some((columns.sections, columns.list, columns.detail));
             let card = egui::CornerRadius::same(14);
             ui.painter().rect_filled(columns.list, card, theme.field);
             self.pane(
@@ -98,6 +101,20 @@ impl Tab {
                     });
             });
         });
+        // F6 goes round the sections, the list and the details.
+        if let Some((sections, list, detail)) = parts {
+            let item = (self.current_spot()).map(|spot| list::item_id(self.editor.section, &spot));
+            let name = ui.data(|data| data.get_temp::<egui::Id>(detail::name_zone()));
+            let zones: Vec<(egui::Id, egui::Rect)> = [
+                (self.editor.zone_section, sections),
+                (item, list),
+                (name, detail),
+            ]
+            .into_iter()
+            .filter_map(|(id, area)| Some((id?, area)))
+            .collect();
+            widgets::go_round(ui, &zones);
+        }
         // Only a field is typed in: from a tab, a row or a button, Escape
         // leaves the editor. An editor of code that gave Tab back after
         // Escape has the keyboard but is not typed in either.
@@ -244,6 +261,9 @@ impl Tab {
             }
             let selected = self.editor.section == section;
             let item = widgets::nav_item(ui, selected, name, Some(count));
+            if selected {
+                self.editor.zone_section = Some(item.id);
+            }
             if selected
                 && std::mem::take(&mut self.editor.focus_section)
                 && widgets::keyboard_in_use(ui.ctx())

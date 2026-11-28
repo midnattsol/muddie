@@ -231,6 +231,8 @@ pub(super) struct Editor {
     pub(super) was_typing: bool,
     /// The keyboard is to go to the section chosen, as the editor opens.
     pub(super) focus_section: bool,
+    /// The section chosen, as the keyboard goes to it with F6.
+    pub(super) zone_section: Option<egui::Id>,
     /// When the scripts were last restarted, and the scripts' files (or
     /// the rules) that failed then.
     pub(super) restarted: Option<String>,
@@ -305,6 +307,7 @@ impl Default for Editor {
             rename: false,
             was_typing: false,
             focus_section: false,
+            zone_section: None,
             restarted: None,
             failed: Vec::new(),
             extras_added: (usize::MAX, Vec::new()),

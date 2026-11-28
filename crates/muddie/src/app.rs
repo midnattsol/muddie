@@ -55,6 +55,8 @@ pub struct App {
     show_profiles: bool,
     editing: Option<ProfileEdit>,
     profile_tab: ProfileTab,
+    /// A profile was just made: the keyboard goes to its Host, to fill in.
+    host_wanted: bool,
     /// What is being asked about a profile, and what was wrong with the
     /// answer.
     asking: Option<Ask>,
@@ -151,6 +153,7 @@ impl App {
             settings_section: Section::General,
             recording_shortcut: None,
             show_profiles: false,
+            host_wanted: false,
             editing: None,
             profile_tab: ProfileTab::default(),
             asking: None,

@@ -203,6 +203,11 @@ impl App {
                 self.tabs.iter_mut().for_each(Tab::profiles_changed);
                 if let Some(name) = edit {
                     self.edit_profile(&name);
+                    // Made now, it is filled in next, from where it connects.
+                    if matches!(ask, Ask::New { .. }) {
+                        self.profile_tab = ProfileTab::Connection;
+                        self.host_wanted = true;
+                    }
                 }
             }
             Err(error) => self.ask_error = Some(error),

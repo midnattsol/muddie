@@ -143,3 +143,32 @@ pub fn focus_until_there(ui: &Ui, key: egui::Id, response: &Response, now: bool)
         }
     }
 }
+
+/// F6 and Shift+F6 go round `zones`, the parts of a page, as in other
+/// programs: each the widget the keyboard goes to in it, and where it is,
+/// to tell which part the keyboard is in now.
+pub fn go_round(ui: &Ui, zones: &[(egui::Id, egui::Rect)]) {
+    let (back, on) = ui.input_mut(|input| {
+        (
+            crate::shortcuts::PREVIOUS_ZONE.pressed(input),
+            crate::shortcuts::NEXT_ZONE.pressed(input),
+        )
+    });
+    if !(on || back) || zones.is_empty() {
+        return;
+    }
+    let focused = ui.memory(|memory| memory.focused());
+    let at = focused.and_then(|focused| {
+        (zones.iter().position(|(id, _)| *id == focused)).or_else(|| {
+            let place = ui.ctx().read_response(focused)?.rect.center();
+            zones.iter().position(|(_, area)| area.contains(place))
+        })
+    });
+    let count = zones.len();
+    let to = match (at, back) {
+        (Some(at), false) => (at + 1) % count,
+        (Some(at), true) => (at + count - 1) % count,
+        (None, _) => 0,
+    };
+    ui.memory_mut(|memory| memory.request_focus(zones[to].0));
+}

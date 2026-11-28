@@ -16,11 +16,15 @@ pub(in crate::app) const ENCODINGS: [(&str, &str); 9] = [
     ("euc-kr", "EUC-KR"),
 ];
 
-/// Where the profile connects to.
-pub(in crate::app) fn server_group(ui: &mut Ui, draft: &mut Profile) {
+/// Where the profile connects to; with the keyboard given to its Host when
+/// `host_wanted`, as a profile just made is.
+pub(in crate::app) fn server_group(ui: &mut Ui, draft: &mut Profile, host_wanted: bool) {
     widgets::section(ui, tr("Server"), |ui| {
         widgets::setting_row(ui, tr("Host"), None, &mut |ui| {
-            widgets::row_field(ui, &mut draft.host, "mud.example.org", size::FIELD_L)
+            let host = widgets::row_field(ui, &mut draft.host, "mud.example.org", size::FIELD_L);
+            let key = egui::Id::unique("the host of a profile just made");
+            widgets::focus_until_there(ui, key, &host, host_wanted);
+            host
         });
         widgets::setting_row(ui, tr("Port"), None, &mut |ui| {
             ui.add_sized(

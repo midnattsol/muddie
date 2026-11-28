@@ -258,6 +258,11 @@ pub(in crate::tab) fn rule_header(
     delete
 }
 
+/// Where the id of the name at the head of the details is kept, for F6.
+pub(in crate::tab) fn name_zone() -> egui::Id {
+    egui::Id::unique("the name of the details")
+}
+
 /// The name at the head of the details, whatever they are of, edited where
 /// it is: in its own font, with no frame. When renaming is asked for (F2,
 /// or Rename in a row's menu) it is given the keys with its text chosen,
@@ -282,6 +287,8 @@ pub(in crate::tab) fn name_field(
     );
     ui.ctx()
         .accesskit_node_builder(field.id, |node| node.set_label(tr("Name")));
+    // Where F6 takes the keyboard in the details.
+    ui.data_mut(|data| data.insert_temp(name_zone(), field.id));
     if std::mem::take(rename) && editable {
         field.request_focus();
         if let Some(mut state) = TextEdit::load_state(ui.ctx(), id) {

@@ -156,3 +156,96 @@ fn closing_the_session_keeps_what_was_just_typed_in_a_script() {
     std::fs::remove_dir_all(&dir).unwrap();
     assert_eq!(written, r#"macro("f9", "kick")"#);
 }
+
+/// A profile just made is filled in next: the keyboard is in its Host
+/// field, not on the window's Close.
+#[test]
+fn a_profile_just_made_has_the_keyboard_in_its_host() {
+    let dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../target/journey-new-profile-host");
+    let _ = std::fs::remove_dir_all(&dir);
+    let mut harness = window(Some(Profiles::at(dir.clone())));
+    harness.state_mut().tab_mut().voice.pretend_reader = true;
+    harness.run_steps(3);
+    harness.key_press_modifiers(Modifiers::COMMAND, Key::K);
+    harness.run_steps(3);
+    harness.event(egui::Event::Text("new profile".into()));
+    harness.run_steps(3);
+    harness.key_press(Key::Enter);
+    harness.run_steps(4);
+    let create = harness.get_by_label("Create");
+    create.focus();
+    harness.run_steps(2);
+    harness.key_press(Key::Enter);
+    harness.run_steps(6);
+    let made = Profiles::at(dir.clone()).names();
+    let _ = std::fs::remove_dir_all(&dir);
+    assert_eq!(made.len(), 1, "{made:?}");
+    assert_eq!(focused(&harness), Some((Role::TextInput, "Host".into())));
+}
+
+/// F6 goes round the editor's parts as it does the game's: the sections,
+/// the list, the details; Shift+F6 the other way.
+#[test]
+fn f6_goes_round_the_parts_of_the_editor() {
+    let mut harness = window(None);
+    harness.set_size(egui::vec2(1400.0, 800.0));
+    let app = harness.state_mut().tab_mut();
+    app.rules.triggers.push(trigger("attacks you", |rule| {
+        rule.name = "Fight back".into();
+    }));
+    harness.key_press_modifiers(Modifiers::COMMAND, Key::E);
+    harness.run_steps(4);
+    assert_eq!(focused(&harness), Some((Role::Tab, "Triggers".into())));
+    let mut went = Vec::new();
+    for back in [false, false, false, true] {
+        let modifiers = if back {
+            Modifiers::SHIFT
+        } else {
+            Modifiers::NONE
+        };
+        harness.key_press_modifiers(modifiers, Key::F6);
+        harness.run_steps(3);
+        went.push(focused(&harness).map(|(_, name)| name));
+    }
+    let name = |text: &str| Some(text.to_owned());
+    assert_eq!(
+        went,
+        [
+            name("Fight back"),
+            name("Name"),
+            name("Triggers"),
+            name("Name")
+        ]
+    );
+}
+
+/// F6 on the welcome goes from where to play to the profiles, and back.
+#[test]
+fn f6_goes_from_the_address_to_the_profiles() {
+    let dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../target/journey-welcome-f6");
+    let _ = std::fs::remove_dir_all(&dir);
+    let profiles = Profiles::at(dir.clone());
+    profiles
+        .save("Reinos", &crate::profile::Profile::default())
+        .unwrap();
+    let mut harness = window(Some(profiles));
+    harness.state_mut().tab_mut().started = false;
+    harness.run_steps(4);
+    let mut went = vec![focused(&harness).map(|(_, name)| name)];
+    for _ in 0..2 {
+        harness.key_press(Key::F6);
+        harness.run_steps(3);
+        went.push(focused(&harness).map(|(_, name)| name));
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+    assert_eq!(went[0].as_deref(), Some("Address"));
+    assert!(
+        went[1]
+            .as_deref()
+            .is_some_and(|name| name.starts_with("Reinos")),
+        "{went:?}"
+    );
+    assert_eq!(went[2].as_deref(), Some("Address"));
+}

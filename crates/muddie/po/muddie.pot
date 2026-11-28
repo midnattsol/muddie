@@ -126,14 +126,6 @@ msgstr ""
 msgid "Could not load the settings: {0}"
 msgstr ""
 
-#, python-brace-format
-msgid "Session {0} of {1}: {2}"
-msgstr ""
-
-#, python-brace-format
-msgid "Closed {0}. Session {1} of {2}: {3}"
-msgstr ""
-
 msgid "New profile"
 msgstr ""
 
@@ -2224,6 +2216,14 @@ msgid "What it shows is lost with it."
 msgstr ""
 
 msgid "Remove this panel"
+msgstr ""
+
+#, python-brace-format
+msgid "Session {0} of {1}: {2}"
+msgstr ""
+
+#, python-brace-format
+msgid "Closed {0}. Session {1} of {2}: {3}"
 msgstr ""
 
 msgid "General"

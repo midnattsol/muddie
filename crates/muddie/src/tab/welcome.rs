@@ -78,6 +78,7 @@ impl Tab {
         }
         let profiles = self.listed_profiles();
         let (mut chosen, mut connect) = (None, false);
+        let mut zones = Vec::new();
         let frame = egui::Frame::new().fill(theme::current().surface);
         CentralPanel::default().frame(frame).show(ui, |ui| {
             sky(ui);
@@ -101,17 +102,30 @@ impl Tab {
                             ui.spacing_mut().item_spacing.y = 0.0;
                             heading(ui);
                             ui.add_space(30.0);
+                            // Where F6 goes: where to play, and the
+                            // profiles, each from where it starts.
+                            let from = ui.cursor().min;
+                            let address = ui.make_persistent_id("address");
                             connect = self.address_field(ui);
                             ui.add_space(14.0);
                             self.options_row(ui);
+                            let till = egui::pos2(from.x + width, ui.cursor().top());
+                            zones.push((address, egui::Rect::from_min_max(from, till)));
                             if !profiles.is_empty() {
-                                chosen = self.profile_cards(ui, &profiles, width);
+                                let from = ui.cursor().min;
+                                let (picked, first) = self.profile_cards(ui, &profiles, width);
+                                chosen = picked;
+                                let till = egui::pos2(from.x + width, ui.cursor().top());
+                                if let Some(first) = first {
+                                    zones.push((first, egui::Rect::from_min_max(from, till)));
+                                }
                             }
                             ui.add_space(24.0);
                         });
                     });
                 });
         });
+        widgets::go_round(ui, &zones);
         let ctx = ui.ctx().clone();
         if let Some(name) = chosen {
             self.play(&name, &ctx);
@@ -218,13 +232,14 @@ impl Tab {
     }
 
     /// The saved profiles, two to a row, each with its menu on a right
-    /// click. Returns the one chosen to play with.
+    /// click. Returns the one chosen to play with, and the first, where F6
+    /// takes the keyboard.
     fn profile_cards(
         &mut self,
         ui: &mut egui::Ui,
         profiles: &[(String, String)],
         width: f32,
-    ) -> Option<String> {
+    ) -> (Option<String>, Option<egui::Id>) {
         ui.add_space(38.0);
         ui.horizontal(|ui| {
             ui.add_space(4.0);
@@ -233,12 +248,13 @@ impl Tab {
         ui.add_space(10.0);
         let gap = 10.0;
         let card = (width - gap) / 2.0;
-        let mut chosen = None;
+        let (mut chosen, mut first) = (None, None);
         for pair in profiles.chunks(2) {
             ui.horizontal(|ui| {
                 ui.spacing_mut().item_spacing.x = gap;
                 for (name, place) in pair {
                     let pressed = widgets::profile_card(ui, card, name, place);
+                    first.get_or_insert(pressed.id);
                     if pressed.clicked() {
                         chosen = Some(name.clone());
                     }
@@ -252,7 +268,7 @@ impl Tab {
             });
             ui.add_space(gap);
         }
-        chosen
+        (chosen, first)
     }
 
     /// Takes the host and port from the address typed on the welcome
