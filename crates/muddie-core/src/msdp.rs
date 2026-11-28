@@ -11,6 +11,9 @@ const TABLE_OPEN: u8 = 3;
 const TABLE_CLOSE: u8 = 4;
 const ARRAY_OPEN: u8 = 5;
 const ARRAY_CLOSE: u8 = 6;
+/// The most tables and arrays one is read inside of: what is deeper is
+/// not read, so that a server cannot make the reading go on and on.
+const DEEPEST: usize = 32;
 
 /// Parses an MSDP subnegotiation into `(variable, JSON value)` pairs.
 /// Strings stay strings (MSDP has no number type), tables become objects
@@ -25,7 +28,7 @@ pub fn parse(payload: &[u8]) -> Vec<(String, String)> {
         let name = reader.text();
         let mut values = Vec::new();
         while reader.eat(VAL) {
-            values.push(reader.value());
+            values.push(reader.value(0));
         }
         let value = match values.len() {
             1 => values.remove(0),
@@ -60,11 +63,17 @@ impl Reader<'_> {
         String::from_utf8_lossy(&rest[..len]).into_owned()
     }
 
-    fn value(&mut self) -> String {
+    /// A value `depth` tables and arrays inside.
+    fn value(&mut self, depth: usize) -> String {
+        let opens = matches!(self.bytes.get(self.at), Some(&(ARRAY_OPEN | TABLE_OPEN)));
+        if opens && depth >= DEEPEST {
+            self.at = self.bytes.len();
+            return "null".to_owned();
+        }
         if self.eat(ARRAY_OPEN) {
             let mut items = Vec::new();
             while self.eat(VAL) {
-                items.push(self.value());
+                items.push(self.value(depth + 1));
             }
             self.eat(ARRAY_CLOSE);
             format!("[{}]", items.join(","))
@@ -73,7 +82,7 @@ impl Reader<'_> {
             while self.eat(VAR) {
                 let name = json_string(&self.text());
                 let value = if self.eat(VAL) {
-                    self.value()
+                    self.value(depth + 1)
                 } else {
                     "null".to_owned()
                 };
@@ -168,6 +177,30 @@ mod tests {
             pairs(&[("ROOM", r#"{"VNUM":null}"#)])
         );
         assert_eq!(parse(b"garbage"), []);
+    }
+
+    #[test]
+    fn values_too_deep_are_not_read() {
+        // Read on a thread with little stack, as the session's is.
+        let deep = std::thread::Builder::new()
+            .stack_size(256 * 1024)
+            .spawn(|| {
+                let mut payload = b"\x01X\x02".to_vec();
+                payload.extend(b"\x05\x02".repeat(200_000));
+                parse(&payload)
+            })
+            .unwrap()
+            .join()
+            .expect("read without running out of stack");
+        let (name, value) = &deep[0];
+        assert_eq!(name, "X");
+        assert!(value.ends_with(&format!("null{}", "]".repeat(DEEPEST))));
+        // As deep as is read, it is all there.
+        let mut payload = b"\x01X\x02".to_vec();
+        payload.extend(b"\x05\x02".repeat(DEEPEST));
+        payload.push(b'v');
+        let read = parse(&payload);
+        assert!(read[0].1.contains("\"v\""));
     }
 
     #[test]

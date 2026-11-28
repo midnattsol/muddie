@@ -220,6 +220,14 @@ fn partial_line_closes_its_link() {
 }
 
 #[test]
+fn a_link_whose_text_grows_lowered_is_read_whole() {
+    // "İ" is longer in lower case than as it is written.
+    let (out, _) = mxp(&["\x1b[1z<send href=\"x İ&TEXT;\">İ</send>\n"]);
+    assert_eq!(out[0].text(), "İ");
+    assert_eq!(out[0].links[0].target, LinkTarget::Send("x İİ".into()));
+}
+
+#[test]
 fn links_have_hints_names_prompts_and_menus_with_names() {
     let line = "\x1b[1z<send href=\"buy &text;|look &text;\" hint=\"A sword|Buy it|Look at it\" expire=shop>sword</send> \
                 <send \"tell guard \" prompt>talk</send> <a href=\"http://x.io\" hint=\"The site\">site</a>\n";

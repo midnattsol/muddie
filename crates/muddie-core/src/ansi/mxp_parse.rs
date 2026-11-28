@@ -96,11 +96,12 @@ pub(crate) fn attribute_list(list: &str) -> Vec<(String, String)> {
         .collect()
 }
 
-/// `text` with each `&name;` in it, whatever its case, replaced by
-/// `value`.
+/// `text` with each `&name;` in it, whatever the case of its letters,
+/// replaced by `value`. Only the letters of English change case, so that
+/// the text lowered is as long as the text, byte by byte.
 pub(crate) fn replace_entity(text: &str, name: &str, value: &str) -> String {
-    let wanted = format!("&{};", name.to_lowercase());
-    let lower = text.to_lowercase();
+    let wanted = format!("&{};", name.to_ascii_lowercase());
+    let lower = text.to_ascii_lowercase();
     let mut replaced = String::with_capacity(text.len());
     let mut at = 0;
     while let Some(found) = lower[at..].find(&wanted) {
