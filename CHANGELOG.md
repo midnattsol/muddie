@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.3](https://github.com/midnattsol/muddie/compare/v0.7.2...v0.7.3) - 2026-11-28
+
+### Fixed
+
+- *(scripts)* take fed text right after its line
+- *(a11y)* keep up with a fight that goes on
+- *(rules)* follow a gauge's maximum as its value
+- *(rules)* tell a rule from a folder named alike
+- *(core)* stop compressing when the server asks
+
 ## [0.7.2](https://github.com/midnattsol/muddie/compare/v0.7.1...v0.7.2) - 2026-11-28
 
 ### Fixed
