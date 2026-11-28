@@ -10,4 +10,4 @@ names = ["reinos de leyenda"]
 sounds = "https://raw.githubusercontent.com/DPrenC/ScriptsRL/905b41d66ec05b7663b4abf11ff303a7b3493b4a/sounds/RL"
 
 # The oldest Muddie that can install this plugin.
-muddie = "0.6.0"
+muddie = "0.7.3"
