@@ -451,3 +451,52 @@ fn a_line_with_no_end_costs_no_more_than_its_length() {
         "1 MB cloned {once} bytes, 2 MB {twice}: more than twice as much"
     );
 }
+
+/// The server asks the client to stop MCCP3 with IAC WONT
+/// MCCP3, as the spec says it does right before a copyover. What is
+/// typed after it must go plain, or the rebooted server reads garbage.
+#[test]
+fn mccp3_stops_when_the_server_says_wont() {
+    let mut pipeline = Pipeline::new(Config::default());
+    let _ = receive(&mut pipeline, &[IAC, WILL, opt::MCCP3]);
+    let _ = receive(&mut pipeline, &[IAC, WONT, opt::MCCP3]);
+    let (mut events, mut out) = (Vec::new(), Vec::new());
+    pipeline.send_line("look", false, &mut out, &mut events);
+    assert_eq!(out, b"look\r\n", "sent after IAC WONT MCCP3: {out:?}");
+}
+
+/// MCCP2 started, ended and started again, read byte by byte.
+#[test]
+fn mccp2_twice_byte_by_byte() {
+    use std::io::Write;
+    let zip = |body: &[u8]| {
+        let mut e = flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::default());
+        e.write_all(body).unwrap();
+        e.finish().unwrap()
+    };
+    let start = [IAC, crate::telnet::SB, opt::MCCP2, IAC, crate::telnet::SE];
+    let mut stream = b"one\r\n".to_vec();
+    stream.extend_from_slice(&start);
+    stream.extend_from_slice(&zip(b"two\r\n"));
+    stream.extend_from_slice(b"three\r\n");
+    stream.extend_from_slice(&start);
+    stream.extend_from_slice(&zip(b"four\r\n"));
+    stream.extend_from_slice(&start);
+    stream.extend_from_slice(&zip(b"five\r\n"));
+    let mut pipeline = Pipeline::new(Config::default());
+    let mut seen = Vec::new();
+    for byte in &stream {
+        seen.extend(receive(&mut pipeline, &[*byte]).1.iter().map(text));
+    }
+    seen.retain(|e| e.starts_with("line:"));
+    assert_eq!(
+        seen,
+        [
+            "line:one",
+            "line:two",
+            "line:three",
+            "line:four",
+            "line:five"
+        ]
+    );
+}

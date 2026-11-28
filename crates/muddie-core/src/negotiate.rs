@@ -72,6 +72,9 @@ pub enum Signal {
     Prompt,
     /// Everything sent from now on must be compressed (MCCP3).
     CompressOutgoing,
+    /// What is sent is no longer to be compressed: the compressed stream
+    /// ends here (MCCP3, as a server does before a copyover).
+    StopCompressingOutgoing,
     /// The server will send MXP markup.
     Mxp,
     /// The encoding agreed with the server, which what arrives is in.
@@ -186,6 +189,9 @@ impl Negotiator {
             send(reply, Verb::Dont, option);
             if option == opt::ECHO {
                 return Some(Signal::ServerEcho(false));
+            }
+            if option == opt::MCCP3 {
+                return Some(Signal::StopCompressingOutgoing);
             }
         }
         None

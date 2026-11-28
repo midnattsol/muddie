@@ -95,6 +95,9 @@ pub struct Pipeline {
     /// Where in the buffer being filled compression starts, when it was
     /// turned on part-way through filling it.
     deflate_from: Option<usize>,
+    /// Where in the buffer being filled compression ends, when the server
+    /// asked for it to end part-way through filling it.
+    deflate_until: Option<usize>,
 }
 
 impl Pipeline {
@@ -115,6 +118,7 @@ impl Pipeline {
             inflated: Vec::new(),
             deflater: None,
             deflate_from: None,
+            deflate_until: None,
         }
     }
 
@@ -157,22 +161,41 @@ impl Pipeline {
             self.told.extend(wire(&out[start..], true));
         }
         // Compression turned on while this buffer was being filled only
-        // covers what came after the message that announced it.
+        // covers what came after the message that announced it; turned
+        // off, what came before the message that asked for it.
         let from = self.deflate_from.take().unwrap_or(start);
+        let until = self.deflate_until.take();
         let Some(deflater) = &mut self.deflater else {
             return;
         };
-        let plain = out.split_off(from);
+        let mut plain = out.split_off(from);
+        let after = match until {
+            Some(until) => plain.split_off(until.saturating_sub(from).min(plain.len())),
+            None => Vec::new(),
+        };
+        // A sync flush makes each write decodable on arrival; the last
+        // ends the stream.
+        let flush = match until {
+            Some(_) => FlushCompress::Finish,
+            None => FlushCompress::Sync,
+        };
         let mut rest = plain.as_slice();
         loop {
             out.reserve(rest.len() + 64);
             let before = deflater.total_in();
-            // A sync flush makes each write decodable on arrival.
-            let _ = deflater.compress_vec(rest, out, FlushCompress::Sync);
+            let status = deflater.compress_vec(rest, out, flush);
             rest = &rest[(deflater.total_in() - before) as usize..];
-            if rest.is_empty() && out.len() < out.capacity() {
-                return;
+            let done = match until {
+                Some(_) => matches!(status, Ok(Status::StreamEnd)) || status.is_err(),
+                None => rest.is_empty() && out.len() < out.capacity(),
+            };
+            if done {
+                break;
             }
+        }
+        if until.is_some() {
+            self.deflater = None;
+            out.extend_from_slice(&after);
         }
     }
 
@@ -363,6 +386,7 @@ impl Pipeline {
                 self.deflater = Some(Compress::new(Compression::default(), true));
                 self.deflate_from = Some(replied);
             }
+            Signal::StopCompressingOutgoing => self.deflate_until = Some(replied),
             Signal::Mxp => self.assembler.enable_mxp(),
             // What arrives from here on is in the encoding agreed.
             // UTF-8 agreed is read as it was read until then, if that was
