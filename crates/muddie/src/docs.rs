@@ -179,8 +179,10 @@ fn each_spanish_document_has_the_code_of_its_english() {
 }
 
 /// Every shortcut is in the reference, in English and in Spanish, with its
-/// name and its keys as they are at first.
+/// name and its keys as they are at first. The reference writes them as
+/// they are on Linux and Windows, and says how they are on a Mac.
 #[test]
+#[cfg(not(target_os = "macos"))]
 fn the_reference_has_every_shortcut() {
     for name in ["scripting.md", "scripting.es.md"] {
         let text = text_of(name);

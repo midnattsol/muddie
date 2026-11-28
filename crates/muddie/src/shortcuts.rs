@@ -239,7 +239,17 @@ impl Shortcut {
     /// tests.
     #[cfg(test)]
     pub fn first(&self) -> (Modifiers, Key) {
-        let keys = self.keys()[0];
+        Self::pressed_as(self, self.keys()[0])
+    }
+
+    /// The same of its own first keys, whatever keys it has now: for tests.
+    #[cfg(test)]
+    pub fn first_own(&self) -> (Modifiers, Key) {
+        Self::pressed_as(self, self.defaults[0])
+    }
+
+    #[cfg(test)]
+    fn pressed_as(&self, keys: Press) -> (Modifiers, Key) {
         match keys.key {
             Pressed::Key(key) => (keys.held.modifiers(), key),
             _ => panic!("{} is not pressed with a key of the main block", self.id),

@@ -29,9 +29,7 @@ fn the_map_is_explored_with_the_keys_a_script_gives() {
     app.voice.force_voice();
     harness.run_steps(3);
     // Its own keys no longer explore it; those of the script do.
-    let (held, key) = crate::shortcuts::Press::parse("alt+e")
-        .map(|keys| (keys.held.modifiers(), Key::E))
-        .unwrap();
+    let (held, key) = crate::shortcuts::EXPLORE.first_own();
     harness.key_press_modifiers(held, key);
     harness.run_steps(3);
     assert!(!harness.state().tab().map_view.exploring());

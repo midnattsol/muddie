@@ -289,10 +289,12 @@ fn a_shortcut_is_pressed_with_other_keys_chosen_in_the_settings() {
         said(&harness).as_deref(),
         Some(format!("Palette: {chosen}, F9.").as_str())
     );
-    assert_eq!(
-        harness.state().settings().shortcuts["palette"],
-        "ctrl+shift+p, f9"
-    );
+    // Cmd on a Mac, where Ctrl is not what the palette is held with.
+    let kept = match cfg!(target_os = "macos") {
+        true => "shift+cmd+p, f9",
+        false => "ctrl+shift+p, f9",
+    };
+    assert_eq!(harness.state().settings().shortcuts["palette"], kept);
     menu(&mut harness, "Reset");
     assert!(harness.state().settings().shortcuts.is_empty());
     assert_eq!(crate::shortcuts::PALETTE.written(), own);
