@@ -20,6 +20,7 @@ mod keys;
 mod keys_page;
 mod plugin_updates;
 mod profiles;
+mod sessions;
 mod settings_page;
 mod toasts;
 
@@ -260,51 +261,6 @@ impl App {
         self.profile_session.as_mut().expect("made above")
     }
 
-    fn new_tab(&mut self, ctx: &egui::Context) {
-        let startup = Startup {
-            profiles: self.profiles.clone(),
-            profile: None,
-            target: None,
-            speech: false,
-            scripts: self.extra_scripts.clone(),
-            download: self.updates.download.clone(),
-        };
-        self.tabs.push(Tab::new(ctx, startup, &self.settings));
-        self.active = self.tabs.len() - 1;
-    }
-
-    /// Goes `ahead` sessions on, round from the last to the first, to its
-    /// command line, saying which it is: whoever cannot see the bar of
-    /// sessions hears where they are.
-    fn go_to_session(&mut self, ahead: usize) {
-        let count = self.tabs.len();
-        if count < 2 {
-            return;
-        }
-        self.active = (self.active + ahead) % count;
-        let tab = &mut self.tabs[self.active];
-        tab.keys_to_the_line();
-        let said = trf(
-            "Session {0} of {1}: {2}",
-            &[
-                &(self.active + 1).to_string(),
-                &count.to_string(),
-                &tab.title(),
-            ],
-        );
-        tab.say_aside(&said);
-    }
-
-    fn close_tab(&mut self, index: usize, ctx: &egui::Context) {
-        self.tabs.remove(index);
-        if self.tabs.is_empty() {
-            self.new_tab(ctx);
-        }
-        if self.active > index || self.active >= self.tabs.len() {
-            self.active = self.active.saturating_sub(1);
-        }
-    }
-
     /// Does what a session asked of the window.
     fn carry_out(&mut self, request: crate::tab::AppRequest, ctx: &egui::Context) {
         use crate::tab::AppRequest;
@@ -313,6 +269,13 @@ impl App {
             AppRequest::CloseSession => self.close_tab(self.active, ctx),
             AppRequest::Settings(section) => self.open_settings(section),
             AppRequest::Profiles => self.open_profiles(None),
+            AppRequest::NewProfile => {
+                if let Some(profiles) = &self.profiles {
+                    let name = profiles.unused_name(tr("New profile"));
+                    self.asking = Some(asks::Ask::New { name, game: None });
+                    self.ask_error = None;
+                }
+            }
             AppRequest::InstallPlugin { address, profile } => {
                 self.asking = Some(asks::Ask::Install { address, profile });
                 self.ask_error = None;
@@ -521,6 +484,14 @@ impl App {
 }
 
 impl eframe::App for App {
+    /// What was just typed in each session's editor is saved before the
+    /// window goes.
+    fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
+        for tab in &mut self.tabs {
+            tab.close_automation();
+        }
+    }
+
     fn ui(&mut self, ui: &mut Ui, _frame: &mut eframe::Frame) {
         // Alt with a key is a shortcut here, never typing.
         let last = &mut self.alt_typing;
