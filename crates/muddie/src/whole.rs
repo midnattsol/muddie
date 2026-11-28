@@ -38,6 +38,8 @@ mod tests {
         write(&path, "new").unwrap();
         assert_eq!(std::fs::read_to_string(&path).unwrap(), "new");
         assert_eq!(partial(&path), dir.join("settings.toml.part"));
+        // Two that differ only in their ending are not written to one place.
+        assert_ne!(partial(&dir.join("hit.wav")), partial(&dir.join("hit.ogg")));
         assert!(!partial(&path).exists());
         // Where it cannot be written, what was there is left.
         assert!(write(&dir.join("none").join("x.toml"), "x").is_err());

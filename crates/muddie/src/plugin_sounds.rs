@@ -61,9 +61,7 @@ impl Kept {
         if !source.starts_with("https://") {
             return None;
         }
-        let index = (std::fs::read_to_string(dir.join("index.json")).ok())
-            .and_then(|text| serde_json::from_str(&text).ok())
-            .unwrap_or_default();
+        let index = read_index(&dir);
         Some(Self { source, dir, index })
     }
 
@@ -116,24 +114,34 @@ impl Kept {
     }
 
     /// Notes that `name` came, of the version `version` of the folder there
-    /// is now, and keeps the note.
+    /// is now, and keeps the note, among those kept as they are now: another
+    /// fetch may have kept others since this was made.
     pub fn came(&mut self, name: &str, version: Option<String>) {
         let entry = Entry {
             source: self.source.clone(),
             version,
         };
+        self.index = read_index(&self.dir);
         self.index.files.insert(name.to_owned(), entry);
         if let Ok(text) = serde_json::to_string_pretty(&self.index) {
             let _ = std::fs::create_dir_all(&self.dir);
-            let _ = std::fs::write(self.dir.join("index.json"), text);
+            let _ = crate::whole::write(&self.dir.join("index.json"), text);
         }
     }
+}
+
+/// What is known of the sounds kept in `dir`: nothing, if it cannot be
+/// read.
+fn read_index(dir: &Path) -> Index {
+    (std::fs::read_to_string(dir.join("index.json")).ok())
+        .and_then(|text| serde_json::from_str(&text).ok())
+        .unwrap_or_default()
 }
 
 /// Fetches one sound into `dir`, unless the web says the version `known`
 /// is the one there is.
 fn fetch_one(source: &str, dir: &Path, name: &str, known: Option<&str>) -> Came {
-    let address = format!("{source}/{}", encoded(name));
+    let address = format!("{source}/{}", crate::media::encoded(name));
     let fetched = crate::webfetch::get(&address, known, LARGEST, PATIENCE);
     let failed = |error: String| Came::Failed(name.to_owned(), error);
     match fetched {
@@ -147,12 +155,9 @@ fn fetch_one(source: &str, dir: &Path, name: &str, known: Option<&str>) -> Came 
             if let Err(error) = std::fs::create_dir_all(folder) {
                 return failed(error.to_string());
             }
-            // Written whole under another name first, so that a file cut
-            // short is never taken for the sound.
-            let partial = path.with_extension("part");
-            let written =
-                std::fs::write(&partial, bytes).and_then(|()| std::fs::rename(&partial, &path));
-            match written {
+            // Written whole, so that a file cut short is never taken for
+            // the sound.
+            match crate::whole::write(&path, bytes) {
                 Ok(()) => Came::Sound(name.to_owned(), version),
                 Err(error) => failed(error.to_string()),
             }
@@ -161,29 +166,13 @@ fn fetch_one(source: &str, dir: &Path, name: &str, known: Option<&str>) -> Came 
     }
 }
 
-/// A name of a file as it goes in an address: each part of it with what
-/// is not a letter, a figure or `-._~` written as `%` and its bytes, as
-/// spaces and accents are.
-fn encoded(name: &str) -> String {
-    let part = |part: &str| {
-        part.bytes()
-            .map(|byte| match byte {
-                b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' => {
-                    (byte as char).to_string()
-                }
-                other => format!("%{other:02X}"),
-            })
-            .collect::<String>()
-    };
-    name.split('/').map(part).collect::<Vec<_>>().join("/")
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn a_name_is_written_as_an_address_takes_it() {
+        use crate::media::encoded;
         assert_eq!(
             encoded("Combate/Alerta vida 30.wav"),
             "Combate/Alerta%20vida%2030.wav"
@@ -218,6 +207,29 @@ mod tests {
         assert!(newer.wanted(name));
         assert_eq!(newer.path(name), Some(dir.join(name)));
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn two_fetches_at_once_keep_what_each_fetched() {
+        let dir = std::env::temp_dir().join(format!("muddie-two-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let source = "https://raw.example.org/sounds/abc";
+        // Two jobs, each started with the index as it was: empty.
+        let mut first = Kept::at(dir.clone(), source).unwrap();
+        let mut second = Kept::at(dir.clone(), source).unwrap();
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("a.wav"), b"RIFF").unwrap();
+        std::fs::write(dir.join("b.wav"), b"RIFF").unwrap();
+        first.came("a.wav", None);
+        second.came("b.wav", None);
+        let later = Kept::at(dir.clone(), source).unwrap();
+        let wanted = (later.wanted("a.wav"), later.wanted("b.wav"));
+        let _ = std::fs::remove_dir_all(&dir);
+        assert_eq!(
+            wanted,
+            (false, false),
+            "fetched and kept, to be fetched again"
+        );
     }
 
     /// Fetches a sound of ScriptsRL from the web, and again, which is not

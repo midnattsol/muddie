@@ -46,7 +46,15 @@ fn look(files: &Files) -> Result<Verdict, String> {
     {
         return Ok(Verdict::Newer(asked));
     }
-    toml::from_str::<Manifest>(&manifest).map_err(|error| format!("plugin.toml: {error}"))?;
+    let read =
+        toml::from_str::<Manifest>(&manifest).map_err(|error| format!("plugin.toml: {error}"))?;
+    // Its name is the folder it is installed in.
+    let name = read.name.english();
+    if !name.is_empty() && !super::valid_folder(&name) {
+        return Err(format!(
+            "plugin.toml: {name:?} cannot be the name of a folder: one plain name, not a path"
+        ));
+    }
     toml::from_str::<crate::rules::Rules>(&text(files, "rules.toml")?)
         .map_err(|error| format!("rules.toml: {error}"))?;
     let template = text(files, "template.toml")?;

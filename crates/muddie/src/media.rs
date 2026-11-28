@@ -154,7 +154,24 @@ pub fn safe_name(name: &str) -> bool {
 pub fn address(url: &str, name: &str) -> Option<String> {
     let url = url.trim();
     let web = url.starts_with("https://") || url.starts_with("http://");
-    (web && safe_name(name)).then(|| format!("{}/{name}", url.trim_end_matches('/')))
+    (web && safe_name(name)).then(|| format!("{}/{}", url.trim_end_matches('/'), encoded(name)))
+}
+
+/// A name of a file as it goes in an address: each part of it with what
+/// is not a letter, a figure or `-._~` written as `%` and its bytes, as
+/// spaces and accents are.
+pub fn encoded(name: &str) -> String {
+    let part = |part: &str| {
+        part.bytes()
+            .map(|byte| match byte {
+                b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' => {
+                    (byte as char).to_string()
+                }
+                other => format!("%{other:02X}"),
+            })
+            .collect::<String>()
+    };
+    name.split('/').map(part).collect::<Vec<_>>().join("/")
 }
 
 /// Where fetched files are kept: the cache of the user, not the folder
@@ -203,17 +220,28 @@ fn download(address: &str, path: &Path) -> Result<PathBuf, String> {
         .parent()
         .ok_or_else(|| said(&"no folder to keep it in"))?;
     std::fs::create_dir_all(folder).map_err(|error| said(&error))?;
-    // Written whole under another name first, so that a file cut short
-    // is never taken for the sound.
-    let partial = path.with_extension("part");
-    std::fs::write(&partial, bytes).map_err(|error| said(&error))?;
-    std::fs::rename(&partial, path).map_err(|error| said(&error))?;
+    // Written whole, so that a file cut short is never taken for the
+    // sound.
+    crate::whole::write(path, bytes).map_err(|error| said(&error))?;
     Ok(path.to_owned())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_sound_with_spaces_or_accents_is_asked_for() {
+        // A server nobody listens on: a sound that can be asked for fails
+        // to connect, one that cannot is refused before.
+        let address = address("http://127.0.0.1:9/sounds", "Combate/caña rota.wav").unwrap();
+        let failed = crate::webfetch::get(&address, None, 10, std::time::Duration::from_secs(2))
+            .unwrap_err();
+        assert!(
+            !failed.to_lowercase().contains("uri"),
+            "{address}: {failed}"
+        );
+    }
 
     #[test]
     fn messages_of_client_media_are_read() {

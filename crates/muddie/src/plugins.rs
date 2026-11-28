@@ -66,6 +66,20 @@ impl Texts {
     }
 }
 
+/// Whether `name` can be the folder a plugin is installed in: one folder,
+/// inside the profile's scripts, on every system; not `..`, nor a path.
+fn valid_folder(name: &str) -> bool {
+    let wrong = |ch: char| {
+        ch.is_control() || matches!(ch, '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|')
+    };
+    name == name.trim()
+        && !name.is_empty()
+        && name.len() <= 64
+        && !name.starts_with('.')
+        && !name.ends_with('.')
+        && !name.chars().any(wrong)
+}
+
 /// What a plugin says of itself, in its `plugin.toml`.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -149,9 +163,10 @@ impl Plugin {
         origin: Origin,
     ) -> Self {
         let manifest: Manifest = toml::from_str(manifest).unwrap_or_default();
+        // Its folder: what it says it is called, if that can be one.
         let name = match manifest.name.english() {
-            name if name.trim().is_empty() => id.to_owned(),
-            name => name,
+            name if valid_folder(&name) => name,
+            _ => id.to_owned(),
         };
         Self {
             id: id.to_owned(),
@@ -356,6 +371,27 @@ pub fn for_mud<'a>(plugins: &'a [Plugin], host: &str, name: &str) -> Option<&'a 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_plugin_is_installed_in_a_folder_of_the_scripts_whatever_it_is_called() {
+        let manifest = "name = \"../../fuera\"\n";
+        let files: unpack::Files = [
+            ("plugin.toml".to_owned(), manifest.as_bytes().to_vec()),
+            ("init.luau".to_owned(), b"echo('x')".to_vec()),
+        ]
+        .into_iter()
+        .collect();
+        assert!(matches!(judge::judge(&files), judge::Verdict::Refused(_)));
+        // Come from elsewhere, it is installed by its id.
+        let plugin = Plugin::made("x", manifest, Vec::new(), String::new(), Origin::Git);
+        assert_eq!(plugin.folder(), "x");
+        for wrong in ["..", ".", "/etc", "a/b", "a\\b", "C:", " a", "", "con."] {
+            assert!(!valid_folder(wrong), "{wrong:?}");
+        }
+        for right in ["Reinos de Leyenda", "Aardwolf", "Mapa (es)"] {
+            assert!(valid_folder(right), "{right:?}");
+        }
+    }
 
     #[test]
     fn a_mud_is_known_by_its_address_or_its_name() {
