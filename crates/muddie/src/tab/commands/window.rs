@@ -86,8 +86,11 @@ impl Tab {
     /// or said what is asked.
     fn keys_with_nothing_chosen(&mut self, enter: bool, way: bool) -> bool {
         // While asking, what is typed is the answer; with nothing typed,
-        // what is asked is said again.
-        if let (true, Some(asking)) = (enter, self.palette.asking.clone()) {
+        // what is asked is said again. What a script offers is chosen from
+        // its list, not typed: nothing found there is no matches.
+        if let (true, Some(asking)) = (enter, self.palette.asking.clone())
+            && asking.offers != Offers::Choice
+        {
             match self.palette.query.trim().is_empty() {
                 true => self
                     .voice

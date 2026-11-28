@@ -351,7 +351,10 @@ impl Tab {
         // What a script offers is chosen from the list, not typed.
         let choosing =
             (self.palette.asking.as_ref()).is_some_and(|asking| asking.offers == Offers::Choice);
-        let Some(asking) = self.palette.asking.take().filter(|_| !choosing) else {
+        if choosing {
+            return;
+        }
+        let Some(asking) = self.palette.asking.take() else {
             return;
         };
         let answer = answer.trim();

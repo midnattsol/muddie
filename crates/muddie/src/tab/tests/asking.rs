@@ -100,3 +100,24 @@ fn a_script_silences_the_game_copies_and_hears_of_rooms() {
     app.run_actions();
     assert_eq!(last_line(&harness), "copied: in Square from 1");
 }
+
+#[test]
+fn enter_on_nothing_found_does_not_end_the_choice() {
+    let mut harness = window(None);
+    let app = harness.state_mut().tab_mut();
+    let offer = r#"choose({"Ana", "Bob"}, function(index, name) echo(`chose {index} {name}`) end)"#;
+    app.scripts.exec("tells", offer);
+    app.run_actions();
+    harness.run_steps(3);
+    harness.event(egui::Event::Text("zz".into()));
+    harness.run_steps(2);
+    harness.key_press(Key::Enter);
+    harness.run_steps(3);
+    let app = harness.state().tab();
+    assert!(
+        app.palette.open && app.palette.asking.is_some(),
+        "Enter on nothing found ended the choice: open {}, last line {:?}",
+        app.palette.open,
+        last_line(&harness)
+    );
+}
