@@ -7,6 +7,7 @@
 -- with "obj nombre". When it is in the room, comes or leaves, it is said at
 -- once, cutting in; "obj" alone says which it is.
 
+local common = require("common")
 local corrector = require("corrector")
 local phrases = require("phrases")
 
@@ -18,10 +19,6 @@ local moves: { string } = {}
 -- lower case: the target is told of once per room.
 local here: { [string]: boolean } = {}
 
-local function mode(): string
-    return if type(vars.reinos_mode) == "string" then vars.reinos_mode else "combat"
-end
-
 local function target(): string?
     return if type(vars[TARGET]) == "string" then vars[TARGET] else nil
 end
@@ -32,21 +29,13 @@ local function is_target(name: string): boolean
 end
 
 local function keep(text: string)
-    table.insert(moves, 1, text)
-    if #moves > MOST then
-        table.remove(moves)
-    end
+    common.keep(moves, text, MOST)
 end
 
 -- The way, as the game writes it, without its article: "el sur" is "sur".
 local function way_of(text: string): string
     local way = text:gsub("^el ", ""):gsub("^la ", ""):gsub("^los ", ""):gsub("^las ", "")
     return way
-end
-
--- A line that is someone else's words, on a channel or said: not a move.
-local function said(text: string): boolean
-    return text:match("^%[") ~= nil or text:match(": ") ~= nil
 end
 
 local function moved(who: string, way: string, came: boolean, line: Line)
@@ -67,7 +56,7 @@ local function moved(who: string, way: string, came: boolean, line: Line)
             then { en = `Target here: {name}, {way}!`, es = `¡Objetivo aquí: {name}, {way}!` }
             else { en = `Target leaves: {name}, {way}!`, es = `¡El objetivo se va: {name}, {way}!` },
             { aloud = "cut" })
-    elseif mode() == "idle" then
+    elseif common.mode() == "idle" then
         line:mute()
     elseif tags.enabled("reinos-brief") then
         line:read(short)
@@ -76,14 +65,14 @@ end
 
 -- "Orco llega desde el sur.", "Orco llega de el norte seguido de Ana."
 trigger(phrases.arrives, function(m, line)
-    if not said(line.text) then
+    if not common.words(line.text) then
         moved(m[1], way_of(m[2]), true, line)
     end
 end, { place = "Reinos de Leyenda/Movement/Arrives" })
 
 -- "Orco se va hacia el norte.", "Orco se va en dirección norte seguido de Ana."
 trigger(phrases.leaves, function(m, line)
-    if not said(line.text) then
+    if not common.words(line.text) then
         moved(m[1], way_of(m[2]), false, line)
     end
 end, { place = "Reinos de Leyenda/Movement/Leaves" })
@@ -92,7 +81,7 @@ end, { place = "Reinos de Leyenda/Movement/Leaves" })
 -- Who is here: "Orco está aquí.", "Ana, Bob y un orco están aquí."
 
 trigger(phrases.here, function(m, line)
-    if said(line.text) then
+    if common.words(line.text) then
         return
     end
     for _, name in corrector.names(m[1]) do

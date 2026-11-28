@@ -1,49 +1,11 @@
 -- What is said aloud of Reinos de Leyenda, apart from what the gauges say by
--- themselves, which each says in the editor. It can be switched off alone,
--- among the scripts: what is shown stays. It goes by what the MUD sends, not
--- by what is shown of it, so it says the same whatever gauges and panels there
--- are.
+-- themselves, which each says in the editor: of the character's states,
+-- only what changes, the name of one that comes and that one is gone. It
+-- can be switched off alone, among the scripts: what is shown stays
+-- (states.luau). It goes by what the MUD sends, not by what is shown of it,
+-- so it says the same whatever gauges and panels there are.
 --
 -- What it says is in the language of the interface, English or Spanish.
-
-local prompt = require("prompt")
-
----------------------------------------------------------------------------
--- The prompt is not read: what is in it is said by the gauges as it runs low,
--- and read with Alt+0. What comes after it on its line, as with lag, is a
--- line of its own: shown, read and known by every trigger as one, as if the
--- game had ended the prompt before it.
-
-trigger("^(.*)$", function(_, line)
-    local rest = prompt.rest(line.text)
-    if rest == "" then
-        line:mute()
-    elseif rest then
-        line:replace(line.text:sub(1, #line.text - #rest))
-        line:mute()
-        session.feed(rest .. "\n")
-    end
-end, { place = "Reinos de Leyenda/Prompt aloud" })
-
--- Once in the game, one that is not known is told of, once: the player has
--- only to make it again.
-local playing = false
-on("gmcp", "Char", function()
-    playing = true
-end)
-on("disconnect", function()
-    playing = false
-end)
-
-trigger("\\S", function(_, line)
-    if playing and not vars.reinos_prompt_told and not prompt.is_known() and not prompt.rest(line.text) then
-        vars.reinos_prompt_told = true
-        notify({
-            en = "Your prompt is read each time. For it not to be, make it again in the game: prompt, and promptcombate for that of a fight.",
-            es = "Se te lee el prompt cada vez. Para que no, defínelo otra vez en el juego: prompt, y promptcombate para el de combate.",
-        })
-    end
-end, { place = "Reinos de Leyenda/Prompt not known", prompt = true })
 
 ---------------------------------------------------------------------------
 -- States: of those the character is in, only what changes: the name of one

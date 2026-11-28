@@ -137,8 +137,9 @@ fn the_plugin_leaves_a_map_there_is_and_brings_it_up_to_date_when_asked() {
     assert!(!notes(app).iter().any(|said| said.contains("map from")));
     // Offered in the palette, under the map, and in the map's menu.
     let sync = "Sync with the official map";
-    assert_eq!(app.scripts.map_actions()[0].label, sync);
-    let owner = app.scripts.map_actions()[0].owner.clone();
+    let actions = app.scripts.map_actions();
+    let offered = (actions.iter()).find(|tool| tool.label == sync).unwrap();
+    let owner = offered.owner.clone();
     assert_eq!(app.offered_by(&owner), "Reinos de Leyenda");
     // One of the player's, by its own name.
     assert_eq!(app.offered_by("scripts/Mapping/rooms.luau"), "rooms");
@@ -151,8 +152,8 @@ fn the_plugin_leaves_a_map_there_is_and_brings_it_up_to_date_when_asked() {
     app.act(commands::Act::MapAction(sync.into()), &ctx);
     assert!(app.map_source.importing.is_some());
     assert!(last_said(app).starts_with("Importing the map from https://"));
-    // Taken away with the plugin.
-    app.scripts.unload("Reinos de Leyenda/reinos.luau");
+    // Taken away with the plugin's script of the map.
+    app.scripts.unload("Reinos de Leyenda/rooms.luau");
     app.run_actions();
     let sync = "Sync with the official map";
     assert!(!(app.scripts.map_actions().iter()).any(|tool| tool.label == sync));
@@ -370,10 +371,11 @@ fn reinos_has_the_map_keep_itself_up_to_date_unless_switched_off() {
     let switched = |app: &Tab| {
         (app.scripts.map_actions().into_iter())
             .map(|tool| (tool.label, tool.checked))
+            .filter(|(label, _)| label.contains("map"))
             .collect::<Vec<_>>()
     };
     assert_eq!(
-        switched(app)[..2],
+        switched(app),
         [
             ("Sync with the official map".into(), None),
             (learning.into(), Some(true))

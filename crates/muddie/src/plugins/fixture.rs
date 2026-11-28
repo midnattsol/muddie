@@ -11,10 +11,20 @@ const FOLDER: &str = "reinos-de-leyenda";
 pub const MANIFEST: &str = include_str!("../tab/tests/fixtures/reinos-de-leyenda/plugin.toml");
 pub const SCRIPT_NAME: &str = "reinos.luau";
 pub const SCRIPT: &str = include_str!("../tab/tests/fixtures/reinos-de-leyenda/reinos.luau");
-pub const ALOUD: &str = include_str!("../tab/tests/fixtures/reinos-de-leyenda/aloud.luau");
-pub const PROMPT: &str = include_str!("../tab/tests/fixtures/reinos-de-leyenda/prompt.luau");
 /// The other scripts, by name.
-const MORE: [(&str, &str); 8] = [
+const MORE: [(&str, &str); 15] = [
+    (
+        "aloud.luau",
+        include_str!("../tab/tests/fixtures/reinos-de-leyenda/aloud.luau"),
+    ),
+    (
+        "channels.luau",
+        include_str!("../tab/tests/fixtures/reinos-de-leyenda/channels.luau"),
+    ),
+    (
+        "common.luau",
+        include_str!("../tab/tests/fixtures/reinos-de-leyenda/common.luau"),
+    ),
     (
         "corrector.luau",
         include_str!("../tab/tests/fixtures/reinos-de-leyenda/corrector.luau"),
@@ -44,8 +54,24 @@ const MORE: [(&str, &str); 8] = [
         include_str!("../tab/tests/fixtures/reinos-de-leyenda/phrases.luau"),
     ),
     (
+        "prompt.luau",
+        include_str!("../tab/tests/fixtures/reinos-de-leyenda/prompt.luau"),
+    ),
+    (
+        "prompting.luau",
+        include_str!("../tab/tests/fixtures/reinos-de-leyenda/prompting.luau"),
+    ),
+    (
+        "rooms.luau",
+        include_str!("../tab/tests/fixtures/reinos-de-leyenda/rooms.luau"),
+    ),
+    (
         "sounds.luau",
         include_str!("../tab/tests/fixtures/reinos-de-leyenda/sounds.luau"),
+    ),
+    (
+        "states.luau",
+        include_str!("../tab/tests/fixtures/reinos-de-leyenda/states.luau"),
     ),
 ];
 pub const RULES: &str = include_str!("../tab/tests/fixtures/reinos-de-leyenda/rules.toml");
@@ -57,11 +83,7 @@ thread_local! {
 
 /// The plugin, as an official one.
 pub fn reinos() -> Plugin {
-    let mut scripts = vec![
-        ("aloud.luau".to_owned(), ALOUD.to_owned()),
-        ("prompt.luau".to_owned(), PROMPT.to_owned()),
-        (SCRIPT_NAME.to_owned(), SCRIPT.to_owned()),
-    ];
+    let mut scripts = vec![(SCRIPT_NAME.to_owned(), SCRIPT.to_owned())];
     scripts.extend(MORE.map(|(name, code)| (name.to_owned(), code.to_owned())));
     Plugin::made(
         FOLDER,

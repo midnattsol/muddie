@@ -13,6 +13,7 @@
 -- What is said in the room and the tells are read shorter in the modes
 -- that shorten, and not at all while idle: they are kept all the same.
 
+local common = require("common")
 local corrector = require("corrector")
 local phrases = require("phrases")
 
@@ -26,20 +27,7 @@ local senders: { string } = {}
 local reply_to: string? = nil
 
 local function keep(list: { string }, text: string)
-    table.insert(list, 1, text)
-    if #list > MOST then
-        table.remove(list)
-    end
-end
-
-local function mode(): string
-    return if type(vars.reinos_mode) == "string" then vars.reinos_mode else "combat"
-end
-
--- Whether a line is what someone says on a channel, which is not of the
--- room: those begin with the channel between brackets.
-local function of_a_channel(text: string): boolean
-    return text:match("^%[") ~= nil
+    common.keep(list, text, MOST)
 end
 
 ---------------------------------------------------------------------------
@@ -48,7 +36,7 @@ end
 -- dijo: hola".
 
 trigger(phrases.tell, function(m, line)
-    if of_a_channel(line.text) then
+    if common.of_a_channel(line.text) then
         return
     end
     local who = corrector.name(m[1])
@@ -63,7 +51,7 @@ trigger(phrases.tell, function(m, line)
         end
     end
     table.insert(senders, 1, who)
-    if mode() == "idle" then
+    if common.mode() == "idle" then
         line:mute()
     elseif tags.enabled("reinos-brief") then
         line:read(tr({ en = `Tell from {who}: {said}`, es = `Telepatía de {who}: {said}` }))
@@ -75,14 +63,14 @@ end, { place = "Reinos de Leyenda/History/Tells" })
 -- the like. Tells and channels are not of it.
 
 trigger(phrases.said_in_the_room, function(m, line)
-    if of_a_channel(line.text) or line.text:match(phrases.to_you) then
+    if common.of_a_channel(line.text) or line.text:match(phrases.to_you) then
         return
     end
     local who = corrector.name(m[1])
     local said = corrector.text(m[2])
     keep(room, `{who}: {said}`)
     emit("reinos_event", { kind = "room", who = who })
-    if mode() == "idle" then
+    if common.mode() == "idle" then
         line:mute()
     elseif tags.enabled("reinos-brief") then
         line:read(`{who}: {said}`)
@@ -118,7 +106,7 @@ local XP_QUIET = { phrases.experience, phrases.you_kill, phrases.dies }
 
 for _, pattern in XP_QUIET do
     trigger(pattern, function(_, line)
-        if mode() == "xp" then
+        if common.mode() == "xp" then
             line:mute()
         end
     end, { place = "Reinos de Leyenda/History/Quiet in xp" })
@@ -126,7 +114,7 @@ end
 
 -- Attacked while idle: back to combat.
 trigger(phrases.attacked, function()
-    if mode() == "idle" then
+    if common.mode() == "idle" then
         emit("reinos_mode", "combat")
     end
 end, { place = "Reinos de Leyenda/History/Attacked" })

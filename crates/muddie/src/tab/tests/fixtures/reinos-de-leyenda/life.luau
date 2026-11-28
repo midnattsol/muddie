@@ -10,6 +10,8 @@
 -- A hit of more than 200 leaves the experience mode: whatever hits so hard
 -- is no prey.
 
+local common = require("common")
+
 local MOST = 20
 local BIG_HIT = 200
 
@@ -30,7 +32,7 @@ end
 -- Whether a change is worth saying in the mode there is: none while idle,
 -- only losses of a tenth in xp, and a twentieth of life otherwise.
 local function worth_saying(change: number, most: number): boolean
-    local mode = vars.reinos_mode
+    local mode = common.mode()
     if mode == "idle" then
         return false
     end
@@ -55,14 +57,11 @@ on("gmcp", "Char.Status", function()
     local said = if change < 0
         then tr({ en = `Life lost: {-change}.`, es = `Vida perdida: {-change}.` })
         else tr({ en = `Life gained: {change}.`, es = `Vida ganada: {change}.` })
-    table.insert(changes, 1, `{said} {now}/{most}`)
-    if #changes > MOST then
-        table.remove(changes)
-    end
+    common.keep(changes, `{said} {now}/{most}`, MOST)
     if worth_saying(change, most) then
         speak(said)
     end
-    if change <= -BIG_HIT and vars.reinos_mode == "xp" then
+    if change <= -BIG_HIT and common.mode() == "xp" then
         emit("reinos_mode", "combat")
     end
 end)
@@ -94,7 +93,7 @@ local function warn(now: number, most: number)
             under[step.under] = nil
         end
     end
-    if said and (vars.reinos_mode ~= "idle" or said.always) then
+    if said and (common.mode() ~= "idle" or said.always) then
         speak(said.said, { aloud = said.aloud, always = said.always })
     end
 end
