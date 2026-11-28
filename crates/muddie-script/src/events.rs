@@ -304,25 +304,22 @@ impl Engine {
     /// Runs the timers that are due at `now`.
     pub fn tick(&mut self, now: Instant) {
         self.watch_room();
-        let due: Vec<(u64, String, Function, bool)> = {
-            let state = self.state.borrow();
-            let off = |timer: &Timer| {
-                state.paused.contains(&timer.id)
-                    || !state.switches.active(Kind::Timer, &timer.belongs)
+        let due: Vec<u64> = (self.state.borrow().timers.iter())
+            .filter(|timer| timer.due <= now)
+            .map(|timer| timer.id)
+            .collect();
+        for id in due {
+            // As it is now: one that came before may have taken it away,
+            // or switched it off.
+            let (owner, callback, off) = {
+                let state = self.state.borrow();
+                let Some(timer) = state.timers.iter().find(|timer| timer.id == id) else {
+                    continue;
+                };
+                let off = state.paused.contains(&id)
+                    || !state.switches.active(Kind::Timer, &timer.belongs);
+                (timer.owner.clone(), timer.callback.clone(), off)
             };
-            (state.timers.iter())
-                .filter(|timer| timer.due <= now)
-                .map(|timer| {
-                    (
-                        timer.id,
-                        timer.owner.clone(),
-                        timer.callback.clone(),
-                        off(timer),
-                    )
-                })
-                .collect()
-        };
-        for (id, owner, callback, off) in due {
             // One switched off lets its turn pass.
             let ok = off || self.as_owner(&owner, || self.call(&callback, ()));
             let mut state = self.state.borrow_mut();

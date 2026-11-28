@@ -121,6 +121,9 @@ impl Engine {
         // Freezes the API and the standard library; scripts' own globals go
         // to a separate table layered on top.
         lua.sandbox(true)?;
+        // Nor are the scripts' own globals kept as a chunk is loaded: one
+        // script may change what another reads, at any time.
+        lua.globals().set_safeenv(false);
         Ok(Self {
             map,
             lua,

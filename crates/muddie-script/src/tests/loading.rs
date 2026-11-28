@@ -306,3 +306,19 @@ fn a_module_with_no_file_is_offered() {
     std::fs::remove_file(&here).unwrap();
     assert!(error_text(&actions).contains("module not found"));
 }
+
+#[test]
+fn a_global_set_by_one_script_is_seen_new_by_the_others() {
+    let mut engine = Engine::new(Rc::default()).unwrap();
+    engine.exec("a", "target = 'orc'");
+    engine.exec(
+        "b",
+        r#"alias("^k$", function() send("kill " .. target) end)
+        function aimed() return target end"#,
+    );
+    engine.exec("a", "target = 'elf'");
+    engine.on_input("k");
+    assert_eq!(engine.take_actions(), [Action::Send("kill elf".into())]);
+    engine.exec("c", "send(aimed())");
+    assert_eq!(engine.take_actions(), [Action::Send("elf".into())]);
+}

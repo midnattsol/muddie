@@ -237,3 +237,23 @@ fn where_nothing_can_wait_it_is_said() {
     assert!(said(&mut engine)[0].contains("nothing can wait here"));
     assert!(engine.state.borrow().waiting.is_empty());
 }
+
+#[test]
+fn a_timer_taken_away_by_another_due_with_it_does_not_run() {
+    let mut engine = engine("");
+    runs(
+        &mut engine,
+        r#"local b
+        after(1, function() b:remove() end)
+        b = after(1, function() echo("b ran") end)"#,
+    );
+    assert_eq!(later(&mut engine, 2), NONE);
+    // What waits, given what it waits for by a timer due with the one
+    // that would end its waiting, waits the next time as long as it says.
+    engine.exec("o", "after(1, function() vars.x = 1 end)");
+    let waits = r#"wait("var", "x", {timeout = 1}) echo("got") wait(5) echo("five")"#;
+    assert_eq!(runs(&mut engine, waits), NONE);
+    assert_eq!(later(&mut engine, 2), ["got"]);
+    assert_eq!(later(&mut engine, 4), NONE);
+    assert_eq!(later(&mut engine, 8), ["five"]);
+}
