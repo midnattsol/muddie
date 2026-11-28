@@ -125,3 +125,19 @@ fn what_is_wrong_with_keys_chosen_is_said() {
     // Nothing wrong was kept.
     assert_eq!(engine.shortcuts().1, []);
 }
+
+#[test]
+fn keys_given_wrong_leave_those_chosen_before() {
+    let mut engine = with_shortcuts();
+    engine.exec("k", "shortcuts.explore = 'f9'");
+    let (before, chosen) = engine.shortcuts();
+    assert_eq!(chosen.len(), 1);
+    engine.exec("k", "shortcuts.explore = 'p'");
+    let (after, chosen) = engine.shortcuts();
+    assert_eq!(
+        (after, chosen.len()),
+        (before, 1),
+        "keys given wrong took away f9 without telling the client"
+    );
+    assert_eq!(chosen[0].2, ["f9"]);
+}

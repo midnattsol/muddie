@@ -17,7 +17,9 @@ scripts deciden qué se muestra y qué se dice.
 Puedes compartir scripts sin miedo. No pueden leer ni escribir archivos,
 arrancar programas ni cargar código de fuera de las carpetas de scripts. Si
 un script tarda más de medio segundo seguido, Muddie lo para con un error y
-sigue funcionando.
+sigue funcionando. Si lo que se para así es un trigger, un alias o un
+manejador, además se quita, para que no vuelva a frenar el juego con la
+siguiente línea.
 
 ## Índice
 

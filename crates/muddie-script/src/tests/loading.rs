@@ -213,13 +213,15 @@ fn a_script_is_run_again_without_the_others_starting_over() {
     )
     .unwrap();
     engine.reload_file(&edited);
+    let owner = crate::owner_of(&edited);
+    // What it showed and played before goes as it is run again.
+    assert_eq!(engine.take_actions(), [Action::Unloaded(owner.clone())]);
     assert!(engine.on_key("f9"));
     engine.on_line("a troll");
     assert_eq!(engine.take_actions(), [send("run")]);
     // Stopped, it makes nothing more, and what it showed goes.
     engine.unload_file(&edited);
     engine.on_line("a troll");
-    let owner = crate::owner_of(&edited);
     assert_eq!(engine.take_actions(), [Action::Unloaded(owner)]);
     std::fs::remove_dir_all(&dir).unwrap();
 }

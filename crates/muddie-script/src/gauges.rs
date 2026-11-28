@@ -239,7 +239,7 @@ impl Engine {
             };
             for (id, owner, callback) in told {
                 if self.state.borrow().runs(id) {
-                    self.as_owner(&owner, || {
+                    self.as_made(id, &owner, || {
                         let (now, change) =
                             (gauge.table(&self.lua)?, gauge.change(&self.lua, &was)?);
                         self.call(&callback, (now, change))

@@ -113,6 +113,9 @@ impl Engine {
                 .try_borrow()
                 .is_ok_and(|state| state.deadline.is_some_and(|at| Instant::now() > at));
             if overdue {
+                if let Ok(mut state) = watched.try_borrow_mut() {
+                    state.overran = true;
+                }
                 Err(mlua::Error::runtime("script ran too long and was stopped"))
             } else {
                 Ok(VmState::Continue)
@@ -281,7 +284,10 @@ impl Engine {
     /// Runs a script file again by itself: what it made before is taken
     /// away first, and the other scripts are not touched.
     pub fn reload_file(&mut self, path: &Path) {
-        self.unload(&owner_of(path));
+        let owner = owner_of(path);
+        self.unload(&owner);
+        // What it showed and played goes, for what it shows now.
+        (self.state.borrow_mut().actions).push(Action::Unloaded(owner));
         self.load_file(path);
     }
 
@@ -479,12 +485,32 @@ impl Engine {
             for (id, owner, callback) in callbacks {
                 let still_on = self.state.borrow().runs(id);
                 if still_on {
-                    self.as_owner(&owner, || {
+                    self.as_made(id, &owner, || {
                         self.call(&callback, (value.clone(), name.as_str()))
                     });
                 }
             }
         }
+    }
+
+    /// Runs what a script made, `id`, as [`Self::as_owner`] does: one that
+    /// ran too long is taken away, as it would most likely do it again
+    /// with each line, and stop the game each time.
+    pub(crate) fn as_made(
+        &self,
+        id: u64,
+        owner: &str,
+        run: impl FnOnce() -> mlua::Result<()>,
+    ) -> bool {
+        self.state.borrow_mut().overran = false;
+        let ok = self.as_owner(owner, run);
+        let overran = std::mem::take(&mut self.state.borrow_mut().overran);
+        if overran && self.state.borrow_mut().remove(id) {
+            self.error(format!(
+                "{owner}: what ran too long was taken away, so that it does not stop the game again"
+            ));
+        }
+        ok
     }
 
     /// Runs script code under the time budget, reporting failure as an

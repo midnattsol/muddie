@@ -111,20 +111,28 @@ fn choose(state: &Rc<RefCell<State>>, name: &str, value: Value) -> mlua::Result<
             )));
         }
     };
-    state.shortcuts.retain(|(_, known, _)| known != name);
-    if let Some(given) = given {
-        let check = state
-            .check_shortcut
-            .ok_or_else(|| mlua::Error::runtime("no shortcuts here"))?;
-        let mut keys = Vec::new();
-        for key in given {
-            let kept = check(name, &key).map_err(|wrong| {
-                mlua::Error::runtime(format!("shortcuts.{name}: {key} {wrong}"))
-            })?;
-            if !keys.contains(&kept) {
-                keys.push(kept);
+    // The keys given are all read before any are taken: one wrong, and
+    // those chosen before stay.
+    let keys = match given {
+        Some(given) => {
+            let check = state
+                .check_shortcut
+                .ok_or_else(|| mlua::Error::runtime("no shortcuts here"))?;
+            let mut keys = Vec::new();
+            for key in given {
+                let kept = check(name, &key).map_err(|wrong| {
+                    mlua::Error::runtime(format!("shortcuts.{name}: {key} {wrong}"))
+                })?;
+                if !keys.contains(&kept) {
+                    keys.push(kept);
+                }
             }
+            Some(keys)
         }
+        None => None,
+    };
+    state.shortcuts.retain(|(_, known, _)| known != name);
+    if let Some(keys) = keys {
         let owner = state.owner.clone();
         state.shortcuts.push((owner, name.to_owned(), keys));
     }

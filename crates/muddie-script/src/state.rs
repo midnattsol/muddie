@@ -338,6 +338,9 @@ pub(super) struct State {
     pub(crate) loading: Vec<String>,
     /// When the script currently running must be stopped.
     pub(crate) deadline: Option<Instant>,
+    /// Whether a script was stopped for running too long since this was
+    /// last looked at.
+    pub(crate) overran: bool,
 }
 
 /// A match captured before its callback runs, so callbacks are free to add

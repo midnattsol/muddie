@@ -91,7 +91,10 @@ impl Tab {
             self.run_rules();
         } else {
             for (name, _) in &plugin.scripts {
-                self.scripts.unload(&as_it_comes(plugin, name));
+                let owner = as_it_comes(plugin, name);
+                self.scripts.unload(&owner);
+                // What it showed and played goes with it.
+                self.drop_unloaded(&owner);
             }
             self.rules.drop_folder(plugin.folder());
             self.run_rules();
@@ -201,6 +204,7 @@ impl Tab {
         for (name, code) in &plugin.scripts {
             let owner = as_it_comes(plugin, name);
             self.scripts.unload(&owner);
+            self.drop_unloaded(&owner);
             self.scripts.offer_module(&owner, code);
         }
         for (name, code) in &plugin.scripts {

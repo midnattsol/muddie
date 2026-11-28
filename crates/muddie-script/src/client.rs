@@ -31,7 +31,7 @@ impl Engine {
         for (id, owner, callback) in callbacks {
             let still_on = self.state.borrow().runs(id);
             if still_on {
-                self.as_owner(&owner, || self.call(&callback, (room.clone(), before)));
+                self.as_made(id, &owner, || self.call(&callback, (room.clone(), before)));
             }
         }
     }

@@ -335,7 +335,7 @@ impl Tab {
 
     /// What a script took with it when it was unloaded: its gauges and
     /// its sounds.
-    fn drop_unloaded(&mut self, owner: &str) {
+    pub(super) fn drop_unloaded(&mut self, owner: &str) {
         self.gauges.drop_owned_by(owner);
         self.sound.stop_where(|label| label.key == owner);
     }

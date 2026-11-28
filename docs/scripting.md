@@ -17,6 +17,8 @@ tools; your scripts decide what to show and what to say.
 Scripts are safe to share. They cannot read or write files, start programs,
 or load code from outside the script folders. If a script runs for more than
 half a second without stopping, Muddie stops it with an error and carries on.
+A trigger, alias or handler stopped like that is also taken away, so that it
+does not hold up the game again with the next line.
 
 ## Contents
 

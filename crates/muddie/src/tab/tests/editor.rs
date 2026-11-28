@@ -539,3 +539,33 @@ fn a_rule_that_fails_is_marked_in_its_list() {
         .collect();
     assert_eq!(marked, [("Broken".into(), true), ("Fine".into(), false)]);
 }
+
+#[test]
+fn a_script_run_again_takes_away_what_it_showed() {
+    let dir = std::env::temp_dir().join(format!("muddie-proof16-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let profiles = Profiles::at(dir.clone());
+    profiles
+        .save("Test", &crate::profile::Profile::default())
+        .unwrap();
+    let mut harness = window(Some(profiles));
+    harness.set_size(egui::vec2(1400.0, 800.0));
+    let app = harness.state_mut().tab_mut();
+    assert!(app.select_profile(Some("Test".into())));
+    app.open_automation(automation::SCRIPTS);
+    app.add_script(None);
+    harness.run_steps(3);
+    harness.state_mut().tab_mut().editor.script_text =
+        r#"gauges.set("Escudo", {value = 1, max = 2})"#.into();
+    harness.run_steps(2);
+    harness.get_by_label("Run").click();
+    harness.run_steps(3);
+    assert!(harness.state().tab().gauges.get("Escudo").is_some());
+    harness.state_mut().tab_mut().editor.script_text = "-- no gauges now".into();
+    harness.run_steps(2);
+    harness.get_by_label("Run").click();
+    harness.run_steps(3);
+    let left = harness.state().tab().gauges.get("Escudo").is_some();
+    std::fs::remove_dir_all(&dir).unwrap();
+    assert!(!left, "the gauge of the script run before is still shown");
+}

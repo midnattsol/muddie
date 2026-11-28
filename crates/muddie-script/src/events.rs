@@ -125,7 +125,7 @@ impl Engine {
             if stopped || !self.state.borrow().runs(id) {
                 continue;
             }
-            self.as_owner(&owner, || {
+            self.as_made(id, &owner, || {
                 match callback.call::<Value>(command.as_str())? {
                     Value::Nil | Value::Boolean(true) => {}
                     Value::Boolean(false) => stopped = true,
@@ -151,7 +151,7 @@ impl Engine {
             let listeners = self.state.borrow().listeners_to_channel(&called);
             for (id, owner, callback) in listeners {
                 if self.state.borrow().runs(id) {
-                    self.as_owner(&owner, || {
+                    self.as_made(id, &owner, || {
                         let message = self.lua.create_table()?;
                         message.set("channel", channel.as_str())?;
                         message.set("text", text.as_str())?;
@@ -168,7 +168,7 @@ impl Engine {
             let listeners = self.state.borrow().listeners(&emit_key(&name));
             for (id, owner, callback) in listeners {
                 if self.state.borrow().runs(id) {
-                    self.as_owner(&owner, || {
+                    self.as_made(id, &owner, || {
                         self.call(&callback, (data.clone(), name.as_str()))
                     });
                 }
@@ -296,7 +296,7 @@ impl Engine {
         for (id, owner, callback) in callbacks {
             let still_on = self.state.borrow().runs(id);
             if still_on {
-                self.as_owner(&owner, || self.call(&callback, (data.clone(), name)));
+                self.as_made(id, &owner, || self.call(&callback, (data.clone(), name)));
             }
         }
     }
@@ -469,7 +469,7 @@ impl Engine {
             state.aliases.retain(|alias| alias.id != hit.id);
             state.waiting.retain(|waiting| waiting.id != hit.id);
         }
-        self.as_owner(&hit.owner, || {
+        self.as_made(hit.id, &hit.owner, || {
             let m = self.lua.create_table()?;
             for (index, group) in hit.groups.iter().enumerate() {
                 m.set(index, group.as_deref())?;
