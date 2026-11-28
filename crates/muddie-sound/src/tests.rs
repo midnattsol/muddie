@@ -82,6 +82,14 @@ fn a_name_with_stars_stands_for_several_files() {
     assert!(name_matches("hit*.wav", "hit3.wav") && name_matches("hit*.wav", "HIT.WAV"));
     assert!(name_matches("step?.wav", "step1.wav") && !name_matches("step?.wav", "step12.wav"));
     assert!(!name_matches("hit*.wav", "miss.wav") && name_matches("*", "anything.ogg"));
+    assert!(name_matches("*a*b?.wav", "xxaYYbbZ.wav") && !name_matches("*a*b", "ab.wav"));
+    assert!(name_matches("", "") && !name_matches("", "a") && name_matches("**", ""));
+    assert!(name_matches("ñ*.WAV", "Ñu.wav") && !name_matches("a?", "a"));
+    // However many stars there are, it is soon known.
+    let started = std::time::Instant::now();
+    let stars = format!("{}z", "*".repeat(40));
+    assert!(!name_matches(&stars, &"a".repeat(200)));
+    assert!(started.elapsed() < std::time::Duration::from_secs(1));
 }
 
 /// A sound of one channel at 48 kHz, as loud as `level` all through,

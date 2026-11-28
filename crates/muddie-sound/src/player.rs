@@ -16,6 +16,10 @@ use super::{Label, Options};
 
 /// How long the output is kept open with nothing to play.
 const IDLE: Duration = Duration::from_secs(20);
+/// The most times a sound is played over before it is taken to be played
+/// until stopped: each time is queued apart, and a server may ask for
+/// billions.
+const MOST_TIMES: u32 = 100;
 
 /// A sound being played: how loud it was asked to be, and its labels.
 struct Playing {
@@ -85,10 +89,10 @@ impl Player {
         let player = rodio::Player::connect_new(output.mixer());
         let volume = options.volume.clamp(0.0, 1.0);
         player.set_volume(volume * self.group_volume(&label.group));
-        match options.times {
+        match plays(options.times) {
             None => player.append(source.repeat_infinite()),
             Some(times) => {
-                for _ in 0..times.max(1) {
+                for _ in 0..times {
                     player.append(source.clone());
                 }
             }
@@ -174,6 +178,14 @@ impl Player {
 
 /// The sound in `file`, decoded, cut and shaped as `options` say, kept
 /// whole to play again.
+/// How many times a sound asked for `times` (`None` for until stopped) is
+/// queued: at least once, and past [`MOST_TIMES`], until stopped.
+fn plays(times: Option<u32>) -> Option<u32> {
+    times
+        .filter(|&times| times <= MOST_TIMES)
+        .map(|times| times.max(1))
+}
+
 fn shaped(
     file: &Path,
     options: &Options,
@@ -194,4 +206,19 @@ fn shaped(
     );
     let shaped: Box<dyn Source + Send> = Box::new(Shape::new(source, length, fades, options.pan));
     Ok(shaped.buffered())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_sound_is_queued_no_more_than_so_many_times() {
+        assert_eq!(plays(Some(0)), Some(1));
+        assert_eq!(plays(Some(3)), Some(3));
+        assert_eq!(plays(Some(MOST_TIMES)), Some(MOST_TIMES));
+        // Billions are as good as until stopped.
+        assert_eq!(plays(Some(2_000_000_000)), None);
+        assert_eq!(plays(None), None);
+    }
 }

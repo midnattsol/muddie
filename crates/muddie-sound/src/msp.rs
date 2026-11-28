@@ -85,14 +85,32 @@ pub fn parse_msp(line: &str) -> Option<Msp> {
 /// Whether the file name `name` is one `pattern` stands for: `*` for any
 /// run of characters and `?` for any one, whatever the case of letters.
 pub fn name_matches(pattern: &str, name: &str) -> bool {
-    fn matches(pattern: &[char], name: &[char]) -> bool {
-        match pattern.split_first() {
-            None => name.is_empty(),
-            Some(('*', rest)) => (0..=name.len()).any(|skipped| matches(rest, &name[skipped..])),
-            Some(('?', rest)) => !name.is_empty() && matches(rest, &name[1..]),
-            Some((wanted, rest)) => name.first() == Some(wanted) && matches(rest, &name[1..]),
+    let lower = |text: &str| -> Vec<char> { text.to_lowercase().chars().collect() };
+    let (pattern, name) = (lower(pattern), lower(name));
+    // Each character of the name once, going back only to just after the
+    // last `*`, so that many of them do not make it go on and on.
+    let (mut at, mut from) = (0, 0);
+    let mut star: Option<(usize, usize)> = None;
+    while from < name.len() {
+        match pattern.get(at) {
+            Some('*') => {
+                star = Some((at, from));
+                at += 1;
+            }
+            Some(&wanted) if wanted == '?' || wanted == name[from] => {
+                at += 1;
+                from += 1;
+            }
+            _ => match star {
+                // The last `*` stands for one more character.
+                Some((after, matched)) => {
+                    star = Some((after, matched + 1));
+                    at = after + 1;
+                    from = matched + 1;
+                }
+                None => return false,
+            },
         }
     }
-    let lower = |text: &str| -> Vec<char> { text.to_lowercase().chars().collect() };
-    matches(&lower(pattern), &lower(name))
+    pattern[at..].iter().all(|&left| left == '*')
 }
