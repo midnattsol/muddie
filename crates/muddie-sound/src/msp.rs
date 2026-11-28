@@ -46,7 +46,13 @@ pub fn parse_msp(line: &str) -> Option<Msp> {
     for part in parts {
         let (name, value) = part.split_once('=')?;
         match name.to_ascii_uppercase().as_str() {
-            "V" => volume = value.parse::<f32>().ok()?.clamp(0.0, 100.0) / 100.0,
+            "V" => {
+                let asked = value
+                    .parse::<f32>()
+                    .ok()
+                    .filter(|asked| asked.is_finite())?;
+                volume = asked.clamp(0.0, 100.0) / 100.0;
+            }
             "L" => {
                 times = match value.parse::<i32>().ok()? {
                     times if times < 0 => None,

@@ -243,3 +243,46 @@ fn heard_by_the_system() {
     let after = std::process::Command::new("pw-dump").output().unwrap();
     assert!(!String::from_utf8_lossy(&after.stdout).contains("\"Muddie\""));
 }
+
+#[test]
+fn a_volume_that_is_no_number_is_not_taken() {
+    assert_eq!(parse_msp("!!SOUND(hit.wav V=NaN)"), None);
+    assert_eq!(parse_msp("!!SOUND(hit.wav V=inf)"), None);
+}
+
+#[test]
+fn a_sound_dies_away_without_being_told_where_it_ends() {
+    let (mut player, mut mix) = Player::in_memory();
+    let file = steady("fading.wav", 0.5, 1.0);
+    let options = Options {
+        fade_out: 500,
+        ..Options::default()
+    };
+    player.play_with(&file, options, Label::default()).unwrap();
+    // A tenth of a second before its end, it is nearly gone.
+    let near_the_end = level(&heard(&mut mix, 0.9));
+    assert!(near_the_end[0] < 0.2, "{near_the_end:?}");
+}
+
+#[test]
+fn a_volume_that_is_no_number_leaves_the_rest_heard() {
+    let (mut player, mut mix) = Player::in_memory();
+    let file = steady("others.wav", 0.5, 1.0);
+    player.play_as(&file, 1.0, None, Label::default()).unwrap();
+    player
+        .play_as(&file, f32::NAN, None, Label::default())
+        .unwrap();
+    player
+        .play_with(
+            &file,
+            Options {
+                pan: f32::NAN,
+                volume: 0.0,
+                ..Options::default()
+            },
+            Label::default(),
+        )
+        .unwrap();
+    let both = level(&heard(&mut mix, 0.1));
+    assert!(near(both, [0.5, 0.5]), "the mix is {both:?}");
+}

@@ -63,7 +63,12 @@ impl<S: Source> Shape<S> {
 /// The gain of the left and the right, keeping the sound as loud wherever
 /// it is put: in the middle, both as they were.
 fn sides(pan: f32) -> [f32; 2] {
-    let pan = pan.clamp(-1.0, 1.0);
+    // One that is no number is the middle.
+    let pan = if pan.is_finite() {
+        pan.clamp(-1.0, 1.0)
+    } else {
+        0.0
+    };
     if pan == 0.0 {
         return [1.0, 1.0];
     }

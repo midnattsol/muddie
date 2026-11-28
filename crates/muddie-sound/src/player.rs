@@ -87,7 +87,7 @@ impl Player {
             return Ok(());
         };
         let player = rodio::Player::connect_new(output.mixer());
-        let volume = options.volume.clamp(0.0, 1.0);
+        let volume = audible(options.volume);
         player.set_volume(volume * self.group_volume(&label.group));
         match plays(options.times) {
             None => player.append(source.repeat_infinite()),
@@ -133,7 +133,7 @@ impl Player {
     /// Sets how loud the sounds whose labels pass `chosen` are, from 0 to
     /// 1, as they play.
     pub fn set_volume_where(&mut self, chosen: impl Fn(&Label) -> bool, volume: f32) {
-        let volume = volume.clamp(0.0, 1.0);
+        let volume = audible(volume);
         for sound in self.playing.iter_mut().filter(|sound| chosen(&sound.label)) {
             sound.volume = volume;
             let group = self.groups.get(&sound.label.group).copied().unwrap_or(1.0);
@@ -144,7 +144,7 @@ impl Player {
     /// Sets how loud a group of sounds is, from 0 to 1: those playing at
     /// once, and those played after.
     pub fn set_group_volume(&mut self, group: &str, volume: f32) {
-        let volume = volume.clamp(0.0, 1.0);
+        let volume = audible(volume);
         self.groups.insert(group.to_owned(), volume);
         for sound in self
             .playing
@@ -176,8 +176,16 @@ impl Player {
     }
 }
 
-/// The sound in `file`, decoded, cut and shaped as `options` say, kept
-/// whole to play again.
+/// A volume as it is played, from 0 to 1: one that is no number, as a
+/// server or a script may give, is silence, and never reaches the mix,
+/// which it would make no number all through.
+fn audible(volume: f32) -> f32 {
+    match volume.is_finite() {
+        true => volume.clamp(0.0, 1.0),
+        false => 0.0,
+    }
+}
+
 /// How many times a sound asked for `times` (`None` for until stopped) is
 /// queued: at least once, and past [`MOST_TIMES`], until stopped.
 fn plays(times: Option<u32>) -> Option<u32> {
@@ -186,6 +194,8 @@ fn plays(times: Option<u32>) -> Option<u32> {
         .map(|times| times.max(1))
 }
 
+/// The sound in `file`, decoded, cut and shaped as `options` say, kept
+/// whole to play again.
 fn shaped(
     file: &Path,
     options: &Options,
@@ -194,11 +204,16 @@ fn shaped(
     let decoded = rodio::Decoder::new(BufReader::new(opened))
         .map_err(|error| format!("{}: {error}", file.display()))?;
     let milliseconds = |ms: u32| Duration::from_millis(u64::from(ms));
-    let length = (options.finish).map(|finish| milliseconds(finish.saturating_sub(options.start)));
+    let finish = (options.finish).map(|finish| milliseconds(finish.saturating_sub(options.start)));
+    // How long it plays, which the fade out ends with: to where it is
+    // told to finish, else to its end, if the file says where that is.
+    let whole =
+        (decoded.total_duration()).map(|total| total.saturating_sub(milliseconds(options.start)));
+    let length = finish.or(whole);
     let mut source: Box<dyn Source + Send> =
         Box::new(decoded.skip_duration(milliseconds(options.start)));
-    if let Some(length) = length {
-        source = Box::new(source.take_duration(length));
+    if let Some(finish) = finish {
+        source = Box::new(source.take_duration(finish));
     }
     let fades = (
         milliseconds(options.fade_in),
