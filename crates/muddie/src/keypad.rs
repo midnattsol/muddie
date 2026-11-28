@@ -210,11 +210,13 @@ impl ApplicationHandler<UserEvent> for Watcher<'_> {
         window_id: WindowId,
         event: WindowEvent,
     ) {
+        // Held down, a key is pressed again and again, as a key of the
+        // main block is: what it is bound to is done again, and it never
+        // types what egui makes of it.
         if let WindowEvent::KeyboardInput {
             event: key_event, ..
         } = &event
             && key_event.state == ElementState::Pressed
-            && !key_event.repeat
             && let PhysicalKey::Code(code) = key_event.physical_key
             && let Some(name) = name_of(
                 code,
