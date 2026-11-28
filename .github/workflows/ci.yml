@@ -22,6 +22,12 @@ on:
 permissions:
   contents: read
 
+# One run of a pull request at a time: a newer push stops the one before.
+# On main each push runs whole, as each may be released.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 env:
   CARGO_TERM_COLOR: always
 
@@ -29,6 +35,9 @@ jobs:
   # What is different on each system (paths, speech, keys) is tried where
   # it runs.
   test:
+    # The pull request of a release changes only versions and the
+    # changelog, and is tried on main as it is merged, before release.yml.
+    if: ${{ !startsWith(github.head_ref, 'release-plz-') }}
     strategy:
       fail-fast: false
       matrix:
@@ -51,6 +60,7 @@ jobs:
 
   # Known vulnerabilities, and licences that let Muddie be shared as it is.
   dependencies:
+    if: ${{ !startsWith(github.head_ref, 'release-plz-') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
