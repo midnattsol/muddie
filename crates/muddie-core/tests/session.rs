@@ -173,3 +173,22 @@ async fn tls_rejects_a_self_signed_certificate_by_default() {
     };
     assert!(error.contains("certificate"), "unexpected error: {error}");
 }
+
+/// A server that takes the connection but never answers the TLS
+/// handshake: asked to disconnect, the session must still end.
+#[tokio::test]
+async fn disconnect_while_the_tls_handshake_waits() {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let target = Target {
+        host: "localhost".into(),
+        port: listener.local_addr().unwrap().port(),
+        tls: true,
+        verify_certificate: false,
+    };
+    let mut session = connect(target, Config::default());
+    let (_silent, _) = timeout(WAIT, listener.accept()).await.unwrap().unwrap();
+    session.commands.send(Command::Disconnect).unwrap();
+    let Event::Disconnected(_) = next(&mut session).await else {
+        panic!("expected the session to end");
+    };
+}

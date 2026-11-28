@@ -1,8 +1,10 @@
 //! A live connection to a MUD: a background task that owns the socket and
 //! talks to the frontend through channels.
 
+use std::collections::VecDeque;
 use std::io;
 use std::sync::Arc;
+use std::time::Duration;
 
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
@@ -85,6 +87,10 @@ pub fn connect(target: Target, mut config: Config) -> Session {
     Session { commands, events }
 }
 
+/// How long reaching the server, and agreeing on encryption with it, may
+/// take: one that takes it and says nothing is given up.
+const PATIENCE: Duration = Duration::from_secs(30);
+
 trait Stream: AsyncRead + AsyncWrite + Unpin + Send {}
 impl<T: AsyncRead + AsyncWrite + Unpin + Send> Stream for T {}
 
@@ -163,7 +169,25 @@ async fn drive(
     mut commands: mpsc::UnboundedReceiver<Command>,
     events: &mpsc::UnboundedSender<Event>,
 ) -> io::Result<()> {
-    let (mut reader, mut writer) = tokio::io::split(open(target).await?);
+    // While it connects, it can be told to stop: what else it is told
+    // waits for the connection.
+    let mut early = VecDeque::new();
+    let opening = tokio::time::timeout(PATIENCE, open(target));
+    tokio::pin!(opening);
+    let stream = loop {
+        tokio::select! {
+            opened = &mut opening => {
+                break opened.map_err(|_| {
+                    io::Error::new(io::ErrorKind::TimedOut, "the server did not answer")
+                })??;
+            }
+            command = commands.recv() => match command {
+                Some(Command::Disconnect) | None => return Ok(()),
+                Some(command) => early.push_back(command),
+            },
+        }
+    };
+    let (mut reader, mut writer) = tokio::io::split(stream);
     let _ = events.send(Event::Connected);
 
     let mut pipeline = Pipeline::new(config);
@@ -179,7 +203,7 @@ async fn drive(
                 }
                 pipeline.receive(&buf[..n], &mut outgoing, &mut batch)?;
             }
-            command = commands.recv() => match command {
+            command = next_command(&mut early, &mut commands) => match command {
                 Some(Command::Send(line)) => {
                     pipeline.send_line(&line, false, &mut outgoing, &mut batch);
                 }
@@ -217,5 +241,16 @@ async fn drive(
             writer.write_all(&outgoing).await?;
             outgoing.clear();
         }
+    }
+}
+
+/// The next command: those told while connecting first, as they came.
+async fn next_command(
+    early: &mut VecDeque<Command>,
+    commands: &mut mpsc::UnboundedReceiver<Command>,
+) -> Option<Command> {
+    match early.pop_front() {
+        Some(command) => Some(command),
+        None => commands.recv().await,
     }
 }
