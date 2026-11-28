@@ -28,7 +28,11 @@ impl Completion {
             shown.clone_from(input);
             return true;
         }
-        let start = input.rfind(char::is_whitespace).map_or(0, |at| at + 1);
+        // After the last space, whatever its length: a no-break space,
+        // AltGr+Space, is two bytes.
+        let start = (input.char_indices())
+            .rfind(|(_, ch)| ch.is_whitespace())
+            .map_or(0, |(at, ch)| at + ch.len_utf8());
         let (head, stem) = input.split_at(start);
         if stem.is_empty() {
             self.cycle = None;
@@ -111,5 +115,15 @@ mod tests {
             words("it's a well-known half-orc!").collect::<Vec<_>>(),
             ["it's", "a", "well-known", "half-orc"]
         );
+    }
+
+    /// A no-break space (AltGr+Space on many keyboards) is whitespace of
+    /// two bytes: completing the word after it must not panic.
+    #[test]
+    fn a_word_after_a_no_break_space_is_completed() {
+        let mut completion = Completion::default();
+        let mut input = "kill\u{a0}go".to_owned();
+        assert!(completion.complete(&mut input, words("goblin")));
+        assert_eq!(input, "kill\u{a0}goblin");
     }
 }
