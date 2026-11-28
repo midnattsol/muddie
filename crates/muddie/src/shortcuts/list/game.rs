@@ -36,6 +36,20 @@ shortcut!(
     [press(COMMAND, Key::W)],
     || { tr("Close session") }
 );
+shortcut!(
+    NEXT_SESSION,
+    "next_session",
+    Everywhere,
+    [press(Held::CTRL, Key::Tab)],
+    || tr("Next session")
+);
+shortcut!(
+    PREVIOUS_SESSION,
+    "previous_session",
+    Everywhere,
+    [press(Held::CTRL.and_shift(), Key::Tab)],
+    || tr("Previous session")
+);
 // Reloading is Cmd+R in every app on a Mac; Ctrl+R searches what was typed.
 shortcut!(
     RECONNECT,

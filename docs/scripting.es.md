@@ -864,6 +864,8 @@ van con `ctrl`; `shortcuts.all()` las da como son en cada sistema.
 | `settings` | `everywhere` | `ctrl+comma` | Ajustes |
 | `new_session` | `everywhere` | `ctrl+t` | Sesión nueva |
 | `close_session` | `everywhere` | `ctrl+w` | Cerrar esta sesión |
+| `next_session` | `everywhere` | `ctrl+tab` | Sesión siguiente |
+| `previous_session` | `everywhere` | `ctrl+shift+tab` | Sesión anterior |
 | `reconnect` | `everywhere` | `alt+r` | Reconectar |
 | `switch_view` | `everywhere` | `ctrl+e` | Entre el juego y el editor |
 | `data_view` | `everywhere` | `ctrl+d` | Entre el juego y los datos entrantes |

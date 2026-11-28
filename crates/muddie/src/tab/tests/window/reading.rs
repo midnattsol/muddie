@@ -409,3 +409,33 @@ fn what_to_do_is_said_on_welcome_and_with_f1() {
         "{last}"
     );
 }
+
+#[test]
+fn ctrl_tab_goes_from_session_to_session_saying_which() {
+    let mut harness = window(None);
+    harness.key_press_modifiers(egui::Modifiers::COMMAND, Key::T);
+    harness.run_steps(3);
+    harness.state_mut().tab_mut().host = "mud.example.org".into();
+    harness.state_mut().tab_mut().voice.force_voice();
+    harness.key_press_modifiers(Modifiers::CTRL, Key::Tab);
+    harness.run_steps(3);
+    harness.state_mut().tab_mut().voice.force_voice();
+    let said = |harness: &Harness<App>| harness.state().tab().voice.said.last().cloned();
+    harness.key_press_modifiers(Modifiers::CTRL, Key::Tab);
+    harness.run_steps(3);
+    assert_eq!(
+        said(&harness).as_deref(),
+        Some("Session 2 of 2: mud.example.org")
+    );
+    harness.key_press_modifiers(Modifiers::CTRL | Modifiers::SHIFT, Key::Tab);
+    harness.run_steps(3);
+    assert_eq!(
+        said(&harness).as_deref(),
+        Some("Session 1 of 2: New session")
+    );
+    // And the keyboard is in its command line.
+    let focused = (harness.query_all(egui_kittest::kittest::by()))
+        .find(|node| node.is_focused())
+        .map(|node| node.accesskit_node().role());
+    assert_eq!(focused, Some(egui::accesskit::Role::TextInput));
+}

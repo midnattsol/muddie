@@ -127,6 +127,10 @@ msgid "Could not load the settings: {0}"
 msgstr ""
 
 #, python-brace-format
+msgid "Session {0} of {1}: {2}"
+msgstr ""
+
+#, python-brace-format
 msgid "Could not save the settings: {0}"
 msgstr ""
 
@@ -1659,7 +1663,17 @@ msgstr ""
 msgid "In a script"
 msgstr ""
 
+msgid "key"
+msgstr ""
+
 msgid "Field name"
+msgstr ""
+
+msgid "value"
+msgstr ""
+
+#, python-brace-format
+msgid "Remove {0}"
 msgstr ""
 
 msgid "Disable"
@@ -1677,11 +1691,11 @@ msgstr ""
 msgid "Del"
 msgstr ""
 
-msgid "Enabled"
-msgstr ""
-
 #, python-brace-format
 msgid "{0} chosen"
+msgstr ""
+
+msgid "Enabled"
 msgstr ""
 
 msgid "Changes apply to every selected item."
@@ -2103,10 +2117,6 @@ msgstr ""
 
 #, python-brace-format
 msgid "Hide {0}"
-msgstr ""
-
-#, python-brace-format
-msgid "Remove {0}"
 msgstr ""
 
 msgid "Nothing here yet. A trigger can show lines in this panel, and so can a script."
@@ -3056,6 +3066,12 @@ msgid "Move the panel to the side before"
 msgstr ""
 
 msgid "Move the panel to the next side"
+msgstr ""
+
+msgid "Next session"
+msgstr ""
+
+msgid "Previous session"
 msgstr ""
 
 msgid "Between the game and the editor"

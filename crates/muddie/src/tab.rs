@@ -436,6 +436,11 @@ impl Tab {
         }
     }
 
+    /// Gives the keyboard to the command line, the next time it is drawn.
+    pub fn keys_to_the_line(&mut self) {
+        self.focus_line = true;
+    }
+
     /// Whether output arrived since the session was last on screen.
     pub fn has_unread(&self) -> bool {
         self.unread

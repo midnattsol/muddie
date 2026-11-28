@@ -170,11 +170,13 @@ pub const MAP_MOVES: [(Shortcut, &str); 12] = [
 ];
 
 /// Every shortcut, by place, in the order they are shown.
-pub const ALL: [Shortcut; 86] = [
+pub const ALL: [Shortcut; 88] = [
     PALETTE,
     SETTINGS,
     NEW_SESSION,
     CLOSE_SESSION,
+    NEXT_SESSION,
+    PREVIOUS_SESSION,
     RECONNECT,
     SWITCH_VIEW,
     DATA_VIEW,

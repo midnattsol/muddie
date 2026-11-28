@@ -3296,3 +3296,19 @@ msgstr "Ya están los sonidos de {0}."
 #, python-brace-format
 msgid "{0} sounds of {1} could not be fetched; {2}: {3}"
 msgstr "No se han podido descargar {0} sonidos de {1}; {2}: {3}"
+
+msgid "Next session"
+msgstr "Sesión siguiente"
+
+msgid "Previous session"
+msgstr "Sesión anterior"
+
+#, python-brace-format
+msgid "Session {0} of {1}: {2}"
+msgstr "Sesión {0} de {1}: {2}"
+
+msgid "key"
+msgstr "clave"
+
+msgid "value"
+msgstr "valor"

@@ -103,13 +103,13 @@ impl Tab {
         (&self.messages.list, self.messages.unread)
     }
 
-    /// They have been looked at.
     /// Says `text` at once, without keeping it among the messages: what
     /// answers something just done, such as a message copied.
     pub fn say_aside(&mut self, text: &str) {
         self.voice.say_now(text);
     }
 
+    /// They have been looked at.
     pub fn messages_read(&mut self) {
         self.messages.unread = 0;
     }

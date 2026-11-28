@@ -856,6 +856,8 @@ each system.
 | `settings` | `everywhere` | `ctrl+comma` | Settings |
 | `new_session` | `everywhere` | `ctrl+t` | New session |
 | `close_session` | `everywhere` | `ctrl+w` | Close session |
+| `next_session` | `everywhere` | `ctrl+tab` | Next session |
+| `previous_session` | `everywhere` | `ctrl+shift+tab` | Previous session |
 | `reconnect` | `everywhere` | `alt+r` | Reconnect |
 | `switch_view` | `everywhere` | `ctrl+e` | Between the game and the editor |
 | `data_view` | `everywhere` | `ctrl+d` | Between the game and the incoming data |

@@ -30,7 +30,10 @@ use profiles::ProfileEdit;
 pub use profiles::{ProfileAction, ProfileTab, profile_menu};
 pub use settings_page::Section;
 
-use crate::shortcuts::{CLOSE_SESSION, DATA_VIEW, NEW_SESSION, PALETTE, SETTINGS, SWITCH_VIEW};
+use crate::shortcuts::{
+    CLOSE_SESSION, DATA_VIEW, NEW_SESSION, NEXT_SESSION, PALETTE, PREVIOUS_SESSION, SETTINGS,
+    SWITCH_VIEW,
+};
 
 pub struct App {
     tabs: Vec<Tab>,
@@ -270,6 +273,28 @@ impl App {
         self.active = self.tabs.len() - 1;
     }
 
+    /// Goes `ahead` sessions on, round from the last to the first, to its
+    /// command line, saying which it is: whoever cannot see the bar of
+    /// sessions hears where they are.
+    fn go_to_session(&mut self, ahead: usize) {
+        let count = self.tabs.len();
+        if count < 2 {
+            return;
+        }
+        self.active = (self.active + ahead) % count;
+        let tab = &mut self.tabs[self.active];
+        tab.keys_to_the_line();
+        let said = trf(
+            "Session {0} of {1}: {2}",
+            &[
+                &(self.active + 1).to_string(),
+                &count.to_string(),
+                &tab.title(),
+            ],
+        );
+        tab.say_aside(&said);
+    }
+
     fn close_tab(&mut self, index: usize, ctx: &egui::Context) {
         self.tabs.remove(index);
         if self.tabs.is_empty() {
@@ -378,6 +403,12 @@ impl App {
         }
         if pressed(CLOSE_SESSION) {
             self.close_tab(self.active, ui.ctx());
+        }
+        if pressed(NEXT_SESSION) {
+            self.go_to_session(1);
+        }
+        if pressed(PREVIOUS_SESSION) {
+            self.go_to_session(self.tabs.len() - 1);
         }
         if pressed(SETTINGS) {
             self.open_settings(Section::General);
