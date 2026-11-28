@@ -14,7 +14,7 @@ pub const SCRIPT: &str = include_str!("../tab/tests/fixtures/reinos-de-leyenda/r
 pub const ALOUD: &str = include_str!("../tab/tests/fixtures/reinos-de-leyenda/aloud.luau");
 pub const PROMPT: &str = include_str!("../tab/tests/fixtures/reinos-de-leyenda/prompt.luau");
 /// The other scripts, by name.
-const MORE: [(&str, &str); 6] = [
+const MORE: [(&str, &str); 7] = [
     (
         "corrector.luau",
         include_str!("../tab/tests/fixtures/reinos-de-leyenda/corrector.luau"),
@@ -38,6 +38,10 @@ const MORE: [(&str, &str); 6] = [
     (
         "movement.luau",
         include_str!("../tab/tests/fixtures/reinos-de-leyenda/movement.luau"),
+    ),
+    (
+        "sounds.luau",
+        include_str!("../tab/tests/fixtures/reinos-de-leyenda/sounds.luau"),
     ),
 ];
 pub const RULES: &str = include_str!("../tab/tests/fixtures/reinos-de-leyenda/rules.toml");
