@@ -250,6 +250,7 @@ fn look_of(item: &Item) -> (widgets::Glyph, &'static str) {
             AppRequest::Settings(_) => (Glyph::Settings, crate::shortcuts::SETTINGS.written()),
             AppRequest::Shortcuts => (Glyph::Key, ""),
             AppRequest::Profiles
+            | AppRequest::NewProfile
             | AppRequest::Profile(..)
             | AppRequest::SaveAsProfile
             | AppRequest::Play(_) => (Glyph::Profile, ""),

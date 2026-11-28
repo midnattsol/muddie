@@ -34,6 +34,7 @@ mod connection;
 mod data;
 mod editor;
 mod input;
+mod journeys;
 mod keyboard;
 mod media;
 mod official;

@@ -3312,3 +3312,7 @@ msgstr "clave"
 
 msgid "value"
 msgstr "valor"
+
+#, python-brace-format
+msgid "Closed {0}. Session {1} of {2}: {3}"
+msgstr "Cerrada {0}. Sesión {1} de {2}: {3}"

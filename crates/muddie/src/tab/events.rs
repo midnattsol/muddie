@@ -365,9 +365,10 @@ impl Tab {
         let wait = Duration::from_secs(2u64.pow(self.reconnect_attempts.min(5)).min(60));
         self.reconnect_attempts += 1;
         self.reconnect_at = Some(Instant::now() + wait);
-        self.note(&trf(
+        self.note(&crate::i18n::trn(
+            "Reconnecting in {0} second.",
             "Reconnecting in {0} seconds.",
-            &[&wait.as_secs().to_string()],
+            wait.as_secs(),
         ));
     }
 

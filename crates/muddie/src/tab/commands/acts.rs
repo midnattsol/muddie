@@ -79,6 +79,13 @@ impl Tab {
             session,
             Act::App(AppRequest::Profiles),
         ));
+        if self.profiles.is_some() {
+            acts.push(item(
+                tr("New profile"),
+                session,
+                Act::App(AppRequest::NewProfile),
+            ));
+        }
         acts.push(item(tr("Find"), session, Act::Find));
         acts.push(item(tr("Copy all output"), session, Act::CopyOutput));
         let log = switched(tr("Log this session"), self.log.is_some());

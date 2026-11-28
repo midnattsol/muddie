@@ -85,7 +85,8 @@ fn a_session_out_of_sight_says_nothing() {
             assert_eq!(heard(app, &code).0, [] as [String; 0], "{code}");
         }
     }
-    assert_eq!(heard(app, r#"notify("kept")"#).0, ["kept"]);
+    // What the client tells is, with which session tells it.
+    assert_eq!(heard(app, r#"notify("kept")"#).0, ["New session: kept"]);
 }
 
 /// A notice is kept as it is told, heard or not.

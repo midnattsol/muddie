@@ -146,6 +146,8 @@ pub enum AppRequest {
     Settings(crate::app::Section),
     /// The Profiles window.
     Profiles,
+    /// Asks for the name, and the game, of a new profile.
+    NewProfile,
     Shortcuts,
     About,
     /// Something done with the saved profile of this name.

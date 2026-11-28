@@ -98,10 +98,11 @@ impl Tab {
                     });
             });
         });
-        // An editor of code that gave Tab back after Escape has the
-        // keyboard but is not typed in: Escape again leaves the editor.
-        let focused = ui.memory(|memory| memory.focused());
-        self.editor.was_typing = focused.is_some() && focused != widgets::escaped_editor(ui.ctx());
+        // Only a field is typed in: from a tab, a row or a button, Escape
+        // leaves the editor. An editor of code that gave Tab back after
+        // Escape has the keyboard but is not typed in either.
+        let typing = automation::typing_in(ui.ctx());
+        self.editor.was_typing = typing.is_some() && typing != widgets::escaped_editor(ui.ctx());
         self.rules_autosave(ctx, !leaving);
     }
 

@@ -55,10 +55,16 @@ impl Tab {
                 run: None,
             });
         }
+        // A session out of sight says which it is: "Disconnected" alone is
+        // taken for the one being played.
+        let heard = match self.voice.away {
+            true => format!("{}: {text}", self.title()),
+            false => text.to_owned(),
+        };
         match how {
             How::Never => {}
-            How::Cut => self.voice.say_now(text),
-            _ => self.voice.say(text),
+            How::Cut => self.voice.say_now(&heard),
+            _ => self.voice.say(&heard),
         }
     }
 
