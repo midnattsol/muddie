@@ -107,6 +107,7 @@ impl Tab {
             self.editor.draft = self.rules.clone();
             self.editor.seen = self.rules.clone();
             self.editor.history.clear();
+            self.editor.drafting = true;
         }
         self.editor.section = section;
         self.editor.folder = None;
@@ -152,13 +153,15 @@ impl Tab {
         }
     }
 
-    /// Closes the automation window, saving what was still unsaved.
+    /// Closes the automation window, saving what was still unsaved. One
+    /// never opened has nothing of its own: what it holds is not the rules,
+    /// and is never saved over them.
     pub fn close_automation(&mut self) {
         self.editor.open = false;
         self.editor.recording_key = false;
         self.editor.settle.clear();
         self.flush_script();
-        if self.editor.draft != self.rules {
+        if std::mem::take(&mut self.editor.drafting) && self.editor.draft != self.rules {
             self.save_rules();
         }
     }
@@ -172,6 +175,9 @@ pub(super) struct Editor {
     /// The draft as last seen, and when it last changed: edits are saved
     /// once they stop for a moment.
     pub(super) seen: Rules,
+    /// Whether the copy being edited was taken from the rules, as the
+    /// editor or a gauge's details open: only then is it saved over them.
+    pub(super) drafting: bool,
     pub(super) open: bool,
     /// The rule selected in each section of the automation window.
     pub(super) selected: Selected,
@@ -280,6 +286,7 @@ impl Default for Editor {
         Self {
             draft: Rules::default(),
             seen: Rules::default(),
+            drafting: false,
             open: false,
             selected: Selected::default(),
             marked: Vec::new(),

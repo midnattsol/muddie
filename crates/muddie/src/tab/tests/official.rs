@@ -526,3 +526,29 @@ fn a_plugin_from_git_updated_runs_as_it_now_is() {
     assert!(app.scripts.is_loaded(&new));
     clean_up(harness, &profiles);
 }
+
+/// A plugin brought up to date by a session whose rules are older than the
+/// profile's, as one opened in Profiles before the player added a macro in
+/// the game's: the macro is kept.
+#[test]
+fn an_update_keeps_the_rules_another_session_saved_since() {
+    let profiles = temp("stale");
+    keep(&profiles, "pack", &pack("-- one"));
+    let mut playing_one = playing(&profiles);
+    let mut other = window(Some(profiles.clone()));
+    assert!(other.state_mut().tab_mut().select_profile(Some("P".into())));
+    // The player adds a macro in the session they play in.
+    let mine = Macro {
+        send: "look".into(),
+        ..Macro::default()
+    };
+    (playing_one.state_mut().tab_mut()).change_rules(|rules| rules.macros.push(mine.clone()));
+    let saved = || crate::rules::Rules::load(&profiles.rules_path(Some("P"))).unwrap();
+    assert_eq!(saved().macros.len(), 1);
+    // The plugin comes anew, and the other session takes it.
+    keep(&profiles, "pack", &pack("-- two"));
+    other.state_mut().tab_mut().official_changed();
+    let left = saved().macros.len();
+    std::fs::remove_dir_all(profiles.official_dir().parent().unwrap()).unwrap();
+    assert_eq!(left, 1, "the macro saved by the other session was lost");
+}

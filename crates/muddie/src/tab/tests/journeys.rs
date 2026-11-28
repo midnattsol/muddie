@@ -249,3 +249,35 @@ fn f6_goes_from_the_address_to_the_profiles() {
     );
     assert_eq!(went[2].as_deref(), Some("Address"));
 }
+
+/// Closing a session whose editor was never opened leaves the rules as
+/// they are: there is nothing typed in it to save.
+#[test]
+fn closing_a_session_never_edited_keeps_the_rules() {
+    let dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../target/journey-close-keeps-rules");
+    let _ = std::fs::remove_dir_all(&dir);
+    let profiles = Profiles::at(dir.clone());
+    profiles
+        .save("Test", &crate::profile::Profile::default())
+        .unwrap();
+    let mut rules = crate::rules::Rules::default();
+    rules.macros.push(crate::rules::Macro {
+        send: "sur".into(),
+        ..crate::rules::Macro::default()
+    });
+    rules.save(&profiles.rules_path(Some("Test"))).unwrap();
+    let mut harness = window(Some(profiles.clone()));
+    assert!(
+        harness
+            .state_mut()
+            .tab_mut()
+            .select_profile(Some("Test".into()))
+    );
+    harness.run_steps(2);
+    harness.key_press_modifiers(Modifiers::COMMAND, Key::W);
+    harness.run_steps(2);
+    let left = crate::rules::Rules::load(&profiles.rules_path(Some("Test"))).unwrap();
+    let _ = std::fs::remove_dir_all(&dir);
+    assert_eq!(left.macros.len(), 1, "the rules were saved empty");
+}

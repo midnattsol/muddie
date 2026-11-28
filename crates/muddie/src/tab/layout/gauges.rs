@@ -159,6 +159,7 @@ impl Tab {
         if !self.editor.open {
             self.editor.draft = self.rules.clone();
             self.editor.seen = self.rules.clone();
+            self.editor.drafting = true;
         }
         self.editor.gauge_here = Some(index);
     }
