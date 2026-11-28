@@ -24,6 +24,11 @@ const BURST: Duration = Duration::from_millis(300);
 /// tell as a line and over GMCP both.
 const ALREADY_READ: Duration = Duration::from_secs(3);
 
+/// The fewest characters a text read lately has for another that holds it
+/// to be taken as the same words: "Ok." or a prompt inside a tell is not
+/// the tell.
+const SAME_WORDS: usize = 12;
+
 /// What the review keys ask for besides reading.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Reviewed {
@@ -355,9 +360,8 @@ impl Voice {
         (self.recent).retain(|(_, at, _)| now.duration_since(*at) < ALREADY_READ);
         let text = text.trim();
         !text.is_empty()
-            && (self.recent.iter()).any(|(read, _, line)| {
-                *line == from_channel && (read.contains(text) || text.contains(read.as_str()))
-            })
+            && (self.recent.iter())
+                .any(|(read, _, line)| *line == from_channel && same_words(read, text))
     }
 
     fn keep_read(&mut self, text: &str, line: bool) {
@@ -531,5 +535,37 @@ impl Voice {
         };
         self.say_now(&said);
         None
+    }
+}
+
+/// Whether `read` and `text` are the same words: the same, or one holding
+/// the other when that other is long enough to be more than a word or a
+/// prompt that comes up in many.
+fn same_words(read: &str, text: &str) -> bool {
+    let (short, long) = match read.len() <= text.len() {
+        true => (read, text),
+        false => (text, read),
+    };
+    short == long || (short.chars().count() >= SAME_WORDS && long.contains(short))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::same_words;
+
+    #[test]
+    fn a_tell_is_the_same_words_as_its_line_and_not_as_a_word_in_it() {
+        assert!(same_words("Ana te dice: hola", "Ana te dice: hola"));
+        assert!(same_words(
+            "[Chat] Ana: nos vemos en la plaza",
+            "Ana: nos vemos en la plaza"
+        ));
+        assert!(same_words(
+            "Ana: nos vemos en la plaza",
+            "[Chat] Ana: nos vemos en la plaza"
+        ));
+        assert!(!same_words("Ok.", "[Chat] Ana: Ok."));
+        assert!(!same_words(">", "[Chat] Ana: a > b"));
+        assert!(!same_words("¿Qué tal?", "[Chat] Ana: ¿Qué tal?"));
     }
 }
