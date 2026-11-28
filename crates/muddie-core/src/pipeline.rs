@@ -365,8 +365,16 @@ impl Pipeline {
             }
             Signal::Mxp => self.assembler.enable_mxp(),
             // What arrives from here on is in the encoding agreed.
+            // UTF-8 agreed is read as it was read until then, if that was
+            // UTF-8 already, with Latin-1 for what is not: many servers that
+            // agree to it still send Latin-1 now and then.
             Signal::Charset(name) => {
-                if let Some(decoder) = Decoder::for_label(&name) {
+                let Some(decoder) = Decoder::for_label(&name) else {
+                    return;
+                };
+                let same = decoder.encoding_name() == Some("UTF-8")
+                    && self.decoder.encoding_name().is_none();
+                if !same {
                     self.decoder.flush(&mut self.text);
                     self.decoder = decoder;
                 }

@@ -59,6 +59,19 @@ fn text_is_read_in_the_encoding_agreed() {
 }
 
 #[test]
+fn utf8_agreed_still_reads_latin1() {
+    let mut pipeline = Pipeline::new(Config::default());
+    // The server offers UTF-8, which is taken, and then sends a line in
+    // Latin-1, as many Spanish MUDs do by mistake.
+    let mut input = vec![IAC, WILL, opt::CHARSET];
+    telnet::write_subneg(opt::CHARSET, b"\x01;UTF-8", &mut input);
+    input.extend_from_slice(b"ca\xf1a\r\n");
+    let (_, events) = receive(&mut pipeline, &input);
+    let seen: Vec<String> = events.iter().map(text).collect();
+    assert_eq!(seen, ["line:caña"]);
+}
+
+#[test]
 fn what_is_offered_is_told_and_the_rest_only_while_traced() {
     let other = |protocol: &str, name: &str, data: &str| Event::Other {
         protocol: protocol.into(),
@@ -409,5 +422,32 @@ fn while_tracing_what_goes_over_telnet_either_way_is_told() {
     assert_eq!(
         told(&mut pipeline),
         [wire(true, "GMCP", r#"Core.Hello {"client": "muddie"}"#)]
+    );
+}
+
+#[test]
+fn a_line_with_no_end_costs_no_more_than_its_length() {
+    // What is cloned of the line not yet ended, read after read, and how
+    // long reading it takes, for a line twice as long.
+    let read = |bytes: usize| {
+        let mut pipeline = Pipeline::new(Config::default());
+        let chunk = vec![b'a'; 4096];
+        let started = std::time::Instant::now();
+        let mut cloned = 0;
+        for _ in 0..bytes / chunk.len() {
+            let (_, events) = receive(&mut pipeline, &chunk);
+            for event in &events {
+                if let Event::Partial(line) = event {
+                    cloned += line.text().len();
+                }
+            }
+        }
+        (cloned, started.elapsed())
+    };
+    let (once, _) = read(1 << 20);
+    let (twice, _) = read(2 << 20);
+    assert!(
+        twice < once * 3,
+        "1 MB cloned {once} bytes, 2 MB {twice}: more than twice as much"
     );
 }

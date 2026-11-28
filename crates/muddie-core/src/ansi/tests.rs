@@ -409,3 +409,22 @@ fn breaks_paragraphs_rules_and_one_tag_modes() {
     assert!(replies[0].contains("+send") && replies[0].contains("+frame"));
     assert_eq!(replies[1], "\x1b[1z<SUPPORTS +send -image +gauge>");
 }
+
+#[test]
+fn a_tag_too_long_is_text_to_its_last_character() {
+    let tag = format!("\x1b[1z<{}X rest\n", "a".repeat(1024));
+    let (out, _) = mxp(&[&tag]);
+    let text = out[0].text();
+    assert!(
+        text.contains('X'),
+        "{:?}",
+        &text[text.len().saturating_sub(10)..]
+    );
+}
+
+#[test]
+fn an_escape_cut_short_by_a_new_line_does_not_join_two_lines() {
+    let (out, _) = lines(&["one\x1b[\ntwo\n"]);
+    let seen: Vec<String> = out.iter().map(|line| line.text().to_string()).collect();
+    assert_eq!(seen, ["one", "two"]);
+}

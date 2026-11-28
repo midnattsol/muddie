@@ -23,6 +23,10 @@ use sgr::*;
 const MAX_PARAMS: usize = 64;
 /// Longest MXP tag kept; a longer `<...` is taken as ordinary text.
 const MAX_TAG: usize = 1024;
+/// The most characters of text a line is let have: past them it ends, as
+/// if the server had ended it, so that a server that never ends one does
+/// not make each read cost more than the one before.
+const LONGEST: usize = 16 * 1024;
 /// How deep the elements a server defines may stand for one another.
 const MAX_DEPTH: u8 = 8;
 
@@ -122,6 +126,8 @@ pub struct Assembler {
     /// The next end of line is not one, and none is inside a paragraph.
     no_break: bool,
     paragraph: bool,
+    /// How many characters of text the line has had.
+    length: usize,
     /// What tags asked of the client besides text, for the caller.
     asked: Vec<Mxp>,
     /// Answers to the server's MXP queries, for the caller to send.
@@ -156,6 +162,7 @@ impl Default for Assembler {
             gag: false,
             no_break: false,
             paragraph: false,
+            length: 0,
             asked: Vec::new(),
             replies: Vec::new(),
             keep_tags: false,
@@ -172,6 +179,12 @@ impl Assembler {
     /// Consumes `text`, appending each line completed by a newline to `out`.
     pub fn feed(&mut self, text: &str, out: &mut Vec<Line>) {
         for ch in text.chars() {
+            // A sequence cut short by the end of a line ends there, and the
+            // line with it, not on into the next.
+            if ch == '\n' && matches!(self.state, State::Esc | State::EscIntermediate | State::Csi)
+            {
+                self.state = State::Ground;
+            }
             match self.state {
                 State::Ground => self.ground(ch, out),
                 State::Esc => {
@@ -226,9 +239,14 @@ impl Assembler {
                 self.markup.clear();
                 self.state = State::Entity;
             }
-            '\t' => self.line.push(ch, self.style),
-            _ if ch.is_control() => {}
-            _ => self.line.push(ch, self.style),
+            _ if ch.is_control() && ch != '\t' => {}
+            _ => {
+                self.line.push(ch, self.style);
+                self.length += 1;
+                if self.length >= LONGEST {
+                    self.end_line(out);
+                }
+            }
         }
     }
 
@@ -267,9 +285,11 @@ impl Assembler {
                 self.state = State::Ground;
                 self.feed(ch.encode_utf8(&mut [0; 4]), out);
             }
+            // Too long for a tag: text, this character too.
             _ if self.markup.len() >= MAX_TAG => {
                 self.literal('<');
                 self.state = State::Ground;
+                self.feed(ch.encode_utf8(&mut [0; 4]), out);
             }
             _ => self.markup.push(ch),
         }
@@ -343,6 +363,7 @@ impl Assembler {
 
     /// Ends the line where a tag breaks it, with what is open still open.
     fn push_line(&mut self, out: &mut Vec<Line>) {
+        self.length = 0;
         self.close_link();
         let mut line = std::mem::take(&mut self.line);
         line.dest.clone_from(&self.dest);
@@ -369,6 +390,7 @@ impl Assembler {
             None
         } else {
             self.close_link();
+            self.length = 0;
             Some(std::mem::take(&mut self.line))
         }
     }
