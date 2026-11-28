@@ -97,10 +97,22 @@ impl App {
         };
         let (settings, mut settings_error) = match loaded {
             Ok(settings) => (settings, None),
-            Err(error) => (
-                Settings::default(),
-                Some(trf("Could not load the settings: {0}", &[&error])),
-            ),
+            // Put aside, so that saving the usual ones does not lose it.
+            Err(error) => match (profiles.as_ref())
+                .and_then(|profiles| Settings::set_aside(&profiles.settings_path()))
+            {
+                Some(aside) => (
+                    Settings::default(),
+                    Some(trf(
+                        "Could not load the settings: {0}. They were kept in {1}, and Muddie starts with the usual ones.",
+                        &[&error, &aside.display().to_string()],
+                    )),
+                ),
+                None => (
+                    Settings::default(),
+                    Some(trf("Could not load the settings: {0}", &[&error])),
+                ),
+            },
         };
         if let Some(profiles) = &profiles {
             i18n::set_user_dir(profiles.locale_dir());

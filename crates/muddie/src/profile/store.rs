@@ -39,7 +39,7 @@ impl Profiles {
         let dir = self.profile_dir(name);
         let text = toml::to_string_pretty(profile).map_err(|error| error.to_string())?;
         std::fs::create_dir_all(dir.join("scripts"))
-            .and_then(|()| std::fs::write(dir.join("profile.toml"), text))
+            .and_then(|()| crate::whole::write(&dir.join("profile.toml"), text))
             .map_err(|error| {
                 crate::i18n::trf(
                     "Could not save the profile in {0}: {1}",

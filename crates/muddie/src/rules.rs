@@ -124,7 +124,7 @@ impl Rules {
         if let Some(dir) = path.parent() {
             std::fs::create_dir_all(dir).map_err(|error| format!("{}: {error}", dir.display()))?;
         }
-        std::fs::write(path, text)
+        crate::whole::write(path, text)
             .map_err(|error| format!("cannot write {}: {error}", path.display()))
     }
 

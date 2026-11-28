@@ -1,6 +1,6 @@
 //! Preferences that apply to every session, kept in `settings.toml`.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
@@ -169,12 +169,26 @@ impl Settings {
         }
     }
 
+    /// Puts the settings file at `path`, which could not be read, aside
+    /// beside it, so that what is in it is not lost when the settings are
+    /// saved: where it went, if it could be.
+    pub fn set_aside(path: &Path) -> Option<PathBuf> {
+        let name = path.file_name()?.to_string_lossy().into_owned();
+        let aside = (1..100)
+            .map(|number| match number {
+                1 => path.with_file_name(format!("{name}.unread")),
+                _ => path.with_file_name(format!("{name}.unread-{number}")),
+            })
+            .find(|aside| !aside.exists())?;
+        std::fs::rename(path, &aside).ok().map(|()| aside)
+    }
+
     pub fn save(&self, path: &Path) -> Result<(), String> {
         let text = toml::to_string_pretty(self).map_err(|error| error.to_string())?;
         if let Some(dir) = path.parent() {
             std::fs::create_dir_all(dir).map_err(|error| format!("{}: {error}", dir.display()))?;
         }
-        std::fs::write(path, text)
+        crate::whole::write(path, text)
             .map_err(|error| format!("cannot write {}: {error}", path.display()))
     }
 }
@@ -214,6 +228,17 @@ mod tests {
         );
         std::fs::write(&path, "theme = \"plaid\"\n").unwrap();
         assert!(Settings::load(&path).is_err());
+        // Put aside, and again: neither is lost.
+        let aside = Settings::set_aside(&path).unwrap();
+        assert_eq!(aside, path.with_file_name("settings.toml.unread"));
+        assert!(!path.exists());
+        std::fs::write(&path, "theme = \"tartan\"\n").unwrap();
+        let again = Settings::set_aside(&path).unwrap();
+        assert_eq!(again, path.with_file_name("settings.toml.unread-2"));
+        assert_eq!(
+            std::fs::read_to_string(&aside).unwrap(),
+            "theme = \"plaid\"\n"
+        );
         std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
     }
 }

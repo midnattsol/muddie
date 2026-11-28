@@ -44,6 +44,14 @@ msgid "Could not load the settings: {0}"
 msgstr "No se pudieron cargar los ajustes: {0}"
 
 #, python-brace-format
+msgid ""
+"Could not load the settings: {0}. They were kept in {1}, and Muddie starts "
+"with the usual ones."
+msgstr ""
+"No se pudieron cargar los ajustes: {0}. Se han guardado en {1}, y Muddie "
+"empieza con los de siempre."
+
+#, python-brace-format
 msgid "Logging stopped: {0}"
 msgstr "Registro detenido: {0}"
 

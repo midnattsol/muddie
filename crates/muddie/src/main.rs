@@ -35,6 +35,7 @@ mod templates;
 mod theme;
 mod voice;
 mod webfetch;
+mod whole;
 mod widgets;
 mod zipread;
 

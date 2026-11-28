@@ -119,6 +119,10 @@ msgid "Cutting in on what is being read"
 msgstr ""
 
 #, python-brace-format
+msgid "Could not load the settings: {0}. They were kept in {1}, and Muddie starts with the usual ones."
+msgstr ""
+
+#, python-brace-format
 msgid "Could not load the settings: {0}"
 msgstr ""
 
