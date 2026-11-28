@@ -52,7 +52,8 @@ impl Output {
     }
 }
 
-/// The mix as it is given to a player.
+/// The mix as it is given to a player, on Linux, and read back in tests.
+#[cfg(any(target_os = "linux", test))]
 mod pipe_format {
     use rodio::{ChannelCount, SampleRate};
 
