@@ -23,7 +23,13 @@ impl Tab {
             let next =
                 (self.connection.as_ref()).and_then(|connection| connection.events.try_recv().ok());
             match next {
-                Some(event) => self.handle_event(event, recording),
+                Some(event) => {
+                    self.handle_event(event, recording);
+                    // What a script fed of it comes right after it, before
+                    // what the MUD sent next, as a room after the prompt it
+                    // came with does before the move that follows.
+                    self.take_fed();
+                }
                 None => return false,
             }
         }
