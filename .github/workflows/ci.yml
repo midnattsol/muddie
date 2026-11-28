@@ -2,7 +2,8 @@ name: CI
 
 # Formatting, lints, the tests on each system and the dependencies, when
 # something they check changes: a change to the manual or the README runs
-# none of it. When it passes on main, release.yml runs.
+# none of it. When it passes on main, release.yml runs; a release itself
+# is not tried again.
 on:
   push:
     branches: [main]
@@ -35,9 +36,12 @@ jobs:
   # What is different on each system (paths, speech, keys) is tried where
   # it runs.
   test:
-    # The pull request of a release changes only versions and the
-    # changelog, and is tried on main as it is merged, before release.yml.
-    if: ${{ !startsWith(github.head_ref, 'release-plz-') }}
+    # A release changes only versions and the changelog of what was
+    # tried: neither its pull request nor its commit on main is tried
+    # again, and release.yml builds it.
+    if: >-
+      !startsWith(github.head_ref, 'release-plz-')
+      && !startsWith(github.event.head_commit.message, 'chore(release)')
     strategy:
       fail-fast: false
       matrix:
@@ -60,7 +64,9 @@ jobs:
 
   # Known vulnerabilities, and licences that let Muddie be shared as it is.
   dependencies:
-    if: ${{ !startsWith(github.head_ref, 'release-plz-') }}
+    if: >-
+      !startsWith(github.head_ref, 'release-plz-')
+      && !startsWith(github.event.head_commit.message, 'chore(release)')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

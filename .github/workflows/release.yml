@@ -1,28 +1,36 @@
 name: Release
 
-# Runs when CI passes on main, never otherwise, and tests nothing again.
 # release-plz (release-plz.toml) keeps one release PR with the next
-# version and the changelog; once it is merged, it tags the version and
-# drafts its release, which is then built, packaged, tried and published.
+# version and the changelog, brought up to date when CI passes on main.
+# Once it is merged, its commit, which changes only versions and the
+# changelog of what CI passed, is not tried again: it is tagged and its
+# release drafted, then built, packaged, tried and published.
 on:
   workflow_run:
     workflows: [CI]
     types: [completed]
+    branches: [main]
+  push:
     branches: [main]
 
 permissions: {}
 
 env:
   CARGO_TERM_COLOR: always
-  # The commit CI passed for, not whatever main is by now.
-  SHA: ${{ github.event.workflow_run.head_sha }}
+  # The commit CI passed for, or the release's, not whatever main is by now.
+  SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
 
 jobs:
   release-plz:
+    # After CI passed for a change on main, or as a release is merged.
     if: >-
       github.repository_owner == 'midnattsol'
-      && github.event.workflow_run.conclusion == 'success'
-      && github.event.workflow_run.event == 'push'
+      && ((github.event_name == 'workflow_run'
+          && github.event.workflow_run.conclusion == 'success'
+          && github.event.workflow_run.event == 'push'
+          && !startsWith(github.event.workflow_run.head_commit.message, 'chore(release)'))
+        || (github.event_name == 'push'
+          && startsWith(github.event.head_commit.message, 'chore(release)')))
     runs-on: ubuntu-latest
     permissions:
       contents: write
