@@ -2,13 +2,31 @@
 
 use super::*;
 
+/// Tells a screen reader `response` is one of several of which one is
+/// chosen, as a tab or a row of a list is, and whether it is: chosen, not
+/// checked, which egui would make of it.
+pub fn chosen_info(
+    response: &Response,
+    role: Role,
+    enabled: bool,
+    chosen: bool,
+    label: impl ToString,
+) {
+    let label = label.to_string();
+    response.widget_info(|| WidgetInfo::labeled(role, enabled, &label));
+    (response.ctx).accesskit_node_builder(response.id, |node| {
+        node.clear_toggled();
+        node.set_selected(chosen);
+    });
+}
+
 /// An entry in a sidebar: its name, and a count at the right if given.
 pub fn nav_item(ui: &mut Ui, selected: bool, text: &str, count: Option<usize>) -> Response {
     let theme = theme::current();
     let height = 36.0;
     let (rect, response) =
         ui.allocate_exact_size(vec2(ui.available_width(), height), Sense::click());
-    response.widget_info(|| WidgetInfo::selected(Role::Tab, ui.is_enabled(), selected, text));
+    chosen_info(&response, Role::Tab, ui.is_enabled(), selected, text);
     // How many there are, as it is seen at its right.
     if let Some(count) = count {
         let many = crate::i18n::trn("{0} item", "{0} items", count as u64);
@@ -395,4 +413,35 @@ pub fn tag_pill(
     );
     painter.galley(pill.min + vec2(6.0, 2.0), galley, colour);
     pill
+}
+
+#[cfg(test)]
+mod chosen_tests {
+    use super::*;
+    use egui::accesskit::Toggled;
+    use egui_kittest::Harness;
+    use egui_kittest::kittest::{NodeT, Queryable};
+
+    #[test]
+    fn a_tab_is_told_chosen_and_not_checked() {
+        let mut ready = false;
+        let mut harness = Harness::new_ui(move |ui| {
+            if !std::mem::replace(&mut ready, true) {
+                crate::theme::apply(ui.ctx(), &crate::settings::Settings::default()).unwrap();
+                return;
+            }
+            tab(ui, "General", true, false);
+            tab(ui, "Sound", false, false);
+            nav_item(ui, true, "Triggers", None);
+        });
+        harness.step();
+        harness.step();
+        for (name, chosen) in [("General", true), ("Sound", false), ("Triggers", true)] {
+            let node = harness.get_by_label(name);
+            let node = node.accesskit_node();
+            assert_eq!(node.role(), Role::Tab, "{name}");
+            assert_eq!(node.is_selected(), Some(chosen), "{name}");
+            assert_eq!(node.toggled(), None::<Toggled>, "{name}");
+        }
+    }
 }

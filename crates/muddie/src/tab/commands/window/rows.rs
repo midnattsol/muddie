@@ -102,14 +102,12 @@ pub(super) fn palette_row(ui: &mut egui::Ui, item: &Item, chosen: bool) -> egui:
     let (rect, row) =
         ui.allocate_exact_size(egui::vec2(ui.available_width(), ROW), egui::Sense::click());
     let about = item.about.as_str();
-    row.widget_info(|| {
-        let usage = &item.usage;
-        let said = match about.is_empty() {
-            true => usage.clone(),
-            false => format!("{usage}. {about}"),
-        };
-        egui::WidgetInfo::selected(egui::Role::ListItem, true, chosen, said)
-    });
+    let usage = &item.usage;
+    let said = match about.is_empty() {
+        true => usage.clone(),
+        false => format!("{usage}. {about}"),
+    };
+    widgets::chosen_info(&row, egui::Role::ListItem, true, chosen, said);
     if chosen || row.hovered() {
         let fill = match chosen {
             true => theme.accent.gamma_multiply(0.18),

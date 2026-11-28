@@ -354,9 +354,7 @@ pub fn segmented(ui: &mut Ui, choices: &[&str], current: usize) -> Option<usize>
                             vec2(width + 24.0, 24.0),
                             tab_sense(index == reached),
                         );
-                        response.widget_info(|| {
-                            WidgetInfo::selected(Role::Tab, ui.is_enabled(), selected, *name)
-                        });
+                        chosen_info(&response, Role::Tab, ui.is_enabled(), selected, *name);
                         let hovered = response.hovered() || response.has_focus();
                         if selected {
                             ui.painter()
@@ -431,9 +429,13 @@ pub fn tab_stopped_at(ui: &mut Ui, text: &str, (on, stop): (bool, bool), fresh: 
     let dot = if fresh { 10.0 } else { 0.0 };
     let size = vec2(galley.size().x + 18.0 + dot, 24.0);
     let (rect, response) = ui.allocate_exact_size(size, tab_sense(stop));
-    response.widget_info(|| {
-        WidgetInfo::selected(Role::Tab, ui.is_enabled(), on, fresh_said(text, fresh))
-    });
+    chosen_info(
+        &response,
+        Role::Tab,
+        ui.is_enabled(),
+        on,
+        fresh_said(text, fresh),
+    );
     if ui.is_rect_visible(rect) {
         let painter = ui.painter();
         if on {

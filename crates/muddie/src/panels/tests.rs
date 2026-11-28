@@ -418,3 +418,21 @@ fn gauges_at_widths() {
             .unwrap();
     }
 }
+
+/// A bar tells how full it is, or a screen reader takes it for busy.
+#[test]
+fn a_bar_tells_how_full_it_is() {
+    use egui_kittest::kittest::{NodeT, Queryable};
+    let harness = drawing_at(700.0);
+    let bar = harness.get_by_label("HP 80 of 150");
+    let node = bar.accesskit_node();
+    assert_eq!(node.role(), Role::ProgressIndicator);
+    assert_eq!(
+        (
+            node.numeric_value(),
+            node.min_numeric_value(),
+            node.max_numeric_value()
+        ),
+        (Some(80.0), Some(0.0), Some(150.0))
+    );
+}

@@ -96,9 +96,7 @@ impl Tab {
         let mut on = self.editor.draft.tag_on(&name);
         let (rect, row) =
             ui.allocate_exact_size(egui::vec2(ui.available_width(), 34.0), egui::Sense::click());
-        row.widget_info(|| {
-            egui::WidgetInfo::selected(egui::Role::Tab, true, chosen, name.as_str())
-        });
+        widgets::chosen_info(&row, egui::Role::Tab, true, chosen, name.as_str());
         let count = carrying.get(&tag_key(&name)).copied().unwrap_or(0);
         paint_tag(ui, (rect, &row), &name, (chosen, on), count, theme);
         if row.clicked() {

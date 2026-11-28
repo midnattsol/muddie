@@ -437,6 +437,12 @@ fn draw_bar(
     let numbers = format!("{} / {}", plain(value), plain(max));
     let (rect, response) = ui.allocate_exact_size(vec2(width, BAR_HEIGHT), Sense::hover());
     response.widget_info(|| WidgetInfo::labeled(Role::ProgressIndicator, true, heard));
+    // How full it is, or a screen reader takes it for one that is busy.
+    (ui.ctx()).accesskit_node_builder(response.id, |node| {
+        node.set_numeric_value(value);
+        node.set_min_numeric_value(0.0);
+        node.set_max_numeric_value(max);
+    });
     let painter = ui.painter();
     painter.text(
         rect.left_top(),

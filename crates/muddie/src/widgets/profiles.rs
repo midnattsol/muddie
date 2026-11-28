@@ -49,7 +49,7 @@ pub fn profile_row(ui: &mut Ui, selected: bool, name: &str, place: &str, in_use:
         true => format!("{name}, {place}, {}", crate::i18n::tr("In use")),
         false => format!("{name}, {place}"),
     };
-    response.widget_info(|| WidgetInfo::selected(Role::Tab, ui.is_enabled(), selected, &said));
+    chosen_info(&response, Role::Tab, ui.is_enabled(), selected, &said);
     if !ui.is_rect_visible(rect) {
         return response;
     }
