@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0](https://github.com/midnattsol/muddie/compare/v0.6.0...v0.7.0) - 2026-11-28
+
+### Added
+
+- *(keys)* go through sessions with ctrl+tab
+
+### Fixed
+
+- *(palette)* keep a script's choice on no match
+- *(plugins)* safe folders, sound names and index
+- *(script)* runaways, reruns and keys given wrong
+- *(keys)* repeat keypad keys held down
+- *(voice)* read tells holding a short line read
+- *(a11y)* tell tabs selected and bars how full
+- *(a11y)* read headers in order, keep the focus
+- *(settings)* never overwrite unreadable settings
+- *(gauges)* put them in rows that do not jump
+- *(core)* read latin-1, long lines and cut codes
+- *(core)* stop servers crashing msdp and mxp
+- *(map)* keep rooms a busy file did not take
+- *(script)* keep globals and timers current
+- *(sound)* no number volumes and fade to the end
+- *(sound)* bound loops and wildcard names
+
 ## [0.6.0](https://github.com/midnattsol/muddie/compare/v0.5.0...v0.6.0) - 2026-11-28
 
 ### Added
