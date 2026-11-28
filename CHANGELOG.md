@@ -9,57 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.7.4](https://github.com/midnattsol/muddie/compare/v0.7.3...v0.7.4) - 2026-11-28
 
-### Added
-
-- *(core)* replace a part of a line
-- *(plugins)* fetch a plugin's sounds from the web
-- *(scripts)* offer actions in the palette alone
-- *(sound)* mix sounds in muddie, on every system
-- *(map)* walk the map with the keys that walk
-- *(scripts)* lists, clipboard, rooms and quiet
-- *(keys)* choose every key, from scripts too
-- *(scripts)* say what a call to nothing called
-- *(scripts)* find a module beside who asks
-- *(scripts)* write definitions for editors
-- *(scripts)* add what scripts of others can do
-- *(scripts)* wait in the middle of a script
-- *(scripts)* [**breaking**] set what is set as a field
-- *(scripts)* listen to channels and what is sent
-- *(scripts)* ask for gauges and listen to them
-- *(scripts)* [**breaking**] ask a line for its text by name
-- *(scripts)* [**breaking**] say how things are heard one way
-- *(scripts)* [**breaking**] give triggers the line to change
-- *(scripts)* [**breaking**] say what is not understood
-- *(scripts)* [**breaking**] a table for each kind of thing
-- *(scripts)* [**breaking**] listen to everything with on
-- *(scripts)* [**breaking**] give what is made as an object
-- *(gauges)* say how each is read aloud
-- *(scripts)* say quietly on a channel
-- *(scripts)* tell scripts whether a screen reader reads
-
-### Documentation
-
-- guide plugins and order the reference
-
 ### Fixed
 
 - *(editor)* never save an unopened editor's rules
-- *(core)* stop compressing when the server asks
-- *(core)* let a session stop while it connects
-- *(core)* read latin-1, long lines and cut codes
-- *(core)* stop servers crashing msdp and mxp
-- *(map)* keep rooms a busy file did not take
-- *(rules)* tell a rule from a folder named alike
-- *(script)* runaways, reruns and keys given wrong
-- *(script)* keep globals and timers current
-- *(gauges)* take how a session starts as no news
-- *(scripts)* read a variable as it is now
-- *(scripts)* let go of a session once closed
-- *(sound)* keep the mix soon and a stuck player
-- *(sound)* no number volumes and fade to the end
-- *(sound)* bound loops and wildcard names
-- *(sound)* build without warnings off linux
-- *(speech)* read a silenced prompt no more
 
 ## [0.7.3](https://github.com/midnattsol/muddie/compare/v0.7.2...v0.7.3) - 2026-11-28
 
