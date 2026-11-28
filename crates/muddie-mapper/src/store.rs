@@ -210,7 +210,8 @@ impl Store {
                     },
                     exits: exits.remove(&id).unwrap_or_default(),
                     // Kept as the weight it was once, the cost and the move.
-                    cost: row.get::<_, u32>(6)?.saturating_sub(1),
+                    cost: u32::try_from(row.get::<_, i64>(6)?.saturating_sub(1).max(0))
+                        .unwrap_or(u32::MAX),
                     avoid: row.get(7)?,
                     colour: row.get::<_, Option<u32>>(8)?.map(unpacked),
                     note: row.get(9)?,
@@ -311,7 +312,8 @@ fn save_room(transaction: &Transaction, room: &Room, known: bool) -> Result<()> 
             room.pos.x,
             room.pos.y,
             room.pos.z,
-            room.cost + 1,
+            // As a weight, the move counted: as wide as it needs.
+            i64::from(room.cost) + 1,
             room.avoid,
             room.colour.map(packed),
             room.note,

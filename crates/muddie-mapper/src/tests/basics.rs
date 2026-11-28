@@ -419,3 +419,37 @@ fn map_survives_reopening() {
     assert_eq!(Map::open(&path).unwrap().rooms().count(), 0);
     std::fs::remove_file(&path).unwrap();
 }
+
+#[test]
+fn rooms_not_saved_while_the_file_is_busy_are_saved_later() {
+    let path = std::env::temp_dir().join(format!("muddie-map-busy-{}.sqlite", std::process::id()));
+    let _ = std::fs::remove_file(&path);
+    {
+        let mut map = Map::open(&path).unwrap();
+        map.visit(info(1, "Gate", &[])).unwrap();
+        // Another Muddie writing the same map, for a moment.
+        let other = rusqlite::Connection::open(&path).unwrap();
+        other.execute_batch("BEGIN EXCLUSIVE").unwrap();
+        assert!(map.flush().is_err());
+        other.execute_batch("ROLLBACK").unwrap();
+        map.flush().unwrap();
+    }
+    let kept = Map::open(&path).unwrap().rooms().count();
+    std::fs::remove_file(&path).unwrap();
+    assert_eq!(kept, 1, "the room visited while the file was busy was lost");
+}
+
+#[test]
+fn the_highest_cost_is_kept() {
+    let path = std::env::temp_dir().join(format!("muddie-map-cost-{}.sqlite", std::process::id()));
+    let _ = std::fs::remove_file(&path);
+    {
+        let mut map = Map::open(&path).unwrap();
+        map.visit(info(1, "Gate", &[])).unwrap();
+        map.set_cost(1, u32::MAX).unwrap();
+        map.flush().unwrap();
+    }
+    let cost = Map::open(&path).unwrap().room(1).unwrap().cost;
+    std::fs::remove_file(&path).unwrap();
+    assert_eq!(cost, u32::MAX);
+}

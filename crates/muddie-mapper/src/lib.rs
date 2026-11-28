@@ -369,10 +369,16 @@ impl Map {
             return Ok(());
         }
         let ids = std::mem::take(&mut self.unsaved);
-        match &mut self.store {
-            Some(store) => store.save(ids.iter().filter_map(|id| self.rooms.get(id))),
-            None => Ok(()),
+        let Some(store) = &mut self.store else {
+            return Ok(());
+        };
+        let saved = store.save(ids.iter().filter_map(|id| self.rooms.get(id)));
+        // Not saved, as when another Muddie is writing the file: they are
+        // saved the next time.
+        if saved.is_err() {
+            self.unsaved.extend(ids);
         }
+        saved
     }
 
     /// Notes that rooms changed: they are written with the next
