@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0](https://github.com/midnattsol/muddie/compare/v0.5.0...v0.6.0) - 2026-11-28
+
+### Added
+
+- *(plugins)* fetch a plugin's sounds from the web
+- *(scripts)* offer actions in the palette alone
+- *(sound)* mix sounds in muddie, on every system
+- *(map)* walk the map with the keys that walk
+- *(scripts)* lists, clipboard, rooms and quiet
+- *(keys)* choose every key, from scripts too
+
+### Documentation
+
+- write the guides with care
+- guide plugins and order the reference
+
+### Fixed
+
+- *(sound)* build without warnings off linux
+
 ## [0.5.0](https://github.com/midnattsol/muddie/compare/v0.4.0...v0.5.0) - 2026-11-26
 
 ### Added
