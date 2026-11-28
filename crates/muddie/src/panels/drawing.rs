@@ -7,23 +7,48 @@ pub(super) const GAP: f32 = 22.0;
 /// How wide a bar is drawn where nothing says otherwise, as in a preview.
 pub const BAR_WIDTH: f32 = 158.0;
 
-/// How wide each of `count` bars is in a panel `room` wide: in as many
-/// columns as fit, none narrower than it reads well, and in one row no
-/// wider than it looks well; in a narrow panel, one under another, its
-/// whole width.
-pub(super) fn bar_width(room: f32, count: usize) -> f32 {
-    const NARROWEST: f32 = 140.0;
-    const WIDEST: f32 = 320.0;
-    if count == 0 {
-        return BAR_WIDTH;
-    }
-    let fit = ((room + GAP) / (NARROWEST + GAP)).floor().max(1.0) as usize;
-    let columns = fit.min(count);
-    let width = (room - GAP * (columns - 1) as f32) / columns as f32;
-    match columns == count && columns > 1 {
-        true => width.min(WIDEST),
-        false => width.max(NARROWEST.min(room)),
-    }
+/// How narrow a bar may be, and still read well; and how wide it may grow,
+/// and still look well.
+const NARROWEST: f32 = 140.0;
+const WIDEST: f32 = 320.0;
+/// How tall each kind is drawn.
+const BAR_HEIGHT: f32 = 31.0;
+const WORDS_HEIGHT: f32 = 28.0;
+
+/// What a gauge needs of the row it is in: how narrow it may be, how wide
+/// it may grow, and how tall it is; nothing when it has nothing to show.
+pub(super) fn want(ui: &Ui, name: &str, value: f64, max: f64, look: &GaugeLook) -> Option<Want> {
+    let fixed = |width: f32| Want {
+        min: width,
+        max: width,
+        height: WORDS_HEIGHT,
+        bar: false,
+    };
+    Some(match look.kind {
+        GaugeKind::Bar | GaugeKind::Cells => Want {
+            min: NARROWEST,
+            max: WIDEST,
+            height: BAR_HEIGHT,
+            bar: true,
+        },
+        GaugeKind::Light => fixed(light_width(ui, name)),
+        GaugeKind::Text => fixed(words_width(ui, name, &look.text)),
+        GaugeKind::Number => fixed(words_width(ui, name, &number_said(value, max))),
+        GaugeKind::Effects if look.items.is_empty() => return None,
+        GaugeKind::Effects => {
+            let font = theme::font(theme::Weight::Medium, 12.0);
+            let widths: Vec<f32> = (look.items.iter())
+                .map(|item| effect_width(ui, &item.name, &font))
+                .collect();
+            let more = |count: usize| effect_width(ui, &more_of(look.items.len() - count), &font);
+            Want {
+                min: effects_total(&widths, 1, more(1)),
+                max: effects_total(&widths, widths.len(), 0.0),
+                height: EFFECT_HEIGHT,
+                bar: false,
+            }
+        }
+    })
 }
 
 /// Draws one gauge as its look says: a bar or a row of cells under its
@@ -52,14 +77,14 @@ pub fn draw_gauge(
             false,
             &heard,
         )),
-        GaugeKind::Number => {
-            let said = if max > 0.0 {
-                format!("{} / {}", plain(value), plain(max))
-            } else {
-                plain(value)
-            };
-            Some(draw_words(ui, name, said, &shade, true, &heard))
-        }
+        GaugeKind::Number => Some(draw_words(
+            ui,
+            name,
+            number_said(value, max),
+            &shade,
+            true,
+            &heard,
+        )),
         GaugeKind::Bar | GaugeKind::Cells => {
             let cells = look.kind == GaugeKind::Cells;
             Some(draw_bar(ui, name, value, max, &shade, cells, bar, &heard))
@@ -100,6 +125,44 @@ impl Shade {
     }
 }
 
+/// What a number says: with its most, if it has one.
+fn number_said(value: f64, max: f64) -> String {
+    if max > 0.0 {
+        format!("{} / {}", plain(value), plain(max))
+    } else {
+        plain(value)
+    }
+}
+
+/// How wide a light is: its dot, and its name.
+fn light_width(ui: &Ui, name: &str) -> f32 {
+    18.0 + measure(ui, name, &theme::font(theme::Weight::Medium, 11.5))
+}
+
+/// How wide a few words are, under the name: the wider of the two.
+fn words_width(ui: &Ui, name: &str, said: &str) -> f32 {
+    let (small, large) = (
+        theme::font(theme::Weight::Medium, 11.5),
+        theme::font(theme::Weight::Medium, 13.5),
+    );
+    (measure(ui, name, &small).max(measure(ui, said, &large))).clamp(40.0, 260.0)
+}
+
+/// How wide the label of an effect is.
+fn effect_width(ui: &Ui, text: &str, font: &eframe::egui::FontId) -> f32 {
+    26.0 + measure(ui, text, font)
+}
+
+/// How wide `count` of the effects of these widths are together, with the
+/// one more for the rest, `more` wide, if not all are shown.
+fn effects_total(widths: &[f32], count: usize, more: f32) -> f32 {
+    let chips: f32 = widths[..count].iter().sum::<f32>() + EFFECT_GAP * count as f32;
+    match count < widths.len() {
+        true => chips + more - 12.0,
+        false => chips - EFFECT_GAP,
+    }
+}
+
 /// How wide a text is in a font.
 fn measure(ui: &Ui, text: &str, font: &eframe::egui::FontId) -> f32 {
     ui.painter()
@@ -120,8 +183,8 @@ fn draw_light(
 ) -> Response {
     let theme = theme::current();
     let small = theme::font(theme::Weight::Medium, 11.5);
-    let width = 18.0 + measure(ui, name, &small);
-    let (rect, response) = ui.allocate_exact_size(vec2(width, 28.0), Sense::hover());
+    let width = light_width(ui, name);
+    let (rect, response) = ui.allocate_exact_size(vec2(width, WORDS_HEIGHT), Sense::hover());
     // What it says, not a box to tick: it is only shown.
     response.widget_info(|| WidgetInfo::labeled(Role::Label, true, heard));
     let centre = rect.left_center() + vec2(5.0, 0.0);
@@ -200,7 +263,7 @@ fn fit_effects(
     items: &[muddie_script::Effect],
     font: &eframe::egui::FontId,
 ) -> (Vec<f32>, usize, f32) {
-    let width_of = |text: &str| 26.0 + measure(ui, text, font);
+    let width_of = |text: &str| effect_width(ui, text, font);
     // How many fit in what is left of the row, or in the next if little is
     // left, leaving room for the one more if not all do.
     let room = match ui.available_width() {
@@ -209,13 +272,8 @@ fn fit_effects(
     };
     let widths: Vec<f32> = items.iter().map(|item| width_of(&item.name)).collect();
     let mut shown = items.len();
-    let total = |count: usize| -> f32 {
-        let chips: f32 = widths[..count].iter().sum::<f32>() + EFFECT_GAP * count as f32;
-        match count < items.len() {
-            true => chips + width_of(&more_of(items.len() - count)) - 12.0,
-            false => chips - EFFECT_GAP,
-        }
-    };
+    let total =
+        |count: usize| effects_total(&widths, count, width_of(&more_of(items.len() - count)));
     while shown > 1 && total(shown) > room {
         shown -= 1;
     }
@@ -336,10 +394,8 @@ fn draw_words(
         theme::font(theme::Weight::Medium, 11.5),
         theme::font(theme::Weight::Medium, 13.5),
     );
-    let width = measure(ui, name, &small)
-        .max(measure(ui, &said, &large))
-        .clamp(40.0, 260.0);
-    let (rect, response) = ui.allocate_exact_size(vec2(width, 28.0), Sense::hover());
+    let width = words_width(ui, name, &said);
+    let (rect, response) = ui.allocate_exact_size(vec2(width, WORDS_HEIGHT), Sense::hover());
     response.widget_info(|| WidgetInfo::labeled(Role::Label, true, heard));
     let painter = ui.painter().with_clip_rect(rect);
     painter.text(
@@ -379,7 +435,7 @@ fn draw_bar(
     let theme = theme::current();
     let small = theme::font(theme::Weight::Medium, 11.5);
     let numbers = format!("{} / {}", plain(value), plain(max));
-    let (rect, response) = ui.allocate_exact_size(vec2(width, 31.0), Sense::hover());
+    let (rect, response) = ui.allocate_exact_size(vec2(width, BAR_HEIGHT), Sense::hover());
     response.widget_info(|| WidgetInfo::labeled(Role::ProgressIndicator, true, heard));
     let painter = ui.painter();
     painter.text(

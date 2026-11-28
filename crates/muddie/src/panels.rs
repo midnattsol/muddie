@@ -9,10 +9,12 @@ use muddie_script::{Aloud, Belongs, GaugeKind, GaugeLook, How, Saying};
 use crate::i18n::{tr, trf};
 use crate::theme;
 
+mod arrange;
 mod drawing;
 
+use arrange::{Want, arrange};
 pub use drawing::{BAR_WIDTH, draw_gauge};
-use drawing::{GAP, bar_width, effects_named, effects_said};
+use drawing::{GAP, effects_named, effects_said, want};
 
 /// A gauge shown: what a script or a rule set it to, and how it looks.
 pub struct Gauge {
@@ -42,11 +44,6 @@ pub struct Gauge {
 }
 
 impl Gauge {
-    /// Whether it is drawn as a bar, of one piece or of cells.
-    fn is_bar(&self) -> bool {
-        matches!(self.look.kind, GaugeKind::Bar | GaugeKind::Cells)
-    }
-
     /// The lowest of its warnings it is under, as a percentage: the
     /// steps where it changes colour.
     fn under(&self) -> Option<f64> {
@@ -303,60 +300,88 @@ impl Gauges {
             return (false, None);
         }
         let mut pressed = None;
-        // The bars share the width of the panel, in as many columns as fit.
-        let bars = chosen.iter().filter(|gauge| gauge.is_bar()).count();
-        let width = bar_width(ui.available_width(), bars);
-        ui.horizontal_wrapped(|ui| {
-            ui.spacing_mut().item_spacing = vec2(GAP, 8.0);
-            for gauge in chosen {
-                let id = ui.make_persistent_id(("edit gauge", &gauge.key));
-                // What presses it lies under what the gauge has to press of
-                // its own, as its "+3": made before it, where it was drawn
-                // the frame before.
-                let editable = editable(gauge);
-                let last = ui.data(|data| data.get_temp::<Rect>(id));
-                let press = last
-                    .filter(|_| editable)
-                    .map(|rect| ui.interact(rect, id, crate::widgets::press_sense(ui)));
-                let drawn = draw_gauge(ui, &gauge.name, gauge.value, gauge.max, &gauge.look, width);
-                let rect = drawn.as_ref().map(|drawn| drawn.rect);
-                if editable && last != rect {
-                    ui.data_mut(|data| match rect {
-                        Some(rect) => drop(data.insert_temp(id, rect)),
-                        None => data.remove::<Rect>(id),
-                    });
-                    ui.ctx().request_repaint();
-                }
-                let (Some(press), Some(drawn)) = (press, drawn) else {
-                    continue;
-                };
-                // Named by what it is, as it is reached with Tab; what
-                // pressing it does, after.
-                let label = gauge.said();
-                press.widget_info(|| WidgetInfo::labeled(Role::Button, true, &label));
-                let about = crate::i18n::trf("Press to edit {0}", &[&gauge.name]);
-                (ui.ctx()).accesskit_node_builder(press.id, |node| node.set_description(about));
-                // What presses it tells it: not its drawing too.
-                (ui.ctx()).accesskit_node_builder(drawn.id, |node| node.set_hidden());
-                if press.hovered() {
-                    ui.painter().rect_stroke(
-                        drawn.rect.expand(4.0),
-                        6.0,
-                        eframe::egui::Stroke::new(1.0, theme::current().border),
-                        eframe::egui::StrokeKind::Outside,
-                    );
-                }
-                if press
-                    .on_hover_cursor(eframe::egui::CursorIcon::PointingHand)
-                    .clicked()
-                {
-                    pressed = Some(gauge.key.clone());
-                }
-            }
-        });
+        // Where each goes, worked out first: in the order they have, in rows
+        // as full as fit, the same at the same width.
+        let shown: Vec<(&Gauge, Want)> = (chosen.into_iter())
+            .filter_map(|gauge| {
+                let wanted = want(ui, &gauge.name, gauge.value, gauge.max, &gauge.look)?;
+                Some((gauge, wanted))
+            })
+            .collect();
+        let wants: Vec<Want> = shown.iter().map(|(_, wanted)| *wanted).collect();
+        let (places, height) = arrange(ui.available_width(), GAP, ROW_GAP, &wants);
+        let origin = ui.cursor().min;
+        for ((gauge, wanted), place) in shown.iter().zip(&places) {
+            let rect = Rect::from_min_size(
+                origin + vec2(place.x, place.y),
+                vec2(place.width, wanted.height),
+            );
+            // Known by the same id whatever the row it is in.
+            let id = ui.make_persistent_id(("edit gauge", &gauge.key));
+            let builder = eframe::egui::UiBuilder::new().max_rect(rect);
+            let editable = editable(gauge);
+            let chosen = (ui
+                .scope_builder(builder, |ui| show_one(ui, gauge, id, place.width, editable)))
+            .inner;
+            pressed = pressed.or(chosen);
+        }
+        let used = Rect::from_min_size(origin, vec2(ui.available_width(), height));
+        ui.advance_cursor_after_rect(used);
         (true, pressed)
     }
 }
+
+/// Draws a gauge `width` wide; and, if it can be changed, what presses it,
+/// which lies under what the gauge has to press of its own, as its "+3":
+/// made before it, where it was drawn the frame before. Returns its key if
+/// it was pressed.
+fn show_one(
+    ui: &mut Ui,
+    gauge: &Gauge,
+    id: eframe::egui::Id,
+    width: f32,
+    editable: bool,
+) -> Option<String> {
+    let last = ui.data(|data| data.get_temp::<Rect>(id));
+    let press = last
+        .filter(|_| editable)
+        .map(|rect| ui.interact(rect, id, crate::widgets::press_sense(ui)));
+    let drawn = draw_gauge(ui, &gauge.name, gauge.value, gauge.max, &gauge.look, width);
+    let rect = drawn.as_ref().map(|drawn| drawn.rect);
+    if editable && last != rect {
+        ui.data_mut(|data| match rect {
+            Some(rect) => drop(data.insert_temp(id, rect)),
+            None => data.remove::<Rect>(id),
+        });
+        ui.ctx().request_repaint();
+    }
+    let (Some(press), Some(drawn)) = (press, drawn) else {
+        return None;
+    };
+    // Named by what it is, as it is reached with Tab; what pressing it
+    // does, after.
+    let label = gauge.said();
+    press.widget_info(|| WidgetInfo::labeled(Role::Button, true, &label));
+    let about = crate::i18n::trf("Press to edit {0}", &[&gauge.name]);
+    (ui.ctx()).accesskit_node_builder(press.id, |node| node.set_description(about));
+    // What presses it tells it: not its drawing too.
+    (ui.ctx()).accesskit_node_builder(drawn.id, |node| node.set_hidden());
+    if press.hovered() {
+        ui.painter().rect_stroke(
+            drawn.rect.expand(4.0),
+            6.0,
+            eframe::egui::Stroke::new(1.0, theme::current().border),
+            eframe::egui::StrokeKind::Outside,
+        );
+    }
+    let clicked = press
+        .on_hover_cursor(eframe::egui::CursorIcon::PointingHand)
+        .clicked();
+    clicked.then(|| gauge.key.clone())
+}
+
+/// The room between one row of gauges and the next.
+const ROW_GAP: f32 = 8.0;
 
 /// A number without the `.0` a whole one would otherwise have.
 fn plain(number: f64) -> String {
