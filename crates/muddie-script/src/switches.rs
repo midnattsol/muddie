@@ -60,7 +60,7 @@ impl Switches {
     /// Whether a thing of this kind runs: neither its place, nor any of
     /// the folders it is in, nor any of its tags is switched off.
     pub fn active(&self, kind: Kind, belongs: &Belongs) -> bool {
-        let place_on = (belongs.place.as_deref()).is_none_or(|place| self.place_on(kind, place));
+        let place_on = (belongs.place.as_deref()).is_none_or(|place| self.one_on(kind, place));
         place_on
             && !belongs
                 .tags
@@ -68,14 +68,47 @@ impl Switches {
                 .any(|tag| self.tags.contains(&tag_key(tag)))
     }
 
-    /// Whether a place is on: it and every folder above it.
+    /// Whether a place is on, as a script names one: the thing there, if
+    /// it is one, and the folder there, if it is one, with every folder
+    /// above them.
     pub fn place_on(&self, kind: Kind, place: &str) -> bool {
-        !places_up(place).any(|up| self.places.contains(&(kind, up.to_owned())))
+        self.one_on(kind, place) && self.folder_on(kind, place)
     }
 
-    /// Switches a place on or off, with all it holds.
+    /// Whether the one thing at `place` is on: it, and every folder it is
+    /// in. A folder named as it is not it.
+    pub fn one_on(&self, kind: Kind, place: &str) -> bool {
+        let place = place.trim();
+        !self.places.contains(&(kind, place.to_owned()))
+            && place
+                .rsplit_once('/')
+                .is_none_or(|(folder, _)| self.folder_on(kind, folder))
+    }
+
+    /// Whether the folder at `path` is on: it and every folder above it.
+    pub fn folder_on(&self, kind: Kind, path: &str) -> bool {
+        !places_up(path).any(|up| self.places.contains(&(kind, folder_key(up))))
+    }
+
+    /// Switches a place on or off as a script names one: the thing there
+    /// and the folder there, with all it holds.
     pub fn set_place(&mut self, kind: Kind, place: &str, on: bool) {
-        let key = (kind, place.trim().to_owned());
+        self.set_one(kind, place, on);
+        self.set_folder(kind, place, on);
+    }
+
+    /// Switches the one thing at `place` on or off: a folder named as it
+    /// is left as it is.
+    pub fn set_one(&mut self, kind: Kind, place: &str, on: bool) {
+        self.set((kind, place.trim().to_owned()), on);
+    }
+
+    /// Switches the folder at `path` on or off, with all it holds.
+    pub fn set_folder(&mut self, kind: Kind, path: &str, on: bool) {
+        self.set((kind, folder_key(path)), on);
+    }
+
+    fn set(&mut self, key: (Kind, String), on: bool) {
         if on {
             self.places.remove(&key);
         } else {
@@ -126,6 +159,13 @@ pub fn tag_key(tag: &str) -> String {
     tag.trim().to_lowercase()
 }
 
+/// How a folder is kept among what is switched off: after its path, a
+/// `/`, which no thing's place ends with, so that a thing named as a
+/// folder is not taken for it.
+fn folder_key(path: &str) -> String {
+    format!("{}/", path.trim())
+}
+
 /// A place and the folders it is in, from it upwards: `a/b/c`, `a/b`, `a`.
 pub fn places_up(place: &str) -> impl Iterator<Item = &str> {
     let place = place.trim();
@@ -173,6 +213,21 @@ mod tests {
         saved.set_tag("looting", false);
         let now = session.rebased(&before, &saved);
         assert!(!now.tag_on("combat") && now.tag_on("travel") && !now.tag_on("looting"));
+    }
+
+    #[test]
+    fn a_thing_named_as_a_folder_is_switched_apart_from_it() {
+        let mut switches = Switches::default();
+        let inside = belongs("Comida/Hungry", &[]);
+        switches.set_one(Kind::Trigger, "Comida", false);
+        assert!(switches.active(Kind::Trigger, &inside));
+        assert!(!switches.active(Kind::Trigger, &belongs("Comida", &[])));
+        switches.set_one(Kind::Trigger, "Comida", true);
+        switches.set_folder(Kind::Trigger, "Comida", false);
+        assert!(!switches.active(Kind::Trigger, &inside));
+        assert!(switches.active(Kind::Trigger, &belongs("Comida", &[])));
+        // As a script names one, it is both.
+        assert!(!switches.place_on(Kind::Trigger, "Comida"));
     }
 
     #[test]

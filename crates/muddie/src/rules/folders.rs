@@ -9,18 +9,18 @@ impl Rules {
     pub fn switched_off(&self) -> Switches {
         let mut switches = Switches::default();
         for folder in self.folders.iter().filter(|folder| !folder.enabled) {
-            switches.set_place(folder.kind, &folder.path, false);
+            switches.set_folder(folder.kind, &folder.path, false);
         }
         for kind in Kind::ALL {
             let Some(list) = self.list(kind) else {
                 continue;
             };
             for index in (0..list.len()).filter(|&index| !list.enabled(index)) {
-                switches.set_place(kind, &list.place(index), false);
+                switches.set_one(kind, &list.place(index), false);
             }
         }
         for script in self.scripts.iter().filter(|script| !script.enabled) {
-            switches.set_place(Kind::Script, &script.path, false);
+            switches.set_one(Kind::Script, &script.path, false);
         }
         for tag in &self.tags_off {
             switches.set_tag(tag, false);
