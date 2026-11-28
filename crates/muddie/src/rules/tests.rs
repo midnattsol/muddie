@@ -50,3 +50,4 @@ fn timer(tenths: u32, with: impl FnOnce(&mut Timer)) -> Timer {
     with(&mut rule);
     rule
 }
+mod playing;

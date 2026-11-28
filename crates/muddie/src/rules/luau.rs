@@ -160,17 +160,34 @@ impl Gauge {
     /// there: as it is saved, not when the MUD next says something.
     pub(super) fn chunk(&self, place: &str) -> (String, String) {
         let name = self.shown_name();
-        let root = self.value.trim().split('.').next().unwrap_or_default();
-        let code = format!(
-            "{PRELUDE}local shown = false\nlocal function update()\n{shown}end\n\
-             on(\"gmcp\", {root}, update)\n\
-             on(\"msdp\", {variable}, update)\n\
-             on(\"var\", {root}, update)\n\
-             update()\n",
+        let mut code = format!(
+            "{PRELUDE}local shown = false\nlocal function update()\n{shown}end\n",
             shown = self.shown(name, &self.belonging(place)),
-            root = quoted(root),
-            variable = quoted(self.value.trim()),
         );
+        // What it follows: its value, and its maximum where that is not a
+        // number, as a level gained changes it alone; each once.
+        let value = self.value.trim();
+        let mut followed = vec![value];
+        let max = self.maximum().trim();
+        let follows_max = matches!(
+            self.kind,
+            GaugeKind::Bar | GaugeKind::Cells | GaugeKind::Number
+        );
+        if follows_max && max.parse::<f64>().is_err() {
+            followed.push(max);
+        }
+        let mut listened: Vec<(&str, String)> = Vec::new();
+        for followed in followed {
+            let root = followed.split('.').next().unwrap_or_default();
+            for (event, what) in [("gmcp", root), ("msdp", followed), ("var", root)] {
+                let what = quoted(what);
+                if !listened.contains(&(event, what.clone())) {
+                    code.push_str(&format!("on(\"{event}\", {what}, update)\n"));
+                    listened.push((event, what));
+                }
+            }
+        }
+        code.push_str("update()\n");
         (self.reported_as(), code)
     }
 
