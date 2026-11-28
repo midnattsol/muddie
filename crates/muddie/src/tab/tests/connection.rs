@@ -378,3 +378,28 @@ fn what_is_typed_when_a_password_is_asked_for_is_kept_secret() {
     app.submit();
     assert_eq!(sent.try_recv().unwrap(), Command::Send("look".into()));
 }
+
+/// A MUD that marks its question for the name as a prompt, with GA or EOR,
+/// is answered with the character's name all the same.
+#[test]
+fn the_name_is_sent_to_a_prompt_marked_as_one() {
+    let mut harness = window(None);
+    let app = harness.state_mut().tab_mut();
+    app.character = "ana".into();
+    let (events, mut sent) = fake_connection(app);
+    events.send(Event::Connected).unwrap();
+    harness.run_steps(2);
+    events
+        .send(Event::Prompt(
+            panels::styled_lines("By what name are you known?").remove(0),
+        ))
+        .unwrap();
+    harness.run_steps(3);
+    let mut lines = Vec::new();
+    while let Ok(command) = sent.try_recv() {
+        if let Command::Send(line) = command {
+            lines.push(line);
+        }
+    }
+    assert!(lines.contains(&"ana".to_owned()), "sent {lines:?}");
+}

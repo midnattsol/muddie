@@ -525,7 +525,7 @@ fn what_is_sent_goes_as_who_listens_leaves_it() {
     app.character = "ana".into();
     app.login = Login::Name(Instant::now());
     app.settled_partial = Some(("Name: ".into(), None));
-    app.login_name();
+    app.login_name(false);
     let mut lines = Vec::new();
     while let Ok(command) = sent.try_recv() {
         if let Command::Send(line) = command {

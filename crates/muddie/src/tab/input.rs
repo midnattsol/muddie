@@ -396,7 +396,7 @@ impl Tab {
         }
         self.settled_partial = Some((text, shown));
         self.run_actions();
-        self.login_name();
+        self.login_name(false);
     }
 }
 

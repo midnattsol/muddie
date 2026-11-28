@@ -204,7 +204,7 @@ impl Tab {
 
     /// Answers the first prompt after connecting with the profile's
     /// character name, if it has one.
-    pub(super) fn login_name(&mut self) {
+    pub(super) fn login_name(&mut self, prompt: bool) {
         let Login::Name(since) = self.login else {
             return;
         };
@@ -212,8 +212,9 @@ impl Tab {
             self.login = Login::Idle;
             return;
         }
-        // Only a prompt counts: text the server left unterminated.
-        if self.settled_partial.is_none() {
+        // Only a prompt counts: text the server left unterminated, or
+        // marked as one, with GA or EOR.
+        if !prompt && self.settled_partial.is_none() {
             return;
         }
         self.login = Login::Password(Instant::now());

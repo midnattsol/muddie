@@ -212,7 +212,7 @@ impl Tab {
         }
         self.last_activity = Instant::now();
         self.run_actions();
-        self.login_name();
+        self.login_name(prompt);
     }
 
     /// Runs the triggers on a line. What they leave of it, or the line as
