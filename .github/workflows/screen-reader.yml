@@ -34,6 +34,7 @@ jobs:
             libdbus-1-dev libspeechd-dev libxkbcommon-x11-0 libgl1 libegl1 libgl1-mesa-dri \
             libx11-6 libxcursor1 libxi6 libxrandr2 \
             xvfb xdotool at-spi2-core dbus dbus-x11 libglib2.0-bin python3 \
+            brltty brltty-x11 \
             speech-dispatcher speech-dispatcher-audio-plugins speech-dispatcher-espeak-ng libao4
           apt-get install -y -t trixie-backports orca
       - uses: actions/checkout@v7

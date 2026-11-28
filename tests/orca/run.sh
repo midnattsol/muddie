@@ -5,8 +5,9 @@
 #
 #     dbus-run-session -- tests/orca/run.sh target/release/muddie
 #
-# It needs Orca, Xvfb, xdotool, at-spi2-core and speech-dispatcher with its
-# libao output. It touches nothing of the session it is run from: it has
+# It needs Orca, Xvfb, xdotool, at-spi2-core, speech-dispatcher with its
+# libao output, and BRLTTY with its X driver, for a braille display drawn on
+# the display nobody sees: Orca puts nothing on one when there is none. It touches nothing of the session it is run from: it has
 # its own bus, display, runtime folder, configuration and home, and its
 # speech is played to libao's null driver.
 set -u
@@ -50,6 +51,13 @@ sed 's/^#\? *AudioOutputMethod .*/AudioOutputMethod "libao"/' \
     /etc/speech-dispatcher/speechd.conf > "$XDG_CONFIG_HOME/speech-dispatcher/speechd.conf"
 
 Xvfb :77 -screen 0 1280x800x24 -nolisten tcp > "$work/xvfb.log" 2>&1 &
+started+=($!)
+sleep 1
+# A braille display, drawn in a window, which Orca reaches over BrlAPI on a
+# port of its own, with no key.
+export BRLAPI_HOST=127.0.0.1:77 BRLAPI_AUTH=none
+brltty -n -e -b xw -x no -s no -A "host=$BRLAPI_HOST,auth=none" \
+    -P "$work/brltty.pid" > "$work/brltty.log" 2>&1 &
 started+=($!)
 sleep 1
 /usr/libexec/at-spi-bus-launcher --launch-immediately > "$work/atspi.log" 2>&1 &
