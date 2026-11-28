@@ -12,6 +12,10 @@ description = "Sound playback for the muddie MUD client."
 [dependencies]
 rodio = { version = "0.23.0", default-features = false, features = ["wav", "vorbis", "mp3", "flac", "mp4"] }
 
+# To keep the pipe to the player small, and to let go of a player stuck.
+[target.'cfg(target_os = "linux")'.dependencies]
+libc = "0.2.191"
+
 [target.'cfg(not(target_os = "linux"))'.dependencies]
 rodio = { version = "0.23.0", default-features = false, features = ["playback"] }
 
