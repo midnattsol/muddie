@@ -213,6 +213,39 @@ fn put_aside(path: &Path) -> PathBuf {
     path.with_file_name(name)
 }
 
+impl Tab {
+    /// Takes out of `folder` the scripts `plugin` installed there, as it
+    /// is removed: those as it wrote them go, those changed since are put
+    /// aside, and what else is there, the player's, stays; the folder goes
+    /// only once nothing is left in it.
+    pub(super) fn take_out(&mut self, plugin: &Plugin, folder: &Path) {
+        let before =
+            (self.plugins_installed.get(&plugin.id)).and_then(|mark| Installed::read(mark).1);
+        let names: Vec<String> = match &before {
+            Some(before) => before.scripts.keys().cloned().collect(),
+            None => plugin
+                .scripts
+                .iter()
+                .map(|(name, _)| name.clone())
+                .collect(),
+        };
+        for name in names {
+            let path = folder.join(&name);
+            if !path.is_file() {
+                continue;
+            }
+            self.scripts.unload_file(&path);
+            let as_it_was = (before.as_ref())
+                .is_some_and(|before| before.scripts.get(&name) == Some(&mark_of(&path)));
+            let _ = match as_it_was {
+                true => std::fs::remove_file(&path),
+                false => std::fs::rename(&path, put_aside(&path)),
+            };
+        }
+        let _ = std::fs::remove_dir(folder);
+    }
+}
+
 /// The scripts in a folder, by the names of their files.
 fn scripts_in(folder: &Path) -> Vec<String> {
     (std::fs::read_dir(folder).into_iter().flatten().flatten())

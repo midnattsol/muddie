@@ -378,11 +378,13 @@ impl Tab {
             return self.refuse(tr("No such plugin is installed."));
         };
         plugin.switch(&mut self.plugins_on, &mut self.plugins_off, false);
+        // Only what it installed: a folder of the same name may hold the
+        // player's own scripts too.
+        if let Some(folder) = self.own_scripts_dir().map(|dir| dir.join(plugin.folder())) {
+            self.take_out(&plugin, &folder);
+        }
         self.plugins_installed.remove(&plugin.id);
         self.keep_plugins();
-        if let Some(folder) = self.own_scripts_dir().map(|dir| dir.join(plugin.folder())) {
-            let _ = std::fs::remove_dir_all(folder);
-        }
         self.change_rules(|rules| rules.drop_folder(plugin.folder()));
         let elsewhere = self.profiles.as_ref().is_some_and(|profiles| {
             (profiles.names().iter())
@@ -395,8 +397,9 @@ impl Tab {
             .as_ref()
             .map(|profiles| profiles.plugins_dir());
         if let (false, Some(download)) = (elsewhere, download) {
-            // Its name came from the list of folders there, so this is one.
-            if let Err(error) = std::fs::remove_dir_all(download.join(plugin.folder())) {
+            // Downloaded into a folder by its id, which is that folder's
+            // name: what it calls itself may be another's.
+            if let Err(error) = std::fs::remove_dir_all(download.join(&plugin.id)) {
                 return self.refuse(&trf(
                     "The plugin could not be removed: {0}",
                     &[&error.to_string()],

@@ -522,3 +522,61 @@ fn the_plugin_of_the_mud_is_on_before_connecting_to_it() {
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// A git plugin whose manifest names it after another download's
+/// folder: removing it removes that other download, and leaves its own.
+#[test]
+fn removing_a_named_git_plugin_removes_its_own_download() {
+    let dir = std::env::temp_dir().join(format!("muddie-plugin-rm-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let profiles = Profiles::at(dir.clone());
+    profiles.save("Main", &Profile::default()).unwrap();
+    let downloads = profiles.plugins_dir();
+    for (id, manifest) in [("pack", "name = \"other\"\n"), ("other", "")] {
+        std::fs::create_dir_all(downloads.join(id)).unwrap();
+        std::fs::write(downloads.join(id).join(format!("{id}.luau")), "-- x").unwrap();
+        std::fs::write(downloads.join(id).join("plugin.toml"), manifest).unwrap();
+    }
+    let mut harness = window(Some(profiles.clone()));
+    let app = harness.state_mut().tab_mut();
+    assert!(app.select_profile(Some("Main".into())));
+    assert!(app.do_client_command("/plugin enable pack"));
+    app.remove_plugin("pack");
+    assert!(
+        downloads.join("other").exists(),
+        "the download of another plugin, 'other', was deleted"
+    );
+    assert!(
+        !downloads.join("pack").exists(),
+        "the download of 'pack' was left"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// A git plugin named as a folder of the player's own scripts:
+/// removing the plugin deletes the player's scripts in that folder.
+#[test]
+fn removing_a_plugin_keeps_the_players_own_folder() {
+    let dir = std::env::temp_dir().join(format!("muddie-plugin-own-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let profiles = Profiles::at(dir.clone());
+    profiles.save("Main", &Profile::default()).unwrap();
+    let mine = profiles
+        .scripts_dir("Main")
+        .join("Combat")
+        .join("mine.luau");
+    std::fs::create_dir_all(mine.parent().unwrap()).unwrap();
+    std::fs::write(&mine, "-- written by the player").unwrap();
+    let download = profiles.plugins_dir().join("pack");
+    std::fs::create_dir_all(&download).unwrap();
+    std::fs::write(download.join("pack.luau"), "-- x").unwrap();
+    std::fs::write(download.join("plugin.toml"), "name = \"Combat\"\n").unwrap();
+    let mut harness = window(Some(profiles.clone()));
+    let app = harness.state_mut().tab_mut();
+    assert!(app.select_profile(Some("Main".into())));
+    assert!(app.do_client_command("/plugin enable pack"));
+    app.remove_plugin("pack");
+    let kept = mine.exists();
+    std::fs::remove_dir_all(&dir).unwrap();
+    assert!(kept, "the player's own script Combat/mine.luau was deleted");
+}

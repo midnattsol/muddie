@@ -182,11 +182,15 @@ impl Plugin {
     /// `rules.toml`, if it has them. `None` if it has no script.
     pub fn from_folder(folder: &Path, origin: Origin) -> Option<Self> {
         let id = folder.file_name()?.to_str()?.to_owned();
+        // Only files of its own: a link, as git keeps them, could point to
+        // any file of the player's.
+        let plain = |path: &Path| std::fs::symlink_metadata(path).is_ok_and(|meta| meta.is_file());
         let mut scripts: Vec<(String, String)> = (std::fs::read_dir(folder).ok()?.flatten())
             .map(|entry| entry.path())
             .filter(|path| {
                 path.extension()
                     .is_some_and(|extension| extension == "luau")
+                    && plain(path)
             })
             .filter_map(|path| {
                 let file = path.file_name()?.to_str()?.to_owned();
@@ -197,7 +201,13 @@ impl Plugin {
             return None;
         }
         scripts.sort();
-        let read = |file: &str| std::fs::read_to_string(folder.join(file)).unwrap_or_default();
+        let read = |file: &str| {
+            let path = folder.join(file);
+            match plain(&path) {
+                true => std::fs::read_to_string(path).unwrap_or_default(),
+                false => String::new(),
+            }
+        };
         Some(Self::made(
             &id,
             &read("plugin.toml"),
@@ -427,5 +437,30 @@ mod tests {
             included(STANDARD).unwrap().fingerprint()
         );
         assert_eq!(reinos.fingerprint(), reinos.fingerprint());
+    }
+
+    /// A link in a downloaded repository, named as a script, is not
+    /// followed out of the plugin's folder.
+    #[cfg(unix)]
+    #[test]
+    fn a_linked_script_is_not_read_outside_the_plugin() {
+        let dir = std::env::temp_dir().join(format!("muddie-plugin-link-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let plugin = dir.join("pack");
+        std::fs::create_dir_all(&plugin).unwrap();
+        std::fs::write(dir.join("secret"), "-----BEGIN OPENSSH PRIVATE KEY-----").unwrap();
+        std::fs::write(plugin.join("main.luau"), "-- x").unwrap();
+        std::os::unix::fs::symlink(dir.join("secret"), plugin.join("key.luau")).unwrap();
+        let found = Plugin::from_folder(&plugin, Origin::Git).unwrap();
+        let read: Vec<&str> = found
+            .scripts
+            .iter()
+            .map(|(_, code)| code.as_str())
+            .collect();
+        std::fs::remove_dir_all(&dir).unwrap();
+        assert!(
+            !read.iter().any(|code| code.contains("PRIVATE KEY")),
+            "read through a link: {read:?}"
+        );
     }
 }
