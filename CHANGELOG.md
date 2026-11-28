@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.1](https://github.com/midnattsol/muddie/compare/v0.7.0...v0.7.1) - 2026-11-28
+
+### Fixed
+
+- *(a11y)* new profile, escape and who disconnects
+- *(sessions)* keep what was typed, say what closed
+- *(input)* complete a word after a no-break space
+- *(plugins)* remove only what a plugin installed
+- *(core)* let a session stop while it connects
+
 ## [0.7.0](https://github.com/midnattsol/muddie/compare/v0.6.0...v0.7.0) - 2026-11-28
 
 ### Added
