@@ -239,22 +239,30 @@ impl Tab {
         let place = self.script_place(path);
         let mut kept = self.editor.draft.script(&place);
         let (mut delete, mut run) = (false, false);
-        ui.horizontal(|ui| {
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+        // The name, then what is at the right of it, in the order they are
+        // read: what deletes it last.
+        let id = ui.make_persistent_id("script header");
+        let mut state = (&mut self.editor.script_name, &mut self.editor.rename);
+        widgets::right_last(
+            ui,
+            id,
+            &mut state,
+            |(name, rename), ui| {
+                let font = theme::font(Weight::Semibold, 20.0);
+                name_field(ui, name, font, "", rename, own);
+            },
+            |_, ui| {
+                off_badge(ui, kept.enabled);
+                let switch = widgets::switch(ui, &mut kept.enabled, tr("Enabled"));
+                widgets::name_tip(switch, tr("Enabled"));
+                ui.add_space(6.0);
+                run = widgets::icon_button(ui, widgets::Icon::Play, tr("Run"), false).clicked();
                 if own {
                     delete = widgets::icon_button(ui, widgets::Icon::Trash, tr("Delete"), false)
                         .clicked();
                 }
-                run = widgets::icon_button(ui, widgets::Icon::Play, tr("Run"), false).clicked();
-                ui.add_space(6.0);
-                let switch = widgets::switch(ui, &mut kept.enabled, tr("Enabled"));
-                widgets::name_tip(switch, tr("Enabled"));
-                off_badge(ui, kept.enabled);
-                let font = theme::font(Weight::Semibold, 20.0);
-                let (name, rename) = (&mut self.editor.script_name, &mut self.editor.rename);
-                name_field(ui, name, font, "", rename, own);
-            });
-        });
+            },
+        );
         ui.add(egui::Separator::default().spacing(2.0));
         if own {
             self.script_filing(ui, &place, &mut kept);

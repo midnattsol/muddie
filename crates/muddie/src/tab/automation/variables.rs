@@ -156,15 +156,22 @@ impl Tab {
     /// typed.
     fn variable_heading(&mut self, ui: &mut egui::Ui) -> (bool, bool) {
         let (mut delete, mut renamed) = (false, false);
-        ui.horizontal(|ui| {
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+        // The name first, as it is read, and what deletes it after it.
+        let id = ui.make_persistent_id("variable header");
+        let mut state = (&mut self.editor.variable_name, &mut self.editor.rename);
+        widgets::right_last(
+            ui,
+            id,
+            &mut state,
+            |(name, rename), ui| {
+                let font = theme::font(Weight::Semibold, 20.0);
+                renamed = name_field(ui, name, font, "", rename, true).lost_focus();
+            },
+            |_, ui| {
                 delete =
                     widgets::icon_button(ui, widgets::Icon::Trash, tr("Delete"), false).clicked();
-                let font = theme::font(Weight::Semibold, 20.0);
-                let (name, rename) = (&mut self.editor.variable_name, &mut self.editor.rename);
-                renamed = name_field(ui, name, font, "", rename, true).lost_focus();
-            });
-        });
+            },
+        );
         ui.add(egui::Separator::default().spacing(2.0));
         (delete, renamed)
     }
@@ -261,7 +268,12 @@ impl Tab {
         } else {
             tr("Add an item")
         };
-        if widgets::add_button(ui, add).clicked() {
+        let adding = widgets::add_button(ui, add);
+        // The row taken away was where the keyboard was: it goes on to
+        // adding another, not nowhere.
+        let key = ui.make_persistent_id("adding an item");
+        widgets::focus_until_there(ui, key, &adding, removed.is_some());
+        if adding.clicked() {
             self.editor
                 .variable_items
                 .push((String::new(), String::new()));
@@ -353,39 +365,54 @@ fn item_row(
     let theme = theme::current();
     let mono = || egui::FontId::monospace(13.0);
     let mut removed = false;
-    ui.horizontal(|ui| {
-        ui.set_min_height(40.0);
-        if keyed {
-            let hint = RichText::new("key").color(theme.text_faint);
+    // Its name or number, its value, and then what removes it, in the
+    // order they are read.
+    let named = match key.trim() {
+        name if keyed && !name.is_empty() => name.to_owned(),
+        _ => (place + 1).to_string(),
+    };
+    let mut fields = (key, text);
+    widgets::right_last(
+        ui,
+        ui.make_persistent_id(("item row", place)),
+        &mut fields,
+        |(key, text), ui| {
+            ui.set_min_height(40.0);
+            if keyed {
+                let hint = RichText::new(tr("key")).color(theme.text_faint);
+                let field = ui.add(
+                    TextEdit::singleline(*key)
+                        .font(mono())
+                        .hint_text(hint)
+                        .margin(egui::Margin::symmetric(9, 6))
+                        .desired_width(150.0),
+                );
+                ui.ctx()
+                    .accesskit_node_builder(field.id, |node| node.set_label(tr("Field name")));
+                ui.label(RichText::new("=").font(mono()).color(theme.text_faint));
+            } else {
+                let number = RichText::new(format!("{:>2}", place + 1))
+                    .font(egui::FontId::monospace(12.5))
+                    .color(theme.text_faint);
+                ui.add(Label::new(number).selectable(false));
+            }
+            let hint = RichText::new(tr("value")).color(theme.text_faint);
+            // What is left of the line, not a line of its own.
+            let left = ui.available_size_before_wrap().x;
             let field = ui.add(
-                TextEdit::singleline(key)
+                TextEdit::singleline(*text)
                     .font(mono())
                     .hint_text(hint)
                     .margin(egui::Margin::symmetric(9, 6))
-                    .desired_width(150.0),
-            );
-            ui.ctx()
-                .accesskit_node_builder(field.id, |node| node.set_label(tr("Field name")));
-            ui.label(RichText::new("=").font(mono()).color(theme.text_faint));
-        } else {
-            let number = RichText::new(format!("{:>2}", place + 1))
-                .font(egui::FontId::monospace(12.5))
-                .color(theme.text_faint);
-            ui.add(Label::new(number).selectable(false));
-        }
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            removed = widgets::close_button(ui, tr("Remove"), 22.0).clicked();
-            let hint = RichText::new("value").color(theme.text_faint);
-            let field = ui.add(
-                TextEdit::singleline(text)
-                    .font(mono())
-                    .hint_text(hint)
-                    .margin(egui::Margin::symmetric(9, 6))
-                    .desired_width(f32::INFINITY),
+                    .desired_width(left),
             );
             ui.ctx()
                 .accesskit_node_builder(field.id, |node| node.set_label(tr("Value")));
-        });
-    });
+        },
+        |_, ui| {
+            let remove = trf("Remove {0}", &[&named]);
+            removed = widgets::close_button(ui, &remove, 22.0).clicked();
+        },
+    );
     removed
 }

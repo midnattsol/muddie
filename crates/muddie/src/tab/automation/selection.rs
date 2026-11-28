@@ -451,24 +451,29 @@ impl Tab {
         let mut delete = false;
         let mut on = self.chosen_on(&chosen);
         let mut switched = false;
-        ui.horizontal(|ui| {
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                delete =
-                    widgets::icon_button(ui, widgets::Icon::Trash, tr("Delete"), false).clicked();
+        // How many, then what is done to them, in the order they are read:
+        // what deletes them last.
+        let said = trn("{0} chosen", "{0} chosen", chosen.len() as u64);
+        widgets::right_last(
+            ui,
+            ui.make_persistent_id("chosen header"),
+            &mut on,
+            |_, ui| {
+                ui.label(
+                    RichText::new(said)
+                        .font(theme::font(Weight::Semibold, 20.0))
+                        .color(theme.text),
+                );
+            },
+            |on, ui| {
                 if section != VARIABLES {
-                    let switch = widgets::switch(ui, &mut on, tr("Enabled"));
+                    let switch = widgets::switch(ui, on, tr("Enabled"));
                     switched = widgets::name_tip(switch, tr("Enabled")).changed();
                 }
-                let said = trn("{0} chosen", "{0} chosen", chosen.len() as u64);
-                ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
-                    ui.label(
-                        RichText::new(said)
-                            .font(theme::font(Weight::Semibold, 20.0))
-                            .color(theme.text),
-                    );
-                });
-            });
-        });
+                delete =
+                    widgets::icon_button(ui, widgets::Icon::Trash, tr("Delete"), false).clicked();
+            },
+        );
         ui.add(egui::Separator::default().spacing(2.0));
         if switched {
             self.switch_chosen(on);

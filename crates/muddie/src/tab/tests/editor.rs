@@ -5,6 +5,7 @@ use super::*;
 mod code;
 mod dragging;
 mod folders;
+mod reading;
 
 #[test]
 fn variables_are_the_sessions_and_kept_only_with_a_saved_profile() {

@@ -126,3 +126,20 @@ pub fn right_last<S>(
         egui::vec2(row.width(), now.1),
     ));
 }
+
+/// Gives the keyboard to `response` when `now` asks it, and again each
+/// time it is drawn until it has it: what had the keyboard may be gone,
+/// and a pass drawn again would lose the asking. `key` names the asking,
+/// and is the same every time, as the id of `response` may not be when
+/// what is before it changes.
+pub fn focus_until_there(ui: &Ui, key: egui::Id, response: &Response, now: bool) {
+    if now {
+        ui.data_mut(|data| data.insert_temp(key, true));
+    }
+    if ui.data(|data| data.get_temp::<bool>(key)).unwrap_or(false) {
+        match response.has_focus() {
+            true => ui.data_mut(|data| data.remove::<bool>(key)),
+            false => response.request_focus(),
+        }
+    }
+}

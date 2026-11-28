@@ -145,7 +145,6 @@ pub fn tag_field(
     tags: &mut Vec<String>,
     known: &[String],
 ) -> bool {
-    let theme = theme::current();
     let typed_id = ui.make_persistent_id((id_salt, "tag typed"));
     let mut typed: String = ui.data_mut(|data| data.get_temp(typed_id).unwrap_or_default());
     let carried = |tags: &[String], tag: &str| {
@@ -153,6 +152,8 @@ pub fn tag_field(
         tags.iter().any(|known| crate::rules::tag_key(known) == key)
     };
     let mut changed = false;
+    let adding_id = typed_id.with("tag added");
+    let mut adding_one = false;
     ui.horizontal_wrapped(|ui| {
         ui.spacing_mut().item_spacing = vec2(6.0, 6.0);
         let mut gone = None;
@@ -169,6 +170,13 @@ pub fn tag_field(
         ui.ctx().accesskit_node_builder(field.id, |node| {
             node.set_label(crate::i18n::tr("Add a tag"))
         });
+        let added = ui
+            .data_mut(|data| data.remove_temp::<bool>(adding_id))
+            .is_some();
+        // The tag taken off was where the keyboard was: it goes on to
+        // the field, not nowhere.
+        let key = typed_id.with("to the field");
+        focus_until_there(ui, key, &field, gone.is_some() || added);
         if field.lost_focus() && ui.input(|input| input.key_pressed(egui::Key::Enter)) {
             let tag = typed.trim();
             // Spelled as one there is, if it is one.
@@ -193,29 +201,40 @@ pub fn tag_field(
         ui.horizontal_wrapped(|ui| {
             ui.spacing_mut().item_spacing = vec2(6.0, 6.0);
             for tag in offered {
-                let add = ui.add(
-                    egui::Button::new(
-                        RichText::new(format!("+ {tag}"))
-                            .font(theme::font(Weight::Regular, 12.0))
-                            .color(theme.text_dim),
-                    )
-                    .fill(Color32::TRANSPARENT)
-                    .stroke(Stroke::new(1.0, theme.border))
-                    .corner_radius(CornerRadius::same(255)),
-                );
-                let name = crate::i18n::trf("Add the tag {0}", &[tag]);
-                (ui.ctx()).accesskit_node_builder(add.id, |node| node.set_label(name.clone()));
-                let add = name_tip(add, &name);
-                if add.clicked() {
+                if tag_offered(ui, tag).clicked() {
                     tags.push(tag.clone());
                     typed.clear();
                     changed = true;
+                    // Nor is the keyboard lost with the button it was on.
+                    adding_one = true;
                 }
             }
         });
     }
     ui.data_mut(|data| data.insert_temp(typed_id, typed));
+    if adding_one {
+        ui.data_mut(|data| data.insert_temp(adding_id, true));
+    }
     changed
+}
+
+/// A tag there is that is not carried, as a pill with a plus; clicked, it
+/// is added.
+fn tag_offered(ui: &mut Ui, tag: &str) -> Response {
+    let theme = theme::current();
+    let add = ui.add(
+        egui::Button::new(
+            RichText::new(format!("+ {tag}"))
+                .font(theme::font(Weight::Regular, 12.0))
+                .color(theme.text_dim),
+        )
+        .fill(Color32::TRANSPARENT)
+        .stroke(Stroke::new(1.0, theme.border))
+        .corner_radius(CornerRadius::same(255)),
+    );
+    let name = crate::i18n::trf("Add the tag {0}", &[tag]);
+    (ui.ctx()).accesskit_node_builder(add.id, |node| node.set_label(name.clone()));
+    name_tip(add, &name)
 }
 
 /// A tag carried, as a pill with a cross; clicked, it is taken off.

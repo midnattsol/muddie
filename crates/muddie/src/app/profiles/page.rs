@@ -78,29 +78,38 @@ impl App {
         let theme = theme::current();
         let in_use = self.tabs.iter().any(|tab| tab.uses_profile(name));
         let mut asked = None;
-        ui.horizontal(|ui| {
-            let (tile, _) = ui.allocate_exact_size(egui::vec2(40.0, 40.0), egui::Sense::hover());
-            widgets::initial_tile(ui.painter(), tile, name, theme.surface);
-            ui.add_space(size::GAP_S);
-            let title = RichText::new(name)
-                .font(theme::font(Weight::Semibold, 20.0))
-                .color(theme.text);
-            let shown = ui.add(egui::Label::new(title).selectable(false));
-            widgets::heading_role(ui, &shown, name);
-            if in_use {
-                widgets::badge(ui, tr("In use"), true);
-            }
-            if self.waits_to_reconnect(name) {
-                widgets::badge(ui, tr("Changes pending"), false);
-            }
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+        let waits = self.waits_to_reconnect(name);
+        // Its name, then connecting and its menu, in the order they are
+        // read.
+        widgets::right_last(
+            ui,
+            ui.make_persistent_id(("profile header", name)),
+            self,
+            |_, ui| {
+                let (tile, _) =
+                    ui.allocate_exact_size(egui::vec2(40.0, 40.0), egui::Sense::hover());
+                widgets::initial_tile(ui.painter(), tile, name, theme.surface);
+                ui.add_space(size::GAP_S);
+                let title = RichText::new(name)
+                    .font(theme::font(Weight::Semibold, 20.0))
+                    .color(theme.text);
+                let shown = ui.add(egui::Label::new(title).selectable(false));
+                widgets::heading_role(ui, &shown, name);
+                if in_use {
+                    widgets::badge(ui, tr("In use"), true);
+                }
+                if waits {
+                    widgets::badge(ui, tr("Changes pending"), false);
+                }
+            },
+            |app, ui| {
+                app.connect_button(ui, ctx, name);
+                ui.add_space(size::GAP_S);
                 let label = trf("{0} options", &[name]);
                 let more = widgets::icon_button(ui, widgets::Icon::More, &label, false);
                 crate::widgets::menu_of(&more).show(|ui| asked = profile_menu(ui));
-                ui.add_space(size::GAP_S);
-                self.connect_button(ui, ctx, name);
-            });
-        });
+            },
+        );
         // Said where it is read, not only over the button.
         if self.waits_to_reconnect(name) {
             widgets::page_note(ui, tr("The changes take effect on reconnecting."));
