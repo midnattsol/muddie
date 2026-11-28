@@ -50,7 +50,8 @@ gmcp.support("Room 1")
 gmcp.merge("Char.Status")
 
 ---------------------------------------------------------------------------
--- The MUD sends nothing over GMCP until asked from inside the game:
+-- The MUD sends GMCP only to a character that has switched it on, once, from
+-- inside the game, which the character keeps for the times after:
 --     consentir gmcp on
 -- If nothing has come a while after entering the game, this says so.
 
@@ -71,8 +72,8 @@ on("emit", "reinos_in_game", function()
     asking = after(90, function()
         if not heard then
             notify(tr({
-                en = "Reinos de Leyenda does not send your life, the channels or where you are until you write in the game: consentir gmcp on",
-                es = "Reinos de Leyenda no manda la vida, los canales ni dónde estás hasta que escribas en el juego: consentir gmcp on",
+                en = "Reinos de Leyenda is not sending your life, the channels or where you are. Your character most likely does not have it on: write in the game consentir gmcp on. It is kept for the times after.",
+                es = "Reinos de Leyenda no está mandando tu vida, los canales ni dónde estás. Seguramente tu personaje no lo tiene activado: escribe en el juego consentir gmcp on. Se queda guardado para las próximas veces.",
             }))
         end
     end)
