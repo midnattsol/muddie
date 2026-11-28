@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.2](https://github.com/midnattsol/muddie/compare/v0.7.1...v0.7.2) - 2026-11-28
+
+### Fixed
+
+- *(a11y)* f6 in the editor and the welcome, host
+- *(files)* refuse names windows keeps for devices
+- *(editor)* have back a deleted script byte by byte
+- *(login)* send the name to a prompt with GA
+- *(sound)* keep the mix soon and a stuck player
+
 ## [0.7.1](https://github.com/midnattsol/muddie/compare/v0.7.0...v0.7.1) - 2026-11-28
 
 ### Fixed
