@@ -18,7 +18,8 @@ pub(in crate::tab) enum Undone {
     /// while the history has this many steps.
     Step(usize),
     Variables(Vec<(String, serde_json::Value)>),
-    Scripts(Vec<(PathBuf, String)>),
+    /// Each by its path, with its bytes as they were: it may not be UTF-8.
+    Scripts(Vec<(PathBuf, Vec<u8>)>),
     /// A folder of scripts, by its path, and the names of what it held,
     /// which went to the folder it was in.
     ScriptFolder(String, Vec<String>),
@@ -175,12 +176,7 @@ impl Tab {
             SCRIPTS => Undone::Scripts(
                 (indices.iter())
                     .filter_map(|&index| self.editor.script_files.get(index))
-                    .map(|path| {
-                        (
-                            path.clone(),
-                            std::fs::read_to_string(path).unwrap_or_default(),
-                        )
-                    })
+                    .map(|path| (path.clone(), std::fs::read(path).unwrap_or_default()))
                     .collect(),
             ),
             // The deletion is the history's next step.
