@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.4](https://github.com/midnattsol/muddie/compare/v0.7.3...v0.7.4) - 2026-11-28
+
+### Fixed
+
+- *(editor)* never save an unopened editor's rules
+
 ## [0.7.3](https://github.com/midnattsol/muddie/compare/v0.7.2...v0.7.3) - 2026-11-28
 
 ### Fixed
