@@ -52,6 +52,28 @@ function corrector.name(name: string): string
     return read
 end
 
+-- The capitals with an accent the game writes, and their small letters: the
+-- lower case of Luau leaves them as they are.
+local CAPITALS = {
+    ["Á"] = "á",
+    ["É"] = "é",
+    ["Í"] = "í",
+    ["Ó"] = "ó",
+    ["Ú"] = "ú",
+    ["Ü"] = "ü",
+    ["Ñ"] = "ñ",
+}
+
+-- A name as it is compared, the same however it is capitalised: "Ángel"
+-- and "ángel" are one.
+function corrector.key(name: string): string
+    local key = name:lower()
+    for capital, small in CAPITALS do
+        key = key:gsub(capital, small)
+    end
+    return key
+end
+
 -- Names one after another, as the game writes them: "Ana, Bob y Ciro".
 function corrector.names(list: string): { string }
     local names = {}

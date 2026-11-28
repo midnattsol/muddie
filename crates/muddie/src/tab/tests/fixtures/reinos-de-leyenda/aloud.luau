@@ -10,14 +10,18 @@ local prompt = require("prompt")
 
 ---------------------------------------------------------------------------
 -- The prompt is not read: what is in it is said by the gauges as it runs low,
--- and read with Alt+0. What comes after it on its line is.
+-- and read with Alt+0. What comes after it on its line, as with lag, is a
+-- line of its own: shown, read and known by every trigger as one, as if the
+-- game had ended the prompt before it.
 
-trigger("", function(_, line)
+trigger("^(.*)$", function(_, line)
     local rest = prompt.rest(line.text)
     if rest == "" then
         line:mute()
     elseif rest then
-        line:read(rest)
+        line:replace(line.text:sub(1, #line.text - #rest))
+        line:mute()
+        session.feed(rest .. "\n")
     end
 end, { place = "Reinos de Leyenda/Prompt aloud" })
 

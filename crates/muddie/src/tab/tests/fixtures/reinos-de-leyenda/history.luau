@@ -14,6 +14,7 @@
 -- that shorten, and not at all while idle: they are kept all the same.
 
 local corrector = require("corrector")
+local phrases = require("phrases")
 
 local MOST = 50
 
@@ -42,15 +43,16 @@ local function of_a_channel(text: string): boolean
 end
 
 ---------------------------------------------------------------------------
--- Tells: "Ana te dice: hola", and the same exclaimed or asked; those of
--- while you were away, "... - Ana te dijo: hola".
+-- Tells: "Ana te dice: hola", and the same exclaimed, asked or whispered,
+-- however the game says it; those of while you were away, "... - Ana te
+-- dijo: hola".
 
-trigger([[^(?:.* - )?(\S+) te (dice|exclama|pregunta|dijo): (.+)$]], function(m, line)
+trigger(phrases.tell, function(m, line)
     if of_a_channel(line.text) then
         return
     end
     local who = corrector.name(m[1])
-    local said = corrector.text(m[3])
+    local said = corrector.text(m[2])
     keep(tells, `{who}: {said}`)
     emit("reinos_event", { kind = "tell", who = who })
     reply_to = who
@@ -72,12 +74,12 @@ end, { place = "Reinos de Leyenda/History/Tells" })
 -- The room: "Ana dice en común: hola", "Ana pregunta: ¿sí?", whispered and
 -- the like. Tells and channels are not of it.
 
-trigger([[^(\S+(?: \S+)?) (dice|pregunta|exclama|susurra|responde|balbucea|ordena)[^:]*: (.+)$]], function(m, line)
-    if of_a_channel(line.text) or line.text:match(" te %a+: ") then
+trigger(phrases.said_in_the_room, function(m, line)
+    if of_a_channel(line.text) or line.text:match(phrases.to_you) then
         return
     end
     local who = corrector.name(m[1])
-    local said = corrector.text(m[3])
+    local said = corrector.text(m[2])
     keep(room, `{who}: {said}`)
     emit("reinos_event", { kind = "room", who = who })
     if mode() == "idle" then
@@ -92,14 +94,14 @@ end, { place = "Reinos de Leyenda/History/Room" })
 
 -- Each with what kind of thing it is, told to who listens (sounds.luau).
 local EVENTS = {
-    { [[^Est[aá]s siendo atacad[oa] por (.+?)\.?$]], "attacked" },
-    { [[^¡?Descubres a .+ intentando moverse en silencio!?$]], "found" },
-    { [[^.+ descubre a .+ intentando moverse en silencio!?$]], "found" },
-    { [[^\[Grupo\] .+ (?:se une al|abandona el) grupo\.$]], "group" },
-    { [[^\[Grupo\] .+ es expulsad[oa] del grupo\.$]], "group" },
-    { [[^\[Grupo\] (?:Te unes al|Abandonas el) grupo liderado por .+$]], "group" },
-    { [[^Propinas el golpe mortal a .+$]], "kill" },
-    { [[^.+ propina el golpe mortal a .+$]], "death" },
+    { phrases.attacked, "attacked" },
+    { phrases.you_find, "found" },
+    { phrases.someone_finds, "found" },
+    { phrases.group_joins, "group" },
+    { phrases.group_out, "group" },
+    { phrases.group_you, "group" },
+    { phrases.you_kill, "kill" },
+    { phrases.someone_kills, "death" },
 }
 
 for _, event in EVENTS do
@@ -112,11 +114,7 @@ end
 
 -- Gaining experience, what tells of each kill and of the experience is not
 -- read: it is in the output all the same.
-local XP_QUIET = {
-    [=[^\[Obtienes .+ puntos de experiencia\]]=],
-    [[^Propinas el golpe mortal a ]],
-    [[^.+ cae al suelo sin vida\.$]],
-}
+local XP_QUIET = { phrases.experience, phrases.you_kill, phrases.dies }
 
 for _, pattern in XP_QUIET do
     trigger(pattern, function(_, line)
@@ -127,7 +125,7 @@ for _, pattern in XP_QUIET do
 end
 
 -- Attacked while idle: back to combat.
-trigger([[^Est[aá]s siendo atacad[oa] por ]], function()
+trigger(phrases.attacked, function()
     if mode() == "idle" then
         emit("reinos_mode", "combat")
     end

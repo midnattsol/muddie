@@ -19,6 +19,8 @@
 -- It listens to what the other scripts of the plugin tell: life from what
 -- the MUD sends, as life.luau; the rest as history, movement and modes say.
 
+local phrases = require("phrases")
+
 local KEPT = "reinos_sounds"
 local PLACE = "Reinos de Leyenda/Sounds"
 
@@ -247,6 +249,6 @@ on("emit", "reinos_event", function(event)
 end, { place = `{PLACE}/Events`, tags = "reinos-sounds" })
 
 -- Experience gained, as the game says it.
-trigger([=[^\[Obtienes .+ puntos de experiencia\]]=], function()
+trigger(phrases.experience, function()
     play("xp", { group = "combat", volume = 0.6 })
 end, { place = `{PLACE}/Experience`, tags = "reinos-sounds" })

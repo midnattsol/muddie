@@ -9,6 +9,7 @@ mod exploring;
 mod own_keys;
 mod prompts;
 mod reading;
+mod reading_reinos;
 mod reinos;
 mod ways;
 

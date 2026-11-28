@@ -8,6 +8,7 @@
 -- once, cutting in; "obj" alone says which it is.
 
 local corrector = require("corrector")
+local phrases = require("phrases")
 
 local MOST = 30
 local TARGET = "reinos_target"
@@ -27,7 +28,7 @@ end
 
 local function is_target(name: string): boolean
     local wanted = target()
-    return wanted ~= nil and name:lower() == wanted:lower()
+    return wanted ~= nil and corrector.key(name) == corrector.key(wanted)
 end
 
 local function keep(text: string)
@@ -56,9 +57,9 @@ local function moved(who: string, way: string, came: boolean, line: Line)
     keep(short)
     emit("reinos_event", { kind = if came then "arrives" else "leaves", who = name, way = way, target = is_target(name) })
     if came then
-        here[name:lower()] = true
+        here[corrector.key(name)] = true
     else
-        here[name:lower()] = nil
+        here[corrector.key(name)] = nil
     end
     if is_target(name) then
         line:mute()
@@ -74,14 +75,14 @@ local function moved(who: string, way: string, came: boolean, line: Line)
 end
 
 -- "Orco llega desde el sur.", "Orco llega de el norte seguido de Ana."
-trigger([[^(\S+(?: \S+){0,3}) llegan? (?:\S+ )?(?:desde|de) (.+?)(?: seguid[oa]s? de .+)?\.$]], function(m, line)
+trigger(phrases.arrives, function(m, line)
     if not said(line.text) then
         moved(m[1], way_of(m[2]), true, line)
     end
 end, { place = "Reinos de Leyenda/Movement/Arrives" })
 
 -- "Orco se va hacia el norte.", "Orco se va en dirección norte seguido de Ana."
-trigger([[^(\S+(?: \S+){0,3}) se van? (?:\S+ )?(?:hacia|en direcci[oó]n(?: a)?) (.+?)(?: seguid[oa]s? de .+)?\.$]], function(m, line)
+trigger(phrases.leaves, function(m, line)
     if not said(line.text) then
         moved(m[1], way_of(m[2]), false, line)
     end
@@ -90,12 +91,12 @@ end, { place = "Reinos de Leyenda/Movement/Leaves" })
 ---------------------------------------------------------------------------
 -- Who is here: "Orco está aquí.", "Ana, Bob y un orco están aquí."
 
-trigger([[^(.+?) est[aá]n? aqu[ií]\.$]], function(m, line)
+trigger(phrases.here, function(m, line)
     if said(line.text) then
         return
     end
     for _, name in corrector.names(m[1]) do
-        local key = name:lower()
+        local key = corrector.key(name)
         if is_target(name) and not here[key] then
             emit("reinos_event", { kind = "target_here", who = name })
             speak({ en = `Target here: {name}!`, es = `¡Objetivo aquí: {name}!` }, { aloud = "cut" })

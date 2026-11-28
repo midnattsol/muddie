@@ -23,6 +23,7 @@
 -- each text given in both.
 
 local prompt = require("prompt")
+local phrases = require("phrases")
 
 gmcp.support("Char 1")
 gmcp.support("Comm 1")
@@ -311,7 +312,7 @@ end
 
 -- The prompt, as the player makes it: the game says it so, whole, on lines as
 -- long as it writes them.
-trigger([[^(?:.*[>\]}] )?Tu prompt (de combate )?ha sido definido como '(.*)$]], function(m)
+trigger(phrases.prompt_made, function(m)
     local template = m[2]
     while not template:match("'%.%s*$") do
         local _, line = wait("line", "", { timeout = 1, prompt = false })
@@ -334,9 +335,10 @@ end, { place = "Reinos de Leyenda/Prompt" })
 -- or it is not there. Never the last words of a line: anyone may say the name
 -- of a room.
 local function without_prompt(line)
-    local rest = prompt.rest(line)
-    if rest then
-        return if rest == "" then {} else { rest }
+    -- What comes after a prompt is a line of its own, and known as one
+    -- (see aloud.luau): not here as well.
+    if prompt.rest(line) then
+        return {}
     end
     local parts = { line }
     if prompt.is_known() then
