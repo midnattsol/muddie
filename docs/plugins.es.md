@@ -180,6 +180,7 @@ hosts = ["mud.example.org"]   # part of the address of the MUDs it is for
 names = ["example"]           # or the names they give themselves (MSSP)
 default_on = false            # on in every profile until switched off
 muddie = "0.5.0"              # the oldest Muddie it works with
+sounds = "https://sounds.example.org/example"   # where its sounds are
 ```
 
 - **`name` y `about`** salen en la pestaña **Plugins** y en el ofrecimiento.
@@ -195,6 +196,15 @@ muddie = "0.5.0"              # the oldest Muddie it works with
   ofrece igualmente cuando el jugador conecta a ese MUD.
 - **`muddie`** es el Muddie más antiguo con el que funciona el plugin. Un
   Muddie más antiguo se queda con la versión del plugin que ya tiene.
+- **`sounds`** es la carpeta de la web donde están los sonidos del plugin,
+  una dirección `https`. Los sonidos no forman parte del plugin, así que el
+  plugin sigue pesando poco y su repositorio no guarda ningún archivo de
+  sonido: Muddie descarga cada uno cuando un script lo reproduce, o todos
+  los que un script nombra con [`sounds.fetch`](scripting.es.md#soundsfetchnames),
+  y los guarda. Uno guardado no se vuelve a descargar; apunta a una versión
+  fija de la carpeta (un commit), y cuando apuntes a una más nueva, solo se
+  bajan los que han cambiado. Quien tenga su propio archivo con el mismo
+  nombre en la carpeta `sounds` del perfil oye el suyo.
 - **No se admite ningún otro campo.** Cualquier otro campo es un error, y
   Muddie rechaza el plugin.
 

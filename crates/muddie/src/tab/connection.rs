@@ -264,8 +264,10 @@ impl Tab {
             }
         }
         self.media_fetched();
+        self.plugin_sounds_came();
         self.sound.poll();
-        if self.sound.has_loops() || !self.fetching.jobs.is_empty() {
+        let fetching = !self.fetching.jobs.is_empty() || !self.plugin_sound_jobs.is_empty();
+        if self.sound.has_loops() || fetching {
             ctx.request_repaint_after(Duration::from_millis(250));
         }
     }

@@ -47,6 +47,7 @@ mod messages;
 mod mxp;
 mod panel_sizes;
 mod places;
+mod plugin_sounds;
 mod plugin_sync;
 mod plugin_wait;
 mod plugins;
@@ -252,6 +253,8 @@ pub struct Tab {
     login: Login,
     /// Keypad keys pressed since the last frame, by name.
     pub keypad_pressed: Vec<&'static str>,
+    /// Sounds of plugins being fetched.
+    plugin_sound_jobs: Vec<plugin_sounds::SoundJob>,
     /// What a script asked to put on the clipboard, put there as the
     /// frame runs.
     copying: Option<String>,
@@ -419,6 +422,7 @@ impl Tab {
             login: Login::Idle,
             keypad_pressed: Vec::new(),
             copying: None,
+            plugin_sound_jobs: Vec::new(),
             told_screen_reader: false,
         }
     }

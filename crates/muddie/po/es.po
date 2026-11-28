@@ -1124,8 +1124,8 @@ msgstr "Guarda en un archivo todo lo que se muestra en la sesión."
 msgid "Session log"
 msgstr "Registro de sesión"
 
-msgid "Those the MUD asks for that you do not have."
-msgstr "Descarga los sonidos que solicite el MUD y no estén disponibles."
+msgid "Those the MUD or a plugin asks for that you do not have."
+msgstr "Descarga los sonidos que pidan el MUD o un plugin y no tengas."
 
 msgid "Download sounds"
 msgstr "Descargar sonidos"
@@ -3276,3 +3276,15 @@ msgstr "Púlsalo para elegir otras teclas. Su menú le añade teclas, lo deja si
 
 msgid "Add keys…"
 msgstr "Añadir teclas…"
+
+#, python-brace-format
+msgid "Fetching the sounds of {0} ({1}), in the background."
+msgstr "Descargando los sonidos de {0} ({1}), en segundo plano."
+
+#, python-brace-format
+msgid "The sounds of {0} are here."
+msgstr "Ya están los sonidos de {0}."
+
+#, python-brace-format
+msgid "{0} sounds of {1} could not be fetched; {2}: {3}"
+msgstr "No se han podido descargar {0} sonidos de {1}; {2}: {3}"

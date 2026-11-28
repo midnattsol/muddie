@@ -175,7 +175,7 @@ pub(in crate::app) fn logs_group(ui: &mut Ui, prefs: &mut SessionPrefs) {
             }
             response
         });
-        let about = tr("Those the MUD asks for that you do not have.");
+        let about = tr("Those the MUD or a plugin asks for that you do not have.");
         widgets::switch_setting(
             ui,
             &mut prefs.media_downloads,

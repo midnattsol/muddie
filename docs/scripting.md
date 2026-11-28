@@ -94,6 +94,7 @@ half a second without stopping, Muddie stops it with an error and carries on.
 16. [Play sounds](#play-sounds)
    - [`sounds.play(file, options)`](#soundsplayfile-options)
    - [`sounds.volume(group, volume)`](#soundsvolumegroup-volume)
+   - [`sounds.fetch(names)`](#soundsfetchnames)
    - [`sounds.stop()`](#soundsstop)
 17. [Talk to the MUD behind the scenes (GMCP, MSDP)](#talk-to-the-mud-behind-the-scenes-gmcp-msdp)
    - [`gmcp.get(package)`](#gmcpgetpackage)
@@ -1374,6 +1375,28 @@ alias("^ambient (%d+)$", function(m)
     sounds.volume("ambient", vars.ambient)
 end)
 ```
+
+### `sounds.fetch(names)`
+
+Fetches, in the background, the sounds of a plugin that has them on the web
+(its `plugin.toml` says where, with `sounds`), so that none comes late the
+first time it plays. Only those not kept, or changed since, are fetched; more
+than three are told of, as they start and when all are here.
+
+**Parameters:** `names`, a list of the sounds' names inside that folder.
+
+**Returns:** nothing.
+
+**Example:**
+
+```lua
+sounds.fetch({"Combate/Alerta vida 30.wav", "Comunicaciones/Tel.wav"})
+```
+
+A plugin's script plays them as any other, with
+[`sounds.play`](#soundsplayfile-options): the player's own file of that name
+first, if there is one, else the one kept, else it is fetched and played as
+it comes. Nothing is fetched while **Download sounds** is off in the profile.
 
 ### `sounds.stop()`
 

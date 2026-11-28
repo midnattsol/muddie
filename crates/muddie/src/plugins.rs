@@ -84,6 +84,9 @@ pub struct Manifest {
     /// The least version of Muddie it is made for, as `0.4.0`. One that
     /// needs a newer Muddie than this is kept, and not updated.
     pub muddie: Option<String>,
+    /// The folder of the web its sounds are in, an `https` address: they
+    /// are not part of it, but fetched as they are needed, and kept.
+    pub sounds: Option<String>,
 }
 
 /// A plugin that comes with the program: its folder, and its files as

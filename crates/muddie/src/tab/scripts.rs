@@ -285,6 +285,7 @@ impl Tab {
                 Action::GroupVolume { group, volume } => {
                     self.sound.set_group_volume(&group, volume)
                 }
+                Action::FetchSounds { owner, names } => self.fetch_plugin_sounds(&owner, names),
                 Action::Copy(text) => self.copying = Some(text),
                 Action::Reading(reading) => self.voice.set_muted(!reading),
                 // The palette lists them: worked out again.
@@ -367,8 +368,23 @@ impl Tab {
     /// Plays a sound as a script asked.
     fn play_for_script(&mut self, file: &str, how: Playing, by: (String, u64)) {
         let path = self.sound_file(file);
-        // Known by the script that asked, to stop with it.
-        let (owner, id) = by;
+        // One of a plugin's that is not among the player's own: kept, or
+        // fetched.
+        if !path.is_file() && self.play_plugin_sound(file, &how, &by) {
+            return;
+        }
+        self.play_path_for_script(&path, &how, &by);
+    }
+
+    /// Plays the sound at `path` as a script asked, known by the script
+    /// that asked, to stop with it.
+    pub(super) fn play_path_for_script(
+        &mut self,
+        path: &std::path::Path,
+        how: &Playing,
+        by: &(String, u64),
+    ) {
+        let (owner, id) = by.clone();
         let label = muddie_sound::Label {
             key: owner,
             tag: script_sound(id),
@@ -385,7 +401,7 @@ impl Tab {
             fade_out: milliseconds(how.fade_out),
             pan: how.pan,
         };
-        if let Err(error) = self.sound.play_with(&path, options, label) {
+        if let Err(error) = self.sound.play_with(path, options, label) {
             self.refuse(&trf("Could not play the sound: {0}", &[&error]));
         }
     }

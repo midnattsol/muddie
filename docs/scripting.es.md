@@ -95,6 +95,7 @@ sigue funcionando.
 16. [Reproducir sonidos](#reproducir-sonidos)
    - [`sounds.play(file, options)`](#soundsplayfile-options)
    - [`sounds.volume(group, volume)`](#soundsvolumegroup-volume)
+   - [`sounds.fetch(names)`](#soundsfetchnames)
    - [`sounds.stop()`](#soundsstop)
 17. [Hablar con el MUD por detrás (GMCP, MSDP)](#hablar-con-el-mud-por-detrás-gmcp-msdp)
    - [`gmcp.get(package)`](#gmcpgetpackage)
@@ -1388,6 +1389,30 @@ alias("^ambient (%d+)$", function(m)
     sounds.volume("ambient", vars.ambient)
 end)
 ```
+
+### `sounds.fetch(names)`
+
+Descarga en segundo plano los sonidos de un plugin que los tiene en la web
+(su `plugin.toml` dice dónde, con `sounds`), para que ninguno llegue tarde la
+primera vez que suena. Solo baja los que no están guardados o han cambiado;
+si son más de tres, lo avisa al empezar y cuando están todos.
+
+**Parámetros:** `names`, una lista con los nombres de los sonidos dentro de
+esa carpeta.
+
+**Devuelve:** nada.
+
+**Ejemplo:**
+
+```lua
+sounds.fetch({"Combate/Alerta vida 30.wav", "Comunicaciones/Tel.wav"})
+```
+
+Un script del plugin los reproduce como cualquier otro, con
+[`sounds.play`](#soundsplayfile-options): primero el archivo propio del
+jugador con ese nombre, si lo tiene; si no, el guardado; si no, se descarga
+y suena en cuanto llega. No se descarga nada mientras **Descargar sonidos**
+esté apagado en el perfil.
 
 ### `sounds.stop()`
 

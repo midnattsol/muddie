@@ -22,6 +22,7 @@ mod media;
 mod output;
 mod output_style;
 mod panels;
+mod plugin_sounds;
 mod plugins;
 mod profile;
 mod rules;

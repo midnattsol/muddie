@@ -964,6 +964,18 @@ msgstr ""
 msgid "{0} room the map added, which the map imported does not have, was kept."
 msgstr ""
 
+#, python-brace-format
+msgid "Fetching the sounds of {0} ({1}), in the background."
+msgstr ""
+
+#, python-brace-format
+msgid "The sounds of {0} are here."
+msgstr ""
+
+#, python-brace-format
+msgid "{0} sounds of {1} could not be fetched; {2}: {3}"
+msgstr ""
+
 msgid "Choose one"
 msgstr ""
 
@@ -2532,7 +2544,7 @@ msgstr ""
 msgid "Session log"
 msgstr ""
 
-msgid "Those the MUD asks for that you do not have."
+msgid "Those the MUD or a plugin asks for that you do not have."
 msgstr ""
 
 msgid "Download sounds"

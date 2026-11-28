@@ -317,6 +317,12 @@ pub enum Action {
         id: u64,
         volume: f32,
     },
+    /// Fetch these sounds of the plugin whose script `owner` is, if it has
+    /// them on the web, in the background.
+    FetchSounds {
+        owner: String,
+        names: Vec<String>,
+    },
     /// Make a group of sounds louder or quieter, those playing too.
     GroupVolume {
         group: String,

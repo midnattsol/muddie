@@ -61,6 +61,17 @@ pub(crate) fn install(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<()>
 
     let shared = Rc::clone(state);
     sounds.set(
+        "fetch",
+        lua.create_function(move |_, names: Vec<String>| {
+            let mut state = shared.borrow_mut();
+            let owner = state.owner.clone();
+            state.actions.push(Action::FetchSounds { owner, names });
+            Ok(())
+        })?,
+    )?;
+
+    let shared = Rc::clone(state);
+    sounds.set(
         "volume",
         lua.create_function(move |_, (group, volume): (String, Option<f32>)| {
             let mut state = shared.borrow_mut();
