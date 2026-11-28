@@ -10,6 +10,9 @@ use super::*;
 /// The most lines it holds: what a screen reader goes through with ease.
 /// Older ones are read back with the review keys.
 const MOST_LINES: usize = 1000;
+/// How many lines past [`MOST_LINES`] it grows before the oldest go: not
+/// one at a time, as each going moves where the screen reader is.
+const SLACK: usize = 200;
 
 #[derive(Default)]
 pub(super) struct Reader {
@@ -19,6 +22,8 @@ pub(super) struct Reader {
     /// after its last.
     text: String,
     end: u64,
+    /// How many lines its text has.
+    lines: usize,
     /// The keyboard is to go to it, on the newest line, once laid out.
     place: bool,
 }
@@ -28,6 +33,7 @@ impl Reader {
     fn open(&mut self, output: &Output) {
         let first = output.total_pushed() - output.len() as u64;
         let rows = output.len().saturating_sub(MOST_LINES)..output.len();
+        self.lines = rows.len();
         self.text = rows
             .map(|row| output.text(row))
             .collect::<Vec<_>>()
@@ -37,8 +43,10 @@ impl Reader {
         self.place = true;
     }
 
-    /// Adds what came since: what is read stays where it is.
-    fn grow(&mut self, output: &Output) {
+    /// Adds what came since: what is read stays where it is. Grown well
+    /// past [`MOST_LINES`], the oldest go, or each line that came would
+    /// lay out ever more text. Returns how many characters went.
+    fn grow(&mut self, output: &Output) -> usize {
         let first = output.total_pushed() - output.len() as u64;
         let from = self.end.max(first);
         for serial in from..output.total_pushed() {
@@ -46,8 +54,20 @@ impl Reader {
                 self.text.push('\n');
             }
             self.text.push_str(output.text((serial - first) as usize));
+            self.lines += 1;
         }
         self.end = output.total_pushed();
+        if self.lines <= MOST_LINES + SLACK {
+            return 0;
+        }
+        let gone = self.lines - MOST_LINES;
+        let cut = (self.text.match_indices('\n'))
+            .nth(gone - 1)
+            .map_or(self.text.len(), |(at, _)| at + 1);
+        let chars = self.text[..cut].chars().count();
+        self.text.drain(..cut);
+        self.lines = MOST_LINES;
+        chars
     }
 
     #[cfg(test)]
@@ -94,8 +114,25 @@ impl Tab {
     /// The output as a read-only text, filling `ui`, while it has the
     /// keyboard; when it lets it go, the output is drawn again.
     pub(super) fn show_reader(&mut self, ui: &mut egui::Ui) {
-        self.reader.grow(&self.output);
+        let gone = self.reader.grow(&self.output);
         let id = ui.make_persistent_id("output reader");
+        // Where the screen reader is stays on the same text, the oldest
+        // gone before it.
+        if gone > 0
+            && let Some(mut state) = egui::TextEdit::load_state(ui.ctx(), id)
+            && let Some(range) = state.cursor.char_range()
+        {
+            let back = |at: egui::text::CCursor| egui::text::CCursor {
+                index: egui::text::CharIndex(at.index.0.saturating_sub(gone)),
+                ..at
+            };
+            state.cursor.set_char_range(Some(egui::text::CCursorRange {
+                primary: back(range.primary),
+                secondary: back(range.secondary),
+                ..range
+            }));
+            state.store(ui.ctx(), id);
+        }
         // Its keys, before the text takes them: Tab would go on to what
         // comes after it otherwise.
         if !self.reader.place && ui.memory(|memory| memory.has_focus(id)) && self.reader_keys(ui) {

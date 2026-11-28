@@ -439,3 +439,129 @@ fn ctrl_tab_goes_from_session_to_session_saying_which() {
         .map(|node| node.accesskit_node().role());
     assert_eq!(focused, Some(egui::accesskit::Role::TextInput));
 }
+
+/// Steady combat, a line every 200 ms for three seconds, with
+/// new lines interrupting. A screen reader takes a second or more a line,
+/// so if none of them but the first cuts in, what is heard falls ever
+/// further behind the fight.
+#[test]
+fn steady_combat_interrupts_again() {
+    let mut harness = window(None);
+    let app = harness.state_mut().tab_mut();
+    let mut settings = app.settings.clone();
+    settings.speech_interrupts = true;
+    app.voice.configure(&settings);
+    app.voice.force_voice();
+    let (events, _sent) = fake_connection(app);
+    for n in 0..15 {
+        events
+            .send(Event::Line(
+                panels::styled_lines(&format!("The orc hits you, round {n}.")).remove(0),
+            ))
+            .unwrap();
+        harness.run_steps(1);
+        std::thread::sleep(std::time::Duration::from_millis(200));
+    }
+    let voice = &harness.state().tab().voice;
+    assert_eq!(voice.said.len(), 15);
+    assert!(
+        voice.cut.len() > 1,
+        "15 lines over 3 s, only these cut in: {:?}",
+        voice.cut
+    );
+}
+
+/// The output as text, left open while a fight scrolls by,
+/// keeps every line that came since it was opened, past its 1000, and
+/// each new line lays all of it out again. Measured: frame time with
+/// the text opened on 1000 lines, and after 20 000 more came.
+#[test]
+fn reader_left_open_does_not_slow_frames() {
+    let mut harness = window(None);
+    let app = harness.state_mut().tab_mut();
+    let (events, _sent) = fake_connection(app);
+    let line = |n: usize| {
+        Event::Line(
+            panels::styled_lines(&format!("The orc hits you hard, round {n} of the fight."))
+                .remove(0),
+        )
+    };
+    for n in 0..1000 {
+        events.send(line(n)).unwrap();
+    }
+    harness.run_steps(40);
+    harness.key_press(Key::Tab);
+    harness.run_steps(3);
+    let cost = |harness: &mut Harness<'_, App>, from: usize| {
+        let started = Instant::now();
+        for frame in 0..20 {
+            events.send(line(from + frame)).unwrap();
+            harness.step();
+        }
+        started.elapsed().as_secs_f64() * 1000.0 / 20.0
+    };
+    let before = cost(&mut harness, 1000);
+    for chunk in 0..100 {
+        for n in 0..200 {
+            events.send(line(2000 + chunk * 200 + n)).unwrap();
+        }
+        harness.step();
+    }
+    // What came in the burst is all taken in first: what is measured is a
+    // line coming, not the burst still being shown.
+    while harness.state_mut().tab_mut().handle_events() {}
+    harness.step();
+    let after = cost(&mut harness, 30_000);
+    let lines = harness.state().tab().reader.text().lines().count();
+    assert!(harness.state().tab().reader.open);
+    println!("reader: {lines} lines; {before:.2} ms a frame at first, {after:.2} ms after");
+    assert!(
+        after < before * 3.0,
+        "reader holds {lines} lines; {before:.2} ms a frame at first, {after:.2} ms after"
+    );
+}
+
+/// The oldest lines of the output as text going, where the screen reader
+/// is stays on the line it was reading.
+#[test]
+fn the_reader_stays_on_its_line_as_the_oldest_go() {
+    let mut harness = window(None);
+    let app = harness.state_mut().tab_mut();
+    let (events, _sent) = fake_connection(app);
+    let line = |n: usize| Event::Line(panels::styled_lines(&format!("Line {n}.")).remove(0));
+    for n in 0..1000 {
+        events.send(line(n)).unwrap();
+    }
+    while harness.state_mut().tab_mut().handle_events() {}
+    harness.step();
+    harness.key_press(Key::Tab);
+    harness.run_steps(3);
+    // Up to a line read, then many more come.
+    for _ in 0..10 {
+        harness.key_press(Key::ArrowUp);
+        harness.run_steps(1);
+    }
+    let at = |harness: &Harness<'_, App>| {
+        let text = harness.state().tab().reader.text().to_owned();
+        let ctx = harness.ctx.clone();
+        let state = (ctx.memory(|memory| memory.focused()))
+            .and_then(|focused| egui::TextEdit::load_state(&ctx, focused))
+            .and_then(|state| state.cursor.char_range())
+            .map(|range| range.primary.index.0)
+            .unwrap();
+        let start: String = text
+            .chars()
+            .skip(state)
+            .take_while(|ch| *ch != '\n')
+            .collect();
+        start
+    };
+    let before = at(&harness);
+    for n in 1000..1300 {
+        events.send(line(n)).unwrap();
+    }
+    while harness.state_mut().tab_mut().handle_events() {}
+    harness.run_steps(2);
+    assert!(harness.state().tab().reader.text().lines().count() <= 1000 + 200);
+    assert_eq!(at(&harness), before);
+}

@@ -18,6 +18,10 @@ use crate::settings::{Settings, SpeechOutput};
 /// Lines of the game closer than this to the one before are one burst: a
 /// new line cuts short what is said only at the first of them.
 const BURST: Duration = Duration::from_millis(300);
+/// The longest a burst goes on: lines that never stop coming, as in a
+/// fight, start another after this, which cuts in, so that what is heard
+/// does not fall ever further behind the game.
+const BURST_LONGEST: Duration = Duration::from_secs(1);
 
 /// What was read of the game this recently is not read again as said on a
 /// channel or put in a panel, nor the other way round: many MUDs send a
@@ -53,9 +57,9 @@ pub struct Voice {
     quiet_prompts: bool,
     /// The session is not the one on screen: only that one is heard.
     pub away: bool,
-    /// When a line of the game was last read: the start of a burst
-    /// interrupts, the rest of it waits.
-    last_read: Option<Instant>,
+    /// When a line of the game was last read, and when the burst it is
+    /// of began: the start of a burst interrupts, the rest of it waits.
+    last_read: Option<(Instant, Instant)>,
     /// What was read lately, and whether it was a line of the game.
     recent: VecDeque<(String, Instant, bool)>,
     /// The line to speech, while there is one to keep, and where it goes.
@@ -329,10 +333,14 @@ impl Voice {
             return;
         }
         let now = Instant::now();
-        let first = self
-            .last_read
-            .is_none_or(|at| now.duration_since(at) > BURST);
-        self.last_read = Some(now);
+        let first = self.last_read.is_none_or(|(last, began)| {
+            now.duration_since(last) > BURST || now.duration_since(began) > BURST_LONGEST
+        });
+        let began = match (first, self.last_read) {
+            (false, Some((_, began))) => began,
+            _ => now,
+        };
+        self.last_read = Some((now, began));
         self.keep_read(text, true);
         let cut = match aloud.how {
             How::Cut => true,
